@@ -71,3 +71,4 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PLAN-01` | `0047` | Cobro por plan mensual (Básico, Plus, Pro), no por módulo, con cupos |
 | `PRD-PLAN-02` | `0047` | Rango de precios por plan (Básico 15-20, Plus 30-35, Pro 49-59 USD) con costos y mercado; condicionado a funciones en producción |
 | `PRD-DASH-01` | no aplica | Bot, alertas, asistente IA y chat en dashboard (usa ADR-0039, 0041 a 0046) |
+| `PRD-ISO-01` | `0050` | Aislamiento fiscal por tenant: contexto en servidor, `tenant_id` y fail-closed (2026-10-13) |

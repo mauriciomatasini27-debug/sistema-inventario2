@@ -85,3 +85,4 @@ Marca una casilla solo con evidencia en archivo mas test en verde. No cambies la
 - [ ] Landing E13. Evidencia. `business.ts:36-39` sin placeholders mas `site` prod mas OG mas PDF espejo mas dominio mas Formspree. Hoy parcial. R1 contacto hecho 2026-10-12 con telefono y email reales mas wa de ejemplo a confirmar. R2 precios, dominio, Formspree y PDF pendientes. Ver `CHECKLIST:59`.
 - [ ] Auth AU-01 y AU-02. Evidencia. Test `login` a `callback` con cookies y `next` con allowlist. Hoy requiere verificacion. Ver `docs/diseno/PRD-AU-01-login-endurecido.md`.
 - [x] Test `fiscal-cableado.test.ts:41`. Evidencia. Suite en verde 2026-10-12. Fix en `src/modules/fiscal/worker.ts`. Hoy verde. Ver `CHECKLIST:26`.
+- [ ] Aislamiento fiscal por tenant. Evidencia. Test de fuga cruzada en verde mas `leerFiscalDocs(tenantId)` con `where tenant_id`. Hoy `fiscal-db.ts:196` lee la tabla entera. Ver `docs/diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`.

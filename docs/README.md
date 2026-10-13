@@ -41,7 +41,7 @@ Plata que sale: mercadería, luz/gas, pagos.
 ## 06-fiscal-arca/ — Facturación electrónica ARCA
 Lo único fiscal; el ticket sigue no fiscal.
 - `facturacion-electronica-arca.md` (FE1-FE16, CAE + QR, `FiscalProvider` propio, WSAA 12h, cola + lock por CUIT/PV/tipo) → `src/modules/fiscal/*`, `src/pages/api/fiscal/*`, `src/db/schema-fiscal.ts`, `src/db/schema-fiscal-control.ts`
-- ADRs: `adr/0018-fiscal-arca.md`, `adr/0019-slice-fiscal.md` + `diseno/PRD-FE-01-fiscal-arca.md`
+- ADRs: `adr/0018-fiscal-arca.md`, `adr/0019-slice-fiscal.md`, `adr/0050-aislamiento-fiscal-por-tenant.md` + `diseno/PRD-FE-01-fiscal-arca.md`, `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`
 
 ## 07-canales-whatsapp-email/ — Bot y email
 Canales de aviso y consulta.

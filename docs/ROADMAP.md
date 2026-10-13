@@ -51,6 +51,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 9. Factura B para Responsables Inscriptos y padrón real. M.
 10. Pase a producción con contador. M.
 11. CAEA de contingencia para offline (RG 5782, FE-E8). L.
+12. Aislamiento fiscal por tenant según `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md` (ISO-S1 a S4, ADR-0050): hoy `leerFiscalDocs` lee todo `fiscal_documents` sin `tenant_id` y `getTenantDb()` cae a la base compartida. Antes del primer segundo comercio real. M.
 
 ### 2b. Identidad y onboarding
 1. Login endurecido (PRD-AU-01, ADR-0031) y login con destino `next` y bifurcación admin/tenant (AU2-S1 a S7, ADR-0030): a verificar contra código.
@@ -136,6 +137,8 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-SUP-01-conexion-supabase.md` | cubierto | Para implementar 1.3 |
 | `adr/0048-supabase-single-project.md` | cubierto | Para implementar 1.3 |
 | `adr/0049-supabase-driver-pooler.md` | cubierto | Para implementar 1.3 |
+| `diseno/PRD-ISO-01` | cubierto | Para implementar 2.12 |
+| `adr/0050-aislamiento-fiscal-por-tenant.md` | cubierto | Para implementar 2.12 |
 | `01-fundacion/costos-por-cliente.md` | cubierto | 6 Planes y precios |
 | `01-fundacion/modo-offline.md` | cubierto | Ya implementado PWA/Sync; 1.4, 1.5; 2.11 CAEA |
 | `01-fundacion/verificacion-fuente-oficial.md` | cubierto | 8.2 |
