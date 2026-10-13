@@ -73,3 +73,4 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-DASH-01` | no aplica | Bot, alertas, asistente IA y chat en dashboard (usa ADR-0039, 0041 a 0046) |
 | `PRD-ISO-01` | `0050` | Aislamiento fiscal por tenant: contexto en servidor, `tenant_id` y fail-closed (2026-10-13) |
 | `PRD-ISO-02` | `0051` | Tenant por request (AsyncLocalStorage) en todo el plano de datos, 403 en multi sin tenant, backfill en seco (2026-10-13) |
+| `PRD-PERS-02` | `0052` | Memoria por tenant, sin fallback silencioso en multi, jobs con tenant y Postgres local para tests (2026-10-13) |
