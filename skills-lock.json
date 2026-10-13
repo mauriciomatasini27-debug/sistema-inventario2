@@ -5,19 +5,19 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/animate/SKILL.md",
-      "computedHash": "c061f7089154390c7aac050a78f6c624c58d2761cfe198e57cdd99ec1514a048"
+      "computedHash": "d58c92f4df9550c36540aeb058442c6c427a8d634da64c7a90fdf9f93f6b9814"
     },
     "animation-performance": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/animation-performance/SKILL.md",
-      "computedHash": "bc817de9269044bfe30d6548afe829a2a1512f8bb982bc2bd47c664937352cbf"
+      "computedHash": "4f1bf6f64d275d9455b78898a8264c2f1151dd7d8c3c4bab276ea0f253da6e61"
     },
     "animation-vocabulary": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/animation-vocabulary/SKILL.md",
-      "computedHash": "3c2015dfb1c98e5a4cc502cd2d800e14b2eb773aedb389f61ab7698e83b4c97c"
+      "computedHash": "4315b3608a4f1ed2fd1f548270624bbf3f6915c13a5e079821e7602f0f31ace5"
     },
     "architect": {
       "source": "poteto/plugins",
@@ -35,7 +35,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/ask-sonner/SKILL.md",
-      "computedHash": "39f3ee185b3aa2cf70a689052ff078953ce7ba5915ed7a9391d232e9d4dcf57f"
+      "computedHash": "ee3311176b40b61c21cf748f078be2ded6102607ad5676883e159fbac66b6dee"
     },
     "automate-me": {
       "source": "poteto/plugins",
@@ -107,7 +107,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/break-ui/SKILL.md",
-      "computedHash": "e7eec1d70ac56a04255e9c0dbe98084ea3d544cc04aaad34f32c95d6fa9dff5e"
+      "computedHash": "487542ad46cd4d6171213bc436d61d7b43cc972becb51e0740cfc4088d44c342"
     },
     "bro": {
       "source": "poteto/plugins",
@@ -137,7 +137,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/emil-design-eng/SKILL.md",
-      "computedHash": "f94f798818befb4125b97dc23bff2d5ddddd4eacc06ea09bb654b4567b81fe6c"
+      "computedHash": "532d98c506b891cbc56cd2ec74def97b4c852383bda31a863ec2a8b035ce0877"
     },
     "explain-interface": {
       "source": "jakubkrehel/skills",
@@ -155,7 +155,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/find-animation-opportunities/SKILL.md",
-      "computedHash": "cdb93aa45e6cb737162e3402072e2cac4ab89079be5ac6dde5cd226fe658758c"
+      "computedHash": "c40983a2e6b9661fd810e5ecfc4c24010cf24b0b9b3e6a27687a2b86e33cf322"
     },
     "how": {
       "source": "poteto/plugins",
@@ -167,7 +167,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/improve-animations/SKILL.md",
-      "computedHash": "84c688e6e17808931048c9b3bb432eee564bbefdfaf6b14a5b62551a7b4f2810"
+      "computedHash": "7d1d3ae658361d84712bdf92547c5797a9f4f1aae77f048ebc6a3cff3d3c3833"
     },
     "interface-review": {
       "source": "jakubkrehel/skills",
@@ -191,7 +191,7 @@
       "source": "poteto/plugins",
       "sourceType": "github",
       "skillPath": "pstack/skills/make-bot-ui/SKILL.md",
-      "computedHash": "cefd0c691dae9ece412bab9d70f53281397f0459ba2f7604e486b4e01733c8ec"
+      "computedHash": "cd753db0fbc99005b3572666afdc0fa080576bf29a8041080e565e740f3064b3"
     },
     "no-comments": {
       "source": "poteto/plugins",
@@ -203,7 +203,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/pick-ui-library/SKILL.md",
-      "computedHash": "675fdce308683256ed617351a9b74d23457a5fbd0a562d9831b9c764b8c5e682"
+      "computedHash": "5d2a77bf0ecafbda85aa95fb49999b6d77945d9066ec83d970b62e5b388cd686"
     },
     "poteto-help": {
       "source": "poteto/plugins",
@@ -215,7 +215,7 @@
       "source": "poteto/plugins",
       "sourceType": "github",
       "skillPath": "pstack/skills/poteto-mode/SKILL.md",
-      "computedHash": "9e5d716a4e582321d7dde87854fac7a0b031813bb7a2caf7d1e7a63f84a887cd"
+      "computedHash": "6fdb9283481a449301758ccfb4f2d70fad183cf7250058bbe38976c268c7fbd1"
     },
     "principle-attack-the-premise": {
       "source": "poteto/plugins",
@@ -365,7 +365,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/prototype/SKILL.md",
-      "computedHash": "bba39c955eb1871c5a02733976ceec5d0324198e0812e667604756489c89f7b9"
+      "computedHash": "53d14db2dd3706961f410ba0a751ae91d3a771181125cb7809d33a709bef8ed0"
     },
     "recall": {
       "source": "poteto/plugins",
@@ -383,7 +383,7 @@
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/review-animations/SKILL.md",
-      "computedHash": "22eec163cbc24a09d7a516c3de67b1de6c76872b68c88ae1f921c4e632d71ecc"
+      "computedHash": "5b7c03597bf8b768044a5acc01a8cc9c285e0f3a84845b96ab7e3875a548af75"
     },
     "setup-pstack": {
       "source": "poteto/plugins",
