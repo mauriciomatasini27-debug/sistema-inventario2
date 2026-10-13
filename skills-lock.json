@@ -187,12 +187,6 @@
       "skillPath": "pstack/skills/maintain-verification-skill/SKILL.md",
       "computedHash": "283083c9547641392a58c38edeb147e75aa99912e7fba55edaa7b1a02021ffec"
     },
-    "make-bot-ui": {
-      "source": "poteto/plugins",
-      "sourceType": "github",
-      "skillPath": "pstack/skills/make-bot-ui/SKILL.md",
-      "computedHash": "cd753db0fbc99005b3572666afdc0fa080576bf29a8041080e565e740f3064b3"
-    },
     "no-comments": {
       "source": "poteto/plugins",
       "sourceType": "github",
@@ -444,6 +438,12 @@
       "sourceType": "github",
       "skillPath": "skills/variant/SKILL.md",
       "computedHash": "78fa44fc468973cc7d87a0d698f9def80d4b7253c6a7738b010ad392c8d5df70"
+    },
+    "verify-inventario": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": ".agents/skills/verify-inventario/SKILL.md",
+      "computedHash": "6cf50d3dcf184f2dd9a04e0e9d5e2606bb0c1f91a483f4d8146f0bce8342ceae"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
