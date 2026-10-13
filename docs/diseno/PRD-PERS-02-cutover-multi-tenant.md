@@ -44,6 +44,15 @@ Requisito PERS2-5: las 8 rutas de `src/pages/api/fiscal/` no importan valores de
 
 Arch-test AT8: ningún archivo de `src/pages/api/fiscal/` importa valores de `lib/store`; el contador global baja de 66.
 
+## Épica PERS2-E6. Rutas sin `store`: whatsapp y email (PERS-S4, grupo 3)
+
+Requisito PERS2-6: `whatsapp/consult`, `whatsapp/webhook`, `email/send` y `email/close-summary` no importan valores de `src/lib/store.ts` (un `import type` y `control`, que es el plano de control global, se permiten); leen y escriben por `src/lib/repos/whatsapp.ts` y `src/lib/repos/email.ts` con DB primero y memoria solo en `single` sin base (ADR-0053, ADR-0055).
+
+- Historia PERS2-S10. `src/lib/repos/whatsapp.ts` cubre sesiones del bot (`whatsapp_sessions`), lista de pedido del viernes, y las lecturas de precios, stock y proveedores y las altas de órdenes de compra y movimientos que hace el webhook. AC: Given multi con base de A When el dueño de A consulta stock o arma un pedido por WhatsApp Then lee y escribe solo en la base de A, B no ve la sesión ni el pedido, y las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0055. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S11. `src/lib/repos/email.ts` cubre la cola de envíos (`email_outbox`), los eventos del resumen y los movimientos de caja que lee `close-summary`. AC: Given multi con base de A When encolo un email Then queda en `email_outbox` de A y B no lo ve. ADR: 0055. Talla S. Depende de: PERS2-S2.
+
+Arch-test AT9: ningún archivo de `src/pages/api/{whatsapp,email}/` importa `store` de `lib/store`; el contador global baja de 58.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).

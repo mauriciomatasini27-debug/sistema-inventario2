@@ -76,3 +76,4 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PERS-02` | `0052` | Memoria por tenant, sin fallback silencioso en multi, jobs con tenant y Postgres local para tests (2026-10-13) |
 | `PRD-PERS-02` (E4) | `0053` | Repos de dominio en `src/lib/repos/`: rutas sin `store`, DB primero, memoria solo en single; grupo 1 tickets, precios, proveedores (2026-10-13) |
 | `PRD-PERS-02` (E5) | `0054` | Repositorio fiscal: rutas `fiscal/*` sin `store`; grupo 2 (2026-10-13) |
+| `PRD-PERS-02` (E6) | `0055` | Repositorios de canales: rutas `whatsapp/*` y `email/*` sin `store`; grupo 3 (2026-10-13) |
