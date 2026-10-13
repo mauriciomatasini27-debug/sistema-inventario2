@@ -25,6 +25,16 @@ Requisito PERS2-3: el cutover se prueba contra Postgres real local, nunca contra
 
 - Historia PERS2-S4. `scripts/pg-local.sh` levanta un Postgres local en el box (`/workspace/.pgdata`, puerto 54329, solo `127.0.0.1`), crea una base por tenant de prueba y corre las migraciones de `drizzle/` contra ella. Los tests de integración se activan con `PG_TEST_URL` y se saltean sin ella. AC: Given Postgres local When corro `tests/pers2-pg.test.ts` con `PG_TEST_URL` Then crédito de A se lee con `fuente: db` desde la base de A y B no lo ve; Given sin `PG_TEST_URL` Then el test se saltea. ADR: 0052. Talla M. Depende de: PERS2-S2.
 
+## Épica PERS2-E4. Rutas sin `store`: tickets, precios y proveedores (PERS-S4, grupo 1)
+
+Requisito PERS2-4: las rutas de `tickets`, `prices` y `suppliers` no importan `src/lib/store.ts`; leen y escriben por un repositorio de dominio en `src/lib/repos/` que va a Postgres del tenant y solo en `single` sin base usa la memoria (ADR-0053).
+
+- Historia PERS2-S5. `src/lib/repos/tickets.ts` cubre `GET /api/tickets` (tickets de la venta), `tickets/compartir` (envíos por central) y `tickets/link` (links, hashes, vistos y revocaciones) con DB primero vía `dbVivaTenant()`. AC: Given multi con base de A When creo y revoco un link Then quedan en `ticket_links` de A y `tickets/link` no importa `store`; Given single sin base Then se comporta como hoy. ADR: 0053, 0052. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S6. `src/lib/repos/precios.ts` para `prices/adjustments` (ajustes idempotentes por clave). AC: Given multi con base de A When repito el mismo ajuste Then una sola fila y respuesta idempotente; la ruta no importa `store`. ADR: 0053. Talla S. Depende de: PERS2-S2.
+- Historia PERS2-S7. `src/lib/repos/proveedores.ts` para `suppliers` (alta por CUIT con 409). AC: Given multi con base de A When doy de alta el mismo CUIT dos veces Then 409 y una fila; B no lo ve. ADR: 0053. Talla S. Depende de: PERS2-S2.
+
+Arch-test AT7: ningún archivo de `src/pages/api/{tickets,prices,suppliers}*` importa `lib/store`; contador global de rutas con `store` baja de 71.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
