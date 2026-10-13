@@ -1,0 +1,32 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { contraste } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="dark" id="contraste" embedded={embedded}>
+  <SectionHeading title={contraste.title} lead={contraste.lead} invert />
+  <ul class="grid max-w-4xl gap-4">
+    {
+      contraste.rows.map((row) => (
+        <li class="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <div class="galaxy-card rounded-[var(--radius-card)] p-5">
+            <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Hoy</p>
+            <p class="mt-1 text-ash-gray">{row.hoy}</p>
+          </div>
+          <span class="hidden text-ash-gray md:block" aria-hidden="true">→</span>
+          <div class="galaxy-card rounded-[var(--radius-card)] border-2 border-trust-slate p-5">
+            <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Con Inventario</p>
+            <p class="mt-1 font-medium text-core-cream">{row.con}</p>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+</Section>

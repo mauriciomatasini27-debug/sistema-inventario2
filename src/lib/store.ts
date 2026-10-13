@@ -1,0 +1,417 @@
+import type { Medio } from "./validation.js";
+import type { Turno, ConciliarOk, Drop, DropOk } from "../modules/cash/turnos.js";
+import type { CierreOk } from "../modules/cash/cierre.js";
+import type { ReversionOk, AuditEntry } from "../modules/cash/reversion.js";
+import type { CorreccionOk } from "../modules/sales/correccion_medio.js";
+import type { Ajuste } from "../modules/pricing/precios.js";
+import type { Supplier, PurchaseOrder } from "../modules/purchases/proveedores.js";
+import type { Borrador, Factura, PagoProveedor } from "../modules/purchases/facturas.js";
+import type { MatchLogEntry } from "../modules/purchases/matching.js";
+import type { CuentaServicio } from "../modules/utilities/cuentas.js";
+import type { FacturaServicio } from "../modules/utilities/facturas_servicios.js";
+import type { Payee } from "../modules/payments/beneficiarios.js";
+import type { PaymentOrder, PagoConfirmado } from "../modules/payments/ordenes.js";
+import type { EventoResumen, OutboxPendiente } from "../modules/email/resumen-cierre.js";
+
+export interface StoredTicket {
+  sale_id: string;
+  ticket_definitivo: string | null;
+  ticket_provisorio: string;
+  total_centavos: string;
+  medio: Medio;
+  sobreventa: boolean;
+}
+
+export interface StoredMovement {
+  id: string;
+  tipo: "ingreso" | "egreso";
+  metodo: Medio;
+  monto_centavos: string;
+  origen: string;
+  sale_id?: string;
+  idempotency_key: string;
+}
+
+export interface StoredStockMovement {
+  idemKey: string;
+  sku: string;
+  loteId: string | null;
+  delta: number;
+  tipo: "ALTA" | "VENTA" | "COMPENSATORIO";
+}
+
+export interface StoredFiscalDoc {
+  id: string;
+  idempotency_key: string;
+  sale_id: string;
+  cbte_tipo: string;
+  pto_vta: string;
+  cbte_nro: number | null;
+  cbte_fch: string;
+  // FE-S8: receptor resuelto al vender (CF por defecto o CUIT a pedido).
+  doc_tipo: string;
+  doc_nro: string;
+  cond_iva_receptor: string;
+  estado: "pendiente" | "pendiente_de_sync" | "en_espera_de_datos" | "espera_cae" | "autorizado" | "rechazado" | "respuesta_incierta";
+  cae: string | null;
+  cae_vto: string | null;
+  qr_payload: string | null;
+  // Representación mínima slice (ADR-0019): marca de prueba + link token para
+  // mostrar `Factura C PV-Nro` con link (nunca el CAE como factura).
+  marca?: string | null | undefined;
+  link_token?: string | null | undefined;
+  // FE-S12 (B): IVA discriminado en centavos + alícuota. C no lo usa.
+  imp_iva_centavos?: string | null | undefined;
+  alic_iva_id?: string | null | undefined;
+  // FE-S22 (offline): ocurrencia cliente para ordenar la cola + leyenda.
+  client_ocurred_at?: string | null | undefined;
+  venta_leyenda?: string | null | undefined;
+  // FE-S14 (NC): devolución origen + comprobante asociado a la factura.
+  return_id?: string | null | undefined;
+  cbtes_asoc_tipo?: string | null | undefined;
+  cbtes_asoc_pto_vta?: string | null | undefined;
+  cbtes_asoc_nro?: number | null | undefined;
+  // Importe del comprobante en centavos (factura o NC) para topes.
+  imp_total_centavos?: string | null | undefined;
+  // T3 (FE-S19/S20): reintentos backoff + bandeja. Sin estos campos = 0 intentos.
+  intentos?: number | undefined;
+  proximo_intento?: string | null | undefined;
+  ultimo_error_codigo?: string | null | undefined;
+  motivo_castellano?: string | null | undefined;
+  no_facturar?: { motivo: string; por: string; cuando: string } | null | undefined;
+}
+
+export interface StoredReturn {
+  return_id: string;
+  sale_id: string;
+  numero_devolucion: string;
+  total_centavos: string;
+  medio: Medio;
+}
+
+// Adaptador en memoria para Slice-0: el núcleo es puro; la tx real Postgres con
+// lock de numeración vive en Drizzle (ver schema.ts). Este store comparte estado
+// entre rutas en el mismo proceso para que build/tests no exijan DB viva.
+export const store = {
+  idempotency: new Map<string, StoredTicket>(),
+  movements: [] as StoredMovement[],
+  stockMoves: [] as StoredStockMovement[],
+  outbox: new Map<string, unknown>(),
+  deviceSeq: new Map<string, number>(),
+  nextTicket: 1,
+  stock: new Map<string, number>([["demo-sku-1", 10]]),
+  prices: new Map<string, number>([["demo-sku-1", 15000]]),
+  fiscalDocs: new Map<string, StoredFiscalDoc>(),
+  fiscalLastNumber: 0,
+  returns: new Map<string, StoredReturn>(),
+  returnVistos: new Map<string, { numero_devolucion: string; sale_id: string }>(),
+  nextReturn: 1,
+  turnos: new Map<string, Turno>(),
+  turnoVistos: new Map<string, ConciliarOk>(),
+  shiftKeys: new Map<string, string>(),
+  drops: new Map<string, Drop>(),
+  dropVistos: new Map<string, DropOk>(),
+  cierres: new Map<string, CierreOk>(),
+  reversiones: new Map<string, string>(),
+  reversionVistos: new Map<string, ReversionOk>(),
+  auditoria: [] as AuditEntry[],
+  correcciones: new Map<string, CorreccionOk>(),
+  ajustes: new Map<string, Ajuste>(),
+  creditVistos: new Map<string, unknown>(),
+  creditMovs: [] as Array<{ customer_id: string; debe: string; haber: string; key: string; fecha_ms?: number }>,
+  // Nivel 1: sector por sku + conteos por sector (append-only, inmutable).
+  productSectores: new Map<string, string>(),
+  // N1 CAT-S1: catálogo mínimo (sku -> ficha). Memoria manda sin DB; con DB
+  // viva hay write-through best-effort a products/product_codes.
+  productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean }>(),
+  codigos: new Map<string, string>(),
+  fotosProducto: new Map<string, Array<{ id: string; url: string; ancho: number; alto: number; bytes: number }>>(),
+  // N1 CAT-S3: lotes en memoria (id -> lote). FEFO puro en inventario.ts.
+  lotes: new Map<string, { id: string; sku: string; cantidad: number; cantidadRestante: number; venceEl: string | null; costoCentavos: string }>(),
+  // N1 CAT-S5: ubicaciones + conteos con líneas/estado.
+  ubicaciones: new Map<string, { id: string; nombre: string; archivada: boolean }>(),
+  // N1 CAJA-S1/S3/S4: qr, vencimientos caja, pagos divididos.
+  qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string }>(),
+  vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
+  ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
+  conteos: [] as Array<{ id: string; sector: string; idemKey: string; creadoEn: string; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>,
+  conteoVistos: new Map<string, string>(),
+  suppliers: new Map<string, Supplier>(),
+  purchaseOrders: new Map<string, PurchaseOrder>(),
+  orderVistos: new Map<string, PurchaseOrder>(),
+  borradores: new Map<string, Borrador>(),
+  borradorVistos: new Map<string, Borrador>(),
+  facturasProv: new Map<string, Factura>(),
+  pagosProv: new Map<string, PagoProveedor>(),
+  // FP matching auto: una fila por OC evaluada al confirmar (auditable,
+  // espejo en memoria de supplier_match_log; la fila del vínculo lleva
+  // motivo auto-exacto y su OC queda cerrada).
+  supplierMatchLog: [] as MatchLogEntry[],
+  serviceAccounts: new Map<string, CuentaServicio>(),
+  utilityBills: new Map<string, FacturaServicio>(),
+  utilityBillsByMessage: new Map<string, FacturaServicio>(),
+  payees: new Map<string, Payee>(),
+  paymentOrders: new Map<string, PaymentOrder>(),
+  paymentOrderVistos: new Map<string, PaymentOrder>(),
+  paymentPagosVistos: new Map<string, PagoConfirmado>(),
+  payOrderCounter: 1,
+  emailEventos: new Map<string, EventoResumen>(),
+  emailOutbox: new Map<string, OutboxPendiente>(),
+  // Promociones sync offline: op_id -> provisorio + definitivo T-* asignado
+  // por POST /api/sync/promote (ADR-0017). Monoproceso en C1; C2 lo lleva a
+  // Postgres con lock (idMappings es la copia durable best-effort).
+  promociones: new Map<string, { provisorio: string; definitivo: string }>(),
+  // OCR Fase 0 (ADR-0005): jobs idempotentes por wamid/message-id + eventos
+  // hacia el bot WA ([Confirmar] [Editar] [Descartar]).
+  ocrJobs: new Map<string, import("../modules/ocr/jobs.js").OcrJob>(),
+  ocrJobsByKey: new Map<string, string>(),
+    ocrEventos: [] as Array<{ tipo: string; payload: unknown }>,
+  // T3 fiscal (FE-S4/S5/S25): wizard por tenant + historial append-only.
+  fiscalWizard: new Map<string, { paso: number; delegacion: import("../modules/fiscal/wizard.js").DelegacionEstado; pausaEn: number | null }>(),
+  fiscalHistorial: [] as Array<{ id: string; cuando: string; evento: string; docId: string }>,
+  // Bot WA B4-B15: sesiones cortas por número (paso + contexto sin stock,
+  // TTL 30 min aplicado en el adaptador), claves de idempotencia por canal
+  // (notif+canal+fecha) y lista del viernes por tenant+proveedor.
+  waSessions: new Map<string, { paso: string; contexto: unknown; updatedAt: number; expiraEn: number }>(),
+  waEnviados: new Set<string>(),
+  waFriday: new Map<string, Array<{ sku: string; proveedor: string | null; agregadoEn: number }>>(),
+  // 8.Ticket salida TV9: links públicos con token (Slice-0 en memoria).
+  // tokenHash (SHA-256 hex) -> link; idemKey -> link; linkId -> revocación.
+  ticketLinks: new Map<string, { id: string; saleId: string; tokenHash: string; expiraAtMs: number; createdAtMs: number; idempotencyKey: string }>(),
+  ticketLinksByHash: new Map<string, { id: string; saleId: string; tokenHash: string; expiraAtMs: number; createdAtMs: number; idempotencyKey: string }>(),
+  ticketLinkVistos: new Map<string, { id: string; saleId: string; tokenHash: string; expiraAtMs: number; createdAtMs: number; idempotencyKey: string }>(),
+  ticketLinkRevocaciones: new Map<string, { linkId: string; saleId: string; actor: string; motivo: string; createdAtMs: number; idempotencyKey: string }>(),
+  ticketLinkRevokeVistos: new Map<string, Array<{ linkId: string; saleId: string; actor: string; motivo: string; createdAtMs: number; idempotencyKey: string }>>(),
+  // TV12 P1: outbox de envíos centrales (op_id/idemKey -> estado).
+  ticketEnviosCentral: new Map<string, unknown>(),
+  // SYNC-S3 (OF5/OF12): último latido por device (device_sync_state en memoria;
+  // la tabla durable vive en C2 con PERS-S1). Guarda última vista + pendientes.
+  deviceSync: new Map<string, { ultimaVistaEn: string; pendientes: number; ultimaOpHlc: string | null }>(),
+  // CH-S2 (PRD-CH-01): dedup de upload-url por sha256 del cliente. sha256 hex
+  // (minúsculas) -> { object_key, upload_url, expira_en }. En memoria en
+  // Slice-0; el cutover a Postgres/R2 lo unifica con media_items.
+  mediaUploads: new Map<string, { objectKey: string; uploadUrl: string; expiraEn: string; contentType: string; moduloOrigen: string }>(),
+};
+
+export function resetStore() {
+  store.idempotency.clear();
+  store.movements = [];
+  store.stockMoves = [];
+  store.outbox.clear();
+  store.deviceSeq.clear();
+  store.nextTicket = 1;
+  store.stock = new Map([["demo-sku-1", 10]]);
+  store.prices = new Map([["demo-sku-1", 15000]]);
+  store.fiscalDocs.clear();
+  store.fiscalLastNumber = 0;
+  store.returns.clear();
+  store.returnVistos.clear();
+  store.nextReturn = 1;
+  store.turnos.clear();
+  store.turnoVistos.clear();
+  store.shiftKeys.clear();
+  store.drops.clear();
+  store.dropVistos.clear();
+  store.cierres.clear();
+  store.reversiones.clear();
+  store.reversionVistos.clear();
+  store.auditoria = [];
+  store.correcciones.clear();
+  store.ajustes.clear();
+  store.creditVistos.clear();
+  store.creditMovs = [];
+  store.productSectores.clear();
+  store.productos.clear();
+  store.codigos.clear();
+  store.fotosProducto.clear();
+  store.lotes.clear();
+  store.ubicaciones.clear();
+  store.qrRecibos.clear();
+  store.vencimientosCaja.clear();
+  store.ticketPagos.clear();
+  store.conteos = [];
+  store.conteoVistos.clear();
+  store.suppliers.clear();
+  store.purchaseOrders.clear();
+  store.orderVistos.clear();
+  store.borradores.clear();
+  store.borradorVistos.clear();
+  store.facturasProv.clear();
+  store.pagosProv.clear();
+  store.supplierMatchLog = [];
+  store.serviceAccounts.clear();
+  store.utilityBills.clear();
+  store.utilityBillsByMessage.clear();
+  store.payees.clear();
+  store.paymentOrders.clear();
+  store.paymentOrderVistos.clear();
+  store.paymentPagosVistos.clear();
+  store.payOrderCounter = 1;
+  store.emailEventos.clear();
+  store.emailOutbox.clear();
+  store.promociones.clear();
+  store.ocrJobs.clear();
+  store.ocrJobsByKey.clear();
+  store.ocrEventos = [];
+  store.fiscalWizard.clear();
+  store.fiscalHistorial = [];
+  store.waSessions.clear();
+  store.waEnviados.clear();
+  store.waFriday.clear();
+  store.ticketLinks.clear();
+  store.ticketLinksByHash.clear();
+  store.ticketLinkVistos.clear();
+  store.ticketLinkRevocaciones.clear();
+  store.ticketLinkRevokeVistos.clear();
+  store.ticketEnviosCentral.clear();
+  store.  deviceSync.clear();
+  store.mediaUploads.clear();
+  control.users.clear();
+  control.tenants.clear();
+  control.databases.clear();
+  control.memberships.clear();
+  control.invitations.clear();
+  control.sessions.clear();
+  control.events = [];
+  control.jobs.clear();
+  control.opsOutbox = [];
+  control.botLinks.clear();
+  control.offlineGrants.clear();
+  control.devices.clear();
+  control.deviceNames.clear();
+  control.devicePins.clear();
+  control.deviceLocks.clear();
+  control.deviceRevocados.clear();
+  control.pinFallos.clear();
+  control.pendingAuth.clear();
+  control.pendingReauth.clear();
+  control.reauthFallos.clear();
+  control.vincularCodes.clear();
+  control.waPrefs.clear();
+  control.onboardingState.clear();
+  control.ejemplos.clear();
+  control.bienvenidas.clear();
+}
+
+// Control Auth + Onboarding en memoria: mismo rol que `store` en Slice-0 —
+// las rutas comparten estado en el proceso para que build/tests no exijan DB
+// viva. En producción estos mapas los reemplaza Drizzle contra control con
+// locks (ver src/jobs/aprovisionar.ts); la forma de los registros es la misma.
+export interface ControlUser {
+  googleSub: string;
+  email: string;
+  emailVerificado: boolean;
+  nombre?: string | undefined;
+  fotoUrl?: string | undefined;
+  ultimoLoginAt?: string | undefined;
+}
+
+export interface ControlTenant {
+  id: string;
+  nombreComercio: string;
+  slug: string;
+  estado: string;
+  plan: string;
+  moneda: string;
+  ownerGoogleSub: string;
+  esDemo: boolean;
+  requestKey?: string | undefined;
+  trialHasta?: string | undefined;
+}
+
+export interface ControlMembership {
+  id: string;
+  tenantId: string;
+  googleSub: string;
+  rol: "dueno" | "empleado";
+  permisos: string[];
+  estado: "activo" | "revocado";
+  revocadoAt?: string | undefined;
+  revocadoPor?: string | undefined;
+  // AU11.3: interruptor "Puede usar el bot" (default activado en el MVP).
+  puedeUsarBot?: boolean | undefined;
+}
+
+export interface ControlInvitation {
+  tokenHash: string;
+  tenantId: string;
+  email: string;
+  rol: "dueno" | "empleado";
+  permisos: string[];
+  estado: "pendiente" | "aceptada" | "vencida" | "cancelada";
+  expiraAt: string;
+  creadaPor?: string | undefined;
+  aceptadaPor?: string | undefined;
+}
+
+export interface ControlSession {
+  idHash: string;
+  googleSub: string;
+  tenantId: string | null;
+  expiraAt: string;
+  expiraAbsoluta?: string | undefined;
+  lastSeenAt?: string | undefined;
+  revocadaAt?: string | undefined;
+  motivo?: string | undefined;
+  agente?: string | undefined;
+  dispositivoCodigo?: string | undefined;
+  // AU10.2: última reautenticación con Google. El login la deja fresca.
+  reauthAt?: string | undefined;
+}
+
+export const control = {
+  users: new Map<string, ControlUser>(),
+  tenants: new Map<string, ControlTenant>(),
+  databases: new Map<string, { tenantId: string; database: string; estado: string; schemaVersion?: string }>(),
+  memberships: new Map<string, ControlMembership>(),
+  invitations: new Map<string, ControlInvitation>(),
+  sessions: new Map<string, ControlSession>(),
+  events: [] as Array<{ tenantId: string | null; tipo: string; actor?: string; detalle?: unknown; creadoEn?: string | undefined }>,
+  jobs: new Map<string, { id: string; tenantId: string; estado: string; pasoActual?: string | null | undefined; intentos: number; error?: string | undefined }>(),
+  opsOutbox: [] as Array<{ tipo: string; payload: unknown }>,
+  botLinks: new Map<string, { tenantId: string; googleSub: string; estado: string; revocadoAt?: string }>(),
+  // SYNC-S5/S6 (OF9): grants offline + registro de devices (copia en memoria;
+  // la tabla durable vive en C2 con PERS-S1). Token plano solo se muestra al
+  // crear; acá queda el hash. Revocado => cuarentena post-revocación.
+  offlineGrants: new Map<string, { grantId: string; tokenHash: string; tenantId: string; googleSub: string; deviceCode: string; alcance: string; expiraEn: string; revocadoEn?: string | undefined }>(),
+  devices: new Map<string, { deviceCode: string; tenantId: string; registradoPor: string; registradoEn: string }>(),
+  // AU9.3: nombres asignados por el Dueño a dispositivos del local
+  // (device_code -> nombre). Vive en memoria en Slice-0; en producción se
+  // persiste en `devices` de la base del comercio.
+  deviceNames: new Map<string, string>(),
+  // P1-3 PIN de mostrador por device_code: hash scrypt (nunca el plano),
+  // bloqueo local y fallos para rate-limit. Fuente en memoria; copia
+  // durable best-effort en `device_pins` (migración 0005).
+  devicePins: new Map<string, { pinHash: string; actualizadoEn: string }>(),
+  deviceLocks: new Map<string, { bloqueado: boolean; bloqueadoEn?: string | undefined; bloqueadoPor?: string | undefined }>(),
+  // PWA-S5: revocación remota (device_code -> { revocadoEn, motivo, por }).
+  // El heartbeat responde wipe:true mientras el código siga acá; el cliente
+  // borra todo local en el próximo latido (ver revocarDispositivo()).
+  // En memoria en Slice-0; el cutover lleva esta marca a `devices` en control.
+  deviceRevocados: new Map<string, { revocadoEn: string; motivo: string; por: string }>(),
+  pinFallos: new Map<string, { fallos: number; bloqueadoHastaMs: number }>(),
+  pendingAuth: new Map<string, { nonce: string; verifier: string; expiraEnMs: number; invitationToken?: string | undefined; next?: string | undefined }>(),
+  // AU10.2: reautenticaciones en curso (state -> sub + nonce + vencimiento).
+  pendingReauth: new Map<string, { googleSub: string; nonce: string; verifier: string; expiraEnMs: number; continuar?: string | undefined }>(),
+  // AU10.5: fallos de reauth por sub para rate limiting.
+  reauthFallos: new Map<string, { fallos: number; bloqueadoHastaMs: number }>(),
+  // Códigos VINCULAR pendientes por número E.164 (B1.1/B1.2): hash, vencimiento
+  // 10 min, un solo uso. El plano solo se muestra una vez en la web.
+  vincularCodes: new Map<
+    string,
+    { codigoHash: string; expiraEn: number; usado: boolean; numeroRegistrado: string; tenantId: string; googleSub: string; intentosFallidos: number }
+  >(),
+  // Preferencias de notificación WA por usuario+tenant (B2.1/B2.2, prod:
+  // notification_preferences con upsert). Clave `${tenantId}:${googleSub}`.
+  // Ausente => optIn false (B2: sin opt-in no sale ninguna plantilla).
+  waPrefs: new Map<string, { optIn: boolean; avisoHora: string; pausadoHastaMs: number | null }>(),
+  // ON5-ON12 sin UX: progreso por usuario y comercio, demos de ejemplo y
+  // bienvenidas enviadas. Claves y formas en modules/onboarding/estado.ts.
+  onboardingState: new Map<string, import("../modules/onboarding/estado.js").OnboardingState>(),
+  ejemplos: new Map<string, import("../modules/onboarding/estado.js").EjemploInfo>(),
+  bienvenidas: new Set<string>(),
+};
+
+export function resetControl() {
+  resetStore();
+}

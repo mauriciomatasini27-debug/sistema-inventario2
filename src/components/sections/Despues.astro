@@ -1,0 +1,18 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { despues } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="linen" id="despues" embedded={embedded}>
+  <SectionHeading title={despues.title} lead={despues.lead} />
+  <p class="galaxy-card max-w-3xl rounded-[var(--radius-card)] p-5 text-[length:var(--text-body-lg)]">
+    {despues.detail}
+  </p>
+</Section>

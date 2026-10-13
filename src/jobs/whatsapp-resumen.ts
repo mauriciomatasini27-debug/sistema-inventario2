@@ -1,0 +1,169 @@
+// Jobs B9/B14/B15: viernes + lunes + cierre por comercio con TZ.
+// Runner idempotente: cada canal (WA/email) tiene su propia clave y su
+// propio gate (opt-in/pausa B2). Si un canal falla o no tiene opt-in, el
+// otro igual sale. Envíos distribuidos en el tiempo por hash del tenant.
+// Sin IO directa: el runner recibe senders inyectados; el adaptador (P1)
+// los conecta a Cloud API / Resend y a las tiendas reales.
+
+import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
+import { puede_enviar_email, type PreferenciasEmail } from "../modules/email/proveedor.js";
+import {
+  armar_resumen_semanal_wa,
+  recordatorio_lunes,
+  type SnapshotLunes,
+} from "../modules/whatsapp/resumen-semanal.js";
+import { armar_cierre_wa, type SnapshotCaja } from "../modules/whatsapp/resumen-cierre.js";
+import { armar_bloque_promos, topear_3_por_impacto, type Sugerencia } from "../modules/whatsapp/promos.js";
+import type { CalculoSemanal } from "../modules/email/resumen-semanal.js";
+
+export interface ComercioJob {
+  readonly tenantId: string;
+  readonly nombreComercio: string;
+  readonly zona: string;
+  readonly prefsWa: Preferencias;
+  readonly prefsEmail: PreferenciasEmail;
+  readonly destinoWa: string;
+  readonly destinoEmail: string;
+}
+
+export interface ResultadoCanal {
+  readonly canal: "wa" | "email";
+  readonly estado: "enviado" | "omitido_optin" | "omitido_pausa" | "duplicado";
+  readonly idempotencyKey: string;
+}
+
+export type Enviador = (args: {
+  canal: "wa" | "email";
+  destino: string;
+  texto: string;
+  idempotencyKey: string;
+}) => Promise<boolean>;
+
+// Distribuye en una ventana para no mandar todo junto (ej. 60 min).
+export function offset_por_comercio(tenantId: string, ventanaMin: number): number {
+  let h = 0;
+  for (let i = 0; i < tenantId.length; i++) h = (h * 31 + tenantId.charCodeAt(i)) >>> 0;
+  return ventanaMin <= 0 ? 0 : h % ventanaMin;
+}
+
+export function dia_iso_en_zona(ahora: Date, zona: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: zona }).format(ahora);
+}
+
+// --- Job viernes: WA resumen_semanal + email paralelo ---
+
+export async function ejecutar_job_viernes(
+  tiendas: { wa: Map<string, string>; email: Map<string, string> },
+  sender: Enviador,
+  args: {
+    comercio: ComercioJob;
+    semanaISO: string;
+    calculo: CalculoSemanal;
+    promos: ReadonlyArray<Sugerencia>;
+    baseWeb: string;
+    ahoraMs: number;
+  },
+): Promise<ReadonlyArray<ResultadoCanal>> {
+  const { comercio, semanaISO, calculo } = args;
+  const waKey = `resumen_semanal:wa:${comercio.tenantId}:${semanaISO}`;
+  const emailKey = `resumen_semanal:${comercio.tenantId}:${semanaISO}`;
+  const out: ResultadoCanal[] = [];
+
+  // Canal WA independiente.
+  if (!comercio.prefsWa.optIn) {
+    out.push({ canal: "wa", estado: "omitido_optin", idempotencyKey: waKey });
+  } else if (!puede_enviar_whatsapp(comercio.prefsWa, args.ahoraMs)) {
+    out.push({ canal: "wa", estado: "omitido_pausa", idempotencyKey: waKey });
+  } else if (tiendas.wa.has(waKey)) {
+    out.push({ canal: "wa", estado: "duplicado", idempotencyKey: waKey });
+  } else {
+    const resumen = armar_resumen_semanal_wa({
+      tenantId: comercio.tenantId,
+      nombreComercio: comercio.nombreComercio,
+      semanaISO,
+      calculo,
+    });
+    const top3 = topear_3_por_impacto(args.promos);
+    const bloque = armar_bloque_promos(top3);
+    const texto =
+      top3.length > 0
+        ? `${resumen.texto}\nPromos: ${bloque.lineas.join(" / ")} Ver promos: ${args.baseWeb}/promos`
+        : resumen.texto;
+    const ok = await sender({ canal: "wa", destino: comercio.destinoWa, texto, idempotencyKey: waKey });
+    if (ok) tiendas.wa.set(waKey, "enviado");
+    out.push({ canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: waKey });
+  }
+
+  // Canal email independiente (no depende del resultado WA).
+  if (!comercio.prefsEmail.resumenCierre && calculo.unidades === 0 && calculo.faltantes === 0) {
+    out.push({ canal: "email", estado: "omitido_optin", idempotencyKey: emailKey });
+  } else if (!puede_enviar_email(comercio.prefsEmail, args.ahoraMs)) {
+    out.push({ canal: "email", estado: "omitido_pausa", idempotencyKey: emailKey });
+  } else if (tiendas.email.has(emailKey)) {
+    out.push({ canal: "email", estado: "duplicado", idempotencyKey: emailKey });
+  } else {
+    const textoEmail =
+      calculo.unidades > 0
+        ? `Resumen semanal ${semanaISO}: ${calculo.unidades} u. Ver pedido: ${args.baseWeb}/pedidos`
+        : `Resumen semanal ${semanaISO}: sin ventas registradas. Faltantes: ${calculo.faltantes}.`;
+    const ok = await sender({
+      canal: "email",
+      destino: comercio.destinoEmail,
+      texto: textoEmail,
+      idempotencyKey: emailKey,
+    });
+    if (ok) tiendas.email.set(emailKey, "enviado");
+    out.push({ canal: "email", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: emailKey });
+  }
+  return out;
+}
+
+// --- Job lunes 10h: recordatorio del pedido programado ---
+
+export async function ejecutar_job_lunes(
+  tiendas: Map<string, string>,
+  sender: Enviador,
+  args: {
+    comercio: ComercioJob;
+    snapshot: SnapshotLunes;
+    lunesFecha: string;
+    ahoraMs: number;
+  },
+): Promise<ResultadoCanal> {
+  const key = `recordatorio_lunes:wa:${args.comercio.tenantId}:${args.lunesFecha}`;
+  if (!args.comercio.prefsWa.optIn) return { canal: "wa", estado: "omitido_optin", idempotencyKey: key };
+  if (!puede_enviar_whatsapp(args.comercio.prefsWa, args.ahoraMs))
+    return { canal: "wa", estado: "omitido_pausa", idempotencyKey: key };
+  if (tiendas.has(key)) return { canal: "wa", estado: "duplicado", idempotencyKey: key };
+  const texto = recordatorio_lunes({
+    nombreComercio: args.comercio.nombreComercio,
+    lunesFecha: args.lunesFecha,
+    snapshot: args.snapshot,
+  });
+  const ok = await sender({ canal: "wa", destino: args.comercio.destinoWa, texto, idempotencyKey: key });
+  if (ok) tiendas.set(key, "enviado");
+  return { canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: key };
+}
+
+// --- Job cierre: dispara en el cierre una vez por jornada ---
+
+export async function ejecutar_job_cierre(
+  tiendas: Map<string, string>,
+  sender: Enviador,
+  args: { comercio: ComercioJob; snapshot: SnapshotCaja; ahoraMs: number },
+): Promise<ResultadoCanal> {
+  const key = `resumen_cierre:wa:${args.comercio.tenantId}:${args.snapshot.fechaJornada}`;
+  if (!args.comercio.prefsWa.optIn) return { canal: "wa", estado: "omitido_optin", idempotencyKey: key };
+  if (!puede_enviar_whatsapp(args.comercio.prefsWa, args.ahoraMs))
+    return { canal: "wa", estado: "omitido_pausa", idempotencyKey: key };
+  if (tiendas.has(key)) return { canal: "wa", estado: "duplicado", idempotencyKey: key };
+  const resumen = armar_cierre_wa(args.snapshot);
+  const ok = await sender({
+    canal: "wa",
+    destino: args.comercio.destinoWa,
+    texto: resumen.texto,
+    idempotencyKey: key,
+  });
+  if (ok) tiendas.set(key, args.snapshot.cierreId);
+  return { canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: key };
+}

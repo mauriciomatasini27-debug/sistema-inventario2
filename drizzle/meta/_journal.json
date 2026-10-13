@@ -1,0 +1,111 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791736714509,
+      "tag": "0000_sweet_krista_starr",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791736715510,
+      "tag": "0001_admin_panel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791736716510,
+      "tag": "0002_bot_wa_b4b15",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791736717510,
+      "tag": "0003_fiscal_d8_d7_t3",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791736718510,
+      "tag": "0004_auth_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791736719510,
+      "tag": "0005_ticket_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791736720510,
+      "tag": "0006_pin_mostrador",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791736721510,
+      "tag": "0007_sync_state_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791736722510,
+      "tag": "0008_ticket_counter",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791736723510,
+      "tag": "0009_customer_id_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791736724510,
+      "tag": "0010_fiscal_wizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791736725510,
+      "tag": "0011_fiscal_sequences_pk",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791736726510,
+      "tag": "0012_provision_claim",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791736727510,
+      "tag": "0013_fiscal_delegacion_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791736728510,
+      "tag": "0014_ops_outbox_claim",
+      "breakpoints": true
+    }
+  ]
+}

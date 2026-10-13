@@ -1,0 +1,191 @@
+---
+// UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos/fiados/devoluciones.
+// (Movida desde / a /venta por ADR-0020: el home pasa a ser el dashboard índice.)
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Venta mostrador</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      main { max-width: 360px; margin: 0 auto; padding: 12px; }
+      input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; }
+      button { background: #1a1a1a; color: #fff; border: 0; border-radius: 8px; }
+      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
+      #estado { font-size: 14px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Venta mostrador</h1>
+      <div class="card">
+        <label>Código / SKU <input id="sku" value="demo-sku-1" /></label>
+        <label>Cantidad <input id="qty" type="number" value="1" min="1" /></label>
+        <label>Precio centavos <input id="precio" type="number" value="15000" min="0" /></label>
+        <label>Medio
+          <select id="medio">
+            {medios.map((m) => <option value={m}>{m}</option>)}
+          </select>
+        </label>
+        <button id="cobrar">Cobrar</button>
+        <button id="sync" type="button">Reintentar sync</button>
+        <button id="compartir" type="button">Compartir por WhatsApp</button>
+        <button id="imprimir" type="button">Imprimir ticket</button>
+        <button id="imprimir-bt" type="button">Imprimir BT</button>
+      </div>
+      <div class="card"><div id="estado" role="status">Lista.</div></div>
+      <div class="card"><div id="balance" role="status">Balance: —</div></div>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const seqKey = "slice0-seq";
+      const outboxKey = "slice0-outbox";
+      const nextSeq = () => {
+        const n = Number(localStorage.getItem(seqKey) ?? "0") + 1;
+        localStorage.setItem(seqKey, String(n));
+        return n;
+      };
+      const estado = (t) => { $("estado").textContent = t; };
+      // 8.Ticket salida: último sale_id para compartir (TV11) + snapshot
+      // térmico para BT (TV15 P2: el navegador no importa .ts, se guarda acá).
+      let lastSaleId = null;
+      let lastTicket = null;
+      async function balance() {
+        try {
+          const r = await fetch("/api/cash/balance");
+          $("balance").textContent = "Balance: " + (await r.text());
+        } catch { /* sin red: se reintenta en sync */ }
+      }
+      $("cobrar").onclick = async () => {
+        const seq = nextSeq();
+        const device_code = "caja-01";
+        const op_id = crypto.randomUUID();
+        const payload = {
+          lineas: [{ product_id: $("sku").value, qty: Number($("qty").value), precio_centavos: Number($("precio").value) }],
+          medio: $("medio").value,
+          device_code,
+          seq_local: seq,
+          client_occurred_at: new Date().toISOString(),
+          offline: !navigator.onLine,
+        };
+        try {
+          const r = await fetch("/api/sales", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": op_id },
+            body: JSON.stringify(payload),
+          });
+          const txt = await r.text();
+          estado(r.status + " " + txt);
+          try {
+            const j = JSON.parse(txt);
+            if (j.sale_id) {
+              lastSaleId = j.sale_id;
+              lastTicket = {
+                definitivo: j.ticket_definitivo ?? null,
+                provisorio: j.ticket_provisorio,
+                total: String(j.total_centavos),
+                medio: payload.medio,
+                lineas: payload.lineas.map((l) => ({ sku: l.product_id, cantidad: l.qty, precio: String(l.precio_centavos) })),
+              };
+            }
+          } catch { /* no json */ }
+        } catch {
+          // Por qué localStorage y no memoria: el corte de red en cobro (Slice-0 E2E)
+          // exige provisorio DeviceCode-SeqLocal y reintento sin duplicar por op_id.
+          const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
+          q.push({ op_id, device_code, device_seq: seq, payload });
+          localStorage.setItem(outboxKey, JSON.stringify(q));
+          estado("offline provisorio " + device_code + "-" + seq + " encolado " + op_id);
+        }
+        balance();
+      };
+      $("sync").onclick = async () => {
+        const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
+        for (const item of q) {
+          await fetch("/api/sync/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
+            body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
+          });
+        }
+        localStorage.setItem(outboxKey, "[]");
+        estado("sync intentado (" + q.length + ")");
+        balance();
+      };
+      // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.
+      $("compartir").onclick = async () => {
+        if (!lastSaleId) { estado("sin venta para compartir (cobrá primero)"); return; }
+        const to = prompt("Teléfono E.164 (ej. +5491100000000)", "+5491100000000") ?? "";
+        try {
+          const r = await fetch("/api/tickets/compartir", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+            body: JSON.stringify({ sale_id: lastSaleId, toE164: to, dentroVentana24h: true, optIn: false, comercio: "Comercio" }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (j.wa_me_url) window.open(j.wa_me_url, "_blank");
+          else estado(r.status + " " + JSON.stringify(j));
+        } catch { estado("sin red para compartir"); }
+      };
+      // TV15 P2: impresión básica con window.print (térmica 58/80 vía CSS).
+      $("imprimir").onclick = () => window.print();
+      // TV15 P2: térmica BLE (58mm/32 cols). El <script> del navegador no puede
+      // importar .ts, así que el envío GATT se espeja acá en compacto; el
+      // canónico es src/modules/sales/escpos_bt.ts (chunks 512B + corte GS V).
+      // Requiere gesto (click) + HTTPS/localhost; iOS/Safari no soporta BT.
+      $("imprimir-bt").onclick = async () => {
+        if (!lastTicket) { estado("sin ticket para BT (cobrá primero)"); return; }
+        try {
+          const t = await fetch("/api/tickets/thermal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              comercio: "Comercio",
+              ticketDefinitivo: lastTicket.definitivo,
+              provisorio: lastTicket.provisorio,
+              fechaIso: new Date().toISOString(),
+              medio: lastTicket.medio,
+              lineas: lastTicket.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad, precioCentavos: l.precio })),
+              totalBrutoCentavos: lastTicket.total,
+              totalDescuentoCentavos: "0",
+              totalNetoCentavos: lastTicket.total,
+            }),
+          });
+          const th = await t.json().catch(() => ({}));
+          if (!t.ok || !th.cols32) { estado("thermal: " + JSON.stringify(th)); return; }
+          const nav = navigator;
+          if (!nav.bluetooth) { estado("BT no soportado acá; usá Imprimir"); window.print(); return; }
+          estado("BT: elegí la impresora…");
+          const device = await nav.bluetooth.requestDevice({
+            filters: [{ services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"] }],
+            optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"],
+          });
+          if (!device.gatt) { estado("BT: sin GATT"); return; }
+          if (!device.gatt.connected) await device.gatt.connect();
+          const service = await device.gatt.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+          const ch = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+          const bytes = new TextEncoder().encode(th.cols32 + "\n");
+          for (let i = 0; i < bytes.length; i += 512) {
+            const buf = bytes.slice(i, i + 512).buffer;
+            if (ch.writeValueWithResponse) await ch.writeValueWithResponse(buf);
+            else await ch.writeValue(buf);
+          }
+          const corte = new Uint8Array([0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x00]).buffer;
+          if (ch.writeValueWithResponse) await ch.writeValueWithResponse(corte);
+          else await ch.writeValue(corte);
+          try { device.gatt.disconnect(); } catch { /* best-effort */ }
+          estado("BT: impreso + corte");
+        } catch (e) {
+          const name = e && e.name ? e.name : "";
+          if (name === "NotFoundError" || name === "AbortError") estado("BT: no elegiste impresora");
+          else estado("BT falló; usá Imprimir");
+        }
+      };
+      balance();
+    </script>
+  </body>
+</html>

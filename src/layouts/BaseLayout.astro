@@ -1,0 +1,111 @@
+---
+import '../styles/global.css';
+import SiteHeader from '../components/ui/SiteHeader.astro';
+import FloatingWhatsApp from '../components/ui/FloatingWhatsApp.astro';
+import { Toaster } from '../components/ui/Toaster';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  ogImage?: string;
+  ogType?: string;
+  noindex?: boolean;
+}
+
+const { title, description, canonical, ogImage, ogType = 'website', noindex = false } = Astro.props;
+
+const siteBase = (Astro.site?.toString() ?? 'https://inventario.com.ar').replace(/\/$/, '');
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, siteBase).toString();
+const imgBase = canonical ? new URL(canonicalUrl).origin : siteBase;
+const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toString();
+---
+
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content="Inventario" />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content={title} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="theme-color" content="#f7f5f2" />
+    <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a href="#contenido" class="skip-link">Saltar al contenido</a>
+    <SiteHeader />
+    <div id="contenido" tabindex="-1">
+      <slot />
+    </div>
+    <FloatingWhatsApp />
+    <Toaster client:idle />
+    <script>
+      // PWA-S1: registra el SW sin romper si no hay soporte o falla la red.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function () {});
+        });
+      }
+    </script>
+    <script>
+      (function () {
+        var els = document.querySelectorAll('main section[id], #inicio');
+        if (!('IntersectionObserver' in window)) return;
+        var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        els.forEach(function (el) {
+          el.classList.add('reveal');
+          if (reduced) el.classList.add('visible');
+        });
+        if (reduced) return;
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('visible');
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        els.forEach(function (el) { io.observe(el); });
+      })();
+    </script>
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 100;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .skip-link:focus-visible {
+    top: 1rem;
+  }
+</style>

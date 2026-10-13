@@ -1,0 +1,29 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { audience } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="linen" id="publico" embedded={embedded}>
+  <SectionHeading title={audience.title} lead={audience.lead} />
+  <div class="grid max-w-3xl gap-8 md:grid-cols-2">
+    <div>
+      <h3 class="text-[length:var(--text-subheading)] font-medium">{audience.yesTitle}</h3>
+      <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)]">
+        {audience.yes.map((item) => <li>{item}</li>)}
+      </ul>
+    </div>
+    <div>
+      <h3 class="text-[length:var(--text-subheading)] font-medium">{audience.noTitle}</h3>
+      <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)] text-ash-gray">
+        {audience.no.map((item) => <li>{item}</li>)}
+      </ul>
+    </div>
+  </div>
+</Section>

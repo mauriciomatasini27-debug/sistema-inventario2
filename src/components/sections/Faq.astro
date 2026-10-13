@@ -1,0 +1,25 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { faq } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="white" id="faq" embedded={embedded}>
+  <SectionHeading title={faq.title} lead={faq.lead} />
+  <div class="grid max-w-3xl gap-4">
+    {
+      faq.items.map((item) => (
+        <details class="galaxy-card rounded-[var(--radius-card)] p-5">
+          <summary class="cursor-pointer font-medium">{item.q}</summary>
+          <p class="mt-2 text-sm text-ash-gray">{item.a}</p>
+        </details>
+      ))
+    }
+  </div>
+</Section>

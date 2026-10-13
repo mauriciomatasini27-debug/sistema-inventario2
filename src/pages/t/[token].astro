@@ -1,0 +1,67 @@
+---
+export const prerender = false;
+import { createHash } from "node:crypto";
+import { store } from "../../lib/store.js";
+import { esTokenPlanoValido, resolver_link } from "../../modules/sales/ticket_link.js";
+
+const token = Astro.params.token ?? "";
+let estado: "ok" | "no_encontrado" | "expirado" | "revocado" = "no_encontrado";
+let venta: { ticket_definitivo: string | null; ticket_provisorio: string; total_centavos: string; medio: string } | null = null;
+
+if (esTokenPlanoValido(token)) {
+  const hash = createHash("sha256").update(token, "utf8").digest("hex");
+  const r = resolver_link({
+    tokenPlano: token,
+    tokenHash: hash,
+    nowMs: Date.now(),
+    porHash: store.ticketLinksByHash,
+    revocadas: new Set(store.ticketLinkRevocaciones.keys()),
+  });
+  if (r.ok) {
+    for (const t of store.idempotency.values()) {
+      if (t.sale_id === r.saleId) {
+        venta = t;
+        break;
+      }
+    }
+    estado = venta ? "ok" : "no_encontrado";
+  } else if (r.codigo === "EXPIRADO") {
+    estado = "expirado";
+  } else if (r.codigo === "REVOCADO") {
+    estado = "revocado";
+  }
+}
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ticket</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      main { max-width: 360px; margin: 0 auto; padding: 12px; }
+      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
+      .ley { border: 1px solid #111; padding: 6px; text-align: center; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ticket</h1>
+      {estado === "ok" && venta ? (
+        <div class="card">
+          <div>{venta.ticket_definitivo ? `Ticket ${venta.ticket_definitivo}` : `Provisorio ${venta.ticket_provisorio}`}</div>
+          <div>Total: ${(Number(venta.total_centavos) / 100).toFixed(2)}</div>
+          <div>Medio: {venta.medio}</div>
+          <div class="ley">DOCUMENTO NO VÁLIDO COMO FACTURA</div>
+        </div>
+      ) : estado === "expirado" ? (
+        <div class="card">Enlace vencido.</div>
+      ) : estado === "revocado" ? (
+        <div class="card">Enlace revocado.</div>
+      ) : (
+        <div class="card">No encontrado.</div>
+      )}
+    </main>
+  </body>
+</html>

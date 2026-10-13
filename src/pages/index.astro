@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/sections/Hero.astro';
+import Problema from '../components/sections/Problema.astro';
+import Ejemplo from '../components/sections/Ejemplo.astro';
+import Contraste from '../components/sections/Contraste.astro';
+import Circuito from '../components/sections/Circuito.astro';
+import Solucion from '../components/sections/Solucion.astro';
+import Checklist from '../components/sections/Checklist.astro';
+import Camino from '../components/sections/Camino.astro';
+import Planes from '../components/sections/Planes.astro';
+import Migracion from '../components/sections/Migracion.astro';
+import Fiscal from '../components/sections/Fiscal.astro';
+import Publico from '../components/sections/Publico.astro';
+import ComoTrabajamos from '../components/sections/ComoTrabajamos.astro';
+import Despues from '../components/sections/Despues.astro';
+import Crecer from '../components/sections/Crecer.astro';
+import Garantia from '../components/sections/Garantia.astro';
+import Faq from '../components/sections/Faq.astro';
+import Contacto from '../components/sections/Contacto.astro';
+import { seo } from '../data/business';
+
+const title = seo.title;
+const description = seo.description;
+---
+
+<BaseLayout {title} {description} canonical={`${seo.site}/`} ogImage={seo.ogImage}>
+  <main>
+    <Hero />
+    <Problema />
+    <Ejemplo />
+    <Contraste />
+    <Circuito />
+    <Solucion />
+    <Checklist />
+    <Camino />
+    <Planes />
+    <Migracion />
+    <Fiscal />
+    <Publico />
+    <ComoTrabajamos />
+    <Despues />
+    <Crecer />
+    <Garantia />
+    <Faq />
+    <Contacto />
+  </main>
+</BaseLayout>

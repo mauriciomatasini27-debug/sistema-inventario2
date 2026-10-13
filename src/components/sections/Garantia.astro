@@ -1,0 +1,18 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { garantia } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="linen" id="garantia" embedded={embedded}>
+  <SectionHeading title={garantia.title} lead={garantia.lead} />
+  <p class="galaxy-card max-w-3xl rounded-[var(--radius-card)] p-5 text-[length:var(--text-body-lg)]">
+    {garantia.detail}
+  </p>
+</Section>

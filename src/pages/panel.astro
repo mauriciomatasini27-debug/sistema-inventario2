@@ -1,0 +1,296 @@
+---
+import { Toaster } from "../components/ui/Toaster";
+const pills = [
+  { label: "Dashboard", href: "/panel", active: true },
+  { label: "Ventas", href: "/venta", active: false },
+  { label: "Caja", href: "#caja", active: false },
+  { label: "Stock", href: "#stock", active: false },
+  { label: "Precios", href: "#precios", active: false },
+  { label: "Proveedores", href: "#proveedores", active: false },
+  { label: "Consumos", href: "#consumos", active: false },
+  { label: "Fiado", href: "#fiado", active: false },
+  { label: "Reportes", href: "#reportes", active: false },
+];
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Panel del comercio</title>
+    <style>
+      :root {
+        --papel: #f7f5f2; --canvas: #efecea; --tinta: #1a1a1a;
+        --llama: #ffd600; --llama-hover: #ffe033; --muted: #8a8578;
+        --card: #ffffff; --radio: 16px;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: var(--papel); color: var(--tinta); }
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+      .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .logo { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
+      nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
+      nav.pills a { white-space: nowrap; text-decoration: none; color: #55524a; font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 36px; display: inline-flex; align-items: center; }
+      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: #fff; }
+      .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+      .top-right input { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 36px; }
+      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+      h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; }
+      .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+      .kpis { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+      .segbar { display: flex; height: 34px; border-radius: 999px; overflow: hidden; background: var(--canvas); min-width: min(420px, 100%); font-size: 12px; font-weight: 700; }
+      .segbar span { display: inline-flex; align-items: center; padding: 0 12px; }
+      .bignums { display: flex; gap: 28px; }
+      .bignum { text-align: left; }
+      .bignum b { font-size: clamp(28px, 4vw, 44px); font-weight: 600; display: block; }
+      .bignum small { color: var(--muted); font-size: 12px; }
+      .grid { display: grid; gap: 16px; }
+      .grid.r1 { grid-template-columns: 240px 1fr 300px; }
+      .grid.r2 { grid-template-columns: 1fr 300px; margin-top: 16px; }
+      .grid.r3 { grid-template-columns: repeat(5, 1fr); margin-top: 16px; }
+      .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); min-width: 0; }
+      .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid #e3ddcd; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+      .demo { font-size: 11px; background: var(--llama); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
+      .live { font-size: 11px; background: #d9f2e2; color: #1c6b3a; border-radius: 999px; padding: 2px 8px; font-weight: 700; }
+      .tl { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+      .tl li { border-left: 2px solid #e3ddcd; margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
+      .tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--llama); position: absolute; left: -5px; top: 10px; }
+      .hora { display: inline-block; border: 1px solid #e3ddcd; border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
+      table.mov { width: 100%; border-collapse: collapse; font-size: 13px; }
+      table.mov th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px; border-bottom: 1px solid var(--canvas); }
+      table.mov td { padding: 8px 6px; border-bottom: 1px solid var(--canvas); }
+      .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      .ok { background: #ece7f8; color: #5b4fa6; } .warn { background: #eef0f1; color: #6b6f73; } .pend { background: #e8f7d9; color: #4c7a1f; }
+      .dark { background: var(--tinta); color: #fff; }
+      .dark h2 a { color: #fff; border-color: #444; }
+      .heat { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 12px; }
+      .heat i { aspect-ratio: 1; border-radius: 50%; background: #3a3a3a; }
+      .heat i.on { background: var(--llama); }
+      .bign { font-size: 30px; }
+      svg.chart { width: 100%; height: 170px; }
+      .dona { display: flex; align-items: center; justify-content: center; }
+      .legend { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-top: 8px; }
+      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: #fff; border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
+      .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+      .mini { font-size: 13px; color: #55524a; }
+      .mini a { color: var(--tinta); font-weight: 600; }
+      .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
+      :target { outline: 2px solid var(--llama); outline-offset: 4px; }
+      @media (max-width: 900px) {
+        .grid.r1, .grid.r2, .grid.r3 { grid-template-columns: 1fr; }
+        .top-right input { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <a class="logo" href="/" style="text-decoration:none;color:inherit">Inventario</a>
+        <nav class="pills" aria-label="Módulos">
+          {pills.map((p) => <a href={p.href} class={p.active ? "active" : ""}>{p.label}</a>)}
+        </nav>
+        <span class="top-right">
+          <input id="q" type="search" placeholder="Buscar" aria-label="Buscar en movimientos" />
+          <span class="avatar" title="Comercio">C</span>
+        </span>
+      </div>
+
+      <h1 class="hello">Hola</h1>
+      <div class="sub">Panel del comercio · todo lo hecho, visible de un vistazo</div>
+
+      <div class="kpis">
+        <div class="segbar" title="Distribución de la operatoria">
+          <span style="background:#1a1a1a;color:#fff;width:70%">Ventas 70%</span>
+          <span style="background:#ffd600;width:10%">10%</span>
+          <span style="width:15%;background:repeating-linear-gradient(45deg,#efecea,#efecea 4px,#fff 4px,#fff 8px)">15%</span>
+          <span style="width:5%;border:1px solid #ddd6c4;border-radius:0 999px 999px 0">5%</span>
+        </div>
+        <div class="bignums">
+          <div class="bignum"><b id="n-tickets">—</b><small>Tickets hoy <span class="demo">demo</span></small></div>
+          <div class="bignum"><b id="n-stock">—</b><small>Stock bajo <span class="demo">demo</span></small></div>
+          <div class="bignum"><b id="n-caja">—</b><small>Caja total <span class="live">en vivo</span></small></div>
+        </div>
+      </div>
+
+      <div class="banner">
+        <div><b>Venta mostrador</b><br /><span class="mini" style="color:#cfc9b8">Cobrar, sync offline y balance — como siempre.</span></div>
+        <span style="margin-left:auto"></span>
+        <a href="/venta">Vender →</a>
+      </div>
+
+      <div class="grid r1">
+        <section class="card" id="caja">
+          <h2>Turnos <a href="#caja" aria-label="Ir a caja">↗</a></h2>
+          <ul class="tl">
+            <li><span class="hora">09:00</span><b>Apertura caja</b> <span class="demo">demo</span><br />09:00–10:00 · caja-01</li>
+            <li><span class="hora">11:00</span><b>Arqueo parcial</b><br />10:30–11:30</li>
+            <li><span class="hora">13:00</span><b>Cierre turno</b><br />12:00–13:00 · conteo a ciegas</li>
+          </ul>
+          <div class="mini"><a href="/api/cash/balance">Ver balance JSON</a> · turnos full en P1</div>
+        </section>
+
+        <section class="card" id="movimientos">
+          <h2>Últimos movimientos <a href="#reportes" aria-label="Ir a reportes">↗</a></h2>
+          <table class="mov">
+            <thead><tr><th></th><th>Detalle</th><th>Medio</th><th>Importe</th><th>Estado</th></tr></thead>
+            <tbody id="mov-body">
+              <tr><td>◉</td><td>Venta T-000001</td><td>Efectivo</td><td>$150,00</td><td><span class="pill ok">Pagado</span></td></tr>
+              <tr><td>◉</td><td>Retiro proveedor</td><td>Transferencia</td><td>$30,00</td><td><span class="pill warn">Pendiente</span></td></tr>
+              <tr><td>◉</td><td>Sueldo parcial</td><td>Efectivo</td><td>$15,00</td><td><span class="pill pend">A revisar</span></td></tr>
+            </tbody>
+          </table>
+          <div class="mini">Filas de ejemplo <span class="demo">demo</span> — el historial real vive en <span style="font-family:monospace">GET /api/tickets?numero=</span></div>
+          <div class="estado" id="balance-estado">Balance: cargando…</div>
+        </section>
+
+        <section class="card dark" id="reportes">
+          <h2>Reporte del día <a href="#ventas" aria-label="Ir a ventas">↗</a></h2>
+          <div><span class="bign"><span id="heat-ventas">63</span> ↗</span> &nbsp; <span class="bign" style="color:#cfc9b8"><span id="heat-dev">12</span> ↘</span></div>
+          <div class="mini" style="color:#cfc9b8">ventas · devoluciones/pendientes <span class="demo">demo</span></div>
+          <div class="heat" id="heat" aria-hidden="true"></div>
+        </section>
+      </div>
+
+      <div class="grid r2">
+        <section class="card" id="ventas">
+          <h2>Ventas por mes <a href="#ventas" aria-label="Ir a ventas">↗</a></h2>
+          <div class="mini">— Efectivo &nbsp; ┄ Digital · <span class="demo">demo</span> · 2024 ▾</div>
+          <svg class="chart" viewBox="0 0 600 170" role="img" aria-label="Ventas por mes (demo)">
+            <line x1="30" y1="10" x2="30" y2="150" stroke="#e3ddcd" />
+            <line x1="30" y1="150" x2="590" y2="150" stroke="#e3ddcd" />
+            <polyline points="30,120 90,60 150,70 210,90 270,60 330,80 390,70 450,95 510,60 570,75" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-dasharray="5 4" />
+            <polyline points="30,130 90,110 150,115 210,100 270,105 330,90 390,100 450,85 510,70 570,60" fill="none" stroke="#ffd600" stroke-width="2" />
+            <line x1="270" y1="10" x2="270" y2="150" stroke="#1a1a1a" stroke-width="1" />
+            <g font-size="10" fill="#8a8578"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
+          </svg>
+        </section>
+
+        <section class="card" id="medios">
+          <h2>Composición por medio <a href="#medios" aria-label="Ir a medios">↗</a></h2>
+          <div class="dona">
+            <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="70% efectivo, 30% digital">
+              <circle cx="75" cy="75" r="60" fill="none" stroke="#efecea" stroke-width="16" />
+              <circle cx="75" cy="75" r="60" fill="none" stroke="#ffd600" stroke-width="16" stroke-dasharray="264 377" stroke-linecap="round" transform="rotate(-90 75 75)" />
+              <text x="75" y="72" text-anchor="middle" font-size="26" font-weight="600">70%</text>
+              <text x="75" y="90" text-anchor="middle" font-size="11" fill="#8a8578">Efectivo</text>
+            </svg>
+          </div>
+          <div class="legend"><span>◉ 70% Efectivo</span><span>● 30% Digital</span></div>
+          <div class="estado" id="medios-estado"><span class="demo">demo</span> — en vivo cuando haya agregados por medio.</div>
+        </section>
+      </div>
+
+      <div class="grid r2">
+        <section class="card" id="consumos">
+          <h2>Consumos de servicios <a href="#consumos" aria-label="Ir a consumos">↗</a></h2>
+          <div class="mini">Cuentas · próximas a vencer (7 días) · vencidas <span class="live">en vivo</span></div>
+          <ul class="tl" id="consumos-cuentas"></ul>
+          <h3 style="font-size:13px;margin:12px 0 4px">Próximas a vencer</h3>
+          <ul class="tl" id="consumos-proximas"></ul>
+          <h3 style="font-size:13px;margin:12px 0 4px">Vencidas</h3>
+          <ul class="tl" id="consumos-vencidas"></ul>
+          <div class="estado" id="consumos-estado">Consumos: cargando…</div>
+        </section>
+
+        <section class="card" id="pagar-servicio">
+          <h2>Pagar servicio <a href="#pagar-servicio" aria-label="Ir a pagar">↗</a></h2>
+          <div class="mini">Elegí una factura de la lista y pagala con <span style="font-family:monospace">POST /api/utility-bills/pay</span> (<span style="font-family:monospace">bill_id</span>). El pago registra el egreso en caja en el mismo paso.</div>
+          <div class="mini"><a href="/api/utility-bills/due?dentro_dias=7">Ver vencimientos JSON</a></div>
+        </section>
+      </div>
+
+      <div class="grid r3">
+        <section class="card" id="stock"><h2>Stock <a href="#stock">↗</a></h2><div class="mini"><span class="live">en vivo</span> <a href="/api/products">/api/products</a> · <a href="/api/lots">/api/lots</a> · conteo <a href="/api/stock/conteo">/api/stock/conteo</a></div><div class="estado" id="stock-estado">Stock: cargando…</div></section>
+        <section class="card" id="precios"><h2>Precios <a href="#precios">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/prices/preview</span> · ajustes <span style="font-family:monospace">/api/prices/adjustments</span></div></section>
+        <section class="card" id="proveedores"><h2>Proveedores <a href="#proveedores">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/suppliers</span> · OC <span style="font-family:monospace">/api/purchase-orders</span></div></section>
+        <section class="card" id="fiado"><h2>Fiado <a href="#fiado">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">GET /api/credit/balance?customer_id=</span></div><div class="estado" id="fiado-estado">Fiado: sin cliente seleccionado.</div></section>
+        <section class="card" id="ajustes"><h2>APIs <a href="#ajustes">↗</a></h2><div class="mini">Índice JSON en vivo:<br /><a href="/api/cash/balance">/api/cash/balance</a> · <a href="/api/tickets">/api/tickets</a><br />Fiscal, WA y email en sus PRDs.</div></section>
+      </div>
+    </div>
+    <script>
+      const fmt = (c) => "$" + (Number(c) / 100).toFixed(2);
+      fetch("/api/cash/balance").then(async (r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        const b = await r.json();
+        const medios = b.por_medio || {};
+        const vals = Object.values(medios).map(Number);
+        const total = vals.reduce((a, v) => a + v, 0);
+        document.getElementById("n-caja").textContent = fmt(total);
+        const top = Object.entries(medios).sort((a, z) => z[1] - a[1])[0];
+        document.getElementById("medios-estado").textContent =
+          top ? ("En vivo: " + top[0] + " " + fmt(top[1]) + " de " + fmt(total)) : "En vivo: sin movimientos todavía.";
+        document.getElementById("balance-estado").textContent = "Balance en vivo: total " + fmt(total) + ".";
+      }).catch(() => {
+        document.getElementById("n-caja").textContent = "—";
+        document.getElementById("balance-estado").textContent = "Sin conexión con el servidor: mostrando demo.";
+        document.getElementById("medios-estado").textContent = "Sin conexión: mostrando demo.";
+      });
+      document.getElementById("n-tickets").textContent = "…";
+      document.getElementById("n-stock").textContent = "…";
+      // OP-S3: tickets + stock en vivo, sin hardcode. Sin conexión => —.
+      fetch("/api/tickets").then(async (r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        const j = await r.json();
+        const n = (j.tickets || j.items || []).length;
+        document.getElementById("n-tickets").textContent = String(n);
+      }).catch(() => { document.getElementById("n-tickets").textContent = "—"; });
+      fetch("/api/products").then(async (r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        const j = await r.json();
+        const n = (j.productos || []).length;
+        document.getElementById("n-stock").textContent = String(n);
+        document.getElementById("stock-estado").textContent = "En vivo: " + n + " productos en catálogo.";
+      }).catch(() => {
+        document.getElementById("n-stock").textContent = "—";
+        document.getElementById("stock-estado").textContent = "Sin conexión: stock no disponible.";
+      });
+      const heat = document.getElementById("heat");
+      const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
+      seed.forEach((v) => { const i = document.createElement("i"); if (v) i.className = "on"; heat.appendChild(i); });
+      document.getElementById("q").addEventListener("input", (e) => {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll("#mov-body tr").forEach((tr) => {
+          tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+        });
+      });
+      Promise.all([
+        fetch("/api/service-accounts").then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); }),
+        fetch("/api/utility-bills/due?dentro_dias=7").then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); }),
+      ]).then(([cuentas, due]) => {
+        const nombres = {};
+        (cuentas.items || []).forEach((c) => { nombres[c.account_id] = (c.alias || c.proveedor) + " · " + c.servicio; });
+        const ulCuentas = document.getElementById("consumos-cuentas");
+        (cuentas.items || []).forEach((c) => {
+          const li = document.createElement("li");
+          li.innerHTML = "<b></b> <span class='mini'></span>";
+          li.querySelector("b").textContent = (c.alias || c.proveedor) + " · " + c.servicio;
+          li.querySelector(".mini").textContent = c.activa ? c.titular : "inactiva";
+          ulCuentas.appendChild(li);
+        });
+        if ((cuentas.items || []).length === 0) ulCuentas.innerHTML = "<li>Sin cuentas cargadas todavía.</li>";
+        const pintar = (id, filas, vacio) => {
+          const ul = document.getElementById(id);
+          filas.forEach((f) => {
+            const li = document.createElement("li");
+            li.innerHTML = "<span class='hora'></span><b></b> <span class='mini'></span>";
+            li.querySelector(".hora").textContent = f.vencimiento.slice(5);
+            li.querySelector("b").textContent = fmt(f.monto_centavos);
+            li.querySelector(".mini").textContent = (nombres[f.account_id] || "cuenta") + " · " + f.periodo;
+            ul.appendChild(li);
+          });
+          if (filas.length === 0) ul.innerHTML = "<li>" + vacio + "</li>";
+        };
+        pintar("consumos-proximas", due.proximas || [], "Nada por vencer en 7 días.");
+        pintar("consumos-vencidas", due.vencidas || [], "Sin facturas vencidas.");
+        document.getElementById("consumos-estado").textContent =
+          "En vivo: " + (cuentas.items || []).length + " cuentas · " +
+          (due.proximas || []).length + " próximas · " + (due.vencidas || []).length + " vencidas.";
+      }).catch(() => {
+        document.getElementById("consumos-estado").textContent = "Sin conexión con el servidor: consumos no disponibles.";
+      });
+    </script>
+    <Toaster client:idle />
+  </body>
+</html>

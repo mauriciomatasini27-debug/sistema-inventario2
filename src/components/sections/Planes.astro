@@ -1,0 +1,44 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import Button from '../ui/Button.astro';
+import { business, planesPage } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+---
+
+<Section variant="white" id="planes" embedded={embedded}>
+  <SectionHeading title={planesPage.title} lead={planesPage.lead} />
+  <ul class="grid gap-6 md:grid-cols-3">
+    {
+      business.planes.map((plan) => (
+        <li
+          class:list={[
+            'galaxy-card rounded-[var(--radius-card)] p-6',
+            plan.destacado && 'border-2 border-trust-slate',
+          ]}
+        >
+          <p class="text-sm font-medium text-ash-gray">{plan.nombre}</p>
+          <p class="mt-2 text-[length:var(--text-heading)] font-medium">{plan.precioUnico}</p>
+          {plan.destacado && (
+            <p class="mt-2 inline-block rounded-[var(--radius-button)] bg-trust-slate px-3 py-1 text-xs font-medium text-star-white">
+              Recomendado
+            </p>
+          )}
+          <ul class="mt-4 grid gap-2 text-[length:var(--text-body)] text-ash-gray">
+            {plan.features.map((feature) => <li>{feature}</li>)}
+          </ul>
+          <div class="mt-6">
+            <Button href={`/alta?plan=${plan.nombre.toLowerCase()}`} variant="primary">Probar 14 días</Button>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="mt-8 text-sm text-ash-gray">{planesPage.nota}</p>
+  <p class="mt-2 text-sm text-ash-gray">Plus Precio a confirmar al alta.</p>
+</Section>

@@ -1,0 +1,44 @@
+---
+import Button from '../ui/Button.astro';
+import { contact, contactConfigured, hero, whatsappWithUtm } from '../../data/business';
+---
+
+<section id="inicio" class="relative flex min-h-[min(88vh,52rem)] items-center overflow-hidden text-canvas-white">
+  <div class="hero-content-scrim absolute inset-0" aria-hidden="true"></div>
+
+  <div
+    class="relative z-10 mx-auto w-full max-w-[var(--width-content)] px-6 py-[calc(var(--spacing-section)*1.4)] md:px-10"
+  >
+    <p class="text-sm font-medium text-ash-gray">{hero.firma}</p>
+    <h1
+      class="mt-4 max-w-3xl text-[length:var(--text-display)] font-semibold leading-tight tracking-tight text-star-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.85)]"
+    >
+      {hero.titulo}
+    </h1>
+    <p
+      class="mt-6 max-w-2xl text-[length:var(--text-body-lg)] text-star-white/90 drop-shadow-[0_1px_12px_rgba(0,0,0,0.75)]"
+    >
+      {hero.subtitulo}
+    </p>
+    <div class="mt-10 flex flex-wrap gap-4">
+      <Button href="#contacto" variant="primary">Pedir demo</Button>
+      <Button href="#checklist" variant="ghost-dark">Ver checklist</Button>
+      {
+        contactConfigured && (
+          <>
+            <Button href={whatsappWithUtm('hero')} variant="ghost-dark" data-cta="hero-whatsapp">
+              WhatsApp
+            </Button>
+            <Button href={`mailto:${contact.email}`} variant="ghost-dark">Email</Button>
+          </>
+        )
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  import { whatsappWithUtm } from '../../data/business';
+  const heroWa = document.querySelector('[data-cta="hero-whatsapp"]');
+  if (heroWa instanceof HTMLAnchorElement) heroWa.href = whatsappWithUtm('hero');
+</script>

@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+/* Inventario landing — tokens ADR-0010. Misma estructura que ModoOps, sin neón ni glass. */
+@theme {
+  --color-void: #1a1a1a;
+  --color-canvas: #f7f5f2;
+  --color-linen: #efecea;
+  --color-ash: #8a8578;
+  --color-trust: #255c7a;
+
+  --color-space-void: #1a1a1a;
+  --color-space-mist: #efecea;
+  --color-galaxy-deep: #ffffff;
+  --color-galaxy-blue: #255c7a;
+  --color-nebula-cyan: #255c7a;
+  --color-dust-gray: #8a8578;
+  --color-lavender-dust: #8a8578;
+  --color-core-cream: #1a1a1a;
+  --color-star-white: #ffffff;
+  --color-star-warm: #e64a19;
+  --color-star-glow: #bf360c;
+
+  --color-midnight-void: #1a1a1a;
+  --color-canvas-white: #f7f5f2;
+  --color-soft-linen: #efecea;
+  --color-ash-gray: #8a8578;
+  --color-trust-slate: #255c7a;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 3rem;
+  --text-display-sm: 2.5rem;
+  --text-heading: 2rem;
+  --text-subheading: 1.5rem;
+  --text-body-lg: 1.125rem;
+  --text-body: 1rem;
+  --text-body-sm: 0.875rem;
+
+  --spacing-section: 3.125rem;
+  --spacing-element: 0.75rem;
+  --radius-button: 5rem;
+  --radius-card: 1.25rem;
+  --width-content: 70rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: auto;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.5;
+    color: var(--color-void);
+    background-color: var(--color-canvas);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background-color: var(--color-trust);
+    color: var(--color-star-white);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-trust);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@layer utilities {
+  .galaxy-card {
+    border: 1px solid var(--color-linen);
+    background-color: var(--color-star-white);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .galaxy-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(26, 26, 26, 0.08);
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .galaxy-card:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}

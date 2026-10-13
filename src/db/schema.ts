@@ -1,0 +1,345 @@
+import { sql } from "drizzle-orm";
+import {
+  bigint,
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
+
+// Mínimo Slice-0 por ADR-0003/0004. Dinero siempre bigint centavos.
+// Inmutables (sales, tickets, cash_movements, outbox) solo INSERT/SELECT:
+// el revoke + trigger se aplica en migración, no en este schema tipado.
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sku: text("sku").notNull().unique(),
+  nombre: text("nombre").notNull(),
+  precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
+  stockActual: integer("stock_actual").notNull().default(0),
+  // Nivel 1: sector para conteo por sector (default 'general').
+  sector: text("sector").notNull().default("general"),
+});
+
+// Nivel 1: conteos por sector, append-only (inmutable runtime en migración).
+export const inventoryCounts = pgTable("inventory_counts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sector: text("sector").notNull(),
+  idemKey: text("idem_key").notNull().unique(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});
+
+export const devices = pgTable("devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deviceCode: text("device_code").notNull().unique(),
+  plataforma: text("plataforma").notNull(),
+  appVersion: text("app_version").notNull(),
+});
+
+// P1-3 PIN de mostrador por dispositivo (migración 0005). Solo hash,
+// nunca el plano. El bloqueo es estado local, no secreto.
+export const devicePins = pgTable("device_pins", {
+  deviceCode: text("device_code").primaryKey(),
+  pinHash: text("pin_hash").notNull(),
+  bloqueado: boolean("bloqueado").notNull().default(false),
+  actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
+});
+
+export const sales = pgTable("sales", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  medio: text("medio").notNull(),
+  totalCentavos: bigint("total_centavos", { mode: "bigint" }).notNull(),
+  sobreventa: boolean("sobreventa").notNull().default(false),
+  offline: boolean("offline").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  clientOccurredAt: timestamp("client_occurred_at").notNull(),
+});
+
+export const tickets = pgTable("tickets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  saleId: uuid("sale_id").notNull(),
+  definitivo: text("definitivo").unique(),
+  provisorio: text("provisorio").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// PERS-S1 (ADR-0024): correlativo de ticket mostrador sin huecos. Una fila
+// por mostrador con lock FOR UPDATE dentro de la tx de venta; el rollback
+// revierte el incremento. Mismo patrón que fiscal_sequences.
+export const ticketCounters = pgTable("ticket_counters", {
+  id: text("id").primaryKey(),
+  ultimo: integer("ultimo").notNull().default(0),
+});
+
+export const ticketLines = pgTable("ticket_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  saleId: uuid("sale_id").notNull(),
+  productId: uuid("product_id").notNull(),
+  qty: integer("qty").notNull(),
+  precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
+});
+
+export const cashMovements = pgTable("cash_movements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  saleId: uuid("sale_id"),
+  tipo: text("tipo").notNull(),
+  metodo: text("metodo").notNull(),
+  categoriaId: text("categoria_id").notNull(),
+  origen: text("origen").notNull(),
+  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const outbox = pgTable("outbox", {
+  opId: uuid("op_id").primaryKey(),
+  deviceCode: text("device_code").notNull(),
+  deviceSeq: integer("device_seq").notNull(),
+  hlc: text("hlc").notNull(),
+  modulo: text("modulo").notNull(),
+  payload: jsonb("payload").notNull(),
+  estado: text("estado").notNull().default("pendiente"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const idMappings = pgTable("id_mappings", {
+  opId: uuid("op_id").primaryKey(),
+  idProvisorio: text("id_provisorio").notNull(),
+  idDefinitivo: text("id_definitivo").notNull(),
+});
+
+// Control Auth + Onboarding (ADR-0001/0003). Extiende, no reescribe Slice-0.
+// Dinero no aplica acá. Todo FK simple sin cascadas destructivas.
+export const users = pgTable("users", {
+  googleSub: text("google_sub").primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  emailVerificado: boolean("email_verificado").notNull().default(false),
+  nombre: text("nombre"),
+  fotoUrl: text("foto_url"),
+  estado: text("estado").notNull().default("activo"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  ultimoLoginAt: timestamp("ultimo_login_at"),
+});
+
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombreComercio: varchar("nombre_comercio", { length: 80 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  estado: text("estado").notNull().default("pendiente"),
+  plan: text("plan").notNull().default("demo"),
+  moneda: varchar("moneda", { length: 3 }).notNull().default("ARS"),
+  ownerGoogleSub: text("owner_google_sub").references(() => users.googleSub),
+  esDemo: boolean("es_demo").notNull().default(false),
+  requestKey: text("request_key"),
+  trialHasta: timestamp("trial_hasta"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const tenantDatabases = pgTable("tenant_databases", {
+  tenantId: uuid("tenant_id")
+    .primaryKey()
+    .references(() => tenants.id),
+  database: text("database").notNull().unique(),
+  estado: text("estado").notNull().default("pendiente"),
+  schemaVersion: text("schema_version"),
+});
+
+export const memberships = pgTable("memberships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  googleSub: text("google_sub").references(() => users.googleSub),
+  rol: text("rol").notNull().default("empleado"),
+  permisos: jsonb("permisos").notNull().default([]),
+  estado: text("estado").notNull().default("activo"),
+  revocadoAt: timestamp("revocado_at"),
+  revocadoPor: text("revocado_por"),
+  // AU11.3: interruptor "Puede usar el bot" (default activado en el MVP).
+  puedeUsarBot: boolean("puede_usar_bot").notNull().default(true),
+});
+
+export const invitations = pgTable("invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tokenHash: text("token_hash").notNull().unique(),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  email: varchar("email", { length: 320 }).notNull(),
+  rol: text("rol").notNull().default("empleado"),
+  permisos: jsonb("permisos").notNull().default([]),
+  estado: text("estado").notNull().default("pendiente"),
+  expiraAt: timestamp("expira_at").notNull(),
+  creadaPor: text("creada_por"),
+  aceptadaPor: text("aceptada_por"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const sessions = pgTable("sessions", {
+  idHash: text("id_hash").primaryKey(),
+  googleSub: text("google_sub").references(() => users.googleSub),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  expiraAt: timestamp("expira_at").notNull(),
+  expiraAbsoluta: timestamp("expira_absoluta"),
+  creadoAt: timestamp("creado_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at"),
+  revocadaAt: timestamp("revocada_at"),
+  motivoRevocacion: text("motivo_revocacion"),
+  // AU10.2: última reauth con Google para acciones sensibles.
+  reauthAt: timestamp("reauth_at"),
+});
+
+export const authEvents = pgTable("auth_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  tipo: text("tipo").notNull(),
+  actor: text("actor"),
+  detalle: jsonb("detalle"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Tareas fiscales de control con clave texto (delegacion-confirmada).
+// Tabla fiscal_jobs del lado control; la cola de aprovisionamiento nunca
+// aloja tareas fiscales. Sin cascadas destructivas.
+export const fiscalJobs = pgTable("fiscal_jobs", {
+  clave: text("clave").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  estado: text("estado").notNull().default("pendiente"),
+  intentos: integer("intentos").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Cola mínima de aprovisionamiento (sin pg-boss por ahora).
+export const provisionJobs = pgTable("provision_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  estado: text("estado").notNull().default("pendiente"),
+  pasoActual: text("paso_actual"),
+  intentos: integer("intentos").notNull().default(0),
+  error: text("error"),
+  requestKey: text("request_key"),
+  claimedAt: timestamp("claimed_at"),
+  claimedBy: text("claimed_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Identidades de WhatsApp solo para revocación en cascada lógica (AU7).
+// El VINCULAR/bot queda fuera de corte.
+export const whatsappIdentities = pgTable("whatsapp_identities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => tenants.id),
+  googleSub: text("google_sub").references(() => users.googleSub),
+  numero: text("numero"),
+  estado: text("estado").notNull().default("pendiente"),
+  revocadoAt: timestamp("revocado_at"),
+});
+
+// Outbox de señales hacia el panel (solo contadores, nunca negocio).
+export const opsSignalsOutbox = pgTable("ops_signals_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tipo: text("tipo").notNull(),
+  payload: jsonb("payload").notNull(),
+  estado: text("estado").notNull().default("pendiente"),
+  claimedAt: timestamp("claimed_at"),
+  claimedBy: text("claimed_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Núcleo inventario F1-F14 (ADR-0003/0004). Append-only + FEFO.
+// Inmutabilidad runtime (REVOKE UPDATE/DELETE + triggers + FOR UPDATE) se
+// aplica en migración, no en este schema tipado. Unidades en integer,
+// dinero siempre bigint centavos.
+export const productCodes = pgTable("product_codes", {
+  codigo: text("codigo").primaryKey(),
+  sku: text("sku")
+    .notNull()
+    .references(() => products.sku),
+  padre: text("padre"),
+});
+
+export const stockLots = pgTable("stock_lots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sku: text("sku")
+    .notNull()
+    .references(() => products.sku),
+  cantidad: integer("cantidad").notNull(),
+  cantidadRestante: integer("cantidad_restante").notNull().default(0),
+  venceEl: timestamp("vence_el"),
+  costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(sql`0`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stockMovements = pgTable("stock_movements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  idemKey: text("idem_key").notNull(),
+  sku: text("sku").notNull(),
+  loteId: uuid("lote_id"),
+  delta: integer("delta").notNull(),
+  tipo: text("tipo").notNull(),
+  motivo: text("motivo"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// N1 CAT-S1/S5/S6 + CAJA-S1/S3/S4: tablas mínimas para cutover DB.
+// Tests/build sin DB usan store en memoria; con DB viva hay write-through.
+export const productPhotos = pgTable("product_photos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sku: text("sku").notNull().references(() => products.sku),
+  url: text("url").notNull(),
+  ancho: integer("ancho").notNull().default(800),
+  alto: integer("alto").notNull().default(800),
+  bytes: integer("bytes").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const locations = pgTable("locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull().unique(),
+  archivada: boolean("archivada").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stockCounts = pgTable("stock_counts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  idemKey: text("idem_key").notNull().unique(),
+  estado: text("estado").notNull().default("en_curso"),
+  contadoPor: text("contado_por"),
+  confirmadoPor: text("confirmado_por"),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});
+
+export const stockCountLines = pgTable("stock_count_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  countId: uuid("count_id").notNull().references(() => stockCounts.id),
+  sku: text("sku").notNull(),
+  teorico: integer("teorico").notNull().default(0),
+  fisico: integer("fisico").notNull().default(0),
+});
+
+export const cashQrReceipts = pgTable("cash_qr_receipts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  numeroOperacion: text("numero_operacion").notNull().unique(),
+  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+  estado: text("estado").notNull().default("pendiente"),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cashDueItems = pgTable("cash_due_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  concepto: text("concepto").notNull(),
+  venceEl: timestamp("vence_el").notNull(),
+  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+  estado: text("estado").notNull().default("pendiente"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketPayments = pgTable("ticket_payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  saleId: uuid("sale_id").notNull(),
+  metodo: text("metodo").notNull(),
+  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+  cashMovementId: uuid("cash_movement_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

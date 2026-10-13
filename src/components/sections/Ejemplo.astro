@@ -1,0 +1,48 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import { ejemplo } from '../../data/business';
+
+interface Props {
+  embedded?: boolean;
+}
+
+const { embedded = false } = Astro.props;
+
+const MARKS = ['Caja', 'Fiado', 'Precios'] as const;
+---
+
+<Section variant="white" id="ejemplo" embedded={embedded}>
+  <p class="text-sm font-medium text-ash-gray">{ejemplo.eyebrow}</p>
+  <SectionHeading title={ejemplo.title} lead={`${ejemplo.body} (${ejemplo.fictitious}).`} />
+  <div class="grid gap-6 md:grid-cols-2">
+    <div>
+      <ul class="grid gap-3">
+        {
+          ejemplo.signs.map((sign, i) => (
+            <li class="galaxy-card rounded-[var(--radius-card)] p-5">
+              <span class="text-xs font-medium uppercase tracking-wide text-ash-gray">
+                {MARKS[i] ?? '·'}
+              </span>
+              <p class="mt-1 text-[length:var(--text-body-lg)]">{sign}</p>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="mt-6 text-ash-gray">{ejemplo.closing}</p>
+    </div>
+    <aside class="galaxy-card h-fit rounded-[var(--radius-card)] p-6" aria-hidden="true">
+      <p class="text-[length:var(--text-subheading)] font-medium">Kiosco Lo de Marta</p>
+      <p class="mt-1 text-sm text-ash-gray">1 local · ejemplo</p>
+      <div class="mt-4 grid gap-2 text-sm">
+        <p class="rounded-[var(--radius-button)] border border-nebula-cyan/20 px-3 py-2">Caja del mostrador</p>
+        <p class="rounded-[var(--radius-button)] border border-dashed border-nebula-cyan/20 px-3 py-2 text-ash-gray">
+          Cuaderno · fiado suelto
+        </p>
+        <p class="rounded-[var(--radius-button)] border border-nebula-cyan/20 px-3 py-2 text-ash-gray">
+          Precios · de memoria
+        </p>
+      </div>
+    </aside>
+  </div>
+</Section>

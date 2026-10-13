@@ -1,0 +1,112 @@
+import { API_VERSION_DEFECTO, type PayloadEnvio } from "./envio.js";
+
+// Adaptador Cloud API (único con IO de red). Fetch inyectable para tests;
+// nunca lanza: el webhook siempre responde 200 aunque el envío falle
+// (Meta reintentaría el webhook ante un 5xx).
+
+export type FetchEnvio = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
+) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+
+export type ResultadoEnvio =
+  | { readonly ok: true; readonly wamid: string }
+  | { readonly ok: false; readonly codigo: "red" | "rechazado" | "respuesta_invalida" };
+
+export function endpoint_envio(apiVersion: string, phoneNumberId: string): string {
+  return `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+}
+
+function es_transitorio(status: number): boolean {
+  return status >= 500 || status === 429;
+}
+
+async function intentar(
+  fetchFn: FetchEnvio,
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; status: number; json(): Promise<unknown> }> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetchFn(url, { method: "POST", headers, body, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function wamid_de(respuesta: unknown): string | null {
+  try {
+    const r = respuesta as { messages?: Array<{ id?: string }> };
+    const id = r.messages?.[0]?.id;
+    return typeof id === "string" && id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+// Un solo reintento ante timeout/red/5xx con el mismo body (el dedup por
+// wamid entrante evita el doble envío desde la ruta).
+export async function enviar_whatsapp(opts: {
+  phoneNumberId: string;
+  token: string;
+  toE164: string;
+  payload: PayloadEnvio;
+  fetchFn?: FetchEnvio | undefined;
+  apiVersion?: string | undefined;
+  timeoutMs?: number | undefined;
+}): Promise<ResultadoEnvio> {
+  const fetchFn = opts.fetchFn ?? (fetch as unknown as FetchEnvio);
+  const url = endpoint_envio(opts.apiVersion ?? API_VERSION_DEFECTO, opts.phoneNumberId);
+  const headers = { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" };
+  const body = JSON.stringify({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: opts.toE164,
+    ...opts.payload,
+  });
+  const timeoutMs = opts.timeoutMs ?? 5000;
+  for (let intento = 0; intento < 2; intento++) {
+    let res: { ok: boolean; status: number; json(): Promise<unknown> };
+    try {
+      res = await intentar(fetchFn, url, headers, body, timeoutMs);
+    } catch {
+      if (intento === 0) continue;
+      return { ok: false, codigo: "red" };
+    }
+    if (res.ok) {
+      const wamid = wamid_de(await res.json().catch(() => null));
+      return wamid ? { ok: true, wamid } : { ok: false, codigo: "respuesta_invalida" };
+    }
+    if (es_transitorio(res.status) && intento === 0) continue;
+    return { ok: false, codigo: es_transitorio(res.status) ? "red" : "rechazado" };
+  }
+  return { ok: false, codigo: "red" };
+}
+
+// Marca leído best-effort (nunca lanza, sin reintento).
+export async function marcar_leido(opts: {
+  phoneNumberId: string;
+  token: string;
+  wamidEntrante: string;
+  fetchFn?: FetchEnvio | undefined;
+  apiVersion?: string | undefined;
+  timeoutMs?: number | undefined;
+}): Promise<void> {
+  const fetchFn = opts.fetchFn ?? (fetch as unknown as FetchEnvio);
+  const url = endpoint_envio(opts.apiVersion ?? API_VERSION_DEFECTO, opts.phoneNumberId);
+  const body = JSON.stringify({ messaging_product: "whatsapp", status: "read", message_id: opts.wamidEntrante });
+  try {
+    await intentar(
+      fetchFn,
+      url,
+      { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" },
+      body,
+      opts.timeoutMs ?? 5000,
+    );
+  } catch {
+    // Best-effort: el leído no bloquea la respuesta.
+  }
+}
