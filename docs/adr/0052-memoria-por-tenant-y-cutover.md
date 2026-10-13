@@ -1,6 +1,6 @@
 # ADR-0052 - Memoria por tenant, sin fallback silencioso en multi y jobs con tenant
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md`, ADR-0024, ADR-0051, `src/lib/store.ts`, `src/lib/server-db.ts`, `src/middleware.ts`.
+Estado: aceptado (2026-10-13, evidencia: `tests/pers2-memoria.test.ts`, `pers2-jobs`, `pers2-arch` y `pers2-pg` contra Postgres local 17/17, `npm test` 756/759 con solo los 2 de `caja-c11` y 1 salteado sin `PG_TEST_URL`, commit `2b926a1`). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md`, ADR-0024, ADR-0051, `src/lib/store.ts`, `src/lib/server-db.ts`, `src/middleware.ts`.
 
 ## Decisión
 
@@ -20,4 +20,5 @@ Esperar al cutover completo: deja abierta la mezcla en multi durante varias iter
 
 ## Pendientes
 
+Excepción vigente: `leerFiscalDocs` en multi sin base del tenant devuelve `null` y las rutas fiscales leen memoria; esa memoria ya está particionada por tenant (sin mezcla) pero no es durable, hasta el cutover fiscal de PERS-S4. 
 PERS-S4 por dominio y PERS-S5. Fan-out de jobs por tenant. Postgres del box no sobrevive a un reset (reinstalar con apt).

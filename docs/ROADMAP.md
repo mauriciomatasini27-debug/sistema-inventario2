@@ -27,6 +27,7 @@ Dato base: 109 de 136 archivos de `src/pages/api` importan `src/lib/store.ts` (m
 | UI y sistema de diseño | parcial | Cero `alert()` en `src/`; contraste AA 5 de 7 pares; Sonner instalado (React + `@astrojs/react`, un solo `<Toaster />` en `panel.astro` y `BaseLayout.astro`, commit `70c7a67`) | `src/components/ui/Toaster.tsx`, `src/styles/global.css`, `scripts/check-ui.mjs`, `scripts/check-contrast.mjs` | SPEC-UI-00, EVIDENCIA-UI-00, ADR-0032 a 0038 |
 | Aislamiento fiscal por tenant | parcial (ISO-S1 a S4 hechos 2026-10-13, commit `dfdc3de`) | `tenantDeRequest` con sesión + membership en `TENANT_MODE=multi` (single por defecto, sin cambios); `getTenantDb` fail-closed en multi; `fiscal_documents.tenant_id` (migración `0015`); `documents`, `history` y `export` filtran DB y memoria; `tests/iso-fiscal-tenant.test.ts` 7/7. Falta: resto del plano de datos sin tenant, `wizard.ts` toma `tenant_id` del body, backfill | `src/lib/tenant-context.ts`, `src/lib/tenant-mode.ts`, `src/lib/fiscal-db.ts`, `src/pages/api/fiscal/*` | PRD-ISO-01, ADR-0050 |
 | Aislamiento del plano de datos | parcial (ISO-S5 a S9 hechos 2026-10-13, commit `bc2f48f`) | Middleware resuelve el tenant por request (`AsyncLocalStorage`) para 16 prefijos de datos y corta 403 en `TENANT_MODE=multi` sin tenant; `getTenantDb()` toma el contexto; wizard y delegación usan el tenant del contexto (403 si el body pide otro); docs fiscales sin dueño rechazados; `scripts/backfill-tenant-id.mjs` en seco por defecto. Falta: memoria de `store.ts` global, jobs por `X-Job-Secret` sin tenant, backfill real | `src/lib/tenant-mode.ts`, `src/lib/tenant-context.ts`, `src/middleware.ts`, `scripts/backfill-tenant-id*.mjs` | PRD-ISO-02, ADR-0051 |
+| Memoria por tenant y cutover multi | parcial (PERS2-S1 a S4 hechos 2026-10-13, commit `2b926a1`) | `store` particionado por tenant (Proxy sobre `tenantActual()`), en multi sin base del tenant 503 `base_no_disponible` (excepción fiscal en memoria particionada), jobs con `X-Job-Secret` exigen `X-Tenant-Id` en multi, `scripts/pg-local.sh` + `tests/pers2-pg.test.ts` contra Postgres local. Falta: PERS-S4 por dominio, PERS-S5 (110 rutas con `store`), fan-out de jobs | `src/lib/store.ts`, `src/lib/server-db.ts`, `src/lib/tenant-context.ts`, `src/middleware.ts`, `scripts/pg-local.sh` | PRD-PERS-02, ADR-0052 |
 | Asistente IA, chat de landing, planes, umbrales | sin código | — | — | PRD-IA-01, PRD-LP-04, PRD-PLAN-01, PRD-ALR-01 |
 
 ## Para implementar
@@ -35,7 +36,7 @@ Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
 1. Arreglar el journal de migraciones: `drizzle/meta/_journal.json` solo registra `0000`; `0001` a `0006` no están y hay dos `0004` (`0004_auth_append_only.sql`, `0004_ticket_links.sql`). Talla S.
-2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte: `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-S1 a S4, ADR-0052): memoria por tenant, 503 en multi sin base, jobs con `X-Tenant-Id` y Postgres local para tests. M.
+2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5.
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
 5. PWA: `photos_queue`, cifrado y borrado remoto (PWA-S4, PWA-S5, ADR-0025).
@@ -142,8 +143,8 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0050-aislamiento-fiscal-por-tenant.md` | cubierto | Ya implementado (Aislamiento fiscal) |
 | `diseno/PRD-ISO-02` | cubierto | Ya implementado (Aislamiento del plano de datos) |
 | `adr/0051-tenant-por-request.md` | cubierto | Ya implementado (Aislamiento del plano de datos) |
-| `diseno/PRD-PERS-02` | cubierto | Para implementar 1.2 |
-| `adr/0052-memoria-por-tenant-y-cutover.md` | cubierto | Para implementar 1.2 |
+| `diseno/PRD-PERS-02` | cubierto | Ya implementado (Memoria por tenant) |
+| `adr/0052-memoria-por-tenant-y-cutover.md` | cubierto | Ya implementado (Memoria por tenant) |
 | `01-fundacion/costos-por-cliente.md` | cubierto | 6 Planes y precios |
 | `01-fundacion/modo-offline.md` | cubierto | Ya implementado PWA/Sync; 1.4, 1.5; 2.11 CAEA |
 | `01-fundacion/verificacion-fuente-oficial.md` | cubierto | 8.2 |
