@@ -1,9 +1,7 @@
 import type { APIRoute } from "astro";
 import { emailCloseSummarySchema } from "../../../lib/validation.js";
-import { encolar_resumen_cierre } from "../../../modules/email/resumen-cierre.js";
-import { store } from "../../../lib/store.js";
-import { intentarPersistir } from "../../../lib/server-db.js";
-import { emailOutbox, notificationEvents } from "../../../db/schema-email.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { encolarResumen, resumenMovimientosCaja } from "../../../lib/repos/email.js";
 
 export const prerender = false;
 
@@ -20,17 +18,17 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = emailCloseSummarySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  const porMedio: Record<string, bigint> = {};
-  let total = 0n;
-  for (const m of store.movements) {
-    const monto = BigInt(m.monto_centavos);
-    const signo = m.tipo === "ingreso" ? 1n : -1n;
-    porMedio[m.metodo] = (porMedio[m.metodo] ?? 0n) + signo * monto;
-    total += signo * monto;
+  let snapshot: Awaited<ReturnType<typeof resumenMovimientosCaja>>;
+  try {
+    snapshot = await resumenMovimientosCaja(b.tenant_id);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
   }
-  const r = encolar_resumen_cierre(
-    { eventos: store.emailEventos, outbox: store.emailOutbox },
-    {
+  const { total, porMedio } = snapshot;
+  let r: Awaited<ReturnType<typeof encolarResumen>>;
+  try {
+    r = await encolarResumen({
       tenantId: b.tenant_id,
       cierreId: b.cierre_id,
       fechaJornada: b.fecha_jornada,
@@ -45,46 +43,11 @@ export const POST: APIRoute = async ({ request }) => {
         tipo: b.tipo,
       },
       destinatario: b.destinatario,
-    },
-  );
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   if (r.status !== 201) return Response.json({ error: r.error }, { status: r.status });
-  // PERS-S4 best-effort (NE4/NE11 append-only): con DB viva deja evento +
-  // outbox en 1 tx (dedupe por tenant+fecha); sin DB la memoria sigue
-  // mandando. El snapshot viaja con la memoria (el cutover lo unifica con
-  // closing_summaries). tenant_id no-uuid va null (columna uuid).
-  const tenantUuid = esUuid(b.tenant_id) ? b.tenant_id : null;
-  void intentarPersistir((db) =>
-    db.transaction(async (tx) => {
-      await tx
-        .insert(notificationEvents)
-        .values({
-          tenantId: tenantUuid,
-          tipo: r.evento.tipo,
-          version: 1,
-          payload: r.evento.payload as never,
-          dedupeKey: r.evento.dedupeKey,
-          estado: "pendiente",
-        })
-        .onConflictDoNothing({ target: notificationEvents.dedupeKey });
-      await tx
-        .insert(emailOutbox)
-        .values({
-          tenantId: tenantUuid,
-          categoria: "cierre",
-          plantilla: "cierre_v1",
-          destinatario: r.envio.destinatario,
-          asunto: r.envio.asunto,
-          html: r.envio.html,
-          texto: r.envio.texto,
-          idempotencyKey: r.envio.idempotencyKey,
-          estado: "pendiente",
-        })
-        .onConflictDoNothing({ target: emailOutbox.idempotencyKey });
-    }),
-  );
   return Response.json({ asunto: r.envio.asunto, destinatario: r.envio.destinatario }, { status: 201 });
-};
-
-function esUuid(v: unknown): v is string {
-  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 };

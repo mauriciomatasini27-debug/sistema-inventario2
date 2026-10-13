@@ -1,9 +1,8 @@
 import type { APIRoute } from "astro";
 import { resolverSesion } from "../../../lib/control.js";
 import { detectar_intencion, extraer_termino, decidir_respuesta, formatear_stock } from "../../../modules/whatsapp/consulta.js";
-import { store } from "../../../lib/store.js";
-import { intentarLeer } from "../../../lib/server-db.js";
-import { products } from "../../../db/schema.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { listarProductosConsulta } from "../../../lib/repos/whatsapp.js";
 
 export const prerender = false;
 
@@ -22,10 +21,17 @@ export const GET: APIRoute = async ({ request, url }) => {
     return Response.json({ intencion, decision: "sin_resultados" });
   }
   const busqueda = extraer_termino(term).toLowerCase();
-  const filas = await intentarLeer((db) =>
-    db.select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos }).from(products),
-  );
-  if (filas) {
+  let filas: Awaited<ReturnType<typeof listarProductosConsulta>>["filas"];
+  let fuente: "db" | "memoria";
+  try {
+    const r = await listarProductosConsulta();
+    filas = r.filas;
+    fuente = r.fuente;
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  if (fuente === "db") {
     const candidatos = filas
       .filter((p) => !busqueda || p.sku.toLowerCase().includes(busqueda) || p.nombre.toLowerCase().includes(busqueda))
       .slice(0, 20)
@@ -44,28 +50,29 @@ export const GET: APIRoute = async ({ request, url }) => {
       nombre: prod.nombre,
       stock: prod.stock,
       umbral: 5,
-      precioCentavos: BigInt(prod.precio),
+      precioCentavos: prod.precio,
       comercio,
     });
     return Response.json({ intencion, decision: "directo", sku: d.sku, texto, fuente: "db" });
   }
-  const candidatos = [...store.stock.entries()]
-    .filter(([sku]) => !busqueda || sku.toLowerCase().includes(busqueda))
-    .map(([sku]) => ({
-      sku,
-      nombre: sku,
-      score: !busqueda || sku.toLowerCase() === busqueda ? 1 : 0.5,
+  const candidatos = filas
+    .filter((p) => !busqueda || p.sku.toLowerCase().includes(busqueda))
+    .map((p) => ({
+      sku: p.sku,
+      nombre: p.sku,
+      score: !busqueda || p.sku.toLowerCase() === busqueda ? 1 : 0.5,
     }));
   const d = decidir_respuesta(candidatos);
   if (d.kind === "sin_resultados") return Response.json({ intencion, decision: "sin_resultados", fuente: "memoria" });
   if (d.kind === "desambiguar") {
     return Response.json({ intencion, decision: "desambiguar", opciones: d.opciones.map((o) => o.sku), fuente: "memoria" });
   }
+  const prod = filas.find((p) => p.sku === d.sku)!;
   const texto = formatear_stock({
-    nombre: d.sku,
-    stock: store.stock.get(d.sku) ?? 0,
+    nombre: prod.sku,
+    stock: prod.stock,
     umbral: 5,
-    precioCentavos: BigInt(store.prices.get(d.sku) ?? 0),
+    precioCentavos: prod.precio,
     comercio,
   });
   return Response.json({ intencion, decision: "directo", sku: d.sku, texto, fuente: "memoria" });

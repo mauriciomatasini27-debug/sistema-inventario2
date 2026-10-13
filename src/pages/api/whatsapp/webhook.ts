@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { control, store } from "../../../lib/store.js";
+import { control } from "../../../lib/store.js";
 import { membershipActiva } from "../../../lib/control.js";
 import { persistirAuthEvent, persistirBotLink } from "../../../lib/control-db.js";
 import { DeduplicadorWamid, verificar_firma_meta } from "../../../modules/whatsapp/webhook.js";
@@ -18,14 +18,20 @@ import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
-import { atender_consulta, emitir_contexto, type ItemVivo } from "../../../modules/whatsapp/servicio.js";
+import { atender_consulta, emitir_contexto } from "../../../modules/whatsapp/servicio.js";
 import { construir_texto } from "../../../modules/whatsapp/envio.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 import { enviar_whatsapp, marcar_leido } from "../../../modules/whatsapp/cliente-cloud.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
-import { catalogo_vivo } from "../../../modules/whatsapp/catalogo.js";
-import { crear_item_viernes, type ListaViernes } from "../../../modules/whatsapp/lista-viernes.js";
-import type { MovimientoVista, PedidoDia } from "../../../modules/whatsapp/dia-a-dia.js";
+import {
+  agregarListaViernes,
+  guardarSesion,
+  leerListaViernes,
+  leerSesion,
+  listarCatalogoVivo,
+  listarMovimientosVista,
+  listarPedidosDia,
+} from "../../../lib/repos/whatsapp.js";
 
 export const prerender = false;
 
@@ -252,21 +258,23 @@ export const POST: APIRoute = async ({ request }) => {
   // B6/B10: comandos de lista del viernes y día a día (solo lectura,
   // con stock vivo). Si el router responde, no se sigue a la consulta.
   const tenantPrevio = resolver_tenant_de(msg.remitente);
+  const tenantId = tenantPrevio?.id ?? "";
+  const catalogo = await listarCatalogoVivo(tenantId || undefined);
   const ruta = enrutar({
     texto: msg.texto,
-    catalogo: catalogo_demo().map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null })),
+    catalogo: catalogo.map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null })),
     comercio: tenantPrevio?.nombreComercio ?? "tu comercio",
-    pedidos: pedidos_dia(),
-    movs: movs_vista(ahoraMs),
-    friday: friday_vivo(tenantPrevio?.id ?? "", catalogo_demo(), ahoraMs),
-    sesion: sesion_viva(msg.remitente, ahoraMs),
+    pedidos: await listarPedidosDia(tenantId || undefined),
+    movs: await listarMovimientosVista(ahoraMs, tenantId || undefined),
+    friday: leerListaViernes(tenantId, catalogo, ahoraMs),
+    sesion: await leerSesion(msg.remitente, ahoraMs, tenantId || undefined),
     ahoraMs,
   });
   if (ruta.accion === "viernes_guardado") {
-    guardar_friday(tenantPrevio?.id ?? "", ruta.friday, ahoraMs);
+    agregarListaViernes(tenantId, ruta.friday, ahoraMs);
   }
   if (ruta.accion !== "nada") {
-    if (ruta.accion === "alertas") guardar_sesion(msg.remitente, "alertas", { pagina: ruta.pagina }, ahoraMs);
+    if (ruta.accion === "alertas") await guardarSesion(msg.remitente, "alertas", { pagina: ruta.pagina }, ahoraMs, tenantId || undefined);
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: ruta.texto, cred });
     return Response.json({ ok: true, accion: ruta.accion, respuesta: ruta.texto, enviado });
   }
@@ -286,102 +294,24 @@ export const POST: APIRoute = async ({ request }) => {
   const atencion = atender_consulta({
     ctx,
     texto: msg.texto,
-    catalogo: catalogo_demo(),
+    catalogo: await listarCatalogoVivo(r.tenantId),
     comercio: tenant?.nombreComercio ?? "tu comercio",
     permisos: membMsg?.permisos ?? [],
   });
   // B4: la lista de alertas deja sesión para el "ver más" paginado.
-  if (intencion === "alertas") guardar_sesion(msg.remitente, "alertas", { pagina: 1 }, ahoraMs);
+  if (intencion === "alertas") await guardarSesion(msg.remitente, "alertas", { pagina: 1 }, ahoraMs, r.tenantId);
   const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: atencion.texto, cred });
   return Response.json({ ok: true, accion: "consulta", intencion, respuesta: atencion.texto, enviado });
 };
 
-// Catálogo vivo desde el store en memoria (misma forma que Drizzle en prod).
-function catalogo_demo(): ItemVivo[] {
-  return catalogo_vivo(store.stock, store.prices);
-}
-
-// --- B4/B6/B10: adaptadores memoria (prod: Drizzle del tenant) ---
-
-// Sesión corta por número (30 min, sin datos de stock).
-const SESION_TTL_MS = 30 * 60 * 1000;
-
-function sesion_viva(numero: string, ahoraMs: number): { paso: string; contexto: Record<string, unknown> } | null {
-  const s = store.waSessions.get(numero);
-  if (!s || ahoraMs > s.expiraEn) return null;
-  return { paso: s.paso, contexto: s.contexto as Record<string, unknown> };
-}
-
-function guardar_sesion(numero: string, paso: string, contexto: Record<string, unknown>, ahoraMs: number): void {
-  store.waSessions.set(numero, { paso, contexto, updatedAt: ahoraMs, expiraEn: ahoraMs + SESION_TTL_MS });
-}
-
+// PERS2-S10: catálogo, sesión, viernes, pedidos y movimientos salen del
+// repositorio del canal (DB del tenant primero, memoria solo en single).
 function resolver_tenant_de(remitente: string): { id: string; nombreComercio: string } | null {
   const link = control.botLinks.get(remitente);
   if (!link) return null;
   const t = control.tenants.get(link.tenantId);
   if (!t) return null;
   return { id: link.tenantId, nombreComercio: (t as { nombreComercio?: string }).nombreComercio ?? "tu comercio" };
-}
-
-// Lista del viernes viva: los guardados se recalculan con stock del momento;
-// el repuesto (vivo > umbral) sale solo (B6.5).
-function friday_vivo(tenantId: string, catalogo: ItemVivo[], ahoraMs: number): ListaViernes {
-  void ahoraMs;
-  const guardados = tenantId ? (store.waFriday.get(tenantId) ?? []) : [];
-  const porSku = new Map(catalogo.map((c) => [c.sku, c]));
-  const mapa = new Map<string, ReturnType<typeof crear_item_viernes>[]>();
-  for (const g of guardados) {
-    const vivo = porSku.get(g.sku);
-    if (!vivo || vivo.umbral <= 0 || vivo.stock > vivo.umbral) continue;
-    const item = crear_item_viernes({ sku: vivo.sku, nombre: vivo.nombre, stock: vivo.stock, umbral: vivo.umbral, proveedor: vivo.proveedor });
-    const arr = mapa.get(item.proveedor) ?? [];
-    if (arr.some((i) => i.sku === item.sku)) continue;
-    mapa.set(item.proveedor, [...arr, item]);
-  }
-  return mapa;
-}
-
-function guardar_friday(tenantId: string, friday: ListaViernes, ahoraMs: number): void {
-  if (!tenantId) return;
-  const previa = store.waFriday.get(tenantId) ?? [];
-  const vistos = new Set(previa.map((g) => g.sku));
-  const next = [...previa];
-  for (const items of friday.values()) {
-    for (const i of items) {
-      if (vistos.has(i.sku)) continue;
-      vistos.add(i.sku);
-      next.push({ sku: i.sku, proveedor: i.proveedor, agregadoEn: ahoraMs });
-    }
-  }
-  store.waFriday.set(tenantId, next);
-}
-
-// B10.1: pedidos del store a la vista del día a día.
-function pedidos_dia(): PedidoDia[] {
-  const out: PedidoDia[] = [];
-  for (const o of store.purchaseOrders.values()) {
-    const sup = store.suppliers.get(`sup-${o.supplierCuit}`);
-    out.push({
-      id: o.id,
-      proveedor: sup?.nombre ?? o.supplierCuit,
-      estado: o.estado === "abierta" ? "borrador" : "enviado",
-      creadoEnMs: Date.parse(o.creadoEn),
-      totalCentavos: o.totalCentavos,
-    });
-  }
-  return out;
-}
-
-// B10.2: movimientos del store a la vista del día a día.
-function movs_vista(ahoraMs: number): MovimientoVista[] {
-  return store.stockMoves.map((m) => ({
-    idemKey: m.idemKey,
-    sku: m.sku,
-    delta: m.delta,
-    tipo: m.tipo,
-    fechaMs: ahoraMs,
-  }));
 }
 
 interface TextoMsg {
