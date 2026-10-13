@@ -25,6 +25,7 @@ Dato base: 109 de 136 archivos de `src/pages/api` importan `src/lib/store.ts` (m
 | Onboarding y tenants | parcial (Control durable 2026-10-13) | Rutas de onboarding y aprovisionamiento; jobs de provisión durables con claim + tx única y espejo memoria (`POST tenants` y `POST onboarding/alta` delegan al runner, 201/409 por requestKey, `persistirTenantAlta` con id explícito); outbox transaccional con drain por reclamo (`POST admin/senales/consumir`); delegación fiscal en tabla propia text-keyed (`fiscal_jobs`, migración 0013); kill real converge a activo con un job por requestKey (migraciones 0012 claim en `provision_jobs` y 0014 claim en outbox) | `src/modules/onboarding/*`, `src/modules/tenants/*`, `src/pages/api/onboarding/*`, `src/jobs/aprovisionar.ts` | ON1-ON13, ADR-0011 |
 | Reportes de rotación | a verificar | Módulo y rutas de analytics | `src/modules/analytics/*`, `src/pages/api/analytics/*` | RT1-RT11 |
 | UI y sistema de diseño | parcial | Cero `alert()` en `src/`; contraste AA 5 de 7 pares; Sonner instalado (React + `@astrojs/react`, un solo `<Toaster />` en `panel.astro` y `BaseLayout.astro`, commit `70c7a67`) | `src/components/ui/Toaster.tsx`, `src/styles/global.css`, `scripts/check-ui.mjs`, `scripts/check-contrast.mjs` | SPEC-UI-00, EVIDENCIA-UI-00, ADR-0032 a 0038 |
+| Aislamiento fiscal por tenant | parcial (ISO-S1 a S4 hechos 2026-10-13, commit `dfdc3de`) | `tenantDeRequest` con sesión + membership en `TENANT_MODE=multi` (single por defecto, sin cambios); `getTenantDb` fail-closed en multi; `fiscal_documents.tenant_id` (migración `0015`); `documents`, `history` y `export` filtran DB y memoria; `tests/iso-fiscal-tenant.test.ts` 7/7. Falta: resto del plano de datos sin tenant, `wizard.ts` toma `tenant_id` del body, backfill | `src/lib/tenant-context.ts`, `src/lib/tenant-mode.ts`, `src/lib/fiscal-db.ts`, `src/pages/api/fiscal/*` | PRD-ISO-01, ADR-0050 |
 | Asistente IA, chat de landing, planes, umbrales | sin código | — | — | PRD-IA-01, PRD-LP-04, PRD-PLAN-01, PRD-ALR-01 |
 
 ## Para implementar
@@ -51,7 +52,6 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 9. Factura B para Responsables Inscriptos y padrón real. M.
 10. Pase a producción con contador. M.
 11. CAEA de contingencia para offline (RG 5782, FE-E8). L.
-12. Aislamiento fiscal por tenant según `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md` (ISO-S1 a S4, ADR-0050): hoy `leerFiscalDocs` lee todo `fiscal_documents` sin `tenant_id` y `getTenantDb()` cae a la base compartida. Antes del primer segundo comercio real. M.
 
 ### 2b. Identidad y onboarding
 1. Login endurecido (PRD-AU-01, ADR-0031) y login con destino `next` y bifurcación admin/tenant (AU2-S1 a S7, ADR-0030): a verificar contra código.
@@ -98,6 +98,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 2. PRD-CAJA-01: QR, vencimientos y pagos divididos (CAJA-S1 a S4, ADR-0027).
 3. OCR definitivo Fase 0 (PaddleOCR propio vs Vision/Textract, ADR-0005).
 4. Compras, consumos y órdenes de pago (FP1-FP12, CS1-CS12 con Gmail `users.watch`, OP1-OP13): cableado real a verificar; dependen de OCR y PERS.
+5. Extender aislamiento por tenant (PRD-ISO-01 Pendientes, ADR-0050) a ventas, caja, fiado, compras, precios, sync y tickets: 13 rutas y `src/lib/compras-db.ts` llaman `getTenantDb()` sin tenant; `wizard.ts` sin `tenant_id` del body. L.
 
 ### 8. Legal y fiscal
 1. Consulta con contador y abogado: Ley 25.326, leyenda del ticket, ARCA y facturación de la suscripción.
@@ -137,8 +138,8 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-SUP-01-conexion-supabase.md` | cubierto | Para implementar 1.3 |
 | `adr/0048-supabase-single-project.md` | cubierto | Para implementar 1.3 |
 | `adr/0049-supabase-driver-pooler.md` | cubierto | Para implementar 1.3 |
-| `diseno/PRD-ISO-01` | cubierto | Para implementar 2.12 |
-| `adr/0050-aislamiento-fiscal-por-tenant.md` | cubierto | Para implementar 2.12 |
+| `diseno/PRD-ISO-01` | cubierto | Ya implementado (Aislamiento fiscal) |
+| `adr/0050-aislamiento-fiscal-por-tenant.md` | cubierto | Ya implementado (Aislamiento fiscal) |
 | `01-fundacion/costos-por-cliente.md` | cubierto | 6 Planes y precios |
 | `01-fundacion/modo-offline.md` | cubierto | Ya implementado PWA/Sync; 1.4, 1.5; 2.11 CAEA |
 | `01-fundacion/verificacion-fuente-oficial.md` | cubierto | 8.2 |
