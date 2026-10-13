@@ -53,6 +53,15 @@ Requisito PERS2-6: `whatsapp/consult`, `whatsapp/webhook`, `email/send` y `email
 
 Arch-test AT9: ningún archivo de `src/pages/api/{whatsapp,email}/` importa `store` de `lib/store`; el contador global baja de 58.
 
+## Épica PERS2-E7. Rutas sin `store`: caja (PERS-S4, grupo 4)
+
+Requisito PERS2-7: las 11 rutas de `src/pages/api/cash/` que hoy importan `store` (balance, history, export, close, drops, qr, reversals, due-items, shifts, shifts/conciliate, shifts/resolve) leen y escriben por `src/lib/repos/caja.ts` con DB primero y memoria solo en `single` sin base (ADR-0053, ADR-0056).
+
+- Historia PERS2-S12. Movimientos y cierre: `balance`, `history`, `export`, `close`, `reversals` y `due-items` usan el repositorio (movimientos, cierres, reversiones con su auditoría, vencimientos de caja). AC: Given multi con base de A When registro una reversión o cierro la caja Then quedan en las tablas de caja de A y B no las ve; la ruta no importa `store`; Given single sin base Then se comporta como hoy. ADR: 0056. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S13. Turnos, retiros y QR: `shifts`, `shifts/conciliate`, `shifts/resolve`, `drops` y `qr` usan el repositorio (`shift_handovers`, `cash_drawer_drops` y recibos QR). AC: Given multi con base de A When registro un retiro idempotente Then una fila en `cash_drawer_drops` de A y ninguna en B. ADR: 0056. Talla M. Depende de: PERS2-S2.
+
+Arch-test AT10: ningún archivo de `src/pages/api/cash/` importa `store` de `lib/store`; el contador global baja de 54.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
