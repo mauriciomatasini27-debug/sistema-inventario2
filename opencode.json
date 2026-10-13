@@ -39,5 +39,39 @@
       "model": "opencode/big-pickle",
       "description": "pstack judgment/prose role: synthesizers, explainers, judges, reviewers."
     }
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true
+  },
+  "provider": {
+    "opencode": {
+      "models": {
+        "muse-spark-1.3-contributor-free": {
+          "limit": {
+            "context": 250000,
+            "output": 32000
+          }
+        },
+        "big-pickle": {
+          "limit": {
+            "context": 250000,
+            "output": 32000
+          }
+        },
+        "space-bunny-free": {
+          "limit": {
+            "context": 250000,
+            "output": 32000
+          }
+        },
+        "longcat-2.5-preview-free": {
+          "limit": {
+            "context": 250000,
+            "output": 32000
+          }
+        }
+      }
+    }
   }
 }

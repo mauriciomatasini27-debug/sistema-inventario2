@@ -30,3 +30,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 ## Running sessions
 OpenCode keeps state in one SQLite DB; parallel `opencode run` processes can fail with "database is locked".
 Run one at a time, or start one server and attach: `.opencode/pstack-run.sh` (see its header).
+
+## Session limits and model fallback
+- Every model in use has `limit.context = 250000` in `opencode.json` and `compaction.auto` is on, so no session exceeds 250k context tokens; split large tasks into several sessions by area.
+- `.opencode/pstack-run.sh` retries a failed, stalled (`PSTACK_SESSION_TIMEOUT`, default 700 s) or quota/rate-limited session with the next free Zen model: `big-pickle`, `space-bunny-free`, `longcat-2.5-preview-free` (override with `PSTACK_FALLBACK_MODELS`). It logs `pstack-run: model=...` on stderr. Ask for `opencode/muse-spark-1.3-contributor-free` again on the next session.
