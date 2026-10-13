@@ -6,6 +6,38 @@ export { esModoMulti, tenantPorDefecto };
 
 export type TenantResuelto = { ok: true; tenantId: string } | { ok: false; respuesta: Response };
 
+// Por qué registro central: el middleware corta 403 antes de tocar memoria o
+// base; toda ruta con acceso a base debe caer bajo un prefijo (PRD-ISO-02).
+export const PREFIJOS_DATOS = [
+  "/api/sales",
+  "/api/cash",
+  "/api/credit",
+  "/api/purchase-orders",
+  "/api/supplier-invoices",
+  "/api/suppliers",
+  "/api/prices",
+  "/api/sync",
+  "/api/tickets",
+  "/api/products",
+  "/api/lots",
+  "/api/locations",
+  "/api/returns",
+  "/api/fiscal",
+  "/api/whatsapp/consult",
+  "/api/email/close-summary",
+];
+
+export function esRutaDatos(path: string): boolean {
+  return PREFIJOS_DATOS.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+// Por qué null fuera de datos: el middleware conserva su comportamiento para
+// el resto de rutas; en single resuelve como hoy (tenant por defecto).
+export function gateTenantDatos(request: Request, path: string): TenantResuelto | null {
+  if (!esRutaDatos(path)) return null;
+  return tenantDeRequest(request);
+}
+
 // Por qué el servidor resuelve el tenant: el cliente solo elige entre sus
 // memberships con X-Tenant-Id (ADR-0050). En single no hay sesión y vale hoy.
 export function tenantDeRequest(request: Request): TenantResuelto {

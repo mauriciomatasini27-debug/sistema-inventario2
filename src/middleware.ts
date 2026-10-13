@@ -1,6 +1,8 @@
 import { defineMiddleware } from "astro:middleware";
 import { control } from "./lib/store.js";
 import { membershipActiva, resolverSesion } from "./lib/control.js";
+import { gateTenantDatos } from "./lib/tenant-context.js";
+import { conTenant } from "./lib/tenant-mode.js";
 
 // Valida sesión + membership activa por request contra control (AU7.3).
 // Solo cubre rutas Auth/tenants/invitations: las de Slice-0 (sales, cash, sync)
@@ -13,6 +15,14 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
   const jobSecret = process.env.JOBS_SECRET;
   if (jobSecret && request.headers.get("X-Job-Secret") === jobSecret) {
     return next();
+  }
+
+  // Por qué el gate corre por request: fija el tenant una vez para todo el
+  // plano de datos y corta 403 antes de tocar memoria o base (ADR-0051).
+  const gate = gateTenantDatos(request, path);
+  if (gate) {
+    if (!gate.ok) return gate.respuesta;
+    return conTenant(gate.tenantId, () => next());
   }
 
   const protegida =

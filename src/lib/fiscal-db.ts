@@ -1,7 +1,7 @@
 import { eq, like, sql } from "drizzle-orm";
 import { intentarLeer, intentarPersistir } from "./server-db.js";
 import { getTenantDb } from "./db.js";
-import { esModoMulti } from "./tenant-mode.js";
+import { esModoMulti, tenantActual } from "./tenant-mode.js";
 import { fiscalDocuments, fiscalWizard } from "../db/schema-fiscal.js";
 import type { StoredFiscalDoc } from "./store.js";
 import type { DelegacionEstado, WizardEstado } from "../modules/fiscal/wizard.js";
@@ -175,7 +175,7 @@ export async function reencolarFiscalDoc(
 // usa onConflictDoNothing (gana el primero); los reintentos (retry) mutan
 // solo memoria hasta el cutover con lock de numeración.
 export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promise<boolean> {
-  const dueno = tenantId ?? d.tenant_id ?? null;
+  const dueno = tenantId ?? d.tenant_id ?? tenantActual() ?? null;
   return intentarPersistir((db) =>
     db
       .insert(fiscalDocuments)
@@ -285,7 +285,12 @@ export async function asegurarFiscalDoc(
   d: StoredFiscalDoc,
   tenantId?: string,
 ): Promise<{ doc: StoredFiscalDoc; fuente: "db" | "existe" | "memoria" }> {
-  const dueno = tenantId ?? d.tenant_id ?? null;
+  // Por qué el contexto como dueño: dentro de una ruta de datos el tenant lo
+  // fijó el middleware (ADR-0051); sin dueño en multi no se escribe nada.
+  const dueno = tenantId ?? d.tenant_id ?? tenantActual() ?? null;
+  if (esModoMulti() && !dueno) {
+    throw new Error("Falta tenant: doc fiscal sin dueño en modo multi");
+  }
   const conDueno = { ...d, tenant_id: dueno };
   const db = dbViva(dueno ?? undefined);
   if (!db) return { doc: conDueno, fuente: "memoria" };
