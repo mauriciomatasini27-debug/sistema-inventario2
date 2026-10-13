@@ -62,6 +62,15 @@ Requisito PERS2-7: las 11 rutas de `src/pages/api/cash/` que hoy importan `store
 
 Arch-test AT10: ningún archivo de `src/pages/api/cash/` importa `store` de `lib/store`; el contador global baja de 54.
 
+## Épica PERS2-E8. Rutas sin `store`: facturas de proveedores y órdenes de pago (PERS-S4, grupo 5)
+
+Requisito PERS2-8: las 6 rutas de `src/pages/api/supplier-invoices/` y las 4 de `src/pages/api/payment-orders/` leen y escriben por `src/lib/repos/facturas-proveedor.ts` y `src/lib/repos/ordenes-pago.ts` con DB primero y memoria solo en `single` sin base. Los movimientos de caja que generan los pagos van por `src/lib/repos/caja.ts` (ADR-0053, ADR-0056, ADR-0057).
+
+- Historia PERS2-S14. Facturas de proveedores: borradores, confirmación, descarte, conciliación con órdenes de compra, cuenta corriente y pagos. AC: Given multi con base de A When confirmo un borrador y registro un pago Then quedan en la base de A, B no los ve y las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0057. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S15. Órdenes de pago: preparar, cancelar, confirmar pagada y sugerir desde notificación, con numeración por tenant. AC: Given multi con base de A When preparo una orden Then queda en la base de A con su número y B arranca su propia numeración. ADR: 0057. Talla S. Depende de: PERS2-S2.
+
+Arch-test AT11: ningún archivo de `src/pages/api/{supplier-invoices,payment-orders}/` importa `store` de `lib/store`; el contador global baja de 43.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).

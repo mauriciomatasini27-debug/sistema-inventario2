@@ -78,3 +78,4 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PERS-02` (E5) | `0054` | Repositorio fiscal: rutas `fiscal/*` sin `store`; grupo 2 (2026-10-13) |
 | `PRD-PERS-02` (E6) | `0055` | Repositorios de canales: rutas `whatsapp/*` y `email/*` sin `store`; grupo 3 (2026-10-13) |
 | `PRD-PERS-02` (E7) | `0056` | Repositorio de caja: rutas `cash/*` sin `store`; grupo 4 (2026-10-13) |
+| `PRD-PERS-02` (E8) | `0057` | Repositorios de facturas de proveedores y órdenes de pago sin `store`; grupo 5 (2026-10-13) |
