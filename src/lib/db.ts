@@ -1,5 +1,6 @@
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { esModoMulti } from "./tenant-mode.js";
 
 const clients = new Map<string, ReturnType<typeof postgres>>();
 const dbs = new Map<string, ReturnType<typeof drizzlePg>>();
@@ -40,6 +41,14 @@ export function getControlDb() {
 // Por qué por env y no por parámetro libre: la variable la resuelve el servidor
 // desde control (ADR-0002); el cliente nunca elige la base (evita cross-tenant).
 export function getTenantDb(tenantId?: string) {
+  if (esModoMulti()) {
+    // Por qué fail-closed: sin tenant (o sin base propia) caer a la
+    // compartida mezcla comprobantes entre comercios (ISO-S2).
+    if (!tenantId) throw new Error("Falta tenant");
+    const propia = process.env[`TENANT_DATABASE_URL_${tenantId}`];
+    if (!propia) throw new Error(`Falta TENANT_DATABASE_URL_${tenantId}`);
+    return dbFor(propia);
+  }
   const key = tenantId ? `TENANT_DATABASE_URL_${tenantId}` : "TENANT_DATABASE_URL";
   const url = (tenantId && process.env[key]) || process.env.TENANT_DATABASE_URL;
   if (!url) throw new Error("Falta TENANT_DATABASE_URL");

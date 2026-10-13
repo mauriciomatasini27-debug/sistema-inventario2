@@ -1,15 +1,16 @@
 import { eq, like, sql } from "drizzle-orm";
 import { intentarLeer, intentarPersistir } from "./server-db.js";
 import { getTenantDb } from "./db.js";
+import { esModoMulti } from "./tenant-mode.js";
 import { fiscalDocuments, fiscalWizard } from "../db/schema-fiscal.js";
 import type { StoredFiscalDoc } from "./store.js";
 import type { DelegacionEstado, WizardEstado } from "../modules/fiscal/wizard.js";
 
 export type TenantDb = ReturnType<typeof getTenantDb>;
 
-export function dbViva(): TenantDb | null {
+export function dbViva(tenantId?: string): TenantDb | null {
   try {
-    return getTenantDb();
+    return getTenantDb(tenantId);
   } catch {
     return null;
   }
@@ -22,6 +23,7 @@ function filaAFiscalDoc(f: FilaFiscal): StoredFiscalDoc {
     id: f.id,
     idempotency_key: f.idempotencyKey,
     sale_id: f.saleId ?? "",
+    tenant_id: f.tenantId ?? null,
     cbte_tipo: f.cbteTipo,
     pto_vta: f.ptoVta,
     cbte_nro: f.cbteNro,
@@ -61,6 +63,17 @@ export function unionFiscalDocs(
     if (!out.has(d.idempotency_key)) out.set(d.idempotency_key, d);
   }
   return [...out.values()];
+}
+
+// Por qué null visible en single: filas previas sin dueño siguen como hoy;
+// en multi una fila sin tenant_id no se muestra a nadie (ISO-S4).
+export function soloDelTenant(docs: Iterable<StoredFiscalDoc>, tenantId: string): StoredFiscalDoc[] {
+  const out: StoredFiscalDoc[] = [];
+  for (const d of docs) {
+    if (d.tenant_id === tenantId) out.push(d);
+    else if (!esModoMulti() && (d.tenant_id === undefined || d.tenant_id === null)) out.push(d);
+  }
+  return out;
 }
 
 export async function leerFiscalDocPorKey(db: TenantDb, key: string): Promise<StoredFiscalDoc | null> {
@@ -161,7 +174,8 @@ export async function reencolarFiscalDoc(
 // Memoria sigue mandando; sin DB resuelve false/null. Append-only: el INSERT
 // usa onConflictDoNothing (gana el primero); los reintentos (retry) mutan
 // solo memoria hasta el cutover con lock de numeración.
-export function persistirFiscalDoc(d: StoredFiscalDoc): Promise<boolean> {
+export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promise<boolean> {
+  const dueno = tenantId ?? d.tenant_id ?? null;
   return intentarPersistir((db) =>
     db
       .insert(fiscalDocuments)
@@ -169,6 +183,7 @@ export function persistirFiscalDoc(d: StoredFiscalDoc): Promise<boolean> {
         id: d.id,
         idempotencyKey: d.idempotency_key,
         saleId: d.sale_id,
+        tenantId: dueno,
         cbteTipo: d.cbte_tipo,
         ptoVta: d.pto_vta,
         cbteNro: d.cbte_nro,
@@ -187,15 +202,20 @@ export function persistirFiscalDoc(d: StoredFiscalDoc): Promise<boolean> {
         qrPayload: d.qr_payload,
       })
       .onConflictDoNothing({ target: fiscalDocuments.idempotencyKey }),
+    dueno ?? undefined,
   );
 }
 
-/** Lee todos los docs fiscales desde DB, o null sin DB (el caller usa memoria). */
-export function leerFiscalDocs(): Promise<StoredFiscalDoc[] | null> {
+/** Lee los docs fiscales del tenant desde DB, o null sin DB (el caller usa memoria). */
+export function leerFiscalDocs(tenantId?: string): Promise<StoredFiscalDoc[] | null> {
   return intentarLeer(async (db) => {
-    const filas = await db.select().from(fiscalDocuments);
+    if (tenantId === undefined) {
+      const filas = await db.select().from(fiscalDocuments);
+      return filas.map(filaAFiscalDoc);
+    }
+    const filas = await db.select().from(fiscalDocuments).where(eq(fiscalDocuments.tenantId, tenantId));
     return filas.map(filaAFiscalDoc);
-  });
+  }, tenantId);
 }
 
 type FilaWizard = typeof fiscalWizard.$inferSelect;
@@ -263,9 +283,12 @@ export async function guardarWizard(
  */
 export async function asegurarFiscalDoc(
   d: StoredFiscalDoc,
+  tenantId?: string,
 ): Promise<{ doc: StoredFiscalDoc; fuente: "db" | "existe" | "memoria" }> {
-  const db = dbViva();
-  if (!db) return { doc: d, fuente: "memoria" };
+  const dueno = tenantId ?? d.tenant_id ?? null;
+  const conDueno = { ...d, tenant_id: dueno };
+  const db = dbViva(dueno ?? undefined);
+  if (!db) return { doc: conDueno, fuente: "memoria" };
   try {
     const previo = await leerFiscalDocPorKey(db, d.idempotency_key);
     if (previo) return { doc: previo, fuente: "existe" };
@@ -275,6 +298,7 @@ export async function asegurarFiscalDoc(
         id: d.id,
         idempotencyKey: d.idempotency_key,
         saleId: d.sale_id,
+        tenantId: dueno,
         cbteTipo: d.cbte_tipo,
         ptoVta: d.pto_vta,
         cbteNro: d.cbte_nro,
@@ -297,10 +321,10 @@ export async function asegurarFiscalDoc(
       .returning({ id: fiscalDocuments.id });
     if (!filas[0]) {
       const carrera = await leerFiscalDocPorKey(db, d.idempotency_key);
-      return { doc: carrera ?? d, fuente: "existe" };
+      return { doc: carrera ?? conDueno, fuente: "existe" };
     }
-    return { doc: d, fuente: "db" };
+    return { doc: conDueno, fuente: "db" };
   } catch {
-    return { doc: d, fuente: "memoria" };
+    return { doc: conDueno, fuente: "memoria" };
   }
 }

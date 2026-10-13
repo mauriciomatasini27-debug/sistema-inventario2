@@ -33,6 +33,8 @@ export const fiscalCustomers = pgTable("fiscal_customers", {
 export const fiscalDocuments = pgTable("fiscal_documents", {  id: uuid("id").primaryKey().defaultRandom(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   saleId: uuid("sale_id"),
+  // Dueño del comprobante para aislamiento por tenant (ISO-S3, migración 0015).
+  tenantId: text("tenant_id"),
   cbteTipo: text("cbte_tipo").notNull(),
   ptoVta: text("pto_vta").notNull(),
   cbteNro: bigint("cbte_nro", { mode: "number" }),

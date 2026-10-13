@@ -6,6 +6,7 @@ import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
 import { decidir_nc } from "../../modules/fiscal/nc.js";
 import { desagregar_iva_21 } from "../../modules/fiscal/iva.js";
 import { store } from "../../lib/store.js";
+import { tenantDeRequest } from "../../lib/tenant-context.js";
 
 export const prerender = false;
 
@@ -25,6 +26,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = postReturnsSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
+  // ISO-S3: la NC hereda el tenant del contexto (mismo comercio de la factura).
+  const tenantResuelto = tenantDeRequest(request);
+  const tenantId = tenantResuelto.ok ? tenantResuelto.tenantId : undefined;
 
   const visto = store.returnVistos.get(key);
   if (visto) {
@@ -141,6 +145,7 @@ export const POST: APIRoute = async ({ request }) => {
       id: crypto.randomUUID(),
       idempotency_key: fkey,
       sale_id: b.sale_id,
+      tenant_id: tenantId ?? factura?.tenant_id ?? null,
       cbte_tipo: String(nc_tipo),
       pto_vta: factura?.pto_vta ?? "3",
       cbte_nro: null,
@@ -183,6 +188,7 @@ export const POST: APIRoute = async ({ request }) => {
       id: crypto.randomUUID(),
       idempotency_key: fkey,
       sale_id: b.sale_id,
+      tenant_id: tenantId ?? factura?.tenant_id ?? null,
       cbte_tipo: String(nc_tipo),
       pto_vta: facturaDoc.pto_vta,
       cbte_nro: null,

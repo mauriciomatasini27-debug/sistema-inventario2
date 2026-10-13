@@ -44,6 +44,8 @@ export interface StoredFiscalDoc {
   id: string;
   idempotency_key: string;
   sale_id: string;
+  // Dueño del comprobante para aislamiento por tenant (ISO-S3).
+  tenant_id?: string | null | undefined;
   cbte_tipo: string;
   pto_vta: string;
   cbte_nro: number | null;

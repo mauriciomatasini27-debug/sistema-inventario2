@@ -5,6 +5,7 @@ import { idempotency_key_for_nd } from "../../../modules/fiscal/fiscal.js";
 import { decidir_nd } from "../../../modules/fiscal/nd.js";
 import { desagregar_iva_21 } from "../../../modules/fiscal/iva.js";
 import { store } from "../../../lib/store.js";
+import { tenantDeRequest } from "../../../lib/tenant-context.js";
 import {
   asegurarFiscalDoc,
   dbViva,
@@ -37,6 +38,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = postNdSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
+  // ISO-S3: el doc fiscal se estampa con el tenant del contexto.
+  const tenantResuelto = tenantDeRequest(request);
+  const tenantId = tenantResuelto.ok ? tenantResuelto.tenantId : undefined;
 
   // Pre-check por prefijo ANTES de decidir la rama: el replay choca aunque la
   // factura haya cambiado de estado (frío) entre el POST y el replay.
@@ -71,7 +75,7 @@ export const POST: APIRoute = async ({ request }) => {
   let huboCobro = [...store.movements.values()].some((m) => m.sale_id === b.factura_sale_id);
   if ((!factura || !huboCobro) && db) {
     try {
-      const dbDocs = await leerFiscalDocs();
+      const dbDocs = await leerFiscalDocs(tenantId);
       if (dbDocs) {
         const union = unionFiscalDocs(memDocs, dbDocs);
         factura ??= union.find(
@@ -127,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
       imp_total_centavos: monto.toString(),
       client_ocurred_at: b.client_occurred_at,
     };
-    const r = await asegurarFiscalDoc(doc);
+    const r = await asegurarFiscalDoc(doc, tenantId);
     store.fiscalDocs.set(fkey, r.doc);
     if (r.fuente === "existe") {
       return Response.json(
@@ -173,7 +177,7 @@ export const POST: APIRoute = async ({ request }) => {
     cbtes_asoc_pto_vta: String(decision.cbtesAsoc.ptoVta),
     cbtes_asoc_nro: decision.cbtesAsoc.nro,
   };
-  const r = await asegurarFiscalDoc(doc);
+  const r = await asegurarFiscalDoc(doc, tenantId);
   store.fiscalDocs.set(fkey, r.doc);
   if (r.fuente === "existe") {
     return Response.json(

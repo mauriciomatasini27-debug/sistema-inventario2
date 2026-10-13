@@ -5,6 +5,7 @@ import { desagregar_iva_21 } from "../../modules/fiscal/iva.js";
 // store queda solo por fiscalDocs hasta el cutover fiscal (sección 2 roadmap).
 import { store } from "../../lib/store.js";
 import { asegurarFiscalDoc } from "../../lib/fiscal-db.js";
+import { tenantDeRequest } from "../../lib/tenant-context.js";
 import { registrar_venta } from "../../modules/sales/registro_venta.js";
 import type { TicketEmitido } from "../../modules/sales/vender_mostrador.js";
 
@@ -25,6 +26,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = postSalesSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
+  // ISO-S3: el doc fiscal se estampa con el tenant del contexto.
+  const tenantResuelto = tenantDeRequest(request);
+  const tenantId = tenantResuelto.ok ? tenantResuelto.tenantId : undefined;
 
   // PERS-S1 DB-first: el repo es dueño de snapshot → núcleo → puerta
   // fiscal → 1 tx → espejo memoria. Sin DB (tests/build) resuelve por
@@ -158,7 +162,7 @@ export const POST: APIRoute = async ({ request }) => {
         client_ocurred_at: b.client_occurred_at,
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
-      });
+      }, tenantId);
       store.fiscalDocs.set(fkey, r.doc);
     }
     fiscal_estado = "en_espera_de_datos";
@@ -186,7 +190,7 @@ export const POST: APIRoute = async ({ request }) => {
         client_ocurred_at: b.client_occurred_at,
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
-      });
+      }, tenantId);
       store.fiscalDocs.set(fkey, r.doc);
     }
     fiscal_estado = "pendiente_de_sync";
@@ -214,7 +218,7 @@ export const POST: APIRoute = async ({ request }) => {
         client_ocurred_at: b.client_occurred_at,
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
-      });
+      }, tenantId);
       store.fiscalDocs.set(fkey, r.doc);
     }
     fiscal_estado = store.fiscalDocs.get(fkey)?.estado ?? "pendiente";
