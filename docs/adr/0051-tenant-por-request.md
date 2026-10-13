@@ -1,6 +1,6 @@
 # ADR-0051 - Tenant por request con AsyncLocalStorage para todo el plano de datos
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ISO-02-aislamiento-plano-datos.md`, ADR-0050, ADR-0002, `src/middleware.ts`, `src/lib/db.ts`, `src/lib/server-db.ts`, `src/lib/compras-db.ts`.
+Estado: aceptado (2026-10-13, evidencia: `tests/iso-plano-datos.test.ts`, `-2` y `-3` 21/21 con arch-tests AT3 y AT4, `npm test` 740/742 con solo los 2 de `caja-c11`, commit `bc2f48f`). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ISO-02-aislamiento-plano-datos.md`, ADR-0050, ADR-0002, `src/middleware.ts`, `src/lib/db.ts`, `src/lib/server-db.ts`, `src/lib/compras-db.ts`.
 
 ## Decisión
 
