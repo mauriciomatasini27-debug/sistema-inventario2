@@ -10,8 +10,8 @@ import {
 } from "../../../modules/purchases/facturas.js";
 import { normalizarCuit } from "../../../modules/purchases/proveedores.js";
 import { store } from "../../../lib/store.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import {
-  dbViva,
   leerFacturaPorId,
   leerPagoPorKey,
   leerPagosPorCuit,
@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ahoraIso = new Date().toISOString();
   const cuit = normalizarCuit(b.supplier_cuit);
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     return viaMemoria(b.factura_id, key, cuit, b, ahoraIso, [...store.pagosProv.values()]);
   }

@@ -38,6 +38,21 @@ export function gateTenantDatos(request: Request, path: string): TenantResuelto 
   return tenantDeRequest(request);
 }
 
+// Por qué el job no usa sesión: actúa como Sistema con secreto compartido;
+// en multi exige comercio explícito activo o suspendido (PERS2-S3).
+export function gateJob(request: Request): TenantResuelto | null {
+  const secreto = process.env.JOBS_SECRET;
+  if (!secreto || request.headers.get("X-Job-Secret") !== secreto) return null;
+  if (!esModoMulti()) return { ok: true, tenantId: tenantPorDefecto() };
+  const pedido = request.headers.get("X-Tenant-Id");
+  if (!pedido) return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
+  const tenant = control.tenants.get(pedido);
+  if (!tenant || (tenant.estado !== "activo" && tenant.estado !== "suspendido")) {
+    return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
+  }
+  return { ok: true, tenantId: pedido };
+}
+
 // Por qué el servidor resuelve el tenant: el cliente solo elige entre sus
 // memberships con X-Tenant-Id (ADR-0050). En single no hay sesión y vale hoy.
 export function tenantDeRequest(request: Request): TenantResuelto {

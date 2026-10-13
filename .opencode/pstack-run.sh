@@ -31,7 +31,9 @@ for m in "${modelos[@]}"; do
   timeout "${PSTACK_SESSION_TIMEOUT:-700}" "$OC" run --attach "$URL" --dir "$PWD" -m "$m" "${args[@]}" "$p" </dev/null >"$out" 2>&1
   rc=$?
   set -e
-  if [ $rc -eq 0 ] && ! grep -qiE 'rate.?limit|quota|insufficient.?(balance|funds|credit)|too many requests|"status(Code)?":429|free (tier|usage) (limit|exhausted)' "$out"; then
+  # Por qué solo eventos de error: el texto de la sesión (código, tests) puede
+  # contener "quota" o "429" y no es un fallo del modelo.
+  if [ $rc -eq 0 ] && ! grep -E '^\{"type":"error"' "$out" | grep -qiE 'rate.?limit|quota|insufficient|too many requests|429|exhausted' && ! { grep -q '"type":"error"' "$out" && ! grep -q '"type":"text"' "$out"; }; then
     cat "$out"; echo "pstack-run: done model=$m" >&2; exit 0
   fi
   echo "pstack-run: model=$m failed (rc=$rc), trying next" >&2

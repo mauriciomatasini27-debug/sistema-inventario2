@@ -4,19 +4,12 @@ import { purchaseOrderCreateSchema } from "../../lib/validation.js";
 import { crearOrden } from "../../modules/purchases/proveedores.js";
 import { store } from "../../lib/store.js";
 import { getTenantDb } from "../../lib/db.js";
+import { dbVivaTenant } from "../../lib/server-db.js";
 import { purchaseOrderLines, purchaseOrders } from "../../db/schema-proveedores.js";
 
 export const prerender = false;
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 // POST /api/purchase-orders — crea OC abierta (cerrada jamás se edita).
 // PERS-S4: DB-first. Pre-check por idempotency-key → 409 real aunque la
@@ -50,7 +43,7 @@ export const POST: APIRoute = async ({ request }) => {
     store.purchaseOrders.set(r.orden.id, r.orden);
   };
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     espejo();
     return Response.json({ order_id: r.orden.id, total_centavos: r.orden.totalCentavos.toString() }, { status: 201 });

@@ -1,0 +1,81 @@
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { eq } from "drizzle-orm";
+import { conTenant } from "../src/lib/tenant-mode.js";
+import { getTenantDb } from "../src/lib/db.js";
+import { customerMovements } from "../src/db/schema-credito.js";
+import { POST as ventaFiadoPOST } from "../src/pages/api/credit/sales-on-account.js";
+import { GET as saldoGET } from "../src/pages/api/credit/balance.js";
+
+const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
+const cliente = `pers2-cli-${Date.now().toString(36)}`;
+const clave = `pers2-key-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
+
+function fijarMulti() {
+  process.env.TENANT_MODE = "multi";
+  process.env["TENANT_DATABASE_URL_tenant-a"] = process.env.PG_TEST_URL_A ?? "";
+  process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
+}
+
+function peticionVenta(claveIdem: string): Request {
+  return new Request("http://test/api/credit/sales-on-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": claveIdem },
+    body: JSON.stringify({
+      customer_id: cliente,
+      lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 15000 }],
+      device_code: "DEV-PERS2-01",
+      seq_local: 1,
+      tope_centavos: 999999999,
+      saldo_actual_centavos: 0,
+    }),
+  });
+}
+
+async function borrarCliente() {
+  if (!hayPG) return;
+  fijarMulti();
+  for (const tenant of ["tenant-a", "tenant-b"] as const) {
+    await conTenant(tenant, async () => {
+      const db = getTenantDb();
+      await db.delete(customerMovements).where(eq(customerMovements.customerId, cliente));
+    });
+  }
+}
+
+describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
+  beforeAll(() => {
+    fijarMulti();
+  });
+
+  afterAll(async () => {
+    await borrarCliente();
+    delete process.env.TENANT_MODE;
+    delete process.env["TENANT_DATABASE_URL_tenant-a"];
+    delete process.env["TENANT_DATABASE_URL_tenant-b"];
+  });
+
+  it("el fiado de A se lee con fuente db y B no lo ve", async () => {
+    fijarMulti();
+    const creado = await conTenant("tenant-a", () =>
+      ventaFiadoPOST({ request: peticionVenta(clave) } as never),
+    );
+    expect([201, 409]).toContain(creado.status);
+
+    const saldoA = await conTenant("tenant-a", () =>
+      saldoGET({ url: new URL(`http://test/api/credit/balance?customer_id=${cliente}`) } as never),
+    );
+    expect(saldoA.status).toBe(200);
+    const cuerpoA = await saldoA.json();
+    expect(cuerpoA.fuente).toBe("db");
+    expect(cuerpoA.customer_id).toBe(cliente);
+    expect(cuerpoA.saldo_centavos).toBe("15000");
+
+    const saldoB = await conTenant("tenant-b", () =>
+      saldoGET({ url: new URL(`http://test/api/credit/balance?customer_id=${cliente}`) } as never),
+    );
+    expect(saldoB.status).toBe(200);
+    const cuerpoB = await saldoB.json();
+    expect(cuerpoB.fuente).toBe("db");
+    expect(cuerpoB.saldo_centavos).toBe("0");
+  });
+});

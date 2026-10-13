@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { ticketLinkRevocations, ticketLinks } from "../../../db/schema-tickets.js";
 import {
   bytesABase64Url,
@@ -24,14 +25,6 @@ export const prerender = false;
 // antes. El plano nunca se guarda: solo va el SHA-256 hex.
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -91,7 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
   const publicUrl = `${url.origin}/t/${plano}`;
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) return viaMemoriaPost(key, b, plano, hash, publicUrl);
 
   try {
@@ -198,7 +191,7 @@ export const GET: APIRoute = async ({ request }) => {
   if (!esTokenPlanoValido(token)) return Response.json({ error: "no encontrado" }, { status: 404 });
   const hash = sha256Hex(token);
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (db) {
     try {
       const filas = await db.select().from(ticketLinks).where(eq(ticketLinks.tokenHash, hash)).limit(1);
@@ -269,7 +262,7 @@ export const DELETE: APIRoute = async ({ request }) => {
     return Response.json({ error: "faltan campos" }, { status: 422 });
   }
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (db) {
     try {
       const linksDb = await db.select().from(ticketLinks).where(eq(ticketLinks.saleId, b.sale_id));

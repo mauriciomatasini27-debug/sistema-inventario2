@@ -3,19 +3,12 @@ import { eq } from "drizzle-orm";
 import { supplierInputSchema, crearSupplier, normalizarCuit } from "../../modules/purchases/proveedores.js";
 import { store } from "../../lib/store.js";
 import { getTenantDb } from "../../lib/db.js";
+import { dbVivaTenant } from "../../lib/server-db.js";
 import { suppliers } from "../../db/schema-proveedores.js";
 
 export const prerender = false;
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 // POST /api/suppliers — alta de proveedor (FP). 409 si el CUIT ya existe.
 // PERS-S4: DB-first. Pre-check por CUIT + onConflictDoNothing con relectura:
@@ -47,7 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
     store.suppliers.set(cuit, r.supplier);
   };
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     espejo();
     return Response.json({ supplier_id: r.supplier.id, cuit: r.supplier.cuit }, { status: 201 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { control, resetStore, store, type StoredFiscalDoc } from "../src/lib/store.js";
+import { conTenant } from "../src/lib/tenant-mode.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { GET as GETHistory } from "../src/pages/api/fiscal/history.js";
@@ -71,23 +72,30 @@ function pedirHistory(init?: { cookie?: string; tenant?: string }) {
   const headers = new Headers();
   if (init?.cookie) headers.set("cookie", init.cookie);
   if (init?.tenant) headers.set("X-Tenant-Id", init.tenant);
-  return GETHistory({
-    request: new Request("http://x/api/fiscal/history", { headers }),
-    url: new URL("http://x/api/fiscal/history"),
-  } as never) as Promise<Response>;
+  return conTenant(TA, () =>
+    GETHistory({
+      request: new Request("http://x/api/fiscal/history", { headers }),
+      url: new URL("http://x/api/fiscal/history"),
+    } as never),
+  ) as Promise<Response>;
 }
 
 beforeEach(() => {
   resetStore();
   delete process.env.TENANT_DATABASE_URL;
+  // El legado sin dueño queda en single para la regresión sin TENANT_MODE.
+  store.fiscalDocs.set("doc-legado", docFiscal("doc-legado"));
   process.env.TENANT_MODE = "multi";
   sembrarTenant(TA, "user-a");
   sembrarTenant(TB, "user-b");
   sembrarMembership(TA, "user-a");
   sembrarMembership(TB, "user-b");
-  store.fiscalDocs.set("doc-a", docFiscal("doc-a", TA));
-  store.fiscalDocs.set("doc-b", docFiscal("doc-b", TB));
-  store.fiscalDocs.set("doc-legado", docFiscal("doc-legado"));
+  // Semilla por tenant: en multi la memoria exige contexto (PERS2-S1).
+  conTenant(TA, () => {
+    store.fiscalDocs.set("doc-a", docFiscal("doc-a", TA));
+    store.fiscalDocs.set("doc-b", docFiscal("doc-b", TB));
+    store.fiscalDocs.set("doc-legado", docFiscal("doc-legado"));
+  });
 });
 
 afterEach(() => {

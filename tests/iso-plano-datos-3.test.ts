@@ -41,6 +41,6 @@ describe("ISO-S8 dueño desde el contexto", () => {
     process.env.TENANT_MODE = "multi";
     const r = await conTenant("tenant-a", () => asegurarFiscalDoc(doc("k-ctx")));
     expect(r.doc.tenant_id).toBe("tenant-a");
-    expect(store.fiscalDocs.size).toBe(0);
+    expect(conTenant("tenant-a", () => store.fiscalDocs.size)).toBe(0);
   });
 });

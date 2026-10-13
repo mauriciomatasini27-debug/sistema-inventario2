@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { store } from "../../../lib/store.js";
-import { intentarLeer } from "../../../lib/server-db.js";
+import { BaseNoDisponible, intentarLeer } from "../../../lib/server-db.js";
 import { customerMovements } from "../../../db/schema-credito.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../../modules/credit/saldos.js";
 
@@ -27,16 +27,25 @@ export const GET: APIRoute = async ({ url }) => {
   const customerId = url.searchParams.get("customer_id") ?? "";
   if (!customerId) return Response.json({ error: "falta customer_id" }, { status: 422 });
   const hoyMs = Number(url.searchParams.get("hoy_ms") ?? Date.now());
-  const filas = await intentarLeer((db) =>
-    db
-      .select({
-        debe: customerMovements.debeCentavos,
-        haber: customerMovements.haberCentavos,
-        ocurridoEn: customerMovements.clientOccurredAt,
-      })
-      .from(customerMovements)
-      .where(eq(customerMovements.customerId, customerId)),
-  );
+  // PERS2-S2: en multi sin base del tenant no se cae a memoria; 503 central.
+  let filas;
+  try {
+    filas = await intentarLeer((db) =>
+      db
+        .select({
+          debe: customerMovements.debeCentavos,
+          haber: customerMovements.haberCentavos,
+          ocurridoEn: customerMovements.clientOccurredAt,
+        })
+        .from(customerMovements)
+        .where(eq(customerMovements.customerId, customerId)),
+    );
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) {
+      return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    }
+    throw e;
+  }
   if (filas) {
     const saldo = derivar_saldo(filas.map((f) => ({ debeCentavos: BigInt(f.debe), haberCentavos: BigInt(f.haber) })));
     let diasMax = 0;

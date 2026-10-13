@@ -1,8 +1,9 @@
 import { defineMiddleware } from "astro:middleware";
 import { control } from "./lib/store.js";
 import { membershipActiva, resolverSesion } from "./lib/control.js";
-import { gateTenantDatos } from "./lib/tenant-context.js";
+import { gateJob, gateTenantDatos } from "./lib/tenant-context.js";
 import { conTenant } from "./lib/tenant-mode.js";
+import { BaseNoDisponible } from "./lib/server-db.js";
 
 // Valida sesión + membership activa por request contra control (AU7.3).
 // Solo cubre rutas Auth/tenants/invitations: las de Slice-0 (sales, cash, sync)
@@ -12,9 +13,18 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
 
   // Por qué los jobs van por header y no por sesión: actúan como "Sistema" con
   // permisos mínimos, sin heredar los de ningún usuario (AU4.8).
-  const jobSecret = process.env.JOBS_SECRET;
-  if (jobSecret && request.headers.get("X-Job-Secret") === jobSecret) {
-    return next();
+  // PERS2-S3: en multi el job corre dentro del tenant explícito.
+  const trabajo = gateJob(request);
+  if (trabajo) {
+    if (!trabajo.ok) return trabajo.respuesta;
+    try {
+      return await conTenant(trabajo.tenantId, () => next());
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      }
+      throw e;
+    }
   }
 
   // Por qué el gate corre por request: fija el tenant una vez para todo el
@@ -22,7 +32,16 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
   const gate = gateTenantDatos(request, path);
   if (gate) {
     if (!gate.ok) return gate.respuesta;
-    return conTenant(gate.tenantId, () => next());
+    // PERS2-S2: en multi la base no disponible del tenant no cae a memoria;
+    // el error central llega acá y la ruta responde 503 base_no_disponible.
+    try {
+      return await conTenant(gate.tenantId, () => next());
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      }
+      throw e;
+    }
   }
 
   const protegida =

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { syncPullQuerySchema } from "../../../lib/validation.js";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { idMappings, outbox } from "../../../db/schema.js";
 
 export const prerender = false;
@@ -15,14 +16,6 @@ export const prerender = false;
 // Responde lote + cursor_nuevo + mappings provisorio->definitivo + catálogo mínimo.
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 function viaMemoria(start: number, limite: number): Response {
   const entries = Array.from(store.outbox.entries());
@@ -61,7 +54,7 @@ export const GET: APIRoute = async ({ request }) => {
     return Response.json({ error: "cursor inválido" }, { status: 422 });
   }
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) return viaMemoria(start, limite);
 
   try {

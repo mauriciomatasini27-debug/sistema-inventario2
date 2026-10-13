@@ -4,19 +4,12 @@ import { closeOrderSchema } from "../../../lib/validation.js";
 import { cerrarOrden, type EstadoOC, type PurchaseOrder } from "../../../modules/purchases/proveedores.js";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { purchaseOrderLines, purchaseOrders } from "../../../db/schema-proveedores.js";
 
 export const prerender = false;
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 // El id de dominio es oc-<idempotency-key> (ver crearOrden): inverso definido.
 function claveDeOrden(orderId: string): string | null {
@@ -60,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ahoraIso = new Date().toISOString();
 
   const enMemoria = store.purchaseOrders.get(b.order_id);
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return Response.json({ error: "orden inexistente" }, { status: 404 });
     const r = cerrarOrden(enMemoria, b.quien, ahoraIso);

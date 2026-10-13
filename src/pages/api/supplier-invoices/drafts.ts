@@ -2,7 +2,8 @@ import type { APIRoute } from "astro";
 import { draftIngestSchema } from "../../../lib/validation.js";
 import { ingerirBorrador } from "../../../modules/purchases/facturas.js";
 import { store } from "../../../lib/store.js";
-import { dbViva, itemsADb, leerBorradorPorKey } from "../../../lib/compras-db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
+import { itemsADb, leerBorradorPorKey } from "../../../lib/compras-db.js";
 import { supplierDrafts } from "../../../db/schema-proveedores.js";
 
 export const prerender = false;
@@ -50,7 +51,7 @@ export const POST: APIRoute = async ({ request }) => {
     store.borradores.set(r.borrador.id, r.borrador);
   };
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     espejo();
     return Response.json({ draft_id: r.borrador.id, aviso_revisar: r.avisoRevisar }, { status: 201 });

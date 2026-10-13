@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { draftResolveSchema } from "../../../../lib/validation.js";
 import { descartarBorrador } from "../../../../modules/purchases/facturas.js";
 import { store } from "../../../../lib/store.js";
-import { dbViva, leerBorradorPorId } from "../../../../lib/compras-db.js";
+import { dbVivaTenant } from "../../../../lib/server-db.js";
+import { leerBorradorPorId } from "../../../../lib/compras-db.js";
 import { supplierDrafts } from "../../../../db/schema-proveedores.js";
 
 export const prerender = false;
@@ -24,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ahoraIso = new Date().toISOString();
 
   const enMemoria = store.borradores.get(b.draft_id);
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return Response.json({ error: "borrador inexistente" }, { status: 404 });
     const r = descartarBorrador(enMemoria, ahoraIso);

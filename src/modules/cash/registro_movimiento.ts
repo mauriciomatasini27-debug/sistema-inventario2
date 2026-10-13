@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { dbVivaTenant } from "../../lib/server-db.js";
 import { cashMovements } from "../../db/schema.js";
 import { store, type StoredMovement } from "../../lib/store.js";
 import type { Medio } from "../../lib/validation.js";
@@ -26,13 +27,8 @@ export type RegistroMovimientoFallo =
 type TenantDb = ReturnType<typeof getTenantDb>;
 type FilaMovimiento = typeof cashMovements.$inferSelect;
 
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
+// PERS2-S2: la disponibilidad de DB la resuelve el helper central
+// (dbVivaTenant: null en single, BaseNoDisponible en multi).
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -76,7 +72,7 @@ export async function registrar_movimiento_db_first(
   const regla = reglasDominio(i);
   if (regla) return regla;
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     const dup = store.movements.find((m) => m.idempotency_key === i.key);
     if (dup) return { ok: false, codigo: "DUPLICADO", status: 409, original: dup };

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { creditPaymentSchema } from "../../../lib/validation.js";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { cashMovements } from "../../../db/schema.js";
 import { customerMovements } from "../../../db/schema-credito.js";
 import { cobro_fiado } from "../../../modules/credit/fiado.js";
@@ -15,14 +16,6 @@ export const prerender = false;
 // histórica resuelve igual que antes y el cobro no se pierde.
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -75,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
   });
   if (!r.ok) return Response.json({ error: r.codigo }, { status: r.status as number });
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     const dup = store.creditMovs.find((m) => m.key === key);
     if (dup) return Response.json({ error: "idempotency-key repetida" }, { status: 409 });

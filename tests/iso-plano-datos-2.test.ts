@@ -98,8 +98,8 @@ describe("ISO-S7 wizard y delegacion usan el tenant del contexto en multi", () =
   it("POST wizard sin tenant_id usa el contexto y guarda con esa clave", async () => {
     const r = await conTenant(TA, () => postWizard({ accion: "avanzar", paso: 1 }));
     expect(r.status).toBe(200);
-    expect(store.fiscalWizard.has(TA)).toBe(true);
-    expect(store.fiscalWizard.has(TB)).toBe(false);
+    expect(conTenant(TA, () => store.fiscalWizard.has(TA))).toBe(true);
+    expect(conTenant(TB, () => store.fiscalWizard.has(TB))).toBe(false);
   });
 
   it("POST delegacion-confirmada con tenant_id ajeno responde 403 E5", async () => {
@@ -112,7 +112,7 @@ describe("ISO-S7 wizard y delegacion usan el tenant del contexto en multi", () =
   it("POST delegacion-confirmada sin tenant_id usa el contexto", async () => {
     const r = await conTenant(TA, () => postDelegacion({ cuit: "20123456789" }));
     expect(r.status).toBe(201);
-    expect(store.fiscalWizard.has(TA)).toBe(true);
+    expect(conTenant(TA, () => store.fiscalWizard.has(TA))).toBe(true);
   });
 
   it("GET wizard con tenant_id ajeno responde 403 E5", async () => {
@@ -141,9 +141,9 @@ describe("ISO-S7 regresion modo single", () => {
 
 describe("ISO-S8 doc huerfano en multi se rechaza sin tocar memoria", () => {
   it("asegurarFiscalDoc sin tenant ni contexto rechaza y no escribe", async () => {
-    const antes = store.fiscalDocs.size;
+    const antes = conTenant(TA, () => store.fiscalDocs.size);
     await expect(asegurarFiscalDoc(docHuerfano("huerfano-1"))).rejects.toThrow(/tenant/i);
-    expect(store.fiscalDocs.size).toBe(antes);
+    expect(conTenant(TA, () => store.fiscalDocs.size)).toBe(antes);
   });
 });
 

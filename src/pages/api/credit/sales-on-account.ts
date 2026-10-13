@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { creditSaleSchema } from "../../../lib/validation.js";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { customerMovements } from "../../../db/schema-credito.js";
 import { lotesDesdeStock, type Sku } from "../../../modules/inventario/inventario.js";
 import { venta_a_cuenta } from "../../../modules/credit/fiado.js";
@@ -15,14 +16,6 @@ export const prerender = false;
 // antes y la venta no se pierde. El descuento de stock en la misma tx llega con N1 CAT.
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -68,7 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (r.efecto.ticket.definitivo) store.nextTicket += 1;
   };
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     const dup = store.creditMovs.find((m) => m.key === key);
     if (dup) return Response.json({ error: "idempotency-key repetida" }, { status: 409 });

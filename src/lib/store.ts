@@ -12,6 +12,7 @@ import type { FacturaServicio } from "../modules/utilities/facturas_servicios.js
 import type { Payee } from "../modules/payments/beneficiarios.js";
 import type { PaymentOrder, PagoConfirmado } from "../modules/payments/ordenes.js";
 import type { EventoResumen, OutboxPendiente } from "../modules/email/resumen-cierre.js";
+import { esModoMulti, tenantActual } from "./tenant-mode.js";
 
 export interface StoredTicket {
   sale_id: string;
@@ -94,7 +95,14 @@ export interface StoredReturn {
 // Adaptador en memoria para Slice-0: el núcleo es puro; la tx real Postgres con
 // lock de numeración vive en Drizzle (ver schema.ts). Este store comparte estado
 // entre rutas en el mismo proceso para que build/tests no exijan DB viva.
-export const store = {
+// PERS2-S1: en multi cada tenant tiene su propia partición (mismas claves);
+// fuera de contexto en multi acceder lanza `Falta tenant`. `control` sigue
+// global: es el plano de control, no datos de un comercio.
+// Por qué factory + Proxy: la forma del estado se define una sola vez y `store`
+// resuelve la partición del tenant actual en cada acceso (sin ciclos: solo se
+// importa tenant-mode, que no toca store ni db).
+function crearEstado() {
+  return {
   idempotency: new Map<string, StoredTicket>(),
   movements: [] as StoredMovement[],
   stockMoves: [] as StoredStockMovement[],
@@ -193,81 +201,124 @@ export const store = {
   // (minúsculas) -> { object_key, upload_url, expira_en }. En memoria en
   // Slice-0; el cutover a Postgres/R2 lo unifica con media_items.
   mediaUploads: new Map<string, { objectKey: string; uploadUrl: string; expiraEn: string; contentType: string; moduloOrigen: string }>(),
-};
+  };
+}
+
+export type EstadoStore = ReturnType<typeof crearEstado>;
+
+const particiones = new Map<string, EstadoStore>();
+const estadoSingle: EstadoStore = crearEstado();
+
+function estadoActual(): EstadoStore {
+  if (!esModoMulti()) return estadoSingle;
+  const tenant = tenantActual();
+  if (!tenant) throw new Error("Falta tenant");
+  let estado = particiones.get(tenant);
+  if (!estado) {
+    estado = crearEstado();
+    particiones.set(tenant, estado);
+  }
+  return estado;
+}
+
+export const store: EstadoStore = new Proxy({} as EstadoStore, {
+  get(_objetivo, prop) {
+    const estado = estadoActual();
+    const valor = Reflect.get(estado, prop);
+    return typeof valor === "function" ? valor.bind(estado) : valor;
+  },
+  set(_objetivo, prop, valor) {
+    Reflect.set(estadoActual(), prop, valor);
+    return true;
+  },
+  has(_objetivo, prop) {
+    return Reflect.has(estadoActual(), prop);
+  },
+  ownKeys() {
+    return Reflect.ownKeys(estadoActual());
+  },
+  getOwnPropertyDescriptor(_objetivo, prop) {
+    return Reflect.getOwnPropertyDescriptor(estadoActual(), prop);
+  },
+});
 
 export function resetStore() {
-  store.idempotency.clear();
-  store.movements = [];
-  store.stockMoves = [];
-  store.outbox.clear();
-  store.deviceSeq.clear();
-  store.nextTicket = 1;
-  store.stock = new Map([["demo-sku-1", 10]]);
-  store.prices = new Map([["demo-sku-1", 15000]]);
-  store.fiscalDocs.clear();
-  store.fiscalLastNumber = 0;
-  store.returns.clear();
-  store.returnVistos.clear();
-  store.nextReturn = 1;
-  store.turnos.clear();
-  store.turnoVistos.clear();
-  store.shiftKeys.clear();
-  store.drops.clear();
-  store.dropVistos.clear();
-  store.cierres.clear();
-  store.reversiones.clear();
-  store.reversionVistos.clear();
-  store.auditoria = [];
-  store.correcciones.clear();
-  store.ajustes.clear();
-  store.creditVistos.clear();
-  store.creditMovs = [];
-  store.productSectores.clear();
-  store.productos.clear();
-  store.codigos.clear();
-  store.fotosProducto.clear();
-  store.lotes.clear();
-  store.ubicaciones.clear();
-  store.qrRecibos.clear();
-  store.vencimientosCaja.clear();
-  store.ticketPagos.clear();
-  store.conteos = [];
-  store.conteoVistos.clear();
-  store.suppliers.clear();
-  store.purchaseOrders.clear();
-  store.orderVistos.clear();
-  store.borradores.clear();
-  store.borradorVistos.clear();
-  store.facturasProv.clear();
-  store.pagosProv.clear();
-  store.supplierMatchLog = [];
-  store.serviceAccounts.clear();
-  store.utilityBills.clear();
-  store.utilityBillsByMessage.clear();
-  store.payees.clear();
-  store.paymentOrders.clear();
-  store.paymentOrderVistos.clear();
-  store.paymentPagosVistos.clear();
-  store.payOrderCounter = 1;
-  store.emailEventos.clear();
-  store.emailOutbox.clear();
-  store.promociones.clear();
-  store.ocrJobs.clear();
-  store.ocrJobsByKey.clear();
-  store.ocrEventos = [];
-  store.fiscalWizard.clear();
-  store.fiscalHistorial = [];
-  store.waSessions.clear();
-  store.waEnviados.clear();
-  store.waFriday.clear();
-  store.ticketLinks.clear();
-  store.ticketLinksByHash.clear();
-  store.ticketLinkVistos.clear();
-  store.ticketLinkRevocaciones.clear();
-  store.ticketLinkRevokeVistos.clear();
-  store.ticketEnviosCentral.clear();
-  store.  deviceSync.clear();
-  store.mediaUploads.clear();
+  // Por qué limpiar todas: en multi fuera de contexto (setup de tests) no hay
+  // partición actual; se descartan todas y se resetea la de single.
+  if (esModoMulti() && !tenantActual()) particiones.clear();
+  const s = esModoMulti() && !tenantActual() ? estadoSingle : estadoActual();
+  s.idempotency.clear();
+  s.movements = [];
+  s.stockMoves = [];
+  s.outbox.clear();
+  s.deviceSeq.clear();
+  s.nextTicket = 1;
+  s.stock = new Map([["demo-sku-1", 10]]);
+  s.prices = new Map([["demo-sku-1", 15000]]);
+  s.fiscalDocs.clear();
+  s.fiscalLastNumber = 0;
+  s.returns.clear();
+  s.returnVistos.clear();
+  s.nextReturn = 1;
+  s.turnos.clear();
+  s.turnoVistos.clear();
+  s.shiftKeys.clear();
+  s.drops.clear();
+  s.dropVistos.clear();
+  s.cierres.clear();
+  s.reversiones.clear();
+  s.reversionVistos.clear();
+  s.auditoria = [];
+  s.correcciones.clear();
+  s.ajustes.clear();
+  s.creditVistos.clear();
+  s.creditMovs = [];
+  s.productSectores.clear();
+  s.productos.clear();
+  s.codigos.clear();
+  s.fotosProducto.clear();
+  s.lotes.clear();
+  s.ubicaciones.clear();
+  s.qrRecibos.clear();
+  s.vencimientosCaja.clear();
+  s.ticketPagos.clear();
+  s.conteos = [];
+  s.conteoVistos.clear();
+  s.suppliers.clear();
+  s.purchaseOrders.clear();
+  s.orderVistos.clear();
+  s.borradores.clear();
+  s.borradorVistos.clear();
+  s.facturasProv.clear();
+  s.pagosProv.clear();
+  s.supplierMatchLog = [];
+  s.serviceAccounts.clear();
+  s.utilityBills.clear();
+  s.utilityBillsByMessage.clear();
+  s.payees.clear();
+  s.paymentOrders.clear();
+  s.paymentOrderVistos.clear();
+  s.paymentPagosVistos.clear();
+  s.payOrderCounter = 1;
+  s.emailEventos.clear();
+  s.emailOutbox.clear();
+  s.promociones.clear();
+  s.ocrJobs.clear();
+  s.ocrJobsByKey.clear();
+  s.ocrEventos = [];
+  s.fiscalWizard.clear();
+  s.fiscalHistorial = [];
+  s.waSessions.clear();
+  s.waEnviados.clear();
+  s.waFriday.clear();
+  s.ticketLinks.clear();
+  s.ticketLinksByHash.clear();
+  s.ticketLinkVistos.clear();
+  s.ticketLinkRevocaciones.clear();
+  s.ticketLinkRevokeVistos.clear();
+  s.ticketEnviosCentral.clear();
+  s.  deviceSync.clear();
+  s.mediaUploads.clear();
   control.users.clear();
   control.tenants.clear();
   control.databases.clear();

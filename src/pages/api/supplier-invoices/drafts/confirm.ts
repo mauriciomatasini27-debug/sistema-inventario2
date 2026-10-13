@@ -5,8 +5,8 @@ import { confirmarBorrador, type Borrador, type Factura } from "../../../../modu
 import { vincular_auto, type MatchLogEntry } from "../../../../modules/purchases/matching.js";
 import { cerrarOrden } from "../../../../modules/purchases/proveedores.js";
 import { store } from "../../../../lib/store.js";
+import { dbVivaTenant } from "../../../../lib/server-db.js";
 import {
-  dbViva,
   itemsADb,
   leerBorradorPorId,
   leerBorradorPorKey,
@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
   const b = parsed.data;
   const ahoraIso = new Date().toISOString();
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   const enMemoria = store.borradores.get(b.draft_id);
   const base: Borrador | null =
     enMemoria ?? (db ? ((await leerBorradorPorId(db, b.draft_id))?.borrador ?? null) : null);

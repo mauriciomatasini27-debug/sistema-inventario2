@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { dbVivaTenant } from "../../lib/server-db.js";
 import {
   cashMovements,
   products,
@@ -81,14 +82,8 @@ function filaVentaJson(f: FilaVenta): Record<string, unknown> {
   return { ...f, totalCentavos: f.totalCentavos.toString() };
 }
 
-// Sin env/conexión devuelve null y el caller usa memoria (tests/build).
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
+// PERS2-S2: la disponibilidad de DB la resuelve el helper central
+// (dbVivaTenant: null en single, BaseNoDisponible en multi).
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -197,7 +192,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
 }
 
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) return viaMemoria(i);
 
   // 409 antes de numerar, misma respuesta que el pre-check histórico.

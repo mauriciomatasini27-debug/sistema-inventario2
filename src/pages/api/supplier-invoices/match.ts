@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { matchearBorrador, type OrdenMatchable } from "../../../modules/purchases/matching.js";
 import { store } from "../../../lib/store.js";
-import { dbViva, leerBorradorPorId, leerOrdenesDb, unionOrdenes } from "../../../lib/compras-db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
+import { leerBorradorPorId, leerOrdenesDb, unionOrdenes } from "../../../lib/compras-db.js";
 
 export const prerender = false;
 
@@ -35,7 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "falta draft_id" }, { status: 422 });
   }
   const enMemoria = store.borradores.get(draftId);
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return Response.json({ error: "borrador inexistente" }, { status: 404 });
     if (enMemoria.cuit === null || enMemoria.totalCentavos === null) {

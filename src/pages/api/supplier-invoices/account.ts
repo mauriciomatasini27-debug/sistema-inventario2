@@ -2,7 +2,8 @@ import type { APIRoute } from "astro";
 import { estadoCuenta } from "../../../modules/purchases/facturas.js";
 import { normalizarCuit } from "../../../modules/purchases/proveedores.js";
 import { store } from "../../../lib/store.js";
-import { dbViva, leerFacturasPorCuit, leerPagosPorCuit } from "../../../lib/compras-db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
+import { leerFacturasPorCuit, leerPagosPorCuit } from "../../../lib/compras-db.js";
 
 export const prerender = false;
 
@@ -20,7 +21,7 @@ export const GET: APIRoute = async ({ url }) => {
   const soloMemoria = () =>
     estadoCuenta(ncuit, [...store.facturasProv.values()], [...store.pagosProv.values()]);
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) return Response.json(json(soloMemoria()));
 
   try {

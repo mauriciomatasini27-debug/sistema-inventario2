@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { syncPushSchema } from "../../../lib/validation.js";
 import { store } from "../../../lib/store.js";
 import { getTenantDb } from "../../../lib/db.js";
+import { dbVivaTenant } from "../../../lib/server-db.js";
 import { idMappings, outbox } from "../../../db/schema.js";
 
 export const prerender = false;
@@ -13,14 +14,6 @@ export const prerender = false;
 // vía memoria histórica resuelve igual que antes y la venta no se pierde.
 
 type TenantDb = ReturnType<typeof getTenantDb>;
-
-function dbViva(): TenantDb | null {
-  try {
-    return getTenantDb();
-  } catch {
-    return null;
-  }
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -84,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
   const b = parsed.data;
   if (key !== b.op_id) return Response.json({ error: "Idempotency-Key debe igualar op_id" }, { status: 422 });
 
-  const db = dbViva();
+  const db = dbVivaTenant();
   if (!db) return viaMemoria(b);
 
   try {

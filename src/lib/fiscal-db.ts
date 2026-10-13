@@ -1,5 +1,5 @@
 import { eq, like, sql } from "drizzle-orm";
-import { intentarLeer, intentarPersistir } from "./server-db.js";
+import { BaseNoDisponible, intentarLeer, intentarPersistir } from "./server-db.js";
 import { getTenantDb } from "./db.js";
 import { esModoMulti, tenantActual } from "./tenant-mode.js";
 import { fiscalDocuments, fiscalWizard } from "../db/schema-fiscal.js";
@@ -207,15 +207,21 @@ export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promi
 }
 
 /** Lee los docs fiscales del tenant desde DB, o null sin DB (el caller usa memoria). */
-export function leerFiscalDocs(tenantId?: string): Promise<StoredFiscalDoc[] | null> {
-  return intentarLeer(async (db) => {
-    if (tenantId === undefined) {
-      const filas = await db.select().from(fiscalDocuments);
+export async function leerFiscalDocs(tenantId?: string): Promise<StoredFiscalDoc[] | null> {
+  try {
+    return await intentarLeer(async (db) => {
+      if (tenantId === undefined) {
+        const filas = await db.select().from(fiscalDocuments);
+        return filas.map(filaAFiscalDoc);
+      }
+      const filas = await db.select().from(fiscalDocuments).where(eq(fiscalDocuments.tenantId, tenantId));
       return filas.map(filaAFiscalDoc);
-    }
-    const filas = await db.select().from(fiscalDocuments).where(eq(fiscalDocuments.tenantId, tenantId));
-    return filas.map(filaAFiscalDoc);
-  }, tenantId);
+    }, tenantId);
+  } catch (e) {
+    // Fiscal sigue en cutover pendiente (PERS-S4): sin base del tenant, memoria.
+    if (e instanceof BaseNoDisponible) return null;
+    throw e;
+  }
 }
 
 type FilaWizard = typeof fiscalWizard.$inferSelect;
