@@ -1,6 +1,6 @@
 # ADR-0053 - Repositorios de dominio en `src/lib/repos/`: rutas sin `store`
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E4), ADR-0024 (PERS-S4, PERS-S5), ADR-0052, `node scripts/cutover-scope.mjs`.
+Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E4), ADR-0024 (PERS-S4, PERS-S5), ADR-0052, `node scripts/cutover-scope.mjs`.
 
 ## Decisión
 
@@ -21,3 +21,11 @@ Borrar la memoria de golpe: rompe dev, build y la suite que corre sin base. Deja
 ## Pendientes
 
 Grupos siguientes de PERS-S4 y PERS-S5.
+
+## Evidencia de aceptación (2026-10-13)
+
+- Commits: ff349d8 (tickets), 8a10729 (precios y proveedores).
+- `npm test`: 762 passed, 2 failed (caja-c11 preexistentes), 4 skipped.
+- Tests PG con Postgres local (`PG_TEST_URL_A/B`): 5/5 en `tests/pers2-precios-proveedores.test.ts`. Filas de A solo en la base de A, cero en B.
+- `tsc --noEmit`: 1 error preexistente. `npm run build`: OK.
+- Rutas en `src/pages/api` que importan `store`: 71 → 66.

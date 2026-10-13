@@ -36,7 +36,7 @@ Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
 1. Arreglar el journal de migraciones: `drizzle/meta/_journal.json` solo registra `0000`; `0001` a `0006` no están y hay dos `0004` (`0004_auth_append_only.sql`, `0004_ticket_links.sql`). Talla S.
-2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Grupo 1 (tickets, precios, proveedores) según PRD-PERS-02 PERS2-E4 y ADR-0053: 71 rutas importan `store` hoy.
+2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Grupo 1 (tickets, precios, proveedores) según PRD-PERS-02 PERS2-E4 y ADR-0053: Grupo 1 aceptado (ADR-0053): quedan 66 rutas que importan `store`.
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
 5. PWA: `photos_queue`, cifrado y borrado remoto (PWA-S4, PWA-S5, ADR-0025).
