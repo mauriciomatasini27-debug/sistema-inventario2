@@ -209,4 +209,18 @@ describe.skipIf(!hayPG)("PERS2-S6/S7 multi con PG local: ajuste idempotente y CU
     });
     expect(filasB.length).toBe(0);
   });
+
+  it("B crea el mismo CUIT que A sin colisión (201) y cada base tiene una fila", async () => {
+    fijarMulti();
+    const cuerpo = { cuit: cuitPG, nombre: "Proveedor PG cruzado" };
+    const rA = await conTenant("tenant-a", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    expect([201, 409]).toContain((rA as Response).status);
+    const rB = await conTenant("tenant-b", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    expect((rB as Response).status).toBe(201);
+    const digitos = normalizarCuit(cuitPG);
+    for (const t of ["tenant-a", "tenant-b"] as const) {
+      const filas = await conTenant(t, async () => getTenantDb().select().from(suppliers).where(eq(suppliers.cuit, digitos)));
+      expect(filas.length).toBe(1);
+    }
+  });
 });
