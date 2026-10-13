@@ -1,29 +1,24 @@
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
 import { postNdSchema } from "../../../lib/validation.js";
 import { idempotency_key_for_nd } from "../../../modules/fiscal/fiscal.js";
 import { decidir_nd } from "../../../modules/fiscal/nd.js";
 import { desagregar_iva_21 } from "../../../modules/fiscal/iva.js";
-import { store } from "../../../lib/store.js";
 import { tenantDeRequest } from "../../../lib/tenant-context.js";
 import {
-  asegurarFiscalDoc,
-  dbViva,
-  leerFiscalDocs,
-  leerNdPorHeaderKey,
-  unionFiscalDocs,
-} from "../../../lib/fiscal-db.js";
-import { cashMovements } from "../../../db/schema.js";
+  asegurarDoc,
+  buscarFacturaParaNd,
+  buscarNdPrevio,
+  hayCobroParaVenta,
+} from "../../../lib/repos/fiscal.js";
 
 export const prerender = false;
 
 // POST /api/fiscal/nd — ND manual solo Dueño (FE-S16, slice homo).
 // Slice-0: sin sesión exige header X-Rol: dueno (empleado → 403).
 // Vinculada a factura 11/6/1 autorizada con CbtesAsoc + caja asociada si hubo cobro.
-// PERS-S4 G2a: DB-first. El header Idempotency-Key es la idempotencia real:
-// la clave repetida responde 409 aunque la memoria esté fría. La factura y el
-// cobro se leen en unión (memoria caliente + DB fría). Espejo memoria tras el
-// insert; sin DB o ante caída, la vía memoria histórica resuelve igual.
+// PERS2-S8: el repo fiscal resuelve DB-first. El header Idempotency-Key es la
+// idempotencia real: la clave repetida responde 409 aunque la memoria esté
+// fría. La factura y el cobro se leen en unión (memoria caliente + DB fría).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
@@ -44,56 +39,16 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Pre-check por prefijo ANTES de decidir la rama: el replay choca aunque la
   // factura haya cambiado de estado (frío) entre el POST y el replay.
-  const prefijo = `nd:${key}:`;
-  const memPrevio = [...store.fiscalDocs.values()].find((d) => d.idempotency_key.startsWith(prefijo));
+  const memPrevio = await buscarNdPrevio(key);
   if (memPrevio) {
     return Response.json(
       { error: "idempotency-key repetida", original: { nd_id: memPrevio.id, fiscal_estado: memPrevio.estado, nd_tipo: Number(memPrevio.cbte_tipo) } },
       { status: 409 },
     );
   }
-  const db = dbViva();
-  if (db) {
-    try {
-      const previoDb = await leerNdPorHeaderKey(db, key);
-      if (previoDb) {
-        store.fiscalDocs.set(previoDb.idempotency_key, previoDb);
-        return Response.json(
-          { error: "idempotency-key repetida", original: { nd_id: previoDb.id, fiscal_estado: previoDb.estado, nd_tipo: Number(previoDb.cbte_tipo) } },
-          { status: 409 },
-        );
-      }
-    } catch {
-      // Caída de DB en el pre-check: se sigue a la vía memoria.
-    }
-  }
 
-  const memDocs = [...store.fiscalDocs.values()];
-  let factura = memDocs.find(
-    (d) => d.sale_id === b.factura_sale_id && (d.cbte_tipo === "11" || d.cbte_tipo === "6" || d.cbte_tipo === "1"),
-  );
-  let huboCobro = [...store.movements.values()].some((m) => m.sale_id === b.factura_sale_id);
-  if ((!factura || !huboCobro) && db) {
-    try {
-      const dbDocs = await leerFiscalDocs(tenantId);
-      if (dbDocs) {
-        const union = unionFiscalDocs(memDocs, dbDocs);
-        factura ??= union.find(
-          (d) => d.sale_id === b.factura_sale_id && (d.cbte_tipo === "11" || d.cbte_tipo === "6" || d.cbte_tipo === "1"),
-        );
-      }
-      if (!huboCobro) {
-        const cobros = await db
-          .select({ id: cashMovements.id })
-          .from(cashMovements)
-          .where(eq(cashMovements.saleId, b.factura_sale_id))
-          .limit(1);
-        huboCobro = cobros.length > 0;
-      }
-    } catch {
-      // Caída de DB en lecturas: se sigue con lo que vio la memoria.
-    }
-  }
+  const factura = await buscarFacturaParaNd(b.factura_sale_id, tenantId);
+  const huboCobro = await hayCobroParaVenta(b.factura_sale_id);
   const decision = decidir_nd(
     factura
       ? { cbteTipo: Number(factura.cbte_tipo), ptoVta: Number(factura.pto_vta), cbteNro: factura.cbte_nro, estado: factura.estado }
@@ -131,8 +86,7 @@ export const POST: APIRoute = async ({ request }) => {
       imp_total_centavos: monto.toString(),
       client_ocurred_at: b.client_occurred_at,
     };
-    const r = await asegurarFiscalDoc(doc, tenantId);
-    store.fiscalDocs.set(fkey, r.doc);
+    const r = await asegurarDoc(doc, tenantId);
     if (r.fuente === "existe") {
       return Response.json(
         { error: "idempotency-key repetida", original: { nd_id: r.doc.id, fiscal_estado: r.doc.estado, nd_tipo: Number(r.doc.cbte_tipo) } },
@@ -177,8 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
     cbtes_asoc_pto_vta: String(decision.cbtesAsoc.ptoVta),
     cbtes_asoc_nro: decision.cbtesAsoc.nro,
   };
-  const r = await asegurarFiscalDoc(doc, tenantId);
-  store.fiscalDocs.set(fkey, r.doc);
+  const r = await asegurarDoc(doc, tenantId);
   if (r.fuente === "existe") {
     return Response.json(
       { error: "idempotency-key repetida", original: { nd_id: r.doc.id, fiscal_estado: r.doc.estado, nd_tipo: Number(r.doc.cbte_tipo) } },

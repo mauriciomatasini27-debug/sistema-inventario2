@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
-import { store } from "../../../lib/store.js";
-import { leerFiscalDocs, soloDelTenant, unionFiscalDocs } from "../../../lib/fiscal-db.js";
+import { listarFiscalDocs } from "../../../lib/repos/fiscal.js";
 import { tenantDeRequest } from "../../../lib/tenant-context.js";
 import { filtrar_historial, historial_a_csv } from "../../../modules/fiscal/historial.js";
 
@@ -16,9 +15,7 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
   const formato = url.searchParams.get("formato") ?? "csv";
   if (formato !== "csv") return Response.json({ error: "formato no soportado" }, { status: 422 });
-  const memoria = soloDelTenant([...store.fiscalDocs.values()], t.tenantId);
-  const dbDocs = await leerFiscalDocs(t.tenantId);
-  const docs = filtrar_historial(dbDocs ? unionFiscalDocs(memoria, dbDocs) : memoria, {
+  const docs = filtrar_historial(await listarFiscalDocs(t.tenantId), {
     desde: url.searchParams.get("desde") ?? undefined,
     hasta: url.searchParams.get("hasta") ?? undefined,
     tipo: url.searchParams.get("tipo") ?? undefined,

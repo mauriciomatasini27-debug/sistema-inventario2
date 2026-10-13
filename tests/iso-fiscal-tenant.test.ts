@@ -147,8 +147,11 @@ describe("ISO arch-tests", () => {
   it("AT2: rutas fiscales de lectura nunca llaman leerFiscalDocs() sin tenant", () => {
     for (const r of ["documents", "history", "export"]) {
       const src = readFileSync(`src/pages/api/fiscal/${r}.ts`, "utf8");
-      expect(src, r).toMatch(/leerFiscalDocs\(t\.tenantId\)/);
-      expect(src, r).not.toMatch(/leerFiscalDocs\(\)/);
+      // ADR-0054: la lectura pasa por src/lib/repos/fiscal.ts, siempre con tenant.
+      expect(src, r).toMatch(/listarFiscalDocs\(t\.tenantId\)/);
+      expect(src, r).not.toMatch(/(leer|listar)FiscalDocs\(\)/);
     }
+    const repo = readFileSync("src/lib/repos/fiscal.ts", "utf8");
+    expect(repo).not.toMatch(/leerFiscalDocs\(\)/);
   });
 });

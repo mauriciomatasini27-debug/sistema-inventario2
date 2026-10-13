@@ -1,8 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { fiscalWizardSchema } from "../../../lib/validation.js";
-import { store } from "../../../lib/store.js";
-import { dbViva, guardarWizard, leerWizardPorTenant } from "../../../lib/fiscal-db.js";
+import { guardarWizardEstado, leerWizard } from "../../../lib/repos/fiscal.js";
 import { esModoMulti, tenantActual } from "../../../lib/tenant-mode.js";
 import { wizard_avanzar, wizard_inicial, wizard_pausar, wizard_resumir, type DelegacionEstado } from "../../../modules/fiscal/wizard.js";
 
@@ -26,7 +25,7 @@ function tenantFiscal(pedido?: string): { ok: true; tenantId: string } | { ok: f
 export const prerender = false;
 
 // Wizard fiscal pasos 0-6 con pausa (FE-S4). Tenant en body (slice homo).
-// PERS-S4 G2b: DB-first con espejo memoria. Sin DB el camino memoria resuelve igual.
+// PERS2-S9: el repo fiscal lee y guarda fiscal_wizard del tenant.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -45,15 +44,12 @@ export const POST: APIRoute = async ({ request }) => {
     tenantId = (parsed.data as { tenant_id: string }).tenant_id;
   }
   const b = parsed.data;
-  const db = dbViva(tenantId);
-  const cur = store.fiscalWizard.get(tenantId) ?? (db ? await leerWizardPorTenant(db, tenantId) : null) ?? { paso: 0, delegacion: "pendiente" as DelegacionEstado, pausaEn: null };
+  const cur = await leerWizard(tenantId);
   let next = cur;
   if (b.accion === "avanzar" && b.paso !== undefined) next = { ...wizard_avanzar({ ...wizard_inicial(), ...cur }, b.paso) };
   else if (b.accion === "pausar") next = { ...wizard_pausar({ ...wizard_inicial(), ...cur }) };
   else if (b.accion === "resumir") next = { ...wizard_resumir({ ...wizard_inicial(), ...cur }) };
-  const guardado = await guardarWizard(db, tenantId, next);
-  const final = guardado ?? next;
-  store.fiscalWizard.set(tenantId, final);
+  const final = await guardarWizardEstado(tenantId, next);
   return Response.json(final, { status: 200 });
 };
 
@@ -61,18 +57,9 @@ export const GET: APIRoute = async ({ url }) => {
   const pedido = url.searchParams.get("tenant_id");
   if (!esModoMulti()) {
     if (!pedido) return Response.json({ error: "falta tenant_id" }, { status: 422 });
-    const mem = store.fiscalWizard.get(pedido);
-    if (mem) return Response.json(mem, { status: 200 });
-    const db = dbViva(pedido);
-    const frio = db ? await leerWizardPorTenant(db, pedido) : null;
-    return Response.json(frio ?? { paso: 0, delegacion: "pendiente" as DelegacionEstado, pausaEn: null }, { status: 200 });
+    return Response.json(await leerWizard(pedido), { status: 200 });
   }
   const t = tenantFiscal(pedido ?? undefined);
   if (!t.ok) return t.respuesta;
-  const tenant = t.tenantId;
-  const mem = store.fiscalWizard.get(tenant);
-  if (mem) return Response.json(mem, { status: 200 });
-  const db = dbViva(tenant);
-  const frio = db ? await leerWizardPorTenant(db, tenant) : null;
-  return Response.json(frio ?? { paso: 0, delegacion: "pendiente" as DelegacionEstado, pausaEn: null }, { status: 200 });
+  return Response.json(await leerWizard(t.tenantId), { status: 200 });
 };

@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { store } from "../../../lib/store.js";
-import { dbViva, guardarWizard, leerWizardPorTenant } from "../../../lib/fiscal-db.js";
+import { guardarWizardEstado, leerWizard } from "../../../lib/repos/fiscal.js";
 import { esModoMulti, tenantActual } from "../../../lib/tenant-mode.js";
 import { confirmar_delegacion, wizard_inicial } from "../../../modules/fiscal/wizard.js";
 
@@ -38,11 +37,9 @@ export const POST: APIRoute = async ({ request }) => {
     tenantId = (parsed.data as { tenant_id: string }).tenant_id;
   }
   const b = parsed.data;
-  const db = dbViva(tenantId);
-  const cur = store.fiscalWizard.get(tenantId) ?? (db ? await leerWizardPorTenant(db, tenantId) : null) ?? { ...wizard_inicial() };
+  const cur = await leerWizard(tenantId);
   const next = { ...confirmar_delegacion({ ...wizard_inicial(), ...cur }) };
-  const guardado = await guardarWizard(db, tenantId, next);
-  store.fiscalWizard.set(tenantId, guardado ?? next);
+  await guardarWizardEstado(tenantId, next);
   const clave = `delegacion:${tenantId}:${b.cuit}`;
   try {
     if (process.env.CONTROL_DATABASE_URL) {
