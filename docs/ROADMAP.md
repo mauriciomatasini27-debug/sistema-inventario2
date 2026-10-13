@@ -98,7 +98,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 2. PRD-CAJA-01: QR, vencimientos y pagos divididos (CAJA-S1 a S4, ADR-0027).
 3. OCR definitivo Fase 0 (PaddleOCR propio vs Vision/Textract, ADR-0005).
 4. Compras, consumos y órdenes de pago (FP1-FP12, CS1-CS12 con Gmail `users.watch`, OP1-OP13): cableado real a verificar; dependen de OCR y PERS.
-5. Extender aislamiento por tenant (PRD-ISO-01 Pendientes, ADR-0050) a ventas, caja, fiado, compras, precios, sync y tickets: 13 rutas y `src/lib/compras-db.ts` llaman `getTenantDb()` sin tenant; `wizard.ts` sin `tenant_id` del body. L.
+5. Aislamiento por tenant del plano de datos según `diseno/PRD-ISO-02-aislamiento-plano-datos.md` (ISO-S5 a S9, ADR-0051): tenant por request en el middleware, `getTenantDb()` desde el contexto, wizard sin `tenant_id` del body, sin escrituras huérfanas y backfill en seco. M.
 
 ### 8. Legal y fiscal
 1. Consulta con contador y abogado: Ley 25.326, leyenda del ticket, ARCA y facturación de la suscripción.
@@ -140,6 +140,8 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0049-supabase-driver-pooler.md` | cubierto | Para implementar 1.3 |
 | `diseno/PRD-ISO-01` | cubierto | Ya implementado (Aislamiento fiscal) |
 | `adr/0050-aislamiento-fiscal-por-tenant.md` | cubierto | Ya implementado (Aislamiento fiscal) |
+| `diseno/PRD-ISO-02` | cubierto | Para implementar 7.5 |
+| `adr/0051-tenant-por-request.md` | cubierto | Para implementar 7.5 |
 | `01-fundacion/costos-por-cliente.md` | cubierto | 6 Planes y precios |
 | `01-fundacion/modo-offline.md` | cubierto | Ya implementado PWA/Sync; 1.4, 1.5; 2.11 CAEA |
 | `01-fundacion/verificacion-fuente-oficial.md` | cubierto | 8.2 |

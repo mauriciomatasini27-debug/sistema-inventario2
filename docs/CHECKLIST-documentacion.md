@@ -86,3 +86,4 @@ Marca una casilla solo con evidencia en archivo mas test en verde. No cambies la
 - [ ] Auth AU-01 y AU-02. Evidencia. Test `login` a `callback` con cookies y `next` con allowlist. Hoy requiere verificacion. Ver `docs/diseno/PRD-AU-01-login-endurecido.md`.
 - [x] Test `fiscal-cableado.test.ts:41`. Evidencia. Suite en verde 2026-10-12. Fix en `src/modules/fiscal/worker.ts`. Hoy verde. Ver `CHECKLIST:26`.
 - [ ] Aislamiento fiscal por tenant. Evidencia. Test de fuga cruzada en verde mas `leerFiscalDocs(tenantId)` con `where tenant_id`. Hoy `fiscal-db.ts:196` lee la tabla entera. Ver `docs/diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`.
+- [ ] Aislamiento del plano de datos. Evidencia. Arch-test AT3 en verde mas 403 en multi sin tenant en rutas de datos. Hoy 13 rutas y `compras-db.ts` llaman `getTenantDb()` sin tenant. Ver `docs/diseno/PRD-ISO-02-aislamiento-plano-datos.md`.
