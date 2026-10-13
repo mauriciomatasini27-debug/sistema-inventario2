@@ -35,6 +35,15 @@ Requisito PERS2-4: las rutas de `tickets`, `prices` y `suppliers` no importan `s
 
 Arch-test AT7: ningún archivo de `src/pages/api/{tickets,prices,suppliers}*` importa `lib/store`; contador global de rutas con `store` baja de 71.
 
+## Épica PERS2-E5. Rutas sin `store`: fiscal (PERS-S4, grupo 2)
+
+Requisito PERS2-5: las 8 rutas de `src/pages/api/fiscal/` no importan valores de `src/lib/store.ts` (un `import type` se permite); leen y escriben comprobantes, ND y wizard por `src/lib/repos/fiscal.ts`, que envuelve `src/lib/fiscal-db.ts` con DB primero y memoria solo en `single` sin base (ADR-0053, ADR-0054).
+
+- Historia PERS2-S8. Comprobantes: `fiscal/documents`, `history`, `export`, `emitir`, `retry` y `nd` usan el repositorio (lectura, alta idempotente por clave, reintento, ND por clave de cabecera y su movimiento). AC: Given multi con base de A When emito un comprobante Then queda en `fiscal_documents` de A, B no lo ve en `history` y la ruta no importa `store`; Given single sin base Then se comporta como hoy. ADR: 0054, 0052. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S9. Wizard: `fiscal/wizard` y `fiscal/delegacion-confirmada` leen y guardan el estado por `fiscal_wizard` del tenant. AC: Given multi con base de A When avanzo el wizard Then el estado queda en la base de A y B arranca de cero. ADR: 0054. Talla S. Depende de: PERS2-S2.
+
+Arch-test AT8: ningún archivo de `src/pages/api/fiscal/` importa valores de `lib/store`; el contador global baja de 66.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
