@@ -417,7 +417,6 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
   const ventaKey = `sec-pg-v-${sufijoPG}`;
   const opId = randomUUID();
   const device = `caja-sec-${sufijoPG}`.slice(0, 32);
-  let ultimoPrevio = 0;
 
   beforeAll(async () => {
     fijarMulti();
@@ -428,9 +427,6 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
         sql`insert into products (sku, nombre, precio_centavos, stock_actual) values (${sku}, 'SEC PG', 15000, 10) on conflict (sku) do nothing`,
       );
       await db.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
-      const filas = await db.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).limit(1);
-      ultimoPrevio = filas[0]?.ultimo ?? 0;
-      await db.update(ticketCounters).set({ ultimo: 0 }).where(eq(ticketCounters.id, "mostrador"));
     });
     await conTenant("tenant-a", () => {
       store.nextTicket = 1;
@@ -449,7 +445,6 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
       await db.delete(products).where(eq(products.sku, sku));
-      await db.update(ticketCounters).set({ ultimo: ultimoPrevio }).where(eq(ticketCounters.id, "mostrador"));
     });
     delete process.env.TENANT_MODE;
     delete process.env["TENANT_DATABASE_URL_tenant-a"];
@@ -469,14 +464,17 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
     );
     expect((v as Response).status).toBe(201);
     const ticketVenta = ((await (v as Response).json()) as { ticket_definitivo: string }).ticket_definitivo;
-    expect(ticketVenta).toBe("T-000001");
+    // PERS5-S3: relativo, nunca absoluto: mostrador de A se comparte con
+    // otros archivos en paralelo (sin reset a 0: rompería su monotonía).
+    expect(ticketVenta).toMatch(/^T-\d{6}$/);
 
     const push = await conTenant("tenant-a", () => postPush({ request: pushReq(opId, 1, device) } as never));
     expect((push as Response).status).toBe(201);
     const pr = await conTenant("tenant-a", () => postPromote({ request: promoteReq(opId, 1, device) } as never));
     expect((pr as Response).status).toBe(201);
     const ticketSync = ((await (pr as Response).json()) as { ticket_definitivo: string }).ticket_definitivo;
-    expect(ticketSync).toBe("T-000002");
+    expect(ticketSync).toMatch(/^T-\d{6}$/);
     expect(new Set([ticketVenta, ticketSync]).size).toBe(2);
+    expect(Number(ticketSync.slice(2))).toBeGreaterThan(Number(ticketVenta.slice(2)));
   });
 });

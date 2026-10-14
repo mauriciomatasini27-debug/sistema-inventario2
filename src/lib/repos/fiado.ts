@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { customerMovements } from "../../db/schema-credito.js";
+import { SERIE_MOSTRADOR, ticketCounters } from "../../db/schema.js";
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
 import { store } from "../store.js";
 import type { Medio } from "../validation.js";
 import { lotesDesdeStock, type Sku } from "../../modules/inventario/inventario.js";
 import { cobro_fiado, venta_a_cuenta } from "../../modules/credit/fiado.js";
+import { siguiente_numero } from "../../modules/sales/vender_mostrador.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
 import { registrarIngresoCobro } from "./caja.js";
 
@@ -48,6 +50,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   if (store.creditVistos.has(input.key)) {
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
+  const nt = store.nextTicket;
   const r = venta_a_cuenta({
     idempotencyKey: input.key,
     customerId: input.customerId,
@@ -58,7 +61,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     // Ningun repo cubre lotes FIFO: se leen de la memoria particionada.
     lotes: lotesDesdeStock(store.stock),
     vistos: new Map(),
-    ultimoDefinitivo: store.nextTicket > 1 ? { n: store.nextTicket - 1 } : null,
+    ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
     saldoActualCentavos: BigInt(input.saldoActualCentavos),
     topeCentavos: BigInt(input.topeCentavos),
     rol: "dueno",
@@ -69,35 +72,59 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   }
   const total = input.lineas.reduce((acc, l) => acc + BigInt(l.qty) * BigInt(l.precioCentavos), 0n);
 
-  const espejoMemoria = () => {
+  const espejoMemoria = (ticket: string | null, siguiente: number | null) => {
     // Sin tabla propia: vistos y movimientos en memoria (durable via UNIQUE).
     store.creditVistos.set(input.key, { customer_id: input.customerId });
     store.creditMovs.push({ customer_id: input.customerId, debe: total.toString(), haber: "0", key: input.key, fecha_ms: Date.now() });
-    // Sin tabla de numeracion en este dominio: el contador vive en memoria.
-    if (r.efecto.ticket.definitivo) store.nextTicket += 1;
+    // Espejo del correlativo T-*: en memoria avanza de a uno; con base viva
+    // se alinea al número dado por ticket_counters (PERS5-S3).
+    if (ticket) {
+      const actual = store.nextTicket;
+      store.nextTicket = siguiente !== null ? Math.max(actual, siguiente) : actual + 1;
+    }
   };
 
   const db = dbVivaTenant();
   if (!db) {
     const dup = store.creditMovs.find((m) => m.key === input.key);
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    espejoMemoria();
+    espejoMemoria(r.efecto.ticket.definitivo, null);
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 
   try {
-    const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
-    if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    await db.insert(customerMovements).values({
-      customerId: input.customerId,
-      tipo: "venta",
-      debeCentavos: total,
-      haberCentavos: 0n,
-      idempotencyKey: input.key,
-      clientOccurredAt: new Date(),
+    const salida = await db.transaction(async (tx) => {
+      // PERS5-S3: el número sale de ticket_counters (serie mostrador,
+      // FOR UPDATE) en la misma tx que inserta customer_movements, igual
+      // que ventas y promote: sin T-* repetidos entre los tres.
+      let filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_MOSTRADOR)).for("update");
+      if (!filas[0]) {
+        await tx.insert(ticketCounters).values({ id: SERIE_MOSTRADOR, ultimo: 0 }).onConflictDoNothing();
+        filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_MOSTRADOR)).for("update");
+      }
+      const ultimo = filas[0]?.ultimo ?? 0;
+      const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+      if (previo[0]) return { estado: "repetida" } as const;
+      // Sin definitivo (offline) no consume número, igual que ventas.
+      const definitivo = r.efecto.ticket.definitivo !== null;
+      const n = definitivo ? ultimo + 1 : ultimo;
+      const ticket = definitivo ? siguiente_numero(ultimo > 0 ? { n: ultimo } : null) : null;
+      await tx.insert(customerMovements).values({
+        customerId: input.customerId,
+        tipo: "venta",
+        debeCentavos: total,
+        haberCentavos: 0n,
+        idempotencyKey: input.key,
+        clientOccurredAt: new Date(),
+      });
+      if (definitivo) await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_MOSTRADOR));
+      return { estado: "ok", ticket, n } as const;
     });
-    espejoMemoria();
-    return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "db" };
+    if (salida.estado === "repetida") {
+      return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
+    }
+    espejoMemoria(salida.ticket, salida.n + 1);
+    return { ok: true, ticketDefinitivo: salida.ticket, totalCentavos: total.toString(), fuente: "db" };
   } catch (e) {
     if (esConflictoUnico(e)) {
       try {
@@ -113,7 +140,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     if (store.creditVistos.has(input.key)) {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    espejoMemoria();
+    espejoMemoria(r.efecto.ticket.definitivo, null);
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 }

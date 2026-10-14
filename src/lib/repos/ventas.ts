@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import { sales } from "../../db/schema.js";
+import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
 import { store, type StoredFiscalDoc } from "../store.js";
 import type { Medio } from "../validation.js";
 import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
@@ -11,7 +11,9 @@ import { desagregar_iva_21 } from "../../modules/fiscal/iva.js";
 import {
   registrar_devolucion,
   siguiente_numero_devolucion,
+  type DevolucionResult,
   type DevolucionSeq,
+  type EfectoDevolucion,
 } from "../../modules/sales/devoluciones.js";
 import { corregir_medio, type CorreccionOk } from "../../modules/sales/correccion_medio.js";
 import { LEYENDA_NO_FISCAL } from "../../modules/sales/vender_mostrador.js";
@@ -23,7 +25,9 @@ import { acumuladoNcParaVenta, asegurarDoc, buscarFacturaParaNd } from "./fiscal
 // PERS2-S25/S26 (ADR-0063): devoluciones y correcciones de medio. DB primero
 // via dbVivaTenant(); solo en single sin base usa la memoria particionada. En
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (503).
-// nextReturn has no table: el correlativo vive en memoria del repo.
+// PERS5-S2 (ADR-0080): el correlativo D-* sale de ticket_counters (serie
+// devolucion, FOR UPDATE) en la misma tx que inserta sale_returns;
+// store.nextReturn queda como fuente solo en single sin base y como espejo.
 
 function aBaseNoDisponible(e: unknown): BaseNoDisponible {
   return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
@@ -100,19 +104,9 @@ export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
   }
 }
 
-async function ultimoNumeroDevolucion(db: TenantDb | null): Promise<DevolucionSeq | null> {
-  let n = store.nextReturn > 1 ? store.nextReturn - 1 : 0;
-  if (db) {
-    try {
-      const filas = await db.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
-      for (const f of filas) {
-        const m = /^D-(\d+)$/.exec(f.numero);
-        if (m) n = Math.max(n, Number(m[1]));
-      }
-    } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    }
-  }
+function ultimoNumeroDevolucion(): DevolucionSeq | null {
+  const nr = store.nextReturn;
+  const n = nr > 1 ? nr - 1 : 0;
   return n > 0 ? { n } : null;
 }
 
@@ -153,6 +147,11 @@ function espejoMemoriaDevolucion(
   if (n >= store.nextReturn) store.nextReturn = n + 1;
 }
 
+type SalidaTxDevolucion =
+  | { readonly estado: "repetida"; readonly original: VistoDevolucion }
+  | { readonly estado: "fallo"; readonly fallo: Extract<DevolucionResult, { ok: false }> }
+  | { readonly estado: "ok"; readonly numero: string; readonly efecto: EfectoDevolucion };
+
 export async function registrarDevolucion(input: RegistrarDevolucionInput): Promise<RegistrarDevolucionResultado> {
   const visto = await leerVistoDevolucion(input.key);
   if (visto) return { ok: false, status: 409, error: "idempotency-key repetida", original: visto };
@@ -167,23 +166,24 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
 
   // Puerta de escritura: en multi sin base propaga BaseNoDisponible (503).
   const db = dbVivaTenant();
-  const ultimo = await ultimoNumeroDevolucion(db);
 
-  const dev = registrar_devolucion({
-    idempotencyKey: input.key,
-    saleId: input.saleId,
-    ventaTotalCentavos: ventaTotal,
-    acumuladoPrevioCentavos: acumuladoPrevio,
-    montoCentavos: input.montoCentavos,
-    items: input.items.map((it) => ({ sku: it.sku as Sku, cantidad: it.cantidad })),
-    medio: input.medio,
-    fueAcuenta: false,
-    motivo: input.motivo,
-    actor: input.actor,
-    ultimoDevolucion: ultimo,
-    vistos: new Map(),
-  });
-  if (!dev.ok) {
+  const nucleo = (ultimo: DevolucionSeq | null) =>
+    registrar_devolucion({
+      idempotencyKey: input.key,
+      saleId: input.saleId,
+      ventaTotalCentavos: ventaTotal,
+      acumuladoPrevioCentavos: acumuladoPrevio,
+      montoCentavos: input.montoCentavos,
+      items: input.items.map((it) => ({ sku: it.sku as Sku, cantidad: it.cantidad })),
+      medio: input.medio,
+      fueAcuenta: false,
+      motivo: input.motivo,
+      actor: input.actor,
+      ultimoDevolucion: ultimo,
+      vistos: new Map(),
+    });
+
+  const mapearFallo = (dev: Extract<DevolucionResult, { ok: false }>): RegistrarDevolucionResultado => {
     if (dev.codigo === "TOPE_EXCEDIDO") {
       return {
         ok: false,
@@ -193,7 +193,12 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       };
     }
     return { ok: false, status: 422, error: "devolución inválida" };
-  }
+  };
+
+  // Validación de dominio antes de la NC, como antes de PERS5: el número
+  // definitivo se recalcula después (memoria o tx); acá solo decide 422.
+  const previa = nucleo(ultimoNumeroDevolucion());
+  if (!previa.ok) return mapearFallo(previa);
 
   const decision = decidir_nc(
     factura
@@ -220,54 +225,80 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
     };
   }
 
-  const e = dev.efecto;
   const returnId = crypto.randomUUID();
-  const numero = siguiente_numero_devolucion(ultimo);
-  const acumuladoNuevo = acumuladoPrevio + input.montoCentavos;
+  let numero: string;
+  let efecto: EfectoDevolucion;
 
   if (!db) {
+    const ultimo = ultimoNumeroDevolucion();
+    const dev = nucleo(ultimo);
+    if (!dev.ok) return mapearFallo(dev);
+    numero = siguiente_numero_devolucion(ultimo);
+    efecto = dev.efecto;
     espejoMemoriaDevolucion(input.key, returnId, numero, input);
   } else {
     try {
-      const previo = await db.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
-      if (previo[0]) {
-        const v: VistoDevolucion = { numero_devolucion: previo[0].numeroDevolucion, sale_id: previo[0].saleId };
-        store.returnVistos.set(input.key, v);
-        return { ok: false, status: 409, error: "idempotency-key repetida", original: v };
+      const salida = await db.transaction(async (tx): Promise<SalidaTxDevolucion> => {
+        // PERS5-S2: el número sale de ticket_counters (serie devolucion,
+        // FOR UPDATE) en la misma tx que inserta sale_returns, igual que
+        // las ventas con mostrador. El lock serializa devoluciones
+        // concurrentes: sin 409 falsos y sin recorrer sale_returns.
+        let filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_DEVOLUCION)).for("update");
+        if (!filas[0]) {
+          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
+          let maximo = 0;
+          for (const f of previas) {
+            const m = /^D-(\d+)$/.exec(f.numero);
+            if (m) maximo = Math.max(maximo, Number(m[1]));
+          }
+          await tx.insert(ticketCounters).values({ id: SERIE_DEVOLUCION, ultimo: maximo }).onConflictDoNothing();
+          filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_DEVOLUCION)).for("update");
+        }
+        const ultimo = filas[0]?.ultimo ?? 0;
+        const seq = ultimo > 0 ? { n: ultimo } : null;
+        const previo = await tx.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
+        if (previo[0]) {
+          const v: VistoDevolucion = { numero_devolucion: previo[0].numeroDevolucion, sale_id: previo[0].saleId };
+          return { estado: "repetida", original: v };
+        }
+        const dev = nucleo(seq);
+        if (!dev.ok) return { estado: "fallo", fallo: dev };
+        const n = ultimo + 1;
+        const num = siguiente_numero_devolucion(seq);
+        await tx.insert(saleReturns).values({
+          id: returnId,
+          idempotencyKey: input.key,
+          saleId: input.saleId,
+          numeroDevolucion: num,
+          montoCentavos: input.montoCentavos,
+          acumuladoPrevioCentavos: acumuladoPrevio,
+          acumuladoNuevoCentavos: acumuladoPrevio + input.montoCentavos,
+          medio: input.medio,
+          fueAcuenta: false,
+          motivo: input.motivo,
+          actor: input.actor,
+        });
+        await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_DEVOLUCION));
+        return { estado: "ok", numero: num, efecto: dev.efecto };
+      });
+      if (salida.estado === "repetida") {
+        store.returnVistos.set(input.key, salida.original);
+        return { ok: false, status: 409, error: "idempotency-key repetida", original: salida.original };
       }
-      await db.insert(saleReturns).values({
-        id: returnId,
-        idempotencyKey: input.key,
-        saleId: input.saleId,
-        numeroDevolucion: numero,
-        montoCentavos: input.montoCentavos,
-        acumuladoPrevioCentavos: acumuladoPrevio,
-        acumuladoNuevoCentavos: acumuladoNuevo,
-        medio: input.medio,
-        fueAcuenta: false,
-        motivo: input.motivo,
-        actor: input.actor,
-      }).onConflictDoNothing({ target: saleReturns.idempotencyKey });
-      const carrera = await db.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
-      const fila = carrera[0];
-      if (!fila || fila.id !== returnId) {
-        const v: VistoDevolucion = fila
-          ? { numero_devolucion: fila.numeroDevolucion, sale_id: fila.saleId }
-          : { numero_devolucion: numero, sale_id: input.saleId };
-        store.returnVistos.set(input.key, v);
-        return { ok: false, status: 409, error: "idempotency-key repetida", original: v };
-      }
+      if (salida.estado === "fallo") return mapearFallo(salida.fallo);
+      numero = salida.numero;
+      efecto = salida.efecto;
       espejoMemoriaDevolucion(input.key, returnId, numero, input);
     } catch (err) {
       if (esConflictoUnico(err)) {
         try {
           const previo = await db.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
           const f = previo[0];
-          const v: VistoDevolucion = f
-            ? { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId }
-            : { numero_devolucion: numero, sale_id: input.saleId };
-          store.returnVistos.set(input.key, v);
-          return { ok: false, status: 409, error: "idempotency-key repetida", original: v };
+          if (f) {
+            const v: VistoDevolucion = { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId };
+            store.returnVistos.set(input.key, v);
+            return { ok: false, status: 409, error: "idempotency-key repetida", original: v };
+          }
         } catch (err2) {
           if (esModoMulti()) throw aBaseNoDisponible(err2);
         }
@@ -275,9 +306,17 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       } else if (esModoMulti()) {
         throw aBaseNoDisponible(err);
       }
+      // Single con base caída: camino memoria como hoy (la tx revirtió).
+      const ultimo = ultimoNumeroDevolucion();
+      const dev = nucleo(ultimo);
+      if (!dev.ok) return mapearFallo(dev);
+      numero = siguiente_numero_devolucion(ultimo);
+      efecto = dev.efecto;
       espejoMemoriaDevolucion(input.key, returnId, numero, input);
     }
   }
+
+  const e = efecto;
 
   for (const m of e.movimientosStock) {
     await aplicarMovimiento({

@@ -218,7 +218,9 @@ describe.skipIf(!hayPG)("PERS2-S25/S26 multi con PG local: devolución y correcc
     expect((r as Response).status).toBe(201);
     const j = ((await (r as Response).json()) as { fiscal_estado: string; numero_devolucion: string });
     expect(j.fiscal_estado).toBe("sin_factura");
-    expect(j.numero_devolucion).toBe("D-000001");
+    // PERS5-S2: el número sigue el contador devolucion de la base (relativo,
+    // nunca absoluto: la base A se comparte con otros archivos en paralelo).
+    expect(j.numero_devolucion).toMatch(/^D-\d{6}$/);
 
     const filasA = await conTenant("tenant-a", async () => {
       const db = getTenantDb();

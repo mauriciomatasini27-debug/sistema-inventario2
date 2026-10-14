@@ -149,7 +149,9 @@ function espejoMemoria(
     saleId,
     pagosConId.map((p) => ({ medio: p.medio, montoCentavos: String(p.monto_centavos), cashMovementId: p.cashMovementId })),
   );
-  if (e.ticket.definitivo) store.nextTicket += 1;
+  // PERS5-S3: el espejo se alinea al número del ticket (de memoria o de la
+  // base) en vez de sumar 1: tras un reinicio no queda atrás del contador.
+  if (e.ticket.definitivo) store.nextTicket = Math.max(store.nextTicket, Number(e.ticket.definitivo.slice(2)) + 1);
   if (!e.ticket.sobreventa) {
     for (const d of e.descuentos) {
       store.stock.set(d.sku, (store.stock.get(d.sku) ?? 0) - d.cantidad);

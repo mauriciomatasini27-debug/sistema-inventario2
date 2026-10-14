@@ -70,10 +70,14 @@ export const tickets = pgTable("tickets", {
 // PERS-S1 (ADR-0024): correlativo de ticket mostrador sin huecos. Una fila
 // por mostrador con lock FOR UPDATE dentro de la tx de venta; el rollback
 // revierte el incremento. Mismo patrón que fiscal_sequences.
+// PERS5-S1 (ADR-0080): la serie `devolucion` numera D-* con el mismo lock.
 export const ticketCounters = pgTable("ticket_counters", {
   id: text("id").primaryKey(),
   ultimo: integer("ultimo").notNull().default(0),
 });
+
+export const SERIE_MOSTRADOR = "mostrador";
+export const SERIE_DEVOLUCION = "devolucion";
 
 export const ticketLines = pgTable("ticket_lines", {
   id: uuid("id").primaryKey().defaultRandom(),
