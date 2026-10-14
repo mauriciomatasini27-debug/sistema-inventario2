@@ -5,7 +5,26 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      npm-menores:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      astro:
+        patterns: ["astro", "@astrojs/*", "sharp"]
+        update-types: ["major"]
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+        update-types: ["major"]
+      drizzle:
+        patterns: ["drizzle-orm", "drizzle-kit"]
+        update-types: ["major"]
+      seguridad:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
