@@ -1,6 +1,6 @@
 # ADR-0068 - Vitest 2 a 5
 
-Estado: propuesto. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #8, #10, #11 y #15, alertas Dependabot #19, #30, #31, #38 y #39.
+Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #8, #10, #11 y #15, alertas Dependabot #19, #30, #31, #38 y #39.
 
 ## Decisión
 
@@ -29,3 +29,10 @@ Riesgo bajo: solo herramienta de test, no llega al build. Vuelta atrás: reverti
 ## Alternativa descartada
 
 Vitest 4.1.11 (#11): cierra las mismas alertas pero su lockfile no instala y queda una mayor atrás.
+
+## Evidencia de aceptación (2026-10-14)
+
+- Commit: 8bbc9a0, PR #23.
+- CI `ci` verde (run 38505109703).
+- Local con Postgres (`PG_TEST_URL_A/B`): `npx vitest run` 117 archivos, 877 passed (igual que con vitest 2.1.9); `tsc --noEmit` 0 errores; `npm run build` OK.
+- `npm ls tinypool`: vacío (vitest 5 ya no lo usa). `npm audit`: de 3 críticas a 1 (queda `astro`, ADR-0069).
