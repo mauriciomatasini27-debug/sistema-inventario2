@@ -108,7 +108,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 ### 9. Proceso y negocio (no es código)
 1. PRD-NEG-01 catálogo y oferta (ADR-0012; NEG-S8 superado por PRD-LANDING-01), PRD-ADAP-01 adaptación desde ModoOps (ADR-0013), skills PRD-SK-01 a SK-03 (ADR-0014 a 0016): cumplimiento a verificar.
 2. Poda de comentarios de código (PRD-COM-01, ADR-0064 propuesto): aplicar el grupo borrar del plan `diseno/PLAN-COM-01-poda-comentarios.md`, abrir issues del grupo refactor, regla de lint y checklist de PR. Talla M.
-3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 propuesto): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
+3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 aceptado; fase 1 hecha: CRLF, `ctx()`, `FechaAR`, JSON tipado; siguen fases 2 a 5): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
 
 ## Decisiones registradas
 
