@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, afterEach, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { gateJob } from "../src/lib/tenant-context.js";
@@ -339,7 +340,7 @@ describe("PERS2-S19 single sin DB: vencimientos como hoy", () => {
       }),
     } as never)) as Response;
     expect(alta.status).toBe(201);
-    const j = (await postVencLotes({} as never)) as Response;
+    const j = (await postVencLotes(ctx("http://x/api/jobs/vencimientos-lotes", { method: "POST" }))) as Response;
     expect(((await j.json()) as { alertas_3d: unknown[] }).alertas_3d.length).toBe(1);
   });
 

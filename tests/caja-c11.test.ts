@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { GET as GETHistory } from "../src/pages/api/cash/history.js";
 import { GET as GETExport } from "../src/pages/api/cash/export.js";
 import { resetStore, store, type StoredMovement } from "../src/lib/store.js";
@@ -24,7 +25,7 @@ beforeEach(() => {
 });
 
 async function getHistory(qs: string) {
-  const res = (await GETHistory({ url: new URL(`http://localhost/api/cash/history${qs}`) } as never)) as Response;
+  const res = (await GETHistory(ctx(`http://localhost/api/cash/history${qs}`))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
@@ -65,7 +66,7 @@ describe("C11 historial de caja", () => {
 
 describe("C11 export CSV de caja", () => {
   async function getExport(qs: string) {
-    const res = (await GETExport({ url: new URL(`http://localhost/api/cash/export${qs}`) } as never)) as Response;
+    const res = (await GETExport(ctx(`http://localhost/api/cash/export${qs}`))) as Response;
     const copia = res.clone();
     return { status: res.status, text: await res.text(), bytes: new Uint8Array(await copia.arrayBuffer()), headers: res.headers };
   }

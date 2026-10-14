@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { POST as POSTSettings, GET as GETSettings } from "../src/pages/api/fiscal/settings.js";
 import { GET as GETCustomers } from "../src/pages/api/fiscal/customers.js";
@@ -20,7 +21,7 @@ describe("N2-4 fiscal + canales", () => {
     expect(ok.status).toBe(201);
     const bad = (await POSTSettings({ request: req("http://x/api/fiscal/settings", { cuit: "123", razon_social: "X", domicilio: "Y", condicion_iva: "monotributo", inicio_actividades: "2020-01-01", pto_vta: "1" }) } as never)) as Response;
     expect(bad.status).toBe(422);
-    const c = (await GETCustomers({ url: new URL("http://x/api/fiscal/customers?cuit=20933331726") } as never)) as Response;
+    const c = (await GETCustomers(ctx("http://x/api/fiscal/customers?cuit=20933331726"))) as Response;
     expect((await c.json() as { origen: string }).origen).toBe("padron");
   });
   it("email/send 202 sin key + 409 duplicado + jobs/enqueue + MP webhook", async () => {

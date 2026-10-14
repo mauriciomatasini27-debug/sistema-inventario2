@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore } from "../src/lib/store.js";
@@ -89,7 +90,7 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
     const key = `pers2-caja-mov-${Date.now()}`;
     const r = (await postMovements({ request: req("http://x/api/cash/movements", movimientoBody(1), { "Idempotency-Key": key }) } as never)) as Response;
     expect(r.status).toBe(201);
-    const b = (await getBalance({} as never)) as Response;
+    const b = (await getBalance(ctx("http://x/api/cash/balance"))) as Response;
     expect(b.status).toBe(200);
     const j = (await b.json()) as { total: string; fuente: string; por_medio: Record<string, string> };
     expect(j.fuente).toBe("memoria");
@@ -100,7 +101,7 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
   it("history lista lo movido y export lo baja en CSV", async () => {
     const key = `pers2-caja-h-${Date.now()}`;
     await postMovements({ request: req("http://x/api/cash/movements", movimientoBody(2), { "Idempotency-Key": key }) } as never);
-    const h = (await getHistory({ url: new URL("http://x/api/cash/history") } as never)) as Response;
+    const h = (await getHistory(ctx("http://x/api/cash/history"))) as Response;
     expect(h.status).toBe(200);
     const jh = (await h.json()) as { total: number; items: Array<{ idempotency_key: string }>; next_cursor: number | null };
     expect(jh.total).toBe(1);
@@ -157,9 +158,9 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
     expect(r1.status).toBe(201);
     const r2 = (await postQr({ request: req("http://x/api/cash/qr", { numero_operacion: num, monto_centavos: 1000 }, { "Idempotency-Key": "q2" }) } as never)) as Response;
     expect(r2.status).toBe(409);
-    const g = (await getQr({ url: new URL("http://x/api/cash/qr") } as never)) as Response;
+    const g = (await getQr(ctx("http://x/api/cash/qr"))) as Response;
     expect(((await g.json()) as { recibos: unknown[] }).recibos.length).toBe(1);
-    const d = (await deleteQr({ url: new URL(`http://x/api/cash/qr?numero_operacion=${num}`) } as never)) as Response;
+    const d = (await deleteQr(ctx(`http://x/api/cash/qr?numero_operacion=${num}`))) as Response;
     expect(d.status).toBe(200);
   });
 
@@ -167,7 +168,7 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
     const r = (await postDue({ request: req("http://x/api/cash/due-items", { concepto: "Luz", vence_el: new Date().toISOString(), monto_centavos: 2000 }) } as never)) as Response;
     expect(r.status).toBe(201);
     const j = (await r.json()) as { id: string };
-    const g = (await getDue({} as never)) as Response;
+    const g = (await getDue(ctx("http://x/api/cash/due-items"))) as Response;
     const jg = (await g.json()) as { vencimientos: Array<{ id: string; avisa: boolean }> };
     expect(jg.vencimientos.some((v) => v.id === j.id)).toBe(true);
     const p = (await patchDue({ request: req("http://x/api/cash/due-items", {}, { "Idempotency-Key": "d1" }), url: new URL(`http://x/api/cash/due-items?id=${j.id}`) } as never)) as Response;
@@ -182,7 +183,7 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
     const j1 = (await r1.json()) as { fecha_jornada: string; wa: { estado: string } };
     expect(j1.fecha_jornada).toBe(fecha);
     expect(j1.wa.estado).toBe("enviado");
-    const g = (await getClose({ url: new URL(`http://x/api/cash/close?fecha=${fecha}`) } as never)) as Response;
+    const g = (await getClose(ctx(`http://x/api/cash/close?fecha=${fecha}`))) as Response;
     expect(g.status).toBe(200);
     const r2 = (await postClose({ request: req("http://x/api/cash/close", { fecha_jornada: "2026-10-11", close_type: "manual" }, { "Idempotency-Key": `pers2-caja-cierre2-${Date.now()}` }) } as never)) as Response;
     expect(r2.status).toBe(201);
