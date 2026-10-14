@@ -1,6 +1,6 @@
 # ADR-0070 - Drizzle ORM 0.36 a 0.45
 
-Estado: propuesto. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #14, alerta Dependabot #15 (GHSA-gpj5-g38j-94v9), notas de versión de `drizzle-orm` 0.37 a 0.45.
+Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #14, alerta Dependabot #15 (GHSA-gpj5-g38j-94v9), notas de versión de `drizzle-orm` 0.37 a 0.45.
 
 ## Decisión
 
@@ -25,3 +25,10 @@ Riesgo bajo a medio: toca todo acceso a base, pero sin cambio de esquema ni de m
 ## Alternativa descartada
 
 Esperar a drizzle 1.0: deja abierta una inyección SQL.
+
+## Evidencia de aceptación (2026-10-14)
+
+- Commit: 42377e3, PR #25.
+- CI `ci` verde (run 38505249608) con Postgres de servicio y migraciones `drizzle-kit migrate`.
+- Local: `npx vitest run` 877 passed; `npx vitest run tests/pers2` 118 passed contra Postgres; `tsc --noEmit` 0 errores; build OK.
+- `npm audit`: queda 1 alta (`node-forge`, sin versión corregida) y 4 moderadas de `drizzle-kit` (`@esbuild-kit`, solo desarrollo).
