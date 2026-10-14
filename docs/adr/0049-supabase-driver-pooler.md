@@ -1,6 +1,6 @@
 # ADR-0049 - Driver postgres-js con TLS y flags derivados de la URL
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: `src/lib/db.ts`, `docs/migracion-supabase.md`, PRD `diseno/PRD-SUP-01-conexion-supabase.md`.
+Estado: aceptado (parcial) (2026-10-14, evidencia: `src/lib/db.ts` `clientFor` deriva `isTxPooler` (`:6543`) e `isLocal`, `max 1`/`5` en nube, `prepare` falso solo en 6543, `ssl require` salvo local; parcial: local usa `max 10` y falta `npm test` dominial con Supabase viva). Fecha: 2026-10-13. Fuentes: `src/lib/db.ts`, `docs/migracion-supabase.md`, PRD `diseno/PRD-SUP-01-conexion-supabase.md`.
 
 ## Decisión
 

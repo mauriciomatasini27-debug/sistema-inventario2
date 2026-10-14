@@ -1,5 +1,7 @@
 # Checklist — Completar documentación y desarrollo (gaps 2026-10-11)
 
+> Reemplazado por `docs/ROADMAP.md` (y `docs/roadmap/avances/`) como fuente de estado de implementación desde 2026-10-12. Este checklist queda como historia; actualización 2026-10-14: tildados CH-01, `photos_queue` y Gmail watch con evidencia en código.
+
 Origen: auditoría docs vs código (PRDs con IDs AU/ON/OF/F/GP/TV/C/FC/FP/CS/OP/FE/B/NE/RT/PA + ADRs 0000-0022). Cada ítem se cierra con PRD + ADR + código + test en verde.
 
 ## Cómo usar
@@ -28,6 +30,7 @@ Origen: auditoría docs vs código (PRDs con IDs AU/ON/OF/F/GP/TV/C/FC/FP/CS/OP/
 - [ ] PWA + SQLite — PRD `PRD-PWA-01-offline-local.md` + ADR `0025-pwa-sqlite-wasm.md`
   - [x] `manifest` + iconos + `sw.js` (PWA-S1/S2) — `public/manifest.webmanifest` + `public/icons/icon-192|512.png` (generados con sharp del favicon) + `public/sw.js` + registro en `BaseLayout.astro` + `tests/pwa-manifest.test.ts` (3 verdes) + `astro build` OK 2026-10-11
   - [x] SQLite-WASM en `src/offline/db.ts` (PWA-S3 parcial) — backing real sql.js + DDL (`journal_outbox`, `journal_idmap`, `kv_meta`, `photos_queue`) + diario dual-write en `outbox-store`/`id-mappings` + hidrata al boot en `offline.ts` + snapshot OPFS/archivo/memoria + `tests/offline-sqlite.test.ts` (5 verdes) + `tsc` limpio 2026-10-11 (pendiente: lógica `photos_queue` PWA-S4, cifrado/borrado PWA-S5)
+  - [x] Lógica `photos_queue` (PWA-S4) — `src/offline/fotos.ts` + `tests/pwa-fotos.test.ts` (2026-10-14); cifrado y borrado remoto (PWA-S5) siguen pendientes
 - [ ] Verificar en fuente oficial: Google OIDC, Gmail/Photos API, Cloud API Meta, ARCA, BarcodeDetector/OPFS iOS (parcial 2026-10-12: ver `docs/01-fundacion/verificacion-fuente-oficial.md`; falta consola/dispositivos/contador)
 
 ## Nivel 1 — Núcleo comercio
@@ -43,13 +46,13 @@ Origen: auditoría docs vs código (PRDs con IDs AU/ON/OF/F/GP/TV/C/FC/FP/CS/OP/
 
 ## Nivel 2-4 — Compras / Fiscal / Canales
 
-- [ ] Gmail `users.watch→PubSub` + fallback 15min (CS) — verificar wiring `src/modules/utilities/ingesta_gmail.ts`
+- [x] Gmail `users.watch→PubSub` + fallback 15min (CS) — `src/pages/api/gmail/watch.ts` + `src/pages/api/gmail/webhook.ts` + `src/modules/utilities/ingesta_gmail.ts` (`descriptor_fallback_history` cada 15min) (2026-10-14)
 - [ ] `POST /api/fiscal/settings` (hay `wizard.ts`, falta `settings.ts`) + `fiscal_customers`/padrón (Etapas 2-4 = P1)
-- [ ] Canales — PRD `PRD-CH-01-canales-faltantes.md` + ADR `0028-canales-faltantes.md`
-  - [ ] `POST /api/email/send` (CH-S1)
-  - [ ] `POST /api/media/upload-url` (CH-S2)
-  - [ ] `POST /api/jobs/enqueue` (CH-S3)
-  - [ ] `POST /api/billing/webhooks/mercadopago` (CH-S4)
+- [x] Canales (rutas) — PRD `PRD-CH-01-canales-faltantes.md` + ADR `0028-canales-faltantes.md`
+  - [x] `POST /api/email/send` (CH-S1) — `src/pages/api/email/send.ts` (envío real Resend a verificar)
+  - [x] `POST /api/media/upload-url` (CH-S2) — `src/pages/api/media/upload-url.ts` (firma R2 real a verificar)
+  - [x] `POST /api/jobs/enqueue` (CH-S3) — `src/pages/api/jobs/enqueue.ts` (pg-boss a verificar)
+  - [x] `POST /api/billing/webhooks/mercadopago` (CH-S4) — `src/pages/api/billing/webhooks/mercadopago.ts` (idempotencia solo en memoria: ver ROADMAP)
 
 ## Nivel 5 — Operación
 
@@ -76,7 +79,7 @@ Marca una casilla solo con evidencia en archivo mas test en verde. No cambies la
 
 - [ ] Retirar `src/lib/store.ts` de `src/pages/api`. Evidencia. `grep from .*store en src/pages/api` da 0 hits. Hoy da decenas. Ver `docs/diseno/PRD-PERS-01-persistencia-drizzle.md:14`.
 - [ ] Cutover total a DB en CI. Evidencia. `fuente: db` en `balance`, `tickets`, `credit` con DB viva. Hoy la memoria sigue mandando. Ver `CHECKLIST:16`.
-- [ ] PWA fotos y borrado. Evidencia. Cola `photos_queue` con subida posterior mas cifrado y borrado remoto. Hoy solo DDL y dual-write. Ver `CHECKLIST:30`.
+- [ ] PWA fotos y borrado. Evidencia. Cola `photos_queue` con subida posterior mas cifrado y borrado remoto. Hoy solo DDL y dual-write. Ver `CHECKLIST:30`. Actualización 2026-10-14: `photos_queue` hecho (`src/offline/fotos.ts`); falta cifrado y borrado remoto.
 - [ ] Fuente oficial en consolas y dispositivos. Evidencia. `docs/01-fundacion/verificacion-fuente-oficial.md` en verde total con contador. Hoy esta parcial.
 - [ ] OCR definitivo Fase 0. Evidencia. ADR con PaddleOCR propio o Vision o Textract mas costo. Hoy abierto. Ver `docs/README.md:65`.
 - [ ] Legal fiscal Ley 25.326. Evidencia. Minuta con contador o abogado sobre leyenda y ARCA. Hoy abierto. Ver `docs/adr/0000-indice-prd-ordenado.md:56`.

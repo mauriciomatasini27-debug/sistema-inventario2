@@ -1,6 +1,6 @@
 # ADR-0026 - Catálogo, lotes FEFO, ubicaciones y conteo
 
-Estado: propuesto. Fecha: 2026-10-11. Fuentes: F1/F2/F9/F12/F13, ADR-0012, grep `pgTable` (sin `locations/promotions`), `src/pages/api/stock/conteo.ts`.
+Estado: aceptado (parcial) (2026-10-14, evidencia: `src/db/schema.ts` tablas `products`, `product_codes`, `product_photos`, `stock_lots`, `locations`, `stock_counts`/`stock_count_lines`; `src/pages/api/products.ts`, `src/pages/api/lots.ts`, `src/pages/api/locations.ts`, `src/pages/api/counts.ts`, `src/lib/repos/lotes.ts`; `tests/pers3-ubicaciones-fotos-conteos.test.ts`; parcial: sin `/api/stock/ingreso` y CAT-S1→S6 sin cerrar). Fecha: 2026-10-11. Fuentes: F1/F2/F9/F12/F13, ADR-0012, grep `pgTable` (sin `locations/promotions`), `src/pages/api/stock/conteo.ts`.
 
 ## Decisión
 

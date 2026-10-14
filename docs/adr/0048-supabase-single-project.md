@@ -1,6 +1,6 @@
 # ADR-0048 - Supabase en un solo proyecto Free con Session pooler
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: `docs/migracion-supabase.md`, `drizzle.config.ts`, `src/lib/db.ts`, PRD `diseno/PRD-SUP-01-conexion-supabase.md`.
+Estado: aceptado (parcial) (2026-10-14, evidencia: `.env.example` con Session pooler 5432 y `sslmode=require` en ambas URLs, `drizzle.config.ts`, `src/lib/db.ts` con un cliente por URL; parcial: el proyecto real quedó en `ca-central-1` (desvío de `sa-east-1`) y backup `pg_dump` sin definir). Fecha: 2026-10-13. Fuentes: `docs/migracion-supabase.md`, `drizzle.config.ts`, `src/lib/db.ts`, PRD `diseno/PRD-SUP-01-conexion-supabase.md`.
 
 ## Decisión
 
