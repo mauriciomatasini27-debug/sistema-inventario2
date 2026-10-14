@@ -13,6 +13,8 @@ import {
   tenants,
   users,
   whatsappIdentities,
+  type AuthEventDetalle,
+  type OutboxPayload,
 } from "../db/schema.js";
 import { whatsappCodes } from "../db/schema-whatsapp.js";
 import { deviceSyncState, offlineGrants } from "../db/schema-sync.js";
@@ -263,10 +265,10 @@ export function persistirAuthEvent(e: {
   tenantId: string | null;
   tipo: string;
   actor?: string | undefined;
-  detalle?: unknown | undefined;
+  detalle?: AuthEventDetalle | null | undefined;
 }): Promise<boolean> {
   return intentarControl((db) =>
-    db.insert(authEvents).values({ tenantId: e.tenantId, tipo: e.tipo, actor: e.actor ?? null, detalle: (e.detalle ?? null) as never }),
+    db.insert(authEvents).values({ tenantId: e.tenantId, tipo: e.tipo, actor: e.actor ?? null, detalle: e.detalle ?? null }),
   );
 }
 
@@ -364,7 +366,7 @@ export function persistirOutboxOp(o: {
   deviceSeq: number;
   hlc: string;
   modulo: string;
-  payload: unknown;
+  payload: OutboxPayload;
 }): Promise<boolean> {
   return intentarControl((db) =>
     db
@@ -375,7 +377,7 @@ export function persistirOutboxOp(o: {
         deviceSeq: o.deviceSeq,
         hlc: o.hlc,
         modulo: o.modulo,
-        payload: o.payload as never,
+        payload: o.payload,
       })
       .onConflictDoNothing(),
   );

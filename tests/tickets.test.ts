@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
 import { GET as getTickets } from "../src/pages/api/tickets.js";
@@ -77,7 +78,7 @@ describe("tickets historial + caja (TV8/TV6/C6)", () => {
     expect(huerfano.status).toBe(422);
 
     await postSales({ request: postSalesReq("tk-bal", ventaBody()) } as never);
-    const bal = await getBalance({} as never);
+    const bal = await getBalance(ctx("http://x/api/cash/balance"));
     const j = (await bal.json()) as { total: string; por_medio: Record<string, string> };
     expect(j.total).toBe("-15000");
     expect(j.por_medio["Efectivo"]).toBe("-15000");

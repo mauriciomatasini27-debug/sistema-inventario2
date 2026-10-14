@@ -1,5 +1,6 @@
 import { asegurarDoc } from "../src/lib/repos/fiscal.js";
 import { randomUUID } from "node:crypto";
+import { ctx } from "./helpers/ctx.js";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
@@ -184,7 +185,7 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
     const w = (await postWizard({ request: reqJson("http://x/api/fiscal/wizard", { tenant_id: tid, accion: "avanzar", paso: 2 }) } as never)) as Response;
     expect(w.status).toBe(200);
     expect(((await w.json()) as { paso: number }).paso).toBe(2);
-    const g = (await getWizard({ url: new URL(`http://x/api/fiscal/wizard?tenant_id=${tid}`) } as never)) as Response;
+    const g = (await getWizard(ctx(`http://x/api/fiscal/wizard?tenant_id=${tid}`))) as Response;
     expect(g.status).toBe(200);
     expect(((await g.json()) as { paso: number }).paso).toBe(2);
     const d = (await postDelegacion({ request: reqJson("http://x/api/fiscal/delegacion-confirmada", { tenant_id: tid, cuit: "20123456789" }) } as never)) as Response;
@@ -323,7 +324,7 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
     expect(r.status).toBe(200);
     expect(((await r.json()) as { paso: number }).paso).toBe(3);
 
-    const gB = await conTenant("tenant-b", () => getWizard({ url: new URL("http://x/api/fiscal/wizard") } as never)) as Response;
+    const gB = await conTenant("tenant-b", () => getWizard(ctx("http://x/api/fiscal/wizard"))) as Response;
     expect(gB.status).toBe(200);
     expect(((await gB.json()) as { paso: number }).paso).toBe(0);
 
