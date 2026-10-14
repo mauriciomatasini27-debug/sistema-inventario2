@@ -1,4 +1,5 @@
 import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { ResumenCierrePayload } from "../modules/email/resumen-cierre.js";
 
 // LANE Email — slice mínimo NE4 resumen_cierre (PRD Email NE1/NE4/NE11).
 // Núcleo puro en src/modules/email/; acá solo forma Drizzle.
@@ -13,7 +14,7 @@ export const notificationEvents = pgTable("notification_events", {
   version: integer("version").notNull().default(1),
   refTipo: text("ref_tipo"),
   refId: text("ref_id"),
-  payload: jsonb("payload").notNull(),
+  payload: jsonb("payload").$type<ResumenCierrePayload>().notNull(),
   dedupeKey: text("dedupe_key").notNull().unique(),
   estado: text("estado").notNull().default("pendiente"),
   procesarDesde: timestamp("procesar_desde"),

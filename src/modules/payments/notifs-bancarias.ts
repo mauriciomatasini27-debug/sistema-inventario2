@@ -16,6 +16,7 @@
 import { contiene_secreto } from "./beneficiarios.js";
 import { parsear_fecha_ar, parsear_monto_ar } from "../utilities/facturas_servicios.js";
 import { DIA_MS, type PaymentOrder } from "./ordenes.js";
+import { diaUTC, sumarDiasAR, type FechaAR } from "../../lib/fecha-ar.js";
 
 export interface NotifBancaria {
   readonly banco: string | null;
@@ -76,8 +77,7 @@ function extraer_monto(texto: string): bigint | null {
 }
 
 function iso_mas_dias(hoyIso: string, dias: number): string {
-  const ms = Date.parse(`${hoyIso}T00:00:00Z`) + dias * DIA_MS;
-  return new Date(ms).toISOString().slice(0, 10);
+  return sumarDiasAR(hoyIso as FechaAR, dias);
 }
 
 function extraer_fecha(texto: string, hoyIso: string): string | null {
@@ -136,7 +136,7 @@ export interface MatchearNotifResult {
 }
 
 function iso_de_vencimiento(venceElMs: number): string {
-  return new Date(venceElMs).toISOString().slice(0, 10);
+  return diaUTC(venceElMs);
 }
 
 function diff_dias(aIso: string, bIso: string): number {

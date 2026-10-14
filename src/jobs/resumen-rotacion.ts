@@ -4,6 +4,7 @@
 import { describir_snapshot, encolar_snapshot } from "../modules/analytics/snapshots.js";
 import { calcular_rotacion } from "../modules/analytics/agregador.js";
 import { fuente_memoria } from "../modules/analytics/fuente.js";
+import { fechaAR, sumarDiasAR } from "../lib/fecha-ar.js";
 import type { SnapshotRotacion, SkuRot } from "../modules/analytics/tipos.js";
 
 const corridas = new Map<string, SnapshotRotacion>();
@@ -25,8 +26,8 @@ export function ejecutar_resumen_rotacion(ahora = new Date()): {
   ya: boolean;
   snapshot: SnapshotRotacion | null;
 } {
-  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(ahora);
-  const desde = new Date(Date.parse(hoy + "T00:00:00Z") - 6 * 86400000).toISOString().slice(0, 10);
+  const hoy = fechaAR(ahora);
+  const desde = sumarDiasAR(hoy, -6);
   const key = `rotacion:${desde}:${hoy}:viernes18h`;
   const previo = corridas.get(key);
   if (previo) return { ya: true, snapshot: previo };

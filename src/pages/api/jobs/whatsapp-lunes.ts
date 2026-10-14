@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { ejecutar_job_lunes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
-import { fechaBA } from "../../../jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../../../lib/fecha-ar.js";
 import { comercios_con_bot, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 import type { SnapshotLunes, TiendaLunes } from "../../../modules/whatsapp/resumen-semanal.js";
 
@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "no autorizado" }, { status: 403 });
   }
   const ahoraMs = Date.now();
-  const hoy = fechaBA(new Date(ahoraMs));
+  const hoy = fechaAR(new Date(ahoraMs));
   const sender: Enviador = async ({ destino, texto }) => enviar_texto_wa(destino, texto);
   const porTenant = new Map(comercios_con_bot().map((c) => [c.tenantId, c]));
   const resultados = [];

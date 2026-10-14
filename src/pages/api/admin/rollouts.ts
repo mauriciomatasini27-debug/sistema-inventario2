@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request }) => {
   r.intentos += 1;
   r.estado = "reintentando";
   rollouts.set(r.id, r);
-  auditar({ kind: "rollout_reintentado", tenantId: r.tenantId } as never, (admin as { googleSub: string }).googleSub, "panel");
+  auditar({ kind: "rollout_reintentado", tenantId: r.tenantId }, (admin as { googleSub: string }).googleSub, "panel");
   return Response.json({ rollout_id: r.id, estado: r.estado, intentos: r.intentos }, { status: 202 });
 };
 

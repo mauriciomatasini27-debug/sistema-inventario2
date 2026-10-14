@@ -1,0 +1,7 @@
+# Finales de línea LF en todo el repo (ARQ-S3, ADR-0065). Los binarios se detectan solos.
+* text=auto eol=lf
+*.docx binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

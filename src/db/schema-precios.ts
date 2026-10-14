@@ -9,6 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { SnapshotPrecios } from "../modules/pricing/precios.js";
 
 // LANE C — Tablas pricing GP1-GP11 (ADR-0004). Mismo estilo que schema.ts.
 // Vive en la DB del tenant (GP10: 1 DB por cliente); al panel solo salen
@@ -83,8 +84,8 @@ export const pricingAuditLog = pgTable("pricing_audit_log", {
   actor: text("actor").notNull(),
   ajusteId: uuid("ajuste_id"),
   sku: text("sku"),
-  antes: jsonb("antes").notNull(),
-  despues: jsonb("despues").notNull(),
+  antes: jsonb("antes").$type<SnapshotPrecios>().notNull(),
+  despues: jsonb("despues").$type<SnapshotPrecios>().notNull(),
   motivo: text("motivo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

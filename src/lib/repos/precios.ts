@@ -118,8 +118,8 @@ async function registrarAjusteEnDb(
       actor: ajuste.creadoPor,
       ajusteId: fila.id,
       motivo: auditoria.motivo,
-      antes: { texto: auditoria.antes } as never,
-      despues: { texto: auditoria.despues } as never,
+      antes: { texto: auditoria.antes },
+      despues: { texto: auditoria.despues },
     });
     return fila.id;
   });

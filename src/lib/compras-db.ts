@@ -16,6 +16,7 @@ import type {
 } from "../modules/purchases/facturas.js";
 import type { EstadoOC, PurchaseOrder } from "../modules/purchases/proveedores.js";
 import type { OrdenMatchable } from "../modules/purchases/matching.js";
+import { diaUTC } from "./fecha-ar.js";
 
 export type TenantDb = ReturnType<typeof getTenantDb>;
 
@@ -186,7 +187,7 @@ export function pagoDeFila(fila: FilaPago, facturaIdDominio: string | null): Pag
     metodo: fila.metodo as PagoProveedor["metodo"],
     creadoPor: fila.creadoPor,
     // La tabla no guarda fecha_iso (solo created_at): se deriva el día.
-    fechaIso: fila.createdAt.toISOString().slice(0, 10),
+    fechaIso: diaUTC(fila.createdAt),
     creadoEn: fila.createdAt.toISOString(),
   });
 }
