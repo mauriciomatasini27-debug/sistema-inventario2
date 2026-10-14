@@ -35,5 +35,7 @@ jobs:
           TENANT_DATABASE_URL=$PG_TEST_URL_A npx drizzle-kit migrate
           TENANT_DATABASE_URL=$PG_TEST_URL_B npx drizzle-kit migrate
       - run: npm run typecheck
+      - name: Trinquetes de arquitectura
+        run: npx vitest run tests/arch tests/pers2-arch.test.ts
       - run: npm test
       - run: npm run build
