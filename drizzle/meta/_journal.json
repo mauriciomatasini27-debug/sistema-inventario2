@@ -113,6 +113,13 @@
       "when": 1791736729510,
       "tag": "0015_fiscal_tenant_id",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791736730510,
+      "tag": "0016_fiscal_settings_tenant",
+      "breakpoints": true
     }
   ]
 }

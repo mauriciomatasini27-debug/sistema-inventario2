@@ -1,0 +1,62 @@
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { esRutaDatos } from "../../src/lib/tenant-context.js";
+
+function rutasApi(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir).sort()) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) out.push(...rutasApi(p));
+    else if (p.endsWith(".ts")) out.push(p);
+  }
+  return out;
+}
+
+function rutaParaArchivo(file: string): string {
+  let rel = file.replace(/\\/g, "/").replace(/^src\/pages\/api/, "");
+  rel = rel.slice(0, -3);
+  if (rel.endsWith("/index")) rel = rel.slice(0, -"/index".length);
+  return `/api${rel}`;
+}
+
+const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
+
+// Rutas de control que usan repos fuera del middleware de datos, medidas con rg.
+// jobs/*: Sistema con X-Job-Secret por gateJob con tenant explícito.
+// /api/whatsapp/webhook: webhook externo de Meta verificado por firma,
+// el comercio sale del número remitente, nunca de la sesión.
+// /api/email/send: outbox de infraestructura con tenantId opcional, sin sesión.
+const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
+  "/api/email/send",
+  "/api/jobs/cierre-medianoche",
+  "/api/jobs/vencimientos-lotes",
+  "/api/jobs/vencimientos-servicios",
+  "/api/jobs/whatsapp-aviso",
+  "/api/jobs/whatsapp-cierre",
+  "/api/jobs/whatsapp-semanal",
+  "/api/whatsapp/webhook",
+]);
+
+describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", () => {
+  it("archivos que importan repos o tenant fuera de prefijo solo en excepciones", () => {
+    const fuera: string[] = [];
+    for (const f of rutasApi(join("src", "pages", "api"))) {
+      const src = readFileSync(f, "utf8");
+      if (!USA_DATOS.test(src)) continue;
+      const ruta = rutaParaArchivo(f);
+      if (!esRutaDatos(ruta) && !EXCEPCIONES_CONTROL.has(ruta)) fuera.push(`${f} -> ${ruta}`);
+    }
+    expect(fuera).toEqual([]);
+  });
+
+  it("las excepciones existen y usan datos de verdad", () => {
+    expect(EXCEPCIONES_CONTROL.size).toBe(8);
+    for (const ruta of EXCEPCIONES_CONTROL) {
+      const archivo = `src/pages${ruta}.ts`;
+      const src = readFileSync(archivo, "utf8");
+      expect(USA_DATOS.test(src)).toBe(true);
+      expect(esRutaDatos(ruta)).toBe(false);
+    }
+  });
+});

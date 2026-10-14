@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { validar_cuit } from "../../../modules/fiscal/fiscal.js";
-import { BaseNoDisponible, intentarPersistir } from "../../../lib/server-db.js";
+import { BaseNoDisponible, dbVivaTenant, intentarPersistir } from "../../../lib/server-db.js";
 import { exigirReauthReciente, resolverSesion } from "../../../lib/control.js";
 import { exigirDuenoDeRequest, tenantDeRequest, type TenantResuelto } from "../../../lib/tenant-context.js";
 import { fiscalSettings } from "../../../db/schema-fiscal.js";
@@ -42,7 +43,10 @@ export const POST: APIRoute = async ({ request }) => {
   memoria.set(tenant, { ...parsed.data, cuit: digitos, actualizado_en: new Date().toISOString() });
   try {
     await intentarPersistir((db) =>
-      db.insert(fiscalSettings).values({ cuit: digitos, condicionIva: parsed.data.condicion_iva, puntoVenta: parsed.data.pto_vta, modo: parsed.data.modo }).onConflictDoNothing(),
+      db.insert(fiscalSettings).values({ tenantId: tenant, cuit: digitos, condicionIva: parsed.data.condicion_iva, puntoVenta: parsed.data.pto_vta, modo: parsed.data.modo }).onConflictDoUpdate({
+        target: fiscalSettings.tenantId,
+        set: { cuit: digitos, condicionIva: parsed.data.condicion_iva, puntoVenta: parsed.data.pto_vta, modo: parsed.data.modo },
+      }),
       tenant,
     );
   } catch (e) {
@@ -57,6 +61,25 @@ export const GET: APIRoute = async ({ request }) => {
   if (!ctx) return Response.json({ error: "Iniciá sesión con Google para continuar." }, { status: 403 });
   const t: TenantResuelto = tenantDeRequest(request);
   if (!t.ok) return t.respuesta;
+  let db: ReturnType<typeof dbVivaTenant> = null;
+  try {
+    db = dbVivaTenant(t.tenantId);
+  } catch (e) {
+    if (!(e instanceof BaseNoDisponible)) throw e;
+  }
+  if (db) {
+    const filas = await db.select().from(fiscalSettings).where(eq(fiscalSettings.tenantId, t.tenantId)).limit(1);
+    const fila = filas[0];
+    if (fila) {
+      return Response.json({
+        tenant_id: t.tenantId,
+        cuit: fila.cuit,
+        condicion_iva: fila.condicionIva,
+        pto_vta: fila.puntoVenta,
+        modo: fila.modo,
+      });
+    }
+  }
   const guardado = memoria.get(t.tenantId) as Record<string, unknown> | undefined;
   if (!guardado) return Response.json({ tenant_id: t.tenantId, modo: "automatico" });
   return Response.json({ tenant_id: t.tenantId, ...guardado });
