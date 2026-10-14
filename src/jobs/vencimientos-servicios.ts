@@ -29,6 +29,7 @@ import {
 } from "../modules/payments/ordenes.js";
 import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
 import { formatear_pesos } from "../modules/email/plantilla-cierre.js";
+import { fechaBA } from "./whatsapp-aviso-matutino.js";
 
 export const VENTANA_SERVICIOS_DIAS = 3;
 export const VENTANA_ORDENES_DIAS = 7;
@@ -154,7 +155,7 @@ export function ejecutar_vencimientos_servicios(args: {
       "orden_proxima",
       "orden",
       o.id,
-      `${comercio.nombreComercio}: orden ${o.numero} (${o.concepto}) vence el ${new Date(o.venceElMs).toISOString().slice(0, 10)} por ${formatear_pesos(o.montoCentavos)}.`,
+      `${comercio.nombreComercio}: orden ${o.numero} (${o.concepto}) vence el ${fechaBA(new Date(o.venceElMs))} por ${formatear_pesos(o.montoCentavos)}.`,
     );
     sugerencias.push({ tipo: "orden", refId: o.id, montoCentavos: o.montoCentavos.toString(), concepto: o.concepto });
   }

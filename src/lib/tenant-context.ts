@@ -1,10 +1,26 @@
 import { control } from "./store.js";
-import { jsonError, membershipActiva, resolverSesion } from "./control.js";
+import { esDueno, jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "./control.js";
 import { esModoMulti, tenantPorDefecto } from "./tenant-mode.js";
 
 export { esModoMulti, tenantPorDefecto };
 
 export type TenantResuelto = { ok: true; tenantId: string } | { ok: false; respuesta: Response };
+
+export type DuenoResuelto =
+  | { ok: true; ctx: ContextoAuth; tenantId: string }
+  | { ok: false; respuesta: Response };
+
+// Rutas "solo Dueño": sesión válida + tenant del servidor + membership dueño activa.
+export function exigirDuenoDeRequest(request: Request): DuenoResuelto {
+  const ctx = resolverSesion(request);
+  if (!ctx) return { ok: false, respuesta: jsonError("Iniciá sesión con Google para continuar.", 403) };
+  const t = tenantDeRequest(request);
+  if (!t.ok) return { ok: false, respuesta: t.respuesta };
+  if (!esDueno(t.tenantId, ctx.googleSub)) {
+    return { ok: false, respuesta: jsonError("Solo el dueño del comercio puede hacer esto.", 403) };
+  }
+  return { ok: true, ctx, tenantId: t.tenantId };
+}
 
 // Por qué registro central: el middleware corta 403 antes de tocar memoria o
 // base; toda ruta con acceso a base debe caer bajo un prefijo (PRD-ISO-02).

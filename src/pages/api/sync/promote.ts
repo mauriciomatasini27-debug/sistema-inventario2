@@ -8,8 +8,8 @@ export const prerender = false;
 // POST /api/sync/promote — asigna el ticket definitivo T-* a un op offline
 // ya pusheado (cierra "sync reasigna definitivo" del Slice-0, ADR-0017).
 // Idempotente por op_id: el replay devuelve el mapeo original (200).
-// Numeración monoproceso en C1 (correlativo del repo, compartido con /api/sales);
-// C2 lo lleva a Postgres con lock de secuencia.
+// El número sale del correlativo compartido con /api/sales (ticket_counters
+// con lock en DB, contador del store en memoria).
 // PERS2-S21: mapeos por el repo de sync (ADR-0061); en multi sin base propaga
 // BaseNoDisponible y responde 503.
 export const POST: APIRoute = async ({ request }) => {

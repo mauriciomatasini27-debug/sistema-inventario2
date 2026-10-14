@@ -1,14 +1,17 @@
 import type { APIRoute } from "astro";
 import { confirmOrderPaymentSchema } from "../../../lib/validation.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 import { confirmarPagoOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payment-orders/confirm-paid — `Ya pagué` (OP9.1, solo Dueño).
+// POST /api/payment-orders/confirm-paid — `Ya pagué` (OP9.1, solo Dueño verificado por exigirDuenoDeRequest).
 // Registra el egreso en caja (manual) y marca la orden pagada.
 // PERS2-S15: el repo persiste por DB primero; el egreso va por caja.
 export const POST: APIRoute = async ({ request }) => {
+  const dueno = exigirDuenoDeRequest(request);
+  if (!dueno.ok) return dueno.respuesta;
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
   let body: unknown;
