@@ -159,6 +159,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | PERS3-S1 a S4 | hecho | PERS3-S1 a S4 hechos: ubicaciones, fotos al alta y conteos DB-first en `locations` / `product_photos` / `stock_counts` (ADR-0078). | PRD-PERS-03 / ADR-0078 |
 | 2026-10-14 | PERS4-S1 a S4 | hecho | PERS4-S1 a S4 hechos: trabajos y eventos de OCR DB-first en `ocr_jobs` / `ocr_eventos` (ADR-0079). | PRD-PERS-04 / ADR-0079 |
 | 2026-10-14 | PERS5-S1 a S3 | hecho | PERS5-S1 a S3 hechos: correlativos `D-*` y `T-*` desde `ticket_counters` con lock en la transacción (ADR-0080). | PRD-PERS-05 / ADR-0080 |
+| 2026-10-14 | PERS6-S1 | hecho | PERS6-S1 hecho: catálogo del delta de `GET /api/sync/pull` desde `products` (ADR-0081). | PRD-PERS-06 / ADR-0081 |
 <!-- roadmap:avances:fin -->
 
 ## Decisiones registradas
