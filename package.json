@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "check:arch": "vitest run tests/arch tests/pers2-arch.test.ts",
     "check:ui": "node scripts/check-ui.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "review:scope": "node scripts/review-scope.mjs",

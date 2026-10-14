@@ -10,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { ActoAdmin } from "../modules/admin/actos.js";
 
 // Panel Multi-Kiosco solo-gestión (ADR-0006/0011, PA1-PA14).
 // Separación dura Ley 25.326: tenant_id es opaco (uuid, SIN references() a
@@ -25,7 +26,7 @@ export const adminAuditLog = pgTable("admin_audit_log", {
   actorGoogleSub: text("actor_google_sub").notNull(),
   actoKind: text("acto_kind").notNull(),
   tenantId: uuid("tenant_id"),
-  detalle: jsonb("detalle").notNull(),
+  detalle: jsonb("detalle").$type<ActoAdmin>().notNull(),
   prevHash: text("prev_hash"),
   hash: text("hash").notNull().unique(),
   origen: text("origen").notNull(),

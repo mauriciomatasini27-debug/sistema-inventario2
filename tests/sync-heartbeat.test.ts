@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTHeartbeat } from "../src/pages/api/sync/heartbeat.js";
 import { GET as GETHealth } from "../src/pages/api/health.js";
 import { resetStore, store } from "../src/lib/store.js";
@@ -15,7 +16,7 @@ describe("sync heartbeat SYNC-S3/S4 (PRD-SYNC-01)", () => {
   beforeEach(() => resetStore());
 
   it("GET /api/health responde ok + ahora", async () => {
-    const res = (await GETHealth({} as never)) as Response;
+    const res = (await GETHealth(ctx("http://x/api/health"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as Record<string, unknown>;
     expect(j["ok"]).toBe(true);

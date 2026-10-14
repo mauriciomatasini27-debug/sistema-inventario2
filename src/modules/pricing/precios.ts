@@ -64,6 +64,10 @@ export interface AuditoriaPrecios {
   readonly motivo: string;
 }
 
+export interface SnapshotPrecios {
+  readonly texto: string;
+}
+
 export interface Settings {
   readonly pasoCentavos: bigint;
   readonly direccion: "arriba";

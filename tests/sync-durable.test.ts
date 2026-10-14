@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { deviceSyncState, offlineGrants, syncState } from "../src/db/schema-sync.js";
 import {
   persistirDeviceSync,
@@ -76,7 +77,7 @@ describe("sync durable SYNC-S1/S3/S5 (sin DB no rompe)", () => {
   });
 
   it("balance sin DB cae a memoria y cuadra (PERS-S3)", async () => {
-    const b = (await GETBalance({} as never)) as Response;
+    const b = (await GETBalance(ctx("http://x/api/cash/balance"))) as Response;
     expect(b.status).toBe(200);
     const j = (await b.json()) as { por_medio: Record<string, string>; total: string; fuente: string };
     expect(j.fuente).toBe("memoria");

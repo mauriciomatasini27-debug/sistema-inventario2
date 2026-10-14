@@ -3,12 +3,14 @@
 // Fuente de verdad en monoproceso; admin-db agrega copia durable best-effort
 // cuando hay CONTROL_DATABASE_URL viva. Solo gestión, nunca negocio.
 
+import type { ActoAdmin } from "../modules/admin/actos.js";
+
 export interface AdminActoMem {
   id: string;
   actorGoogleSub: string;
   actoKind: string;
   tenantId: string | null;
-  detalle: unknown;
+  detalle: ActoAdmin;
   prevHash: string | null;
   hash: string;
   origen: string;
