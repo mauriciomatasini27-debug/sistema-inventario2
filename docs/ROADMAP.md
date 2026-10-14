@@ -147,6 +147,16 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 aceptado; fase 1 hecha: CRLF, `ctx()`, `FechaAR`, JSON tipado; fase 2 hecha: `tsc`, tests y trinquetes de arquitectura en el job `ci` (sin check obligatorio: el plan gratis privado no tiene branch protection); siguen fases 3 a 5, ver P2): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
 4. Actualización de dependencias (PRD-DEP-01, ADR-0067 a 0072 aceptados; fusionado en `main` 2026-10-14): pila de 6 PRs que reemplaza los Dependabot #6 a #19; Actions, vitest 5 y astro 7 cierran las 4 alertas críticas; después drizzle 0.45, zod 4 y TypeScript 7. Talla M.
 
+<!-- roadmap:avances:inicio -->
+## Avances por PR (generado)
+
+No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avances/`.
+
+| Fecha | Item | Estado | Avance | PRD / ADR |
+|---|---|---|---|---|
+| 2026-10-14 | ROAD1-S1 a S4 | hecho | ROAD1-S1 a S4 hechos: avances por archivo y sección generada sin conflictos entre PRs. | PRD-ROAD-01 / ADR-0076 |
+<!-- roadmap:avances:fin -->
+
 ## Decisiones registradas
 
 - Suscripción mensual por plan, no por módulo (ADR-0047).
