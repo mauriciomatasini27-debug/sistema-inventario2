@@ -41,6 +41,13 @@ export const PREFIJOS_DATOS = [
   "/api/fiscal",
   "/api/whatsapp/consult",
   "/api/email/close-summary",
+  "/api/payment-orders",
+  "/api/payees",
+  "/api/counts",
+  "/api/stock",
+  "/api/service-accounts",
+  "/api/utility-bills",
+  "/api/ocr",
 ];
 
 export function esRutaDatos(path: string): boolean {

@@ -17,6 +17,7 @@ import {
   type ReintentoCorrecciones,
 } from "../fiscal-db.js";
 import { puertoMemoria, puertoPostgres, type PuertoFiscalDurable } from "../fiscal-emitir.js";
+import { tenantActual } from "../tenant-mode.js";
 import { validar_cuit } from "../../modules/fiscal/fiscal.js";
 import { wizard_inicial, type WizardEstado } from "../../modules/fiscal/wizard.js";
 
@@ -270,14 +271,26 @@ export function obtenerPuertoFiscal(): PuertoFiscalDurable {
   return db ? puertoPostgres(db) : puertoMemoria();
 }
 
-/** CUIT para emitir: body, luego fiscal_settings, luego env. Lectura con fallback. */
+/** CUIT para emitir: body, luego fiscal_settings del tenant actual, luego env. Sin tenant en multi no lee filas ajenas. */
 export async function resolverCuitFiscal(bodyCuit: string | undefined): Promise<number | null> {
   const db = dbActual();
   let crudo = bodyCuit ?? "";
   if (!crudo && db) {
     try {
-      const filas = await db.select({ cuit: fiscalSettings.cuit }).from(fiscalSettings).limit(1);
-      crudo = filas[0]?.cuit ?? "";
+      const dueno = tenantActual();
+      if (dueno) {
+        const filas = await db
+          .select({ cuit: fiscalSettings.cuit })
+          .from(fiscalSettings)
+          .where(eq(fiscalSettings.tenantId, dueno))
+          .limit(1);
+        crudo = filas[0]?.cuit ?? "";
+      } else {
+        // Sin dueño y con base viva solo ocurre en single: en multi la
+        // falta de tenant ya devolvió null en dbActual.
+        const filas = await db.select({ cuit: fiscalSettings.cuit }).from(fiscalSettings).limit(1);
+        crudo = filas[0]?.cuit ?? "";
+      }
     } catch {
       crudo = "";
     }

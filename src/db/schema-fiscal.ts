@@ -5,6 +5,8 @@ import type { MarcaNoFacturar } from "../lib/store.js";
 // Inmutables: solo INSERT/SELECT; REVOKE UPDATE/DELETE + triggers en migración.
 export const fiscalSettings = pgTable("fiscal_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Dueño del setting para aislamiento por tenant (SEC2-S3, migración 0016).
+  tenantId: text("tenant_id"),
   cuit: text("cuit").notNull(),
   condicionIva: text("condicion_iva").notNull().default("monotributo"),
   puntoVenta: text("punto_venta").notNull(),
