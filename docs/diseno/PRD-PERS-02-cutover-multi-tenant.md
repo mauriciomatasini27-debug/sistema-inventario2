@@ -71,6 +71,15 @@ Requisito PERS2-8: las 6 rutas de `src/pages/api/supplier-invoices/` y las 4 de 
 
 Arch-test AT11: ningún archivo de `src/pages/api/{supplier-invoices,payment-orders}/` importa `store` de `lib/store`; el contador global baja de 43.
 
+## Épica PERS2-E9. Rutas sin `store`: consumos de servicios y fiado (PERS-S4, grupo 6)
+
+Requisito PERS2-9: `utility-bills`, `utility-bills/due`, `utility-bills/pay`, `credit/balance`, `credit/payments` y `credit/sales-on-account` leen y escriben por `src/lib/repos/servicios.ts` y `src/lib/repos/fiado.ts` con DB primero y memoria solo en `single` sin base. Los movimientos de caja van por `src/lib/repos/caja.ts` (ADR-0053, ADR-0056, ADR-0058).
+
+- Historia PERS2-S16. Consumos de servicios: alta (idempotente por mensaje de origen), vencimientos y pago. AC: Given multi con base de A When cargo y pago una factura de servicio Then quedan en la base de A, B no la ve y las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0058. Talla S. Depende de: PERS2-S2.
+- Historia PERS2-S17. Fiado: venta a cuenta, cobros y saldo por cliente. AC: Given multi con base de A When registro una venta a cuenta y un cobro Then el saldo de A los refleja y B no los ve. ADR: 0058. Talla S. Depende de: PERS2-S2.
+
+Arch-test AT12: ningún archivo de `src/pages/api/{utility-bills,credit}*` importa `store` de `lib/store`; el contador global baja de 33.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
