@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { priceAdjustments, pricingAuditLog } from "../../db/schema-precios.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { crearAlmacenAjustes, type Almacen } from "./_almacen.js";
 import {
   crearAjuste,
   type Ajuste,
@@ -34,11 +33,8 @@ function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
 }
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
 export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjusteResultado> {
+  const almacen = crearAlmacenAjustes();
   const r = crearAjuste({
     idempotencyKey: input.idempotencyKey,
     direccion: input.direccion,
@@ -52,7 +48,7 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
     ahoraIso: input.ahoraIso,
     ...(input.pasoCentavos !== undefined ? { pasoCentavos: input.pasoCentavos } : {}),
     items: input.items,
-    vistos: store.ajustes,
+    vistos: almacen.comoMapaSoloLectura(),
   });
   if (r.status !== 201) {
     if (r.status === 409) return { ok: false, codigo: "CLAVE_REPETIDA", error: r.error };
@@ -60,11 +56,11 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
   }
   const db = dbVivaTenant();
   if (!db) {
-    store.ajustes.set(input.idempotencyKey, r.ajuste);
+    almacen.guardar(input.idempotencyKey, r.ajuste);
     return { ok: true, ajusteId: r.ajuste.id, fuente: "memoria" };
   }
   try {
-    return await registrarAjusteEnDb(db, input.idempotencyKey, r.ajuste, r.auditoria, input.confirmado);
+    return await registrarAjusteEnDb(db, almacen, input.idempotencyKey, r.ajuste, r.auditoria, input.confirmado);
   } catch (e) {
     if (esConflictoUnico(e)) {
       try {
@@ -75,19 +71,20 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
           .limit(1);
         if (previo[0]) return { ok: false, codigo: "CLAVE_REPETIDA", error: "idempotency-key repetida" };
       } catch (e2) {
-        if (esModoMulti()) throw aBaseNoDisponible(e2);
+        almacen.anteFalloPersistencia(e2);
       }
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    } else if (esModoMulti()) {
-      throw aBaseNoDisponible(e);
+      almacen.anteFalloPersistencia(e);
+    } else {
+      almacen.anteFalloPersistencia(e);
     }
-    store.ajustes.set(input.idempotencyKey, r.ajuste);
+    almacen.guardar(input.idempotencyKey, r.ajuste);
     return { ok: true, ajusteId: r.ajuste.id, fuente: "memoria" };
   }
 }
 
 async function registrarAjusteEnDb(
   db: TenantDb,
+  almacen: Almacen<Ajuste>,
   key: string,
   ajuste: Ajuste,
   auditoria: AuditoriaPrecios,
@@ -123,6 +120,6 @@ async function registrarAjusteEnDb(
     });
     return fila.id;
   });
-  store.ajustes.set(key, ajuste);
+  almacen.guardar(key, ajuste);
   return { ok: true, ajusteId: ins, fuente: "db" };
 }
