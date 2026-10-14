@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { idMappings, outbox, ticketCounters, type OutboxPayload } from "../../db/schema.js";
+import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState } from "../../db/schema-sync.js";
 import { esModoMulti, tenantActual } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -135,8 +135,23 @@ export interface LoteSync {
   readonly fuente: "db" | "memoria";
 }
 
-// Catálogo del delta: hoy sale del espejo en memoria como antes de PERS2-S22;
-// pendiente leerlo de products/stock del tenant.
+// PERS6-S1 (ADR-0081): catálogo del delta desde products del tenant.
+// Columnas explícitas: el esquema tipado puede tener columnas que la base
+// local aún no tiene, así que nunca se usa select() completo aquí.
+async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
+  const filas = await db
+    .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
+    .from(products);
+  const stock: Record<string, number> = {};
+  const prices: Record<string, number> = {};
+  for (const f of filas) {
+    stock[f.sku] = f.stockActual;
+    prices[f.sku] = Number(f.precioCentavos);
+  }
+  return { stock, prices };
+}
+
+// Catálogo del delta en memoria: solo para single sin base y fallback single.
 function catalogoMemoria(): LoteSync["catalogo"] {
   return {
     stock: Object.fromEntries(store.stock.entries()),
@@ -162,7 +177,8 @@ function loteEnMemoria(start: number, limite: number): LoteSync {
   };
 }
 
-// Pull con el mismo paginado por offset; el catalogo sigue en memoria hasta su slice.
+// Pull con el mismo paginado por offset; con base viva el catálogo sale de
+// products del tenant (PERS6-S1 / ADR-0081), en memoria solo sin base.
 export async function leerLote(start: number, limite: number): Promise<LoteSync> {
   const db = dbVivaTenant();
   if (!db) return loteEnMemoria(start, limite);
@@ -180,7 +196,7 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
       movimientos: filas.map((f) => ({ op_id: f.opId, payload: f.payload })),
       cursorNuevo: String(start + filas.length),
       mappings: mapas.map((m) => ({ op_id: m.opId, prov: m.idProvisorio, def: m.idDefinitivo })),
-      catalogo: catalogoMemoria(),
+      catalogo: await catalogoDesdeDb(db),
       total,
       fuente: "db",
     };

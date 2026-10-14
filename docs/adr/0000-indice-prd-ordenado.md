@@ -90,6 +90,7 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PERS-03` | `0078` | Ubicaciones, fotos de producto y conteos DB-first en `locations` / `product_photos` / `stock_counts` (aceptado, 2026-10-14) |
 | `PRD-PERS-04` | `0079` | Trabajos y eventos de OCR DB-first en `ocr_jobs` / `ocr_eventos` sin elegir proveedor (aceptado, 2026-10-14) |
 | `PRD-PERS-05` | `0080` | Correlativos `D-*` de devoluciones y `T-*` de tickets (ventas, promote, venta a cuenta) desde `ticket_counters` con lock en la transacción (aceptado, 2026-10-14) |
+| `PRD-PERS-06` | `0081` | Catálogo del delta de `GET /api/sync/pull` (stock y precios) desde `products` del tenant (aceptado, 2026-10-14) |
 | `PRD-SEC-01` | `0066` | Dueño real en rutas sensibles (pagos, fiscal), online real en ajustes de precio y correlativo único de tickets entre ventas y sync (aceptado, 2026-10-13) |
 | `PRD-COM-01` | `0064` | Política de comentarios de código: solo por qué no obvio; parches a refactor o issue (propuesto, 2026-10-13) |
 | `PRD-PERS-02` (E14) | `0063` | Ventas, devoluciones y correcciones sin `store`; cierre de PERS-S5 en rutas (2026-10-13) |
