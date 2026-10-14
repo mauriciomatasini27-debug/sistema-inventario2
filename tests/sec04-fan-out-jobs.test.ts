@@ -14,6 +14,7 @@ import { POST as postCierreJob } from "../src/pages/api/jobs/cierre-medianoche.j
 import { POST as postVencServ } from "../src/pages/api/jobs/vencimientos-servicios.js";
 import { POST as postWaCierre } from "../src/pages/api/jobs/whatsapp-cierre.js";
 import { POST as postAvisoSync } from "../src/pages/api/jobs/aviso-sync.js";
+import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 const SECRETO = "secreto-sec04";
 
@@ -275,10 +276,13 @@ const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const sufijo = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
 const DIA_MS = 86_400_000;
 
+let basePrivA = "";
+let basePrivB = "";
+
 function fijarMultiPG() {
   process.env.TENANT_MODE = "multi";
-  process.env["TENANT_DATABASE_URL_tenant-a"] = process.env.PG_TEST_URL_A ?? "";
-  process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
+  process.env["TENANT_DATABASE_URL_tenant-a"] = basePrivA;
+  process.env["TENANT_DATABASE_URL_tenant-b"] = basePrivB;
   process.env.JOBS_SECRET = SECRETO;
 }
 
@@ -290,6 +294,8 @@ describe.skipIf(!hayPG)("SEC4-S2 fan-out con PG local: vencimientos-servicios po
   let ordenB = "";
 
   beforeAll(async () => {
+    basePrivA = await asegurarBasePrivada("pers_sec04_a", process.env.PG_TEST_URL_A ?? "");
+    basePrivB = await asegurarBasePrivada("pers_sec04_b", process.env.PG_TEST_URL_B ?? "");
     fijarMultiPG();
     resetStore();
     fijarTenant("tenant-a", "activo");

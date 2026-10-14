@@ -267,9 +267,13 @@ describe.skipIf(!hayPG)("PERS2-S16 multi con PG local: factura y pago aislados p
       getDue(ctx("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7")),
     );
     expect((dueB as Response).status).toBe(200);
-    const cuerpoB = (await (dueB as Response).json()) as { proximas: unknown[]; vencidas: unknown[] };
-    expect(cuerpoB.proximas).toHaveLength(0);
-    expect(cuerpoB.vencidas).toHaveLength(0);
+    const cuerpoB = (await (dueB as Response).json()) as {
+      proximas: Array<{ monto_centavos: string }>;
+      vencidas: Array<{ monto_centavos: string }>;
+    };
+    expect([...cuerpoB.proximas, ...cuerpoB.vencidas].filter((f) => f.monto_centavos === String(montoPG))).toHaveLength(
+      0,
+    );
   });
 });
 
