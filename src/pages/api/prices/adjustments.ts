@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { priceAdjustmentSchema } from "../../../lib/validation.js";
 import { control } from "../../../lib/store.js";
 import { esDueno, resolverSesion } from "../../../lib/control.js";
+import { exigirOnlineParaSensible } from "../../../lib/offline-gate.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { registrarAjuste } from "../../../lib/repos/precios.js";
 
@@ -32,6 +33,9 @@ export const POST: APIRoute = async ({ request }) => {
   if (!tenantId || !control.tenants.has(tenantId) || !esDueno(tenantId, ctx.googleSub)) {
     return Response.json({ error: "solo el dueño puede ajustar precios" }, { status: 403 });
   }
+  // El ajuste es sensible: online sale de las marcas offline del request
+  // (grant, cuarentena, device), no de un valor fijo.
+  const online = exigirOnlineParaSensible(request, "topes") === null;
   let r: Awaited<ReturnType<typeof registrarAjuste>>;
   try {
     r = await registrarAjuste({
@@ -41,6 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
       vigenciaTipo: b.vigencia_tipo,
       aplicaEn: b.aplica_en ?? null,
       confirmado: b.confirmado,
+      online,
       creadoPor: b.creado_por,
       ahoraIso: new Date().toISOString(),
       ...(b.paso_centavos !== undefined ? { pasoCentavos: BigInt(b.paso_centavos) } : {}),

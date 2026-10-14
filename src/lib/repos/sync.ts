@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { idMappings, outbox, type OutboxPayload } from "../../db/schema.js";
+import { idMappings, outbox, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState } from "../../db/schema-sync.js";
 import { esModoMulti, tenantActual } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -196,15 +196,22 @@ export interface PromoteEntrada {
   readonly deviceSeq: number;
 }
 
+// El push deja un provisorio `srv-*` en id_mappings; solo un definitivo T-*
+// cuenta como promoción (el replay 200 lo devuelve tal cual).
+function esPromovido(definitivo: string): boolean {
+  return !definitivo.startsWith("srv-");
+}
+
 // Promote idempotente por op_id: el replay devuelve el mapeo original (200).
-// Numeracion monoproceso en C1; C2 lo lleva a Postgres con lock de secuencia.
+// El número sale de ticket_counters con lock en la misma tx (DB) o del
+// contador del store compartido con ventas (memoria/single sin DB).
 export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRepo> {
   const db = dbVivaTenant();
   if (db) {
     try {
       const previoDb = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
       const previoDbRow = previoDb?.[0];
-      if (previoDbRow) {
+      if (previoDbRow && esPromovido(previoDbRow.idDefinitivo)) {
         store.promociones.set(b.opId, { provisorio: previoDbRow.idProvisorio, definitivo: previoDbRow.idDefinitivo });
         return {
           status: 200,
@@ -245,32 +252,95 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   if (!hayOp) return { status: 404, cuerpo: { error: "op desconocido" } };
 
   const provisorio = `${b.deviceCode}-${b.deviceSeq}`;
-  // nextTicket has no table: el correlativo T-* vive en memoria del repo.
-  const definitivo = `T-${String(store.nextTicket).padStart(6, "0")}`;
-  store.nextTicket += 1;
-  store.promociones.set(b.opId, { provisorio, definitivo });
-
-  if (db) {
-    try {
-      await db
-        .insert(idMappings)
-        .values({ opId: b.opId, idProvisorio: provisorio, idDefinitivo: definitivo })
-        .onConflictDoNothing({ target: idMappings.opId });
-      await db.update(outbox).set({ estado: "confirmado" }).where(eq(outbox.opId, b.opId));
-    } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    }
+  if (!db) {
+    const definitivo = `T-${String(store.nextTicket).padStart(6, "0")}`;
+    store.nextTicket += 1;
+    store.promociones.set(b.opId, { provisorio, definitivo });
+    return {
+      status: 201,
+      cuerpo: {
+        op_id: b.opId,
+        ticket_definitivo: definitivo,
+        ticket_provisorio: provisorio,
+        id_mapeado: definitivo,
+      },
+    };
   }
 
-  return {
-    status: 201,
-    cuerpo: {
-      op_id: b.opId,
-      ticket_definitivo: definitivo,
-      ticket_provisorio: provisorio,
-      id_mapeado: definitivo,
-    },
-  };
+  // DB: el número sale de ticket_counters (fila mostrador, FOR UPDATE) en la
+  // misma tx que escribe id_mappings y confirma el outbox, igual que las ventas.
+  // El lock del contador serializa promotes concurrentes del mismo op.
+  try {
+    const salida = await db.transaction(async (tx) => {
+      const filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).for("update");
+      if (!filas[0]) {
+        await tx.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
+      }
+      const vigente = await tx.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
+      const ya = vigente[0];
+      if (ya && esPromovido(ya.idDefinitivo)) {
+        return { definitivo: ya.idDefinitivo, provisorio: ya.idProvisorio, gano: false };
+      }
+      const ultimo = filas[0]?.ultimo ?? 0;
+      const n = ultimo + 1;
+      const definitivo = `T-${String(n).padStart(6, "0")}`;
+      await tx
+        .insert(idMappings)
+        .values({ opId: b.opId, idProvisorio: provisorio, idDefinitivo: definitivo })
+        .onConflictDoUpdate({
+          target: idMappings.opId,
+          set: { idProvisorio: provisorio, idDefinitivo: definitivo },
+        });
+      await tx.update(outbox).set({ estado: "confirmado" }).where(eq(outbox.opId, b.opId));
+      await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, "mostrador"));
+      return { definitivo, provisorio, gano: true };
+    });
+    store.promociones.set(b.opId, { provisorio: salida.provisorio, definitivo: salida.definitivo });
+    store.nextTicket = Math.max(store.nextTicket, Number(salida.definitivo.slice(2)) + 1);
+    return {
+      status: salida.gano ? 201 : 200,
+      cuerpo: {
+        op_id: b.opId,
+        ticket_definitivo: salida.definitivo,
+        ticket_provisorio: salida.provisorio,
+        id_mapeado: salida.definitivo,
+      },
+    };
+  } catch (e) {
+    if (esConflictoUnico(e)) {
+      try {
+        const previo = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
+        const fila = previo[0];
+        if (fila && esPromovido(fila.idDefinitivo)) {
+          store.promociones.set(b.opId, { provisorio: fila.idProvisorio, definitivo: fila.idDefinitivo });
+          return {
+            status: 200,
+            cuerpo: {
+              op_id: b.opId,
+              ticket_definitivo: fila.idDefinitivo,
+              ticket_provisorio: fila.idProvisorio,
+              id_mapeado: fila.idDefinitivo,
+            },
+          };
+        }
+      } catch {
+        // Cae al 503/throw de abajo.
+      }
+    }
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    const definitivo = `T-${String(store.nextTicket).padStart(6, "0")}`;
+    store.nextTicket += 1;
+    store.promociones.set(b.opId, { provisorio, definitivo });
+    return {
+      status: 201,
+      cuerpo: {
+        op_id: b.opId,
+        ticket_definitivo: definitivo,
+        ticket_provisorio: provisorio,
+        id_mapeado: definitivo,
+      },
+    };
+  }
 }
 
 export interface LatidoPrevio {

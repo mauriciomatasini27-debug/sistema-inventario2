@@ -18,6 +18,7 @@ export interface AjusteNuevo {
   readonly vigenciaTipo: "ahora" | "programada";
   readonly aplicaEn: string | null;
   readonly confirmado: boolean;
+  readonly online: boolean;
   readonly creadoPor: string;
   readonly ahoraIso: string;
   readonly pasoCentavos?: bigint | undefined;
@@ -45,7 +46,7 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
     vigenciaTipo: input.vigenciaTipo,
     aplicaEn: input.aplicaEn,
     confirmado: input.confirmado,
-    online: true,
+    online: input.online,
     rol: "dueno",
     creadoPor: input.creadoPor,
     ahoraIso: input.ahoraIso,

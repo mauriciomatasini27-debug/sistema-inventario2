@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
-import { resetStore, store } from "../src/lib/store.js";
+import { resetStore, store, control } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
+import { tenantPorDefecto } from "../src/lib/tenant-context.js";
+import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { supplierInvoices, supplierPayments } from "../src/db/schema-proveedores.js";
 import { paymentOrders } from "../src/db/schema-pagos.js";
@@ -200,26 +202,60 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
   });
 
   it("ordenes: preparar 201, cancelar 200 y confirmar pagada 200 con egreso", async () => {
+    const tenant = tenantPorDefecto();
+    control.tenants.set(tenant, {
+      id: tenant,
+      nombreComercio: "Kiosco",
+      slug: "kiosco",
+      estado: "activo",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: "dueno-1",
+      esDemo: false,
+    });
+    control.memberships.set("m-dueno-1", {
+      id: "m-dueno-1",
+      tenantId: tenant,
+      googleSub: "dueno-1",
+      rol: "dueno",
+      permisos: [],
+      estado: "activo",
+    });
+    const ahora = new Date();
+    const c = crearSesion({ googleSub: "dueno-1", tenantId: null, ahora });
+    control.sessions.set(c.registro.idHash, {
+      idHash: c.registro.idHash,
+      googleSub: "dueno-1",
+      tenantId: null,
+      expiraAt: c.registro.expiraAt,
+      expiraAbsoluta: c.registro.expiraAbsoluta,
+      lastSeenAt: ahora.toISOString(),
+    });
+    const auth = { cookie: `__Host-sesion=${c.idPlano}` };
     const payeeId = sembrarPayee();
     const movsAntes = store.movements.length;
     const o1 = await preparar(payeeId, `ord-${Date.now()}-1`);
     expect(o1.numero).toMatch(/^OP-\d+$/);
-    const c = (await postCancel({
-      request: req("http://x/api/payment-orders/cancel", {
-        order_id: o1.order_id,
-        version_esperada: 1,
-        motivo: "factura anulada",
-        actor: "dueno-1",
-      }),
+    const cc = (await postCancel({
+      request: req(
+        "http://x/api/payment-orders/cancel",
+        {
+          order_id: o1.order_id,
+          version_esperada: 1,
+          motivo: "factura anulada",
+          actor: "dueno-1",
+        },
+        auth,
+      ),
     } as never)) as Response;
-    expect(c.status).toBe(200);
-    expect(((await c.json()) as { estado: string }).estado).toBe("cancelada");
+    expect(cc.status).toBe(200);
+    expect(((await cc.json()) as { estado: string }).estado).toBe("cancelada");
     const o2 = await preparar(payeeId, `ord-${Date.now()}-2`);
     const p = (await postConfirmPaid({
       request: req(
         "http://x/api/payment-orders/confirm-paid",
         { order_id: o2.order_id, version_esperada: 1, medio: "Transferencia", actor: "dueno-1" },
-        { "Idempotency-Key": `pago-ord-${Date.now()}` },
+        { "Idempotency-Key": `pago-ord-${Date.now()}`, ...auth },
       ),
     } as never)) as Response;
     expect(p.status).toBe(200);

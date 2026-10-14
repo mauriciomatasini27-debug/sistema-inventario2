@@ -59,6 +59,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 1. Login endurecido (PRD-AU-01, ADR-0031) y login con destino `next` y bifurcación admin/tenant (AU2-S1 a S7, ADR-0030): a verificar contra código.
 2. Onboarding ON1-ON13 (`docs/02-identidad-onboarding/onboarding-parte-1.md`, `-parte-2.md`): estado a verificar; cupo de prueba abierto (`onboarding-parte-2.md:261`).
 3. Flujo demo de dos tenants E2E (PRD-E2E-01, E2E-S1 a S6).
+4. Dueño real en pagos y fiscal, online real en ajustes de precio y correlativo único de tickets entre ventas y sync (PRD-SEC-01, ADR-0066 aceptado): hecho 2026-10-13, SEC-S1 a S4 con `tests/sec01-dueno-correlativo.test.ts` 17/17; pendiente sumar `/api/payment-orders` a `PREFIJOS_DATOS`.
 
 ### 3. WhatsApp y canales
 1. Alta del número central en Meta, verificación del negocio y plantillas (ADR-0041, ADR-0042). Externo.
@@ -154,6 +155,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0057-repos-compras-pagos-sin-store.md` | cubierto | Ya implementado (grupo 5: facturas de proveedores y órdenes de pago) |
 | `adr/0058-repos-servicios-fiado-sin-store.md` | cubierto | Ya implementado (grupo 6: consumos de servicios y fiado) |
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
+| `adr/0066-dueno-real-y-correlativo-unico.md` | cubierto | Ya implementado (2b.4: dueño real, online real, correlativo único) |
 | `adr/0064-politica-comentarios.md` | cubierto | 9.2 |
 | `adr/0065-arquitectura-amigable-agentes.md` | cubierto | 9.3 |
 | `adr/0063-ventas-devoluciones-sin-store.md` | cubierto | Ya implementado (grupo 11: ventas y devoluciones) |
@@ -254,6 +256,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-DS-01` | cubierto | 5.5 |
 | `diseno/PRD-COM-01` | cubierto | 9.2 |
 | `diseno/PRD-ARQ-01` | cubierto | 9.3 |
+| `diseno/PRD-SEC-01` | cubierto | 2b.4 |
 | `diseno/PRD-DS-02` | cubierto | 5.5 |
 | `diseno/PRD-DS-03` | cubierto | 5.5 |
 | `diseno/PRD-E2E-01` | cubierto | 2b.3 |
