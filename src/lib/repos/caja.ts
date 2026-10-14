@@ -871,3 +871,43 @@ function pagarVencimientoMemoria(input: { id: string; key: string }): { status: 
   store.movements.push(mov);
   return { status: 200, id: input.id, egresoId: mov.id };
 }
+
+// Egreso manual de pagos a proveedores (PERS2-S14/S15, ADR-0057): lo usan los
+// repos de facturas y ordenes en lugar de empujar store.movements. DB primero
+// con espejo memoria; en multi sin base propaga BaseNoDisponible.
+export async function registrarEgresoRetiro(input: {
+  key: string;
+  montoCentavos: bigint;
+  metodo: Medio;
+  origen?: string | undefined;
+  categoriaId?: string | undefined;
+}): Promise<StoredMovement> {
+  const mov: StoredMovement = {
+    id: randomUUID(),
+    tipo: "egreso",
+    metodo: input.metodo,
+    monto_centavos: input.montoCentavos.toString(),
+    origen: input.origen ?? "retiro",
+    idempotency_key: input.key,
+  };
+  const db = dbVivaTenant();
+  if (!db) {
+    store.movements.push(mov);
+    return mov;
+  }
+  try {
+    await db.insert(cashMovements).values({
+      saleId: null,
+      idempotencyKey: input.key,
+      tipo: "egreso",
+      metodo: input.metodo,
+      categoriaId: input.categoriaId ?? "pago_proveedor",
+      origen: mov.origen,
+      montoCentavos: input.montoCentavos,
+    });
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+  }
+  store.movements.push(mov);
+  return mov;
+}
