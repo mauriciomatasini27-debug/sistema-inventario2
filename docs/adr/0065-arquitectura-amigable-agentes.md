@@ -1,6 +1,6 @@
 # ADR-0065 - Errores recurrentes de agentes se eliminan por estructura y trinquetes de CI
 
-Estado: aceptado (fase 1 implementada en `refactor/arq-fase-1`). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md`, ADR 0050 a 0064, skills `correct` y `architect` de pstack.
+Estado: aceptado (fases 1 y 2 implementadas). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md`, ADR 0050 a 0064, skills `correct` y `architect` de pstack.
 
 ## Decisión
 
@@ -27,7 +27,9 @@ Un PR grande de fin de línea sin cambios de comportamiento y una migración de 
 
 - Fase 1 hecha: ARQ-S3 (`.gitattributes` LF, renormalización en commit propio, arch-test `tests/arch/sin-crlf.test.ts`), ARQ-S1 (`tests/helpers/ctx.ts`, 49 llamadas sin `request` en 22 archivos; el PRD contaba 19 en 9), ARQ-S2 (`src/lib/fecha-ar.ts`, 0 `toISOString().slice(0,10)` en `src`, arch-test `tests/arch/sin-fecha-utc.test.ts`), ARQ-S9 (`$type<T>()`, 0 `as never` en `src`, arch-test `tests/arch/sin-as-never-src.test.ts`). `tsc` 0 errores, `npm test` 0 fallos.
 - Los instantes que antes se formateaban como día UTC conservan ese corte con `diaUTC()`; pasarlos a `fechaAR` queda como decisión aparte.
+- Fase 2 hecha (ARQ-S5, ARQ-S6): el job `ci` corre `npm run typecheck`, el paso "Trinquetes de arquitectura" (`npm run check:arch`: `tests/arch` y `tests/pers2-arch.test.ts`), `npm test` y `npm run build`, sin `continue-on-error`. Trinquetes en `tests/arch/trinquetes.test.ts` con baselines en `tests/arch/baselines.json` (fallan si el conteo sube y también si baja sin actualizar el baseline): `as never` en tests 443, `as never` en llamadas a handlers con `request` 241 (AT2), `store.` en `src/lib/repos` 435 (AT4), comentarios "no existe/no hay tabla" 10 (AT5), `esModoMulti` 151 (métrica de ARQ-S4). AT1 y AT3 y `as never` en `src` quedan en cero absoluto.
+- Limitación del plan: el repo es privado en el plan gratis de GitHub, sin branch protection ni rulesets, así que `ci` no puede marcarse como check obligatorio. Un PR en rojo sigue pudiendo mergearse; la regla es no mergear con `ci` en rojo. Si el repo pasa a público o a un plan pago, exigir `ci` en `main`.
 
 ## Pendientes
 
-Fases 2 a 5 de PRD-ARQ-01. Medir tests salteados por `PG_TEST_URL` cuando exista el job con Postgres.
+Fases 3 a 5 de PRD-ARQ-01; exigir `ci` como check obligatorio cuando el plan lo permita. Medir tests salteados por `PG_TEST_URL` cuando exista el job con Postgres.
