@@ -36,7 +36,7 @@ Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
 1. Arreglar el journal de migraciones: `drizzle/meta/_journal.json` solo registra `0000`; `0001` a `0006` no están y hay dos `0004` (`0004_auth_append_only.sql`, `0004_ticket_links.sql`). Talla S.
-2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Grupo 1 (tickets, precios, proveedores) aceptado (ADR-0053); grupo 2: fiscal aceptado (ADR-0054); grupo 3: whatsapp y email aceptado (ADR-0055); grupo 4: caja aceptado (ADR-0056); grupo 5: facturas de proveedores y órdenes de pago aceptado (ADR-0057); grupo 6: consumos de servicios y fiado aceptado (ADR-0058); grupo 7: jobs aceptado (ADR-0059); grupo 8: OCR aceptado (ADR-0060). Ahora: Grupo 9 (sincronización) en curso (PRD-PERS-02 PERS2-E12, ADR-0061); 16 rutas importan `store` hoy.
+2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Grupo 1 (tickets, precios, proveedores) aceptado (ADR-0053); grupo 2: fiscal aceptado (ADR-0054); grupo 3: whatsapp y email aceptado (ADR-0055); grupo 4: caja aceptado (ADR-0056); grupo 5: facturas de proveedores y órdenes de pago aceptado (ADR-0057); grupo 6: consumos de servicios y fiado aceptado (ADR-0058); grupo 7: jobs aceptado (ADR-0059); grupo 8: OCR aceptado (ADR-0060); grupo 9: sincronización aceptado (ADR-0061). Ahora: quedan 12 rutas que importan `store`.
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
 5. PWA: `photos_queue`, cifrado y borrado remoto (PWA-S4, PWA-S5, ADR-0025).
@@ -152,7 +152,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0057-repos-compras-pagos-sin-store.md` | cubierto | Ya implementado (grupo 5: facturas de proveedores y órdenes de pago) |
 | `adr/0058-repos-servicios-fiado-sin-store.md` | cubierto | Ya implementado (grupo 6: consumos de servicios y fiado) |
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
-| `adr/0061-repo-sync-sin-store.md` | cubierto | Para implementar 1.2 |
+| `adr/0061-repo-sync-sin-store.md` | cubierto | Ya implementado (grupo 9: sincronización) |
 | `adr/0060-repo-ocr-sin-store.md` | cubierto | Ya implementado (grupo 8: OCR) |
 | `01-fundacion/costos-por-cliente.md` | cubierto | 6 Planes y precios |
 | `01-fundacion/modo-offline.md` | cubierto | Ya implementado PWA/Sync; 1.4, 1.5; 2.11 CAEA |
