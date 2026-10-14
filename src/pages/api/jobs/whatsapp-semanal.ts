@@ -1,8 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
-import { gateJob } from "../../../lib/tenant-context.js";
-import { conTenant, esModoMulti } from "../../../lib/tenant-mode.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrJob } from "../../../lib/jobs-tenant.js";
+import { esModoMulti } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
@@ -38,27 +37,16 @@ export function calculo_vivo(): CalculoSemanal {
 // PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
 // single todos como hoy) y el cálculo va por el repo whatsapp.
 export const POST: APIRoute = async ({ request }) => {
-  const g = gateJob(request);
-  if (!g) {
-    return Response.json({ error: "no autorizado" }, { status: 403 });
-  }
-  if (!g.ok) return g.respuesta;
-  return conTenant(g.tenantId, async () => {
+  return correrJob(request, async (tenantId) => {
     const ahoraMs = Date.now();
     const semanaISO = semana_iso(new Date(ahoraMs));
-    let calculo: CalculoSemanal;
-    try {
-      calculo = await calculoSemanalVivo();
-    } catch (e) {
-      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-      throw e;
-    }
+    const calculo = await calculoSemanalVivo();
     const baseWeb = process.env.PUBLIC_APP_URL ?? "https://app.local";
     const sender: Enviador = async ({ canal, destino, texto, idempotencyKey }) => {
       if (canal === "wa") return enviar_texto_wa(destino, texto);
       return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
     };
-    const uno = obtenerComercioBot(g.tenantId);
+    const uno = obtenerComercioBot(tenantId);
     const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
     const resultados = [];
     for (const c of comercios) {

@@ -6,6 +6,11 @@ export { esModoMulti, tenantPorDefecto };
 
 export type TenantResuelto = { ok: true; tenantId: string } | { ok: false; respuesta: Response };
 
+export type JobResuelto =
+  | { ok: true; tenantId: string }
+  | { ok: true; tenantIds: string[] }
+  | { ok: false; respuesta: Response };
+
 export type DuenoResuelto =
   | { ok: true; ctx: ContextoAuth; tenantId: string }
   | { ok: false; respuesta: Response };
@@ -62,13 +67,24 @@ export function gateTenantDatos(request: Request, path: string): TenantResuelto 
 }
 
 // Por qué el job no usa sesión: actúa como Sistema con secreto compartido;
-// en multi exige comercio explícito activo o suspendido (PERS2-S3).
-export function gateJob(request: Request): TenantResuelto | null {
+// en multi con comercio explícito corre solo ese si está activo o suspendido
+// (PERS2-S3); sin comercio y bajo /api/jobs/* devuelve todos los elegibles
+// para el fan-out (SEC4-S1, enmienda PERS2-S3).
+export function gateJob(request: Request): JobResuelto | null {
   const secreto = process.env.JOBS_SECRET;
   if (!secreto || request.headers.get("X-Job-Secret") !== secreto) return null;
   if (!esModoMulti()) return { ok: true, tenantId: tenantPorDefecto() };
   const pedido = request.headers.get("X-Tenant-Id");
-  if (!pedido) return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
+  if (!pedido) {
+    if (!new URL(request.url).pathname.startsWith("/api/jobs/")) {
+      return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
+    }
+    const ids = [...control.tenants.values()]
+      .filter((t) => t.estado === "activo" || t.estado === "suspendido")
+      .map((t) => t.id)
+      .sort();
+    return { ok: true, tenantIds: ids };
+  }
   const tenant = control.tenants.get(pedido);
   if (!tenant || (tenant.estado !== "activo" && tenant.estado !== "suspendido")) {
     return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };

@@ -17,6 +17,8 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
   const trabajo = gateJob(request);
   if (trabajo) {
     if (!trabajo.ok) return trabajo.respuesta;
+    // SEC4-S3: el fan-out envuelve por tenant en la ruta; acá se deja pasar.
+    if ("tenantIds" in trabajo) return next();
     try {
       return await conTenant(trabajo.tenantId, () => next());
     } catch (e) {

@@ -86,6 +86,7 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-SEC-02` | `0074` | Rutas de datos completas en `PREFIJOS_DATOS` (pagos, conteos, stock, servicios, OCR) y `fiscal_settings` por tenant (aceptado, 2026-10-14) |
 | `PRD-SEC-03` | `0075` | Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`, seco por defecto e idempotente (aceptado, 2026-10-14) |
 | `PRD-ROAD-01` | `0076` | Avances del roadmap por archivo y sección generada, sin conflictos entre PRs (aceptado, 2026-10-14) |
+| `PRD-SEC-04` | `0077` | Fan-out de jobs por tenant: `X-Job-Secret` sin `X-Tenant-Id` en multi recorre comercios activos y suspendidos (aceptado, 2026-10-14) |
 | `PRD-SEC-01` | `0066` | Dueño real en rutas sensibles (pagos, fiscal), online real en ajustes de precio y correlativo único de tickets entre ventas y sync (aceptado, 2026-10-13) |
 | `PRD-COM-01` | `0064` | Política de comentarios de código: solo por qué no obvio; parches a refactor o issue (propuesto, 2026-10-13) |
 | `PRD-PERS-02` (E14) | `0063` | Ventas, devoluciones y correcciones sin `store`; cierre de PERS-S5 en rutas (2026-10-13) |

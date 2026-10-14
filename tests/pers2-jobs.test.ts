@@ -58,16 +58,13 @@ afterEach(() => {
 });
 
 describe("PERS2-S3 gateJob", () => {
-  it("multi con secreto válido sin X-Tenant-Id responde 403 E5", async () => {
+  it("multi con secreto válido sin X-Tenant-Id devuelve fan-out (enmienda PERS2-S3 por SEC4-S1)", () => {
     modoMulti();
-    fijarTenant("tenant-a", "activo");
+    fijarTenant("tenant-b", "activo");
+    fijarTenant("tenant-a", "suspendido");
+    fijarTenant("tenant-c", "preparando");
     const r = gateJob(peticion({ "X-Job-Secret": SECRETO }));
-    expect(r).not.toBeNull();
-    expect(r!.ok).toBe(false);
-    if (!r!.ok) {
-      expect(r!.respuesta.status).toBe(403);
-      expect(await r!.respuesta.json()).toEqual({ error: "No tenés permiso para ver este comercio." });
-    }
+    expect(r).toEqual({ ok: true, tenantIds: ["tenant-a", "tenant-b"] });
   });
 
   it("multi con tenant desconocido responde 403 E5", async () => {

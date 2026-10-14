@@ -1,14 +1,11 @@
 import type { APIRoute } from "astro";
+import { correrJob } from "../../../lib/jobs-tenant.js";
 import { ejecutarVencimientoOcr } from "../../../jobs/vencer-ocr.js";
 
 export const prerender = false;
 
 // POST /api/jobs/vencer-ocr — vencimiento 7d + recuerdo 24h de borradores OCR.
-// Solo con X-Job-Secret (el middleware deja pasar jobs sin sesión).
-export const POST: APIRoute = async ({ request }) => {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret || request.headers.get("X-Job-Secret") !== secret) {
-    return Response.json({ error: "no autorizado" }, { status: 403 });
-  }
-  return Response.json(ejecutarVencimientoOcr(), { status: 200 });
-};
+// Solo con X-Job-Secret. Lee la memoria del comercio: en multi sin
+// X-Tenant-Id corre por tenant (SEC4-S2).
+export const POST: APIRoute = async ({ request }) =>
+  correrJob(request, async () => Response.json(ejecutarVencimientoOcr(), { status: 200 }));

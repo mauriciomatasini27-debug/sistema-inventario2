@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
 import { gateJob } from "../../../lib/tenant-context.js";
-import { conTenant } from "../../../lib/tenant-mode.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrJob } from "../../../lib/jobs-tenant.js";
 import { clasificarLotes, listarLotes } from "../../../lib/repos/lotes.js";
 
 export const prerender = false;
@@ -12,18 +11,11 @@ export const prerender = false;
 export const POST: APIRoute = async (ctx) => {
   const request = (ctx as unknown as { request?: Request } | undefined)?.request;
   const correr = async (): Promise<Response> => {
-    let lotes: Awaited<ReturnType<typeof listarLotes>>;
-    try {
-      lotes = await listarLotes();
-    } catch (e) {
-      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-      throw e;
-    }
+    const lotes = await listarLotes();
     return Response.json(clasificarLotes(lotes, Date.now()));
   };
   if (!request) return correr();
-  const g = gateJob(request);
-  if (!g) return correr();
-  if (!g.ok) return g.respuesta;
-  return conTenant(g.tenantId, correr);
+  // Sin secreto corre en el contexto actual como hoy; correrJob reevalúa el gate.
+  if (!gateJob(request)) return correr();
+  return correrJob(request, correr);
 };

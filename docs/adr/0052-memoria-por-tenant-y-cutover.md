@@ -21,4 +21,4 @@ Esperar al cutover completo: deja abierta la mezcla en multi durante varias iter
 ## Pendientes
 
 Excepción vigente: `leerFiscalDocs` en multi sin base del tenant devuelve `null` y las rutas fiscales leen memoria; esa memoria ya está particionada por tenant (sin mezcla) pero no es durable, hasta el cutover fiscal de PERS-S4. 
-PERS-S4 por dominio y PERS-S5. Fan-out de jobs por tenant. Postgres del box no sobrevive a un reset (reinstalar con apt).
+PERS-S4 por dominio y PERS-S5. Fan-out de jobs por tenant: ADR-0077 (PRD-SEC-04). Postgres del box no sobrevive a un reset (reinstalar con apt).

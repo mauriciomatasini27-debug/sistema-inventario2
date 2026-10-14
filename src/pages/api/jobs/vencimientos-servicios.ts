@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
-import { gateJob } from "../../../lib/tenant-context.js";
-import { conTenant, esModoMulti } from "../../../lib/tenant-mode.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrJob } from "../../../lib/jobs-tenant.js";
+import { esModoMulti } from "../../../lib/tenant-mode.js";
 import { listarCuentas, listarFacturas } from "../../../lib/repos/servicios.js";
 import { listarOrdenesJob, persistirOrdenesVencidas } from "../../../lib/repos/ordenes-pago.js";
 import { listarComerciosBot, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
@@ -22,27 +21,14 @@ export const prerender = false;
 // single todos como hoy); facturas y cuentas van por el repo servicios y
 // las órdenes por el repo ordenes-pago.
 export const POST: APIRoute = async ({ request }) => {
-  const g = gateJob(request);
-  if (!g) {
-    return Response.json({ error: "no autorizado" }, { status: 403 });
-  }
-  if (!g.ok) return g.respuesta;
-  return conTenant(g.tenantId, async () => {
+  return correrJob(request, async (tenantId) => {
     const ahoraMs = Date.now();
     const hoyIso = fechaAR(new Date(ahoraMs));
     const hayCred = cred_wa() !== null;
-    let cuentas: Awaited<ReturnType<typeof listarCuentas>>;
-    let facturas: Awaited<ReturnType<typeof listarFacturas>>;
-    let ordenes: Awaited<ReturnType<typeof listarOrdenesJob>>;
-    try {
-      cuentas = await listarCuentas();
-      facturas = await listarFacturas();
-      ordenes = await listarOrdenesJob();
-    } catch (e) {
-      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-      throw e;
-    }
-    const uno = obtenerComercioBot(g.tenantId);
+    const cuentas = await listarCuentas();
+    const facturas = await listarFacturas();
+    let ordenes = await listarOrdenesJob();
+    const uno = obtenerComercioBot(tenantId);
     const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
     const yaEnviados = waEnviadosVivos();
     const resultados = [];
@@ -61,12 +47,7 @@ export const POST: APIRoute = async ({ request }) => {
           return true;
         },
       });
-      try {
-        await persistirOrdenesVencidas({ actualizadas: r.ordenes, vencidasIds: r.vencidasMarcadas, hoyMs: ahoraMs });
-      } catch (e) {
-        if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-        throw e;
-      }
+      await persistirOrdenesVencidas({ actualizadas: r.ordenes, vencidasIds: r.vencidasMarcadas, hoyMs: ahoraMs });
       ordenes = [...r.ordenes];
       resultados.push({
         tenant_id: comercio.tenantId,

@@ -1,7 +1,5 @@
 import type { APIRoute } from "astro";
-import { gateJob } from "../../../lib/tenant-context.js";
-import { conTenant } from "../../../lib/tenant-mode.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrJob } from "../../../lib/jobs-tenant.js";
 import { correrCierreMedianoche } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
@@ -12,19 +10,8 @@ export const prerender = false;
 // disputa; tras el cierre asegura el aviso WA C10 una sola vez.
 // PERS2-S18: el tenant sale de gateJob y el cierre persiste por el repo caja.
 export const POST: APIRoute = async ({ request }) => {
-  const g = gateJob(request);
-  if (!g) {
-    return Response.json({ error: "no autorizado" }, { status: 403 });
-  }
-  if (!g.ok) return g.respuesta;
-  return conTenant(g.tenantId, async () => {
-    let r: Awaited<ReturnType<typeof correrCierreMedianoche>>;
-    try {
-      r = await correrCierreMedianoche(new Date());
-    } catch (e) {
-      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-      throw e;
-    }
+  return correrJob(request, async () => {
+    const r = await correrCierreMedianoche(new Date());
     if (r.status === 201) {
       return Response.json(
         { fecha_jornada: r.fechaJornada, close_type: "automatica", total_centavos: r.totalCentavos, wa: r.wa },

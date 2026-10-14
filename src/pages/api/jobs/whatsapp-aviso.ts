@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
-import { gateJob } from "../../../lib/tenant-context.js";
-import { conTenant, esModoMulti } from "../../../lib/tenant-mode.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrJob } from "../../../lib/jobs-tenant.js";
+import { esModoMulti } from "../../../lib/tenant-mode.js";
 import {
   catalogoAvisoVivo,
   listarComerciosBot,
@@ -25,22 +24,11 @@ export const prerender = false;
 // PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
 // single todos como hoy) y el estado va por el repo whatsapp.
 export const POST: APIRoute = async ({ request }) => {
-  const g = gateJob(request);
-  if (!g) {
-    return Response.json({ error: "no autorizado" }, { status: 403 });
-  }
-  if (!g.ok) return g.respuesta;
-  return conTenant(g.tenantId, async () => {
+  return correrJob(request, async (tenantId) => {
     const ahoraMs = Date.now();
     const fecha = fechaAR(new Date(ahoraMs));
-    let vivos: Awaited<ReturnType<typeof catalogoAvisoVivo>>;
-    try {
-      vivos = await catalogoAvisoVivo();
-    } catch (e) {
-      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-      throw e;
-    }
-    const uno = obtenerComercioBot(g.tenantId);
+    const vivos = await catalogoAvisoVivo();
+    const uno = obtenerComercioBot(tenantId);
     const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
     const porTenant = new Map(comercios.map((c) => [c.tenantId, c]));
     const hayCred = cred_wa() !== null;
