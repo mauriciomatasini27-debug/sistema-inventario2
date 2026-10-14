@@ -19,7 +19,7 @@ export function ejecutarVerificacionHash(ahora = new Date()): {
       break;
     }
     const v = verificar_acto({
-      acto: a.detalle as Parameters<typeof verificar_acto>[0]["acto"],
+      acto: a.detalle,
       actorGoogleSub: a.actorGoogleSub,
       prevHash: a.prevHash,
       hash: a.hash,

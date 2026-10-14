@@ -30,6 +30,10 @@ export interface AuditEntry {
   motivo?: string | undefined;
 }
 
+export interface DetalleReversion {
+  readonly motivo: string | null;
+}
+
 export interface ReversionOk {
   status: 201;
   movimiento: MovimientoRevertido;

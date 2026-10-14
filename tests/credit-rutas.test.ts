@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTPay } from "../src/pages/api/credit/payments.js";
 import { POST as POSTSale } from "../src/pages/api/credit/sales-on-account.js";
 import { GET as GETBalance } from "../src/pages/api/credit/balance.js";
@@ -31,7 +32,7 @@ describe("credit rutas PERS-S4 (sin DB no rompe)", () => {
       }),
     } as never)) as Response;
     expect(r.status).toBe(201);
-    const b = (await GETBalance({ url: new URL("http://x/api/credit/balance?customer_id=cli-1") } as never)) as Response;
+    const b = (await GETBalance(ctx("http://x/api/credit/balance?customer_id=cli-1"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
     expect(j["saldo_centavos"]).toBe("20000");
     expect(j["fuente"]).toBe("memoria");
@@ -63,7 +64,7 @@ describe("credit rutas PERS-S4 (sin DB no rompe)", () => {
       request: req("http://localhost/api/credit/payments", k2, { customer_id: "cli-2", monto_centavos: 8000, medio: "Efectivo" }),
     } as never)) as Response;
     expect(r.status).toBe(201);
-    const b = (await GETBalance({ url: new URL("http://x/api/credit/balance?customer_id=cli-2") } as never)) as Response;
+    const b = (await GETBalance(ctx("http://x/api/credit/balance?customer_id=cli-2"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
     expect(j["saldo_centavos"]).toBe("12000");
     expect(j["estado"]).toBe("al_dia");

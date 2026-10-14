@@ -1,4 +1,5 @@
 import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { DetalleEventoOrden, InstruccionSnapshot } from "../modules/payments/ordenes.js";
 
 // LANE G — Tablas payments OP1-OP13 (ADR-0001 módulo payments). Mismo estilo
 // que schema.ts / schema-caja.ts. Viven en la DB del tenant (las órdenes son
@@ -50,7 +51,7 @@ export const paymentOrders = pgTable("payment_orders", {
   instruccionTipo: text("instruccion_tipo").notNull(),
   // Snapshot inmutable de lo entregado al comerciante (OP6.3/7.2): aunque la
   // ficha cambie después, la auditoría muestra qué datos/link se mandaron.
-  instruccionSnapshot: jsonb("instruccion_snapshot").notNull(),
+  instruccionSnapshot: jsonb("instruccion_snapshot").$type<InstruccionSnapshot>().notNull(),
   linkDominio: text("link_dominio"),
   referencia: text("referencia"),
   supplierInvoiceId: text("supplier_invoice_id"),
@@ -80,7 +81,7 @@ export const paymentOrderEvents = pgTable("payment_order_events", {
   version: integer("version").notNull(),
   actor: text("actor").notNull(),
   origen: text("origen").notNull(),
-  detalle: jsonb("detalle"),
+  detalle: jsonb("detalle").$type<DetalleEventoOrden>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

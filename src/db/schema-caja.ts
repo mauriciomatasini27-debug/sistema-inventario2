@@ -1,4 +1,5 @@
 import { bigint, boolean, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { DetalleReversion } from "../modules/cash/reversion.js";
 
 // LANE A — Caja cierre + turnos + reversión (ADR-0004 C7/C12/C15/C16/C17).
 // Tablas nuevas del módulo cash. cash_movements ya vive en schema.ts y NO se
@@ -15,13 +16,15 @@ export const cashDays = pgTable("cash_days", {
   ultimoMovimientoId: uuid("ultimo_movimiento_id"),
 });
 
+export type CajaPorMedio = Record<string, string>;
+
 export const closingSummaries = pgTable("closing_summaries", {
   id: uuid("id").primaryKey().defaultRandom(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   fechaJornada: text("fecha_jornada").notNull().unique(),
   closeType: text("close_type").notNull(),
   totalCentavos: bigint("total_centavos", { mode: "bigint" }).notNull(),
-  porMedio: jsonb("por_medio").notNull(),
+  porMedio: jsonb("por_medio").$type<CajaPorMedio>().notNull(),
   ultimoMovimientoId: uuid("ultimo_movimiento_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -81,7 +84,7 @@ export const cashAuditLog = pgTable("cash_audit_log", {
   accion: text("accion").notNull(),
   movimientoId: uuid("movimiento_id"),
   revierteA: uuid("revierte_a"),
-  detalle: jsonb("detalle"),
+  detalle: jsonb("detalle").$type<DetalleReversion>(),
   actor: text("actor").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

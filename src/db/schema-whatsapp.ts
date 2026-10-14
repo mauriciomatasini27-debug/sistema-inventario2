@@ -57,11 +57,13 @@ export const notificationPreferences = pgTable("notification_preferences", {
 // Estado de conversación corto por usuario (Flujos 2-4): paso actual,
 // producto en desambiguación, borrador abierto. Sin datos de stock.
 // El TTL se aplica en el adaptador (expiración por updatedAt).
+export type ContextoSesionWhatsapp = Record<string, unknown>;
+
 export const whatsappSessions = pgTable("whatsapp_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   numeroE164: text("numero_e164").notNull().unique(),
   paso: text("paso").notNull().default("libre"),
-  contexto: jsonb("contexto").notNull().default({}),
+  contexto: jsonb("contexto").$type<ContextoSesionWhatsapp>().notNull().default({}),
   // B4-B10: TTL de sesión corta (30 min). El adaptador la expira por updatedAt
   // o por esta columna cuando hay reloj real; en memoria equivale al TTL.
   expiraEn: timestamp("expira_en"),
