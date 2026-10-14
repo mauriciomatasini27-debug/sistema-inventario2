@@ -115,6 +115,15 @@ Requisito PERS2-13: `products`, `locations`, `lots`, `counts`, `stock/conteo`, `
 
 Arch-test AT16: ningún archivo de esas 9 rutas importa `store` de `lib/store`; el contador global baja de 12.
 
+## Épica PERS2-E14. Rutas sin `store`: ventas y devoluciones (PERS-S4/S5, grupo 11)
+
+Requisito PERS2-14: `sales`, `returns` y `sales/medium-corrections` no importan `store` de `src/lib/store.ts`. Los comprobantes van por `src/lib/repos/fiscal.ts`, el stock y sus movimientos por `src/lib/repos/stock.ts`, los movimientos de caja por `caja.ts`, y las devoluciones y correcciones por `src/lib/repos/ventas.ts`, con DB primero y memoria solo en `single` sin base. Con este grupo ninguna ruta de `src/pages/api` importa `store` (PERS-S5) (ADR-0053, ADR-0063).
+
+- Historia PERS2-S25. Devoluciones y correcciones: alta idempotente de devoluciones (con su nota de crédito, stock y caja) y correcciones de medio de pago. AC: Given multi con base de A When registro una devolución Then queda en la base de A, B no la ve y la ruta no importa `store`; Given single sin base Then se comporta como hoy. ADR: 0063. Talla M. Depende de: PERS2-S8, PERS2-S23.
+- Historia PERS2-S26. Ventas: `sales` deja de leer `store.fiscalDocs` y usa el repositorio fiscal. AC: Given cualquier modo When vendo Then el comprobante se arma por `fiscal.ts` y la ruta no importa `store`. ADR: 0063. Talla S. Depende de: PERS2-S8.
+
+Arch-test AT17: ningún archivo de `src/pages/api` importa `store` de `lib/store`; el contador global llega a 0.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
