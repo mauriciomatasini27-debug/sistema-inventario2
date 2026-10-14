@@ -156,6 +156,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 |---|---|---|---|---|
 | 2026-10-14 | ROAD1-S1 a S4 | hecho | ROAD1-S1 a S4 hechos: avances por archivo y sección generada sin conflictos entre PRs. | PRD-ROAD-01 / ADR-0076 |
 | 2026-10-14 | SEC4-S1 a S3 | hecho | SEC4-S1 a S3 hechos: jobs con `X-Job-Secret` sin `X-Tenant-Id` en multi recorren todos los comercios activos o suspendidos, con resumen por tenant. | PRD-SEC-04 / ADR-0077 |
+| 2026-10-14 | PERS3-S1 a S4 | hecho | PERS3-S1 a S4 hechos: ubicaciones, fotos al alta y conteos DB-first en `locations` / `product_photos` / `stock_counts` (ADR-0078). | PRD-PERS-03 / ADR-0078 |
 <!-- roadmap:avances:fin -->
 
 ## Decisiones registradas
