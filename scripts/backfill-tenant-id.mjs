@@ -1,7 +1,6 @@
-// Backfill de fiscal_documents.tenant_id nulo. Seco por defecto: imprime el
-// conteo y la sentencia sin conectar. Solo ejecuta con --apply en base de un
-// comercio. Nunca imprime valores de entorno.
-import { planBackfill } from "./backfill-tenant-id-lib.mjs";
+// Seco por defecto: con base cuenta nulas e imprime sentencias sin escribir.
+// Solo ejecuta con --apply en base de un comercio. Nunca imprime el entorno.
+import { planBackfill, aplicarBackfill, contarNulos } from "./backfill-tenant-id-lib.mjs";
 
 function valorDe(nombre) {
   const i = process.argv.indexOf(nombre);
@@ -17,22 +16,41 @@ if (!plan.ok) {
   console.error(`FAIL ${plan.error}`);
   process.exit(1);
 }
-console.log(`comercios_en_base=${comerciosEnBase} apply=${apply ? "si" : "no"}`);
-console.log(plan.sql);
+const resumen = `comercios_en_base=${comerciosEnBase} apply=${apply ? "si" : "no"}`;
+const baseUrl = process.env.TENANT_DATABASE_URL ?? "";
+const { default: postgres } = baseUrl ? await import("postgres") : { default: null };
+
 if (!apply) {
-  console.log("seco: sin escritura (usa --apply para ejecutar)");
+  if (!baseUrl || !postgres) {
+    console.log(resumen);
+    console.log(plan.sql);
+    console.log("seco: sin escritura (usa --apply para ejecutar)");
+    process.exit(0);
+  }
+  const sql = postgres(baseUrl);
+  try {
+    const nulos = await contarNulos(sql);
+    console.log(resumen);
+    for (const s of plan.sentencias) console.log(`nulas ${s.tabla}=${nulos[s.tabla]}`);
+    console.log(plan.sql);
+    console.log("seco: sin escritura (usa --apply para ejecutar)");
+  } finally {
+    await sql.end();
+  }
   process.exit(0);
 }
 
-const dbUrl = process.env.TENANT_DATABASE_URL ?? "";
-if (!dbUrl) {
+if (!baseUrl || !postgres) {
   console.error("FAIL falta base del comercio para --apply");
   process.exit(1);
 }
-const { default: postgres } = await import("postgres");
-const sql = postgres(dbUrl);
+const sql = postgres(baseUrl);
 try {
-  await sql.unsafe(plan.sql);
+  const cambios = await aplicarBackfill(sql, plan);
+  const resto = await sql.unsafe("SELECT COUNT(*)::int AS n FROM fiscal_settings WHERE tenant_id IS NULL");
+  console.log(resumen);
+  for (const s of plan.sentencias) console.log(`cambiadas ${s.tabla}=${cambios[s.tabla]}`);
+  console.log(`nulas_restantes fiscal_settings=${resto[0].n}`);
   console.log("ok: backfill aplicado");
 } finally {
   await sql.end();

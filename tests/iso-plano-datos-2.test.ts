@@ -14,7 +14,7 @@ import { planBackfill } from "../scripts/backfill-tenant-id-lib.mjs";
 const TA = "tenant-a";
 const TB = "tenant-b";
 const E5 = "No tenés permiso para ver este comercio.";
-const SQL_ESPERADO = "UPDATE fiscal_documents SET tenant_id = 'slice0' WHERE tenant_id IS NULL";
+const DOC_ESPERADO = "UPDATE fiscal_documents SET tenant_id = 'slice0' WHERE tenant_id IS NULL";
 
 function postWizard(body: unknown): Promise<Response> {
   return POSTWizard({
@@ -149,20 +149,27 @@ describe("ISO-S8 doc huerfano en multi se rechaza sin tocar memoria", () => {
 });
 
 describe("ISO-S9 plan de backfill en seco por defecto", () => {
-  it("un comercio devuelve el UPDATE exacto sin ejecutar", () => {
+  it("un comercio devuelve una sentencia por tabla sin ejecutar", () => {
     const r = planBackfill({ apply: false, tenantId: "slice0", comerciosEnBase: 1 });
     expect(r.ok).toBe(true);
-    expect(r.sql).toBe(SQL_ESPERADO);
+    if (!r.ok) throw new Error("esperaba plan ok");
+    expect(r.sentencias.map((s) => s.tabla)).toEqual(["fiscal_documents", "fiscal_settings"]);
+    const [doc] = r.sentencias;
+    if (!doc) throw new Error("esperaba sentencia de documents");
+    expect(doc.sql).toBe(DOC_ESPERADO);
+    expect(r.sql).toContain(DOC_ESPERADO);
+    expect(r.sql).toContain("UPDATE fiscal_settings");
     expect(r.ejecutaria).toBe(false);
   });
 
   it("base compartida por mas de un comercio se niega", () => {
     const r = planBackfill({ apply: false, tenantId: "slice0", comerciosEnBase: 2 });
     expect(r.ok).toBe(false);
-    expect(String(r.error)).toMatch(/comercio|compartida/i);
+    if (r.ok) throw new Error("esperaba rechazo");
+    expect(r.error).toMatch(/comercio|compartida/i);
   });
 
-  it("CLI en seco imprime la sentencia sin conectar ni imprimir env", () => {
+  it("CLI en seco sin base imprime las sentencias sin conectar ni imprimir env", () => {
     const src = readFileSync("scripts/backfill-tenant-id.mjs", "utf8");
     expect(src).toMatch(/--apply/);
     expect(src).toMatch(/backfill-tenant-id-lib/);
@@ -173,11 +180,11 @@ describe("ISO-S9 plan de backfill en seco por defecto", () => {
         expect(linea).not.toMatch(/CONTROL_DATABASE_URL/);
       }
     }
-    const salida = execFileSync("node", ["scripts/backfill-tenant-id.mjs"], {
-      encoding: "utf8",
-      env: { ...process.env, TENANT_DATABASE_URL: "postgres://usuario:secreto@127.0.0.1:1/x" },
-    });
-    expect(salida).toContain(SQL_ESPERADO);
+    const env = { ...process.env };
+    delete env.TENANT_DATABASE_URL;
+    const salida = execFileSync("node", ["scripts/backfill-tenant-id.mjs"], { encoding: "utf8", env });
+    expect(salida).toContain(DOC_ESPERADO);
+    expect(salida).toContain("UPDATE fiscal_settings");
     expect(salida).not.toContain("secreto");
   });
 });
