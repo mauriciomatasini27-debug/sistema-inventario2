@@ -9,6 +9,12 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 - `create-skill` -> write `.agents/skills/<name>/SKILL.md` with frontmatter `name: <name>` (must equal the folder name, lowercase-hyphen) and `description:`. Verify with `~/.local/bin/opencode debug skill`.
 - Worktrees -> the project is a git repo; use `git worktree add ../si-wt-<slug> -b wt/<slug>` and remove it when done.
 
+## GitHub
+- Remote: `origin` = `mauriciosoyastor/sistema-inventario` (private). `gh` authenticates via `GH_TOKEN` in the environment; never print it. `.opencode/pstack-run.sh` restarts `opencode serve` when it lacks the token.
+- `gh pr view/diff/checks`, `gh api` work for why, blast-radius and correct. Code scanning is not enabled on the repo (CodeQL keeps SARIF as an artifact), so `gh api .../code-scanning` returns 403: skip it.
+- MCP discovery (why step 3): OpenCode has no `mcps/` folder; list MCPs with `~/.local/bin/opencode mcp list </dev/null`. Do NOT call Supabase MCP tools from any pstack skill (why, blast-radius, correct, arena): it is live project data, not a history source. Record it as "not used by policy".
+- Arena/why/architect "spawn N subagents in one message in background": OpenCode runs `task` calls in the same message concurrently; there is no `run_in_background`. Candidates write to files under `/tmp/arena-<slug>/`.
+
 ## Paths
 - `~/.cursor/rules/*.mdc` (always-applied rules) -> `.opencode/*.md` listed in `opencode.json` `instructions`, or `AGENTS.md` at the project root.
 - `~/.cursor/rules/pstack-models.mdc` -> `.opencode/pstack-models.md`.
