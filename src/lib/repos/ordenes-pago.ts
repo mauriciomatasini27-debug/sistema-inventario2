@@ -346,7 +346,7 @@ function mapearFalloOrden(r: { codigo: string; status: number; error?: string })
   return { status: r.status, body: { error: r.error ?? "dato invalido" } };
 }
 
-// Cancelacion auditada (solo Dueno).
+// Cancelacion auditada. Rol fijo dueno: la ruta ya verificó la membership dueño.
 export async function cancelarOrdenRepo(input: {
   orderId: string;
   versionEsperada: number;
@@ -426,8 +426,8 @@ export interface ConfirmarPagoOrdenInput {
   readonly actor: string;
 }
 
-// `Ya pague` (solo Dueno). Registra el egreso en caja por el repo de caja y
-// marca la orden pagada.
+// `Ya pague`. Rol fijo dueno: la ruta ya verificó la membership dueño.
+// Registra el egreso en caja por el repo de caja y marca la orden pagada.
 export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Promise<RespuestaRepo> {
   const enMemoria = store.paymentOrders.get(input.orderId);
   const db = dbVivaTenant();

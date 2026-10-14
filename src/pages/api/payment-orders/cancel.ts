@@ -1,13 +1,16 @@
 import type { APIRoute } from "astro";
 import { cancelOrderSchema } from "../../../lib/validation.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 import { cancelarOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payment-orders/cancel — cancelación auditada (OP2/OP13, solo Dueño).
+// POST /api/payment-orders/cancel — cancelación auditada (OP2/OP13, solo Dueño verificado por exigirDuenoDeRequest).
 // PERS2-S15: el repo persiste estado + evento con DB primero.
 export const POST: APIRoute = async ({ request }) => {
+  const dueno = exigirDuenoDeRequest(request);
+  if (!dueno.ok) return dueno.respuesta;
   let body: unknown;
   try {
     body = await request.json();
