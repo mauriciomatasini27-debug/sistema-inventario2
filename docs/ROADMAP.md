@@ -161,7 +161,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
 | 2026-10-14 | P0-4 | hecho | P0-4: fan-out por tenant de jobs con `X-Job-Secret` (PRD-SEC-04, ADR-0077). | — / — |
-| 2026-10-14 | P0-5 | pendiente | P0-5 nuevo: idempotencia durable del webhook de Mercado Pago (hoy en memoria). | — / — |
+| 2026-10-14 | P0-5 | hecho | P0-5 hecho: el webhook de Mercado Pago reclama cada evento en mp_webhook_events. | — / — |
 | 2026-10-14 | P1-1 | hecho | P1-1: ubicaciones, fotos y conteos DB-first en `locations`/`product_photos`/`stock_counts` (PRD-PERS-03, ADR-0078). | — / — |
 | 2026-10-14 | P1-2 | hecho | P1-2: trabajos y eventos de OCR en `ocr_jobs`/`ocr_eventos` (PRD-PERS-04, ADR-0079). | — / — |
 | 2026-10-14 | P1-3 | hecho | P1-3: correlativos `D-*` y `T-*` desde `ticket_counters` (PRD-PERS-05, ADR-0080). | — / — |
