@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { idMappings, outbox } from "../../db/schema.js";
+import { idMappings, outbox, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState } from "../../db/schema-sync.js";
 import { esModoMulti, tenantActual } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -24,7 +24,7 @@ export interface PushEntrada {
   readonly deviceSeq: number;
   readonly hlc: string;
   readonly modulo: string;
-  readonly payload: unknown;
+  readonly payload: OutboxPayload;
 }
 
 export interface RespuestaRepo {
@@ -97,7 +97,7 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
         deviceSeq: b.deviceSeq,
         hlc: b.hlc,
         modulo: b.modulo,
-        payload: b.payload as never,
+        payload: b.payload,
       });
       await tx
         .insert(idMappings)

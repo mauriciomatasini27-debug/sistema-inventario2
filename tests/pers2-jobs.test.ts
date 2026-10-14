@@ -509,7 +509,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
           venceEl: new Date(ayerMs),
           metodoSugerido: "Transferencia",
           instruccionTipo: "transferencia",
-          instruccionSnapshot: {},
+          instruccionSnapshot: { medioSugerido: "Transferencia" },
           creadoPor: "sistema",
         })
         .returning({ id: paymentOrders.id });
@@ -541,7 +541,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
         venceEl: new Date(ayerMs),
         metodoSugerido: "Transferencia",
         instruccionTipo: "transferencia",
-        instruccionSnapshot: {},
+        instruccionSnapshot: { medioSugerido: "Transferencia" },
         creadoPor: "sistema",
       });
     });
