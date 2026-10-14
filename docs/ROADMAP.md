@@ -109,6 +109,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 ### 9. Proceso y negocio (no es código)
 1. PRD-NEG-01 catálogo y oferta (ADR-0012; NEG-S8 superado por PRD-LANDING-01), PRD-ADAP-01 adaptación desde ModoOps (ADR-0013), skills PRD-SK-01 a SK-03 (ADR-0014 a 0016): cumplimiento a verificar.
 2. Poda de comentarios de código (PRD-COM-01, ADR-0064 propuesto): aplicar el grupo borrar del plan `diseno/PLAN-COM-01-poda-comentarios.md`, abrir issues del grupo refactor, regla de lint y checklist de PR. Talla M.
+3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 propuesto): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
 
 ## Decisiones registradas
 
@@ -156,6 +157,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
 | `adr/0066-dueno-real-y-correlativo-unico.md` | cubierto | Ya implementado (2b.4: dueño real, online real, correlativo único) |
 | `adr/0064-politica-comentarios.md` | cubierto | 9.2 |
+| `adr/0065-arquitectura-amigable-agentes.md` | cubierto | 9.3 |
 | `adr/0063-ventas-devoluciones-sin-store.md` | cubierto | Ya implementado (grupo 11: ventas y devoluciones) |
 | `adr/0062-repos-catalogo-stock-sin-store.md` | cubierto | Ya implementado (grupo 10: catálogo, stock y compras) |
 | `adr/0061-repo-sync-sin-store.md` | cubierto | Ya implementado (grupo 9: sincronización) |
@@ -253,6 +255,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-DASH-01` | cubierto | 5.2 |
 | `diseno/PRD-DS-01` | cubierto | 5.5 |
 | `diseno/PRD-COM-01` | cubierto | 9.2 |
+| `diseno/PRD-ARQ-01` | cubierto | 9.3 |
 | `diseno/PRD-SEC-01` | cubierto | 2b.4 |
 | `diseno/PRD-DS-02` | cubierto | 5.5 |
 | `diseno/PRD-DS-03` | cubierto | 5.5 |
