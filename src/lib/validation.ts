@@ -61,7 +61,7 @@ export const syncPushSchema = z.object({
   device_seq: z.number().int().positive(),
   hlc: z.string().min(1).max(64),
   modulo: z.enum(["inventory", "sales", "cash", "credit"]),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   client_occurred_at: z.string().datetime({ offset: true }),
 });
 
