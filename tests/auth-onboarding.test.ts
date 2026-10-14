@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import {
   tenantSchema,
@@ -245,15 +246,15 @@ describe("rutas", () => {
     const plano = sesionEnStore("admin-sub");
     const cuerpo = { nombre_comercio: "Kiosco La Esquina", plan: "base", owner_google_sub: "dueno-1", moneda: "ARS", request_key: "alta-1" };
     const req = () =>
-      new Request("http://x/api/tenants", {
+      ctx("http://x/api/tenants", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${plano}` },
-        body: JSON.stringify(cuerpo),
+        body: cuerpo,
+        headers: { cookie: `__Host-sesion=${plano}` },
       });
-    const r1 = await postTenants({ request: req() } as never);
+    const r1 = await postTenants(req());
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as { tenant_id: string };
-    const r2 = await postTenants({ request: req() } as never);
+    const r2 = await postTenants(req());
     expect(r2.status).toBe(409);
     expect(((await r2.json()) as { tenant_id: string }).tenant_id).toBe(j1.tenant_id);
     expect(control.tenants.size).toBe(1);
@@ -261,23 +262,23 @@ describe("rutas", () => {
 
   it("POST /api/tenants: 403 fuera de allowlist y 422 con plan inválido", async () => {
     const planoFuera = sesionEnStore("nadie");
-    const r403 = await postTenants({
-      request: new Request("http://x/api/tenants", {
+    const r403 = await postTenants(
+      ctx("http://x/api/tenants", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${planoFuera}` },
-        body: JSON.stringify({ nombre_comercio: "Kiosco X", plan: "base", owner_google_sub: "d", moneda: "ARS" }),
+        body: { nombre_comercio: "Kiosco X", plan: "base", owner_google_sub: "d", moneda: "ARS" },
+        headers: { cookie: `__Host-sesion=${planoFuera}` },
       }),
-    } as never);
+    );
     expect(r403.status).toBe(403);
 
     const planoAdmin = sesionEnStore("admin-sub");
-    const r422 = await postTenants({
-      request: new Request("http://x/api/tenants", {
+    const r422 = await postTenants(
+      ctx("http://x/api/tenants", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${planoAdmin}` },
-        body: JSON.stringify({ nombre_comercio: "Kiosco X", plan: "oro", owner_google_sub: "d", moneda: "ARS" }),
+        body: { nombre_comercio: "Kiosco X", plan: "oro", owner_google_sub: "d", moneda: "ARS" },
+        headers: { cookie: `__Host-sesion=${planoAdmin}` },
       }),
-    } as never);
+    );
     expect(r422.status).toBe(422);
     expect(tenantSchema.safeParse({ nombre_comercio: "K", plan: "oro", owner_google_sub: "d", moneda: "ARS" }).success).toBe(false);
   });
@@ -287,22 +288,23 @@ describe("rutas", () => {
     const planoDueno = sesionEnStore("dueno-1", "t-1");
     const cuerpo = { google_sub: "emp-1", rol: "empleado" };
     const req = (cookie: string) =>
-      new Request("http://x/api/tenants/t-1/memberships", {
+      ctx("http://x/api/tenants/t-1/memberships", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie },
-        body: JSON.stringify(cuerpo),
+        body: cuerpo,
+        headers: { cookie },
+        params: { id: "t-1" },
       });
-    const r1 = await postMemberships({ request: req(`__Host-sesion=${planoDueno}`), params: { id: "t-1" } } as never);
+    const r1 = await postMemberships(req(`__Host-sesion=${planoDueno}`));
     expect(r1.status).toBe(201);
-    const r2 = await postMemberships({ request: req(`__Host-sesion=${planoDueno}`), params: { id: "t-1" } } as never);
+    const r2 = await postMemberships(req(`__Host-sesion=${planoDueno}`));
     expect(r2.status).toBe(409);
 
     const planoAjeno = sesionEnStore("vecino");
-    const rCross = await postMemberships({ request: req(`__Host-sesion=${planoAjeno}`), params: { id: "t-1" } } as never);
+    const rCross = await postMemberships(req(`__Host-sesion=${planoAjeno}`));
     expect(rCross.status).toBe(403);
 
     const tamper = `${planoDueno.slice(0, -1)}x`;
-    const rTamper = await postMemberships({ request: req(`__Host-sesion=${tamper}`), params: { id: "t-1" } } as never);
+    const rTamper = await postMemberships(req(`__Host-sesion=${tamper}`));
     expect(rTamper.status).toBe(403);
     expect(membershipSchema.safeParse({ google_sub: "e", rol: "jefe" }).success).toBe(false);
   });
@@ -314,14 +316,17 @@ describe("rutas", () => {
     control.invitations.set(registro.tokenHash, { ...registro, estado: "pendiente" });
     const plano = sesionEnStore("emp-1");
     const setCookies: Array<[string, string]> = [];
-    const r = await postAccept({
-      request: new Request("http://x/api/invitations/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${plano}` },
-        body: JSON.stringify({ token: tokenPlano }),
-      }),
-      cookies: { set: (k: string, v: string) => setCookies.push([k, v]) },
-    } as never);
+    const cAceptar = ctx("http://x/api/invitations/accept", {
+      method: "POST",
+      body: { token: tokenPlano },
+      headers: { cookie: `__Host-sesion=${plano}` },
+    });
+    const origSet = cAceptar.cookies.set.bind(cAceptar.cookies);
+    cAceptar.cookies.set = ((k: string, v: string, o?: Record<string, unknown>) => {
+      setCookies.push([k, v]);
+      return origSet(k, v);
+    }) as typeof cAceptar.cookies.set;
+    const r = await postAccept(cAceptar);
     expect(r.status).toBe(201);
     // Rotación: la sesión con la que aceptó queda revocada.
     expect(resolverSesionPorPlano(plano)).toBeNull();
@@ -330,14 +335,13 @@ describe("rutas", () => {
     const inv2 = crearInvitacion({ tenantId: "t-1", email: "juan@gmail.com", rol: "empleado", ahora: AHORA });
     control.invitations.set(inv2.registro.tokenHash, { ...inv2.registro, estado: "pendiente" });
     const planoOtro = sesionEnStore("otro");
-    const rMismatch = await postAccept({
-      request: new Request("http://x/api/invitations/accept", {
+    const rMismatch = await postAccept(
+      ctx("http://x/api/invitations/accept", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${planoOtro}` },
-        body: JSON.stringify({ token: inv2.tokenPlano }),
+        body: { token: inv2.tokenPlano },
+        headers: { cookie: `__Host-sesion=${planoOtro}` },
       }),
-      cookies: { set: () => {} },
-    } as never);
+    );
     expect(rMismatch.status).toBe(403);
     expect(JSON.stringify(await rMismatch.json())).not.toContain("Kiosco");
 
@@ -350,14 +354,13 @@ describe("rutas", () => {
       });
       control.users.set("nuevo", { googleSub: "nuevo", email: "nuevo@gmail.com", emailVerificado: true });
       const p = sesionEnStore("nuevo");
-      const rr = await postAccept({
-        request: new Request("http://x/api/invitations/accept", {
+      const rr = await postAccept(
+        ctx("http://x/api/invitations/accept", {
           method: "POST",
-          headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${p}` },
-          body: JSON.stringify({ token: inv.tokenPlano }),
+          body: { token: inv.tokenPlano },
+          headers: { cookie: `__Host-sesion=${p}` },
         }),
-        cookies: { set: () => {} },
-      } as never);
+      );
       expect(rr.status).toBe(410);
     }
 

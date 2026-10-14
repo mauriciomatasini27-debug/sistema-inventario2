@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -65,8 +66,8 @@ function duenoDe(tenantId: string, sub: string) {
   control.memberships.set(`m-${sub}`, { id: `m-${sub}`, tenantId, googleSub: sub, rol: "dueno", permisos: [], estado: "activo" });
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+function reqJson(url: string, body: unknown, headers: Record<string, string> = {}) {
+  return ctx(url, { method: "POST", body: body as Record<string, unknown>, headers });
 }
 
 const AJUSTE = {
@@ -92,18 +93,18 @@ describe("PERS2-S6/S7 single sin DB: idempotencia como hoy", () => {
     const due = sesion("dueno-1");
     const key = `pers2-aj-${Date.now()}`;
     const headers = { "Idempotency-Key": key, cookie: `__Host-sesion=${due}` };
-    const r1 = (await postAdjust({ request: reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, headers) } as never)) as Response;
+    const r1 = (await postAdjust(reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, headers))) as Response;
     expect(r1.status).toBe(201);
     expect(((await r1.json()) as { ajuste_id: string }).ajuste_id).toMatch(/^aj-/);
-    const r2 = (await postAdjust({ request: reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, headers) } as never)) as Response;
+    const r2 = (await postAdjust(reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, headers))) as Response;
     expect(r2.status).toBe(409);
     expect(((await r2.json()) as { error: string }).error).toMatch(/idempotency-key repetida/);
   });
 
   it("el mismo CUIT dos veces: 201 y luego 409", async () => {
-    const r1 = (await postSupplier({ request: reqJson("http://x/api/suppliers", { cuit: CUIT, nombre: "Distribuidora Sur" }) } as never)) as Response;
+    const r1 = (await postSupplier(reqJson("http://x/api/suppliers", { cuit: CUIT, nombre: "Distribuidora Sur" }))) as Response;
     expect(r1.status).toBe(201);
-    const r2 = (await postSupplier({ request: reqJson("http://x/api/suppliers", { cuit: CUIT, nombre: "Distribuidora Sur" }) } as never)) as Response;
+    const r2 = (await postSupplier(reqJson("http://x/api/suppliers", { cuit: CUIT, nombre: "Distribuidora Sur" }))) as Response;
     expect(r2.status).toBe(409);
     expect(((await r2.json()) as { error: string }).error).toMatch(/proveedor ya existe/);
   });
@@ -170,10 +171,10 @@ describe.skipIf(!hayPG)("PERS2-S6/S7 multi con PG local: ajuste idempotente y CU
     const due = sesion("dueno-a");
     const headers = { "Idempotency-Key": ajusteKey, cookie: `__Host-sesion=${due}` };
     const cuerpo = { ...AJUSTE, tenant_id: "tenant-a" };
-    const r1 = await conTenant("tenant-a", () => postAdjust({ request: reqJson("http://x/api/prices/adjustments", cuerpo, headers) } as never));
+    const r1 = await conTenant("tenant-a", () => postAdjust(reqJson("http://x/api/prices/adjustments", cuerpo, headers)));
     expect((r1 as Response).status).toBe(201);
     expect(((await (r1 as Response).json()) as { fuente: string }).fuente).toBe("db");
-    const r2 = await conTenant("tenant-a", () => postAdjust({ request: reqJson("http://x/api/prices/adjustments", cuerpo, headers) } as never));
+    const r2 = await conTenant("tenant-a", () => postAdjust(reqJson("http://x/api/prices/adjustments", cuerpo, headers)));
     expect((r2 as Response).status).toBe(409);
 
     const filasA = await conTenant("tenant-a", async () => {
@@ -191,10 +192,10 @@ describe.skipIf(!hayPG)("PERS2-S6/S7 multi con PG local: ajuste idempotente y CU
   it("el mismo CUIT dos veces en A: 409 y una fila; B no lo ve", async () => {
     fijarMulti();
     const cuerpo = { cuit: cuitPG, nombre: "Proveedor PG" };
-    const r1 = await conTenant("tenant-a", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    const r1 = await conTenant("tenant-a", () => postSupplier(reqJson("http://x/api/suppliers", cuerpo)));
     expect((r1 as Response).status).toBe(201);
     expect(((await (r1 as Response).json()) as { fuente: string }).fuente).toBe("db");
-    const r2 = await conTenant("tenant-a", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    const r2 = await conTenant("tenant-a", () => postSupplier(reqJson("http://x/api/suppliers", cuerpo)));
     expect((r2 as Response).status).toBe(409);
 
     const digitos = normalizarCuit(cuitPG);
@@ -213,9 +214,9 @@ describe.skipIf(!hayPG)("PERS2-S6/S7 multi con PG local: ajuste idempotente y CU
   it("B crea el mismo CUIT que A sin colisión (201) y cada base tiene una fila", async () => {
     fijarMulti();
     const cuerpo = { cuit: cuitPG, nombre: "Proveedor PG cruzado" };
-    const rA = await conTenant("tenant-a", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    const rA = await conTenant("tenant-a", () => postSupplier(reqJson("http://x/api/suppliers", cuerpo)));
     expect([201, 409]).toContain((rA as Response).status);
-    const rB = await conTenant("tenant-b", () => postSupplier({ request: reqJson("http://x/api/suppliers", cuerpo) } as never));
+    const rB = await conTenant("tenant-b", () => postSupplier(reqJson("http://x/api/suppliers", cuerpo)));
     expect((rB as Response).status).toBe(201);
     const digitos = normalizarCuit(cuitPG);
     for (const t of ["tenant-a", "tenant-b"] as const) {

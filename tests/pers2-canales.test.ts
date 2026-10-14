@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -59,8 +60,8 @@ function sesion(sub: string): string {
   return c.idPlano;
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+function reqJson(url: string, body: unknown, headers: Record<string, string> = {}) {
+  return ctx(url, { method: "POST", body: body as Record<string, unknown>, headers });
 }
 
 describe("PERS2-S10/S11 single sin DB: canales se comportan como hoy", () => {
@@ -70,21 +71,20 @@ describe("PERS2-S10/S11 single sin DB: canales se comportan como hoy", () => {
   });
 
   it("consult exige sesión y responde desde memoria con fuente", async () => {
-    const anon = (await GETConsult({ request: new Request("http://x/api/whatsapp/consult?term=stock"), url: new URL("http://x/api/whatsapp/consult?term=stock") } as never)) as Response;
+    const anon = (await GETConsult(ctx("http://x/api/whatsapp/consult?term=stock"))) as Response;
     expect(anon.status).toBe(403);
     const plano = sesion("u-1");
-    const r = (await GETConsult({
-      request: new Request("http://x/api/whatsapp/consult?term=stock", { headers: { cookie: `__Host-sesion=${plano}` } }),
-      url: new URL("http://x/api/whatsapp/consult?term=stock"),
-    } as never)) as Response;
+    const r = (await GETConsult(
+      ctx("http://x/api/whatsapp/consult?term=stock", { headers: { cookie: `__Host-sesion=${plano}` } }),
+    )) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as Record<string, unknown>)["fuente"]).toBe("memoria");
   });
 
   it("email/send 202 sin key + 409 duplicado", async () => {
-    const e1 = (await POSTSend({ request: reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: { fecha: "hoy" } }, { "Idempotency-Key": "pers2-canales-m1" }) } as never)) as Response;
+    const e1 = (await POSTSend(reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: { fecha: "hoy" } }, { "Idempotency-Key": "pers2-canales-m1" }))) as Response;
     expect([201, 202]).toContain(e1.status);
-    const e2 = (await POSTSend({ request: reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: {} }, { "Idempotency-Key": "pers2-canales-m1" }) } as never)) as Response;
+    const e2 = (await POSTSend(reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: {} }, { "Idempotency-Key": "pers2-canales-m1" }))) as Response;
     expect(e2.status).toBe(409);
   });
 
@@ -97,14 +97,14 @@ describe("PERS2-S10/S11 single sin DB: canales se comportan como hoy", () => {
       nombre_comercio: "Kiosco",
       tipo: "manual",
     };
-    const r1 = (await POSTClose({ request: reqJson("http://x/api/email/close-summary", body) } as never)) as Response;
+    const r1 = (await POSTClose(reqJson("http://x/api/email/close-summary", body))) as Response;
     expect(r1.status).toBe(201);
-    const r2 = (await POSTClose({ request: reqJson("http://x/api/email/close-summary", body) } as never)) as Response;
+    const r2 = (await POSTClose(reqJson("http://x/api/email/close-summary", body))) as Response;
     expect(r2.status).toBe(409);
   });
 
   it("webhook rechaza firma inválida con 403", async () => {
-    const r = (await POSTWebhook({ request: new Request("http://x/api/whatsapp/webhook", { method: "POST", body: "{}" }) } as never)) as Response;
+    const r = (await POSTWebhook(ctx("http://x/api/whatsapp/webhook", { method: "POST", body: {} as Record<string, unknown> }))) as Response;
     expect(r.status).toBe(403);
   });
 });
@@ -148,7 +148,7 @@ describe.skipIf(!hayPG)("PERS2-S10/S11 multi con PG local: email y sesión aisla
   it("un email encolado en A queda en email_outbox de A y B no lo ve", async () => {
     fijarMulti();
     const r = await conTenant("tenant-a", () =>
-      POSTSend({ request: reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: { fecha: "hoy" } }, { "Idempotency-Key": emailKey }) } as never),
+      POSTSend(reqJson("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: { fecha: "hoy" } }, { "Idempotency-Key": emailKey })),
     ) as Response;
     expect([201, 202]).toContain(r.status);
 

@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
@@ -43,10 +44,10 @@ function tenantDueno(id: string, dueno: string) {
 }
 
 function req(plano: string | null, body: unknown) {
-  return new Request("http://x/api/devices/x", {
+  return ctx("http://x/api/devices/x", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(plano ? { cookie: `__Host-sesion=${plano}` } : {}) },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
+    headers: { ...(plano ? { cookie: `__Host-sesion=${plano}` } : {}) },
   });
 }
 
@@ -89,12 +90,12 @@ describe("P1-3 PIN rutas", () => {
     tenantDueno("t1", "dueno-1");
     control.memberships.set("m-e", { id: "m-e", tenantId: "t1", googleSub: "emp", rol: "empleado", permisos: [], estado: "activo", puedeUsarBot: true });
     const e = sesion("emp", "t1");
-    const r1 = await postPin({ request: req(e.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }) } as never);
+    const r1 = await postPin(req(e.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
     expect(r1.status).toBe(403);
     const d = sesion("dueno-1", "t1");
-    const r2 = await postPin({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "12" }) } as never);
+    const r2 = await postPin(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "12" }));
     expect(r2.status).toBe(422);
-    const r3 = await postPin({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }) } as never);
+    const r3 = await postPin(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
     expect(r3.status).toBe(200);
     expect(control.devicePins.get("PC1")?.pinHash).not.toContain("1234");
     const ev = control.events.find((x) => x.tipo === "pin_definido");
@@ -105,16 +106,16 @@ describe("P1-3 PIN rutas", () => {
   it("bloquear sin PIN 409; bloquear/desbloquear con PIN", async () => {
     tenantDueno("t1", "dueno-1");
     const d = sesion("dueno-1", "t1");
-    const rb0 = await postBloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1" }) } as never);
+    const rb0 = await postBloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1" }));
     expect(rb0.status).toBe(409);
-    await postPin({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }) } as never);
-    const rb = await postBloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1" }) } as never);
+    await postPin(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
+    const rb = await postBloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1" }));
     expect(rb.status).toBe(200);
     expect(control.deviceLocks.get("PC1")?.bloqueado).toBe(true);
-    const rm = await postDesbloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }) } as never);
+    const rm = await postDesbloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }));
     expect(rm.status).toBe(403);
     expect(control.events.some((x) => x.tipo === "pin_fallido")).toBe(true);
-    const rok = await postDesbloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }) } as never);
+    const rok = await postDesbloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
     expect(rok.status).toBe(200);
     expect(control.deviceLocks.get("PC1")?.bloqueado).toBe(false);
   });
@@ -122,14 +123,14 @@ describe("P1-3 PIN rutas", () => {
   it("5 PIN errados bloquean con 429", async () => {
     tenantDueno("t1", "dueno-1");
     const d = sesion("dueno-1", "t1");
-    await postPin({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }) } as never);
+    await postPin(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
     let status = 0;
     for (let i = 0; i < 5; i++) {
-      const r = await postDesbloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }) } as never);
+      const r = await postDesbloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }));
       status = r.status;
     }
     expect(status).toBe(403);
-    const r6 = await postDesbloquear({ request: req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }) } as never);
+    const r6 = await postDesbloquear(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "0000" }));
     expect(r6.status).toBe(429);
   });
 });

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq, sql } from "drizzle-orm";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -44,13 +45,13 @@ function ventaBody(over: Record<string, unknown> = {}) {
 }
 
 function req(url: string, key: string | null, body: unknown, method = "POST") {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
   if (key) headers["Idempotency-Key"] = key;
-  return new Request(url, { method, headers, body: JSON.stringify(body) });
+  return ctx(url, { method, body: body as Record<string, unknown>, headers });
 }
 
 async function crearVenta(key: string) {
-  const r = await postSales({ request: req("http://x/api/sales", key, ventaBody()) } as never);
+  const r = await postSales(req("http://x/api/sales", key, ventaBody()));
   expect(r.status).toBe(201);
   return (await r.json()) as { sale_id: string; ticket_definitivo: string; ticket_provisorio: string };
 }
@@ -63,43 +64,39 @@ describe("PERS2-S5 single sin DB: links se crean y revocan como hoy", () => {
 
   it("GET /api/tickets resuelve por definitivo y 404 el ausente", async () => {
     const v = await crearVenta(`pers2-t-${Date.now()}-a`);
-    const porDef = await getTickets({ request: new Request(`http://x/api/tickets?numero=${v.ticket_definitivo}`) } as never);
+    const porDef = await getTickets(ctx(`http://x/api/tickets?numero=${v.ticket_definitivo}`));
     expect(porDef.status).toBe(200);
     const cuerpo = (await porDef.json()) as { sale_id: string; fuente: string; leyenda: string };
     expect(cuerpo.sale_id).toBe(v.sale_id);
     expect(cuerpo.fuente).toBe("memoria");
     expect(cuerpo.leyenda).toBe("DOCUMENTO NO VÁLIDO COMO FACTURA");
 
-    const ausente = await getTickets({ request: new Request("http://x/api/tickets?numero=T-999999") } as never);
+    const ausente = await getTickets(ctx("http://x/api/tickets?numero=T-999999"));
     expect(ausente.status).toBe(404);
   });
 
   it("POST link => 201 con token; GET token => 200; DELETE revoca => 200; GET revocado => 410", async () => {
     const { sale_id } = await crearVenta(`pers2-t-${Date.now()}-b`);
     const ck = `pers2-lk-${Date.now()}`;
-    const creado = await postLink({ request: req("http://x/api/tickets/link", ck, { sale_id }) } as never);
+    const creado = await postLink(req("http://x/api/tickets/link", ck, { sale_id }));
     expect(creado.status).toBe(201);
     const { token, url } = (await creado.json()) as { token: string; url: string };
     expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(url).toContain(token);
 
-    const ok = await getLink({ request: new Request(`http://x/api/tickets/link?token=${token}`) } as never);
+    const ok = await getLink(ctx(`http://x/api/tickets/link?token=${token}`));
     expect(ok.status).toBe(200);
     expect(((await ok.json()) as { sale_id: string }).sale_id).toBe(sale_id);
 
     const rk = `pers2-rev-${Date.now()}`;
-    const rev = await deleteLink({
-      request: req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "perdido" }, "DELETE"),
-    } as never);
+    const rev = await deleteLink(req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "perdido" }, "DELETE"));
     expect(rev.status).toBe(200);
     expect(((await rev.json()) as { revocadas: number }).revocadas).toBeGreaterThanOrEqual(1);
 
-    const revocado = await getLink({ request: new Request(`http://x/api/tickets/link?token=${token}`) } as never);
+    const revocado = await getLink(ctx(`http://x/api/tickets/link?token=${token}`));
     expect(revocado.status).toBe(410);
 
-    const retry = await deleteLink({
-      request: req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "perdido" }, "DELETE"),
-    } as never);
+    const retry = await deleteLink(req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "perdido" }, "DELETE"));
     expect(retry.status).toBe(409);
   });
 });
@@ -171,19 +168,19 @@ describe.skipIf(!hayPG)("PERS2-S5 multi con PG local: link de A aislado de B", (
   it("el link creado en A no se resuelve en B y la fila vive en ticket_links de A", async () => {
     fijarMulti();
     await sembrarProductoPG();
-    const ventaReq = new Request("http://x/api/sales", {
+    const ventaReq = ctx("http://x/api/sales", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": `pers2-pg-v-${sufijoPG}` },
-      body: JSON.stringify(ventaBodyPG()),
+      headers: { "Idempotency-Key": `pers2-pg-v-${sufijoPG}` },
+      body: ventaBodyPG(),
     });
-    const venta = await conTenant("tenant-a", () => postSales({ request: ventaReq } as never));
+    const venta = await conTenant("tenant-a", () => postSales(ventaReq));
     expect(venta.status).toBe(201);
     const { sale_id } = (await venta.json()) as { sale_id: string };
     ventasPG.push(sale_id);
 
     const ck = `pers2-pg-lk-${sufijoPG}`;
     const creado = await conTenant("tenant-a", () =>
-      postLink({ request: req("http://x/api/tickets/link", ck, { sale_id }) } as never),
+      postLink(req("http://x/api/tickets/link", ck, { sale_id })),
     );
     expect(creado.status).toBe(201);
     const { token } = (await creado.json()) as { token: string };
@@ -191,7 +188,7 @@ describe.skipIf(!hayPG)("PERS2-S5 multi con PG local: link de A aislado de B", (
     const hash = createHash("sha256").update(token, "utf8").digest("hex");
 
     const enB = await conTenant("tenant-b", () =>
-      getLink({ request: new Request(`http://x/api/tickets/link?token=${token}`) } as never),
+      getLink(ctx(`http://x/api/tickets/link?token=${token}`)),
     );
     expect(enB.status).toBe(404);
 
@@ -210,9 +207,7 @@ describe.skipIf(!hayPG)("PERS2-S5 multi con PG local: link de A aislado de B", (
 
     const rk = `pers2-pg-rev-${sufijoPG}`;
     const rev = await conTenant("tenant-a", () =>
-      deleteLink({
-        request: req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "corte" }, "DELETE"),
-      } as never),
+      deleteLink(req("http://x/api/tickets/link", rk, { sale_id, actor: "dueno", motivo: "corte" }, "DELETE")),
     );
     expect(rev.status).toBe(200);
     expect(((await rev.json()) as { revocadas: number }).revocadas).toBeGreaterThanOrEqual(1);

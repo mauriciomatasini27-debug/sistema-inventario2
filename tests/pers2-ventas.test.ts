@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -69,10 +70,10 @@ function ventaBody(over: Record<string, unknown> = {}) {
 }
 
 function req(url: string, key: string, body: unknown) {
-  return new Request(url, {
+  return ctx(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
+    headers: { "Idempotency-Key": key },
   });
 }
 
@@ -96,7 +97,7 @@ describe("PERS2-S25/S26 single sin DB: ventas, devoluciones y correcciones como 
   });
 
   it("POST /api/sales => 201 con sale_id y fiscal_estado", async () => {
-    const r = (await postSales({ request: req("http://x/api/sales", `pers2-v-${Date.now()}-a`, ventaBody()) } as never)) as Response;
+    const r = (await postSales(req("http://x/api/sales", `pers2-v-${Date.now()}-a`, ventaBody()))) as Response;
     expect(r.status).toBe(201);
     const j = (await r.json()) as { sale_id: string; fiscal_estado: string; total_centavos: string };
     expect(j.sale_id).toMatch(/^[0-9a-f-]{36}$/);
@@ -105,58 +106,50 @@ describe("PERS2-S25/S26 single sin DB: ventas, devoluciones y correcciones como 
   });
 
   it("venta + devolución parcial => 201 espera_cae; repetida => 409; sobre tope => 422", async () => {
-    const v = (await postSales({ request: req("http://x/api/sales", `pers2-v-${Date.now()}-b`, ventaBody()) } as never)) as Response;
+    const v = (await postSales(req("http://x/api/sales", `pers2-v-${Date.now()}-b`, ventaBody()))) as Response;
     expect(v.status).toBe(201);
     const { sale_id } = (await v.json()) as { sale_id: string };
 
     const dkey = `pers2-d-${Date.now()}-1`;
-    const d1 = (await postReturns({ request: req("http://x/api/returns", dkey, devolucionBody(sale_id, 5000)) } as never)) as Response;
+    const d1 = (await postReturns(req("http://x/api/returns", dkey, devolucionBody(sale_id, 5000)))) as Response;
     expect(d1.status).toBe(201);
     const j1 = (await d1.json()) as { fiscal_estado: string; nc_tipo: number; numero_devolucion: string };
     expect(j1.fiscal_estado).toBe("espera_cae");
     expect(j1.nc_tipo).toBe(13);
     expect(j1.numero_devolucion).toBe("D-000001");
 
-    const dup = (await postReturns({ request: req("http://x/api/returns", dkey, devolucionBody(sale_id, 5000)) } as never)) as Response;
+    const dup = (await postReturns(req("http://x/api/returns", dkey, devolucionBody(sale_id, 5000)))) as Response;
     expect(dup.status).toBe(409);
 
-    const tope = (await postReturns({ request: req("http://x/api/returns", `pers2-d-${Date.now()}-2`, devolucionBody(sale_id, 15001)) } as never)) as Response;
+    const tope = (await postReturns(req("http://x/api/returns", `pers2-d-${Date.now()}-2`, devolucionBody(sale_id, 15001)))) as Response;
     expect(tope.status).toBe(422);
   });
 
   it("venta + corrección de medio => 201 antes/despues; repetida => 409", async () => {
-    const v = (await postSales({ request: req("http://x/api/sales", `pers2-v-${Date.now()}-c`, ventaBody()) } as never)) as Response;
+    const v = (await postSales(req("http://x/api/sales", `pers2-v-${Date.now()}-c`, ventaBody()))) as Response;
     expect(v.status).toBe(201);
     const { sale_id } = (await v.json()) as { sale_id: string };
 
     const key = `pers2-c-${Date.now()}`;
-    const c = (await postCorreccion({
-      request: req("http://x/api/sales/medium-corrections", key, { sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" }),
-    } as never)) as Response;
+    const c = (await postCorreccion(req("http://x/api/sales/medium-corrections", key, { sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" }))) as Response;
     expect(c.status).toBe(201);
     const cj = (await c.json()) as { antes: string; despues: string };
     expect(cj.antes).toBe("Efectivo");
     expect(cj.despues).toBe("QR");
 
-    const dup = (await postCorreccion({
-      request: req("http://x/api/sales/medium-corrections", key, { sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" }),
-    } as never)) as Response;
+    const dup = (await postCorreccion(req("http://x/api/sales/medium-corrections", key, { sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" }))) as Response;
     expect(dup.status).toBe(409);
   });
 
   it("devolución y corrección sin venta => 404", async () => {
-    const d = (await postReturns({
-      request: req("http://x/api/returns", `pers2-d-${Date.now()}-x`, devolucionBody(crypto.randomUUID(), 100)),
-    } as never)) as Response;
+    const d = (await postReturns(req("http://x/api/returns", `pers2-d-${Date.now()}-x`, devolucionBody(crypto.randomUUID(), 100)))) as Response;
     expect(d.status).toBe(404);
-    const c = (await postCorreccion({
-      request: req("http://x/api/sales/medium-corrections", `pers2-c-${Date.now()}-x`, {
+    const c = (await postCorreccion(req("http://x/api/sales/medium-corrections", `pers2-c-${Date.now()}-x`, {
         sale_id: crypto.randomUUID(),
         medio_nuevo: "QR",
         motivo: "cliente pide QR",
         actor: "dueno-1",
-      }),
-    } as never)) as Response;
+      }))) as Response;
     expect(c.status).toBe(404);
   });
 });
@@ -213,7 +206,7 @@ describe.skipIf(!hayPG)("PERS2-S25/S26 multi con PG local: devolución y correcc
     await sembrarVenta("tenant-a", ventaPG);
     const key = `pers2-pg-dev-${sufijoPG}`;
     const r = await conTenant("tenant-a", () =>
-      postReturns({ request: req("http://x/api/returns", key, devolucionBody(ventaPG, 5000)) } as never),
+      postReturns(req("http://x/api/returns", key, devolucionBody(ventaPG, 5000))),
     );
     expect((r as Response).status).toBe(201);
     const j = ((await (r as Response).json()) as { fiscal_estado: string; numero_devolucion: string });
@@ -241,7 +234,7 @@ describe.skipIf(!hayPG)("PERS2-S25/S26 multi con PG local: devolución y correcc
     await sembrarVenta("tenant-b", ventaPG);
     const key = `pers2-pg-dev-${sufijoPG}`;
     const r = await conTenant("tenant-b", () =>
-      postReturns({ request: req("http://x/api/returns", key, devolucionBody(ventaPG, 5000)) } as never),
+      postReturns(req("http://x/api/returns", key, devolucionBody(ventaPG, 5000))),
     );
     expect((r as Response).status).toBe(201);
     for (const t of ["tenant-a", "tenant-b"] as const) {
@@ -257,7 +250,7 @@ describe.skipIf(!hayPG)("PERS2-S25/S26 multi con PG local: devolución y correcc
     const key = `pers2-pg-corr-${sufijoPG}`;
     const cuerpo = { sale_id: ventaCorrPG, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" };
     const r = await conTenant("tenant-a", () =>
-      postCorreccion({ request: req("http://x/api/sales/medium-corrections", key, cuerpo) } as never),
+      postCorreccion(req("http://x/api/sales/medium-corrections", key, cuerpo)),
     );
     expect((r as Response).status).toBe(201);
 
@@ -273,7 +266,7 @@ describe.skipIf(!hayPG)("PERS2-S25/S26 multi con PG local: devolución y correcc
     expect(filasB.length).toBe(0);
 
     const enB = await conTenant("tenant-b", () =>
-      postCorreccion({ request: req("http://x/api/sales/medium-corrections", key, cuerpo) } as never),
+      postCorreccion(req("http://x/api/sales/medium-corrections", key, cuerpo)),
     );
     expect((enB as Response).status).toBe(201);
   });

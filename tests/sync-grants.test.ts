@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion, sha256Hex } from "../src/modules/auth/sesiones.js";
 import { POST as POSTGrants, DELETE as DELETEGrants } from "../src/pages/api/sync/offline-grants.js";
@@ -39,14 +40,11 @@ function tenantConMiembro(id: string, sub: string, rol: "dueno" | "empleado" = "
   control.memberships.set(mid, { id: mid, tenantId: id, googleSub: sub, rol, permisos: [], estado: "activo" });
 }
 
-function reqJson(url: string, body: unknown, plano?: string): Request {
-  return new Request(url, {
+function reqJson(url: string, body: unknown, plano?: string) {
+  return ctx(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(plano ? { cookie: `__Host-sesion=${plano}` } : {}),
-    },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
+    headers: { ...(plano ? { cookie: `__Host-sesion=${plano}` } : {}) },
   });
 }
 
@@ -54,22 +52,18 @@ beforeEach(() => resetStore());
 
 describe("offline grants SYNC-S5/S7 (OF9)", () => {
   it("sin sesión => 403 (emisión solo online)", async () => {
-    const res = (await POSTGrants({
-      request: reqJson("http://x/api/sync/offline-grants", { tenant_id: "t1", device_code: "caja-01", alcance: "venta" }),
-    } as never)) as Response;
+    const res = (await POSTGrants(reqJson("http://x/api/sync/offline-grants", { tenant_id: "t1", device_code: "caja-01", alcance: "venta" }))) as Response;
     expect(res.status).toBe(403);
   });
 
   it("miembro activo obtiene grant 72h def y opera offline en su alcance", async () => {
     tenantConMiembro("t1", "dueno-1");
     const s = sesion("dueno-1", "t1");
-    const res = (await POSTGrants({
-      request: reqJson(
+    const res = (await POSTGrants(reqJson(
         "http://x/api/sync/offline-grants",
         { tenant_id: "t1", device_code: "caja-01", alcance: "venta" },
         s.idPlano,
-      ),
-    } as never)) as Response;
+      ))) as Response;
     expect(res.status).toBe(201);
     const j = (await res.json()) as Record<string, string>;
     expect(j["grant_id"]).toBeTruthy();
@@ -91,41 +85,35 @@ describe("offline grants SYNC-S5/S7 (OF9)", () => {
   it("alcance sensible (no enum) => 422; vencimiento fuera de 24-168 => 422", async () => {
     tenantConMiembro("t1", "dueno-1");
     const s = sesion("dueno-1", "t1");
-    const r1 = (await POSTGrants({
-      request: reqJson(
+    const r1 = (await POSTGrants(reqJson(
         "http://x/api/sync/offline-grants",
         { tenant_id: "t1", device_code: "caja-01", alcance: "sueldos" },
         s.idPlano,
-      ),
-    } as never)) as Response;
+      ))) as Response;
     expect(r1.status).toBe(422);
-    const r2 = (await POSTGrants({
-      request: reqJson(
+    const r2 = (await POSTGrants(reqJson(
         "http://x/api/sync/offline-grants",
         { tenant_id: "t1", device_code: "caja-01", alcance: "venta", vence_en_horas: 1 },
         s.idPlano,
-      ),
-    } as never)) as Response;
+      ))) as Response;
     expect(r2.status).toBe(422);
   });
 
   it("revocar => cuarentena (grant marcado, dueño o propio)", async () => {
     tenantConMiembro("t1", "dueno-1");
     const s = sesion("dueno-1", "t1");
-    const c = (await POSTGrants({
-      request: reqJson(
+    const c = (await POSTGrants(reqJson(
         "http://x/api/sync/offline-grants",
         { tenant_id: "t1", device_code: "caja-01", alcance: "caja" },
         s.idPlano,
-      ),
-    } as never)) as Response;
+      ))) as Response;
     const j = (await c.json()) as Record<string, string>;
-    const del = (await DELETEGrants({
-      request: new Request(`http://x/api/sync/offline-grants?grant_id=${j["grant_id"]}`, {
+    const del = (await DELETEGrants(
+      ctx(`http://x/api/sync/offline-grants?grant_id=${j["grant_id"]}`, {
         method: "DELETE",
         headers: { cookie: `__Host-sesion=${s.idPlano}` },
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(del.status).toBe(200);
     expect(control.offlineGrants.get(j["grant_id"]!)?.revocadoEn).toBeTruthy();
   });
@@ -133,9 +121,7 @@ describe("offline grants SYNC-S5/S7 (OF9)", () => {
 
 describe("devices register SYNC-S6 (OF9)", () => {
   it("sin sesión => 403", async () => {
-    const res = (await POSTRegister({
-      request: reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01" }),
-    } as never)) as Response;
+    const res = (await POSTRegister(reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01" }))) as Response;
     expect(res.status).toBe(403);
   });
 
@@ -144,18 +130,12 @@ describe("devices register SYNC-S6 (OF9)", () => {
     tenantConMiembro("t2", "dueno-2");
     control.memberships.set("m-dueno-1-t2", { id: "m-dueno-1-t2", tenantId: "t2", googleSub: "dueno-1", rol: "empleado", permisos: [], estado: "activo" });
     const s = sesion("dueno-1", "t1");
-    const r1 = (await POSTRegister({
-      request: reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01", nombre: "Mostrador" }, s.idPlano),
-    } as never)) as Response;
+    const r1 = (await POSTRegister(reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01", nombre: "Mostrador" }, s.idPlano))) as Response;
     expect(r1.status).toBe(201);
     expect(control.deviceNames.get("caja-01")).toBe("Mostrador");
-    const r2 = (await POSTRegister({
-      request: reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01" }, s.idPlano),
-    } as never)) as Response;
+    const r2 = (await POSTRegister(reqJson("http://x/api/devices/register", { tenant_id: "t1", device_code: "caja-01" }, s.idPlano))) as Response;
     expect(r2.status).toBe(200);
-    const r3 = (await POSTRegister({
-      request: reqJson("http://x/api/devices/register", { tenant_id: "t2", device_code: "caja-01" }, s.idPlano),
-    } as never)) as Response;
+    const r3 = (await POSTRegister(reqJson("http://x/api/devices/register", { tenant_id: "t2", device_code: "caja-01" }, s.idPlano))) as Response;
     expect(r3.status).toBe(409);
   });
 });
