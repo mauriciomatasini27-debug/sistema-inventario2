@@ -5,6 +5,7 @@ import { aplicarMovCaja, aplicarVenta } from "./local-repo.js";
 import { puedeOperarOffline } from "./grants.js";
 import { hidratarFotos, resetFotos } from "./fotos.js";
 import { sincronizarAhora as flush, type PullPort, type PushPort } from "./sync-worker.js";
+import { latido, type LatidoPost, type LatidoResultado } from "./latido.js";
 import type {
   MovimientoProv,
   OfflineGrant,
@@ -25,6 +26,8 @@ export interface AbrirOpts {
   push?: PushPort | null;
   pull?: PullPort | null;
   grant?: OfflineGrant | null;
+  latidoPost?: LatidoPost | null;
+  latidoUrl?: string;
 }
 
 export interface Offline {
@@ -33,12 +36,13 @@ export interface Offline {
   tickets: { resolver(provisorio: string): Promise<TicketVista> };
   suscribir(cb: (s: VistaOffline) => void): () => void;
   sincronizarAhora(): Promise<ResultadoSync>;
+  latido(pendientes?: number): Promise<LatidoResultado>;
   estado(): Promise<VistaOffline>;
 }
 
 /** Abre backend local, recupera crash (repararSeq) y reanuda worker. */
 export async function abrir(opts: AbrirOpts): Promise<Offline> {
-  const { deviceCode, push, pull, grant = null } = opts;
+  const { deviceCode, push, pull, grant = null, latidoPost = null, latidoUrl } = opts;
   await crearTablasVacias();
   // PWA-S3: el diario SQLite hidrata la memoria antes de reparar seq, así un
   // restart conserva ops, mapeos y continúa el seq sin reasignar pasado.
@@ -105,6 +109,15 @@ export async function abrir(opts: AbrirOpts): Promise<Offline> {
       } finally {
         enviando = false;
       }
+    },
+    async latido(cuantos?: number): Promise<LatidoResultado> {
+      const n = cuantos ?? (await pendientes(1_000_000)).length;
+      return latido({
+        deviceCode,
+        pendientes: n,
+        ...(latidoPost ? { post: latidoPost } : {}),
+        ...(latidoUrl !== undefined ? { url: latidoUrl } : {}),
+      });
     },
     estado: vista,
   };
