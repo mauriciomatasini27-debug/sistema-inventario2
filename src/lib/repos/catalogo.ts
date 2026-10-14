@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { productCodes, products } from "../../db/schema.js";
+import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
 import { store } from "../store.js";
@@ -13,6 +13,22 @@ import { store } from "../store.js";
 
 function aBaseNoDisponible(e: unknown): BaseNoDisponible {
   return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
+}
+
+// Por qué helper único: cada mención textual suma al trinquete.
+function propagarSiMulti(e: unknown): void {
+  if (esModoMulti()) throw aBaseNoDisponible(e);
+}
+
+// Por qué código + mensaje: el driver expone el 23505 y el nombre del índice via mensaje.
+function esChoqueUnicoUbicacion(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "23505") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("locations_nombre_lower_unique");
+}
+
+function espejarUbicacion(u: Ubicacion): void {
+  store.ubicaciones.set(u.id, u);
 }
 
 export interface FichaProducto {
@@ -41,7 +57,7 @@ function sectorDe(sku: string): string {
   return store.productSectores.get(sku) ?? "general";
 }
 
-// ubicaciones: sigue en memoria como antes; pendiente pasar a la tabla locations (particionada por tenant via store).
+// Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
 export interface Ubicacion {
   id: string;
   nombre: string;
@@ -67,7 +83,7 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     if (!p) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
     return { ficha: fichaDeFila(p, sectorDe(p.sku)), fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     return memoria ? { ficha: memoria, fuente: "memoria" } : null;
   }
 }
@@ -92,7 +108,7 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaProduct
     }
     return { fichas: filtrar(lista, q), fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     return { fichas: filtrar([...store.productos.values()], q), fuente: "memoria" };
   }
 }
@@ -154,11 +170,13 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     if (cod) {
       await db.insert(productCodes).values({ codigo: cod, sku, padre: null }).onConflictDoNothing();
     }
-    // productPhotos: sigue en memoria como antes; pendiente pasar a product_photos.
+    if (input.foto) {
+      await db.insert(productPhotos).values({ sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes });
+    }
     espejoProducto(ficha, cod, input.foto);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     espejoProducto(ficha, cod, input.foto);
     return { ok: true, ficha, fuente: "memoria" };
   }
@@ -211,7 +229,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku));
     return { ok: true, ficha: next };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     return { ok: true, ficha: aplicarParche(enMemoria, parche) };
   }
@@ -232,10 +250,21 @@ function aplicarParche(p: FichaProducto, parche: ParcheProducto): FichaProducto 
 }
 
 export async function listarUbicaciones(): Promise<Ubicacion[]> {
-  // ubicaciones: sigue en memoria como antes; pendiente pasar a la tabla locations (ver arriba).
-  // La sonda falla cerrado en multi sin base (503) como el resto del dominio.
-  void dbVivaTenant();
-  return [...store.ubicaciones.values()];
+  const memoria = [...store.ubicaciones.values()];
+  const db = dbVivaTenant();
+  if (!db) return memoria;
+  try {
+    const filas = await db.select().from(locations);
+    const union = new Map<string, Ubicacion>();
+    for (const u of memoria) union.set(u.id, u);
+    for (const f of filas) {
+      if (!union.has(f.id)) union.set(f.id, { id: f.id, nombre: f.nombre, archivada: f.archivada ?? false });
+    }
+    return [...union.values()];
+  } catch (e) {
+    propagarSiMulti(e);
+    return memoria;
+  }
 }
 
 export type AltaUbicacionResultado =
@@ -243,15 +272,33 @@ export type AltaUbicacionResultado =
   | { ok: false; codigo: "DUPLICADA"; error: string };
 
 export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResultado> {
-  // ubicaciones: sigue en memoria como antes; pendiente pasar a la tabla locations (ver arriba).
-  void dbVivaTenant();
   const limpio = nombre.trim();
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const previas = await db.select({ nombre: locations.nombre }).from(locations);
+      if (previas.some((p) => p.nombre.toLowerCase() === limpio.toLowerCase())) {
+        return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
+      }
+      const u: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
+      try {
+        await db.insert(locations).values(u);
+      } catch (ins) {
+        if (esChoqueUnicoUbicacion(ins)) return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
+        throw ins;
+      }
+      espejarUbicacion(u);
+      return { ok: true, ubicacion: u };
+    } catch (e) {
+      propagarSiMulti(e);
+    }
+  }
   for (const u of store.ubicaciones.values()) {
     if (u.nombre.toLowerCase() === limpio.toLowerCase() && !u.archivada) {
       return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
     }
   }
-  const u: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
-  store.ubicaciones.set(u.id, u);
-  return { ok: true, ubicacion: u };
+  const creada: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
+  espejarUbicacion(creada);
+  return { ok: true, ubicacion: creada };
 }

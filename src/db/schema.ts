@@ -299,9 +299,10 @@ export const productPhotos = pgTable("product_photos", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Unicidad case-insensitive: índice locations_nombre_lower_unique (migración 0017).
 export const locations = pgTable("locations", {
   id: uuid("id").primaryKey().defaultRandom(),
-  nombre: text("nombre").notNull().unique(),
+  nombre: text("nombre").notNull(),
   archivada: boolean("archivada").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -309,6 +310,7 @@ export const locations = pgTable("locations", {
 export const stockCounts = pgTable("stock_counts", {
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull().unique(),
+  sector: text("sector").notNull().default("general"),
   estado: text("estado").notNull().default("en_curso"),
   contadoPor: text("contado_por"),
   confirmadoPor: text("confirmado_por"),

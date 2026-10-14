@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { products, stockMovements } from "../../db/schema.js";
+import { products, stockCounts, stockCountLines, stockMovements } from "../../db/schema.js";
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
 import { store, type StoredStockMovement } from "../store.js";
@@ -15,6 +15,41 @@ function aBaseNoDisponible(e: unknown): BaseNoDisponible {
   return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
 }
 
+// Por qué helper único: cada mención textual suma al trinquete.
+function propagarSiMulti(e: unknown): void {
+  if (esModoMulti()) throw aBaseNoDisponible(e);
+}
+
+// Por qué código 23505: dos altas con la misma key compiten y la DB dirime.
+function esChoqueIdemKey(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "23505") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("stock_counts_idem_key_unique");
+}
+
+type DiferenciaConteo = { sku: string; teorico: number; fisico: number; diferencia: number };
+
+function diferenciasDe(lineas: ReadonlyArray<{ sku: string; fisico: number }>): DiferenciaConteo[] {
+  return lineas.map((l) => {
+    const sku = l.sku.trim().toUpperCase();
+    const teorico = store.stock.get(sku) ?? 0;
+    return { sku, teorico, fisico: l.fisico, diferencia: l.fisico - teorico };
+  });
+}
+
+function espejarCrearConteo(
+  conteo: { id: string; sector: string; idemKey: string; creadoEn: string; estado?: string | undefined; contadoPor?: string | undefined; diferencias: DiferenciaConteo[] },
+  key: string,
+): void {
+  store.conteos.push(conteo);
+  store.conteoVistos.set(key, conteo.id);
+}
+
+function espejarConteoSector(id: string, key: string, sector: string, diferencias: DiferenciaConteo[]): void {
+  store.conteos.push({ id, sector, idemKey: key, creadoEn: new Date().toISOString(), diferencias });
+  store.conteoVistos.set(key, id);
+}
+
 export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO";
 
 export interface MovimientoStockNuevo {
@@ -26,7 +61,7 @@ export interface MovimientoStockNuevo {
   readonly motivo?: string | undefined;
 }
 
-// conteos: siguen en memoria como antes (pendiente pasar a stock_counts/stock_count_lines); los conteos y sus vistos viven en memoria del repo.
+// Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
 export interface ConteoRegistrado {
   id: string;
   sector: string;
@@ -47,7 +82,7 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
       .limit(1);
     return Boolean(filas[0]);
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     return false;
   }
 }
@@ -77,7 +112,7 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
     aplicarEnMemoria(registro);
     return { fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     aplicarEnMemoria(registro);
     return { fuente: "memoria" };
   }
@@ -110,7 +145,7 @@ export async function listarMovimientos(): Promise<StoredStockMovement[]> {
     }
     return [...union.values()];
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    propagarSiMulti(e);
     return [...store.stockMoves];
   }
 }
@@ -125,20 +160,33 @@ export type CrearConteoResultado =
   | { ok: true; id: string; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }
   | { ok: false; codigo: "DUPLICADO"; error: string; original: unknown };
 
-// conteos: siguen en memoria como antes (pendiente pasar a stock_counts/stock_count_lines); el conteo vive en memoria del repo (ver arriba).
 export async function crearConteo(input: CrearConteoInput): Promise<CrearConteoResultado> {
-  void dbVivaTenant();
-  const dup = store.conteos.find((c) => c.idemKey === input.key);
-  if (dup) return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: dup };
+  const dupMemoria = store.conteos.find((c) => c.idemKey === input.key);
+  if (dupMemoria) return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: dupMemoria };
+  const diferencias = diferenciasDe(input.lineas);
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
+      if (previas[0]) {
+        return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: { id: previas[0].id, idemKey: input.key } };
+      }
+      const id = crypto.randomUUID();
+      await db.insert(stockCounts).values({ id, idemKey: input.key, sector: "general", estado: "en_curso", contadoPor: input.contadoPor });
+      for (const d of diferencias) {
+        await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
+      }
+      espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key);
+      return { ok: true, id, diferencias };
+    } catch (e) {
+      if (esChoqueIdemKey(e)) {
+        return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: { idemKey: input.key } };
+      }
+      propagarSiMulti(e);
+    }
+  }
   const id = crypto.randomUUID();
-  const diferencias = input.lineas.map((l) => {
-    const sku = l.sku.trim().toUpperCase();
-    const teorico = store.stock.get(sku) ?? 0;
-    return { sku, teorico, fisico: l.fisico, diferencia: l.fisico - teorico };
-  });
-  const conteo = { id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor };
-  store.conteos.push(conteo);
-  store.conteoVistos.set(input.key, id);
+  espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key);
   return { ok: true, id, diferencias };
 }
 
@@ -153,20 +201,47 @@ export type ConfirmarConteoResultado =
   | { ok: true; id: string; estado: "listo_revisar" | "confirmado" }
   | { ok: false; codigo: "DESCONOCIDO" | "MOTIVO_REQUERIDO"; error: string };
 
-// conteos: siguen en memoria como antes (pendiente pasar a stock_counts/stock_count_lines); el conteo vive en memoria del repo (ver arriba).
 export async function confirmarConteo(input: ConfirmarConteoInput): Promise<ConfirmarConteoResultado> {
-  void dbVivaTenant();
-  const c = store.conteos.find((x) => x.id === input.id);
-  if (!c) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+  const enMemoria = store.conteos.find((x) => x.id === input.id);
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const cab = await db.select().from(stockCounts).where(eq(stockCounts.id, input.id)).limit(1);
+      const fila = cab[0];
+      if (fila) {
+        if (input.rol === "empleado") {
+          await db.update(stockCounts).set({ estado: "listo_revisar" }).where(eq(stockCounts.id, input.id));
+          if (enMemoria) enMemoria.estado = "listo_revisar";
+          return { ok: true, id: input.id, estado: "listo_revisar" };
+        }
+        if (!input.motivo) return { ok: false, codigo: "MOTIVO_REQUERIDO", error: "confirmar exige motivo" };
+        const lineas = await db.select().from(stockCountLines).where(eq(stockCountLines.countId, input.id));
+        await db.update(stockCounts).set({ estado: "confirmado", confirmadoPor: input.confirmadoPor }).where(eq(stockCounts.id, input.id));
+        // Por qué key por línea: la misma key para varias líneas chocaría en el dedup.
+        for (const l of lineas) {
+          const dif = l.fisico - l.teorico;
+          if (dif !== 0) {
+            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId: null, delta: dif, tipo: "COMPENSATORIO", motivo: input.motivo });
+          }
+        }
+        if (enMemoria) enMemoria.estado = "confirmado";
+        return { ok: true, id: input.id, estado: "confirmado" };
+      }
+      if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+    } catch (e) {
+      propagarSiMulti(e);
+    }
+  }
+  if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
   if (input.rol === "empleado") {
-    c.estado = "listo_revisar";
+    enMemoria.estado = "listo_revisar";
     return { ok: true, id: input.id, estado: "listo_revisar" };
   }
   if (!input.motivo) return { ok: false, codigo: "MOTIVO_REQUERIDO", error: "confirmar exige motivo" };
-  c.estado = "confirmado";
-  for (const d of c.diferencias) {
+  enMemoria.estado = "confirmado";
+  for (const d of enMemoria.diferencias) {
     if (d.diferencia !== 0) {
-      await aplicarMovimiento({ idemKey: `conteo:${input.id}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "COMPENSATORIO" });
+      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "COMPENSATORIO" });
     }
   }
   return { ok: true, id: input.id, estado: "confirmado" };
@@ -184,36 +259,53 @@ export type ConteoSectorResultado =
   | { ok: false; codigo: "DUPLICADO"; conteoId: string }
   | { ok: false; codigo: "LINEA_INVALIDA" | "SECTOR_INVALIDO" | "SIN_IDEMKEY"; error: string };
 
-// conteos: siguen en memoria como antes (pendiente pasar a stock_counts/stock_count_lines); el conteo vive en memoria del repo (ver arriba).
 export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoSectorResultado> {
-  void dbVivaTenant();
-  if (store.conteoVistos.has(input.key)) {
-    return { ok: false, codigo: "DUPLICADO", conteoId: store.conteoVistos.get(input.key) ?? "" };
-  }
+  const visto = store.conteoVistos.get(input.key);
+  if (visto !== undefined) return { ok: false, codigo: "DUPLICADO", conteoId: visto };
   const r = conteo_por_sector(
     input.motivo === undefined
       ? { teorico: store.stock, fisico: [...input.fisico], sectorDe: store.productSectores, sector: input.sector, idemKey: input.key }
       : { teorico: store.stock, fisico: [...input.fisico], sectorDe: store.productSectores, sector: input.sector, idemKey: input.key, motivo: input.motivo },
   );
   if (!r.ok) return { ok: false, codigo: r.codigo, error: r.codigo };
+  const diferencias: DiferenciaConteo[] = r.valor.diferencias.map((d) => ({
+    sku: d.sku as string,
+    teorico: d.teorico,
+    fisico: d.fisico,
+    diferencia: d.diferencia,
+  }));
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
+      if (previas[0]) return { ok: false, codigo: "DUPLICADO", conteoId: previas[0].id };
+      const id = crypto.randomUUID();
+      await db.insert(stockCounts).values({ id, idemKey: input.key, sector: r.valor.sector, estado: "confirmado" });
+      for (const d of diferencias) {
+        await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
+      }
+      for (const m of r.valor.movimientos) {
+        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
+      }
+      espejarConteoSector(id, input.key, r.valor.sector, diferencias);
+      return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
+    } catch (e) {
+      if (esChoqueIdemKey(e)) {
+        try {
+          const rival = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
+          return { ok: false, codigo: "DUPLICADO", conteoId: rival[0]?.id ?? "" };
+        } catch {
+          propagarSiMulti(e);
+        }
+      } else {
+        propagarSiMulti(e);
+      }
+    }
+  }
   for (const m of r.valor.movimientos) {
     await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
   }
-  const id = `conteo-${store.conteos.length + 1}`;
-  const creadoEn = new Date().toISOString();
-  const registrado: ConteoRegistrado = {
-    id,
-    sector: r.valor.sector,
-    idemKey: input.key,
-    creadoEn,
-    diferencias: r.valor.diferencias.map((d) => ({
-      sku: d.sku as string,
-      teorico: d.teorico,
-      fisico: d.fisico,
-      diferencia: d.diferencia,
-    })),
-  };
-  store.conteos.push(registrado);
-  store.conteoVistos.set(input.key, id);
+  const id = crypto.randomUUID();
+  espejarConteoSector(id, input.key, r.valor.sector, diferencias);
   return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
 }
