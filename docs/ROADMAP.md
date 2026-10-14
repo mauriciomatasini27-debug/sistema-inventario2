@@ -1,21 +1,21 @@
 # Roadmap - Sistema de Inventario
 
-Fecha: 2026-10-12. Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6. Actualización 2026-10-14: PRs #1 a #30 fusionados en `main` (cutover por dominio ADR-0053 a 0063, SEC-01, ARQ fases 1 y 2, pila de dependencias ADR-0067 a 0072, guardas ADR-0073); estado verificado contra el código de `main` (`01202ee`); nueva sección "Pendientes priorizados".
+Fecha: 2026-10-12 (actualizado 2026-10-14). Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6. Actualización 2026-10-14: PRs #1 a #30 fusionados en `main` (cutover por dominio ADR-0053 a 0063, SEC-01, ARQ fases 1 y 2, pila de dependencias ADR-0067 a 0072, guardas ADR-0073); estado verificado contra el código de `main` (`01202ee`); nueva sección "Pendientes priorizados". Actualización 2026-10-14 (tarde): P0.1 a P0.4, P1.1 a P1.6 y P2.1 hechos (SEC-02/03/04, PERS-03 a PERS-07, P1-6, P2-1); P2.2 en curso; journal de migraciones cerrado (20/20); `src/lib/repos` con 427 referencias `store.` y 143 `esModoMulti` en `src/`.
 
 ## Ya implementado
 
-Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts` (ADR-0063); la memoria sobrevive dentro de `src/lib/repos` (435 referencias `store.`, trinquete AT4) y como fuente de verdad en single sin base y en los mapas sin tabla listados en Pendientes priorizados.
+Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts` (ADR-0063); la memoria sobrevive dentro de `src/lib/repos` (427 referencias `store.` y 143 `esModoMulti`, trinquete AT4) y como fuente de verdad en single sin base, a retirar repo por repo en P2.2.
 
 | Área | Estado | Qué hay | Rutas | PRD / ADR |
 |---|---|---|---|---|
 | Sync y dispositivos | parcial | Pull, heartbeat, offline-grants, register y avisos 24/60/72 h con tests; copia durable best-effort, memoria manda | `src/pages/api/sync/*`, `src/pages/api/devices/*`, `src/offline/avisos.ts`, `src/db/schema-sync.ts` | PRD-SYNC-01, ADR-0023 |
 | Persistencia DB | parcial | PERS-S1 hecho 2026-10-12: `POST /api/sales` y `POST /api/cash/movements` DB-first en 1 tx (sales, tickets, cash, pagos, stock, contador `ticket_counters` sin huecos) con 409 y puerta fiscal pre-apply (422 post-apply muertos eliminados de `sales.ts` 2026-10-13); PERS-S2 hecho 2026-10-13: `POST /api/sync/push` y `GET /api/sync/pull` DB-first (`outbox` + `id_mappings` en 1 tx, replay 200, 409) con espejo memoria; `GET /api/cash/balance` deriva SUM; write-through best-effort en crédito, tickets, precios, proveedores, fiscal y WhatsApp/email; lecturas con `fuente: db\|memoria` | `src/modules/sales/registro_venta.ts`, `src/modules/cash/registro_movimiento.ts`, `src/lib/control-db.ts`, `src/lib/fiscal-db.ts`, `drizzle/*.sql` | PRD-PERS-01, ADR-0024 |
 | Caja, ventas, ticket, fiado | parcial (fiado y links DB-first 2026-10-13) | Rutas y módulos completos de dominio; varios TODO en `cash/caja.ts`, `historial.ts`, `reversion.ts`, `credit/fiado.ts`, `saldos.ts`; `POST /api/credit/payments` y `POST /api/credit/sales-on-account` DB-first con 409 y espejo memoria (migración 0009 `customer_id` a text); `POST/GET/DELETE /api/tickets/link` DB-first con espejo (migración 0005 aplicada a desarrollo) | `src/pages/api/cash/*`, `sales*`, `tickets/*`, `credit/*`, `src/modules/{cash,sales,credit}` | ADR-0004 |
-| PWA | parcial | Manifest, iconos, `sw.js`, SQLite-WASM con `journal_outbox`; falta `photos_queue`, cifrado y borrado remoto | `public/sw.js`, `src/offline/db.ts` | PRD-PWA-01, ADR-0025 |
+| PWA | parcial | Manifest, iconos, `sw.js`, SQLite-WASM con `journal_outbox`; `photos_queue` hecho (`src/offline/fotos.ts`); falta cifrado y borrado remoto (P1.8) | `public/sw.js`, `src/offline/db.ts` | PRD-PWA-01, ADR-0025 |
 | Fiscal ARCA | parcial (G2d-ruta emitir 2026-10-13) | Núcleo, WSAA/WSFEv1, lock, idempotencia, NC/ND, QR, KMS y wizard escritos; corre contra `homo-fake.ts`; `crear_arca_provider` sin conectar; `padron.ts` stub; `caea.ts` solo flag; `GET documents/history/export` con unión DB+memoria y doc fiscal de `POST sales` DB-first (`asegurarFiscalDoc` + espejo, 409 frío); `POST retry` con UPDATE atómico T3 y `POST nd` con 409 por header-key (prefijo, unión factura/cobro) DB-first 2026-10-13 (G2a); `GET/POST wizard` DB-first con upsert por tenant y espejo memoria (migración 0010 `fiscal_wizard`) 2026-10-13 (G2b-wizard); `POST delegacion-confirmada` DB-first con `guardarWizard` y espejo 2026-10-13 (G2b-delegación; su tarea vive en `fiscal_jobs` text-keyed desde el slice Control 2026-10-13); emisión durable DB-first con claim + pre-estampa `respuesta_incierta` pre-ARCA, `store` de cinco salidas, reaper `rehidratar_fiscal` y `marcar_no_facturar` como único escritor (migración 0011 PK `fiscal_sequences`, `src/lib/fiscal-emitir.ts`, sin ruta HTTP hasta G2d) 2026-10-13 (G2c); `POST emitir` cáscara fina sobre `emitir_fiscal_durable` con mapeo 200/422/202/409, replay 409 y barrido reaper best-effort por emisión (sin boot hook en Astro standalone; scheduler periódico para slice Control) 2026-10-13 (G2d) | `src/modules/fiscal/*`, `src/pages/api/fiscal/*` (10), `src/db/schema-fiscal*.ts` | PRD-FE-01, ADR-0018, ADR-0019 |
 | WhatsApp | parcial | Módulos de consulta, alertas, aviso matutino, resúmenes, vincular y webhook; adaptador Cloud API real; sin número central en Meta | `src/modules/whatsapp/*`, `src/pages/api/whatsapp/*`, `src/jobs/whatsapp-*` | PRD-BOT-02, ADR-0041, ADR-0042 |
 | Email | a verificar | Cierre de caja a `email_outbox`; ruta `POST /api/email/send` existe (envío real con Resend a verificar) | `src/modules/email/*`, `src/pages/api/email/send.ts` | PRD-CH-01, ADR-0028 |
-| Cobro | parcial | Solo webhook de Mercado Pago con firma HMAC e idempotencia en memoria; sin suscripciones | `src/pages/api/billing/webhooks/mercadopago.ts` | PRD-CH-01 CH-S4 |
+| Cobro | parcial | Solo webhook de Mercado Pago con firma HMAC e idempotencia en memoria (durable en P0.5); sin suscripciones | `src/pages/api/billing/webhooks/mercadopago.ts` | PRD-CH-01 CH-S4 |
 | Landing | funciona (build OK 2026-10-12, `tests/landing.test.ts` 38/38) | 18 secciones en `index.astro` (Descubrimiento eliminado); `Planes.astro` con Plus `Precio a confirmar` y CTA `Probar 14 días` a `/alta?plan`; ningún `$` fuera de `business.planes` (AT2) | `src/pages/index.astro`, `src/components/sections/*`, `src/data/business.ts` | PRD-LP-01 a LP-03, PRD-LANDING-01 |
 | Panel `/panel` | parcial | Tarjetas con colores sueltos y `n-tickets=91` hardcodeado | `src/pages/panel.astro` | PRD-OP-01 OP-S3, PRD-DASH-01 |
 | Venta, alta, admin | a verificar | Páginas existen; admin con mora, flags, señales y ledger en API | `src/pages/{venta,alta,admin}.astro`, `src/pages/api/admin/*` | PRD-CP-01, ADR-0006 |
@@ -34,30 +34,33 @@ Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts
 
 ## Pendientes priorizados (2026-10-14)
 
-Verificado contra `main` (`01202ee`). Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
+Verificado contra `main` (`01202ee`); estados actualizados 2026-10-14 con `docs/roadmap/avances/`. Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
 
 ### P0. Seguridad y aislamiento
-1. Rutas de datos fuera de `PREFIJOS_DATOS` (`src/lib/tenant-context.ts`): `/api/payment-orders` (ADR-0066), y además `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills` y `/api/ocr`, que usan repositorios por tenant sin que el middleware las envuelva en `conTenant`. Talla S.
-2. `fiscal_settings` sin columna `tenant_id` (`src/db/schema-fiscal.ts`, ADR-0066): `resolverCuitFiscal` toma la primera fila sin filtrar y `GET /api/fiscal/settings` lee un mapa en memoria del módulo. Migración Drizzle nueva en `drizzle/`. Talla S.
-3. Backfill real de `tenant_id` (ADR-0050, ADR-0051; `scripts/backfill-tenant-id.mjs` solo en seco). Talla S, depende de confirmar un comercio por base. Hecho: PRD-SEC-03, ADR-0075 (script listo; falta correrlo con aprobación en cada base real).
-4. Jobs por `X-Job-Secret`: fan-out por tenant (ADR-0052). Talla M.
+1. Hecho (SEC-02, ADR-0074): rutas de datos fuera de `PREFIJOS_DATOS` (`/api/payment-orders`, `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills`, `/api/ocr`) sumadas con arch-test.
+2. Hecho (SEC-02, ADR-0074): `fiscal_settings.tenant_id` con migración `0016`; aplicarla a la base real está bloqueado (ver abajo).
+3. Hecho (SEC-03, ADR-0075): `scripts/backfill-tenant-id.mjs` listo; correrlo en la base real está bloqueado (ver abajo).
+4. Hecho (SEC-04, ADR-0077): jobs por `X-Job-Secret` con fan-out por tenant.
+5. Nuevo (P0-5): idempotencia durable del webhook de Mercado Pago (`src/pages/api/billing/webhooks/mercadopago.ts` deduplica en memoria; tabla con clave única por evento en la misma tx). Talla S.
 
 ### P1. Integridad de datos (memoria con tabla o sin tabla)
-1. Ubicaciones, fotos y conteos en memoria pese a existir `locations`, `product_photos`, `stock_counts`/`stock_count_lines` (ADR-0062). Talla M.
-2. Trabajos y eventos de OCR sin tabla (`ocrJobs`, `ocrEventos` en `src/lib/repos/ocr.ts`, ADR-0060): migración nueva. Talla S.
-3. Correlativo de devoluciones `nextReturn` sin tabla (`src/lib/repos/ventas.ts`, ADR-0063) y correlativo `T-*` de `promote` en sync (`nextTicket`, ADR-0061; ADR-0066 lo unificó con ventas en DB, revisar el espejo). Talla S.
-4. Catálogo del delta de `GET /api/sync/pull` desde memoria (ADR-0061). Talla S.
-5. Los 9 errores tragados de E7 (`tests/arch/sin-errores-tragados.test.ts`, ADR-0073) a 0 con log o relanzando. Talla S.
-6. Test intermitente que comparte la base local B: `tests/pers2-jobs.test.ts` inserta facturas de servicio que `tests/pers2-servicios-fiado.test.ts` ve si corren a la vez (ADR-0066), además de `tests/pers2-compras-pagos.test.ts` "sugerir-desde-notif" (ADR-0067) y los `tests/pers2-*`/`sec01` que apuntan todos a `PG_TEST_URL_B` sin aislar datos entre archivos; aislar por esquema o datos únicos. Talla S.
+1. Hecho (PERS-03, ADR-0078): ubicaciones, fotos y conteos DB-first en `locations`, `product_photos`, `stock_counts`.
+2. Hecho (PERS-04, ADR-0079): trabajos y eventos de OCR en `ocr_jobs`/`ocr_eventos` (migración `0018`).
+3. Hecho (PERS-05, ADR-0080): correlativos `D-*` y `T-*` desde `ticket_counters` (migración `0019`).
+4. Hecho (PERS-06, ADR-0081): catálogo del delta de `GET /api/sync/pull` desde `products`.
+5. Hecho (PERS-07, ADR-0082): los 9 errores tragados de E7 en 0.
+6. Hecho (P1-6): tests intermitentes de base B aislados sin reintentos.
+7. Hecho (P1-7): journal de migraciones con 20 entradas para 20 SQL (`0000` a `0019`).
+8. Nuevo (P1-8): PWA cifrado local y borrado remoto (PWA-S5, ADR-0025); `photos_queue` ya hecho. Talla M.
 
 ### P2. Arquitectura (PRD-ARQ-01, ADR-0065)
-1. Fase 3: resto de ARQ-S1 (241 `as never` en llamadas con `request`, 443 en tests) y ARQ-S7 (CI ya levanta Postgres con bases A y B; falta exigir 0 salteados por `PG_TEST_URL`). Talla M.
-2. Fase 4: ARQ-S4 puerto `Almacen<T>` (151 `esModoMulti`, 435 `store.` en repos), empezando por los mapas con tabla de P1.1. Talla L.
+1. Hecho (P2-1): fase 3 cerrada (casts en piso intencional; ARQ-S7 en CI).
+2. En curso (P2-2): fase 4, ARQ-S4 puerto `Almacen<T>`; corte 1 (precios) hecho. Quedan ~14 cortes, `store.` por repo: caja 99, facturas-proveedor 67, ordenes-pago 47, sync 29, catalogo 29, tickets 20, ventas 19, stock 18, fiscal 18, servicios 17, fiado 16, proveedores 13, lotes 9, ocr 8 (427 `store.`, 143 `esModoMulti`). Talla L.
 3. Fase 5: ARQ-S8 evidencia sin "preexistente" y skill `verify-inventario`. Talla S.
 4. SUP-S5 y SUP-S6 (fuente db en Supabase, tests). Talla M.
 
 ### P3. PRD sin construir, por nivel
-1. Nivel 1 núcleo: PRD-CAT-01 (CRUD, FEFO, ubicaciones, conteo), PRD-CAJA-01 (QR, vencimientos, pagos divididos), PWA `photos_queue`/cifrado/borrado remoto, sync durable SYNC-S1 a S7.
+1. Nivel 1 núcleo: PRD-CAT-01 (CRUD, FEFO, ubicaciones, conteo), PRD-CAJA-01 (QR, vencimientos, pagos divididos), PWA cifrado/borrado remoto (P1.8), sync durable SYNC-S1 a S7.
 2. Nivel 0 identidad: verificar AU-01/AU-02 y ON1-ON13, PRD-E2E-01 dos tenants.
 3. Nivel 2 compras: OCR definitivo (ADR-0005), Gmail `users.watch` (CS), OP1-OP13 cableado real.
 4. Nivel 3 fiscal: sección 2 completa (fecha límite 1/12/2026 para `CondicionIVAReceptorId`).
@@ -70,11 +73,11 @@ Verificado contra `main` (`01202ee`). Orden: seguridad, integridad de datos, deu
 Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
-1. Arreglar el journal de migraciones: `drizzle/meta/_journal.json` solo registra `0000`; `0001` a `0006` no están y hay dos `0004` (`0004_auth_append_only.sql`, `0004_ticket_links.sql`). Talla S.
+1. Hecho 2026-10-14 (P1-7): journal de migraciones arreglado; `drizzle/meta/_journal.json` con 20 entradas que coinciden con los 20 SQL `0000` a `0019`.
 2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Cutover por dominio hecho (grupos 1 a 11, ADR-0053 a ADR-0063, PRD-PERS-02 PERS2-E4 a PERS2-E14): 0 rutas de `src/pages/api` importan `store`. Resta pasar a tablas los mapas que siguen en memoria dentro de los repositorios (OCR, ubicaciones, fotos, conteos, correlativos y claves de avisos; ver Pendientes de cada ADR).
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
-5. PWA: `photos_queue`, cifrado y borrado remoto (PWA-S4, PWA-S5, ADR-0025).
+5. PWA: `photos_queue` hecho (PWA-S4); cifrado y borrado remoto pendientes (PWA-S5, ADR-0025, P1.8).
 
 ### 2. Fiscal ARCA (Factura C para Básico primero)
 Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVAReceptorId` (manual WSFEv1 v4.8). El envelope ya lo manda (`wsfe.ts:206`).
@@ -195,14 +198,15 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 - Chat de landing aislado, solo FAQ (ADR-0046).
 - ARCA con implementación propia `FiscalProvider` (ADR-0018).
 
-Estado de ADRs (2026-10-12): aceptados con evidencia en `src/` 0023, 0024, 0025, 0028, 0029, 0030, 0031, 0036 y 0041; 0047 aceptado por decisión del dueño. Siguen propuestos 0026, 0027, 0032 a 0035, 0037 a 0040 y 0042 a 0046 (sin código que aplique la decisión).
+Estado de ADRs (2026-10-14): aceptados con evidencia 0023 a 0025, 0028 a 0031, 0036, 0041, 0047 (decisión del dueño), 0050 a 0063 y 0065 a 0083. Aceptados (parcial) 0026, 0027, 0048 y 0049, con rutas de evidencia y lo pendiente en cada ADR. Siguen propuestos 0032 a 0035, 0037 a 0040, 0042 a 0046 y 0064.
 
-## Abiertas
+## Bloqueado por decisiones de Mauri
 
-- Proveedor de OCR.
-- Mercado Pago como proveedor de cobro.
-- Precios a publicar (PLAN2-S4).
-- Consulta legal y fiscal.
+- Proveedor de OCR definitivo (ADR-0005) (P9-1).
+- Consulta legal y fiscal con contador y abogado, y certificados ARCA (fecha límite 1/12/2026) (P9-2).
+- Número central de WhatsApp en Meta (P9-3).
+- Aplicar migraciones `0016` a `0019` y el backfill de `tenant_id` a la base real (P9-4).
+- Proveedor de cobro y precios a publicar (PLAN2-S4) (P9-5).
 
 ## Cobertura
 
