@@ -1,10 +1,12 @@
 import type { APIRoute } from "astro";
-import { facturaSchema, registrar_factura } from "../../modules/utilities/facturas_servicios.js";
-import { store } from "../../lib/store.js";
+import { facturaSchema } from "../../modules/utilities/facturas_servicios.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import { registrarFactura } from "../../lib/repos/servicios.js";
 
 export const prerender = false;
 
 // POST /api/utility-bills — registra factura de servicio (CS9.1, message-id UNIQUE).
+// PERS2-S16: persiste via repo de servicios (DB del tenant; memoria solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -15,8 +17,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = facturaSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  const r = registrar_factura(
-    {
+  let r: Awaited<ReturnType<typeof registrarFactura>>;
+  try {
+    r = await registrarFactura({
       accountId: b.account_id,
       messageId: b.message_id,
       periodo: b.periodo,
@@ -26,12 +29,18 @@ export const POST: APIRoute = async ({ request }) => {
       origen: b.origen,
       confianzaMonto: b.confianza_monto,
       confianzaVencimiento: b.confianza_vencimiento,
-    },
-    store.utilityBillsByMessage,
-  );
-  if (r.status !== 201) return Response.json({ error: r.error }, { status: r.status });
-  store.utilityBills.set(r.factura.id, r.factura);
-  store.utilityBillsByMessage.set(r.factura.messageId, r.factura);
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  if (!r.ok) {
+    if (r.codigo === "MENSAJE_REPETIDO") return Response.json({ error: r.error }, { status: 409 });
+    return Response.json({ error: r.error }, { status: r.status });
+  }
+  if (r.fuente === "db") {
+    return Response.json({ bill_id: r.factura.id, advertencias: r.advertencias, fuente: "db" }, { status: 201 });
+  }
   return Response.json(
     { bill_id: r.factura.id, advertencias: r.advertencias },
     { status: 201 },

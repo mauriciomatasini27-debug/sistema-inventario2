@@ -1,11 +1,12 @@
 import type { APIRoute } from "astro";
 import { serviceBillPaySchema } from "../../../lib/validation.js";
-import { pagar_servicio } from "../../../modules/utilities/facturas_servicios.js";
-import { store } from "../../../lib/store.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { pagarFactura } from "../../../lib/repos/servicios.js";
 
 export const prerender = false;
 
 // POST /api/utility-bills/pay — paga servicio (CS5.1, egreso gasto_operativo).
+// PERS2-S16: persiste via repo de servicios (el egreso va por caja.ts).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -16,25 +17,24 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = serviceBillPaySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  const factura = store.utilityBills.get(b.bill_id);
-  if (!factura) return Response.json({ error: "factura inexistente" }, { status: 404 });
-  const r = pagar_servicio(factura, {
-    servicio: b.servicio,
-    proveedor: b.proveedor,
-    numeroCuenta: b.numero_cuenta ?? null,
-    medio: b.medio,
-    ...(b.nota_extra !== undefined ? { notaExtra: b.nota_extra } : {}),
-  });
-  if (r.status !== 200) return Response.json({ error: r.error }, { status: r.status });
-  store.utilityBills.set(b.bill_id, r.factura);
-  store.utilityBillsByMessage.set(r.factura.messageId, r.factura);
-  store.movements.push({
-    id: crypto.randomUUID(),
-    tipo: r.egreso.tipo,
-    metodo: r.egreso.metodo,
-    monto_centavos: r.egreso.monto_centavos.toString(),
-    origen: r.egreso.origen,
-    idempotency_key: crypto.randomUUID(),
-  });
-  return Response.json({ bill_id: r.factura.id, estado: r.factura.estado });
+  let r: Awaited<ReturnType<typeof pagarFactura>>;
+  try {
+    r = await pagarFactura({
+      billId: b.bill_id,
+      servicio: b.servicio,
+      proveedor: b.proveedor,
+      numeroCuenta: b.numero_cuenta ?? null,
+      medio: b.medio,
+      ...(b.nota_extra !== undefined ? { notaExtra: b.nota_extra } : {}),
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  if (!r.ok) {
+    if (r.codigo === "NO_ENCONTRADA") return Response.json({ error: r.error }, { status: 404 });
+    if (r.codigo === "YA_PAGADA") return Response.json({ error: r.error }, { status: 409 });
+    return Response.json({ error: r.error }, { status: r.status });
+  }
+  return Response.json({ bill_id: r.billId, estado: r.estado });
 };
