@@ -379,3 +379,12 @@ export const ocrEventos = pgTable("ocr_eventos", {
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
 });
+
+// P0-5: eventos del webhook de Mercado Pago. Sin tenant_id (base por tenant,
+// igual que OCR).
+export const mpWebhookEvents = pgTable("mp_webhook_events", {
+  clave: text("clave").primaryKey(),
+  preapprovalId: text("preapproval_id").notNull(),
+  estado: text("estado").notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});

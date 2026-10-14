@@ -26,8 +26,11 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // jobs/*: Sistema con X-Job-Secret por gateJob con tenant explícito.
 // /api/whatsapp/webhook: webhook externo de Meta verificado por firma,
 // el comercio sale del número remitente, nunca de la sesión.
+// /api/billing/webhooks/mercadopago: webhook externo de MP verificado con
+// HMAC, el reclamo durable va por base de tenant sin sesión (P0-5).
 // /api/email/send: outbox de infraestructura con tenantId opcional, sin sesión.
 const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
+  "/api/billing/webhooks/mercadopago",
   "/api/email/send",
   "/api/jobs/cierre-medianoche",
   "/api/jobs/vencimientos-lotes",
@@ -51,7 +54,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(8);
+    expect(EXCEPCIONES_CONTROL.size).toBe(9);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");
