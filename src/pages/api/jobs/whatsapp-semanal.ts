@@ -1,9 +1,12 @@
 import type { APIRoute } from "astro";
-import { control, store } from "../../../lib/store.js";
-import { catalogo_vivo } from "../../../modules/whatsapp/catalogo.js";
-import { calcular_semanal, type CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
+import { control } from "../../../lib/store.js";
+import { gateJob } from "../../../lib/tenant-context.js";
+import { conTenant, esModoMulti } from "../../../lib/tenant-mode.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
+import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
-import { comercios_con_bot, encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
+import { encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
 
@@ -25,68 +28,61 @@ export function semana_iso(fecha: Date): string {
 // Mismo cálculo para WA+email (NE3.1/B9.1): top por egreso de venta,
 // faltantes vivos y pedido sugerido por proveedor.
 export function calculo_vivo(): CalculoSemanal {
-  const catalogo = catalogo_vivo(store.stock, store.prices);
-  const porSku = new Map(catalogo.map((c) => [c.sku, c]));
-  const ventas = new Map<string, { unidades: number; importe: bigint }>();
-  for (const m of store.stockMoves) {
-    if (m.tipo !== "VENTA" || m.delta >= 0) continue;
-    const u = -m.delta;
-    const precio = BigInt(store.prices.get(m.sku) ?? 0);
-    const e = ventas.get(m.sku) ?? { unidades: 0, importe: 0n };
-    ventas.set(m.sku, { unidades: e.unidades + u, importe: e.importe + BigInt(u) * precio });
-  }
-  return calcular_semanal({
-    ventas: [...ventas.entries()].map(([sku, v]) => ({
-      sku,
-      nombre: porSku.get(sku)?.nombre ?? sku,
-      unidades: v.unidades,
-      importeCentavos: v.importe,
-    })),
-    faltantes: catalogo
-      .filter((c) => c.umbral > 0 && c.stock <= c.umbral)
-      .map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null })),
-  });
+  return calculoSemanalMemoria();
 }
 
 // POST /api/jobs/whatsapp-semanal — resumen del viernes B9 por comercio.
 // Solo con X-Job-Secret. WA + email en paralelo con el mismo cálculo;
 // cada canal tiene su clave y su gate (B2). Sin ventas sale igual con la
 // aclaración (B9).
+// PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
+// single todos como hoy) y el cálculo va por el repo whatsapp.
 export const POST: APIRoute = async ({ request }) => {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret || request.headers.get("X-Job-Secret") !== secret) {
+  const g = gateJob(request);
+  if (!g) {
     return Response.json({ error: "no autorizado" }, { status: 403 });
   }
-  const ahoraMs = Date.now();
-  const semanaISO = semana_iso(new Date(ahoraMs));
-  const calculo = calculo_vivo();
-  const baseWeb = process.env.PUBLIC_APP_URL ?? "https://app.local";
-  const sender: Enviador = async ({ canal, destino, texto, idempotencyKey }) => {
-    if (canal === "wa") return enviar_texto_wa(destino, texto);
-    return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
-  };
-  const resultados = [];
-  for (const c of comercios_con_bot()) {
-    const email = control.users.get(c.googleSub)?.email ?? "";
-    const r = await ejecutar_job_viernes({ wa: enviadasWa, email: enviadasEmail }, sender, {
-      comercio: {
-        tenantId: c.tenantId,
-        nombreComercio: c.nombreComercio,
-        zona: "America/Argentina/Buenos_Aires",
-        prefsWa: c.prefs,
-        prefsEmail: { resumenCierre: true, pausadoHastaMs: null },
-        destinoWa: c.numero,
-        destinoEmail: email,
-      },
-      semanaISO,
-      calculo,
-      // B15: sin motor de promos en slice-0 (llega con rotación RT9); el
-      // resumen sale sin bloque de promos.
-      promos: [],
-      baseWeb,
-      ahoraMs,
-    });
-    resultados.push({ tenant_id: c.tenantId, canales: r });
-  }
-  return Response.json({ semana: semanaISO, resultados }, { status: 200 });
+  if (!g.ok) return g.respuesta;
+  return conTenant(g.tenantId, async () => {
+    const ahoraMs = Date.now();
+    const semanaISO = semana_iso(new Date(ahoraMs));
+    let calculo: CalculoSemanal;
+    try {
+      calculo = await calculoSemanalVivo();
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      throw e;
+    }
+    const baseWeb = process.env.PUBLIC_APP_URL ?? "https://app.local";
+    const sender: Enviador = async ({ canal, destino, texto, idempotencyKey }) => {
+      if (canal === "wa") return enviar_texto_wa(destino, texto);
+      return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
+    };
+    const uno = obtenerComercioBot(g.tenantId);
+    const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
+    const resultados = [];
+    for (const c of comercios) {
+      const email = control.users.get(c.googleSub)?.email ?? "";
+      const r = await ejecutar_job_viernes({ wa: enviadasWa, email: enviadasEmail }, sender, {
+        comercio: {
+          tenantId: c.tenantId,
+          nombreComercio: c.nombreComercio,
+          zona: "America/Argentina/Buenos_Aires",
+          prefsWa: c.prefs,
+          prefsEmail: { resumenCierre: true, pausadoHastaMs: null },
+          destinoWa: c.numero,
+          destinoEmail: email,
+        },
+        semanaISO,
+        calculo,
+        // B15: sin motor de promos en slice-0 (llega con rotación RT9); el
+        // resumen sale sin bloque de promos.
+        promos: [],
+        baseWeb,
+        ahoraMs,
+      });
+      resultados.push({ tenant_id: c.tenantId, canales: r });
+    }
+    return Response.json({ semana: semanaISO, resultados }, { status: 200 });
+  });
 };

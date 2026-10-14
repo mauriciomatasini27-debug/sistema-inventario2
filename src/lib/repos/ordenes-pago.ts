@@ -616,3 +616,65 @@ async function listarOrdenesSugerencia(): Promise<PaymentOrder[]> {
     return [...store.paymentOrders.values()];
   }
 }
+
+// Órdenes para el job de vencimientos (PERS2-S19, OP11): payment_orders del
+// tenant con DB viva (con sus eventos), memoria particionada solo en single
+// sin base. En multi sin base propaga BaseNoDisponible.
+export async function listarOrdenesJob(): Promise<PaymentOrder[]> {
+  const db = dbVivaTenant();
+  if (!db) return [...store.paymentOrders.values()];
+  try {
+    const filas = await db.select().from(paymentOrders);
+    const union = new Map<string, PaymentOrder>();
+    for (const o of store.paymentOrders.values()) union.set(o.id, o);
+    for (const f of filas) {
+      if (!union.has(f.id)) union.set(f.id, ordenDeFila(f, await eventosDeOrden(db, f.id)));
+    }
+    return [...union.values()];
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return [...store.paymentOrders.values()];
+  }
+}
+
+// Persiste el paso a vencida que calcula el job (PERS2-S19, OP11): estado y
+// versión en payment_orders + evento en payment_order_events, con espejo en
+// memoria. En multi sin base propaga BaseNoDisponible.
+export async function persistirOrdenesVencidas(input: {
+  actualizadas: ReadonlyArray<PaymentOrder>;
+  vencidasIds: ReadonlyArray<string>;
+  hoyMs: number;
+}): Promise<void> {
+  const marcadas = new Set(input.vencidasIds);
+  const db = dbVivaTenant();
+  if (!db) {
+    for (const o of input.actualizadas) {
+      if (marcadas.has(o.id)) store.paymentOrders.set(o.id, o);
+    }
+    return;
+  }
+  try {
+    for (const o of input.actualizadas) {
+      if (!marcadas.has(o.id)) continue;
+      store.paymentOrders.set(o.id, o);
+      if (!esUuid(o.id)) continue;
+      await db
+        .update(paymentOrders)
+        .set({ estado: "vencida", version: o.version })
+        .where(eq(paymentOrders.id, o.id));
+      await db.insert(paymentOrderEvents).values({
+        paymentOrderId: o.id,
+        deEstado: "preparada",
+        aEstado: "vencida",
+        version: o.version,
+        actor: "sistema",
+        origen: "sistema",
+      });
+    }
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    for (const o of input.actualizadas) {
+      if (marcadas.has(o.id)) store.paymentOrders.set(o.id, o);
+    }
+  }
+}

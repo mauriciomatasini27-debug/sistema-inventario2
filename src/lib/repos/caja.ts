@@ -14,7 +14,7 @@ import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { store, type StoredMovement } from "../store.js";
 import type { Medio } from "../validation.js";
 import { derivar_balance, type Movimiento, type Rol } from "../../modules/cash/caja.js";
-import { cerrar_jornada, type CierreOk } from "../../modules/cash/cierre.js";
+import { cerrar_jornada, fecha_jornada_ar, type CierreOk } from "../../modules/cash/cierre.js";
 import {
   conciliar_turno,
   registrar_drop,
@@ -26,6 +26,7 @@ import {
 } from "../../modules/cash/turnos.js";
 import { revertir_movimiento, type ReversionResult } from "../../modules/cash/reversion.js";
 import { asegurar_aviso_cierre, type AvisoCierre } from "../../jobs/cierre-medianoche.js";
+import { ejecutar_cierre_medianoche, type CierreMedianocheResult } from "../../jobs/cierre-medianoche.js";
 import type { SnapshotCaja } from "../../modules/whatsapp/resumen-cierre.js";
 
 // PERS2-S12/S13 (ADR-0056): movimientos, cierres, turnos, retiros,
@@ -268,6 +269,66 @@ function conAvisoMemoria(
 // waEnviados has no table: el aviso de cierre vive en memoria del repo.
 function asegurarAviso(waEnviados: Set<string>, snapshot: SnapshotCaja): AvisoCierre {
   return asegurar_aviso_cierre(waEnviados, snapshot);
+}
+
+// Cierre automático de medianoche (PERS2-S18): misma idempotencia por jornada
+// que hoy (clave `cierre-auto-fecha`). Con DB viva persiste por cerrarCaja;
+// en memoria corre el job puro sobre la partición. En multi sin base propaga.
+export async function correrCierreMedianoche(ahora: Date): Promise<CierreMedianocheResult> {
+  const fecha = fecha_jornada_ar(ahora);
+  const key = `cierre-auto-${fecha}`;
+  const db = dbVivaTenant();
+  if (!db) {
+    const mem = movimientosCierreMemoria();
+    return ejecutar_cierre_medianoche({
+      ahora,
+      movimientos: mem.movs,
+      ultimoMovimientoId: mem.ultimoId,
+      turnosEnDisputa: mem.enDisputa,
+      cierres: store.cierres,
+      waEnviados: store.waEnviados,
+    });
+  }
+  try {
+    const r = await cerrarCaja({ key, fechaJornada: fecha, closeType: "automatica" });
+    if (r.status === 201) {
+      return { status: 201, fechaJornada: r.cierre.fechaJornada, totalCentavos: r.cierre.totalCentavos.toString(), wa: r.wa };
+    }
+    if (r.status === 409 && r.original) {
+      return {
+        status: 409,
+        error: r.error,
+        fechaJornada: r.original.cierre.fechaJornada,
+        totalCentavos: r.original.cierre.totalCentavos.toString(),
+        wa: r.wa ?? { estado: "duplicado", idempotencyKey: key, texto: "" },
+      };
+    }
+    if (r.status === 409) {
+      const previo = await leerCierre(fecha);
+      if (previo) {
+        return {
+          status: 409,
+          error: r.error,
+          fechaJornada: previo.cierre.fechaJornada,
+          totalCentavos: previo.cierre.totalCentavos.toString(),
+          wa: { estado: "duplicado", idempotencyKey: key, texto: "" },
+        };
+      }
+      return { status: 422, error: r.error };
+    }
+    return { status: 422, error: r.error };
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    const mem = movimientosCierreMemoria();
+    return ejecutar_cierre_medianoche({
+      ahora,
+      movimientos: mem.movs,
+      ultimoMovimientoId: mem.ultimoId,
+      turnosEnDisputa: mem.enDisputa,
+      cierres: store.cierres,
+      waEnviados: store.waEnviados,
+    });
+  }
 }
 
 // Lectura del cierre por fecha: closing_summaries con DB viva, memoria

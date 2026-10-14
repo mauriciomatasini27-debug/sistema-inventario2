@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { utilityBills } from "../../db/schema-servicios.js";
+import { serviceAccounts, utilityBills } from "../../db/schema-servicios.js";
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { store } from "../store.js";
@@ -141,8 +141,7 @@ function filaAFactura(f: FilaFactura): FacturaServicio {
 
 // Vencimientos: todas las facturas del tenant con DB viva, memoria
 // particionada solo en single sin base. En multi sin base propaga.
-export async function listarFacturas(): Promise<FacturaServicio[]> {
-  const db = dbVivaTenant();
+export async function listarFacturas(): Promise<FacturaServicio[]> {  const db = dbVivaTenant();
   if (!db) return [...store.utilityBills.values()];
   try {
     const filas = await db.select().from(utilityBills);
@@ -236,5 +235,22 @@ export async function pagarFactura(input: PagoServicioInput): Promise<PagarFactu
       categoriaId: categoria_para(input.servicio),
     });
     return { ok: true, billId: r.factura.id, estado: r.factura.estado };
+  }
+}
+
+// Cuentas para el job de vencimientos (PERS2-S19): service_accounts del
+// tenant con DB viva, memoria particionada solo en single sin base. En
+// multi sin base propaga BaseNoDisponible.
+export async function listarCuentas(): Promise<Map<string, { proveedor: string; servicio: string }>> {
+  const db = dbVivaTenant();
+  if (!db) {
+    return new Map([...store.serviceAccounts.values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
+  }
+  try {
+    const filas = await db.select({ id: serviceAccounts.id, proveedor: serviceAccounts.proveedor, servicio: serviceAccounts.servicio }).from(serviceAccounts);
+    return new Map(filas.map((f) => [f.id, { proveedor: f.proveedor, servicio: f.servicio }]));
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return new Map([...store.serviceAccounts.values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
   }
 }

@@ -5,11 +5,14 @@ import { suppliers } from "../../db/schema-proveedores.js";
 import { whatsappSessions } from "../../db/schema-whatsapp.js";
 import { conTenant, esModoMulti, tenantActual } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store, type EstadoStore } from "../store.js";
+import { control, store, type EstadoStore } from "../store.js";
 import { catalogo_vivo } from "../../modules/whatsapp/catalogo.js";
 import { crear_item_viernes, type ListaViernes } from "../../modules/whatsapp/lista-viernes.js";
 import type { MovimientoVista, PedidoDia } from "../../modules/whatsapp/dia-a-dia.js";
 import type { ItemVivo } from "../../modules/whatsapp/servicio.js";
+import type { Preferencias } from "../../modules/whatsapp/optin.js";
+import type { ItemStock } from "../../modules/email/stock-matutino.js";
+import { calcular_semanal, type CalculoSemanal, type FaltanteSemana, type VentaSemana } from "../../modules/email/resumen-semanal.js";
 
 function aBaseNoDisponible(e: unknown): BaseNoDisponible {
   return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
@@ -213,4 +216,124 @@ export async function listarMovimientosVista(ahoraMs: number, tenantId?: string)
   }
   if (!hayMemoria(tenantId)) return [];
   return enMemoria(tenantId, (s) => s.stockMoves.map((m) => ({ idemKey: m.idemKey, sku: m.sku, delta: m.delta, tipo: m.tipo, fechaMs: ahoraMs })));
+}
+
+export interface ComercioBot {
+  readonly tenantId: string;
+  readonly nombreComercio: string;
+  readonly googleSub: string;
+  readonly numero: string;
+  readonly prefs: Preferencias;
+}
+
+// PERS2-S18/S19 (ADR-0059): comercios con bot para los jobs. Lee control
+// (plano global, no datos del comercio); el job en multi lo llama solo con
+// el tenant de gateJob, en single recorre todos como hoy.
+export function listarComerciosBot(): ComercioBot[] {
+  const out: ComercioBot[] = [];
+  for (const [numero, l] of control.botLinks) {
+    if (l.estado !== "verificado") continue;
+    const t = control.tenants.get(l.tenantId);
+    if (!t || (t.estado !== "activo" && t.estado !== "suspendido")) continue;
+    const p = control.waPrefs.get(`${l.tenantId}:${l.googleSub}`);
+    out.push({
+      tenantId: l.tenantId,
+      nombreComercio: t.nombreComercio,
+      googleSub: l.googleSub,
+      numero,
+      prefs: { optIn: p?.optIn ?? false, avisoHora: p?.avisoHora ?? "08:00", pausadoHastaMs: p?.pausadoHastaMs ?? null },
+    });
+  }
+  return out;
+}
+
+export function obtenerComercioBot(tenantId: string): ComercioBot | null {
+  return listarComerciosBot().find((c) => c.tenantId === tenantId) ?? null;
+}
+
+// Catálogo del aviso matutino como ItemStock, con DB viva o memoria.
+export async function catalogoAvisoVivo(tenantId?: string): Promise<ItemStock[]> {
+  const vivos = await listarCatalogoVivo(tenantId);
+  return vivos.map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null }));
+}
+
+// waEnviados has no table: las claves de idempotencia WA viven en memoria del repo.
+export function waEnviadosVivos(tenantId?: string): Set<string> {
+  return enMemoria(tenantId, (s) => s.waEnviados);
+}
+
+// waEnviados has no table: las claves de idempotencia WA viven en memoria del repo.
+export function marcarWaEnviado(clave: string, tenantId?: string): void {
+  enMemoria(tenantId, (s) => {
+    s.waEnviados.add(clave);
+  });
+}
+
+function ventasSemanalesEnMemoria(s: EstadoStore): { ventas: VentaSemana[]; faltantes: FaltanteSemana[] } {
+  const catalogo = catalogo_vivo(s.stock, s.prices);
+  const porSku = new Map(catalogo.map((c) => [c.sku, c]));
+  const ventas = new Map<string, { unidades: number; importe: bigint }>();
+  for (const m of s.stockMoves) {
+    if (m.tipo !== "VENTA" || m.delta >= 0) continue;
+    const u = -m.delta;
+    const precio = BigInt(s.prices.get(m.sku) ?? 0);
+    const e = ventas.get(m.sku) ?? { unidades: 0, importe: 0n };
+    ventas.set(m.sku, { unidades: e.unidades + u, importe: e.importe + BigInt(u) * precio });
+  }
+  return {
+    ventas: [...ventas.entries()].map(([sku, v]) => ({
+      sku,
+      nombre: porSku.get(sku)?.nombre ?? sku,
+      unidades: v.unidades,
+      importeCentavos: v.importe,
+    })),
+    faltantes: catalogo
+      .filter((c) => c.umbral > 0 && c.stock <= c.umbral)
+      .map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null })),
+  };
+}
+
+// Cálculo semanal en memoria (misma cuenta que hoy); lo usa la ruta para la
+// exportación síncrona y como fallback sin base.
+export function calculoSemanalMemoria(tenantId?: string): CalculoSemanal {
+  return enMemoria(tenantId, (s) => {
+    const { ventas, faltantes } = ventasSemanalesEnMemoria(s);
+    return calcular_semanal({ ventas, faltantes });
+  });
+}
+
+// Resumen semanal vivo (NE3.1/B9.1): products + stock_movements con DB viva,
+// memoria particionada solo en single sin base. En multi sin base propaga.
+export async function calculoSemanalVivo(tenantId?: string): Promise<CalculoSemanal> {
+  const db = dbVivaTenant(tenantId);
+  if (!db) return calculoSemanalMemoria(tenantId);
+  try {
+    const prods = await db
+      .select({ sku: products.sku, nombre: products.nombre, precio: products.precioCentavos })
+      .from(products);
+    const movs = await db
+      .select({ sku: stockMovements.sku, delta: stockMovements.delta, tipo: stockMovements.tipo })
+      .from(stockMovements);
+    const porSku = new Map(prods.map((p) => [p.sku, p]));
+    const ventas = new Map<string, { unidades: number; importe: bigint }>();
+    for (const m of movs) {
+      if (m.tipo !== "VENTA" || m.delta >= 0) continue;
+      const u = -m.delta;
+      const precio = porSku.get(m.sku)?.precio ?? 0n;
+      const e = ventas.get(m.sku) ?? { unidades: 0, importe: 0n };
+      ventas.set(m.sku, { unidades: e.unidades + u, importe: e.importe + BigInt(u) * precio });
+    }
+    return calcular_semanal({
+      ventas: [...ventas.entries()].map(([sku, v]) => ({
+        sku,
+        nombre: porSku.get(sku)?.nombre ?? sku,
+        unidades: v.unidades,
+        importeCentavos: v.importe,
+      })),
+      faltantes: [],
+    });
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return calculoSemanalMemoria(tenantId);
+  }
 }

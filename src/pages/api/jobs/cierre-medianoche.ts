@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
-import { store } from "../../../lib/store.js";
-import { ejecutar_cierre_medianoche } from "../../../jobs/cierre-medianoche.js";
-import type { Movimiento } from "../../../modules/cash/caja.js";
+import { gateJob } from "../../../lib/tenant-context.js";
+import { conTenant } from "../../../lib/tenant-mode.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { correrCierreMedianoche } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
@@ -9,37 +10,33 @@ export const prerender = false;
 // America/Argentina/Buenos_Aires, fuera del repo). Solo con X-Job-Secret.
 // Idempotente por jornada (409 el segundo disparo); 422 si hay turno en
 // disputa; tras el cierre asegura el aviso WA C10 una sola vez.
+// PERS2-S18: el tenant sale de gateJob y el cierre persiste por el repo caja.
 export const POST: APIRoute = async ({ request }) => {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret || request.headers.get("X-Job-Secret") !== secret) {
+  const g = gateJob(request);
+  if (!g) {
     return Response.json({ error: "no autorizado" }, { status: 403 });
   }
-  const movimientos: Movimiento[] = store.movements.map((m) => ({
-    tipo: m.tipo,
-    metodo: m.metodo,
-    monto_centavos: BigInt(m.monto_centavos),
-    origen: m.origen as Movimiento["origen"],
-  }));
-  const enDisputa = [...store.turnos.values()].filter((t) => t.estado === "en_disputa").length;
-  const r = ejecutar_cierre_medianoche({
-    ahora: new Date(),
-    movimientos,
-    ultimoMovimientoId: store.movements.length ? (store.movements[store.movements.length - 1]?.id ?? null) : null,
-    turnosEnDisputa: enDisputa,
-    cierres: store.cierres,
-    waEnviados: store.waEnviados,
+  if (!g.ok) return g.respuesta;
+  return conTenant(g.tenantId, async () => {
+    let r: Awaited<ReturnType<typeof correrCierreMedianoche>>;
+    try {
+      r = await correrCierreMedianoche(new Date());
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      throw e;
+    }
+    if (r.status === 201) {
+      return Response.json(
+        { fecha_jornada: r.fechaJornada, close_type: "automatica", total_centavos: r.totalCentavos, wa: r.wa },
+        { status: 201 },
+      );
+    }
+    if (r.status === 409) {
+      return Response.json(
+        { error: r.error, fecha_jornada: r.fechaJornada, close_type: "automatica", total_centavos: r.totalCentavos, wa: r.wa },
+        { status: 409 },
+      );
+    }
+    return Response.json({ error: r.error }, { status: 422 });
   });
-  if (r.status === 201) {
-    return Response.json(
-      { fecha_jornada: r.fechaJornada, close_type: "automatica", total_centavos: r.totalCentavos, wa: r.wa },
-      { status: 201 },
-    );
-  }
-  if (r.status === 409) {
-    return Response.json(
-      { error: r.error, fecha_jornada: r.fechaJornada, close_type: "automatica", total_centavos: r.totalCentavos, wa: r.wa },
-      { status: 409 },
-    );
-  }
-  return Response.json({ error: r.error }, { status: 422 });
 };

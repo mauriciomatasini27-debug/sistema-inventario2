@@ -1,9 +1,16 @@
 import type { APIRoute } from "astro";
-import { store } from "../../../lib/store.js";
-import { catalogo_vivo } from "../../../modules/whatsapp/catalogo.js";
+import { gateJob } from "../../../lib/tenant-context.js";
+import { conTenant, esModoMulti } from "../../../lib/tenant-mode.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import {
+  catalogoAvisoVivo,
+  listarComerciosBot,
+  marcarWaEnviado,
+  obtenerComercioBot,
+  waEnviadosVivos,
+} from "../../../lib/repos/whatsapp.js";
 import { ejecutar_aviso_matutino_wa, fechaBA } from "../../../jobs/whatsapp-aviso-matutino.js";
-import { comercios_con_bot, cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
-import type { ItemStock } from "../../../modules/email/stock-matutino.js";
+import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
 
@@ -14,53 +21,59 @@ export const prerender = false;
 // Sin credenciales Cloud API el envío se registra como fallo (no se marca
 // enviado). Con credenciales el envío se dispara y la entrega real vive en
 // los webhooks de estado (B11.3).
+// PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
+// single todos como hoy) y el estado va por el repo whatsapp.
 export const POST: APIRoute = async ({ request }) => {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret || request.headers.get("X-Job-Secret") !== secret) {
+  const g = gateJob(request);
+  if (!g) {
     return Response.json({ error: "no autorizado" }, { status: 403 });
   }
-  const ahoraMs = Date.now();
-  const fecha = fechaBA(new Date(ahoraMs));
-  const vivos: ItemStock[] = catalogo_vivo(store.stock, store.prices).map((c) => ({
-    sku: c.sku,
-    nombre: c.nombre,
-    stock: c.stock,
-    umbral: c.umbral,
-    proveedor: c.proveedor ?? null,
-  }));
-  const comercios = comercios_con_bot();
-  const porTenant = new Map(comercios.map((c) => [c.tenantId, c]));
-  const hayCred = cred_wa() !== null;
-  const { resultados } = ejecutar_aviso_matutino_wa({
-    comercios: comercios.map((c) => ({
-      tenantId: c.tenantId,
-      nombreComercio: c.nombreComercio,
-      prefs: c.prefs,
-      catalogoVivo: vivos,
-      // Slice-0: sin memoria de alertas previas (prod: enAlertaPrevia desde
-      // la última corrida en Drizzle). Toda alerta vigente es novedad.
-      enAlertaPrevia: new Set<string>(),
-    })),
-    fecha,
-    ahoraMs,
-    yaEnviados: store.waEnviados,
-    enviar: (tenantId, payload) => {
-      const dest = porTenant.get(tenantId);
-      if (!dest || !hayCred) return { ok: false, error: dest ? "sin_credenciales" : "sin_destino" };
-      void enviar_texto_wa(dest.numero, payload.texto);
-      return { ok: true };
-    },
-    // Solo lo enviado bloquea la corrida del día: omitidos y fallos se
-    // recalculan en el próximo intento (puede haber novedades o credenciales).
-    registrar: (clave, r) => {
-      if (r.estado === "enviado") store.waEnviados.add(clave);
-    },
-  });
-  return Response.json(
-    {
+  if (!g.ok) return g.respuesta;
+  return conTenant(g.tenantId, async () => {
+    const ahoraMs = Date.now();
+    const fecha = fechaBA(new Date(ahoraMs));
+    let vivos: Awaited<ReturnType<typeof catalogoAvisoVivo>>;
+    try {
+      vivos = await catalogoAvisoVivo();
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      throw e;
+    }
+    const uno = obtenerComercioBot(g.tenantId);
+    const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
+    const porTenant = new Map(comercios.map((c) => [c.tenantId, c]));
+    const hayCred = cred_wa() !== null;
+    const { resultados } = ejecutar_aviso_matutino_wa({
+      comercios: comercios.map((c) => ({
+        tenantId: c.tenantId,
+        nombreComercio: c.nombreComercio,
+        prefs: c.prefs,
+        catalogoVivo: vivos,
+        // Slice-0: sin memoria de alertas previas (prod: enAlertaPrevia desde
+        // la última corrida en Drizzle). Toda alerta vigente es novedad.
+        enAlertaPrevia: new Set<string>(),
+      })),
       fecha,
-      resultados: resultados.map((r) => ({ tenant_id: r.tenantId, estado: r.estado })),
-    },
-    { status: 200 },
-  );
+      ahoraMs,
+      yaEnviados: waEnviadosVivos(),
+      enviar: (tenantId, payload) => {
+        const dest = porTenant.get(tenantId);
+        if (!dest || !hayCred) return { ok: false, error: dest ? "sin_credenciales" : "sin_destino" };
+        void enviar_texto_wa(dest.numero, payload.texto);
+        return { ok: true };
+      },
+      // Solo lo enviado bloquea la corrida del día: omitidos y fallos se
+      // recalculan en el próximo intento (puede haber novedades o credenciales).
+      registrar: (clave, r) => {
+        if (r.estado === "enviado") marcarWaEnviado(clave);
+      },
+    });
+    return Response.json(
+      {
+        fecha,
+        resultados: resultados.map((r) => ({ tenant_id: r.tenantId, estado: r.estado })),
+      },
+      { status: 200 },
+    );
+  });
 };
