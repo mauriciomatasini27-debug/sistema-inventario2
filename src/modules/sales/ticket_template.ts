@@ -77,7 +77,10 @@ export async function enviar_plantilla_ticket_listo(opts: {
   try {
     const res = await fetchFn(url, { method: "POST", headers, body, signal: ctrl.signal });
     if (!res.ok) return { ok: false, codigo: res.status >= 500 || res.status === 429 ? "red" : "rechazado" };
-    const r = (await res.json().catch(() => null)) as { messages?: Array<{ id?: string }> } | null;
+    const r = (await res.json().catch((error: unknown) => {
+      console.warn("[ticket-template] respuesta 2xx sin JSON", { status: res.status, error });
+      return null;
+    })) as { messages?: Array<{ id?: string }> } | null;
     const wamid = r?.messages?.[0]?.id;
     if (typeof wamid !== "string" || wamid.length === 0) return { ok: false, codigo: "respuesta_invalida" };
     opts.marcarEnviado(opts.idempotencyKey, { wamid, plantilla: PLANTILLA_TICKET_LISTO, cuando: new Date().toISOString() });

@@ -92,7 +92,7 @@
             headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
             body: JSON.stringify(payload),
           });
-          const j = await r.json().catch(() => ({}));
+          const j = await r.json().catch((error) => { console.warn("[alta] respuesta sin JSON", r.status, error); return {}; });
           if ((r.status === 201 || r.status === 409) && j.tenant_id) {
             try {
               sessionStorage.setItem("alta-vincular", JSON.stringify({ tenant_id: j.tenant_id, numero: j.numero ?? "", vincular: j.vincular ?? null }));

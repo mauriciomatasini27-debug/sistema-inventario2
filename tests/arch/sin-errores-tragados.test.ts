@@ -7,17 +7,7 @@ const RX_FLECHA =
   /\.catch\s*\(\s*(?:\(\s*\)|[a-zA-Z_$][\w$]*|\(\s*[a-zA-Z_$][\w$]*\s*\))\s*=>\s*(null|undefined|false|\{\}|\(\{\}\))\s*\)/;
 const RX_FUNCION = /\.catch\s*\(\s*function\s*\([^)]*\)\s*\{\s*\}\s*\)/;
 
-const PERMITIDOS: ReadonlySet<string> = new Set([
-  'src/layouts/BaseLayout.astro :: navigator.serviceWorker.register("/sw.js").catch(function () {});',
-  "src/lib/repos/ordenes-pago.ts :: const rival = await leerOrdenPorKey(db, input.key).catch(() => null);",
-  "src/modules/sales/ticket_template.ts :: const r = (await res.json().catch(() => null)) as { messages?: Array<{ id?: string }> } | null;",
-  "src/modules/whatsapp/cliente-cloud.ts :: const wamid = wamid_de(await res.json().catch(() => null));",
-  "src/offline/db.ts :: tail = run.catch(() => undefined);",
-  "src/pages/alta.astro :: const j = await r.json().catch(() => ({}));",
-  "src/pages/alta/estado.astro :: const j = await r.json().catch(() => ({}));",
-  'src/pages/venta.astro :: const j = await r.json().catch(() => ({}));',
-  "src/pages/venta.astro :: const th = await t.json().catch(() => ({}));",
-]);
+const PERMITIDOS: ReadonlySet<string> = new Set<string>([]);
 
 function archivos(dir: string): string[] {
   const out: string[] = [];
@@ -52,12 +42,12 @@ describe("E7 sin errores tragados nuevos", () => {
     expect(
       nuevos,
       nuevos.length > 0
-        ? `Errores tragados nuevos (${nuevos.length}); permitidos hoy: ${PERMITIDOS.size}. Registrá el error (log) o relanzalo; si el caso es legítimo agregalo a PERMITIDOS con file + texto:\n${nuevos.join("\n")}`
+        ? `Errores tragados nuevos (${nuevos.length}). Registrá el error (log) o relanzalo; una excepción necesita ADR:\n${nuevos.join("\n")}`
         : "",
     ).toEqual([]);
   });
 
   it("la lista explícita tiene el tamaño esperado", () => {
-    expect(PERMITIDOS.size).toBe(9);
+    expect(PERMITIDOS.size).toBe(0);
   });
 });

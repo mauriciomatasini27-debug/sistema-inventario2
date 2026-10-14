@@ -157,6 +157,15 @@ async function leerOrdenPorKey(db: TenantDb, key: string): Promise<PaymentOrder 
   return ordenDeFila(fila, await eventosDeOrden(db, fila.id));
 }
 
+export async function ordenRivalTrasConflicto(db: TenantDb, key: string): Promise<PaymentOrder | null> {
+  try {
+    return await leerOrdenPorKey(db, key);
+  } catch (error) {
+    console.warn("[ordenes-pago] no se pudo leer la orden rival tras el conflicto", { key, error });
+    return null;
+  }
+}
+
 function maxSufijo(numeros: ReadonlyArray<string>): number {
   let max = 0;
   for (const n of numeros) {
@@ -293,7 +302,7 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
         });
       });
     } catch (e) {
-      const rival = await leerOrdenPorKey(db, input.key).catch(() => null);
+      const rival = await ordenRivalTrasConflicto(db, input.key);
       if (rival) {
         store.paymentOrders.set(rival.id, rival);
         store.paymentOrderVistos.set(input.key, rival);

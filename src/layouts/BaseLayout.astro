@@ -65,7 +65,7 @@ const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toSt
       // PWA-S1: registra el SW sin romper si no hay soporte o falla la red.
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
-          navigator.serviceWorker.register("/sw.js").catch(function () {});
+          navigator.serviceWorker.register("/sw.js").catch(function (error) { console.warn("[pwa] no se pudo registrar el service worker", error); });
         });
       }
     </script>

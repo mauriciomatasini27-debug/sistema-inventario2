@@ -126,7 +126,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
             headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
             body: JSON.stringify({ sale_id: lastSaleId, toE164: to, dentroVentana24h: true, optIn: false, comercio: "Comercio" }),
           });
-          const j = await r.json().catch(() => ({}));
+          const j = await r.json().catch((error) => { console.warn("[venta] respuesta sin JSON", r.status, error); return {}; });
           if (j.wa_me_url) window.open(j.wa_me_url, "_blank");
           else estado(r.status + " " + JSON.stringify(j));
         } catch { estado("sin red para compartir"); }
@@ -155,7 +155,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
               totalNetoCentavos: lastTicket.total,
             }),
           });
-          const th = await t.json().catch(() => ({}));
+          const th = await t.json().catch((error) => { console.warn("[venta] respuesta sin JSON", t.status, error); return {}; });
           if (!t.ok || !th.cols32) { estado("thermal: " + JSON.stringify(th)); return; }
           const nav = navigator;
           if (!nav.bluetooth) { estado("BT no soportado acá; usá Imprimir"); window.print(); return; }

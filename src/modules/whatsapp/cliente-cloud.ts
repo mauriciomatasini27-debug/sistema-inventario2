@@ -77,7 +77,11 @@ export async function enviar_whatsapp(opts: {
       return { ok: false, codigo: "red" };
     }
     if (res.ok) {
-      const wamid = wamid_de(await res.json().catch(() => null));
+      const cuerpo = await res.json().catch((error: unknown) => {
+        console.warn("[whatsapp] respuesta 2xx sin JSON", { status: res.status, error });
+        return null;
+      });
+      const wamid = wamid_de(cuerpo);
       return wamid ? { ok: true, wamid } : { ok: false, codigo: "respuesta_invalida" };
     }
     if (es_transitorio(res.status) && intento === 0) continue;

@@ -86,7 +86,7 @@ const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tenant_id: tenantId, numero }),
         });
-        const j = await r.json().catch(() => ({}));
+        const j = await r.json().catch((error) => { console.warn("[alta-estado] respuesta sin JSON", r.status, error); return {}; });
         if (r.status === 201) {
           codigo = j.codigo;
           $("aviso").textContent = "Te enviamos el código por WhatsApp. Escribilo cuando lo recibas.";

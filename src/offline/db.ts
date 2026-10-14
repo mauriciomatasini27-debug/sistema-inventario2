@@ -56,7 +56,9 @@ let persistSucia = false;
 
 export async function transact<T>(fn: () => Promise<T> | T): Promise<T> {
   const run = tail.then(fn, fn) as Promise<T>;
-  tail = run.catch(() => undefined);
+  tail = run.catch((error: unknown) => {
+    console.warn("[offline] transact: turno fallido, la cadena sigue", error);
+  });
   return run;
 }
 
