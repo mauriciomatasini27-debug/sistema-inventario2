@@ -161,6 +161,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | PERS5-S1 a S3 | hecho | PERS5-S1 a S3 hechos: correlativos `D-*` y `T-*` desde `ticket_counters` con lock en la transacción (ADR-0080). | PRD-PERS-05 / ADR-0080 |
 | 2026-10-14 | PERS6-S1 | hecho | PERS6-S1 hecho: catálogo del delta de `GET /api/sync/pull` desde `products` (ADR-0081). | PRD-PERS-06 / ADR-0081 |
 | 2026-10-14 | PERS7-S1 a S3 | hecho | PERS7-S1 a S3 hechos: los 9 errores tragados de E7 registran con `console.warn` o relanzan; `PERMITIDOS` vacío (ADR-0082). | PRD-PERS-07 / ADR-0082 |
+| 2026-10-14 | PROC1-S1 a S3 | hecho | PROC1-S1 a S3: tests de arquitectura una sola vez en CI, evidencia desde un reporte JSON y avances chicos `P<n>-<m>` sin ADR/PRD (ADR-0083). | PRD-PROC-01 / ADR-0083 |
 <!-- roadmap:avances:fin -->
 
 ## Decisiones registradas
