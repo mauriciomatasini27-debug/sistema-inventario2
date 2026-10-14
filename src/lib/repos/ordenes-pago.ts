@@ -21,7 +21,7 @@ import {
   matchear_notif,
   parsear_notif_bancaria,
 } from "../../modules/payments/notifs-bancarias.js";
-import { fechaBA } from "../../jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../fecha-ar.js";
 import { registrarEgresoRetiro } from "./caja.js";
 
 // PERS2-S15 (ADR-0057): preparar, cancelar, confirmar pagada y sugerir desde
@@ -570,7 +570,7 @@ export async function sugerirDesdeNotifRepo(input: {
   if (typeof notifId !== "string" || notifId.length === 0 || notifId.length > 128) {
     return { status: 422, body: { error: "notif_id requerido (1-128)" } };
   }
-  const hoyIso = typeof hoyIsoRaw === "string" ? hoyIsoRaw : fechaBA(new Date());
+  const hoyIso = typeof hoyIsoRaw === "string" ? hoyIsoRaw : fechaAR(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(hoyIso)) {
     return { status: 422, body: { error: "hoy_iso YYYY-MM-DD" } };
   }

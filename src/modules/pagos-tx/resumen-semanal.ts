@@ -5,6 +5,7 @@
 
 import { DIA_MS, type PaymentOrder } from "../payments/ordenes.js";
 import { derivar_estado, type FacturaServicio } from "../utilities/facturas_servicios.js";
+import { diaUTC } from "../../lib/fecha-ar.js";
 
 export interface ItemSemana {
   readonly id: string;
@@ -31,7 +32,7 @@ export interface ResumenSemanal {
 }
 
 function iso_de(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return diaUTC(ms);
 }
 
 // Por qué UTC y no AR: las órdenes ya cortan por día UTC en marcar_vencidas;

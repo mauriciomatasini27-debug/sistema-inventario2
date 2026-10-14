@@ -1,6 +1,7 @@
 import { control } from "../lib/store.js";
 import { adminStore } from "../lib/admin-store.js";
 import { aplicar_evento_vida } from "../modules/admin/mora.js";
+import { fechaAR } from "../lib/fecha-ar.js";
 
 // Job mora diaria PA7 (06:00 America/Argentina). Reconcilia lifecycle events
 // pendientes: aplica a control.tenants todo evento cuyo efecto no esté
@@ -9,22 +10,13 @@ import { aplicar_evento_vida } from "../modules/admin/mora.js";
 // deuda vive en fase 2 con cargos (hoy la cobranza es manual MVP: evaluar +
 // suspender/regularizar desde el panel).
 // Idempotente por clave mora:YYYY-MM-DD: re-corridas del mismo día retornan ya.
-export function fechaBA(ahora = new Date()): string {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return fmt.format(ahora);
-}
 
 export function ejecutarMoraDiaria(ahora = new Date()): {
   ya: boolean;
   fecha: string;
   aplicados: string[];
 } {
-  const fecha = fechaBA(ahora);
+  const fecha = fechaAR(ahora);
   const clave = `mora:${fecha}`;
   if (adminStore.moraRuns.has(clave)) {
     return { ya: true, fecha, aplicados: [] };

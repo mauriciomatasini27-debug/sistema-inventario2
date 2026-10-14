@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as POSTVenc } from "../src/pages/api/jobs/vencimientos-servicios.js";
 import { ejecutar_vencimientos_servicios } from "../src/jobs/vencimientos-servicios.js";
-import { fechaBA } from "../src/jobs/whatsapp-aviso-matutino.js";
+import { fechaAR, sumarDiasAR } from "../src/lib/fecha-ar.js";
 import type { PaymentOrder } from "../src/modules/payments/ordenes.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 
@@ -9,8 +9,8 @@ const SECRET = "test-secret-jobs";
 const DIA = 86_400_000;
 
 const hoyMs = Date.now();
-const hoyIso = fechaBA(new Date(hoyMs));
-const isoDias = (d: number): string => new Date(hoyMs + d * DIA).toISOString().slice(0, 10);
+const hoyIso = fechaAR(new Date(hoyMs));
+const isoDias = (d: number): string => sumarDiasAR(hoyIso, d);
 
 function orden(id: string, numero: string, venceMs: number): PaymentOrder {
   return {
