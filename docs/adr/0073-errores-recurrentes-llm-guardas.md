@@ -38,4 +38,5 @@ Un `catch {}` nuevo, un `online` literal o un comentario falso rompen `npm test`
 
 - Sesión OpenCode `/poteto-mode /correct` + `/tdd` con `opencode/muse-spark-1.3-contributor-free`; cada arch-test se vio fallar con un caso plantado antes de pasar.
 - `npm run evidencia` con Postgres local: `tsc: 0 errores`; `Test Files  122 passed (122)`; `Tests  888 passed (888)`; `[build] Complete!`.
+- Tras fusionar `main` (fase 2 de ARQ, `121f9ce`): el trinquete AT5 bajó de 10 a 8 por los 2 comentarios corregidos; `tests/arch/baselines.json` ajustado a 8. `npm run check:arch` 20 passed; `npm run evidencia`: `Test Files  129 passed (129)`, `Tests  917 passed (917)`, `tsc: 0 errores`, build OK.
 - Prueba a mano: agregar `} catch {}` y `// sin tabla \`payment_orders\`` en un archivo de `src/lib` hace fallar E7 y E3 (`Tests  2 failed | 4 passed (6)` en `tests/arch`); se borró el archivo.
