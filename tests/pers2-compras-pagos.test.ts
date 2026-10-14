@@ -271,7 +271,7 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const r1 = (await postSugerir({
       request: req("http://x/api/payment-orders/sugerir-desde-notif", {
         texto,
-        notif_id: `n-${Date.now()}`,
+        notif_id: `n-${Date.now()}-1`,
         hoy_iso: "2026-10-10",
       }),
     } as never)) as Response;
@@ -281,7 +281,7 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const r2 = (await postSugerir({
       request: req("http://x/api/payment-orders/sugerir-desde-notif", {
         texto: "otro texto",
-        notif_id: `n-${Date.now()}`,
+        notif_id: `n-${Date.now()}-2`,
         hoy_iso: "2026-10-10",
       }),
     } as never)) as Response;
