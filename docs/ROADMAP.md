@@ -154,9 +154,27 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
+| 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
+| 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
+| 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
+| 2026-10-14 | P0-4 | hecho | P0-4: fan-out por tenant de jobs con `X-Job-Secret` (PRD-SEC-04, ADR-0077). | — / — |
+| 2026-10-14 | P0-5 | pendiente | P0-5 nuevo: idempotencia durable del webhook de Mercado Pago (hoy en memoria). | — / — |
+| 2026-10-14 | P1-1 | hecho | P1-1: ubicaciones, fotos y conteos DB-first en `locations`/`product_photos`/`stock_counts` (PRD-PERS-03, ADR-0078). | — / — |
+| 2026-10-14 | P1-2 | hecho | P1-2: trabajos y eventos de OCR en `ocr_jobs`/`ocr_eventos` (PRD-PERS-04, ADR-0079). | — / — |
+| 2026-10-14 | P1-3 | hecho | P1-3: correlativos `D-*` y `T-*` desde `ticket_counters` (PRD-PERS-05, ADR-0080). | — / — |
+| 2026-10-14 | P1-4 | hecho | P1-4: catálogo del delta de `GET /api/sync/pull` desde `products` (PRD-PERS-06, ADR-0081). | — / — |
+| 2026-10-14 | P1-5 | hecho | P1-5: los 9 errores tragados de E7 en 0 (PRD-PERS-07, ADR-0082). | — / — |
 | 2026-10-14 | P1-6 | hecho | P1-6: tests intermitentes de base B aislados sin reintentos: sec04 en bases privadas, due filtrado y notif_id únicos. | — / — |
+| 2026-10-14 | P1-7 | hecho | P1-7: journal de migraciones arreglado (cierra Para implementar 1.1): 20 entradas en `drizzle/meta/_journal.json` para 20 SQL `0000` a `0019`. | — / — |
+| 2026-10-14 | P1-8 | pendiente | P1-8 nuevo: PWA cifrado local y borrado remoto (PWA-S5, ADR-0025); `photos_queue` ya hecho en `src/offline/fotos.ts`. | — / — |
 | 2026-10-14 | P2-1 | hecho | P2-1: fase 3 cerrada (casts en piso intencional 1/0; ARQ-S7 ya en CI). | — / — |
-| 2026-10-14 | P2-2 | parcial | P2-2 corte 1: puerto Almacen más migración de precios (sin otro repo). | — / — |
+| 2026-10-14 | P2-2 | en curso | P2-2 en curso: puerto Almacen, precios migrado; quedan ~14 cortes (427 `store.`, 143 `esModoMulti`). | — / — |
+| 2026-10-14 | P9-1 | bloqueado (decisión de Mauri) | P9-1 bloqueado por decisiones de Mauri: Proveedor de OCR definitivo (ADR-0005: PaddleOCR propio vs Vision/Textract). | — / — |
+| 2026-10-14 | P9-2 | bloqueado (decisión de Mauri) | P9-2 bloqueado por decisiones de Mauri: Consulta legal/fiscal con contador y abogado y certificados ARCA (fecha límite 1/12/2026 para `CondicionIVAReceptorId`). | — / — |
+| 2026-10-14 | P9-3 | bloqueado (decisión de Mauri) | P9-3 bloqueado por decisiones de Mauri: Número central de WhatsApp en Meta (alta, verificación del negocio y plantillas). | — / — |
+| 2026-10-14 | P9-4 | bloqueado (decisión de Mauri) | P9-4 bloqueado por decisiones de Mauri: Aplicar migraciones 0016 a 0019 y el backfill de `tenant_id` a la base real. | — / — |
+| 2026-10-14 | P9-5 | bloqueado (decisión de Mauri) | P9-5 bloqueado por decisiones de Mauri: Proveedor de cobro y precios a publicar (PLAN2-S4). | — / — |
+| 2026-10-14 | P9-6 | hecho | P9-6: estado de ADRs al 2026-10-14 (reemplaza el párrafo del 2026-10-12). | — / — |
 | 2026-10-14 | ROAD1-S1 a S4 | hecho | ROAD1-S1 a S4 hechos: avances por archivo y sección generada sin conflictos entre PRs. | PRD-ROAD-01 / ADR-0076 |
 | 2026-10-14 | SEC4-S1 a S3 | hecho | SEC4-S1 a S3 hechos: jobs con `X-Job-Secret` sin `X-Tenant-Id` en multi recorren todos los comercios activos o suspendidos, con resumen por tenant. | PRD-SEC-04 / ADR-0077 |
 | 2026-10-14 | PERS3-S1 a S4 | hecho | PERS3-S1 a S4 hechos: ubicaciones, fotos al alta y conteos DB-first en `locations` / `product_photos` / `stock_counts` (ADR-0078). | PRD-PERS-03 / ADR-0078 |
