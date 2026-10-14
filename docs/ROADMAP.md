@@ -155,6 +155,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
 | 2026-10-14 | ROAD1-S1 a S4 | hecho | ROAD1-S1 a S4 hechos: avances por archivo y sección generada sin conflictos entre PRs. | PRD-ROAD-01 / ADR-0076 |
+| 2026-10-14 | SEC4-S1 a S3 | hecho | SEC4-S1 a S3 hechos: jobs con `X-Job-Secret` sin `X-Tenant-Id` en multi recorren todos los comercios activos o suspendidos, con resumen por tenant. | PRD-SEC-04 / ADR-0077 |
 <!-- roadmap:avances:fin -->
 
 ## Decisiones registradas
