@@ -1,10 +1,7 @@
 import type { APIRoute } from "astro";
-import { sql } from "drizzle-orm";
 import { syncPullQuerySchema } from "../../../lib/validation.js";
-import { store } from "../../../lib/store.js";
-import { getTenantDb } from "../../../lib/db.js";
-import { dbVivaTenant } from "../../../lib/server-db.js";
-import { idMappings, outbox } from "../../../db/schema.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { leerLote } from "../../../lib/repos/sync.js";
 
 export const prerender = false;
 
@@ -14,31 +11,8 @@ export const prerender = false;
 // memoria histórica resuelve igual que antes.
 // cursor = offset de inserción; limite cap 50 por PRD aunque el schema admite 200.
 // Responde lote + cursor_nuevo + mappings provisorio->definitivo + catálogo mínimo.
-
-type TenantDb = ReturnType<typeof getTenantDb>;
-
-function viaMemoria(start: number, limite: number): Response {
-  const entries = Array.from(store.outbox.entries());
-  const page = entries.slice(start, start + limite);
-  const movimientos = page.map(([op_id, payload]) => ({ op_id, payload }));
-  const cursor_nuevo = String(start + page.length);
-
-  const mappings = Array.from(store.promociones.entries()).map(([op_id, m]) => ({
-    op_id,
-    prov: m.provisorio,
-    def: m.definitivo,
-  }));
-
-  const catalogo = {
-    stock: Object.fromEntries(store.stock.entries()),
-    prices: Object.fromEntries(store.prices.entries()),
-  };
-
-  return Response.json(
-    { movimientos, cursor_nuevo, mappings, catalogo, total: store.outbox.size },
-    { status: 200 },
-  );
-}
+// PERS2-S22: lote y mapeos por el repo de sync (ADR-0061); en multi sin base
+// propaga BaseNoDisponible y responde 503.
 
 export const GET: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
@@ -54,32 +28,21 @@ export const GET: APIRoute = async ({ request }) => {
     return Response.json({ error: "cursor inválido" }, { status: 422 });
   }
 
-  const db = dbVivaTenant();
-  if (!db) return viaMemoria(start, limite);
-
   try {
-    const filas = await db
-      .select()
-      .from(outbox)
-      .orderBy(outbox.createdAt, outbox.opId)
-      .limit(limite)
-      .offset(start);
-    const totalFilas = await db.select({ n: sql`count(*)` }).from(outbox);
-    const total = Number(totalFilas[0]?.n ?? 0);
-    const mapas = await db.select().from(idMappings);
-
-    const movimientos = filas.map((f) => ({ op_id: f.opId, payload: f.payload }));
-    const mappings = mapas.map((m) => ({ op_id: m.opId, prov: m.idProvisorio, def: m.idDefinitivo }));
-    const catalogo = {
-      stock: Object.fromEntries(store.stock.entries()),
-      prices: Object.fromEntries(store.prices.entries()),
-    };
-
+    const lote = await leerLote(start, limite);
     return Response.json(
-      { movimientos, cursor_nuevo: String(start + filas.length), mappings, catalogo, total, fuente: "db" },
+      {
+        movimientos: lote.movimientos,
+        cursor_nuevo: lote.cursorNuevo,
+        mappings: lote.mappings,
+        catalogo: lote.catalogo,
+        total: lote.total,
+        ...(lote.fuente === "db" ? { fuente: "db" } : {}),
+      },
       { status: 200 },
     );
-  } catch {
-    return viaMemoria(start, limite);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
   }
 };
