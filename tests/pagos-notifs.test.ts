@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTSugerir, limpiar_vistos_notif } from "../src/pages/api/payment-orders/sugerir-desde-notif.js";
 import { matchear_notif, parsear_notif_bancaria } from "../src/modules/payments/notifs-bancarias.js";
 import type { PaymentOrder } from "../src/modules/payments/ordenes.js";
@@ -28,13 +29,12 @@ beforeEach(() => {
 });
 
 function post(body: unknown) {
-  return POSTSugerir({
-    request: new Request("http://x/api/payment-orders/sugerir-desde-notif", {
+  return POSTSugerir(
+    ctx("http://x/api/payment-orders/sugerir-desde-notif", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: body as Record<string, unknown>,
     }),
-  } as never) as Promise<Response>;
+  );
 }
 
 describe("OP10 parseo de notificacion bancaria", () => {

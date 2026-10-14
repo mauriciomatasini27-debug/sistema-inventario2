@@ -23,26 +23,26 @@ function ventaBody() {
 
 describe("tickets TV8/TV14 PERS-S4 (sin DB no rompe)", () => {
   it("historial cae a memoria con fuente y corrección 201 durable best-effort", async () => {
-    const r = await postSales({
-      request: new Request("http://x/api/sales", {
+    const r = await postSales(
+      ctx("http://x/api/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify(ventaBody()),
+        body: ventaBody(),
       }),
-    } as never);
+    );
     expect(r.status).toBe(201);
     const j = (await r.json()) as { sale_id: string; ticket_definitivo: string };
     const g = await getTickets(ctx(`http://x/api/tickets?numero=${j.ticket_definitivo}`));
     expect(g.status).toBe(200);
     expect(((await g.json()) as Record<string, unknown>)["fuente"]).toBe("memoria");
 
-    const c = (await postCorreccion({
-      request: new Request("http://x/api/sales/medium-corrections", {
+    const c = (await postCorreccion(
+      ctx("http://x/api/sales/medium-corrections", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ sale_id: j.sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" }),
+        body: { sale_id: j.sale_id, medio_nuevo: "QR", motivo: "cliente pide QR", actor: "dueno-1" },
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(c.status).toBe(201);
     const cj = (await c.json()) as Record<string, unknown>;
     expect(cj["antes"]).toBe("Efectivo");

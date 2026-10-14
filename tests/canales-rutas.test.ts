@@ -30,10 +30,11 @@ describe("whatsapp/email PERS-S4 (sin DB no rompe)", () => {
     const anon = (await GETConsult(ctx("http://x/api/whatsapp/consult?term=stock"))) as Response;
     expect(anon.status).toBe(403);
     const plano = sesion("u-1");
-    const r = (await GETConsult({
-      request: new Request("http://x/api/whatsapp/consult?term=stock", { headers: { cookie: `__Host-sesion=${plano}` } }),
-      url: new URL("http://x/api/whatsapp/consult?term=stock"),
-    } as never)) as Response;
+    const r = (await GETConsult(
+      ctx("http://x/api/whatsapp/consult?term=stock", {
+        headers: { cookie: `__Host-sesion=${plano}` },
+      }),
+    )) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as Record<string, unknown>)["fuente"]).toBe("memoria");
   });
@@ -47,13 +48,21 @@ describe("whatsapp/email PERS-S4 (sin DB no rompe)", () => {
       nombre_comercio: "Kiosco",
       tipo: "manual",
     };
-    const r1 = (await POSTClose({
-      request: new Request("http://x/api/email/close-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    } as never)) as Response;
+    const r1 = (await POSTClose(
+      ctx("http://x/api/email/close-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }),
+    )) as Response;
     expect(r1.status).toBe(201);
-    const r2 = (await POSTClose({
-      request: new Request("http://x/api/email/close-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    } as never)) as Response;
+    const r2 = (await POSTClose(
+      ctx("http://x/api/email/close-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }),
+    )) as Response;
     expect(r2.status).toBe(409);
   });
 });

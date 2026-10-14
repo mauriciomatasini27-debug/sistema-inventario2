@@ -17,23 +17,23 @@ const E5 = "No tenés permiso para ver este comercio.";
 const DOC_ESPERADO = "UPDATE fiscal_documents SET tenant_id = 'slice0' WHERE tenant_id IS NULL";
 
 function postWizard(body: unknown): Promise<Response> {
-  return POSTWizard({
-    request: new Request("http://x/api/fiscal/wizard", {
+  return POSTWizard(
+    ctx("http://x/api/fiscal/wizard", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: body as Record<string, unknown>,
     }),
-  } as never) as Promise<Response>;
+  ) as Promise<Response>;
 }
 
 function postDelegacion(body: unknown): Promise<Response> {
-  return POSTDelegacion({
-    request: new Request("http://x/api/fiscal/delegacion-confirmada", {
+  return POSTDelegacion(
+    ctx("http://x/api/fiscal/delegacion-confirmada", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: body as Record<string, unknown>,
     }),
-  } as never) as Promise<Response>;
+  ) as Promise<Response>;
 }
 
 function getWizard(query: string): Promise<Response> {

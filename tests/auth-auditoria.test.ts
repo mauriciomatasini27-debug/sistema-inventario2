@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
@@ -115,11 +116,12 @@ describe("AU12 ruta actividad", () => {
     control.events.push({ tenantId: "t-1", tipo: "login", actor: "juan", creadoEn: "2026-10-09T10:33:00.000Z" });
     control.events.push({ tenantId: "otro", tipo: "invitacion_aceptada", actor: "x", creadoEn: "2026-10-09T10:34:00.000Z" });
     const d = sesion("dueno-1", "t-1");
-    const r = await getActividad({
-      request: new Request("http://x/api/tenants/t-1/actividad", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }),
-      params: { id: "t-1" },
-      url: new URL("http://x/api/tenants/t-1/actividad"),
-    } as never);
+    const r = await getActividad(
+      ctx("http://x/api/tenants/t-1/actividad", {
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        params: { id: "t-1" },
+      }),
+    );
     expect(r.status).toBe(200);
     const j = (await r.json()) as { eventos: Array<{ tipo: string; texto: string }>; total: number };
     // login no es de comercio: solo la invitación.
@@ -128,11 +130,12 @@ describe("AU12 ruta actividad", () => {
 
     control.memberships.set("m-juan", { id: "m-juan", tenantId: "t-1", googleSub: "juan", rol: "empleado", permisos: [], estado: "activo" });
     const js = sesion("juan", "t-1");
-    const rEmp = await getActividad({
-      request: new Request("http://x/api/tenants/t-1/actividad", { headers: { cookie: `__Host-sesion=${js.idPlano}` } }),
-      params: { id: "t-1" },
-      url: new URL("http://x/api/tenants/t-1/actividad"),
-    } as never);
+    const rEmp = await getActividad(
+      ctx("http://x/api/tenants/t-1/actividad", {
+        headers: { cookie: `__Host-sesion=${js.idPlano}` },
+        params: { id: "t-1" },
+      }),
+    );
     expect(rEmp.status).toBe(403);
   });
 
@@ -149,19 +152,21 @@ describe("AU12 ruta actividad", () => {
       lastSeenAt: new Date().toISOString(),
       reauthAt: new Date(Date.now() - 20 * 60_000).toISOString(),
     });
-    const r401 = await getActividad({
-      request: new Request("http://x/api/tenants/t-1/actividad?formato=csv", { headers: { cookie: `__Host-sesion=${fria.idPlano}` } }),
-      params: { id: "t-1" },
-      url: new URL("http://x/api/tenants/t-1/actividad?formato=csv"),
-    } as never);
+    const r401 = await getActividad(
+      ctx("http://x/api/tenants/t-1/actividad?formato=csv", {
+        headers: { cookie: `__Host-sesion=${fria.idPlano}` },
+        params: { id: "t-1" },
+      }),
+    );
     expect(r401.status).toBe(401);
 
     const d = sesion("dueno-1", "t-1");
-    const r200 = await getActividad({
-      request: new Request("http://x/api/tenants/t-1/actividad?formato=csv", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }),
-      params: { id: "t-1" },
-      url: new URL("http://x/api/tenants/t-1/actividad?formato=csv"),
-    } as never);
+    const r200 = await getActividad(
+      ctx("http://x/api/tenants/t-1/actividad?formato=csv", {
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        params: { id: "t-1" },
+      }),
+    );
     expect(r200.status).toBe(200);
     expect(r200.headers.get("Content-Type")).toContain("text/csv");
     expect(control.events.some((e) => e.tipo === "exportacion_actividad")).toBe(true);

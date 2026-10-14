@@ -10,7 +10,7 @@ import {
   reducirPushResult,
 } from "../src/offline/sync-policy.js";
 import { abrir } from "../src/offline/offline.js";
-import type { Cursor, OpId } from "../src/offline/types.js";
+import type { Cursor, DeviceSeq, Hlc, IdProv, OpId, OpLocal } from "../src/offline/types.js";
 
 beforeEach(async () => {
   await resetOutbox();
@@ -35,7 +35,16 @@ describe("sync-policy pura", () => {
   });
 
   it("409 avanza sin sobrescribir, 422 es dead-letter sin reintento", () => {
-    const op = { opId: "op-1" as OpId, hlc: "5:0", intentos: 0 } as never;
+    const op: OpLocal = {
+      opId: "op-1" as OpId,
+      seq: 1 as DeviceSeq,
+      hlc: "5:0" as Hlc,
+      kind: "venta",
+      efecto: { kind: "venta", resumen: "test" },
+      estado: "pendiente",
+      intentos: 0,
+      proximoReintentoAt: null,
+    };
     expect(reducirPushResult(op, 409, {})).toMatchObject({ accion: "conflicto-avanza" });
     expect(reducirPushResult(op, 422, {})).toMatchObject({ accion: "dead-letter" });
     const ok = reducirPushResult(op, 201, { id_mapeado: "srv-x" });
@@ -45,13 +54,16 @@ describe("sync-policy pura", () => {
   it("backoff determinista con rand inyectado y decidir respeta backoff", () => {
     expect(calcularBackoff(0, () => 0.5)).toBe(500);
     expect(calcularBackoff(1, () => 0.5)).toBe(1000);
-    const op = {
+    const op: OpLocal = {
       opId: "op-2" as OpId,
+      seq: 1 as DeviceSeq,
+      hlc: "1:0" as Hlc,
       kind: "venta",
+      efecto: { kind: "venta", resumen: "test" },
       estado: "pendiente",
       intentos: 0,
       proximoReintentoAt: Date.now() + 60_000,
-    } as never;
+    };
     expect(decidirPush(op, null, new Date())).toMatchObject({ ok: false, motivo: "backoff" });
   });
 });
@@ -59,15 +71,15 @@ describe("sync-policy pura", () => {
 describe("id-mappings", () => {
   it("registra provisorio, resuelve definitivo, idempotente", async () => {
     const op = "op-1" as OpId;
-    await registrarProv(op, "caja-01-1" as never);
-    expect(await resolver("caja-01-1" as never)).toBe("caja-01-1");
+    await registrarProv(op, "caja-01-1" as IdProv);
+    expect(await resolver("caja-01-1" as IdProv)).toBe("caja-01-1");
     await fijarDef(op, "srv-abc");
-    expect(await resolver("caja-01-1" as never)).toBe("srv-abc");
+    expect(await resolver("caja-01-1" as IdProv)).toBe("srv-abc");
     await fijarDef(op, "srv-otro");
-    expect(await resolver("caja-01-1" as never)).toBe("srv-abc");
-    const lote = await resolverLote(["caja-01-1", "caja-01-9"] as never);
-    expect(lote.get("caja-01-1" as never)).toBe("srv-abc");
-    expect(lote.get("caja-01-9" as never)).toBe("caja-01-9");
+    expect(await resolver("caja-01-1" as IdProv)).toBe("srv-abc");
+    const lote = await resolverLote(["caja-01-1" as IdProv, "caja-01-9" as IdProv]);
+    expect(lote.get("caja-01-1" as IdProv)).toBe("srv-abc");
+    expect(lote.get("caja-01-9" as IdProv)).toBe("caja-01-9");
   });
 });
 

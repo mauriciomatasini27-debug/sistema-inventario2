@@ -58,13 +58,13 @@ describe("ocr motor determinista", () => {
   it("paddle con confianza <0.6 degrada a baja; caído usa local (E6)", async () => {
     const bajo = crear_paddle_cliente({
       endpoint: "http://ocr.local",
-      fetchFn: (async () => new Response(JSON.stringify({ texto: OCR, confianza: 0.4 }))) as never,
+      fetchFn: async (): Promise<Response> => new Response(JSON.stringify({ texto: OCR, confianza: 0.4 })),
     });
     const r = await resolver_extraccion({ bytesRef: "b", motor: bajo });
     expect(r.confianza.fecha).toBe("baja");
     const caido = crear_paddle_cliente({
       endpoint: "http://ocr.local",
-      fetchFn: (async () => { throw new Error("down"); }) as never,
+      fetchFn: async (): Promise<Response> => { throw new Error("down"); },
     });
     const f = await resolver_extraccion({ bytesRef: "b", motor: caido, cuerpoEmail: "total $ 500,00" });
     expect(f.usoFallbackLocal).toBe(true);

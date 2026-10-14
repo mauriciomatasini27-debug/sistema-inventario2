@@ -95,9 +95,9 @@ describe("CS12/OP11 recordatorios de vencimiento", () => {
   });
 
   it("marca vencidas sin importar el envio; sin credenciales todo es fallo sin quemar idempotencia", async () => {
-    const res = (await POSTVenc({
-      request: new Request("http://x/api/jobs/vencimientos", { method: "POST", headers: { "X-Job-Secret": SECRET } }),
-    } as never)) as Response;
+    const res = (await POSTVenc(
+      ctx("http://x/api/jobs/vencimientos", { method: "POST", headers: { "X-Job-Secret": SECRET } }),
+    )) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       resultados: Array<{ tenant_id: string; vencidas_marcadas: string[]; recordatorios: Array<{ tipo: string; estado: string }>; sugerencias: unknown[] }>;

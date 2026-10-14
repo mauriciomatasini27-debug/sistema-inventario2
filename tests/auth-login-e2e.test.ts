@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as getLogin } from "../src/pages/api/auth/login.js";
@@ -21,11 +22,9 @@ vi.mock("../src/modules/auth/oidc.js", async (importOriginal) => {
   };
 });
 
-// Redirect REAL (no mock): devuelve Response y deja adjuntar headers,
-// igual que el runtime Astro. Si la ruta no adjunta cookies, se ve acá.
-const redirectReal = (destino: string, status: number) =>
-  new Response(null, { status, headers: { Location: destino } });
-
+// Set-Cookie real (sin mock): el redirect de ctx() devuelve Response y la
+// ruta adjunta headers, igual que el runtime Astro. Si la ruta no adjunta
+// cookies, se ve acá.
 function setCookies(r: Response): string[] {
   const h = r.headers as Headers & { getSetCookie?: () => string[] };
   return typeof h.getSetCookie === "function" ? h.getSetCookie() : [];
@@ -55,10 +54,7 @@ beforeEach(() => {
 
 describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   it("login entrega state+PKCE en cookies y el callback crea sesión", async () => {
-    const rLogin = await getLogin({
-      request: new Request("http://x/api/auth/login"),
-      redirect: redirectReal,
-    } as never);
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     expect(rLogin.status).toBe(302);
     const loc = rLogin.headers.get("Location") ?? "";
     expect(loc).toContain("accounts.google.com");
@@ -69,73 +65,53 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
     expect(jar).toContain(`__Host-oauth-state=${state}`);
     expect(jar).toContain("__Host-oauth-pkce=");
 
-    const puesto: Array<[string, string]> = [];
-    const rCb = await getCallback({
-      request: new Request(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: jar },
-      }),
-      cookies: { set: (k: string, v: string) => void puesto.push([k, v]) },
-      redirect: redirectReal,
-    } as never);
+    const cb = ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+      headers: { cookie: jar },
+    });
+    const rCb = await getCallback(cb);
     expect(rCb.status).toBe(302);
-    expect(puesto.some(([k]) => k === "__Host-sesion")).toBe(true);
+    expect(cb.cookies.has("__Host-sesion")).toBe(true);
     expect([...control.sessions.values()].some((s) => s.googleSub === "juan")).toBe(true);
     expect(control.events.some((e) => e.tipo === "login" && e.actor === "juan")).toBe(true);
     expect(control.pendingAuth.has(state)).toBe(false);
   });
 
   it("state vencido da 403 y borra la entrada", async () => {
-    const rLogin = await getLogin({
-      request: new Request("http://x/api/auth/login"),
-      redirect: redirectReal,
-    } as never);
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
     const p = control.pendingAuth.get(state)!;
     control.pendingAuth.set(state, { ...p, expiraEnMs: Date.now() - 1000 });
-    const rCb = await getCallback({
-      request: new Request(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
         headers: { cookie: setCookies(rLogin).join("; ") },
       }),
-      cookies: { set: () => {} },
-      redirect: redirectReal,
-    } as never);
+    );
     expect(rCb.status).toBe(403);
     expect(control.pendingAuth.has(state)).toBe(false);
   });
 
   it("sin cookies el callback sigue 403", async () => {
-    const rLogin = await getLogin({
-      request: new Request("http://x/api/auth/login"),
-      redirect: redirectReal,
-    } as never);
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
-    const rCb = await getCallback({
-      request: new Request(`http://x/api/auth/callback?code=CODE&state=${state}`),
-      cookies: { set: () => {} },
-      redirect: redirectReal,
-    } as never);
+    const rCb = await getCallback(ctx(`http://x/api/auth/callback?code=CODE&state=${state}`));
     expect(rCb.status).toBe(403);
   });
 });
 
 describe("AU-FIX-S6 regresión: redirects siempre con Set-Cookie", () => {
   it("login adjunta state+pkce; reauth adjunta reauth-state+pkce", async () => {
-    const rLogin = await getLogin({
-      request: new Request("http://x/api/auth/login"),
-      redirect: redirectReal,
-    } as never);
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     const jarLogin = setCookies(rLogin).join("; ");
     expect(jarLogin).toContain("__Host-oauth-state=");
     expect(jarLogin).toContain("__Host-oauth-pkce=");
 
     control.users.set("juan", { googleSub: "juan", email: "juan@gmail.com", emailVerificado: true });
     const c = sesion("juan", "t-1");
-    const rReauth = await getReauth({
-      request: new Request("http://x/api/auth/reauth", {
+    const rReauth = await getReauth(
+      ctx("http://x/api/auth/reauth", {
         headers: { cookie: `__Host-sesion=${c.idPlano}` },
       }),
-      redirect: redirectReal,
-    } as never);
+    );
     expect(rReauth.status).toBe(302);
     const jarReauth = setCookies(rReauth).join("; ");
     expect(jarReauth).toContain("__Host-reauth-state=");

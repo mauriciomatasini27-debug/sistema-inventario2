@@ -239,7 +239,7 @@ async function borrarRastroPG() {
     await conTenant(tenant, async () => {
       const db = getTenantDb();
       for (const saleId of ventasPG) {
-        await db.delete(fiscalDocuments).where(eq(fiscalDocuments.saleId, saleId as never));
+        await db.delete(fiscalDocuments).where(eq(fiscalDocuments.saleId, saleId));
       }
       await db.delete(fiscalWizard).where(eq(fiscalWizard.tenantId, tenant));
     });
@@ -267,7 +267,7 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
     const cookieA = sesionPara("dueno-a", "tenant-a");
     const cookieB = sesionPara("dueno-b", "tenant-b");
     const key = `pers2-fis-pg-${sufijoPG}`;
-    const sale_id = randomUUID();
+    const sale_id: string = randomUUID();
     const res = await conTenant("tenant-a", () =>
       asegurarDoc({
         id: randomUUID(), idempotency_key: key, sale_id, tenant_id: "tenant-a",
@@ -281,14 +281,14 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
 
     const filasA = await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      return db.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale_id as never));
+      return db.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale_id));
     });
     expect(filasA.length).toBeGreaterThanOrEqual(1);
     expect(filasA[0]?.tenantId).toBe("tenant-a");
 
     const filasB = await conTenant("tenant-b", async () => {
       const db = getTenantDb();
-      return db.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale_id as never));
+      return db.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale_id));
     });
     expect(filasB.length).toBe(0);
 

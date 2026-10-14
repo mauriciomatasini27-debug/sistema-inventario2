@@ -171,8 +171,9 @@ describe("job cierre", () => {
   it("sin credenciales no marca la jornada (reintentable)", async () => {
     const { tenantId } = comercio(true);
     store.cierres.set("2026-10-11", {
+      status: 201,
       cierre: { fechaJornada: "2026-10-11", closeType: "manual", totalCentavos: 10000n, ultimoMovimientoId: null },
-    } as never);
+    });
     const r = await post(POSTCierre, "http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" });
     expect(r.status).toBe(502);
     expect(r.json["error"]).toBe("sin_credenciales");

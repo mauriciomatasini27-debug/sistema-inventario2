@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
-import { MARCA_PRUEBA } from "../src/modules/fiscal/fiscal.js";
+import { MARCA_PRUEBA, type FiscalProvider, type PedidoC } from "../src/modules/fiscal/fiscal.js";
 import { clave_fiscal, en_vuelo_por, limpiar_en_vuelo, marcar_en_vuelo } from "../src/modules/fiscal/lock.js";
 import { procesar_pendiente, procesar_pendiente_serializado } from "../src/modules/fiscal/worker.js";
 import type { StoredFiscalDoc } from "../src/lib/store.js";
@@ -56,12 +56,13 @@ describe("fiscal slice homo ADR-0019 (D4/D5 + representación)", () => {
   it("consulta que difiere (total/doc/fecha) pausa con lock retenido, no duplica", async () => {
     const provider = crear_homo_fake();
     // ARCA tiene el 1 con otro total: el retry del doc numerado difiere.
+    const pedidoDivergente: PedidoC = { cbteTipo: 11, ptoVta: 3, cbteDesde: 1, cbteHasta: 1, cbteFch: "20261010", concepto: 1, docTipo: 99, docNro: 0n, condIvaReceptor: 5, impTotal: 999n, impNeto: 999n, monId: "PES", monCotiz: 1 };
     await provider.autorizar_c(
-      { cbteTipo: 11, ptoVta: 3, cbteDesde: 1, cbteHasta: 1, cbteFch: "20261010", concepto: 1, docTipo: 99, docNro: 0n, condIvaReceptor: 5, impTotal: 999n, impNeto: 999n, monId: "PES", monCotiz: 1 } as never,
+      pedidoDivergente,
       String(CUIT),
     );
-    const flaky = { ...provider, autorizar_c: async (): Promise<never> => { throw new Error("timeout"); } };
-    const r = await procesar_pendiente({ doc: pendiente({ cbte_nro: 1 }), lastNumber: 0, totalCentavos: 100n, cuit: CUIT, provider: flaky as never });
+    const flaky: FiscalProvider = { ...provider, autorizar_c: async (): Promise<never> => { throw new Error("timeout"); } };
+    const r = await procesar_pendiente({ doc: pendiente({ cbte_nro: 1 }), lastNumber: 0, totalCentavos: 100n, cuit: CUIT, provider: flaky });
     expect(r.doc.estado).toBe("pendiente");
     expect(r.doc.cbte_nro).toBe(1);
     // Pausa + alerta: el lock queda retenido hasta resolución manual.

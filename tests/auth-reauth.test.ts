@@ -101,26 +101,26 @@ describe("AU10 rutas sensibles", () => {
   it("invitar sin reauth reciente da 401; con reauth da 201", async () => {
     tenantConDueno("t-1", "dueno-1");
     const fria = sesion("dueno-1", "t-1", reauthVieja());
-    const r401 = await postMemberships({
-      request: new Request("http://x/api/tenants/t-1/memberships", {
+    const r401 = await postMemberships(
+      ctx("http://x/api/tenants/t-1/memberships", {
         method: "POST",
         headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${fria.idPlano}` },
-        body: JSON.stringify({ google_sub: "emp-1", rol: "empleado" }),
+        body: { google_sub: "emp-1", rol: "empleado" },
+        params: { id: "t-1" },
       }),
-      params: { id: "t-1" },
-    } as never);
+    );
     expect(r401.status).toBe(401);
     expect(JSON.stringify(await r401.json())).toContain("reauth_requerida");
 
     const fresca = sesion("dueno-1", "t-1");
-    const r201 = await postMemberships({
-      request: new Request("http://x/api/tenants/t-1/memberships", {
+    const r201 = await postMemberships(
+      ctx("http://x/api/tenants/t-1/memberships", {
         method: "POST",
         headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${fresca.idPlano}` },
-        body: JSON.stringify({ google_sub: "emp-1", rol: "empleado" }),
+        body: { google_sub: "emp-1", rol: "empleado" },
+        params: { id: "t-1" },
       }),
-      params: { id: "t-1" },
-    } as never);
+    );
     expect(r201.status).toBe(201);
   });
 
@@ -129,14 +129,14 @@ describe("AU10 rutas sensibles", () => {
     const fria = sesion("dueno-1", "t-1", reauthVieja());
     const j = sesion("juan", "t-1");
     void j;
-    const r = await postCerrarRemota({
-      request: new Request("http://x/api/tenants/t-1/sesiones", {
+    const r = await postCerrarRemota(
+      ctx("http://x/api/tenants/t-1/sesiones", {
         method: "POST",
         headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${fria.idPlano}` },
-        body: JSON.stringify({ google_sub: "juan", todas: true }),
+        body: { google_sub: "juan", todas: true },
+        params: { id: "t-1" },
       }),
-      params: { id: "t-1" },
-    } as never);
+    );
     expect(r.status).toBe(401);
   });
 

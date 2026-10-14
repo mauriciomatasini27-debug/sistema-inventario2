@@ -107,13 +107,13 @@ describe("AU9 rutas", () => {
     const r = await getMisSesiones(ctx("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${a.idPlano}` } }));
     expect(r.status).toBe(200);
     expect(((await r.json()) as { sesiones: unknown[] }).sesiones).toHaveLength(2);
-    const c = await postCerrarPropia({
-      request: new Request("http://x/api/auth/sesiones", {
+    const c = await postCerrarPropia(
+      ctx("http://x/api/auth/sesiones", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${a.idPlano}` },
-        body: JSON.stringify({ id_hash: b.registro.idHash }),
+        headers: { cookie: `__Host-sesion=${a.idPlano}` },
+        body: { id_hash: b.registro.idHash },
       }),
-    } as never);
+    );
     expect(c.status).toBe(200);
     // Cerrar no revoca el acceso: la membership sigue activa (AU9.2).
     expect(control.memberships.get("m-juan")?.estado).toBe("activo");
@@ -124,13 +124,13 @@ describe("AU9 rutas", () => {
     tenantConDueno("t-1", "dueno-1");
     const a = sesion("juan", "t-1");
     sesion("juan", "t-1");
-    const r = await postCerrarPropia({
-      request: new Request("http://x/api/auth/sesiones", {
+    const r = await postCerrarPropia(
+      ctx("http://x/api/auth/sesiones", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${a.idPlano}` },
-        body: JSON.stringify({ todas_menos_actual: true }),
+        headers: { cookie: `__Host-sesion=${a.idPlano}` },
+        body: { todas_menos_actual: true },
       }),
-    } as never);
+    );
     expect(r.status).toBe(200);
     expect(((await r.json()) as { cerradas: number }).cerradas).toBe(1);
   });
@@ -140,28 +140,32 @@ describe("AU9 rutas", () => {
     control.memberships.set("m-juan", { id: "m-juan", tenantId: "t-1", googleSub: "juan", rol: "empleado", permisos: [], estado: "activo" });
     const d = sesion("dueno-1", "t-1");
     const j = sesion("juan", "t-1");
-    const lista = await getSesionesTenant({
-      request: new Request("http://x/api/tenants/t-1/sesiones?google_sub=juan", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }),
-      params: { id: "t-1" },
-    } as never);
-    expect(lista.status).toBe(200);
-    const cierre = await postCerrarRemota({
-      request: new Request("http://x/api/tenants/t-1/sesiones", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${d.idPlano}` },
-        body: JSON.stringify({ google_sub: "juan", id_hash: j.registro.idHash }),
+    const lista = await getSesionesTenant(
+      ctx("http://x/api/tenants/t-1/sesiones?google_sub=juan", {
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        params: { id: "t-1" },
       }),
-      params: { id: "t-1" },
-    } as never);
+    );
+    expect(lista.status).toBe(200);
+    const cierre = await postCerrarRemota(
+      ctx("http://x/api/tenants/t-1/sesiones", {
+        method: "POST",
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        body: { google_sub: "juan", id_hash: j.registro.idHash },
+        params: { id: "t-1" },
+      }),
+    );
     expect(cierre.status).toBe(200);
     // Juan sigue siendo miembro: el cierre remoto no es revocación.
     expect(control.memberships.get("m-juan")?.estado).toBe("activo");
 
     const j2 = sesion("juan", "t-1");
-    const negada = await getSesionesTenant({
-      request: new Request("http://x/api/tenants/t-1/sesiones?google_sub=dueno-1", { headers: { cookie: `__Host-sesion=${j2.idPlano}` } }),
-      params: { id: "t-1" },
-    } as never);
+    const negada = await getSesionesTenant(
+      ctx("http://x/api/tenants/t-1/sesiones?google_sub=dueno-1", {
+        headers: { cookie: `__Host-sesion=${j2.idPlano}` },
+        params: { id: "t-1" },
+      }),
+    );
     expect(negada.status).toBe(403);
   });
 
@@ -170,13 +174,13 @@ describe("AU9 rutas", () => {
     const d = sesion("dueno-1", "t-1");
     const s = control.sessions.get(d.registro.idHash)!;
     s.dispositivoCodigo = "pc-1";
-    const r = await postNombrar({
-      request: new Request("http://x/api/devices/nombrar", {
+    const r = await postNombrar(
+      ctx("http://x/api/devices/nombrar", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${d.idPlano}` },
-        body: JSON.stringify({ tenant_id: "t-1", device_code: "pc-1", nombre: "PC del mostrador" }),
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        body: { tenant_id: "t-1", device_code: "pc-1", nombre: "PC del mostrador" },
       }),
-    } as never);
+    );
     expect(r.status).toBe(200);
     const lista = await getMisSesiones(ctx("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }));
     expect(JSON.stringify(await lista.json())).toContain("PC del mostrador");

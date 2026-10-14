@@ -34,20 +34,20 @@ describe("fiscal durable PERS-S4 (sin DB no rompe)", () => {
   });
 
   it("venta crea doc fiscal y el historial lo sirve desde memoria", async () => {
-    const r = (await POSTSales({
-      request: new Request("http://x/api/sales", {
+    const r = await POSTSales(
+      ctx("http://x/api/sales", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({
+        body: {
           lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 15000 }],
           medio: "Efectivo",
           device_code: "caja-01",
           seq_local: 1,
           client_occurred_at: new Date().toISOString(),
           offline: false,
-        }),
+        },
       }),
-    } as never)) as Response;
+    );
     expect(r.status).toBe(201);
     const h = (await GETHistory(ctx("http://x/api/fiscal/history"))) as Response;
     expect(h.status).toBe(200);

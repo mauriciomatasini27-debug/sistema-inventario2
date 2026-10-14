@@ -32,19 +32,11 @@ beforeEach(() => {
 
 describe("AU13 login con selector de cuenta", () => {
   it("prompt=select_account viaja a Google; otros valores se ignoran", async () => {
-    const redirect = (destino: string, status: number) =>
-      new Response(null, { status, headers: { Location: destino } });
-    const r = await getLogin({
-      request: new Request("http://x/api/auth/login?prompt=select_account"),
-      redirect,
-    } as never);
+    const r = await getLogin(ctx("http://x/api/auth/login?prompt=select_account"));
     expect(r.status).toBe(302);
     const loc = r.headers.get("Location") ?? "";
     expect(loc).toContain("prompt=select_account");
-    const r2 = await getLogin({
-      request: new Request("http://x/api/auth/login?prompt=consent"),
-      redirect,
-    } as never);
+    const r2 = await getLogin(ctx("http://x/api/auth/login?prompt=consent"));
     expect(r2.headers.get("Location") ?? "").not.toContain("prompt=");
   });
 });
@@ -53,12 +45,12 @@ describe("AU13 cambiar de usuario", () => {
   it("revoca la actual, borra la cookie, audita y devuelve login con selector", async () => {
     control.users.set("juan", { googleSub: "juan", email: "juan@gmail.com", emailVerificado: true, nombre: "Juan" });
     const c = sesion("juan", "t-1");
-    const r = await postCambiarUsuario({
-      request: new Request("http://x/api/auth/cambiar-usuario", {
+    const r = await postCambiarUsuario(
+      ctx("http://x/api/auth/cambiar-usuario", {
         method: "POST",
         headers: { cookie: `__Host-sesion=${c.idPlano}` },
       }),
-    } as never);
+    );
     expect(r.status).toBe(200);
     expect(((await r.json()) as { login_url: string }).login_url).toBe("/api/auth/login?prompt=select_account");
     expect(r.headers.get("Set-Cookie") ?? "").toContain("Max-Age=0");
@@ -80,9 +72,11 @@ describe("AU13 barra Atendiendo", () => {
     expect(TEXTO_AYUDA_CUENTAS).toContain("propia cuenta de Google");
     control.users.set("juan", { googleSub: "juan", email: "juan@gmail.com", emailVerificado: true, nombre: "Juan" });
     const c = sesion("juan", "t-1");
-    const r = await getSesionActual({
-      request: new Request("http://x/api/auth/sesion-actual", { headers: { cookie: `__Host-sesion=${c.idPlano}` } }),
-    } as never);
+    const r = await getSesionActual(
+      ctx("http://x/api/auth/sesion-actual", {
+        headers: { cookie: `__Host-sesion=${c.idPlano}` },
+      }),
+    );
     const j = (await r.json()) as { logueado: boolean; etiqueta: string; cambiar_usuario_url: string; ayuda: string };
     expect(j.logueado).toBe(true);
     expect(j.etiqueta).toBe("Atendiendo: Juan");

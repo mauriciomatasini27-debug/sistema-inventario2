@@ -8,14 +8,6 @@ import { resetStore, store } from "../src/lib/store.js";
 
 const SECRET = "job-secret-sync";
 
-function hbReq(body: unknown): Request {
-  return new Request("http://localhost/api/sync/heartbeat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
 describe("sync avisos SYNC-S4 (PRD-SYNC-01)", () => {
   beforeEach(() => {
     resetStore();
@@ -56,9 +48,13 @@ describe("sync avisos SYNC-S4 (PRD-SYNC-01)", () => {
     const ahora = Date.now();
     const hace80h = new Date(ahora - 80 * 3_600_000).toISOString();
     store.deviceSync.set("caja-vieja", { ultimaVistaEn: hace80h, pendientes: 5, ultimaOpHlc: null });
-    const res = (await POSTHeartbeat({
-      request: hbReq({ device_code: "caja-vieja", pendientes: 0 }),
-    } as never)) as Response;
+    const res = (await POSTHeartbeat(
+      ctx("http://localhost/api/sync/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: { device_code: "caja-vieja", pendientes: 0 },
+      }),
+    )) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as Record<string, unknown>;
     expect(j["estado"]).toBe("rojo");
@@ -68,9 +64,9 @@ describe("sync avisos SYNC-S4 (PRD-SYNC-01)", () => {
   it("ruta job exige secreto y responde revisados + avisos", async () => {
     const sin = (await POSTAviso(ctx("http://x/api/jobs/aviso-sync", { method: "POST" }))) as Response;
     expect(sin.status).toBe(403);
-    const con = (await POSTAviso({
-      request: new Request("http://x/api/jobs/aviso-sync", { method: "POST", headers: { "X-Job-Secret": SECRET } }),
-    } as never)) as Response;
+    const con = (await POSTAviso(
+      ctx("http://x/api/jobs/aviso-sync", { method: "POST", headers: { "X-Job-Secret": SECRET } }),
+    )) as Response;
     expect(con.status).toBe(200);
     const j = (await con.json()) as { revisados: number; avisos: unknown[] };
     expect(typeof j.revisados).toBe("number");

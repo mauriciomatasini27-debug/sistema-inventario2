@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore, store, type StoredFiscalDoc } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -69,14 +70,11 @@ function docFiscal(key: string, tenantId?: string): StoredFiscalDoc {
 }
 
 function pedirHistory(init?: { cookie?: string; tenant?: string }) {
-  const headers = new Headers();
-  if (init?.cookie) headers.set("cookie", init.cookie);
-  if (init?.tenant) headers.set("X-Tenant-Id", init.tenant);
+  const headers: Record<string, string> = {};
+  if (init?.cookie) headers["cookie"] = init.cookie;
+  if (init?.tenant) headers["X-Tenant-Id"] = init.tenant;
   return conTenant(TA, () =>
-    GETHistory({
-      request: new Request("http://x/api/fiscal/history", { headers }),
-      url: new URL("http://x/api/fiscal/history"),
-    } as never),
+    GETHistory(ctx("http://x/api/fiscal/history", { headers })),
   ) as Promise<Response>;
 }
 

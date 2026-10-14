@@ -69,13 +69,13 @@ async function postMensaje(from: string, texto: string) {
 }
 
 async function generarCodigo(sesionPlano: string, tenantId: string, numero: string) {
-  const r = await postVincularCode({
-    request: new Request("http://x/api/whatsapp/vincular-code", {
+  const r = await postVincularCode(
+    ctx("http://x/api/whatsapp/vincular-code", {
       method: "POST",
-      headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${sesionPlano}` },
-      body: JSON.stringify({ tenant_id: tenantId, numero }),
+      headers: { cookie: `__Host-sesion=${sesionPlano}` },
+      body: { tenant_id: tenantId, numero },
     }),
-  } as never);
+  );
   expect(r.status).toBe(201);
   return ((await r.json()) as { codigo: string }).codigo;
 }
@@ -177,13 +177,13 @@ describe("AU11 vincular por webhook", () => {
     const j = sesion("juan", "t-1");
     const codigo = await generarCodigo(d.idPlano, "t-1", "11 5555-1234");
     await postMensaje("5491155551234", `VINCULAR ${codigo}`);
-    const r = await postVincularCode({
-      request: new Request("http://x/api/whatsapp/vincular-code", {
+    const r = await postVincularCode(
+      ctx("http://x/api/whatsapp/vincular-code", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${j.idPlano}` },
-        body: JSON.stringify({ tenant_id: "t-1", numero: "11 5555-1234" }),
+        headers: { cookie: `__Host-sesion=${j.idPlano}` },
+        body: { tenant_id: "t-1", numero: "11 5555-1234" },
       }),
-    } as never);
+    );
     expect(r.status).toBe(409);
   });
 
@@ -191,22 +191,22 @@ describe("AU11 vincular por webhook", () => {
     tenantConMiembros("t-1", "dueno-1");
     const d = sesion("dueno-1", "t-1");
     const j = sesion("juan", "t-1");
-    const off = await patchMemberships({
-      request: new Request("http://x/api/tenants/t-1/memberships", {
+    const off = await patchMemberships(
+      ctx("http://x/api/tenants/t-1/memberships", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${d.idPlano}` },
-        body: JSON.stringify({ google_sub: "juan", puede_usar_bot: false }),
+        headers: { cookie: `__Host-sesion=${d.idPlano}` },
+        body: { google_sub: "juan", puede_usar_bot: false },
+        params: { id: "t-1" },
       }),
-      params: { id: "t-1" },
-    } as never);
+    );
     expect(off.status).toBe(200);
-    const r = await postVincularCode({
-      request: new Request("http://x/api/whatsapp/vincular-code", {
+    const r = await postVincularCode(
+      ctx("http://x/api/whatsapp/vincular-code", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${j.idPlano}` },
-        body: JSON.stringify({ tenant_id: "t-1", numero: "11 5555-9999" }),
+        headers: { cookie: `__Host-sesion=${j.idPlano}` },
+        body: { tenant_id: "t-1", numero: "11 5555-9999" },
       }),
-    } as never);
+    );
     expect(r.status).toBe(403);
   });
 });
@@ -246,13 +246,13 @@ describe("AU11 mensajes con identidad", () => {
   it("desvincular corta el acceso; revincular con código nuevo anda", async () => {
     await empleadoVinculado();
     const j = sesion("juan", "t-1");
-    const r = await postDesvincular({
-      request: new Request("http://x/api/whatsapp/desvincular", {
+    const r = await postDesvincular(
+      ctx("http://x/api/whatsapp/desvincular", {
         method: "POST",
-        headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${j.idPlano}` },
-        body: JSON.stringify({ numero: "11 5555-1234" }),
+        headers: { cookie: `__Host-sesion=${j.idPlano}` },
+        body: { numero: "11 5555-1234" },
       }),
-    } as never);
+    );
     expect(r.status).toBe(200);
     const r2 = await postMensaje("5491155551234", "cuántos Milka tengo");
     expect(((await r2.json()) as { respuesta: string }).respuesta).toBe(RESPUESTA_NO_VINCULADO);

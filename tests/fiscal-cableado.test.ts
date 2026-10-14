@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
 import { procesar_pendiente } from "../src/modules/fiscal/worker.js";
+import type { FiscalProvider, PedidoC } from "../src/modules/fiscal/fiscal.js";
 import type { StoredFiscalDoc } from "../src/lib/store.js";
 
 function pendiente(): StoredFiscalDoc {
@@ -35,9 +36,10 @@ describe("fiscal worker slice", () => {
 
   it("timeout con CAE ya emitido recupera sin duplicar", async () => {
     const provider = crear_homo_fake();
-    const flaky = { ...provider, autorizar_c: async () => { throw new Error("timeout"); } };
-    await provider.autorizar_c({ cbteTipo: 11, ptoVta: 3, cbteDesde: 125, cbteHasta: 125, cbteFch: "20261010", concepto: 1, docTipo: 99, docNro: 0n, condIvaReceptor: 5, impTotal: 100n, impNeto: 100n, monId: "PES", monCotiz: 1 } as never, "20933331726");
-    const r = await procesar_pendiente({ doc: pendiente(), lastNumber: 124, totalCentavos: 100n, cuit: 20933331726, provider: flaky as never });
+    const flaky: FiscalProvider = { ...provider, autorizar_c: async () => { throw new Error("timeout"); } };
+    const pedidoSeedeado: PedidoC = { cbteTipo: 11, ptoVta: 3, cbteDesde: 125, cbteHasta: 125, cbteFch: "20261010", concepto: 1, docTipo: 99, docNro: 0n, condIvaReceptor: 5, impTotal: 100n, impNeto: 100n, monId: "PES", monCotiz: 1 };
+    await provider.autorizar_c(pedidoSeedeado, "20933331726");
+    const r = await procesar_pendiente({ doc: pendiente(), lastNumber: 124, totalCentavos: 100n, cuit: 20933331726, provider: flaky });
     expect(r.doc.estado).toBe("autorizado");
     expect(r.doc.cbte_nro).toBe(125);
   });

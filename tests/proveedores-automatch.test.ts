@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTOrder } from "../src/pages/api/purchase-orders.js";
 import { POST as POSTDraft } from "../src/pages/api/supplier-invoices/drafts.js";
 import { POST as POSTConfirm } from "../src/pages/api/supplier-invoices/drafts/confirm.js";
@@ -11,28 +12,25 @@ const LINEAS = [{ sku: "yerba", qty: 10, costo_centavos: 1648000 }];
 
 beforeEach(() => resetStore());
 
-function req(url: string, key: string | null, body: unknown): Request {
-  return new Request(url, {
+function req(url: string, key: string | null, body: unknown) {
+  return ctx(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(key !== null ? { "Idempotency-Key": key } : {}),
-    },
-    body: JSON.stringify(body),
+    headers: key !== null ? { "Idempotency-Key": key } : {},
+    body: body as Record<string, unknown>,
   });
 }
 
 async function crearOC(key: string, lineas = LINEAS, cuit = CUIT) {
-  const res = (await POSTOrder({
-    request: req("http://x/api/purchase-orders", key, { supplier_cuit: cuit, lineas, creado_por: "d" }),
-  } as never)) as Response;
+  const res = await POSTOrder(
+    req("http://x/api/purchase-orders", key, { supplier_cuit: cuit, lineas, creado_por: "d" }),
+  );
   expect(res.status).toBe(201);
   return ((await res.json()) as { order_id: string }).order_id;
 }
 
 async function ingerir(key: string, totalTexto: string) {
-  const res = (await POSTDraft({
-    request: req("http://x/api/supplier-invoices/drafts", key, {
+  const res = await POSTDraft(
+    req("http://x/api/supplier-invoices/drafts", key, {
       origen: "gmail",
       bytes_ref: `bytes-${key}`,
       es_comprobante: true,
@@ -40,15 +38,15 @@ async function ingerir(key: string, totalTexto: string) {
       fecha_texto: "10/10/2026",
       total_texto: totalTexto,
     }),
-  } as never)) as Response;
+  );
   expect(res.status).toBe(201);
   return ((await res.json()) as { draft_id: string }).draft_id;
 }
 
 async function confirmar(draftId: string) {
-  const res = (await POSTConfirm({
-    request: req("http://x/api/supplier-invoices/drafts/confirm", null, { draft_id: draftId, quien: "d" }),
-  } as never)) as Response;
+  const res = await POSTConfirm(
+    req("http://x/api/supplier-invoices/drafts/confirm", null, { draft_id: draftId, quien: "d" }),
+  );
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 

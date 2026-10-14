@@ -5,6 +5,7 @@ import { GET } from "../src/pages/api/fiscal/documents.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
 import { procesar_pendiente } from "../src/modules/fiscal/worker.js";
+import type { FiscalProvider } from "../src/modules/fiscal/fiscal.js";
 
 function req_venta(key: string, seq: number, over: Record<string, unknown> = {}) {
   return ctx("http://localhost/api/sales", {
@@ -74,8 +75,8 @@ describe("fiscal E2E slice homo (ADR-0019)", () => {
       { cbteTipo: 11, ptoVta: 3, cbteDesde: 1, cbteHasta: 1, cbteFch: doc.cbte_fch, concepto: 1, docTipo: 99, docNro: 0n, condIvaReceptor: 5, impTotal: 266000n, impNeto: 266000n, monId: "PES", monCotiz: 1 },
       "20933331726",
     );
-    const flaky = { ...provider, autorizar_c: async (): Promise<never> => { throw new Error("timeout"); } };
-    const r = await procesar_pendiente({ doc, lastNumber: 0, totalCentavos: 266000n, cuit: 20933331726, provider: flaky as never });
+    const flaky: FiscalProvider = { ...provider, autorizar_c: async (): Promise<never> => { throw new Error("timeout"); } };
+    const r = await procesar_pendiente({ doc, lastNumber: 0, totalCentavos: 266000n, cuit: 20933331726, provider: flaky });
     expect(r.doc.estado).toBe("autorizado");
     expect(r.doc.cbte_nro).toBe(1);
     expect(r.lastNumber).toBe(1);

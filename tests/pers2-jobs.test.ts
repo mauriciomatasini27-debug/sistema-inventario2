@@ -250,8 +250,9 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
     const sinCierre = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }))) as Response;
     expect(sinCierre.status).toBe(404);
     store.cierres.set("2026-10-11", {
+      status: 201,
       cierre: { fechaJornada: "2026-10-11", closeType: "manual", totalCentavos: 10000n, ultimoMovimientoId: null },
-    } as never);
+    });
     const r = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }))) as Response;
     expect(r.status).toBe(502);
     expect(((await r.json()) as { error: string }).error).toBe("sin_credenciales");
