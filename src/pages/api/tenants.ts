@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = tenantSchema.safeParse(body);
   if (!parsed.success) {
     const primero = parsed.error.issues[0];
-    if (primero?.code === "invalid_enum_value" || primero?.code === "invalid_literal") {
+    if (primero?.code === "invalid_value") {
       return jsonError("El plan es inválido. Usá demo, base o plus.", 422);
     }
     return jsonError(primero?.message ?? "Datos del comercio inválidos.", 422);

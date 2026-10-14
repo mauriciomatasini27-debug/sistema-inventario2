@@ -9,7 +9,7 @@ const sendSchema = z.object({
   stream: z.enum(["avisos", "pedidos"]),
   to: z.string().email().max(320),
   plantilla: z.enum(["cierre", "vencimiento", "pedido_confirmado"]),
-  vars: z.record(z.string()).default({}),
+  vars: z.record(z.string(), z.string()).default({}),
   idempotency_key: z.string().min(1).max(128).optional(),
 });
 
