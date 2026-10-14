@@ -1,10 +1,10 @@
 # Roadmap - Sistema de Inventario
 
-Fecha: 2026-10-12. Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6.
+Fecha: 2026-10-12. Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6. Actualización 2026-10-14: PRs #1 a #30 fusionados en `main` (cutover por dominio ADR-0053 a 0063, SEC-01, ARQ fases 1 y 2, pila de dependencias ADR-0067 a 0072, guardas ADR-0073); estado verificado contra el código de `main` (`01202ee`); nueva sección "Pendientes priorizados".
 
 ## Ya implementado
 
-Dato base: 109 de 136 archivos de `src/pages/api` importan `src/lib/store.ts` (medido 2026-10-13 con `node scripts/cutover-scope.mjs`; PowerShell subcuenta por los `[id]` en rutas; 109 desde Slice E); la memoria sigue siendo la fuente de verdad fuera de Slice-0.
+Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts` (ADR-0063); la memoria sobrevive dentro de `src/lib/repos` (435 referencias `store.`, trinquete AT4) y como fuente de verdad en single sin base y en los mapas sin tabla listados en Pendientes priorizados.
 
 | Área | Estado | Qué hay | Rutas | PRD / ADR |
 |---|---|---|---|---|
@@ -28,7 +28,42 @@ Dato base: 109 de 136 archivos de `src/pages/api` importan `src/lib/store.ts` (m
 | Aislamiento fiscal por tenant | parcial (ISO-S1 a S4 hechos 2026-10-13, commit `dfdc3de`) | `tenantDeRequest` con sesión + membership en `TENANT_MODE=multi` (single por defecto, sin cambios); `getTenantDb` fail-closed en multi; `fiscal_documents.tenant_id` (migración `0015`); `documents`, `history` y `export` filtran DB y memoria; `tests/iso-fiscal-tenant.test.ts` 7/7. Falta: resto del plano de datos sin tenant, `wizard.ts` toma `tenant_id` del body, backfill | `src/lib/tenant-context.ts`, `src/lib/tenant-mode.ts`, `src/lib/fiscal-db.ts`, `src/pages/api/fiscal/*` | PRD-ISO-01, ADR-0050 |
 | Aislamiento del plano de datos | parcial (ISO-S5 a S9 hechos 2026-10-13, commit `bc2f48f`) | Middleware resuelve el tenant por request (`AsyncLocalStorage`) para 16 prefijos de datos y corta 403 en `TENANT_MODE=multi` sin tenant; `getTenantDb()` toma el contexto; wizard y delegación usan el tenant del contexto (403 si el body pide otro); docs fiscales sin dueño rechazados; `scripts/backfill-tenant-id.mjs` en seco por defecto. Falta: memoria de `store.ts` global, jobs por `X-Job-Secret` sin tenant, backfill real | `src/lib/tenant-mode.ts`, `src/lib/tenant-context.ts`, `src/middleware.ts`, `scripts/backfill-tenant-id*.mjs` | PRD-ISO-02, ADR-0051 |
 | Memoria por tenant y cutover multi | parcial (PERS2-S1 a S4 hechos 2026-10-13, commit `2b926a1`) | `store` particionado por tenant (Proxy sobre `tenantActual()`), en multi sin base del tenant 503 `base_no_disponible` (excepción fiscal en memoria particionada), jobs con `X-Job-Secret` exigen `X-Tenant-Id` en multi, `scripts/pg-local.sh` + `tests/pers2-pg.test.ts` contra Postgres local. Falta: PERS-S4 por dominio, PERS-S5 (110 rutas con `store`), fan-out de jobs | `src/lib/store.ts`, `src/lib/server-db.ts`, `src/lib/tenant-context.ts`, `src/middleware.ts`, `scripts/pg-local.sh` | PRD-PERS-02, ADR-0052 |
+| Arquitectura amigable para agentes | parcial (fases 1 y 2 hechas) | `ctx()`, `FechaAR`, LF, JSON tipado; CI `ci` con `typecheck`, `check:arch`, `npm test` con Postgres de servicio (bases A y B) y `build`; trinquetes con baselines | `tests/arch/*`, `.github/workflows/ci.yml` | PRD-ARQ-01, ADR-0065, ADR-0073 |
+| Dependencias | funciona (fusionado #22 a #29) | Actions v7, vitest 5, astro 7, drizzle 0.45, zod 4, TypeScript 7 | `package.json` | PRD-DEP-01, ADR-0067 a 0072 |
 | Asistente IA, chat de landing, planes, umbrales | sin código | — | — | PRD-IA-01, PRD-LP-04, PRD-PLAN-01, PRD-ALR-01 |
+
+## Pendientes priorizados (2026-10-14)
+
+Verificado contra `main` (`01202ee`). Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
+
+### P0. Seguridad y aislamiento
+1. Rutas de datos fuera de `PREFIJOS_DATOS` (`src/lib/tenant-context.ts`): `/api/payment-orders` (ADR-0066), y además `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills` y `/api/ocr`, que usan repositorios por tenant sin que el middleware las envuelva en `conTenant`. Talla S.
+2. `fiscal_settings` sin columna `tenant_id` (`src/db/schema-fiscal.ts`, ADR-0066): `resolverCuitFiscal` toma la primera fila sin filtrar y `GET /api/fiscal/settings` lee un mapa en memoria del módulo. Migración Drizzle nueva en `drizzle/`. Talla S.
+3. Backfill real de `tenant_id` (ADR-0050, ADR-0051; `scripts/backfill-tenant-id.mjs` solo en seco). Talla S, depende de confirmar un comercio por base.
+4. Jobs por `X-Job-Secret`: fan-out por tenant (ADR-0052). Talla M.
+
+### P1. Integridad de datos (memoria con tabla o sin tabla)
+1. Ubicaciones, fotos y conteos en memoria pese a existir `locations`, `product_photos`, `stock_counts`/`stock_count_lines` (ADR-0062). Talla M.
+2. Trabajos y eventos de OCR sin tabla (`ocrJobs`, `ocrEventos` en `src/lib/repos/ocr.ts`, ADR-0060): migración nueva. Talla S.
+3. Correlativo de devoluciones `nextReturn` sin tabla (`src/lib/repos/ventas.ts`, ADR-0063) y correlativo `T-*` de `promote` en sync (`nextTicket`, ADR-0061; ADR-0066 lo unificó con ventas en DB, revisar el espejo). Talla S.
+4. Catálogo del delta de `GET /api/sync/pull` desde memoria (ADR-0061). Talla S.
+5. Los 9 errores tragados de E7 (`tests/arch/sin-errores-tragados.test.ts`, ADR-0073) a 0 con log o relanzando. Talla S.
+6. Test intermitente que comparte la base local B: `tests/pers2-jobs.test.ts` inserta facturas de servicio que `tests/pers2-servicios-fiado.test.ts` ve si corren a la vez (ADR-0066), además de `tests/pers2-compras-pagos.test.ts` "sugerir-desde-notif" (ADR-0067) y los `tests/pers2-*`/`sec01` que apuntan todos a `PG_TEST_URL_B` sin aislar datos entre archivos; aislar por esquema o datos únicos. Talla S.
+
+### P2. Arquitectura (PRD-ARQ-01, ADR-0065)
+1. Fase 3: resto de ARQ-S1 (241 `as never` en llamadas con `request`, 443 en tests) y ARQ-S7 (CI ya levanta Postgres con bases A y B; falta exigir 0 salteados por `PG_TEST_URL`). Talla M.
+2. Fase 4: ARQ-S4 puerto `Almacen<T>` (151 `esModoMulti`, 435 `store.` en repos), empezando por los mapas con tabla de P1.1. Talla L.
+3. Fase 5: ARQ-S8 evidencia sin "preexistente" y skill `verify-inventario`. Talla S.
+4. SUP-S5 y SUP-S6 (fuente db en Supabase, tests). Talla M.
+
+### P3. PRD sin construir, por nivel
+1. Nivel 1 núcleo: PRD-CAT-01 (CRUD, FEFO, ubicaciones, conteo), PRD-CAJA-01 (QR, vencimientos, pagos divididos), PWA `photos_queue`/cifrado/borrado remoto, sync durable SYNC-S1 a S7.
+2. Nivel 0 identidad: verificar AU-01/AU-02 y ON1-ON13, PRD-E2E-01 dos tenants.
+3. Nivel 2 compras: OCR definitivo (ADR-0005), Gmail `users.watch` (CS), OP1-OP13 cableado real.
+4. Nivel 3 fiscal: sección 2 completa (fecha límite 1/12/2026 para `CondicionIVAReceptorId`).
+5. Nivel 4 canales: número central Meta, BOT-01/02, ALR-01, email Resend real.
+6. Nivel 5: rotación RT1-RT11, panel admin PA1-PA14, PRD-PLAN-01, PRD-IA-01, PRD-LP-04, DASH/UX/UI/DS.
+7. Proceso: PRD-COM-01 poda de comentarios (ADR-0064 propuesto).
 
 ## Para implementar
 
@@ -109,8 +144,8 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 ### 9. Proceso y negocio (no es código)
 1. PRD-NEG-01 catálogo y oferta (ADR-0012; NEG-S8 superado por PRD-LANDING-01), PRD-ADAP-01 adaptación desde ModoOps (ADR-0013), skills PRD-SK-01 a SK-03 (ADR-0014 a 0016): cumplimiento a verificar.
 2. Poda de comentarios de código (PRD-COM-01, ADR-0064 propuesto): aplicar el grupo borrar del plan `diseno/PLAN-COM-01-poda-comentarios.md`, abrir issues del grupo refactor, regla de lint y checklist de PR. Talla M.
-3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 aceptado; fase 1 hecha: CRLF, `ctx()`, `FechaAR`, JSON tipado; fase 2 hecha: `tsc`, tests y trinquetes de arquitectura en el job `ci` (sin check obligatorio: el plan gratis privado no tiene branch protection); siguen fases 3 a 5): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
-4. Actualización de dependencias (PRD-DEP-01, ADR-0067 a 0072 aceptados en la pila #22 a #27, sin fusionar): pila de 6 PRs que reemplaza los Dependabot #6 a #19; Actions, vitest 5 y astro 7 cierran las 4 alertas críticas; después drizzle 0.45, zod 4 y TypeScript 7. Talla M.
+3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 aceptado; fase 1 hecha: CRLF, `ctx()`, `FechaAR`, JSON tipado; fase 2 hecha: `tsc`, tests y trinquetes de arquitectura en el job `ci` (sin check obligatorio: el plan gratis privado no tiene branch protection); siguen fases 3 a 5, ver P2): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
+4. Actualización de dependencias (PRD-DEP-01, ADR-0067 a 0072 aceptados; fusionado en `main` 2026-10-14): pila de 6 PRs que reemplaza los Dependabot #6 a #19; Actions, vitest 5 y astro 7 cierran las 4 alertas críticas; después drizzle 0.45, zod 4 y TypeScript 7. Talla M.
 
 ## Decisiones registradas
 
