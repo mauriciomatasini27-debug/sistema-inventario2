@@ -48,7 +48,7 @@ Verificado contra `main` (`01202ee`). Orden: seguridad, integridad de datos, deu
 3. Correlativo de devoluciones `nextReturn` sin tabla (`src/lib/repos/ventas.ts`, ADR-0063) y correlativo `T-*` de `promote` en sync (`nextTicket`, ADR-0061; ADR-0066 lo unificó con ventas en DB, revisar el espejo). Talla S.
 4. Catálogo del delta de `GET /api/sync/pull` desde memoria (ADR-0061). Talla S.
 5. Los 9 errores tragados de E7 (`tests/arch/sin-errores-tragados.test.ts`, ADR-0073) a 0 con log o relanzando. Talla S.
-6. Test intermitente que comparte la base local B: `tests/pers2-compras-pagos.test.ts` "sugerir-desde-notif" (ADR-0067) y los `tests/pers2-*`/`sec01` que apuntan todos a `PG_TEST_URL_B` sin aislar datos entre archivos; aislar por esquema o datos únicos. Talla S.
+6. Test intermitente que comparte la base local B: `tests/pers2-jobs.test.ts` inserta facturas de servicio que `tests/pers2-servicios-fiado.test.ts` ve si corren a la vez (ADR-0066), además de `tests/pers2-compras-pagos.test.ts` "sugerir-desde-notif" (ADR-0067) y los `tests/pers2-*`/`sec01` que apuntan todos a `PG_TEST_URL_B` sin aislar datos entre archivos; aislar por esquema o datos únicos. Talla S.
 
 ### P2. Arquitectura (PRD-ARQ-01, ADR-0065)
 1. Fase 3: resto de ARQ-S1 (241 `as never` en llamadas con `request`, 443 en tests) y ARQ-S7 (CI ya levanta Postgres con bases A y B; falta exigir 0 salteados por `PG_TEST_URL`). Talla M.
