@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { proximas_a_vencer, vencidas } from "../../../modules/utilities/facturas_servicios.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { listarFacturas } from "../../../lib/repos/servicios.js";
+import { fechaAR } from "../../../lib/fecha-ar.js";
 
 export const prerender = false;
 
@@ -12,7 +13,7 @@ export const GET: APIRoute = async ({ url }) => {
   if (!Number.isInteger(dentroDias) || dentroDias < 0 || dentroDias > 90) {
     return Response.json({ error: "dentro_dias 0-90" }, { status: 422 });
   }
-  const hoy = url.searchParams.get("hoy") ?? new Date().toISOString().slice(0, 10);
+  const hoy = url.searchParams.get("hoy") ?? fechaAR();
   let facturas: Awaited<ReturnType<typeof listarFacturas>>;
   try {
     facturas = await listarFacturas();

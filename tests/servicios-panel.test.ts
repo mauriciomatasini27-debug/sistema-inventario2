@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ctx } from "./helpers/ctx.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GET as GETAccounts } from "../src/pages/api/service-accounts.js";
 import { GET as GETDue } from "../src/pages/api/utility-bills/due.js";
@@ -36,7 +37,7 @@ beforeEach(() => {
 
 describe("CS7 panel de consumos (APIs)", () => {
   it("GET /api/service-accounts lista cuentas sin emails", async () => {
-    const res = (await GETAccounts({} as never)) as Response;
+    const res = (await GETAccounts(ctx("http://x/api/service-accounts"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as { items: Array<Record<string, unknown>> };
     expect(j.items).toHaveLength(1);
@@ -45,9 +46,9 @@ describe("CS7 panel de consumos (APIs)", () => {
   });
 
   it("GET /api/utility-bills/due expone account_id y periodo para agrupar", async () => {
-    const res = (await GETDue({
-      url: new URL("http://localhost/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7"),
-    } as never)) as Response;
+    const res = (await GETDue(ctx(
+      "http://localhost/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7",
+    ))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       proximas: Array<Record<string, string>>;

@@ -9,6 +9,9 @@ import type { OrigenAdmin } from "./boundary.js";
 
 export type ActoAdmin =
   | { readonly kind: "suspension_marcada"; readonly tenantId: string; readonly motivo: string }
+  | { readonly kind: "tenant_suspendido"; readonly tenantId: string }
+  | { readonly kind: "tenant_reactivado"; readonly tenantId: string }
+  | { readonly kind: "rollout_reintentado"; readonly tenantId: string }
   | { readonly kind: "regularizacion_asentada"; readonly tenantId: string; readonly ledgerEntryId: string }
   | { readonly kind: "cobro_asentado"; readonly tenantId: string; readonly ledgerEntryId: string }
   | { readonly kind: "flag_resuelto"; readonly tenantId: string; readonly flag: string; readonly valor: boolean }

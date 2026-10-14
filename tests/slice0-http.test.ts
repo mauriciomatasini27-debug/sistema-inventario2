@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTSales } from "../src/pages/api/sales.js";
 import { POST as POSTCash } from "../src/pages/api/cash/movements.js";
 import { GET as GETBalance } from "../src/pages/api/cash/balance.js";
@@ -52,7 +53,7 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     expect(egresos).toHaveLength(1);
     expect(egresos[0]?.sale_id).toBe(json["sale_id"]);
 
-    const b = (await GETBalance({} as never)) as Response;
+    const b = (await GETBalance(ctx("http://x/api/cash/balance"))) as Response;
     const bj = (await b.json()) as { por_medio: Record<string, string>; total: string };
     expect(bj.por_medio["Efectivo"]).toBe("-15000");
     expect(bj.total).toBe("-15000");
@@ -89,7 +90,7 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
       medio: "QR",
       lineas: [{ product_id: "demo-sku-1", qty: 2, precio_centavos: 5000 }],
     });
-    const b = (await GETBalance({} as never)) as Response;
+    const b = (await GETBalance(ctx("http://x/api/cash/balance"))) as Response;
     const bj = (await b.json()) as { por_medio: Record<string, string>; total: string };
     expect(bj.por_medio["Efectivo"]).toBe("-15000");
     expect(bj.por_medio["QR"]).toBe("-10000");
