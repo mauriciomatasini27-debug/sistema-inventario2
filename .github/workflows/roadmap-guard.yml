@@ -1,0 +1,25 @@
+name: roadmap-guard
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Guarda de PR del roadmap
+        run: |
+          git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} > cambiados.txt
+          node scripts/roadmap.mjs --guard cambiados.txt
+      - name: Validar avances
+        run: node scripts/roadmap.mjs --validate
+      - name: Sección generada de la base al día
+        run: |
+          git worktree add ../base ${{ github.event.pull_request.base.sha }}
+          node scripts/roadmap.mjs --check --root ../base

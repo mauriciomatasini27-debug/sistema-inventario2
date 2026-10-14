@@ -16,7 +16,8 @@
     "check:ui": "node scripts/check-ui.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "review:scope": "node scripts/review-scope.mjs",
-    "evidencia": "node scripts/evidencia.mjs"
+    "evidencia": "node scripts/evidencia.mjs",
+    "roadmap": "node scripts/roadmap.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.7",
