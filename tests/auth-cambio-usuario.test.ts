@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { etiquetaAtendiendo, TEXTO_AYUDA_CUENTAS, TIPOS_EVENTO_AUTH } from "../src/modules/auth/auditoria.js";
@@ -68,7 +69,7 @@ describe("AU13 cambiar de usuario", () => {
   });
 
   it("sin sesión da 403", async () => {
-    const r = await postCambiarUsuario({ request: new Request("http://x/api/auth/cambiar-usuario", { method: "POST" }) } as never);
+    const r = await postCambiarUsuario(ctx("http://x/api/auth/cambiar-usuario", { method: "POST" }));
     expect(r.status).toBe(403);
   });
 });
@@ -87,7 +88,7 @@ describe("AU13 barra Atendiendo", () => {
     expect(j.etiqueta).toBe("Atendiendo: Juan");
     expect(j.cambiar_usuario_url).toContain("prompt=select_account");
     expect(j.ayuda).toBe(TEXTO_AYUDA_CUENTAS);
-    const anon = await getSesionActual({ request: new Request("http://x/api/auth/sesion-actual") } as never);
+    const anon = await getSesionActual(ctx("http://x/api/auth/sesion-actual"));
     expect(((await anon.json()) as { logueado: boolean }).logueado).toBe(false);
   });
 });

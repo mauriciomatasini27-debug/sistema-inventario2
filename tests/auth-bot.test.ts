@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { createHmac } from "node:crypto";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion, sha256Hex } from "../src/modules/auth/sesiones.js";
 import { debeInvalidarPorIntentos } from "../src/modules/whatsapp/vincular.js";
@@ -64,7 +65,7 @@ function webhookBody(from: string, texto: string) {
 async function postMensaje(from: string, texto: string) {
   const raw = webhookBody(from, texto);
   const firma = `sha256=${createHmac("sha256", "test-secret-bot").update(raw, "utf8").digest("hex")}`;
-  return postWebhook({ request: new Request("http://x/api/whatsapp/webhook", { method: "POST", headers: { "X-Hub-Signature-256": firma }, body: raw }) } as never);
+  return postWebhook(ctx("http://x/api/whatsapp/webhook", { method: "POST", headers: { "X-Hub-Signature-256": firma }, body: raw }));
 }
 
 async function generarCodigo(sesionPlano: string, tenantId: string, numero: string) {

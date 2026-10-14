@@ -46,16 +46,16 @@ function modoSingleSinDb() {
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
 }
 
-function reqJob(key: string, body: unknown): Request {
-  return new Request("http://x/api/ocr/jobs", {
+function reqJob(key: string, body: unknown) {
+  return ctx("http://x/api/ocr/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
   });
 }
 
 async function crear(key: string, body: unknown) {
-  const res = (await postJobs({ request: reqJob(key, body) } as never)) as Response;
+  const res = (await postJobs(reqJob(key, body))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
@@ -69,14 +69,13 @@ function postConId(
   sufijo: string,
   body: unknown,
 ): Promise<Response> {
-  return route({
-    request: new Request(`http://x/api/ocr/jobs/${jobId}/${sufijo}`, {
+  return route(
+    ctx(`http://x/api/ocr/jobs/${jobId}/${sufijo}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: body as Record<string, unknown>,
+      params: { id: jobId },
     }),
-    params: { id: jobId },
-  } as never) as Promise<Response>;
+  ) as Promise<Response>;
 }
 
 describe("PERS2-S20 single sin DB: OCR como hoy", () => {

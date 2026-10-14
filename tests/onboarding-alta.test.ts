@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { POST as postAlta } from "../src/pages/api/onboarding/alta.js";
@@ -19,10 +20,10 @@ function sesionEnStore(sub: string, tenantId: string | null = null) {
 }
 
 function req(plano: string, cuerpo: unknown, headers: Record<string, string> = {}) {
-  return new Request("http://x/api/onboarding/alta", {
+  return ctx("http://x/api/onboarding/alta", {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${plano}`, ...headers },
-    body: JSON.stringify(cuerpo),
+    body: cuerpo as Record<string, unknown>,
   });
 }
 
@@ -33,14 +34,14 @@ beforeEach(() => {
 describe("alta autoservicio ON1", () => {
   it("201 crea comercio activo con membership de dueño y código vincular", async () => {
     const plano = sesionEnStore("dueno-1");
-    const r = await postAlta({
-      request: req(plano, {
+    const r = await postAlta(
+      req(plano, {
         nombre_comercio: "Kiosco La Esquina",
         rubro: "kiosco",
         numero: "11 5555-1234",
         opt_in: true,
       }),
-    } as never);
+    );
     expect(r.status).toBe(201);
     const j = (await r.json()) as { tenant_id: string; estado: string; vincular: { codigo: string } | null };
     expect(j.estado).toBe("activo");
@@ -55,27 +56,25 @@ describe("alta autoservicio ON1", () => {
   it("doble envío devuelve 409 con el mismo tenant", async () => {
     const plano = sesionEnStore("dueno-1");
     const cuerpo = { nombre_comercio: "Kiosco La Esquina", rubro: "kiosco", request_key: "alta-1" };
-    const r1 = await postAlta({ request: req(plano, cuerpo) } as never);
+    const r1 = await postAlta(req(plano, cuerpo));
     const j1 = (await r1.json()) as { tenant_id: string };
-    const r2 = await postAlta({ request: req(plano, cuerpo) } as never);
+    const r2 = await postAlta(req(plano, cuerpo));
     expect(r2.status).toBe(409);
     expect(((await r2.json()) as { tenant_id: string }).tenant_id).toBe(j1.tenant_id);
     expect(control.tenants.size).toBe(1);
   });
 
   it("403 sin sesión y 422 con número inválido", async () => {
-    const r403 = await postAlta({
-      request: new Request("http://x/api/onboarding/alta", {
+    const r403 = await postAlta(
+      ctx("http://x/api/onboarding/alta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre_comercio: "Kiosco X", rubro: "kiosco" }),
+        body: { nombre_comercio: "Kiosco X", rubro: "kiosco" },
       }),
-    } as never);
+    );
     expect(r403.status).toBe(403);
     const plano = sesionEnStore("dueno-2");
-    const r422 = await postAlta({
-      request: req(plano, { nombre_comercio: "Kiosco X", rubro: "kiosco", numero: "abc" }),
-    } as never);
+    const r422 = await postAlta(req(plano, { nombre_comercio: "Kiosco X", rubro: "kiosco", numero: "abc" }));
     expect(r422.status).toBe(422);
   });
 });

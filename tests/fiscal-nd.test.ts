@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { clase_nd_desde_factura, idempotency_key_for_nd } from "../src/modules/fiscal/fiscal.js";
 import { decidir_nd } from "../src/modules/fiscal/nd.js";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
@@ -8,19 +9,19 @@ import { POST as POST_SALES } from "../src/pages/api/sales.js";
 import { resetStore, store } from "../src/lib/store.js";
 
 async function vender(key: string, seq: number) {
-  const req = new Request("http://localhost/api/sales", {
+  const req = ctx("http://localhost/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 266000 }],
       medio: "Efectivo",
       device_code: "MOST-01",
       seq_local: seq,
       client_occurred_at: new Date().toISOString(),
       offline: false,
-    }),
+    },
   });
-  const res = await POST_SALES({ request: req } as never);
+  const res = await POST_SALES(req);
   return (await res.json()) as Record<string, unknown>;
 }
 
@@ -50,12 +51,12 @@ describe("fiscal ND manual (FE-S16)", () => {
   it("empleado no puede emitir ND (403)", async () => {
     const v = await vender("nd-v1", 51);
     const saleId = v["sale_id"] as string;
-    const req = new Request("http://localhost/api/fiscal/nd", {
+    const req = ctx("http://localhost/api/fiscal/nd", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": "nd-k1", "X-Rol": "empleado" },
-      body: JSON.stringify({ factura_sale_id: saleId, monto_centavos: 50000, motivo: "ajuste", actor: "empleado", client_occurred_at: new Date().toISOString() }),
+      body: { factura_sale_id: saleId, monto_centavos: 50000, motivo: "ajuste", actor: "empleado", client_occurred_at: new Date().toISOString() },
     });
-    const res = await POST_ND({ request: req } as never);
+    const res = await POST_ND(req);
     expect(res.status).toBe(403);
   });
 
@@ -68,12 +69,12 @@ describe("fiscal ND manual (FE-S16)", () => {
     const r = await procesar_pendiente({ doc, lastNumber: 100, totalCentavos: 266000n, cuit: 20933331726, provider: crear_homo_fake() });
     store.fiscalDocs.set(fkey, r.doc);
     const cajaId = [...store.movements].find((m) => m.sale_id === saleId)?.id ?? "caja-1";
-    const req = new Request("http://localhost/api/fiscal/nd", {
+    const req = ctx("http://localhost/api/fiscal/nd", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": "nd-k2" },
-      body: JSON.stringify({ factura_sale_id: saleId, monto_centavos: 50000, motivo: "intereses", actor: "dueno", caja_movement_id: cajaId, client_occurred_at: new Date().toISOString() }),
+      body: { factura_sale_id: saleId, monto_centavos: 50000, motivo: "intereses", actor: "dueno", caja_movement_id: cajaId, client_occurred_at: new Date().toISOString() },
     });
-    const res = await POST_ND({ request: req } as never);
+    const res = await POST_ND(req);
     expect(res.status).toBe(201);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json["nd_tipo"]).toBe(12);

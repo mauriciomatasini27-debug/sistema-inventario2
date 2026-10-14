@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { armar_pedido_b, determinar_clase } from "../src/modules/fiscal/fiscal.js";
 import { desagregar_iva_21 } from "../src/modules/fiscal/iva.js";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
@@ -6,11 +7,11 @@ import { procesar_pendiente } from "../src/modules/fiscal/worker.js";
 import { POST } from "../src/pages/api/sales.js";
 import { resetStore, store } from "../src/lib/store.js";
 
-function req_venta(key: string, seq: number, over: Record<string, unknown> = {}): Request {
-  return new Request("http://localhost/api/sales", {
+function req_venta(key: string, seq: number, over: Record<string, unknown> = {}) {
+  return ctx("http://localhost/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 12100 }],
       medio: "Efectivo",
       device_code: "MOST-01",
@@ -18,7 +19,7 @@ function req_venta(key: string, seq: number, over: Record<string, unknown> = {})
       client_occurred_at: new Date().toISOString(),
       offline: false,
       ...over,
-    }),
+    },
   });
 }
 
@@ -68,7 +69,7 @@ describe("fiscal A (FE-E2 etapa 3)", () => {
   });
 
   it("venta RI etapa 3 con CUIT RI crea pendiente A con IVA", async () => {
-    const res = await POST({ request: req_venta("a-online", 31, { ...RI_ETAPA3, ...CUIT_RI }) } as never);
+    const res = await POST(req_venta("a-online", 31, { ...RI_ETAPA3, ...CUIT_RI }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("pendiente");
@@ -79,7 +80,7 @@ describe("fiscal A (FE-E2 etapa 3)", () => {
   });
 
   it("venta RI etapa 3 sin CUIT online es B a CF (no A)", async () => {
-    const res = await POST({ request: req_venta("a-sin-cuit", 32, { ...RI_ETAPA3 }) } as never);
+    const res = await POST(req_venta("a-sin-cuit", 32, { ...RI_ETAPA3 }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("pendiente");
@@ -87,27 +88,27 @@ describe("fiscal A (FE-E2 etapa 3)", () => {
   });
 
   it("venta RI etapa 3 con CUIT no-RI online rechaza sin persistir", async () => {
-    const res = await POST({
-      request: req_venta("a-cuit-no-ri", 33, {
+    const res = await POST(
+      req_venta("a-cuit-no-ri", 33, {
         ...RI_ETAPA3,
         fiscal_receptor_cuit: "20-93333172-6",
         fiscal_cond_iva_receptor: 6,
       }),
-    } as never);
+    );
     expect(res.status).toBe(422);
     expect(store.fiscalDocs.size).toBe(0);
     expect(store.idempotency.size).toBe(0);
   });
 
   it("venta RI etapa 3 con CUIT no-RI offline queda en espera", async () => {
-    const res = await POST({
-      request: req_venta("a-off-espera", 34, {
+    const res = await POST(
+      req_venta("a-off-espera", 34, {
         ...RI_ETAPA3,
         fiscal_receptor_cuit: "20-93333172-6",
         fiscal_cond_iva_receptor: 6,
         offline: true,
       }),
-    } as never);
+    );
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("en_espera_de_datos");
@@ -115,7 +116,7 @@ describe("fiscal A (FE-E2 etapa 3)", () => {
   });
 
   it("venta RI etapa 3 offline con CUIT crea pendiente_de_sync A", async () => {
-    const res = await POST({ request: req_venta("a-off", 35, { ...RI_ETAPA3, ...CUIT_RI, offline: true }) } as never);
+    const res = await POST(req_venta("a-off", 35, { ...RI_ETAPA3, ...CUIT_RI, offline: true }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("pendiente_de_sync");

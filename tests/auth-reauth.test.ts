@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
@@ -143,12 +144,13 @@ describe("AU10 rutas sensibles", () => {
     tenantConDueno("t-1", "dueno-1");
     const fresca = sesion("dueno-1", "t-1");
     const mk = (sub: string) =>
-      new Request("http://x/api/tenants/t-1/memberships", {
+      ctx("http://x/api/tenants/t-1/memberships", {
         method: "POST",
         headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${fresca.idPlano}` },
         body: JSON.stringify({ google_sub: sub, rol: "empleado" }),
+        params: { id: "t-1" },
       });
-    expect((await postMemberships({ request: mk("e1"), params: { id: "t-1" } } as never)).status).toBe(201);
-    expect((await postMemberships({ request: mk("e2"), params: { id: "t-1" } } as never)).status).toBe(201);
+    expect((await postMemberships(mk("e1"))).status).toBe(201);
+    expect((await postMemberships(mk("e2"))).status).toBe(201);
   });
 });

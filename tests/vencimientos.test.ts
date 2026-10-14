@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTVenc } from "../src/pages/api/jobs/vencimientos-servicios.js";
 import { ejecutar_vencimientos_servicios } from "../src/jobs/vencimientos-servicios.js";
 import { fechaAR, sumarDiasAR } from "../src/lib/fecha-ar.js";
@@ -89,7 +90,7 @@ afterAll(() => {
 
 describe("CS12/OP11 recordatorios de vencimiento", () => {
   it("sin secret es 403", async () => {
-    const res = (await POSTVenc({ request: new Request("http://x/api/jobs/vencimientos", { method: "POST" }) } as never)) as Response;
+    const res = (await POSTVenc(ctx("http://x/api/jobs/vencimientos", { method: "POST" }))) as Response;
     expect(res.status).toBe(403);
   });
 

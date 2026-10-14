@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { enCuarentena, horasSinSync, nivelAviso } from "../src/offline/avisos.js";
 import { ejecutarAvisoSync } from "../src/jobs/aviso-sync.js";
 import { POST as POSTHeartbeat } from "../src/pages/api/sync/heartbeat.js";
@@ -65,7 +66,7 @@ describe("sync avisos SYNC-S4 (PRD-SYNC-01)", () => {
   });
 
   it("ruta job exige secreto y responde revisados + avisos", async () => {
-    const sin = (await POSTAviso({ request: new Request("http://x/api/jobs/aviso-sync", { method: "POST" }) } as never)) as Response;
+    const sin = (await POSTAviso(ctx("http://x/api/jobs/aviso-sync", { method: "POST" }))) as Response;
     expect(sin.status).toBe(403);
     const con = (await POSTAviso({
       request: new Request("http://x/api/jobs/aviso-sync", { method: "POST", headers: { "X-Job-Secret": SECRET } }),

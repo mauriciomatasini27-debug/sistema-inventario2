@@ -57,12 +57,12 @@ describe("sync durable SYNC-S1/S3/S5 (sin DB no rompe)", () => {
       payload: { total: 100 },
       client_occurred_at: new Date().toISOString(),
     };
-    const req1 = new Request("http://localhost/api/sync/push", {
+    const req1 = ctx("http://localhost/api/sync/push", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
       body: JSON.stringify(body),
     });
-    const r1 = (await POSTPush({ request: req1 } as never)) as Response;
+    const r1 = (await POSTPush(req1)) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as Record<string, unknown>;
     expect(j1["id_mapeado"]).toBe(`srv-${opId.slice(0, 8)}`);

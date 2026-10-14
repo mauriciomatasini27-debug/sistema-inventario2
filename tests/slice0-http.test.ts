@@ -20,16 +20,16 @@ function ventaBody(seq: number, over: Record<string, unknown> = {}) {
   };
 }
 
-function req(url: string, key: string, body: unknown): Request {
-  return new Request(url, {
+function req(url: string, key: string, body: unknown) {
+  return ctx(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
   });
 }
 
 async function postSales(key: string, seq: number, over: Record<string, unknown> = {}) {
-  const res = (await POSTSales({ request: req("http://localhost/api/sales", key, ventaBody(seq, over)) } as never)) as Response;
+  const res = (await POSTSales(req("http://localhost/api/sales", key, ventaBody(seq, over)))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
@@ -44,7 +44,7 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     expect(json["ticket_provisorio"]).toBe("caja-01-1");
 
     // Query confirma ticket + egreso.
-    const t = (await GETTickets({ request: new Request(`http://localhost/api/tickets?numero=${json["ticket_definitivo"]}`) } as never)) as Response;
+    const t = (await GETTickets(ctx(`http://localhost/api/tickets?numero=${json["ticket_definitivo"]}`))) as Response;
     expect(t.status).toBe(200);
     const tj = (await t.json()) as Record<string, unknown>;
     expect(tj["sale_id"]).toBe(json["sale_id"]);
@@ -68,8 +68,8 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     expect(store.idempotency.size).toBe(1);
     expect(store.movements.filter((m) => m.idempotency_key === key)).toHaveLength(1);
 
-    const dup = (await POSTCash({
-      request: req("http://localhost/api/cash/movements", key, {
+    const dup = (await POSTCash(
+      req("http://localhost/api/cash/movements", key, {
         tipo: "egreso",
         metodo: "Efectivo",
         categoria_id: "venta",
@@ -80,7 +80,7 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
         seq_local: 2,
         client_occurred_at: new Date().toISOString(),
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(dup.status).toBe(409);
   });
 
@@ -109,8 +109,8 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     expect(provisorio).toBe("caja-01-5");
 
     // Sync push con mismo op_id (= Idempotency-Key).
-    const push = (await POSTPush({
-      request: req("http://localhost/api/sync/push", opId, {
+    const push = (await POSTPush(
+      req("http://localhost/api/sync/push", opId, {
         op_id: opId,
         device_code: "caja-01",
         device_seq: 5,
@@ -119,28 +119,28 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
         payload,
         client_occurred_at: new Date().toISOString(),
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(push.status).toBe(201);
 
     // Promote asigna definitivo correlativo T-*.
-    const pm = (await POSTPromote({
-      request: req("http://localhost/api/sync/promote", opId, { op_id: opId, device_code: "caja-01", device_seq: 5 }),
-    } as never)) as Response;
+    const pm = (await POSTPromote(
+      req("http://localhost/api/sync/promote", opId, { op_id: opId, device_code: "caja-01", device_seq: 5 }),
+    )) as Response;
     expect(pm.status).toBe(201);
     const pmj = (await pm.json()) as Record<string, unknown>;
     expect(pmj["ticket_provisorio"]).toBe("caja-01-5");
     expect(pmj["ticket_definitivo"]).toMatch(/^T-\d{6}$/);
 
     // Replay del promote devuelve el mismo mapeo (200), sin consumir número.
-    const pm2 = (await POSTPromote({
-      request: req("http://localhost/api/sync/promote", opId, { op_id: opId, device_code: "caja-01", device_seq: 5 }),
-    } as never)) as Response;
+    const pm2 = (await POSTPromote(
+      req("http://localhost/api/sync/promote", opId, { op_id: opId, device_code: "caja-01", device_seq: 5 }),
+    )) as Response;
     expect(pm2.status).toBe(200);
     expect(((await pm2.json()) as Record<string, unknown>)["ticket_definitivo"]).toBe(pmj["ticket_definitivo"]);
 
     // Push replay mismo payload -> 200, distinto payload -> 409.
-    const push2 = (await POSTPush({
-      request: req("http://localhost/api/sync/push", opId, {
+    const push2 = (await POSTPush(
+      req("http://localhost/api/sync/push", opId, {
         op_id: opId,
         device_code: "caja-01",
         device_seq: 5,
@@ -149,7 +149,7 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
         payload,
         client_occurred_at: new Date().toISOString(),
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(push2.status).toBe(200);
   });
 });

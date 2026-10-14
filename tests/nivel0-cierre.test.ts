@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { elegir_demos_a_purgar } from "../src/modules/tenants/purga-demos.js";
@@ -38,8 +39,8 @@ function duenoDe(tenantId: string, sub: string) {
   control.memberships.set(`m-${sub}`, { id: `m-${sub}`, tenantId, googleSub: sub, rol: "dueno", permisos: [], estado: "activo" });
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+function reqJson(url: string, body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  return ctx(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body });
 }
 
 function firma(secret: string, raw: string): string {
@@ -68,38 +69,38 @@ beforeEach(() => {
 
 describe("nivel-0 cierre: vincular", () => {
   it("generar código exige sesión y membership; verifica por webhook", async () => {
-    const anon = await postVincularCode({ request: reqJson("http://x/api/whatsapp/vincular-code", { tenant_id: "t1", numero: "11 5555-1234" }) } as never);
+    const anon = await postVincularCode(reqJson("http://x/api/whatsapp/vincular-code", { tenant_id: "t1", numero: "11 5555-1234" }));
     expect((anon as Response).status).toBe(403);
 
     duenoDe("t1", "dueno-1");
     const plano = sesion("dueno-1");
-    const gen = (await postVincularCode({
-      request: reqJson("http://x/api/whatsapp/vincular-code", { tenant_id: "t1", numero: "11 5555-1234" }, { cookie: `__Host-sesion=${plano}` }),
-    } as never)) as Response;
+    const gen = (await postVincularCode(
+      reqJson("http://x/api/whatsapp/vincular-code", { tenant_id: "t1", numero: "11 5555-1234" }, { cookie: `__Host-sesion=${plano}` }),
+    )) as Response;
     expect(gen.status).toBe(201);
     const { codigo } = (await gen.json()) as { codigo: string };
     expect(codigo).toMatch(/^\d{6}$/);
 
     const raw = webhookBody("w-1", "5491155551234", `VINCULAR ${codigo}`);
-    const ok = (await postWebhook({
-      request: new Request("http://x/api/whatsapp/webhook", {
+    const ok = (await postWebhook(
+      ctx("http://x/api/whatsapp/webhook", {
         method: "POST",
         headers: { "X-Hub-Signature-256": firma("test-secret", raw) },
         body: raw,
       }),
-    } as never)) as Response;
+    )) as Response;
     expect((await ok.json()) as Record<string, unknown>).toMatchObject({ ok: true, accion: "vincular_ok" });
     expect(control.botLinks.get("+5491155551234")?.estado).toBe("verificado");
 
     // Reuso del mismo código falla (un solo uso).
     const raw2 = webhookBody("w-2", "5491155551234", `VINCULAR ${codigo}`);
-    const reuse = (await postWebhook({
-      request: new Request("http://x/api/whatsapp/webhook", {
+    const reuse = (await postWebhook(
+      ctx("http://x/api/whatsapp/webhook", {
         method: "POST",
         headers: { "X-Hub-Signature-256": firma("test-secret", raw2) },
         body: raw2,
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(((await reuse.json()) as Record<string, unknown>)["accion"]).toBe("vincular_error");
   });
 });
@@ -134,7 +135,7 @@ describe("nivel-0 cierre: purga demos 14d", () => {
     control.memberships.set("m-d", { id: "m-d", tenantId: "demo-1", googleSub: "d", rol: "dueno", permisos: [], estado: "activo" });
     control.botLinks.set("+5491100000000", { tenantId: "demo-1", googleSub: "d", estado: "verificado" });
 
-    const sinSecret = (await postPurgar({ request: reqJson("http://x/api/jobs/purgar-demos", {}) } as never)) as Response;
+    const sinSecret = (await postPurgar(reqJson("http://x/api/jobs/purgar-demos", {}))) as Response;
     expect(sinSecret.status).toBe(403);
 
     const r = ejecutarPurgaDemos(AHORA);
@@ -150,21 +151,21 @@ describe("nivel-0 cierre: purga demos 14d", () => {
 
 describe("nivel-0 cierre: precios exige sesión y dueño", () => {
   it("anónimo 403; miembro no dueño con tenant 403; dueño 201", async () => {
-    const anon = (await postAdjust({ request: reqJson("http://x/api/prices/adjustments", AJUSTE, { "Idempotency-Key": "k1" }) } as never)) as Response;
+    const anon = (await postAdjust(reqJson("http://x/api/prices/adjustments", AJUSTE, { "Idempotency-Key": "k1" }))) as Response;
     expect(anon.status).toBe(403);
 
     duenoDe("t1", "dueno-1");
     control.memberships.set("m-emp", { id: "m-emp", tenantId: "t1", googleSub: "emp-1", rol: "empleado", permisos: [], estado: "activo" });
     const emp = sesion("emp-1");
-    const noDueno = (await postAdjust({
-      request: reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, { "Idempotency-Key": "k2", cookie: `__Host-sesion=${emp}` }),
-    } as never)) as Response;
+    const noDueno = (await postAdjust(
+      reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, { "Idempotency-Key": "k2", cookie: `__Host-sesion=${emp}` }),
+    )) as Response;
     expect(noDueno.status).toBe(403);
 
     const due = sesion("dueno-1");
-    const ok = (await postAdjust({
-      request: reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, { "Idempotency-Key": "k3", cookie: `__Host-sesion=${due}` }),
-    } as never)) as Response;
+    const ok = (await postAdjust(
+      reqJson("http://x/api/prices/adjustments", { ...AJUSTE, tenant_id: "t1" }, { "Idempotency-Key": "k3", cookie: `__Host-sesion=${due}` }),
+    )) as Response;
     expect(ok.status).toBe(201);
   });
 });

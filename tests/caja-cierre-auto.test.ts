@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST as POSTAuto } from "../src/pages/api/jobs/cierre-medianoche.js";
 import { ejecutar_cierre_medianoche } from "../src/jobs/cierre-medianoche.js";
 import type { CierreOk } from "../src/modules/cash/cierre.js";
@@ -15,8 +16,8 @@ afterAll(() => {
   delete process.env.JOBS_SECRET;
 });
 
-function req(secret: string | null): Request {
-  return new Request("http://localhost/api/jobs/cierre-medianoche", {
+function req(secret: string | null) {
+  return ctx("http://localhost/api/jobs/cierre-medianoche", {
     method: "POST",
     headers: secret === null ? {} : { "X-Job-Secret": secret },
   });
@@ -24,19 +25,19 @@ function req(secret: string | null): Request {
 
 describe("cierre automatico de medianoche", () => {
   it("sin secret es 403", async () => {
-    const res = (await POSTAuto({ request: req(null) } as never)) as Response;
+    const res = (await POSTAuto(req(null))) as Response;
     expect(res.status).toBe(403);
   });
 
   it("primer disparo 201 automatica con aviso enviado; segundo 409 sin duplicar", async () => {
-    const r1 = (await POSTAuto({ request: req(SECRET) } as never)) as Response;
+    const r1 = (await POSTAuto(req(SECRET))) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as Record<string, unknown>;
     expect(j1["close_type"]).toBe("automatica");
     expect(String(j1["fecha_jornada"])).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect((j1["wa"] as { estado: string }).estado).toBe("enviado");
 
-    const r2 = (await POSTAuto({ request: req(SECRET) } as never)) as Response;
+    const r2 = (await POSTAuto(req(SECRET))) as Response;
     expect(r2.status).toBe(409);
     const j2 = (await r2.json()) as Record<string, unknown>;
     expect((j2["wa"] as { estado: string }).estado).toBe("duplicado");
@@ -52,7 +53,7 @@ describe("cierre automatico de medianoche", () => {
       esperadoCentavos: 0n,
       estado: "en_disputa",
     });
-    const res = (await POSTAuto({ request: req(SECRET) } as never)) as Response;
+    const res = (await POSTAuto(req(SECRET))) as Response;
     expect(res.status).toBe(422);
     expect(store.cierres.size).toBe(0);
     expect(store.waEnviados.size).toBe(0);

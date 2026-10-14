@@ -45,7 +45,13 @@ describe("sync heartbeat SYNC-S3/S4 (PRD-SYNC-01)", () => {
   });
 
   it("422 sin device_code o pendientes negativos", async () => {
-    const r1 = (await POSTHeartbeat({ request: hbReq({ pendientes: 0 }) } as never)) as Response;
+    const r1 = (await POSTHeartbeat(
+      ctx("http://localhost/api/sync/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pendientes: 0 }),
+      }),
+    )) as Response;
     expect(r1.status).toBe(422);
     const r2 = (await POSTHeartbeat({
       request: hbReq({ device_code: "caja-01", pendientes: -1 }),

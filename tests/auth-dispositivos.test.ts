@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
@@ -103,7 +104,7 @@ describe("AU9 rutas", () => {
     control.memberships.set("m-juan", { id: "m-juan", tenantId: "t-1", googleSub: "juan", rol: "empleado", permisos: [], estado: "activo" });
     const a = sesion("juan", "t-1");
     const b = sesion("juan", "t-1");
-    const r = await getMisSesiones({ request: new Request("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${a.idPlano}` } }) } as never);
+    const r = await getMisSesiones(ctx("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${a.idPlano}` } }));
     expect(r.status).toBe(200);
     expect(((await r.json()) as { sesiones: unknown[] }).sesiones).toHaveLength(2);
     const c = await postCerrarPropia({
@@ -177,7 +178,7 @@ describe("AU9 rutas", () => {
       }),
     } as never);
     expect(r.status).toBe(200);
-    const lista = await getMisSesiones({ request: new Request("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }) } as never);
+    const lista = await getMisSesiones(ctx("http://x/api/auth/sesiones", { headers: { cookie: `__Host-sesion=${d.idPlano}` } }));
     expect(JSON.stringify(await lista.json())).toContain("PC del mostrador");
   });
 });

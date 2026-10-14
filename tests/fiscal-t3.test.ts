@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { proximo_intento, clasificar_error, es_reintentable } from "../src/modules/fiscal/backoff.js";
 import { texto_castellano, accion_para } from "../src/modules/fiscal/bandeja.js";
 import { wizard_inicial, wizard_avanzar, wizard_pausar, wizard_resumir, confirmar_delegacion, revocar_delegacion } from "../src/modules/fiscal/wizard.js";
@@ -45,8 +46,8 @@ describe("fiscal T3 D6/E7 slice homo", () => {
 
   it("retry reencola rechazada y bloquea no_facturar", async () => {
     store.fiscalDocs.set("k", { id: "d1", idempotency_key: "k", sale_id: "s", cbte_tipo: "11", pto_vta: "3", cbte_nro: 1, cbte_fch: "20261010", doc_tipo: "99", doc_nro: "0", cond_iva_receptor: "5", estado: "rechazado", cae: null, cae_vto: null, qr_payload: null, intentos: 1 });
-    const req = new Request("http://x/api/fiscal/retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fiscal_document_id: "d1" }) });
-    const res = await POST_RETRY({ request: req } as never);
+    const req = ctx("http://x/api/fiscal/retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: { fiscal_document_id: "d1" } });
+    const res = await POST_RETRY(req);
     expect(res.status).toBe(200);
     expect(store.fiscalDocs.get("k")!.estado).toBe("pendiente");
   });

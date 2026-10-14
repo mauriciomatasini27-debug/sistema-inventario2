@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import {
   armar_pedido_b,
   armar_pedido_con_receptor,
@@ -14,10 +15,10 @@ import { POST as POST_RETURNS } from "../src/pages/api/returns.js";
 import { resetStore, store } from "../src/lib/store.js";
 
 async function vender(key: string, seq: number, over: Record<string, unknown> = {}) {
-  const req = new Request("http://localhost/api/sales", {
+  const req = ctx("http://localhost/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 266000 }],
       medio: "Efectivo",
       device_code: "MOST-01",
@@ -25,17 +26,17 @@ async function vender(key: string, seq: number, over: Record<string, unknown> = 
       client_occurred_at: new Date().toISOString(),
       offline: false,
       ...over,
-    }),
+    },
   });
-  const res = await POST_SALES({ request: req } as never);
+  const res = await POST_SALES(req);
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
 async function devolver(key: string, saleId: string, monto: number, over: Record<string, unknown> = {}) {
-  const req = new Request("http://localhost/api/returns", {
+  const req = ctx("http://localhost/api/returns", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       sale_id: saleId,
       monto_centavos: monto,
       items: [{ product_id: "demo-sku-1", qty: 1 }],
@@ -44,9 +45,9 @@ async function devolver(key: string, saleId: string, monto: number, over: Record
       actor: "dueno",
       client_occurred_at: new Date().toISOString(),
       ...over,
-    }),
+    },
   });
-  const res = await POST_RETURNS({ request: req } as never);
+  const res = await POST_RETURNS(req);
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 

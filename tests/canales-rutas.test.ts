@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as GETConsult } from "../src/pages/api/whatsapp/consult.js";
@@ -26,7 +27,7 @@ beforeEach(() => {
 
 describe("whatsapp/email PERS-S4 (sin DB no rompe)", () => {
   it("consult exige sesión y responde desde memoria con fuente", async () => {
-    const anon = (await GETConsult({ request: new Request("http://x/api/whatsapp/consult?term=stock"), url: new URL("http://x/api/whatsapp/consult?term=stock") } as never)) as Response;
+    const anon = (await GETConsult(ctx("http://x/api/whatsapp/consult?term=stock"))) as Response;
     expect(anon.status).toBe(403);
     const plano = sesion("u-1");
     const r = (await GETConsult({

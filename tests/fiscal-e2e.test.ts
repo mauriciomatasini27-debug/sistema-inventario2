@@ -6,11 +6,11 @@ import { resetStore, store } from "../src/lib/store.js";
 import { crear_homo_fake } from "../src/modules/fiscal/homo-fake.js";
 import { procesar_pendiente } from "../src/modules/fiscal/worker.js";
 
-function req_venta(key: string, seq: number, over: Record<string, unknown> = {}): Request {
-  return new Request("http://localhost/api/sales", {
+function req_venta(key: string, seq: number, over: Record<string, unknown> = {}) {
+  return ctx("http://localhost/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 266000 }],
       medio: "Efectivo",
       device_code: "MOST-01",
@@ -18,12 +18,12 @@ function req_venta(key: string, seq: number, over: Record<string, unknown> = {})
       client_occurred_at: new Date().toISOString(),
       offline: false,
       ...over,
-    }),
+    },
   });
 }
 
 async function vender(key: string, seq: number, over: Record<string, unknown> = {}) {
-  const res = await POST({ request: req_venta(key, seq, over) } as never);
+  const res = await POST(req_venta(key, seq, over));
   const json = (await res.json()) as Record<string, unknown>;
   return { status: res.status, json };
 }

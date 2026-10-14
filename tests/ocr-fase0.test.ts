@@ -18,16 +18,16 @@ import { POST as postVencer } from "../src/pages/api/jobs/vencer-ocr.js";
 const PDF = "FACTURA C 00003-000001\nCUIT: 20-93333172-6\nFecha: 10/10/2026\nTotal: $ 164.800,00\n";
 const OCR = "FACTURA\nCUIT 20-93333172-6\nFecha 10/10/2026\nTotal $ 164.800,00\n";
 
-function reqJob(key: string, body: unknown): Request {
-  return new Request("http://x/api/ocr/jobs", {
+function reqJob(key: string, body: unknown) {
+  return ctx("http://x/api/ocr/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify(body),
+    body: body as Record<string, unknown>,
   });
 }
 
 async function crear(key: string, body: unknown) {
-  const res = (await postJobs({ request: reqJob(key, body) } as never)) as Response;
+  const res = (await postJobs(reqJob(key, body))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
@@ -97,26 +97,24 @@ describe("ocr jobs API (ADR-0005)", () => {
     expect(gj["estado"]).toBe("confirmable");
     expect((gj["borrador"] as Record<string, unknown>)["total_centavos"]).toBe("16480000");
 
-    const c = (await postConfirmar({
-      request: new Request(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
+    const c = (await postConfirmar(
+      ctx(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quien: "dueno-1" }),
+        body: { quien: "dueno-1" },
+        params: { id: jobId },
       }),
-      params: { id: jobId },
-    } as never)) as Response;
+    )) as Response;
     expect(c.status).toBe(201);
     const cj = (await c.json()) as Record<string, unknown>;
     expect(store.facturasProv.get(cj["factura_id"] as string)?.supplierCuit).toBe("20933331726");
 
-    const c2 = (await postConfirmar({
-      request: new Request(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
+    const c2 = (await postConfirmar(
+      ctx(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quien: "dueno-1" }),
+        body: { quien: "dueno-1" },
+        params: { id: jobId },
       }),
-      params: { id: jobId },
-    } as never)) as Response;
+    )) as Response;
     expect(c2.status).toBe(409);
   });
 
@@ -125,10 +123,13 @@ describe("ocr jobs API (ADR-0005)", () => {
     expect(r.json["confianza_global"]).toBe("baja");
     const jobId = r.json["job_id"] as string;
     const post = (route: typeof postConfirmar, body: unknown) =>
-      route({
-        request: new Request(`http://x/api/ocr/jobs/${jobId}/x`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-        params: { id: jobId },
-      } as never) as Promise<Response>;
+      route(
+        ctx(`http://x/api/ocr/jobs/${jobId}/x`, {
+          method: "POST",
+          body: body as Record<string, unknown>,
+          params: { id: jobId },
+        }),
+      ) as Promise<Response>;
     expect((await post(postConfirmar, { quien: "d" })).status).toBe(422);
     const ed = await post(postEditar, { quien: "d", cuit_texto: "20-93333172-6", fecha_texto: "10/10/2026", total_texto: "164.800,00" });
     expect(ed.status).toBe(200);
@@ -139,25 +140,23 @@ describe("ocr jobs API (ADR-0005)", () => {
   it("descartar cierra sin registrar; redescartar 409", async () => {
     const r = await crear("w-desc", baseBody({ texto_pdf: PDF }));
     const jobId = r.json["job_id"] as string;
-    const d = (await postDescartar({
-      request: new Request(`http://x/api/ocr/jobs/${jobId}/descartar`, {
+    const d = (await postDescartar(
+      ctx(`http://x/api/ocr/jobs/${jobId}/descartar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ motivo: "duplicada" }),
+        body: { motivo: "duplicada" },
+        params: { id: jobId },
       }),
-      params: { id: jobId },
-    } as never)) as Response;
+    )) as Response;
     expect(d.status).toBe(200);
     expect(store.facturasProv.size).toBe(0);
     expect(store.ocrEventos.some((e) => e.tipo === "ocr_descartado")).toBe(true);
-    const d2 = (await postDescartar({
-      request: new Request(`http://x/api/ocr/jobs/${jobId}/descartar`, {
+    const d2 = (await postDescartar(
+      ctx(`http://x/api/ocr/jobs/${jobId}/descartar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: {},
+        params: { id: jobId },
       }),
-      params: { id: jobId },
-    } as never)) as Response;
+    )) as Response;
     expect(d2.status).toBe(409);
   });
 
@@ -170,14 +169,13 @@ describe("ocr jobs API (ADR-0005)", () => {
 
     const g = (await getJob(ctx(`http://x/api/ocr/jobs/${jobId}`, { params: { id: jobId } }))) as Response;
     expect(((await g.json()) as Record<string, unknown>)["estado"]).toBe("vencida");
-    const c = (await postConfirmar({
-      request: new Request(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
+    const c = (await postConfirmar(
+      ctx(`http://x/api/ocr/jobs/${jobId}/confirmar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quien: "d" }),
+        body: { quien: "d" },
+        params: { id: jobId },
       }),
-      params: { id: jobId },
-    } as never)) as Response;
+    )) as Response;
     expect(c.status).toBe(410);
 
     const v = await ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
@@ -191,7 +189,7 @@ describe("ocr jobs API (ADR-0005)", () => {
     const v2 = await ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
     expect(v2.recuerdos).toContain(jobId2);
 
-    const sinSecret = (await postVencer({ request: reqJob("x", {}) } as never)) as Response;
+    const sinSecret = (await postVencer(reqJob("x", {}))) as Response;
     expect(sinSecret.status).toBe(403);
   });
 });

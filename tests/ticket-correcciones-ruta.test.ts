@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
 import { GET as getTickets } from "../src/pages/api/tickets.js";
@@ -31,7 +32,7 @@ describe("tickets TV8/TV14 PERS-S4 (sin DB no rompe)", () => {
     } as never);
     expect(r.status).toBe(201);
     const j = (await r.json()) as { sale_id: string; ticket_definitivo: string };
-    const g = await getTickets({ request: new Request(`http://x/api/tickets?numero=${j.ticket_definitivo}`) } as never);
+    const g = await getTickets(ctx(`http://x/api/tickets?numero=${j.ticket_definitivo}`));
     expect(g.status).toBe(200);
     expect(((await g.json()) as Record<string, unknown>)["fuente"]).toBe("memoria");
 

@@ -17,18 +17,18 @@ function fijarMulti() {
   process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
 }
 
-function peticionVenta(claveIdem: string): Request {
-  return new Request("http://test/api/credit/sales-on-account", {
+function peticionVenta(claveIdem: string) {
+  return ctx("http://test/api/credit/sales-on-account", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": claveIdem },
-    body: JSON.stringify({
+    body: {
       customer_id: cliente,
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 15000 }],
       device_code: "DEV-PERS2-01",
       seq_local: 1,
       tope_centavos: 999999999,
       saldo_actual_centavos: 0,
-    }),
+    },
   });
 }
 
@@ -58,7 +58,7 @@ describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
   it("el fiado de A se lee con fuente db y B no lo ve", async () => {
     fijarMulti();
     const creado = await conTenant("tenant-a", () =>
-      ventaFiadoPOST({ request: peticionVenta(clave) } as never),
+      ventaFiadoPOST(peticionVenta(clave)),
     );
     expect([201, 409]).toContain(creado.status);
 

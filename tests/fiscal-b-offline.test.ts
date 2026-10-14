@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { armar_pedido_b } from "../src/modules/fiscal/fiscal.js";
 import { desagregar_iva, desagregar_iva_21 } from "../src/modules/fiscal/iva.js";
 import { resolver_fecha, resolver_cola_sync } from "../src/modules/fiscal/fecha.js";
@@ -9,11 +10,11 @@ import { procesar_pendiente } from "../src/modules/fiscal/worker.js";
 import { POST } from "../src/pages/api/sales.js";
 import { resetStore, store } from "../src/lib/store.js";
 
-function req_venta(key: string, seq: number, over: Record<string, unknown> = {}): Request {
-  return new Request("http://localhost/api/sales", {
+function req_venta(key: string, seq: number, over: Record<string, unknown> = {}) {
+  return ctx("http://localhost/api/sales", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-    body: JSON.stringify({
+    body: {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 12100 }],
       medio: "Efectivo",
       device_code: "MOST-01",
@@ -21,7 +22,7 @@ function req_venta(key: string, seq: number, over: Record<string, unknown> = {})
       client_occurred_at: new Date().toISOString(),
       offline: false,
       ...over,
-    }),
+    },
   });
 }
 
@@ -103,7 +104,7 @@ describe("fiscal B + offline (FE-S12/S22)", () => {
   });
 
   it("venta RI etapa 2 online crea pendiente B con IVA", async () => {
-    const res = await POST({ request: req_venta("b-online", 21, { fiscal_emisor_condicion: "responsable_inscripto", fiscal_emisor_etapa: 2 }) } as never);
+    const res = await POST(req_venta("b-online", 21, { fiscal_emisor_condicion: "responsable_inscripto", fiscal_emisor_etapa: 2 }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("pendiente");
@@ -113,7 +114,7 @@ describe("fiscal B + offline (FE-S12/S22)", () => {
   });
 
   it("venta offline crea pendiente_de_sync y promover la deja pendiente", async () => {
-    const res = await POST({ request: req_venta("b-off", 22, { offline: true }) } as never);
+    const res = await POST(req_venta("b-off", 22, { offline: true }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("pendiente_de_sync");
@@ -129,7 +130,7 @@ describe("fiscal B + offline (FE-S12/S22)", () => {
       { product_id: "demo-sku-1", qty: 1, precio_centavos: 500000000 },
       { product_id: "demo-sku-1", qty: 1, precio_centavos: 500000000 },
     ];
-    const res = await POST({ request: req_venta("b-espera", 23, { lineas, offline: true }) } as never);
+    const res = await POST(req_venta("b-espera", 23, { lineas, offline: true }));
     const json = (await res.json()) as Record<string, unknown>;
     expect(res.status).toBe(201);
     expect(json["fiscal_estado"]).toBe("en_espera_de_datos");

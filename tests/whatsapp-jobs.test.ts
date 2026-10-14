@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { POST as POSTAviso } from "../src/pages/api/jobs/whatsapp-aviso.js";
 import { POST as POSTSemanal, calculo_vivo } from "../src/pages/api/jobs/whatsapp-semanal.js";
@@ -10,11 +11,13 @@ import { clave_aviso_wa } from "../src/modules/whatsapp/aviso-matutino.js";
 
 const SECRET = "job-secret";
 
-function reqJob(url: string, body?: unknown): Request {
-  return new Request(url, {
+function reqJob(url: string, body?: unknown, secreto = true) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secreto) headers["X-Job-Secret"] = SECRET;
+  return ctx(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Job-Secret": SECRET },
-    body: body ? JSON.stringify(body) : null,
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
 
@@ -42,10 +45,7 @@ function comercio(optIn: boolean): { tenantId: string; numero: string; sub: stri
 }
 
 async function post(route: typeof POSTAviso, url: string, body?: unknown, secreto = true): Promise<{ status: number; json: Record<string, unknown> }> {
-  const req = reqJob(url, body);
-  const headers = new Headers(req.headers);
-  if (!secreto) headers.delete("X-Job-Secret");
-  const res = (await route({ request: new Request(req, { headers }) } as never)) as Response;
+  const res = (await route(reqJob(url, body, secreto))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
