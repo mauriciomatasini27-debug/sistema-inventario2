@@ -6,6 +6,29 @@ Cada PR de implementación agrega un archivo `docs/roadmap/avances/<número-ADR>
 
 Front-matter con `item`, `estado`, `adr`, `prd`, `fecha` (formato `AAAA-MM-DD`) y exactamente una línea de texto no vacía después del `---` de cierre.
 
+## Ítems chicos
+
+Ítems chicos (sin decisión de arquitectura nueva) llevan solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD: `adr` y `prd` son opcionales y se muestran como `—` en la tabla. PRD + ADR completos solo para decisiones reales de arquitectura o producto.
+
+Ejemplo chico:
+
+```markdown
+---
+item: P1-6
+estado: hecho
+fecha: 2026-10-14
+---
+P1-6: descripción en una línea.
+
+## Decisión
+línea 1
+línea 2
+línea 3
+línea 4
+línea 5
+línea 6
+```
+
 ## Ejemplo
 
 ```markdown

@@ -1,7 +1,13 @@
 const INICIO = "<!-- roadmap:avances:inicio -->";
 const FIN = "<!-- roadmap:avances:fin -->";
 const RX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+const RX_CHICO = /^P\d+-\d+$/;
 const CAMPOS = ["item", "estado", "adr", "prd", "fecha"];
+const CAMPOS_CHICO = ["item", "estado", "fecha"];
+
+function nombreBase(nombre) {
+  return String(nombre ?? "").split("/").pop().replace(/\.md$/, "");
+}
 
 export function parsearAvance(texto, nombre) {
   const lineas = texto.replace(/\r\n/g, "\n").split("\n");
@@ -16,6 +22,41 @@ export function parsearAvance(texto, nombre) {
   for (const linea of lineas.slice(1, cierre)) {
     const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(linea);
     if (m) datos[m[1]] = (m[2] ?? "").trim();
+  }
+  if (RX_CHICO.test(nombreBase(nombre))) {
+    for (const campo of CAMPOS_CHICO) {
+      if (!datos[campo]) {
+        throw new Error(`avance inválido en ${nombre}: falta campo ${campo}`);
+      }
+    }
+    if (!RX_FECHA.test(datos.fecha)) {
+      throw new Error(`avance inválido en ${nombre}: fecha debe ser AAAA-MM-DD`);
+    }
+    const resto = lineas.slice(cierre + 1);
+    const iDecision = resto.findIndex((l) => l.trim() === "## Decisión");
+    if (iDecision < 0) {
+      throw new Error(`avance inválido en ${nombre}: falta sección ## Decisión`);
+    }
+    const previas = resto.slice(0, iDecision).filter((l) => l.trim() !== "");
+    if (previas.length !== 1) {
+      throw new Error(`avance inválido en ${nombre}: se espera exactamente una línea de texto antes de ## Decisión`);
+    }
+    const decision = resto.slice(iDecision + 1).filter((l) => l.trim() !== "");
+    if (decision.length < 5 || decision.length > 10) {
+      throw new Error(
+        `avance inválido en ${nombre}: la sección ## Decisión lleva entre 5 y 10 líneas no vacías`,
+      );
+    }
+    return {
+      item: datos.item,
+      estado: datos.estado,
+      adr: datos.adr ?? "",
+      prd: datos.prd ?? "",
+      fecha: datos.fecha,
+      texto: previas[0].trim(),
+      chico: true,
+      decision: decision.map((l) => l.trim()),
+    };
   }
   for (const campo of CAMPOS) {
     if (!datos[campo]) {
@@ -52,7 +93,7 @@ export function renderizarSeccion(avances) {
     "|---|---|---|---|---|",
   ];
   for (const a of ordenados) {
-    const celda = (v) => v.replace(/\|/g, "\\|");
+    const celda = (v) => (v || "—").replace(/\|/g, "\\|");
     lineas.push(
       `| ${celda(a.fecha)} | ${celda(a.item)} | ${celda(a.estado)} | ${celda(a.texto)} | ${celda(a.prd)} / ${celda(a.adr)} |`,
     );

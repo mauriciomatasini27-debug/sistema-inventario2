@@ -242,3 +242,117 @@ describe("roadmap: bordes de formato", () => {
     expect(renderizarSeccion([a])).toContain("a \\| b");
   });
 });
+
+function avanceChicoValido(sobre: { decision?: string[] } = {}) {
+  const decision = sobre.decision ?? ["d1", "d2", "d3", "d4", "d5", "d6"];
+  return [
+    "---",
+    "item: P1-6",
+    "estado: hecho",
+    "fecha: 2026-10-14",
+    "---",
+    "P1-6: avance chico de prueba.",
+    "",
+    "## Decisión",
+    ...decision,
+  ].join("\n");
+}
+
+describe("parsearAvance chico P<n>-<m>", () => {
+  it("valida un avance chico sin adr/prd con Decisión de 6 líneas", () => {
+    expect(parsearAvance(avanceChicoValido(), "P1-6.md")).toEqual({
+      item: "P1-6",
+      estado: "hecho",
+      adr: "",
+      prd: "",
+      fecha: "2026-10-14",
+      texto: "P1-6: avance chico de prueba.",
+      chico: true,
+      decision: ["d1", "d2", "d3", "d4", "d5", "d6"],
+    });
+  });
+
+  it("detecta el id chico sin ruta ni extensión", () => {
+    const a = parsearAvance(avanceChicoValido(), "docs/roadmap/avances/P1-6.md");
+    expect(a.chico).toBe(true);
+  });
+
+  it("falla si la Decisión tiene 4 líneas", () => {
+    let mensaje = "";
+    try {
+      parsearAvance(avanceChicoValido({ decision: ["d1", "d2", "d3", "d4"] }), "P1-6.md");
+    } catch (e) {
+      mensaje = (e as Error).message;
+    }
+    expect(mensaje).toContain("P1-6.md");
+  });
+
+  it("falla si la Decisión tiene 11 líneas", () => {
+    let mensaje = "";
+    try {
+      parsearAvance(
+        avanceChicoValido({
+          decision: ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11"],
+        }),
+        "P1-6.md",
+      );
+    } catch (e) {
+      mensaje = (e as Error).message;
+    }
+    expect(mensaje).toContain("P1-6.md");
+  });
+
+  it("falla si falta la sección Decisión", () => {
+    const texto = [
+      "---",
+      "item: P1-6",
+      "estado: hecho",
+      "fecha: 2026-10-14",
+      "---",
+      "P1-6: avance chico de prueba.",
+    ].join("\n");
+    let mensaje = "";
+    try {
+      parsearAvance(texto, "P1-6.md");
+    } catch (e) {
+      mensaje = (e as Error).message;
+    }
+    expect(mensaje).toContain("P1-6.md");
+  });
+
+  it("un avance numérico sin adr sigue fallando", () => {
+    const texto = [
+      "---",
+      "item: ROAD1-S1",
+      "estado: hecho",
+      "prd: PRD-ROAD-01",
+      "fecha: 2026-10-14",
+      "---",
+      "Algo.",
+    ].join("\n");
+    let mensaje = "";
+    try {
+      parsearAvance(texto, "0083.md");
+    } catch (e) {
+      mensaje = (e as Error).message;
+    }
+    expect(mensaje).toContain("0083.md");
+  });
+});
+
+describe("renderizarSeccion con avance chico", () => {
+  it("muestra — para adr/prd vacíos", () => {
+    const seccion = renderizarSeccion([
+      {
+        item: "P1-6",
+        estado: "hecho",
+        adr: "",
+        prd: "",
+        fecha: "2026-10-14",
+        texto: "Chico.",
+      },
+    ]);
+    expect(seccion).toContain("—");
+    expect(seccion).toContain("| 2026-10-14 | P1-6 | hecho | Chico. | — / — |");
+  });
+});
