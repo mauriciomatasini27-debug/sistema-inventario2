@@ -6,6 +6,7 @@
 
 import { desc } from "drizzle-orm";
 import { getControlDb } from "./db.js";
+import type { ActoAdmin } from "../modules/admin/actos.js";
 import {
   adminAuditLog,
   billingLedgerEntries,
@@ -29,7 +30,7 @@ export function persistirActoAdmin(a: {
   actorGoogleSub: string;
   actoKind: string;
   tenantId: string | null;
-  detalle: unknown;
+  detalle: ActoAdmin;
   prevHash: string | null;
   hash: string;
   origen: string;

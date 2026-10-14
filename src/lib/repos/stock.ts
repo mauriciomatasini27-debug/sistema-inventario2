@@ -137,7 +137,7 @@ export async function crearConteo(input: CrearConteoInput): Promise<CrearConteoR
     return { sku, teorico, fisico: l.fisico, diferencia: l.fisico - teorico };
   });
   const conteo = { id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor };
-  store.conteos.push(conteo as never);
+  store.conteos.push(conteo);
   store.conteoVistos.set(input.key, id);
   return { ok: true, id, diferencias };
 }
@@ -156,16 +156,14 @@ export type ConfirmarConteoResultado =
 // conteos: siguen en memoria como antes (pendiente pasar a stock_counts/stock_count_lines); el conteo vive en memoria del repo (ver arriba).
 export async function confirmarConteo(input: ConfirmarConteoInput): Promise<ConfirmarConteoResultado> {
   void dbVivaTenant();
-  const c = (store.conteos as Array<{ id: string; estado?: string; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>).find(
-    (x) => x.id === input.id,
-  );
+  const c = store.conteos.find((x) => x.id === input.id);
   if (!c) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
   if (input.rol === "empleado") {
-    (c as { estado?: string }).estado = "listo_revisar";
+    c.estado = "listo_revisar";
     return { ok: true, id: input.id, estado: "listo_revisar" };
   }
   if (!input.motivo) return { ok: false, codigo: "MOTIVO_REQUERIDO", error: "confirmar exige motivo" };
-  (c as { estado?: string }).estado = "confirmado";
+  c.estado = "confirmado";
   for (const d of c.diferencias) {
     if (d.diferencia !== 0) {
       await aplicarMovimiento({ idemKey: `conteo:${input.id}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "COMPENSATORIO" });
@@ -215,7 +213,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
       diferencia: d.diferencia,
     })),
   };
-  store.conteos.push(registrado as never);
+  store.conteos.push(registrado);
   store.conteoVistos.set(input.key, id);
   return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
 }

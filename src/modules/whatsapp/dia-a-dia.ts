@@ -9,6 +9,7 @@
 
 import type { TipoMovimiento } from "../inventario/inventario.js";
 import { formatear_monto } from "./envio-proveedor.js";
+import { diaUTC } from "../../lib/fecha-ar.js";
 
 export type EstadoPedido = "borrador" | "programado" | "enviado";
 
@@ -39,7 +40,7 @@ export const MOVIMIENTOS_WEB_URL = "/panel#movimientos" as const;
 const SIN_TILDES = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 function fecha_corta(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return diaUTC(ms);
 }
 
 // B10.1: lista borradores/programados/enviados de los Ãºltimos 14 dÃ­as,

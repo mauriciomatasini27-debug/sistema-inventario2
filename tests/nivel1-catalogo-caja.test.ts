@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { GET as GETProducts, POST as POSTProducts, PATCH as PATCHProducts } from "../src/pages/api/products.js";
 import { GET as GETLots, POST as POSTLots } from "../src/pages/api/lots.js";
@@ -22,7 +23,7 @@ describe("N1 CAT-S1 productos", () => {
     expect(r1.status).toBe(201);
     const r2 = (await POSTProducts({ request: req("http://x/api/products", { sku: "YERBA-1", nombre: "Otra", precio_centavos: 1 }) } as never)) as Response;
     expect(r2.status).toBe(409);
-    const g = (await GETProducts({ url: new URL("http://x/api/products?q=yerba") } as never)) as Response;
+    const g = (await GETProducts(ctx("http://x/api/products?q=yerba"))) as Response;
     expect((await g.json() as { productos: unknown[] }).productos.length).toBe(1);
   });
 });
@@ -33,7 +34,7 @@ describe("N1 CAT-S3 lots FEFO", () => {
     expect(r422.status).toBe(422);
     await POSTLots({ request: req("http://x/api/lots", { sku: "LECHE", cantidad: 5, vence_el: new Date(Date.now() + 10 * 86400_000).toISOString() }) } as never);
     await POSTLots({ request: req("http://x/api/lots", { sku: "LECHE", cantidad: 5, vence_el: new Date(Date.now() + 2 * 86400_000).toISOString() }) } as never);
-    const g = (await GETLots({ url: new URL("http://x/api/lots?sku=LECHE") } as never)) as Response;
+    const g = (await GETLots(ctx("http://x/api/lots?sku=LECHE"))) as Response;
     const j = (await g.json()) as { lotes: Array<{ venceEl: string }> };
     expect(j.lotes[0]!.venceEl < j.lotes[1]!.venceEl).toBe(true);
   });
@@ -61,7 +62,7 @@ describe("N1 CAJA qr + vencimientos + pagos divididos", () => {
     expect(r1.status).toBe(201);
     const r2 = (await POSTQr({ request: req("http://x/api/cash/qr", { numero_operacion: "OP1", monto_centavos: 1000 }, { "Idempotency-Key": "q2" }) } as never)) as Response;
     expect(r2.status).toBe(409);
-    const d = (await DELETEQr({ url: new URL("http://x/api/cash/qr?numero_operacion=OP1") } as never)) as Response;
+    const d = (await DELETEQr(ctx("http://x/api/cash/qr?numero_operacion=OP1"))) as Response;
     expect(d.status).toBe(200);
   });
   it("due-item pagar crea egreso", async () => {
@@ -83,7 +84,7 @@ describe("N1 CAJA qr + vencimientos + pagos divididos", () => {
 describe("N1 CAT-S4 + OCR vencimiento", () => {
   it("job clasifica 3d y ocr propone fecha", async () => {
     await POSTLots({ request: req("http://x/api/lots", { sku: "VTO", cantidad: 2, vence_el: new Date(Date.now() + 2 * 86400_000).toISOString() }) } as never);
-    const j = (await POSTVenc({} as never)) as Response;
+    const j = (await POSTVenc(ctx("http://x/api/jobs/vencimientos-lotes", { method: "POST" }))) as Response;
     expect((await j.json() as { alertas_3d: unknown[] }).alertas_3d.length).toBe(1);
     const o = (await POSTOcrFecha({ request: req("http://x/ocr", { texto: "VTO 03/2027" }) } as never)) as Response;
     expect(o.status).toBe(200);

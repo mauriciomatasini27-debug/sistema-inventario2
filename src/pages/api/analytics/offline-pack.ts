@@ -6,6 +6,7 @@ import { armar_offline_pack, estima_bytes } from "../../../modules/analytics/off
 import { describir_snapshot } from "../../../modules/analytics/snapshots.js";
 import { recortar_para_rol, puede_ver_tablero } from "../../../modules/analytics/permisos.js";
 import { resolverSesion, membershipActiva } from "../../../lib/control.js";
+import { fechaAR, sumarDiasAR } from "../../../lib/fecha-ar.js";
 import type { Grant, SkuRot } from "../../../modules/analytics/tipos.js";
 
 export const prerender = false;
@@ -29,9 +30,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!puede_ver_tablero(grant)) {
     return Response.json({ error: "No tenés permiso para ver la rotación." }, { status: 403 });
   }
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaAR();
   const dias = parsed.data.alcance === "7d" ? 7 : 30;
-  const desde = new Date(Date.parse(hoy + "T00:00:00Z") - (dias - 1) * 86400000).toISOString().slice(0, 10);
+  const desde = sumarDiasAR(hoy, -(dias - 1));
   const { movimientos, catalogo } = fuente_memoria();
   const r = calcular_rotacion({
     movimientos,
