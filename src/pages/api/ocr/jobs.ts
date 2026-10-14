@@ -1,14 +1,21 @@
 import type { APIRoute } from "astro";
 import { ocrJobSchema } from "../../../lib/validation.js";
-import { store } from "../../../lib/store.js";
-import { ingerirBorrador } from "../../../modules/purchases/facturas.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import {
+  buscarJobPorClave,
+  crearJobRegistro,
+  marcarJobFallo,
+  registrarEventoOcr,
+  vincularBorradorAlJob,
+} from "../../../lib/repos/ocr.js";
+import { ingerirBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
 import {
   campos_en_baja,
   confianza_global,
   crear_paddle_cliente,
   resolver_extraccion,
 } from "../../../modules/ocr/motor.js";
-import { con_borrador, crear_job } from "../../../modules/ocr/jobs.js";
+import { crear_job } from "../../../modules/ocr/jobs.js";
 
 export const prerender = false;
 
@@ -16,6 +23,7 @@ export const prerender = false;
 // E2: clave repetida → 200 con job existente sin reprocesar. E3: no
 // comprobante → 415. C1: el job se procesa inline (en_cola → listo); C2 lo
 // atiende pg-boss manteniendo este contrato.
+// PERS2-S20: jobs y eventos por el repo de OCR; el borrador por facturas-proveedor.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
@@ -29,16 +37,15 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
 
-  const previoId = store.ocrJobsByKey.get(key);
-  if (previoId) {
-    const previo = store.ocrJobs.get(previoId);
-    if (previo) return Response.json({ job_id: previo.id, estado: previo.estado, duplicado: true }, { status: 200 });
+  const previo = buscarJobPorClave(key);
+  if (previo) {
+    return Response.json({ job_id: previo.id, estado: previo.estado, duplicado: true }, { status: 200 });
   }
   if (!b.es_comprobante) return Response.json({ error: "adjunto no es comprobante" }, { status: 415 });
 
   const ahoraIso = new Date().toISOString();
   const jobId = crypto.randomUUID();
-  let job = crear_job({
+  const job = crear_job({
     jobId,
     idempotencyKey: key,
     origen: b.origen,
@@ -46,8 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
     emisor: b.emisor ?? null,
     ahoraIso,
   });
-  store.ocrJobs.set(jobId, job);
-  store.ocrJobsByKey.set(key, jobId);
+  crearJobRegistro(job);
 
   // Extracción en orden pdf → OCR → email (ADR-0005). Motor Paddle solo si hay
   // endpoint configurado y no vino texto directo; si falla, E6 local.
@@ -61,45 +67,45 @@ export const POST: APIRoute = async ({ request }) => {
     motor,
   });
 
-  const ing = ingerirBorrador({
-    idempotencyKey: `ocr-${jobId}`,
-    origen: b.origen,
-    bytesRef: b.bytes_ref ?? b.pdf_ref ?? key,
-    esComprobante: true,
-    ...(ext.campos.cuitTexto ? { cuitTexto: ext.campos.cuitTexto } : {}),
-    ...(b.nombre_proveedor !== undefined ? { nombreProveedor: b.nombre_proveedor } : {}),
-    ...(ext.campos.fechaTexto ? { fechaTexto: ext.campos.fechaTexto } : {}),
-    ...(ext.campos.totalTexto ? { totalTexto: ext.campos.totalTexto } : {}),
-    confianza: ext.confianza,
-    fotoPendiente: b.foto_pendiente,
-    ahoraIso,
-    vistos: store.borradorVistos,
-  });
-  if (ing.status === 415 || ing.status === 422) {
-    job = con_borrador(job, "", ahoraIso);
-    store.ocrJobs.set(jobId, { ...job, estado: "fallo", error: ing.error });
-    return Response.json({ error: ing.error }, { status: ing.status });
-  }
-  const borrador = ing.borrador;
-  store.borradorVistos.set(`ocr-${jobId}`, borrador);
-  store.borradores.set(borrador.id, borrador);
-  job = con_borrador(job, borrador.id, ahoraIso);
-  store.ocrJobs.set(jobId, job);
+  try {
+    const ing = await ingerirBorradorOcrRepo({
+      key: `ocr-${jobId}`,
+      origen: b.origen,
+      bytesRef: b.bytes_ref ?? b.pdf_ref ?? key,
+      ...(ext.campos.cuitTexto ? { cuitTexto: ext.campos.cuitTexto } : {}),
+      ...(b.nombre_proveedor !== undefined ? { nombreProveedor: b.nombre_proveedor } : {}),
+      ...(ext.campos.fechaTexto ? { fechaTexto: ext.campos.fechaTexto } : {}),
+      ...(ext.campos.totalTexto ? { totalTexto: ext.campos.totalTexto } : {}),
+      confianza: { ...ext.confianza },
+      fotoPendiente: b.foto_pendiente,
+      ahoraIso,
+    });
+    if (ing.status === 415 || ing.status === 422) {
+      marcarJobFallo(job, ing.error);
+      return Response.json({ error: ing.error }, { status: ing.status });
+    }
+    if (ing.status === 200) {
+      const vinculado = vincularBorradorAlJob(job, ing.borrador.id, ahoraIso);
+      return Response.json({ job_id: jobId, estado: vinculado.estado, duplicado: true }, { status: 200 });
+    }
+    const borrador = ing.borrador;
+    const vinculado = vincularBorradorAlJob(job, borrador.id, ahoraIso);
 
-  const global = confianza_global(ext.confianza);
-  store.ocrEventos.push({
-    tipo: "ocr_borrador_listo",
-    payload: {
+    const global = confianza_global(ext.confianza);
+    registrarEventoOcr("ocr_borrador_listo", {
       job_id: jobId,
       origen: b.origen,
       confianza_global: global,
       campos_baja: campos_en_baja(ext.confianza),
       vence_at: borrador.venceAt,
       revisa: global !== "alta" || ext.usoFallbackLocal,
-    },
-  });
-  return Response.json(
-    { job_id: jobId, estado: job.estado, borrador_id: borrador.id, confianza_global: global, revisa: global !== "alta" || ext.usoFallbackLocal },
-    { status: 201 },
-  );
+    });
+    return Response.json(
+      { job_id: jobId, estado: vinculado.estado, borrador_id: borrador.id, confianza_global: global, revisa: global !== "alta" || ext.usoFallbackLocal },
+      { status: 201 },
+    );
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
 };

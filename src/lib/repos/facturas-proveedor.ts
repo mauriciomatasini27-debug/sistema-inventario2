@@ -6,12 +6,15 @@ import type { Medio } from "../validation.js";
 import {
   confirmarBorrador,
   descartarBorrador,
+  editarBorrador,
   estadoCuenta,
   ingerirBorrador,
   registrarPago,
   type Borrador,
+  type ConfianzaPorCampo,
   type Factura,
   type PagoProveedor,
+  type ParcheBorrador,
   type RegistrarPagoInput,
 } from "../../modules/purchases/facturas.js";
 import { cerrarOrden } from "../../modules/purchases/proveedores.js";
@@ -729,4 +732,265 @@ async function viaMemoria(
   if (r.status !== 201) return { status: r.status, body: { error: r.error } };
   await espejoPago(r.pago, r.egresoCaja.montoCentavos, r.egresoCaja.metodo);
   return { status: 201, body: { pago_id: r.pago.id, monto_centavos: r.pago.montoCentavos.toString() } };
+}
+
+// PERS2-S20 (ADR-0060): ciclo del borrador del canal OCR (clave `ocr-<jobId>`).
+// Mismo contrato que el lane puro mas persistencia DB-first; sin DB o ante
+// error, memoria como antes. En multi sin base dbVivaTenant lanza y se propaga.
+
+export interface IngestaOcrInput {
+  readonly key: string;
+  readonly origen: Borrador["origen"];
+  readonly bytesRef: string;
+  readonly cuitTexto?: string | undefined;
+  readonly nombreProveedor?: string | undefined;
+  readonly fechaTexto?: string | undefined;
+  readonly totalTexto?: string | undefined;
+  readonly confianza: ConfianzaPorCampo;
+  readonly fotoPendiente: boolean;
+  readonly ahoraIso: string;
+}
+
+export type IngestaOcrResultado =
+  | { status: 201; borrador: Borrador; avisoRevisar: boolean }
+  | { status: 200; borrador: Borrador; duplicado: true }
+  | { status: 415; error: string }
+  | { status: 422; error: string };
+
+export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<IngestaOcrResultado> {
+  const r = ingerirBorrador({
+    idempotencyKey: input.key,
+    origen: input.origen,
+    bytesRef: input.bytesRef,
+    esComprobante: true,
+    ...(input.cuitTexto !== undefined ? { cuitTexto: input.cuitTexto } : {}),
+    ...(input.nombreProveedor !== undefined ? { nombreProveedor: input.nombreProveedor } : {}),
+    ...(input.fechaTexto !== undefined ? { fechaTexto: input.fechaTexto } : {}),
+    ...(input.totalTexto !== undefined ? { totalTexto: input.totalTexto } : {}),
+    confianza: { ...input.confianza },
+    fotoPendiente: input.fotoPendiente,
+    ahoraIso: input.ahoraIso,
+    vistos: store.borradorVistos,
+  });
+  if (r.status === 415 || r.status === 422) return { status: r.status, error: r.error };
+  if (r.status === 200) {
+    store.borradorVistos.set(input.key, r.borrador);
+    store.borradores.set(r.borrador.id, r.borrador);
+    return { status: 200, borrador: r.borrador, duplicado: true };
+  }
+
+  const espejo = () => {
+    store.borradorVistos.set(input.key, r.borrador);
+    store.borradores.set(r.borrador.id, r.borrador);
+  };
+
+  const db = dbVivaTenant();
+  if (!db) {
+    espejo();
+    return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
+  }
+
+  try {
+    const previo = await leerBorradorPorKey(db, input.key);
+    if (previo) {
+      store.borradorVistos.set(input.key, previo.borrador);
+      store.borradores.set(previo.borrador.id, previo.borrador);
+      return { status: 200, borrador: previo.borrador, duplicado: true };
+    }
+    await db
+      .insert(supplierDrafts)
+      .values({
+        idempotencyKey: input.key,
+        origen: r.borrador.origen,
+        bytesRef: r.borrador.bytesRef,
+        cuit: r.borrador.cuit,
+        nombreProveedor: r.borrador.nombreProveedor,
+        fechaIso: r.borrador.fechaIso,
+        totalCentavos: r.borrador.totalCentavos,
+        items: itemsADb(r.borrador.items),
+        confianza: { ...r.borrador.confianza },
+        estado: r.borrador.estado,
+        fotoPendiente: r.borrador.fotoPendiente,
+        confirmadoPor: null,
+        facturaId: null,
+        createdAt: new Date(r.borrador.creadoEn),
+        venceAt: new Date(r.borrador.venceAt),
+      })
+      .onConflictDoNothing({ target: supplierDrafts.idempotencyKey });
+    espejo();
+    return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    espejo();
+    return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
+  }
+}
+
+// Lectura de borrador para el canal OCR: memoria primero, DB despues.
+export async function leerBorradorOcrRepo(draftId: string): Promise<Borrador | null> {
+  const enMemoria = store.borradores.get(draftId);
+  if (enMemoria) return enMemoria;
+  const db = dbVivaTenant();
+  if (!db) return null;
+  try {
+    const fila = await leerBorradorPorId(db, draftId);
+    if (fila) {
+      store.borradores.set(fila.borrador.id, fila.borrador);
+      store.borradorVistos.set(fila.borrador.idempotencyKey, fila.borrador);
+      return fila.borrador;
+    }
+    return null;
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return null;
+  }
+}
+
+export type EdicionOcrResultado =
+  | { status: 200; borrador: Borrador }
+  | { status: 404; error: string }
+  | { status: 409; error: string }
+  | { status: 410; error: string }
+  | { status: 422; error: string };
+
+export async function editarBorradorOcrRepo(input: {
+  draftId: string;
+  parche: ParcheBorrador;
+  ahoraIso: string;
+}): Promise<EdicionOcrResultado> {
+  const base = await leerBorradorOcrRepo(input.draftId);
+  if (!base) return { status: 404, error: "borrador inexistente" };
+  const r = editarBorrador(base, input.parche, input.ahoraIso);
+  if (r.status !== 200) return r;
+  store.borradores.set(r.borrador.id, r.borrador);
+  store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+  const db = dbVivaTenant();
+  if (!db) return r;
+  try {
+    const previo = await leerBorradorPorKey(db, r.borrador.idempotencyKey);
+    const valores = {
+      cuit: r.borrador.cuit,
+      nombreProveedor: r.borrador.nombreProveedor,
+      fechaIso: r.borrador.fechaIso,
+      totalCentavos: r.borrador.totalCentavos,
+      items: itemsADb(r.borrador.items),
+      confianza: { ...r.borrador.confianza },
+      fotoPendiente: r.borrador.fotoPendiente,
+    };
+    if (previo) {
+      await db
+        .update(supplierDrafts)
+        .set(valores)
+        .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+    } else {
+      await db
+        .insert(supplierDrafts)
+        .values({
+          idempotencyKey: r.borrador.idempotencyKey,
+          origen: r.borrador.origen,
+          bytesRef: r.borrador.bytesRef,
+          estado: r.borrador.estado,
+          confirmadoPor: null,
+          facturaId: null,
+          createdAt: new Date(r.borrador.creadoEn),
+          venceAt: new Date(r.borrador.venceAt),
+          ...valores,
+        })
+        .onConflictDoNothing({ target: supplierDrafts.idempotencyKey });
+    }
+    return r;
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return r;
+  }
+}
+
+export type ConfirmacionOcrResultado =
+  | { status: 201; borrador: Borrador; factura: Factura; avisoRevisar: boolean }
+  | { status: 404; error: string }
+  | { status: 409; error: string }
+  | { status: 410; error: string }
+  | { status: 422; error: string };
+
+export async function confirmarBorradorOcrRepo(input: {
+  draftId: string;
+  quien: string;
+  ahoraIso: string;
+}): Promise<ConfirmacionOcrResultado> {
+  const base = await leerBorradorOcrRepo(input.draftId);
+  if (!base) return { status: 404, error: "borrador inexistente" };
+  const r = confirmarBorrador(base, { quien: input.quien, ahoraIso: input.ahoraIso });
+  if (r.status !== 201) return { status: r.status, error: r.error };
+  const espejo = () => {
+    store.borradores.set(r.borrador.id, r.borrador);
+    store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+    store.facturasProv.set(r.factura.id, r.factura);
+  };
+  const db = dbVivaTenant();
+  if (!db) {
+    espejo();
+    return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
+  }
+  try {
+    const filaDraft = await asegurarFilaBorrador(db, base);
+    const ins = await db
+      .insert(supplierInvoices)
+      .values({
+        idempotencyKey: r.factura.idempotencyKey,
+        draftId: filaDraft.id,
+        supplierCuit: r.factura.supplierCuit,
+        nombreProveedor: r.factura.nombreProveedor,
+        tipo: r.factura.tipo,
+        fechaIso: r.factura.fechaIso,
+        totalCentavos: r.factura.totalCentavos,
+        items: itemsADb(r.factura.items),
+        compensatoriaDe: null,
+        creadoPor: r.factura.creadoPor,
+        createdAt: new Date(r.factura.creadoEn),
+      })
+      .onConflictDoNothing({ target: supplierInvoices.idempotencyKey })
+      .returning({ id: supplierInvoices.id });
+    const fila = ins[0];
+    if (!fila) return { status: 409, error: "borrador ya resuelto (confirmado o descartado)" };
+    await db
+      .update(supplierDrafts)
+      .set({ estado: "confirmada", confirmadoPor: input.quien, facturaId: fila.id })
+      .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+    espejo();
+    return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    espejo();
+    return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
+  }
+}
+
+export type DescarteOcrResultado =
+  | { status: 200; borrador: Borrador }
+  | { status: 404; error: string }
+  | { status: 409; error: string }
+  | { status: 410; error: string };
+
+export async function descartarBorradorOcrRepo(input: {
+  draftId: string;
+  ahoraIso: string;
+}): Promise<DescarteOcrResultado> {
+  const base = await leerBorradorOcrRepo(input.draftId);
+  if (!base) return { status: 404, error: "borrador inexistente" };
+  const r = descartarBorrador(base, input.ahoraIso);
+  if (r.status !== 200) return r;
+  store.borradores.set(r.borrador.id, r.borrador);
+  store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+  const db = dbVivaTenant();
+  if (!db) return r;
+  try {
+    await db
+      .update(supplierDrafts)
+      .set({ estado: r.borrador.estado })
+      .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+    return r;
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return r;
+  }
 }
