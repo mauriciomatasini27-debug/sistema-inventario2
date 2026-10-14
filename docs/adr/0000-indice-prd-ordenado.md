@@ -80,3 +80,4 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PERS-02` (E7) | `0056` | Repositorio de caja: rutas `cash/*` sin `store`; grupo 4 (2026-10-13) |
 | `PRD-PERS-02` (E8) | `0057` | Repositorios de facturas de proveedores y órdenes de pago sin `store`; grupo 5 (2026-10-13) |
 | `PRD-PERS-02` (E9) | `0058` | Repositorios de consumos de servicios y fiado sin `store`; grupo 6 (2026-10-13) |
+| `PRD-PERS-02` (E10) | `0059` | Jobs programados sin `store` por repositorios de dominio; grupo 7 (2026-10-13) |

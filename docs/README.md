@@ -9,7 +9,7 @@ Estado de implementación y roadmap 2026-10-12: `ROADMAP.md` (reemplaza al check
 ## 01-fundacion/ — Arquitectura, stack, costos y offline transversal
 Base técnica y restricciones que condicionan todo.
 - `costos-por-cliente.md` (WABA compartido, Hetzner vs Neon, PaddleOCR, planes 15/35/59) → `src/modules/whatsapp`, `src/modules/ocr`, `src/modules/payments`
-- `modo-offline.md` (OF1-OF9, SQLite local, outbox `op_id UUIDv7`, FEFO local) → `src/offline/`, `src/pages/api/sync/*`, `src/lib/outbox.ts`; cutover multi-tenant: `diseno/PRD-PERS-02-cutover-multi-tenant.md` + `adr/0052-memoria-por-tenant-y-cutover.md`, `adr/0053-repos-dominio-sin-store.md`, `adr/0054-repos-fiscal-sin-store.md`, `adr/0055-repos-canales-sin-store.md`, `adr/0056-repo-caja-sin-store.md`, `adr/0057-repos-compras-pagos-sin-store.md`, `adr/0058-repos-servicios-fiado-sin-store.md`
+- `modo-offline.md` (OF1-OF9, SQLite local, outbox `op_id UUIDv7`, FEFO local) → `src/offline/`, `src/pages/api/sync/*`, `src/lib/outbox.ts`; cutover multi-tenant: `diseno/PRD-PERS-02-cutover-multi-tenant.md` + `adr/0052-memoria-por-tenant-y-cutover.md`, `adr/0053-repos-dominio-sin-store.md`, `adr/0054-repos-fiscal-sin-store.md`, `adr/0055-repos-canales-sin-store.md`, `adr/0056-repo-caja-sin-store.md`, `adr/0057-repos-compras-pagos-sin-store.md`, `adr/0058-repos-servicios-fiado-sin-store.md`, `adr/0059-jobs-sin-store.md`
 - ADRs: `adr/0001-arquitectura-base.md`, `adr/0002-stack-desarrollo.md`, `adr/0003-multitenancy-datos-offline.md`, `adr/0007-externos.md`, `adr/0013-adaptacion.md`, `adr/0017-slice-0.md`
 
 ## 02-identidad-onboarding/ — Auth, onboarding y tenants

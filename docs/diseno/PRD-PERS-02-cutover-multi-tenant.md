@@ -80,6 +80,15 @@ Requisito PERS2-9: `utility-bills`, `utility-bills/due`, `utility-bills/pay`, `c
 
 Arch-test AT12: ningún archivo de `src/pages/api/{utility-bills,credit}*` importa `store` de `lib/store`; el contador global baja de 33.
 
+## Épica PERS2-E10. Rutas sin `store`: jobs programados (PERS-S4, grupo 7)
+
+Requisito PERS2-10: los 6 jobs de `src/pages/api/jobs/` que hoy importan `store` (whatsapp-aviso, whatsapp-semanal, whatsapp-cierre, cierre-medianoche, vencimientos-lotes, vencimientos-servicios) leen y escriben por los repositorios de dominio que ya existen (`caja.ts`, `servicios.ts`, `ordenes-pago.ts`, `whatsapp.ts`) y por `src/lib/repos/lotes.ts` para lotes, siempre con el tenant que resuelve `gateJob` (ADR-0052, ADR-0053, ADR-0059).
+
+- Historia PERS2-S18. Jobs de avisos y cierre: whatsapp-aviso, whatsapp-semanal, whatsapp-cierre y cierre-medianoche usan los repositorios de caja y whatsapp. AC: Given multi con base de A When corre el cierre de medianoche para A Then el cierre queda en la base de A y B no lo ve; el job no importa `store`; Given single sin base Then se comporta como hoy. ADR: 0059. Talla M. Depende de: PERS2-S12, PERS2-S10.
+- Historia PERS2-S19. Jobs de vencimientos: vencimientos-lotes y vencimientos-servicios usan `lotes.ts`, `servicios.ts` y `ordenes-pago.ts`. AC: Given multi con base de A When corre el job para A Then solo marca vencimientos de A. ADR: 0059. Talla S. Depende de: PERS2-S15, PERS2-S16.
+
+Arch-test AT13: ningún archivo de `src/pages/api/jobs/` importa `store` de `lib/store`; el contador global baja de 27.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
