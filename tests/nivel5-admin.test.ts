@@ -14,7 +14,7 @@ function adminSesion(sub: string): string {
 }
 
 function req(url: string, plano: string, body?: unknown): Request {
-  return new Request(url, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${plano}` }, body: body ? JSON.stringify(body) : undefined });
+  return new Request(url, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", cookie: `__Host-sesion=${plano}` }, ...(body ? { body: JSON.stringify(body) } : {}) });
 }
 
 beforeEach(() => { resetStore(); resetAdmin(); process.env.ADMIN_ALLOWLIST_SUBS = "admin-1"; });

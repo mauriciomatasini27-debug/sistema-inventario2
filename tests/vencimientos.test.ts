@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as POSTVenc } from "../src/pages/api/jobs/vencimientos-servicios.js";
 import { ejecutar_vencimientos_servicios } from "../src/jobs/vencimientos-servicios.js";
 import { fechaBA } from "../src/jobs/whatsapp-aviso-matutino.js";
@@ -8,9 +8,14 @@ import { control, resetStore, store } from "../src/lib/store.js";
 const SECRET = "test-secret-jobs";
 const DIA = 86_400_000;
 
+// Reloj fijo: 22:00 en Buenos Aires (01:00Z del día siguiente) para cubrir el
+// borde en que la fecha UTC ya cambió y la de BA no. Solo se falsea Date.
+vi.useFakeTimers({ toFake: ["Date"] });
+vi.setSystemTime(new Date("2026-10-14T01:00:00Z"));
 const hoyMs = Date.now();
 const hoyIso = fechaBA(new Date(hoyMs));
-const isoDias = (d: number): string => new Date(hoyMs + d * DIA).toISOString().slice(0, 10);
+// Fechas en calendario de BA, igual que el job (no UTC).
+const isoDias = (d: number): string => fechaBA(new Date(hoyMs + d * DIA));
 
 function orden(id: string, numero: string, venceMs: number): PaymentOrder {
   return {
@@ -79,6 +84,7 @@ function semilla(): void {
 
 beforeEach(semilla);
 afterAll(() => {
+  vi.useRealTimers();
   delete process.env.JOBS_SECRET;
 });
 
