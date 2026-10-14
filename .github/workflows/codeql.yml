@@ -18,4 +18,13 @@ jobs:
       - uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
+      # Code scanning is not enabled on this private repo (needs GitHub Advanced Security),
+      # so analyze locally and keep the SARIF as an artifact instead of uploading.
       - uses: github/codeql-action/analyze@v3
+        with:
+          upload: never
+          output: sarif-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif
+          path: sarif-results
