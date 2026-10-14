@@ -169,7 +169,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | P1-5 | hecho | P1-5: los 9 errores tragados de E7 en 0 (PRD-PERS-07, ADR-0082). | — / — |
 | 2026-10-14 | P1-6 | hecho | P1-6: tests intermitentes de base B aislados sin reintentos: sec04 en bases privadas, due filtrado y notif_id únicos. | — / — |
 | 2026-10-14 | P1-7 | hecho | P1-7: journal de migraciones arreglado (cierra Para implementar 1.1): 20 entradas en `drizzle/meta/_journal.json` para 20 SQL `0000` a `0019`. | — / — |
-| 2026-10-14 | P1-8 | pendiente | P1-8 nuevo: PWA cifrado local y borrado remoto (PWA-S5, ADR-0025); `photos_queue` ya hecho en `src/offline/fotos.ts`. | — / — |
+| 2026-10-14 | P1-8 | hecho | P1-8: PWA-S5 borrado remoto cerrado (revocar-remoto → heartbeat wipe → latido → revocarDispositivo). | — / — |
 | 2026-10-14 | P2-1 | hecho | P2-1: fase 3 cerrada (casts en piso intencional 1/0; ARQ-S7 ya en CI). | — / — |
 | 2026-10-14 | P2-2 | en curso | P2-2 en curso: puerto Almacen, precios migrado; quedan ~14 cortes (427 `store.`, 143 `esModoMulti`). | — / — |
 | 2026-10-14 | P9-1 | bloqueado (decisión de Mauri) | P9-1 bloqueado por decisiones de Mauri: Proveedor de OCR definitivo (ADR-0005: PaddleOCR propio vs Vision/Textract). | — / — |
