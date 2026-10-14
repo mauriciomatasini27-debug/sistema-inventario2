@@ -17,11 +17,11 @@
     "review:scope": "node scripts/review-scope.mjs"
   },
   "dependencies": {
-    "@astrojs/node": "^8.3.0",
+    "@astrojs/node": "^11.1.7",
     "@astrojs/react": "^7.0.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
-    "astro": "^4.16.0",
+    "astro": "^7.3.8",
     "drizzle-orm": "^0.36.0",
     "jose": "^6.2.12",
     "node-forge": "^1.4.0",
