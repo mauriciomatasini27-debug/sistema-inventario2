@@ -973,6 +973,48 @@ export async function registrarEgresoRetiro(input: {
   return mov;
 }
 
+// Movimiento opuesto de una devolución (PERS2-S25, ADR-0063): lo usa el repo
+// de ventas en lugar de empujar store.movements. DB primero con espejo
+// memoria; en multi sin base propaga BaseNoDisponible.
+export async function registrarMovimientoDevolucion(input: {
+  key: string;
+  saleId: string;
+  medio: Medio;
+  montoCentavos: bigint;
+  tipo: "ingreso" | "egreso";
+}): Promise<StoredMovement> {
+  const mov: StoredMovement = {
+    id: randomUUID(),
+    tipo: input.tipo,
+    metodo: input.medio,
+    monto_centavos: input.montoCentavos.toString(),
+    origen: "devolucion",
+    sale_id: input.saleId,
+    idempotency_key: input.key,
+  };
+  const db = dbVivaTenant();
+  if (!db) {
+    store.movements.push(mov);
+    return mov;
+  }
+  try {
+    await db.insert(cashMovements).values({
+      id: mov.id,
+      saleId: input.saleId,
+      idempotencyKey: input.key,
+      tipo: input.tipo,
+      metodo: input.medio,
+      categoriaId: "devolucion_venta",
+      origen: "devolucion",
+      montoCentavos: input.montoCentavos,
+    });
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+  }
+  store.movements.push(mov);
+  return mov;
+}
+
 // Ingreso de cobro de fiado (PERS2-S17, ADR-0058): lo usa el repo de fiado en
 // lugar de empujar store.movements. DB primero con espejo memoria; en multi
 // sin base propaga BaseNoDisponible.

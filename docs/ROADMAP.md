@@ -36,7 +36,7 @@ Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
 1. Arreglar el journal de migraciones: `drizzle/meta/_journal.json` solo registra `0000`; `0001` a `0006` no están y hay dos `0004` (`0004_auth_append_only.sql`, `0004_ticket_links.sql`). Talla S.
-2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Grupo 1 (tickets, precios, proveedores) aceptado (ADR-0053); grupo 2: fiscal aceptado (ADR-0054); grupo 3: whatsapp y email aceptado (ADR-0055); grupo 4: caja aceptado (ADR-0056); grupo 5: facturas de proveedores y órdenes de pago aceptado (ADR-0057); grupo 6: consumos de servicios y fiado aceptado (ADR-0058); grupo 7: jobs aceptado (ADR-0059); grupo 8: OCR aceptado (ADR-0060); grupo 9: sincronización aceptado (ADR-0061); grupo 10: catálogo, stock y compras aceptado (ADR-0062). Ahora: Grupo 11 (ventas y devoluciones) en curso (PRD-PERS-02 PERS2-E14, ADR-0063); 3 rutas importan `store` hoy.
+2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Cutover por dominio hecho (grupos 1 a 11, ADR-0053 a ADR-0063, PRD-PERS-02 PERS2-E4 a PERS2-E14): 0 rutas de `src/pages/api` importan `store`. Resta pasar a tablas los mapas que siguen en memoria dentro de los repositorios (OCR, ubicaciones, fotos, conteos, correlativos y claves de avisos; ver Pendientes de cada ADR).
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
 5. PWA: `photos_queue`, cifrado y borrado remoto (PWA-S4, PWA-S5, ADR-0025).
@@ -59,6 +59,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 1. Login endurecido (PRD-AU-01, ADR-0031) y login con destino `next` y bifurcación admin/tenant (AU2-S1 a S7, ADR-0030): a verificar contra código.
 2. Onboarding ON1-ON13 (`docs/02-identidad-onboarding/onboarding-parte-1.md`, `-parte-2.md`): estado a verificar; cupo de prueba abierto (`onboarding-parte-2.md:261`).
 3. Flujo demo de dos tenants E2E (PRD-E2E-01, E2E-S1 a S6).
+4. Dueño real en pagos y fiscal, online real en ajustes de precio y correlativo único de tickets entre ventas y sync (PRD-SEC-01, ADR-0066 aceptado): hecho 2026-10-13, SEC-S1 a S4 con `tests/sec01-dueno-correlativo.test.ts` 17/17; pendiente sumar `/api/payment-orders` a `PREFIJOS_DATOS`.
 
 ### 3. WhatsApp y canales
 1. Alta del número central en Meta, verificación del negocio y plantillas (ADR-0041, ADR-0042). Externo.
@@ -107,6 +108,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 
 ### 9. Proceso y negocio (no es código)
 1. PRD-NEG-01 catálogo y oferta (ADR-0012; NEG-S8 superado por PRD-LANDING-01), PRD-ADAP-01 adaptación desde ModoOps (ADR-0013), skills PRD-SK-01 a SK-03 (ADR-0014 a 0016): cumplimiento a verificar.
+2. Poda de comentarios de código (PRD-COM-01, ADR-0064 propuesto): aplicar el grupo borrar del plan `diseno/PLAN-COM-01-poda-comentarios.md`, abrir issues del grupo refactor, regla de lint y checklist de PR. Talla M.
 
 ## Decisiones registradas
 
@@ -152,7 +154,9 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0057-repos-compras-pagos-sin-store.md` | cubierto | Ya implementado (grupo 5: facturas de proveedores y órdenes de pago) |
 | `adr/0058-repos-servicios-fiado-sin-store.md` | cubierto | Ya implementado (grupo 6: consumos de servicios y fiado) |
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
-| `adr/0063-ventas-devoluciones-sin-store.md` | cubierto | Para implementar 1.2 |
+| `adr/0066-dueno-real-y-correlativo-unico.md` | cubierto | Ya implementado (2b.4: dueño real, online real, correlativo único) |
+| `adr/0064-politica-comentarios.md` | cubierto | 9.2 |
+| `adr/0063-ventas-devoluciones-sin-store.md` | cubierto | Ya implementado (grupo 11: ventas y devoluciones) |
 | `adr/0062-repos-catalogo-stock-sin-store.md` | cubierto | Ya implementado (grupo 10: catálogo, stock y compras) |
 | `adr/0061-repo-sync-sin-store.md` | cubierto | Ya implementado (grupo 9: sincronización) |
 | `adr/0060-repo-ocr-sin-store.md` | cubierto | Ya implementado (grupo 8: OCR) |
@@ -248,6 +252,8 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-CP-01` | cubierto | 6b.1 |
 | `diseno/PRD-DASH-01` | cubierto | 5.2 |
 | `diseno/PRD-DS-01` | cubierto | 5.5 |
+| `diseno/PRD-COM-01` | cubierto | 9.2 |
+| `diseno/PRD-SEC-01` | cubierto | 2b.4 |
 | `diseno/PRD-DS-02` | cubierto | 5.5 |
 | `diseno/PRD-DS-03` | cubierto | 5.5 |
 | `diseno/PRD-E2E-01` | cubierto | 2b.3 |

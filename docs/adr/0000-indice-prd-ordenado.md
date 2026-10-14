@@ -81,6 +81,8 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-PERS-02` (E8) | `0057` | Repositorios de facturas de proveedores y órdenes de pago sin `store`; grupo 5 (2026-10-13) |
 | `PRD-PERS-02` (E9) | `0058` | Repositorios de consumos de servicios y fiado sin `store`; grupo 6 (2026-10-13) |
 | `PRD-PERS-02` (E10) | `0059` | Jobs programados sin `store` por repositorios de dominio; grupo 7 (2026-10-13) |
+| `PRD-SEC-01` | `0066` | Dueño real en rutas sensibles (pagos, fiscal), online real en ajustes de precio y correlativo único de tickets entre ventas y sync (aceptado, 2026-10-13) |
+| `PRD-COM-01` | `0064` | Política de comentarios de código: solo por qué no obvio; parches a refactor o issue (propuesto, 2026-10-13) |
 | `PRD-PERS-02` (E14) | `0063` | Ventas, devoluciones y correcciones sin `store`; cierre de PERS-S5 en rutas (2026-10-13) |
 | `PRD-PERS-02` (E13) | `0062` | Repositorios de catálogo, stock y compras sin `store`; grupo 10 (2026-10-13) |
 | `PRD-PERS-02` (E12) | `0061` | Repositorio de sincronización offline sin `store`; grupo 9 (2026-10-13) |
