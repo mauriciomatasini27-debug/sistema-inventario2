@@ -88,7 +88,7 @@ export async function leerSesion(numero: string, ahoraMs: number, tenantId?: str
       const fila = filas[0];
       if (fila) {
         if (fila.expiraEn && ahoraMs > fila.expiraEn.getTime()) return null;
-        return { paso: fila.paso, contexto: (fila.contexto ?? {}) as Record<string, unknown> };
+        return { paso: fila.paso, contexto: fila.contexto };
       }
       if (!hayMemoria(tenantId)) return null;
     } catch (e) {
@@ -109,10 +109,10 @@ export async function guardarSesion(numero: string, paso: string, contexto: Reco
     try {
       await db
         .insert(whatsappSessions)
-        .values({ numeroE164: numero, paso, contexto: contexto as never, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) })
+        .values({ numeroE164: numero, paso, contexto, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) })
         .onConflictDoUpdate({
           target: whatsappSessions.numeroE164,
-          set: { paso, contexto: contexto as never, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) },
+          set: { paso, contexto, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) },
         });
     } catch (e) {
       if (esModoMulti()) throw aBaseNoDisponible(e);

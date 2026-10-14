@@ -5,6 +5,7 @@ import { persistirEventoVidaAdmin } from "../../../../lib/admin-db.js";
 import { auditar, exigirAdmin, exigirConfirmacion, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { aplicar_evento_vida } from "../../../../modules/admin/mora.js";
+import { fechaAR } from "../../../../lib/fecha-ar.js";
 
 export const prerender = false;
 
@@ -23,7 +24,7 @@ export const POST: APIRoute = async ({ request }) => {
   const conf = exigirConfirmacion(parsed, tenantId);
   if (conf instanceof Response) return conf;
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaAR();
   const idemKey = `suspender:${tenantId}:${hoy}`;
   if (adminStore.eventosVida.some((e) => e.idempotencyKey === idemKey)) {
     return Response.json({ tenant_id: tenantId, estado: tenant.estado, ya: true }, { status: 200 });

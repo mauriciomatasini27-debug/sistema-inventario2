@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PaymentOrder } from "../src/modules/payments/ordenes.js";
 import type { FacturaServicio } from "../src/modules/utilities/facturas_servicios.js";
 import { resumen_semanal_pagos, semana_lunes_domingo } from "../src/modules/pagos-tx/resumen-semanal.js";
+import { diaUTC } from "../src/lib/fecha-ar.js";
 
 // Lunes 2026-10-12 12:00 UTC. La semana es Lun 12 -> Dom 18.
 const LUNES_12 = Date.UTC(2026, 9, 12, 12);
@@ -44,10 +45,10 @@ function factura(id: string, vencimiento: string, estado: FacturaServicio["estad
 describe("resumen semanal de pagos L-D", () => {
   it("la ventana es lunes a domingo", () => {
     const { lunesMs, domingoMs } = semana_lunes_domingo(LUNES_12);
-    expect(new Date(lunesMs).toISOString().slice(0, 10)).toBe("2026-10-12");
-    expect(new Date(domingoMs).toISOString().slice(0, 10)).toBe("2026-10-18");
+    expect(diaUTC(lunesMs)).toBe("2026-10-12");
+    expect(diaUTC(domingoMs)).toBe("2026-10-18");
     const dom = semana_lunes_domingo(Date.UTC(2026, 9, 18, 23));
-    expect(new Date(dom.lunesMs).toISOString().slice(0, 10)).toBe("2026-10-12");
+    expect(diaUTC(dom.lunesMs)).toBe("2026-10-12");
   });
 
   it("incluye lo que vence en la semana, excluye pagadas/canceladas/fuera", () => {

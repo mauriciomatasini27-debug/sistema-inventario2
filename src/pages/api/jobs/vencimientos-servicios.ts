@@ -7,7 +7,7 @@ import { listarOrdenesJob, persistirOrdenesVencidas } from "../../../lib/repos/o
 import { listarComerciosBot, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
 import { ejecutar_vencimientos_servicios } from "../../../jobs/vencimientos-servicios.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
-import { fechaBA } from "../../../jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../../../lib/fecha-ar.js";
 
 export const prerender = false;
 
@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!g.ok) return g.respuesta;
   return conTenant(g.tenantId, async () => {
     const ahoraMs = Date.now();
-    const hoyIso = fechaBA(new Date(ahoraMs));
+    const hoyIso = fechaAR(new Date(ahoraMs));
     const hayCred = cred_wa() !== null;
     let cuentas: Awaited<ReturnType<typeof listarCuentas>>;
     let facturas: Awaited<ReturnType<typeof listarFacturas>>;

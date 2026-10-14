@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, afterEach } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { store, resetStore } from "../src/lib/store.js";
 import { intentarLeer, intentarPersistir } from "../src/lib/server-db.js";
@@ -120,7 +121,7 @@ describe("PERS2-S2 sin fallback silencioso en multi", () => {
     setMulti();
     delete process.env["TENANT_DATABASE_URL_tenant-a"];
     const res = await conTenant("tenant-a", () =>
-      balanceGET({ url: new URL("http://test/api/credit/balance?customer_id=x") } as never),
+      balanceGET(ctx("http://test/api/credit/balance?customer_id=x")),
     );
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: "base_no_disponible" });
@@ -131,7 +132,7 @@ describe("PERS2-S2 sin fallback silencioso en multi", () => {
     await expect(intentarLeer(async () => "x")).resolves.toBeNull();
     resetStore();
     store.creditMovs.push({ customer_id: "cli-1", debe: "300", haber: "0", key: "k1" });
-    const res = await balanceGET({ url: new URL("http://test/api/credit/balance?customer_id=cli-1") } as never);
+    const res = await balanceGET(ctx("http://test/api/credit/balance?customer_id=cli-1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.fuente).toBe("memoria");

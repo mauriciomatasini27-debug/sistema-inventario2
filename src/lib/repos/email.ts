@@ -45,14 +45,15 @@ export async function encolarEnvio(input: {
   if (!db) {
     enMemoria(input.tenantId, (s) => {
       s.emailOutbox.set(input.key, {
-        id: crypto.randomUUID(),
         idempotencyKey: input.key,
-        stream: input.stream,
-        to: input.to,
-        plantilla: input.plantilla,
-        estado: "encolado",
-        creadoEn: new Date().toISOString(),
-      } as never);
+        destinatario: input.to,
+        asunto: input.plantilla,
+        html: `<p>${input.plantilla}</p>`,
+        texto: Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla,
+        estado: "pendiente",
+        intentos: 0,
+        providerMessageId: null,
+      });
     });
     return { ok: true, key: input.key, fuente: "memoria" };
   }
@@ -74,28 +75,30 @@ export async function encolarEnvio(input: {
     if (esModoMulti()) throw aBaseNoDisponible(e);
     enMemoria(input.tenantId, (s) => {
       s.emailOutbox.set(input.key, {
-        id: crypto.randomUUID(),
         idempotencyKey: input.key,
-        stream: input.stream,
-        to: input.to,
-        plantilla: input.plantilla,
-        estado: "encolado",
-        creadoEn: new Date().toISOString(),
-      } as never);
+        destinatario: input.to,
+        asunto: input.plantilla,
+        html: `<p>${input.plantilla}</p>`,
+        texto: Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla,
+        estado: "pendiente",
+        intentos: 0,
+        providerMessageId: null,
+      });
     });
     return { ok: true, key: input.key, fuente: "memoria" };
   }
   if (usaMemoria) {
     enMemoria(input.tenantId, (s) => {
       s.emailOutbox.set(input.key, {
-        id: crypto.randomUUID(),
         idempotencyKey: input.key,
-        stream: input.stream,
-        to: input.to,
-        plantilla: input.plantilla,
-        estado: "encolado",
-        creadoEn: new Date().toISOString(),
-      } as never);
+        destinatario: input.to,
+        asunto: input.plantilla,
+        html: `<p>${input.plantilla}</p>`,
+        texto: Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla,
+        estado: "pendiente",
+        intentos: 0,
+        providerMessageId: null,
+      });
     });
   }
   return { ok: true, key: input.key, fuente: "db" };
@@ -173,7 +176,7 @@ export async function encolarResumen(input: {
           tenantId: tenantUuid,
           tipo: r.evento.tipo,
           version: 1,
-          payload: r.evento.payload as never,
+          payload: r.evento.payload,
           dedupeKey: r.evento.dedupeKey,
           estado: "pendiente",
         })

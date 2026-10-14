@@ -36,7 +36,7 @@ export function firmar_tra_cms(traXml: string, certPem: string, keyPem: string):
     key,
     certificate: cert,
     digestAlgorithm: "2.16.840.1.101.3.4.2.1",
-  } as never);
+  });
   p7.sign({ detached: false });
   const der = forge.asn1.toDer(p7.toAsn1()).getBytes();
   return forge.util.encode64(der);
