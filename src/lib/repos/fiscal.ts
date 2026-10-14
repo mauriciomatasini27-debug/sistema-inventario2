@@ -6,6 +6,7 @@ import { store, type StoredFiscalDoc } from "../store.js";
 import {
   asegurarFiscalDoc,
   leerFiscalDocPorId,
+  leerFiscalDocPorKey,
   leerFiscalDocs,
   leerNdPorHeaderKey,
   leerWizardPorTenant,
@@ -96,6 +97,43 @@ export async function buscarFacturaParaNd(saleId: string, tenantId?: string): Pr
   } catch {
     return enMemoria;
   }
+}
+
+/** Lookup por idempotency_key en union (memoria primero, luego DB con espejo). Lectura con fallback a memoria. */
+export async function buscarDocPorKey(key: string): Promise<StoredFiscalDoc | null> {
+  const mem = store.fiscalDocs.get(key);
+  if (mem) return mem;
+  const db = dbActual();
+  if (!db) return null;
+  try {
+    const doc = await leerFiscalDocPorKey(db, key);
+    if (doc) store.fiscalDocs.set(doc.idempotency_key, doc);
+    return doc;
+  } catch {
+    return null;
+  }
+}
+
+/** NC acumuladas (13/8/3) por sale_id en union (memoria del tenant + DB). Para el tope de decidir_nc. */
+export async function acumuladoNcParaVenta(saleId: string, tenantId?: string): Promise<bigint> {
+  const memBase = tenantId ? memoriaDelTenant(tenantId) : [...store.fiscalDocs.values()];
+  let docs = memBase;
+  const db = dbActual();
+  if (db) {
+    try {
+      const dbDocs = await leerFiscalDocs(tenantId);
+      if (dbDocs) docs = unionFiscalDocs(memBase, dbDocs);
+    } catch {
+      docs = memBase;
+    }
+  }
+  let acumulado = 0n;
+  for (const d of docs) {
+    if (d.sale_id === saleId && (d.cbte_tipo === "13" || d.cbte_tipo === "8" || d.cbte_tipo === "3")) {
+      acumulado += BigInt(d.imp_total_centavos ?? "0");
+    }
+  }
+  return acumulado;
 }
 
 /** Cobro asociado a la venta: memoria + cash_movements. Lectura con fallback a memoria. */

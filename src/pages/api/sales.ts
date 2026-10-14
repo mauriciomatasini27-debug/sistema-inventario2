@@ -2,9 +2,8 @@ import type { APIRoute } from "astro";
 import { postSalesSchema } from "../../lib/validation.js";
 import { determinar_clase, idempotency_key_for_sale_tipo, resolver_receptor } from "../../modules/fiscal/fiscal.js";
 import { desagregar_iva_21 } from "../../modules/fiscal/iva.js";
-// store queda solo por fiscalDocs hasta el cutover fiscal (sección 2 roadmap).
-import { store } from "../../lib/store.js";
-import { asegurarFiscalDoc } from "../../lib/fiscal-db.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import { asegurarDoc, buscarDocPorKey } from "../../lib/repos/fiscal.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
 import { registrar_venta } from "../../modules/sales/registro_venta.js";
 import type { TicketEmitido } from "../../modules/sales/vender_mostrador.js";
@@ -36,7 +35,9 @@ export const POST: APIRoute = async ({ request }) => {
   // fiscal no escriba nada (mismo orden histórico).
   const emisor = b.fiscal_emisor_condicion ?? "monotributo";
   const etapa = b.fiscal_emisor_etapa ?? 1;
-  const reg = await registrar_venta({
+  let reg: Awaited<ReturnType<typeof registrar_venta>>;
+  try {
+    reg = await registrar_venta({
     key,
     lineas: b.lineas,
     medio: b.medio,
@@ -72,8 +73,12 @@ export const POST: APIRoute = async ({ request }) => {
         return { ok: false as const, error: "clase fiscal no soportada en el slice" };
       }
       return { ok: true as const };
-    },
-  });
+      },
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   if (!reg.ok) {
     if (reg.codigo === "YA_VISTA") {
       return Response.json({ error: "idempotency-key repetida", original: aJson(reg.original) }, { status: 409 });
@@ -136,13 +141,13 @@ export const POST: APIRoute = async ({ request }) => {
     if (!d) return { imp_iva_centavos: null, alic_iva_id: String(alicId) };
     return { imp_iva_centavos: d.impIvaCentavos.toString(), alic_iva_id: String(d.alicId) };
   }
-  // PERS-S4 G1: fiscal doc DB-first idempotente por idempotency_key
+  // PERS2-S26: fiscal doc idempotente por idempotency_key en el repo fiscal
   // (pre-check + onConflictDoNothing, carrera → existente). Espejo memoria
-  // tras el insert; sin DB o ante error queda en memoria como antes.
+  // tras el insert; sin DB queda en memoria como antes.
   if (!receptor.ok || claseNullOffline) {
     const fkey = `sale:${saleId}:espera`;
-    if (!store.fiscalDocs.has(fkey)) {
-      const r = await asegurarFiscalDoc({
+    if (!(await buscarDocPorKey(fkey))) {
+      await asegurarDoc({
         id: crypto.randomUUID(),
         idempotency_key: fkey,
         sale_id: saleId,
@@ -163,14 +168,13 @@ export const POST: APIRoute = async ({ request }) => {
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
       }, tenantId);
-      store.fiscalDocs.set(fkey, r.doc);
     }
     fiscal_estado = "en_espera_de_datos";
   } else if (e.ticket.definitivo === null) {
     const fkey = idempotency_key_for_sale_tipo(saleId, clase ?? 11);
-    if (!store.fiscalDocs.has(fkey) && e.ticket.totalCentavos > 0n && clase !== null) {
+    if (!(await buscarDocPorKey(fkey)) && e.ticket.totalCentavos > 0n && clase !== null) {
       const iva = ivaCampos(e.ticket.totalCentavos);
-      const r = await asegurarFiscalDoc({
+      await asegurarDoc({
         id: crypto.randomUUID(),
         idempotency_key: fkey,
         sale_id: saleId,
@@ -191,14 +195,13 @@ export const POST: APIRoute = async ({ request }) => {
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
       }, tenantId);
-      store.fiscalDocs.set(fkey, r.doc);
     }
     fiscal_estado = "pendiente_de_sync";
   } else if (e.ticket.definitivo && e.ticket.totalCentavos > 0n && clase !== null) {
     const fkey = idempotency_key_for_sale_tipo(saleId, clase);
-    if (!store.fiscalDocs.has(fkey)) {
+    if (!(await buscarDocPorKey(fkey))) {
       const iva = ivaCampos(e.ticket.totalCentavos);
-      const r = await asegurarFiscalDoc({
+      await asegurarDoc({
         id: crypto.randomUUID(),
         idempotency_key: fkey,
         sale_id: saleId,
@@ -219,9 +222,8 @@ export const POST: APIRoute = async ({ request }) => {
         venta_leyenda: null,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
       }, tenantId);
-      store.fiscalDocs.set(fkey, r.doc);
     }
-    fiscal_estado = store.fiscalDocs.get(fkey)?.estado ?? "pendiente";
+    fiscal_estado = (await buscarDocPorKey(fkey))?.estado ?? "pendiente";
   }
   return Response.json(
     {
