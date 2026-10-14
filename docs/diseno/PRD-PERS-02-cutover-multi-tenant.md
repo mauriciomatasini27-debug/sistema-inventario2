@@ -97,6 +97,15 @@ Requisito PERS2-11: las 5 rutas de `src/pages/api/ocr/` (jobs, jobs/[id], editar
 
 Arch-test AT14: ningún archivo de `src/pages/api/ocr/` importa `store` de `lib/store`; el contador global baja de 21.
 
+## Épica PERS2-E12. Rutas sin `store`: sincronización offline (PERS-S4, grupo 9)
+
+Requisito PERS2-12: `sync/push`, `sync/pull`, `sync/promote` y `sync/heartbeat` leen y escriben el outbox, la secuencia y el estado por dispositivo por `src/lib/repos/sync.ts`, y las lecturas de precios, stock y promociones por los repositorios de dominio, con DB primero y memoria solo en `single` sin base (ADR-0023, ADR-0053, ADR-0061).
+
+- Historia PERS2-S21. Push y promote: operaciones del outbox idempotentes por `op_id` y secuencia por dispositivo en la base del tenant. AC: Given multi con base de A When un dispositivo de A empuja operaciones Then quedan en `outbox` de A, un `op_id` repetido no duplica y B no las ve; las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0061. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S22. Pull y heartbeat: el pull arma el delta con datos del tenant y el heartbeat guarda `device_sync_state` de A. AC: Given multi con base de A When un dispositivo de A hace pull Then recibe solo datos de A. ADR: 0061. Talla S. Depende de: PERS2-S21.
+
+Arch-test AT15: ningún archivo de `src/pages/api/sync/` importa `store` de `lib/store`; el contador global baja de 16.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
