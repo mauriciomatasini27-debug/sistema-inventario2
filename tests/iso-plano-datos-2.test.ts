@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -36,7 +37,7 @@ function postDelegacion(body: unknown): Promise<Response> {
 }
 
 function getWizard(query: string): Promise<Response> {
-  return GETWizard({ url: new URL(`http://x/api/fiscal/wizard${query}`) } as never) as Promise<Response>;
+  return GETWizard(ctx(`http://x/api/fiscal/wizard${query}`)) as Promise<Response>;
 }
 
 function docHuerfano(key: string): StoredFiscalDoc {

@@ -1,4 +1,5 @@
 import { bigint, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { MarcaNoFacturar } from "../lib/store.js";
 
 // Slice fiscal mínimo (ADR-0019). DB del tenant. Dinero bigint centavos.
 // Inmutables: solo INSERT/SELECT; REVOKE UPDATE/DELETE + triggers en migración.
@@ -55,7 +56,7 @@ export const fiscalDocuments = pgTable("fiscal_documents", {  id: uuid("id").pri
   proximoIntento: timestamp("proximo_intento"),
   ultimoErrorCodigo: text("ultimo_error_codigo"),
   motivoCastellano: text("motivo_castellano"),
-  noFacturar: jsonb("no_facturar"),
+  noFacturar: jsonb("no_facturar").$type<MarcaNoFacturar>(),
   cae: text("cae"),
   caeVto: text("cae_vto"),
   qrPayload: text("qr_payload"),

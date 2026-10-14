@@ -21,7 +21,7 @@ import {
   matchear_notif,
   parsear_notif_bancaria,
 } from "../../modules/payments/notifs-bancarias.js";
-import { fechaBA } from "../../jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../fecha-ar.js";
 import { registrarEgresoRetiro } from "./caja.js";
 
 // PERS2-S15 (ADR-0057): preparar, cancelar, confirmar pagada y sugerir desde
@@ -83,7 +83,7 @@ async function payeesVivos(db: TenantDb): Promise<Map<string, Payee>> {
 }
 
 function eventoDeFila(f: typeof paymentOrderEvents.$inferSelect): EventoOrden {
-  const detalle = (f.detalle ?? {}) as { motivo?: unknown };
+  const detalle = f.detalle ?? { motivo: null };
   return {
     de: (f.deEstado ?? null) as EventoOrden["de"],
     a: f.aEstado as EventoOrden["a"],
@@ -106,7 +106,7 @@ function ordenDeFila(
   f: typeof paymentOrders.$inferSelect,
   eventos: ReadonlyArray<EventoOrden>,
 ): PaymentOrder {
-  const snap = (f.instruccionSnapshot ?? {}) as { linkUrl?: unknown; referencia?: unknown };
+  const snap = f.instruccionSnapshot;
   return {
     id: f.id,
     numero: f.numero,
@@ -277,7 +277,7 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
             ...(input.linkUrl !== undefined ? { linkUrl: input.linkUrl } : {}),
             ...(input.referencia !== undefined ? { referencia: input.referencia } : {}),
             medioSugerido: r.orden.medioSugerido,
-          } as never,
+          },
           referencia: r.orden.referencia ?? null,
           estado: r.orden.estado,
           version: r.orden.version,
@@ -386,7 +386,7 @@ export async function cancelarOrdenRepo(input: {
       version: r.orden.version,
       actor: input.actor,
       origen: "web",
-      detalle: { motivo: r.orden.motivoCancelacion ?? null } as never,
+      detalle: { motivo: r.orden.motivoCancelacion ?? null },
     });
     store.paymentOrders.set(r.orden.id, r.orden);
     return { status: 200, body: { order_id: r.orden.id, estado: r.orden.estado, fuente: "db" } };
@@ -570,7 +570,7 @@ export async function sugerirDesdeNotifRepo(input: {
   if (typeof notifId !== "string" || notifId.length === 0 || notifId.length > 128) {
     return { status: 422, body: { error: "notif_id requerido (1-128)" } };
   }
-  const hoyIso = typeof hoyIsoRaw === "string" ? hoyIsoRaw : fechaBA(new Date());
+  const hoyIso = typeof hoyIsoRaw === "string" ? hoyIsoRaw : fechaAR(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(hoyIso)) {
     return { status: 422, body: { error: "hoy_iso YYYY-MM-DD" } };
   }

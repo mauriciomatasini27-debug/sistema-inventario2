@@ -95,13 +95,15 @@ export const cashMovements = pgTable("cash_movements", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export type OutboxPayload = unknown;
+
 export const outbox = pgTable("outbox", {
   opId: uuid("op_id").primaryKey(),
   deviceCode: text("device_code").notNull(),
   deviceSeq: integer("device_seq").notNull(),
   hlc: text("hlc").notNull(),
   modulo: text("modulo").notNull(),
-  payload: jsonb("payload").notNull(),
+  payload: jsonb("payload").$type<OutboxPayload>().notNull(),
   estado: text("estado").notNull().default("pendiente"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -153,7 +155,7 @@ export const memberships = pgTable("memberships", {
   tenantId: uuid("tenant_id").references(() => tenants.id),
   googleSub: text("google_sub").references(() => users.googleSub),
   rol: text("rol").notNull().default("empleado"),
-  permisos: jsonb("permisos").notNull().default([]),
+  permisos: jsonb("permisos").$type<string[]>().notNull().default([]),
   estado: text("estado").notNull().default("activo"),
   revocadoAt: timestamp("revocado_at"),
   revocadoPor: text("revocado_por"),
@@ -167,7 +169,7 @@ export const invitations = pgTable("invitations", {
   tenantId: uuid("tenant_id").references(() => tenants.id),
   email: varchar("email", { length: 320 }).notNull(),
   rol: text("rol").notNull().default("empleado"),
-  permisos: jsonb("permisos").notNull().default([]),
+  permisos: jsonb("permisos").$type<string[]>().notNull().default([]),
   estado: text("estado").notNull().default("pendiente"),
   expiraAt: timestamp("expira_at").notNull(),
   creadaPor: text("creada_por"),
@@ -189,12 +191,14 @@ export const sessions = pgTable("sessions", {
   reauthAt: timestamp("reauth_at"),
 });
 
+export type AuthEventDetalle = Record<string, unknown>;
+
 export const authEvents = pgTable("auth_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id),
   tipo: text("tipo").notNull(),
   actor: text("actor"),
-  detalle: jsonb("detalle"),
+  detalle: jsonb("detalle").$type<AuthEventDetalle>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -236,10 +240,12 @@ export const whatsappIdentities = pgTable("whatsapp_identities", {
 });
 
 // Outbox de señales hacia el panel (solo contadores, nunca negocio).
+export type OpsSignalPayload = Record<string, unknown>;
+
 export const opsSignalsOutbox = pgTable("ops_signals_outbox", {
   id: uuid("id").primaryKey().defaultRandom(),
   tipo: text("tipo").notNull(),
-  payload: jsonb("payload").notNull(),
+  payload: jsonb("payload").$type<OpsSignalPayload>().notNull(),
   estado: text("estado").notNull().default("pendiente"),
   claimedAt: timestamp("claimed_at"),
   claimedBy: text("claimed_by"),

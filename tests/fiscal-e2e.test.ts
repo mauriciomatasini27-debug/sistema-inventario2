@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { POST } from "../src/pages/api/sales.js";
 import { GET } from "../src/pages/api/fiscal/documents.js";
 import { resetStore, store } from "../src/lib/store.js";
@@ -49,7 +50,7 @@ describe("fiscal E2E slice homo (ADR-0019)", () => {
     store.fiscalDocs.set(fkey, r.doc);
     store.fiscalLastNumber = r.lastNumber;
 
-    const g = await GET({ url: new URL(`http://localhost/api/fiscal/documents?sale_id=${saleId}`) } as never);
+    const g = await GET(ctx(`http://localhost/api/fiscal/documents?sale_id=${saleId}`));
     const gd = (await g.json()) as { docs: Array<{ estado: string }> };
     expect(gd.docs[0]?.estado).toBe("autorizado");
   });

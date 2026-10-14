@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { leerFiscalDocs, persistirFiscalDoc } from "../src/lib/fiscal-db.js";
 import { POST as POSTSales } from "../src/pages/api/sales.js";
 import { GET as GETHistory } from "../src/pages/api/fiscal/history.js";
@@ -48,7 +49,7 @@ describe("fiscal durable PERS-S4 (sin DB no rompe)", () => {
       }),
     } as never)) as Response;
     expect(r.status).toBe(201);
-    const h = (await GETHistory({ url: new URL("http://x/api/fiscal/history") } as never)) as Response;
+    const h = (await GETHistory(ctx("http://x/api/fiscal/history"))) as Response;
     expect(h.status).toBe(200);
     const j = (await h.json()) as { docs: unknown[] };
     expect(j.docs.length).toBeGreaterThanOrEqual(1);
