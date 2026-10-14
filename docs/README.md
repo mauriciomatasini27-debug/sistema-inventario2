@@ -63,6 +63,7 @@ Lo público y el sistema de diseño.
 - `landing-gaps-modoops.md` (Gaps E1-E13) → `src/pages/index.astro`, `src/components/sections/*`
 - ADRs: `adr/0008-tokens-tema-papel.md`, `adr/0009-componentes-adopcion.md`, `adr/0010-landing.md`, `adr/0021-landing-iteracion.md`, `adr/0022-landing-gaps.md` + `diseno/PRD-DS-01-tokens-tema-papel.md`, `diseno/PRD-DS-02-componentes.md`, `diseno/PRD-DS-03-adopcion-inventario.md`, `diseno/PRD-LP-01-landing.md`, `diseno/PRD-LP-02-landing-iteracion.md`, `diseno/PRD-ADAP-01-modoops-a-inventario.md`, `diseno/PRD-SK-01-grounding-how-why.md`, `diseno/PRD-SK-02-architect.md`, `diseno/PRD-SK-03-prosa-revision.md` + `adr/0014-grounding.md`, `adr/0015-architect.md`, `adr/0016-prosa-revision.md`
 - Dueño real, online real y correlativo único de tickets: `diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md` + `adr/0066-dueno-real-y-correlativo-unico.md`
+- Guardas para errores recurrentes de agentes LLM: `adr/0073-errores-recurrentes-llm-guardas.md` (complementa `adr/0065-arquitectura-amigable-agentes.md`)
 - Política de comentarios de código: `diseno/PRD-COM-01-poda-comentarios.md` + `adr/0064-politica-comentarios.md`; plan en `diseno/PLAN-COM-01-poda-comentarios.md`
 - Chat de landing y skills de diseño del dashboard: `diseno/PRD-LP-04-chat-flotante-landing.md` + `adr/0046-chat-landing-llm-aislado.md`; `diseno/PRD-UX-01-uso-skills-diseno-dashboard.md`
 

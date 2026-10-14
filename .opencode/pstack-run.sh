@@ -5,6 +5,8 @@
 set -euo pipefail
 OC=${OPENCODE_BIN:-$HOME/.local/bin/opencode}; PORT=${PSTACK_PORT:-4096}; URL=http://127.0.0.1:$PORT
 cd "$(dirname "$0")/.."
+mkdir -p "$PWD/.pstack-tmp"
+export TMPDIR="$PWD/.pstack-tmp"
 if ! curl -fsS -o /dev/null "$URL/doc" 2>/dev/null; then
   setsid nohup "$OC" serve --hostname 127.0.0.1 --port "$PORT" </dev/null >/tmp/opencode-serve.log 2>&1 &
   for _ in $(seq 1 30); do curl -fsS -o /dev/null "$URL/doc" 2>/dev/null && break; sleep 1; done

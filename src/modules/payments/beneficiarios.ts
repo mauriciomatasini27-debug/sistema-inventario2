@@ -1,7 +1,7 @@
 // LANE G — Órdenes de Pago OP1-OP13 (Nivel 2, Compras y gastos).
 //
 // Núcleo puro: sin IO, sin Drizzle, sin rutas. NO importa ni modifica
-// cash/caja, purchases (no existe aún: el vínculo a factura es
+// cash/caja, purchases (src/modules/purchases: el vínculo a factura es
 // supplier_invoice_id opaco), schema.ts ni ningún otro módulo.
 //
 // OP1 (inviolable, transversal): el sistema NUNCA guarda ni pide

@@ -155,6 +155,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0057-repos-compras-pagos-sin-store.md` | cubierto | Ya implementado (grupo 5: facturas de proveedores y órdenes de pago) |
 | `adr/0058-repos-servicios-fiado-sin-store.md` | cubierto | Ya implementado (grupo 6: consumos de servicios y fiado) |
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
+| `adr/0073-errores-recurrentes-llm-guardas.md` | cubierto | 9.3 |
 | `adr/0066-dueno-real-y-correlativo-unico.md` | cubierto | Ya implementado (2b.4: dueño real, online real, correlativo único) |
 | `adr/0064-politica-comentarios.md` | cubierto | 9.2 |
 | `adr/0065-arquitectura-amigable-agentes.md` | cubierto | 9.3 |
