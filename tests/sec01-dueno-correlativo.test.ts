@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { control, resetStore, store } from "../src/lib/store.js";
@@ -78,14 +79,6 @@ function reauthVieja(): string {
   return new Date(Date.now() - 20 * 60_000).toISOString();
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-}
-
 function sembrarPayee() {
   const id = `sec-pay-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   store.payees.set(id, {
@@ -112,9 +105,9 @@ function cuerpoOrden(payeeId: string) {
 }
 
 async function prepararOrden(payeeId: string, key: string): Promise<string> {
-  const r = (await postPrepare({
-    request: reqJson("http://x/api/payment-orders/prepare", cuerpoOrden(payeeId), { "Idempotency-Key": key }),
-  } as never)) as Response;
+  const r = (await postPrepare(
+    ctx("http://x/api/payment-orders/prepare", { body: cuerpoOrden(payeeId), headers: { "Idempotency-Key": key } }),
+  )) as Response;
   expect(r.status).toBe(201);
   return ((await r.json()) as { order_id: string }).order_id;
 }
@@ -148,13 +141,10 @@ beforeEach(() => {
 describe("SEC-S1 payment-orders exige dueño real", () => {
   it("confirm-paid sin sesión da 403", async () => {
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-1`);
-    const r = (await postConfirmPaid({
-      request: reqJson(
-        "http://x/api/payment-orders/confirm-paid",
-        { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: DUENO },
-        { "Idempotency-Key": `sec-cp-${Date.now()}-1` },
-      ),
-    } as never)) as Response;
+    const r = (await postConfirmPaid(ctx("http://x/api/payment-orders/confirm-paid", {
+      body: { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: DUENO },
+      headers: { "Idempotency-Key": `sec-cp-${Date.now()}-1` },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
@@ -162,40 +152,34 @@ describe("SEC-S1 payment-orders exige dueño real", () => {
     sembrarEmpleado();
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-2`);
     const plano = sesion(EMPLEADO, TENANT);
-    const r = (await postConfirmPaid({
-      request: reqJson(
-        "http://x/api/payment-orders/confirm-paid",
-        { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: EMPLEADO },
-        { "Idempotency-Key": `sec-cp-${Date.now()}-2`, cookie: `__Host-sesion=${plano}` },
-      ),
-    } as never)) as Response;
+    const r = (await postConfirmPaid(ctx("http://x/api/payment-orders/confirm-paid", {
+      body: { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: EMPLEADO },
+      headers: { "Idempotency-Key": `sec-cp-${Date.now()}-2`, cookie: `__Host-sesion=${plano}` },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("confirm-paid como dueño da 200", async () => {
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-3`);
     const plano = sesion(DUENO, TENANT);
-    const r = (await postConfirmPaid({
-      request: reqJson(
-        "http://x/api/payment-orders/confirm-paid",
-        { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: DUENO },
-        { "Idempotency-Key": `sec-cp-${Date.now()}-3`, cookie: `__Host-sesion=${plano}` },
-      ),
-    } as never)) as Response;
+    const r = (await postConfirmPaid(ctx("http://x/api/payment-orders/confirm-paid", {
+      body: { order_id: orderId, version_esperada: 1, medio: "Transferencia", actor: DUENO },
+      headers: { "Idempotency-Key": `sec-cp-${Date.now()}-3`, cookie: `__Host-sesion=${plano}` },
+    }))) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as { estado: string }).estado).toBe("pagada");
   });
 
   it("cancel sin sesión da 403", async () => {
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-4`);
-    const r = (await postCancel({
-      request: reqJson("http://x/api/payment-orders/cancel", {
+    const r = (await postCancel(ctx("http://x/api/payment-orders/cancel", {
+      body: {
         order_id: orderId,
         version_esperada: 1,
         motivo: "no va",
         actor: DUENO,
-      }),
-    } as never)) as Response;
+      },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
@@ -203,26 +187,20 @@ describe("SEC-S1 payment-orders exige dueño real", () => {
     sembrarEmpleado();
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-5`);
     const plano = sesion(EMPLEADO, TENANT);
-    const r = (await postCancel({
-      request: reqJson(
-        "http://x/api/payment-orders/cancel",
-        { order_id: orderId, version_esperada: 1, motivo: "no va", actor: EMPLEADO },
-        { cookie: `__Host-sesion=${plano}` },
-      ),
-    } as never)) as Response;
+    const r = (await postCancel(ctx("http://x/api/payment-orders/cancel", {
+      body: { order_id: orderId, version_esperada: 1, motivo: "no va", actor: EMPLEADO },
+      headers: { cookie: `__Host-sesion=${plano}` },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("cancel como dueño da 200", async () => {
     const orderId = await prepararOrden(sembrarPayee(), `sec-prep-${Date.now()}-6`);
     const plano = sesion(DUENO, TENANT);
-    const r = (await postCancel({
-      request: reqJson(
-        "http://x/api/payment-orders/cancel",
-        { order_id: orderId, version_esperada: 1, motivo: "no va", actor: DUENO },
-        { cookie: `__Host-sesion=${plano}` },
-      ),
-    } as never)) as Response;
+    const r = (await postCancel(ctx("http://x/api/payment-orders/cancel", {
+      body: { order_id: orderId, version_esperada: 1, motivo: "no va", actor: DUENO },
+      headers: { cookie: `__Host-sesion=${plano}` },
+    }))) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as { estado: string }).estado).toBe("cancelada");
   });
@@ -230,15 +208,16 @@ describe("SEC-S1 payment-orders exige dueño real", () => {
 
 describe("SEC-S2 fiscal/settings exige dueño + reauth + tenant resuelto", () => {
   it("POST sin sesión da 403", async () => {
-    const r = (await postFiscal({ request: reqJson("http://x/api/fiscal/settings", FISCAL_OK) } as never)) as Response;
+    const r = (await postFiscal(ctx("http://x/api/fiscal/settings", { body: FISCAL_OK }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("POST dueño con reauth vieja da 401 reauth_requerida", async () => {
     const plano = sesion(DUENO, TENANT, reauthVieja());
-    const r = (await postFiscal({
-      request: reqJson("http://x/api/fiscal/settings", FISCAL_OK, { cookie: `__Host-sesion=${plano}` }),
-    } as never)) as Response;
+    const r = (await postFiscal(ctx("http://x/api/fiscal/settings", {
+      body: FISCAL_OK,
+      headers: { cookie: `__Host-sesion=${plano}` },
+    }))) as Response;
     expect(r.status).toBe(401);
     expect(JSON.stringify(await r.json())).toContain("reauth_requerida");
   });
@@ -248,9 +227,10 @@ describe("SEC-S2 fiscal/settings exige dueño + reauth + tenant resuelto", () =>
     process.env.TENANT_MODE = "multi";
     try {
       const plano = sesion("nadie", "tenant-fantasma");
-      const r = (await postFiscal({
-        request: reqJson("http://x/api/fiscal/settings", FISCAL_OK, { cookie: `__Host-sesion=${plano}` }),
-      } as never)) as Response;
+      const r = (await postFiscal(ctx("http://x/api/fiscal/settings", {
+        body: FISCAL_OK,
+        headers: { cookie: `__Host-sesion=${plano}` },
+      }))) as Response;
       expect(r.status).toBe(403);
     } finally {
       if (modoPrevio === undefined) delete process.env.TENANT_MODE;
@@ -260,32 +240,28 @@ describe("SEC-S2 fiscal/settings exige dueño + reauth + tenant resuelto", () =>
 
   it("POST dueño fresco da 201 con el tenant resuelto aunque x-tenant-id diga otro", async () => {
     const plano = sesion(DUENO, TENANT);
-    const r = (await postFiscal({
-      request: reqJson("http://x/api/fiscal/settings", FISCAL_OK, {
+    const r = (await postFiscal(ctx("http://x/api/fiscal/settings", {
+      body: FISCAL_OK,
+      headers: {
         cookie: `__Host-sesion=${plano}`,
         "x-tenant-id": "otro-comercio",
-      }),
-    } as never)) as Response;
+      },
+    }))) as Response;
     expect(r.status).toBe(201);
     expect(((await r.json()) as { tenant_id: string }).tenant_id).toBe(TENANT);
   });
 
   it("GET sin sesión da 403 y con dueño ignora ?tenant_id", async () => {
-    const anon = (await getFiscal({
-      request: new Request("http://x/api/fiscal/settings"),
-      url: new URL("http://x/api/fiscal/settings?tenant_id=otro"),
-    } as never)) as Response;
+    const anon = (await getFiscal(ctx("http://x/api/fiscal/settings?tenant_id=otro", { method: "GET" }))) as Response;
     expect(anon.status).toBe(403);
     const plano = sesion(DUENO, TENANT);
-    await postFiscal({
-      request: reqJson("http://x/api/fiscal/settings", FISCAL_OK, { cookie: `__Host-sesion=${plano}` }),
-    } as never);
-    const r = (await getFiscal({
-      request: new Request("http://x/api/fiscal/settings?tenant_id=otro", {
-        headers: { cookie: `__Host-sesion=${plano}` },
-      }),
-      url: new URL("http://x/api/fiscal/settings?tenant_id=otro"),
-    } as never)) as Response;
+    await postFiscal(ctx("http://x/api/fiscal/settings", {
+      body: FISCAL_OK,
+      headers: { cookie: `__Host-sesion=${plano}` },
+    }));
+    const r = (await getFiscal(
+      ctx("http://x/api/fiscal/settings?tenant_id=otro", { method: "GET", headers: { cookie: `__Host-sesion=${plano}` } }),
+    )) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as { tenant_id: string }).tenant_id).toBe(TENANT);
   });
@@ -294,36 +270,39 @@ describe("SEC-S2 fiscal/settings exige dueño + reauth + tenant resuelto", () =>
 describe("SEC-S3 adjustments exige online real", () => {
   it("con x-offline-grant da 403", async () => {
     const plano = sesion(DUENO, TENANT);
-    const r = (await postAdjust({
-      request: reqJson("http://x/api/prices/adjustments", AJUSTE, {
+    const r = (await postAdjust(ctx("http://x/api/prices/adjustments", {
+      body: AJUSTE,
+      headers: {
         "Idempotency-Key": `sec-aj-${Date.now()}-1`,
         cookie: `__Host-sesion=${plano}`,
         "x-offline-grant": "jwt-falso",
-      }),
-    } as never)) as Response;
+      },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("con x-cuarentena:1 da 403", async () => {
     const plano = sesion(DUENO, TENANT);
-    const r = (await postAdjust({
-      request: reqJson("http://x/api/prices/adjustments", AJUSTE, {
+    const r = (await postAdjust(ctx("http://x/api/prices/adjustments", {
+      body: AJUSTE,
+      headers: {
         "Idempotency-Key": `sec-aj-${Date.now()}-2`,
         cookie: `__Host-sesion=${plano}`,
         "x-cuarentena": "1",
-      }),
-    } as never)) as Response;
+      },
+    }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("online como dueño da 201", async () => {
     const plano = sesion(DUENO, TENANT);
-    const r = (await postAdjust({
-      request: reqJson("http://x/api/prices/adjustments", AJUSTE, {
+    const r = (await postAdjust(ctx("http://x/api/prices/adjustments", {
+      body: AJUSTE,
+      headers: {
         "Idempotency-Key": `sec-aj-${Date.now()}-3`,
         cookie: `__Host-sesion=${plano}`,
-      }),
-    } as never)) as Response;
+      },
+    }))) as Response;
     expect(r.status).toBe(201);
   });
 });
@@ -340,11 +319,9 @@ function ventaBody(seq: number, over: Record<string, unknown> = {}) {
   };
 }
 
-function pushReq(opId: string, seq: number, device: string): Request {
-  return new Request("http://localhost/api/sync/push", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
-    body: JSON.stringify({
+function pushCtx(opId: string, seq: number, device: string) {
+  return ctx("http://localhost/api/sync/push", {
+    body: {
       op_id: opId,
       device_code: device,
       device_seq: seq,
@@ -352,35 +329,31 @@ function pushReq(opId: string, seq: number, device: string): Request {
       modulo: "sales",
       payload: { total: 15000 },
       client_occurred_at: new Date().toISOString(),
-    }),
+    },
+    headers: { "Idempotency-Key": opId },
   });
 }
 
-function promoteReq(opId: string, seq: number, device: string): Request {
-  return new Request("http://localhost/api/sync/promote", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
-    body: JSON.stringify({ op_id: opId, device_code: device, device_seq: seq }),
+function promoteCtx(opId: string, seq: number, device: string) {
+  return ctx("http://localhost/api/sync/promote", {
+    body: { op_id: opId, device_code: device, device_seq: seq },
+    headers: { "Idempotency-Key": opId },
   });
 }
 
 async function vender(key: string, seq: number): Promise<string> {
-  const r = (await postSales({
-    request: new Request("http://x/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-      body: JSON.stringify(ventaBody(seq)),
-    }),
-  } as never)) as Response;
+  const r = (await postSales(
+    ctx("http://x/api/sales", { body: ventaBody(seq), headers: { "Idempotency-Key": key } }),
+  )) as Response;
   expect(r.status).toBe(201);
   return ((await r.json()) as { ticket_definitivo: string }).ticket_definitivo;
 }
 
 async function promover(device: string, seq: number): Promise<string> {
   const opId = randomUUID();
-  const push = (await postPush({ request: pushReq(opId, seq, device) } as never)) as Response;
+  const push = (await postPush(pushCtx(opId, seq, device))) as Response;
   expect(push.status).toBe(201);
-  const pr = (await postPromote({ request: promoteReq(opId, seq, device) } as never)) as Response;
+  const pr = (await postPromote(promoteCtx(opId, seq, device))) as Response;
   expect(pr.status).toBe(201);
   return ((await pr.json()) as { ticket_definitivo: string }).ticket_definitivo;
 }
@@ -454,13 +427,12 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
   it("una venta y un promote no repiten número y el promote sigue al contador", async () => {
     fijarMulti();
     const v = await conTenant("tenant-a", () =>
-      postSales({
-        request: new Request("http://x/api/sales", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Idempotency-Key": ventaKey },
-          body: JSON.stringify(ventaBody(11, { lineas: [{ product_id: sku, qty: 1, precio_centavos: 15000 }] })),
+      postSales(
+        ctx("http://x/api/sales", {
+          body: ventaBody(11, { lineas: [{ product_id: sku, qty: 1, precio_centavos: 15000 }] }),
+          headers: { "Idempotency-Key": ventaKey },
         }),
-      } as never),
+      ),
     );
     expect((v as Response).status).toBe(201);
     const ticketVenta = ((await (v as Response).json()) as { ticket_definitivo: string }).ticket_definitivo;
@@ -468,9 +440,9 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
     // otros archivos en paralelo (sin reset a 0: rompería su monotonía).
     expect(ticketVenta).toMatch(/^T-\d{6}$/);
 
-    const push = await conTenant("tenant-a", () => postPush({ request: pushReq(opId, 1, device) } as never));
+    const push = await conTenant("tenant-a", () => postPush(pushCtx(opId, 1, device)));
     expect((push as Response).status).toBe(201);
-    const pr = await conTenant("tenant-a", () => postPromote({ request: promoteReq(opId, 1, device) } as never));
+    const pr = await conTenant("tenant-a", () => postPromote(promoteCtx(opId, 1, device)));
     expect((pr as Response).status).toBe(201);
     const ticketSync = ((await (pr as Response).json()) as { ticket_definitivo: string }).ticket_definitivo;
     expect(ticketSync).toMatch(/^T-\d{6}$/);

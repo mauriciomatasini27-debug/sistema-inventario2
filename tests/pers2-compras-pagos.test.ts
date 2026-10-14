@@ -62,14 +62,6 @@ function modoSingleSinDb() {
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
 }
 
-function req(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-}
-
 const CUIT = "20-93333172-6";
 
 function cuerpoBorrador(bytesRef: string) {
@@ -84,11 +76,9 @@ function cuerpoBorrador(bytesRef: string) {
 }
 
 async function ingerir(key: string): Promise<string> {
-  const res = (await postDrafts({
-    request: req("http://x/api/supplier-invoices/drafts", cuerpoBorrador(`bytes-${key}`), {
-      "Idempotency-Key": key,
-    }),
-  } as never)) as Response;
+  const res = (await postDrafts(
+    ctx("http://x/api/supplier-invoices/drafts", { body: cuerpoBorrador(`bytes-${key}`), headers: { "Idempotency-Key": key } }),
+  )) as Response;
   expect(res.status).toBe(201);
   return ((await res.json()) as { draft_id: string }).draft_id;
 }
@@ -119,9 +109,9 @@ function cuerpoOrden(payeeId: string) {
 }
 
 async function preparar(payeeId: string, key: string): Promise<{ order_id: string; numero: string }> {
-  const res = (await postPrepare({
-    request: req("http://x/api/payment-orders/prepare", cuerpoOrden(payeeId), { "Idempotency-Key": key }),
-  } as never)) as Response;
+  const res = (await postPrepare(
+    ctx("http://x/api/payment-orders/prepare", { body: cuerpoOrden(payeeId), headers: { "Idempotency-Key": key } }),
+  )) as Response;
   expect(res.status).toBe(201);
   return (await res.json()) as { order_id: string; numero: string };
 }
@@ -135,15 +125,13 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
   it("borrador: ingesta 201, duplicado 200 y confirm 201 con factura", async () => {
     const draftId = await ingerir(`br-${Date.now()}`);
     expect(draftId).toMatch(/^borr-/);
-    const dup = (await postDrafts({
-      request: req("http://x/api/supplier-invoices/drafts", cuerpoBorrador("otros-bytes"), {
-        "Idempotency-Key": `br-${Date.now()}`,
-      }),
-    } as never)) as Response;
+    const dup = (await postDrafts(
+      ctx("http://x/api/supplier-invoices/drafts", { body: cuerpoBorrador("otros-bytes"), headers: { "Idempotency-Key": `br-${Date.now()}` } }),
+    )) as Response;
     expect([200, 201]).toContain(dup.status);
-    const c = (await postConfirm({
-      request: req("http://x/api/supplier-invoices/drafts/confirm", { draft_id: draftId, quien: "d" }),
-    } as never)) as Response;
+    const c = (await postConfirm(
+      ctx("http://x/api/supplier-invoices/drafts/confirm", { body: { draft_id: draftId, quien: "d" } }),
+    )) as Response;
     expect(c.status).toBe(201);
     const j = (await c.json()) as { factura_id: string; total_centavos: string; vinculo: unknown };
     expect(j.factura_id).toMatch(/^fac-/);
@@ -152,15 +140,15 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
 
   it("descarte: 200 estado descartada y match responde candidatos", async () => {
     const draftId = await ingerir(`brd-${Date.now()}`);
-    const d = (await postDiscard({
-      request: req("http://x/api/supplier-invoices/drafts/discard", { draft_id: draftId, quien: "d" }),
-    } as never)) as Response;
+    const d = (await postDiscard(
+      ctx("http://x/api/supplier-invoices/drafts/discard", { body: { draft_id: draftId, quien: "d" } }),
+    )) as Response;
     expect(d.status).toBe(200);
     expect(((await d.json()) as { estado: string }).estado).toBe("descartada");
     const draftId2 = await ingerir(`brm-${Date.now()}`);
-    const m = (await postMatch({
-      request: req("http://x/api/supplier-invoices/match", { draft_id: draftId2 }),
-    } as never)) as Response;
+    const m = (await postMatch(
+      ctx("http://x/api/supplier-invoices/match", { body: { draft_id: draftId2 } }),
+    )) as Response;
     expect(m.status).toBe(200);
     const jm = (await m.json()) as { candidatos: unknown[]; intentos: number };
     expect(Array.isArray(jm.candidatos)).toBe(true);
@@ -169,9 +157,9 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
 
   it("cuenta y pago: facturado menos pagado da saldo y el pago descuenta", async () => {
     const draftId = await ingerir(`brp-${Date.now()}`);
-    const c = (await postConfirm({
-      request: req("http://x/api/supplier-invoices/drafts/confirm", { draft_id: draftId, quien: "d" }),
-    } as never)) as Response;
+    const c = (await postConfirm(
+      ctx("http://x/api/supplier-invoices/drafts/confirm", { body: { draft_id: draftId, quien: "d" } }),
+    )) as Response;
     expect(c.status).toBe(201);
     const { factura_id } = (await c.json()) as { factura_id: string };
     const a1 = (await getAccount(
@@ -179,10 +167,9 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     )) as Response;
     expect(a1.status).toBe(200);
     expect(((await a1.json()) as { saldoCentavos: string }).saldoCentavos).toBe("16480000");
-    const p = (await postPay({
-      request: req(
-        "http://x/api/supplier-invoices/payments",
-        {
+    const p = (await postPay(
+      ctx("http://x/api/supplier-invoices/payments", {
+        body: {
           supplier_cuit: CUIT,
           monto_centavos: 6480000,
           metodo: "Transferencia",
@@ -190,9 +177,9 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
           creado_por: "dueno-1",
           factura_id: factura_id,
         },
-        { "Idempotency-Key": `pag-${Date.now()}` },
-      ),
-    } as never)) as Response;
+        headers: { "Idempotency-Key": `pag-${Date.now()}` },
+      }),
+    )) as Response;
     expect(p.status).toBe(201);
     expect(((await p.json()) as { pago_id: string }).pago_id).toMatch(/^pag-/);
     const a2 = (await getAccount(
@@ -236,28 +223,26 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const movsAntes = store.movements.length;
     const o1 = await preparar(payeeId, `ord-${Date.now()}-1`);
     expect(o1.numero).toMatch(/^OP-\d+$/);
-    const cc = (await postCancel({
-      request: req(
-        "http://x/api/payment-orders/cancel",
-        {
+    const cc = (await postCancel(
+      ctx("http://x/api/payment-orders/cancel", {
+        body: {
           order_id: o1.order_id,
           version_esperada: 1,
           motivo: "factura anulada",
           actor: "dueno-1",
         },
-        auth,
-      ),
-    } as never)) as Response;
+        headers: auth,
+      }),
+    )) as Response;
     expect(cc.status).toBe(200);
     expect(((await cc.json()) as { estado: string }).estado).toBe("cancelada");
     const o2 = await preparar(payeeId, `ord-${Date.now()}-2`);
-    const p = (await postConfirmPaid({
-      request: req(
-        "http://x/api/payment-orders/confirm-paid",
-        { order_id: o2.order_id, version_esperada: 1, medio: "Transferencia", actor: "dueno-1" },
-        { "Idempotency-Key": `pago-ord-${Date.now()}`, ...auth },
-      ),
-    } as never)) as Response;
+    const p = (await postConfirmPaid(
+      ctx("http://x/api/payment-orders/confirm-paid", {
+        body: { order_id: o2.order_id, version_esperada: 1, medio: "Transferencia", actor: "dueno-1" },
+        headers: { "Idempotency-Key": `pago-ord-${Date.now()}`, ...auth },
+      }),
+    )) as Response;
     expect(p.status).toBe(200);
     expect(((await p.json()) as { estado: string }).estado).toBe("pagada");
     expect(store.movements.length).toBe(movsAntes + 1);
@@ -268,23 +253,27 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const payeeId = sembrarPayee();
     await preparar(payeeId, `ord-${Date.now()}-s`);
     const texto = "Banco Galicia: pagaste $ 48.000 el 10/10/2026";
-    const r1 = (await postSugerir({
-      request: req("http://x/api/payment-orders/sugerir-desde-notif", {
-        texto,
-        notif_id: `n-${randomUUID()}-1`,
-        hoy_iso: "2026-10-10",
+    const r1 = (await postSugerir(
+      ctx("http://x/api/payment-orders/sugerir-desde-notif", {
+        body: {
+          texto,
+          notif_id: `n-${randomUUID()}-1`,
+          hoy_iso: "2026-10-10",
+        },
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(r1.status).toBe(200);
     const j1 = (await r1.json()) as { notif: { monto_centavos: string }; candidatos: unknown[] };
     expect(j1.notif.monto_centavos).toBe("4800000");
-    const r2 = (await postSugerir({
-      request: req("http://x/api/payment-orders/sugerir-desde-notif", {
-        texto: "otro texto",
-        notif_id: `n-${randomUUID()}-2`,
-        hoy_iso: "2026-10-10",
+    const r2 = (await postSugerir(
+      ctx("http://x/api/payment-orders/sugerir-desde-notif", {
+        body: {
+          texto: "otro texto",
+          notif_id: `n-${randomUUID()}-2`,
+          hoy_iso: "2026-10-10",
+        },
       }),
-    } as never)) as Response;
+    )) as Response;
     expect([200, 422]).toContain(r2.status);
   });
 });
@@ -367,26 +356,23 @@ describe.skipIf(!hayPG)("PERS2-S14/S15 multi con PG local: facturas y ordenes ai
   it("pago a proveedor en A queda en supplier_payments de A y B no lo ve", async () => {
     fijarMulti();
     const d = await conTenant("tenant-a", () =>
-      postDrafts({
-        request: req("http://x/api/supplier-invoices/drafts", cuerpoBorrador(`bytes-${draftKey}`), {
-          "Idempotency-Key": draftKey,
-        }),
-      } as never),
+      postDrafts(
+        ctx("http://x/api/supplier-invoices/drafts", { body: cuerpoBorrador(`bytes-${draftKey}`), headers: { "Idempotency-Key": draftKey } }),
+      ),
     );
     expect((d as Response).status).toBe(201);
     const draftId = ((await (d as Response).json()) as { draft_id: string }).draft_id;
     const c = await conTenant("tenant-a", () =>
-      postConfirm({
-        request: req("http://x/api/supplier-invoices/drafts/confirm", { draft_id: draftId, quien: "d" }),
-      } as never),
+      postConfirm(
+        ctx("http://x/api/supplier-invoices/drafts/confirm", { body: { draft_id: draftId, quien: "d" } }),
+      ),
     );
     expect((c as Response).status).toBe(201);
     const { factura_id } = (await (c as Response).json()) as { factura_id: string };
     const p = await conTenant("tenant-a", () =>
-      postPay({
-        request: req(
-          "http://x/api/supplier-invoices/payments",
-          {
+      postPay(
+        ctx("http://x/api/supplier-invoices/payments", {
+          body: {
             supplier_cuit: CUIT,
             monto_centavos: 100000,
             metodo: "Transferencia",
@@ -394,9 +380,9 @@ describe.skipIf(!hayPG)("PERS2-S14/S15 multi con PG local: facturas y ordenes ai
             creado_por: "dueno-1",
             factura_id,
           },
-          { "Idempotency-Key": pagoKey },
-        ),
-      } as never),
+          headers: { "Idempotency-Key": pagoKey },
+        }),
+      ),
     );
     expect((p as Response).status).toBe(201);
     expect(((await (p as Response).json()) as { fuente: string }).fuente).toBe("db");
@@ -419,11 +405,9 @@ describe.skipIf(!hayPG)("PERS2-S14/S15 multi con PG local: facturas y ordenes ai
     );
     const maxAntesB = maxSufijo(antesB.map((r) => r.numero));
     const rA = await conTenant("tenant-a", () =>
-      postPrepare({
-        request: req("http://x/api/payment-orders/prepare", cuerpoOrden(payeeA), {
-          "Idempotency-Key": ordenKeyA,
-        }),
-      } as never),
+      postPrepare(
+        ctx("http://x/api/payment-orders/prepare", { body: cuerpoOrden(payeeA), headers: { "Idempotency-Key": ordenKeyA } }),
+      ),
     );
     expect((rA as Response).status).toBe(201);
     const jA = (await (rA as Response).json()) as { order_id: string; numero: string; estado: string };
@@ -437,11 +421,9 @@ describe.skipIf(!hayPG)("PERS2-S14/S15 multi con PG local: facturas y ordenes ai
     );
     expect(filasB.length).toBe(0);
     const rB = await conTenant("tenant-b", () =>
-      postPrepare({
-        request: req("http://x/api/payment-orders/prepare", cuerpoOrden(payeeB), {
-          "Idempotency-Key": ordenKeyB,
-        }),
-      } as never),
+      postPrepare(
+        ctx("http://x/api/payment-orders/prepare", { body: cuerpoOrden(payeeB), headers: { "Idempotency-Key": ordenKeyB } }),
+      ),
     );
     expect((rB as Response).status).toBe(201);
     const jB = (await (rB as Response).json()) as { numero: string };

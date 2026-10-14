@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore, store } from "../src/lib/store.js";
@@ -42,11 +43,9 @@ function modoSingleSinDb() {
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
 }
 
-function pushReq(opId: string, seq: number, payload: unknown = { seq }): Request {
-  return new Request("http://localhost/api/sync/push", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
-    body: JSON.stringify({
+function pushCtx(opId: string, seq: number, payload: Record<string, unknown> = { seq }) {
+  return ctx("http://localhost/api/sync/push", {
+    body: {
       op_id: opId,
       device_code: "caja-01",
       device_seq: seq,
@@ -54,30 +53,26 @@ function pushReq(opId: string, seq: number, payload: unknown = { seq }): Request
       modulo: "sales",
       payload,
       client_occurred_at: new Date().toISOString(),
-    }),
+    },
+    headers: { "Idempotency-Key": opId },
   });
 }
 
-function promoteReq(opId: string, seq = 5): Request {
-  return new Request("http://localhost/api/sync/promote", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
-    body: JSON.stringify({ op_id: opId, device_code: "caja-01", device_seq: seq }),
+function promoteCtx(opId: string, seq = 5) {
+  return ctx("http://localhost/api/sync/promote", {
+    body: { op_id: opId, device_code: "caja-01", device_seq: seq },
+    headers: { "Idempotency-Key": opId },
   });
 }
 
-function hbReq(body: unknown): Request {
-  return new Request("http://localhost/api/sync/heartbeat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+function hbCtx(body: Record<string, unknown>) {
+  return ctx("http://localhost/api/sync/heartbeat", { body });
 }
 
 async function pull(cursor: string, limite?: string): Promise<{ status: number; json: Record<string, unknown> }> {
   const q = new URLSearchParams({ cursor });
   if (limite !== undefined) q.set("limite", limite);
-  const res = (await GETPull({ request: new Request(`http://localhost/api/sync/pull?${q}`) } as never)) as Response;
+  const res = (await GETPull(ctx(`http://localhost/api/sync/pull?${q}`))) as Response;
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
@@ -90,18 +85,18 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
   it("push 201, replay mismo payload 200 y distinto payload 409", async () => {
     const opId = crypto.randomUUID();
     const payload = { venta: "v1" };
-    const r1 = (await POSTPush({ request: pushReq(opId, 7, payload) } as never)) as Response;
+    const r1 = (await POSTPush(pushCtx(opId, 7, payload))) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as Record<string, unknown>;
     expect(j1["op_id"]).toBe(opId);
     expect(typeof j1["cursor_nuevo"]).toBe("string");
     expect(typeof j1["id_mapeado"]).toBe("string");
 
-    const r2 = (await POSTPush({ request: pushReq(opId, 7, payload) } as never)) as Response;
+    const r2 = (await POSTPush(pushCtx(opId, 7, payload))) as Response;
     expect(r2.status).toBe(200);
     expect(((await r2.json()) as Record<string, unknown>)["op_id"]).toBe(opId);
 
-    const r3 = (await POSTPush({ request: pushReq(opId, 7, { venta: "otra" }) } as never)) as Response;
+    const r3 = (await POSTPush(pushCtx(opId, 7, { venta: "otra" }))) as Response;
     expect(r3.status).toBe(409);
     expect(((await r3.json()) as Record<string, unknown>)["error"]).toMatch(/op_id duplicado/);
   });
@@ -109,14 +104,12 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
   it("push 422 con device_seq desordenado y con Idempotency-Key distinto de op_id", async () => {
     const a = crypto.randomUUID();
     const b = crypto.randomUUID();
-    expect(((await POSTPush({ request: pushReq(a, 3) } as never)) as Response).status).toBe(201);
-    expect(((await POSTPush({ request: pushReq(b, 3) } as never)) as Response).status).toBe(422);
+    expect(((await POSTPush(pushCtx(a, 3))) as Response).status).toBe(201);
+    expect(((await POSTPush(pushCtx(b, 3))) as Response).status).toBe(422);
 
     const c = crypto.randomUUID();
-    const mala = new Request("http://localhost/api/sync/push", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": "otra-clave" },
-      body: JSON.stringify({
+    const mala = ctx("http://localhost/api/sync/push", {
+      body: {
         op_id: c,
         device_code: "caja-01",
         device_seq: 9,
@@ -124,9 +117,10 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
         modulo: "sales",
         payload: {},
         client_occurred_at: new Date().toISOString(),
-      }),
+      },
+      headers: { "Idempotency-Key": "otra-clave" },
     });
-    expect(((await POSTPush({ request: mala } as never)) as Response).status).toBe(422);
+    expect(((await POSTPush(mala)) as Response).status).toBe(422);
   });
 
   it("pull pagina por cursor con cap 50 y 422 con cursor negativo", async () => {
@@ -138,8 +132,8 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
 
     const op1 = crypto.randomUUID();
     const op2 = crypto.randomUUID();
-    expect(((await POSTPush({ request: pushReq(op1, 1) } as never)) as Response).status).toBe(201);
-    expect(((await POSTPush({ request: pushReq(op2, 2) } as never)) as Response).status).toBe(201);
+    expect(((await POSTPush(pushCtx(op1, 1))) as Response).status).toBe(201);
+    expect(((await POSTPush(pushCtx(op2, 2))) as Response).status).toBe(201);
 
     const p0 = await pull("0", "50");
     expect((p0.json["movimientos"] as unknown[])).toHaveLength(2);
@@ -153,42 +147,40 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
 
   it("promote asigna T-* al op pusheado, replay 200 y 404 con op desconocido", async () => {
     const opId = crypto.randomUUID();
-    expect(((await POSTPush({ request: pushReq(opId, 5, { x: 1 }) } as never)) as Response).status).toBe(201);
-    const pm = (await POSTPromote({ request: promoteReq(opId) } as never)) as Response;
+    expect(((await POSTPush(pushCtx(opId, 5, { x: 1 }))) as Response).status).toBe(201);
+    const pm = (await POSTPromote(promoteCtx(opId))) as Response;
     expect(pm.status).toBe(201);
     const pmj = (await pm.json()) as Record<string, unknown>;
     expect(pmj["ticket_provisorio"]).toBe("caja-01-5");
     expect(pmj["ticket_definitivo"]).toMatch(/^T-\d{6}$/);
 
-    const pm2 = (await POSTPromote({ request: promoteReq(opId) } as never)) as Response;
+    const pm2 = (await POSTPromote(promoteCtx(opId))) as Response;
     expect(pm2.status).toBe(200);
     expect(((await pm2.json()) as Record<string, unknown>)["ticket_definitivo"]).toBe(pmj["ticket_definitivo"]);
 
-    const pm404 = (await POSTPromote({ request: promoteReq(crypto.randomUUID()) } as never)) as Response;
+    const pm404 = (await POSTPromote(promoteCtx(crypto.randomUUID()))) as Response;
     expect(pm404.status).toBe(404);
   });
 
   it("heartbeat verde sin pendientes, ambar con pendientes y 422 sin device_code", async () => {
-    const v = (await POSTHeartbeat({ request: hbReq({ device_code: "caja-01", pendientes: 0 }) } as never)) as Response;
+    const v = (await POSTHeartbeat(hbCtx({ device_code: "caja-01", pendientes: 0 }))) as Response;
     expect(v.status).toBe(200);
     const vj = (await v.json()) as Record<string, unknown>;
     expect(vj["estado"]).toBe("verde");
     expect(vj["aviso"]).toBeNull();
 
-    const a = (await POSTHeartbeat({
-      request: hbReq({ device_code: "caja-01", pendientes: 3, ultima_op_hlc: "123:0" }),
-    } as never)) as Response;
+    const a = (await POSTHeartbeat(hbCtx({ device_code: "caja-01", pendientes: 3, ultima_op_hlc: "123:0" }))) as Response;
     expect(a.status).toBe(200);
     expect(((await a.json()) as Record<string, unknown>)["estado"]).toBe("ambar");
 
-    const m = (await POSTHeartbeat({ request: hbReq({ pendientes: 0 }) } as never)) as Response;
+    const m = (await POSTHeartbeat(hbCtx({ pendientes: 0 }))) as Response;
     expect(m.status).toBe(422);
   });
 
   it("heartbeat avisa rojo si el previo supero 72h", async () => {
     const hace80h = new Date(Date.now() - 80 * 3_600_000).toISOString();
     store.deviceSync.set("caja-vieja", { ultimaVistaEn: hace80h, pendientes: 5, ultimaOpHlc: null });
-    const res = (await POSTHeartbeat({ request: hbReq({ device_code: "caja-vieja", pendientes: 0 }) } as never)) as Response;
+    const res = (await POSTHeartbeat(hbCtx({ device_code: "caja-vieja", pendientes: 0 }))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as Record<string, unknown>;
     expect(j["estado"]).toBe("rojo");
@@ -208,11 +200,9 @@ function fijarMulti() {
 const opPG = crypto.randomUUID();
 const devicePG = `caja-pg-${sufijoPG}`.slice(0, 32);
 
-function pushPGReq(opId: string, seq: number, device: string, payload: unknown): Request {
-  return new Request("http://localhost/api/sync/push", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": opId },
-    body: JSON.stringify({
+function pushPGCtx(opId: string, seq: number, device: string, payload: Record<string, unknown>) {
+  return ctx("http://localhost/api/sync/push", {
+    body: {
       op_id: opId,
       device_code: device,
       device_seq: seq,
@@ -220,7 +210,8 @@ function pushPGReq(opId: string, seq: number, device: string, payload: unknown):
       modulo: "sales",
       payload,
       client_occurred_at: new Date().toISOString(),
-    }),
+    },
+    headers: { "Idempotency-Key": opId },
   });
 }
 
@@ -253,13 +244,13 @@ describe.skipIf(!hayPG)("PERS2-S21/S22 multi con PG local: outbox y heartbeat ai
     fijarMulti();
     const payload = { pg: sufijoPG };
     const r1 = (await conTenant("tenant-a", () =>
-      POSTPush({ request: pushPGReq(opPG, 1, devicePG, payload) } as never),
+      POSTPush(pushPGCtx(opPG, 1, devicePG, payload)),
     )) as Response;
     expect(r1.status).toBe(201);
     expect(((await r1.json()) as { fuente: string }).fuente).toBe("db");
 
     const r2 = (await conTenant("tenant-a", () =>
-      POSTPush({ request: pushPGReq(opPG, 1, devicePG, payload) } as never),
+      POSTPush(pushPGCtx(opPG, 1, devicePG, payload)),
     )) as Response;
     expect(r2.status).toBe(200);
 
@@ -278,14 +269,14 @@ describe.skipIf(!hayPG)("PERS2-S21/S22 multi con PG local: outbox y heartbeat ai
   it("pull en A trae el op de A y pull en B no lo trae", async () => {
     fijarMulti();
     const enA = (await conTenant("tenant-a", () =>
-      GETPull({ request: new Request("http://localhost/api/sync/pull?cursor=0&limite=50") } as never),
+      GETPull(ctx("http://localhost/api/sync/pull?cursor=0&limite=50", { method: "GET" })),
     )) as Response;
     expect(enA.status).toBe(200);
     const movsA = ((await enA.json()) as { movimientos: Array<{ op_id: string }> }).movimientos;
     expect(movsA.map((m) => m.op_id)).toContain(opPG);
 
     const enB = (await conTenant("tenant-b", () =>
-      GETPull({ request: new Request("http://localhost/api/sync/pull?cursor=0&limite=50") } as never),
+      GETPull(ctx("http://localhost/api/sync/pull?cursor=0&limite=50", { method: "GET" })),
     )) as Response;
     expect(enB.status).toBe(200);
     const movsB = ((await enB.json()) as { movimientos: Array<{ op_id: string }> }).movimientos;
@@ -295,9 +286,7 @@ describe.skipIf(!hayPG)("PERS2-S21/S22 multi con PG local: outbox y heartbeat ai
   it("heartbeat de A guarda device_sync_state en A y B no lo ve", async () => {
     fijarMulti();
     const r = (await conTenant("tenant-a", () =>
-      POSTHeartbeat({
-        request: hbReq({ device_code: devicePG, pendientes: 2, ultima_op_hlc: "9:0" }),
-      } as never),
+      POSTHeartbeat(hbCtx({ device_code: devicePG, pendientes: 2, ultima_op_hlc: "9:0" })),
     )) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as { estado: string }).estado).toBe("ambar");

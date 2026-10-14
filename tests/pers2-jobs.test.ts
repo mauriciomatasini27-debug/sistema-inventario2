@@ -143,12 +143,10 @@ function modoSingleJobs() {
   delete process.env.WHATSAPP_TOKEN;
 }
 
-function reqJob(url: string, body?: unknown): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Job-Secret": SECRETO },
-    body: body ? JSON.stringify(body) : null,
-  });
+function jobCtx(url: string, body?: Record<string, unknown>) {
+  return body === undefined
+    ? ctx(url, { headers: { "X-Job-Secret": SECRETO } })
+    : ctx(url, { body, headers: { "X-Job-Secret": SECRETO } });
 }
 
 let comercioN = 0;
@@ -182,13 +180,13 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
 
   it("aviso sin opt-in se omite y con alerta sin credenciales falla sin marcar", async () => {
     const sinOpt = comercioWa(false);
-    const r1 = (await postAviso({ request: reqJob("http://x/api/jobs/whatsapp-aviso") } as never)) as Response;
+    const r1 = (await postAviso(jobCtx("http://x/api/jobs/whatsapp-aviso"))) as Response;
     expect(r1.status).toBe(200);
     const res1 = (await r1.json()) as { resultados: Array<{ tenant_id: string; estado: string }> };
     expect(res1.resultados.find((x) => x.tenant_id === sinOpt.tenantId)?.estado).toBe("omitido_optout");
 
     const conOpt = comercioWa(true);
-    const r2 = (await postAviso({ request: reqJob("http://x/api/jobs/whatsapp-aviso") } as never)) as Response;
+    const r2 = (await postAviso(jobCtx("http://x/api/jobs/whatsapp-aviso"))) as Response;
     const res2 = (await r2.json()) as { resultados: Array<{ tenant_id: string; estado: string }> };
     expect(res2.resultados.find((x) => x.tenant_id === conOpt.tenantId)?.estado).toBe("fallo");
     expect(store.waEnviados.size).toBe(0);
@@ -197,20 +195,20 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
   it("aviso con clave ya enviada no se repite en el día", async () => {
     const { tenantId } = comercioWa(true);
     store.waEnviados.add(clave_aviso_wa(tenantId, fechaAR(new Date())));
-    const r = (await postAviso({ request: reqJob("http://x/api/jobs/whatsapp-aviso") } as never)) as Response;
+    const r = (await postAviso(jobCtx("http://x/api/jobs/whatsapp-aviso"))) as Response;
     const j = (await r.json()) as { resultados: Array<{ tenant_id: string; estado: string }> };
     expect(j.resultados.find((x) => x.tenant_id === tenantId)?.estado).toBe("omitido_ya_enviado");
   });
 
   it("cierre de medianoche: 201 automática con aviso y segundo disparo 409", async () => {
-    const r1 = (await postCierreJob({ request: reqJob("http://x/api/jobs/cierre-medianoche") } as never)) as Response;
+    const r1 = (await postCierreJob(jobCtx("http://x/api/jobs/cierre-medianoche"))) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as Record<string, unknown>;
     expect(j1["close_type"]).toBe("automatica");
     expect(String(j1["fecha_jornada"])).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect((j1["wa"] as { estado: string }).estado).toBe("enviado");
 
-    const r2 = (await postCierreJob({ request: reqJob("http://x/api/jobs/cierre-medianoche") } as never)) as Response;
+    const r2 = (await postCierreJob(jobCtx("http://x/api/jobs/cierre-medianoche"))) as Response;
     expect(r2.status).toBe(409);
     const j2 = (await r2.json()) as Record<string, unknown>;
     expect((j2["wa"] as { estado: string }).estado).toBe("duplicado");
@@ -226,7 +224,7 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
       esperadoCentavos: 0n,
       estado: "en_disputa",
     });
-    const r = (await postCierreJob({ request: reqJob("http://x/api/jobs/cierre-medianoche") } as never)) as Response;
+    const r = (await postCierreJob(jobCtx("http://x/api/jobs/cierre-medianoche"))) as Response;
     expect(r.status).toBe(422);
     expect(store.cierres.size).toBe(0);
     expect(store.waEnviados.size).toBe(0);
@@ -234,7 +232,7 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
 
   it("semanal sale por WA+email con el mismo cálculo", async () => {
     const { tenantId } = comercioWa(true);
-    const r = (await postSemanal({ request: reqJob("http://x/api/jobs/whatsapp-semanal") } as never)) as Response;
+    const r = (await postSemanal(jobCtx("http://x/api/jobs/whatsapp-semanal"))) as Response;
     expect(r.status).toBe(200);
     const j = (await r.json()) as { resultados: Array<{ tenant_id: string; canales: Array<{ canal: string; estado: string }> }> };
     const mio = j.resultados.find((x) => x.tenant_id === tenantId);
@@ -244,17 +242,17 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
   });
 
   it("whatsapp-cierre valida cuerpo, comercio y cierre, y sin credenciales no marca", async () => {
-    const bad = (await postWaCierre({ request: reqJob("http://x/api/jobs/whatsapp-cierre", { tenant_id: "", fecha_jornada: "x" }) } as never)) as Response;
+    const bad = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: "", fecha_jornada: "x" }))) as Response;
     expect(bad.status).toBe(422);
-    const sinTenant = (await postWaCierre({ request: reqJob("http://x/api/jobs/whatsapp-cierre", { tenant_id: "nope", fecha_jornada: "2026-10-11" }) } as never)) as Response;
+    const sinTenant = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: "nope", fecha_jornada: "2026-10-11" }))) as Response;
     expect(sinTenant.status).toBe(404);
     const { tenantId } = comercioWa(true);
-    const sinCierre = (await postWaCierre({ request: reqJob("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }) } as never)) as Response;
+    const sinCierre = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }))) as Response;
     expect(sinCierre.status).toBe(404);
     store.cierres.set("2026-10-11", {
       cierre: { fechaJornada: "2026-10-11", closeType: "manual", totalCentavos: 10000n, ultimoMovimientoId: null },
     } as never);
-    const r = (await postWaCierre({ request: reqJob("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }) } as never)) as Response;
+    const r = (await postWaCierre(jobCtx("http://x/api/jobs/whatsapp-cierre", { tenant_id: tenantId, fecha_jornada: "2026-10-11" }))) as Response;
     expect(r.status).toBe(502);
     expect(((await r.json()) as { error: string }).error).toBe("sin_credenciales");
   });
@@ -328,20 +326,18 @@ describe("PERS2-S19 single sin DB: vencimientos como hoy", () => {
   beforeEach(semillaVencimientos);
 
   it("lotes clasifica el vencimiento a 3 días", async () => {
-    const alta = (await postLots({
-      request: new Request("http://x/api/lots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sku: "VTO", cantidad: 2, vence_el: new Date(Date.now() + 2 * DIA_MS).toISOString() }),
+    const alta = (await postLots(
+      ctx("http://x/api/lots", {
+        body: { sku: "VTO", cantidad: 2, vence_el: new Date(Date.now() + 2 * DIA_MS).toISOString() },
       }),
-    } as never)) as Response;
+    )) as Response;
     expect(alta.status).toBe(201);
     const j = (await postVencLotes(ctx("http://x/api/jobs/vencimientos-lotes", { method: "POST" }))) as Response;
     expect(((await j.json()) as { alertas_3d: unknown[] }).alertas_3d.length).toBe(1);
   });
 
   it("servicios marca vencidas y sin credenciales todo es fallo sin quemar idempotencia", async () => {
-    const res = (await postVencServ({ request: reqJob("http://x/api/jobs/vencimientos-servicios") } as never)) as Response;
+    const res = (await postVencServ(jobCtx("http://x/api/jobs/vencimientos-servicios"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       resultados: Array<{ tenant_id: string; vencidas_marcadas: string[]; recordatorios: Array<{ tipo: string; estado: string }>; sugerencias: unknown[] }>;
@@ -383,12 +379,10 @@ function fijarTenantJob(id: string) {
   });
 }
 
-function reqJobTenant(url: string, tenantId: string, body?: unknown): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Job-Secret": SECRETO, "X-Tenant-Id": tenantId },
-    body: body ? JSON.stringify(body) : null,
-  });
+function jobCtxTenant(url: string, tenantId: string, body?: Record<string, unknown>) {
+  return body === undefined
+    ? ctx(url, { headers: { "X-Job-Secret": SECRETO, "X-Tenant-Id": tenantId } })
+    : ctx(url, { body, headers: { "X-Job-Secret": SECRETO, "X-Tenant-Id": tenantId } });
 }
 
 describe.skipIf(!hayPGJobs)("PERS2-S18 multi con PG local: cierre de medianoche aislado por tenant", () => {
@@ -420,7 +414,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S18 multi con PG local: cierre de medianoche 
     fijarTenantJob("tenant-a");
     fijarTenantJob("tenant-b");
     const r = await conTenant("tenant-a", () =>
-      postCierreJob({ request: reqJobTenant("http://x/api/jobs/cierre-medianoche", "tenant-a") } as never),
+      postCierreJob(jobCtxTenant("http://x/api/jobs/cierre-medianoche", "tenant-a")),
     );
     expect((r as Response).status).toBe(201);
     const filasA = await conTenant("tenant-a", async () => getTenantDb().select().from(closingSummaries));
@@ -544,7 +538,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
     });
 
     const res = await conTenant("tenant-a", () =>
-      postVencServ({ request: reqJobTenant("http://x/api/jobs/vencimientos-servicios", "tenant-a") } as never),
+      postVencServ(jobCtxTenant("http://x/api/jobs/vencimientos-servicios", "tenant-a")),
     );
     expect((res as Response).status).toBe(200);
     const j = ((await (res as Response).json()) as {

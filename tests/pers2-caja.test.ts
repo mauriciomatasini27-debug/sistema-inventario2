@@ -59,14 +59,6 @@ function modoSingleSinDb() {
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
 }
 
-function req(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-}
-
 function movimientoBody(seq: number) {
   return {
     tipo: "ingreso",
@@ -88,7 +80,7 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
 
   it("movements + balance: fuente memoria y total derivado", async () => {
     const key = `pers2-caja-mov-${Date.now()}`;
-    const r = (await postMovements({ request: req("http://x/api/cash/movements", movimientoBody(1), { "Idempotency-Key": key }) } as never)) as Response;
+    const r = (await postMovements(ctx("http://x/api/cash/movements", { body: movimientoBody(1), headers: { "Idempotency-Key": key } }))) as Response;
     expect(r.status).toBe(201);
     const b = (await getBalance(ctx("http://x/api/cash/balance"))) as Response;
     expect(b.status).toBe(200);
@@ -100,13 +92,13 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
 
   it("history lista lo movido y export lo baja en CSV", async () => {
     const key = `pers2-caja-h-${Date.now()}`;
-    await postMovements({ request: req("http://x/api/cash/movements", movimientoBody(2), { "Idempotency-Key": key }) } as never);
+    await postMovements(ctx("http://x/api/cash/movements", { body: movimientoBody(2), headers: { "Idempotency-Key": key } }));
     const h = (await getHistory(ctx("http://x/api/cash/history"))) as Response;
     expect(h.status).toBe(200);
     const jh = (await h.json()) as { total: number; items: Array<{ idempotency_key: string }>; next_cursor: number | null };
     expect(jh.total).toBe(1);
     expect(jh.items[0]?.idempotency_key).toBe(key);
-    const ex = (await getExport({ url: new URL("http://x/api/cash/export"), request: new Request("http://x/api/cash/export") } as never)) as Response;
+    const ex = (await getExport(ctx("http://x/api/cash/export"))) as Response;
     expect(ex.status).toBe(200);
     expect(ex.headers.get("content-type")).toContain("text/csv");
     const csv = await ex.text();
@@ -117,46 +109,46 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
   it("drops: 201 y misma key 409", async () => {
     const key = `pers2-caja-drop-${Date.now()}`;
     const body = { fecha_jornada: "2026-10-10", monto_centavos: 50000, creado_por: "duena" };
-    const r1 = (await postDrops({ request: req("http://x/api/cash/drops", body, { "Idempotency-Key": key }) } as never)) as Response;
+    const r1 = (await postDrops(ctx("http://x/api/cash/drops", { body, headers: { "Idempotency-Key": key } }))) as Response;
     expect(r1.status).toBe(201);
     expect(((await r1.json()) as { drop_id: string }).drop_id).toBe(key);
-    const r2 = (await postDrops({ request: req("http://x/api/cash/drops", body, { "Idempotency-Key": key }) } as never)) as Response;
+    const r2 = (await postDrops(ctx("http://x/api/cash/drops", { body, headers: { "Idempotency-Key": key } }))) as Response;
     expect(r2.status).toBe(409);
   });
 
   it("shifts: apertura, conciliacion y resolucion de disputa", async () => {
-    const r1 = (await postShifts({
-      request: req("http://x/api/cash/shifts", { fecha_jornada: "2026-10-10", turno: "manana", entregado_por: "ana", esperado_centavos: 200000 }, { "Idempotency-Key": `pers2-caja-sh-${Date.now()}` }),
-    } as never)) as Response;
+    const r1 = (await postShifts(
+      ctx("http://x/api/cash/shifts", { body: { fecha_jornada: "2026-10-10", turno: "manana", entregado_por: "ana", esperado_centavos: 200000 }, headers: { "Idempotency-Key": `pers2-caja-sh-${Date.now()}` } }),
+    )) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as { turno_id: string; estado: string };
     expect(j1.estado).toBe("pendiente");
-    const c1 = (await postConciliate({
-      request: req("http://x/api/cash/shifts/conciliate", { turno_id: j1.turno_id, contado_centavos: 200000, conteos_por_medio: [{ medio: "Efectivo", monto_centavos: 200000 }] }, { "Idempotency-Key": `pers2-caja-co-${Date.now()}` }),
-    } as never)) as Response;
+    const c1 = (await postConciliate(
+      ctx("http://x/api/cash/shifts/conciliate", { body: { turno_id: j1.turno_id, contado_centavos: 200000, conteos_por_medio: [{ medio: "Efectivo", monto_centavos: 200000 }] }, headers: { "Idempotency-Key": `pers2-caja-co-${Date.now()}` } }),
+    )) as Response;
     expect(c1.status).toBe(201);
     expect(((await c1.json()) as { estado: string }).estado).toBe("conciliado");
 
-    const r2 = (await postShifts({
-      request: req("http://x/api/cash/shifts", { fecha_jornada: "2026-10-10", turno: "tarde", entregado_por: "ana", esperado_centavos: 200000 }, { "Idempotency-Key": `pers2-caja-sh2-${Date.now()}` }),
-    } as never)) as Response;
+    const r2 = (await postShifts(
+      ctx("http://x/api/cash/shifts", { body: { fecha_jornada: "2026-10-10", turno: "tarde", entregado_por: "ana", esperado_centavos: 200000 }, headers: { "Idempotency-Key": `pers2-caja-sh2-${Date.now()}` } }),
+    )) as Response;
     const j2 = (await r2.json()) as { turno_id: string };
-    const c2 = (await postConciliate({
-      request: req("http://x/api/cash/shifts/conciliate", { turno_id: j2.turno_id, contado_centavos: 100000, conteos_por_medio: [{ medio: "Efectivo", monto_centavos: 100000 }] }, { "Idempotency-Key": `pers2-caja-co2-${Date.now()}` }),
-    } as never)) as Response;
+    const c2 = (await postConciliate(
+      ctx("http://x/api/cash/shifts/conciliate", { body: { turno_id: j2.turno_id, contado_centavos: 100000, conteos_por_medio: [{ medio: "Efectivo", monto_centavos: 100000 }] }, headers: { "Idempotency-Key": `pers2-caja-co2-${Date.now()}` } }),
+    )) as Response;
     expect(((await c2.json()) as { estado: string }).estado).toBe("en_disputa");
-    const res = (await postResolve({
-      request: req("http://x/api/cash/shifts/resolve", { turno_id: j2.turno_id, nota: "faltante justificado", rol: "dueno", resuelto_por: "duena" }),
-    } as never)) as Response;
+    const res = (await postResolve(
+      ctx("http://x/api/cash/shifts/resolve", { body: { turno_id: j2.turno_id, nota: "faltante justificado", rol: "dueno", resuelto_por: "duena" } }),
+    )) as Response;
     expect(res.status).toBe(200);
     expect(((await res.json()) as { estado: string }).estado).toBe("resuelto");
   });
 
   it("qr: alta, dedupe, lista y deshacer", async () => {
     const num = `OP-PERS2-${Date.now()}`;
-    const r1 = (await postQr({ request: req("http://x/api/cash/qr", { numero_operacion: num, monto_centavos: 1000 }, { "Idempotency-Key": "q1" }) } as never)) as Response;
+    const r1 = (await postQr(ctx("http://x/api/cash/qr", { body: { numero_operacion: num, monto_centavos: 1000 }, headers: { "Idempotency-Key": "q1" } }))) as Response;
     expect(r1.status).toBe(201);
-    const r2 = (await postQr({ request: req("http://x/api/cash/qr", { numero_operacion: num, monto_centavos: 1000 }, { "Idempotency-Key": "q2" }) } as never)) as Response;
+    const r2 = (await postQr(ctx("http://x/api/cash/qr", { body: { numero_operacion: num, monto_centavos: 1000 }, headers: { "Idempotency-Key": "q2" } }))) as Response;
     expect(r2.status).toBe(409);
     const g = (await getQr(ctx("http://x/api/cash/qr"))) as Response;
     expect(((await g.json()) as { recibos: unknown[] }).recibos.length).toBe(1);
@@ -165,41 +157,41 @@ describe("PERS2-S12/S13 single sin DB: caja se comporta como hoy", () => {
   });
 
   it("due-items: alta, aviso y pago con egreso", async () => {
-    const r = (await postDue({ request: req("http://x/api/cash/due-items", { concepto: "Luz", vence_el: new Date().toISOString(), monto_centavos: 2000 }) } as never)) as Response;
+    const r = (await postDue(ctx("http://x/api/cash/due-items", { body: { concepto: "Luz", vence_el: new Date().toISOString(), monto_centavos: 2000 } }))) as Response;
     expect(r.status).toBe(201);
     const j = (await r.json()) as { id: string };
     const g = (await getDue(ctx("http://x/api/cash/due-items"))) as Response;
     const jg = (await g.json()) as { vencimientos: Array<{ id: string; avisa: boolean }> };
     expect(jg.vencimientos.some((v) => v.id === j.id)).toBe(true);
-    const p = (await patchDue({ request: req("http://x/api/cash/due-items", {}, { "Idempotency-Key": "d1" }), url: new URL(`http://x/api/cash/due-items?id=${j.id}`) } as never)) as Response;
+    const p = (await patchDue(ctx(`http://x/api/cash/due-items?id=${j.id}`, { method: "PATCH", body: {}, headers: { "Idempotency-Key": "d1" } }))) as Response;
     expect(p.status).toBe(200);
     expect(((await p.json()) as { estado: string }).estado).toBe("pagada");
   });
 
   it("close: 201 con aviso, lectura y reintento 409", async () => {
     const fecha = "2026-10-10";
-    const r1 = (await postClose({ request: req("http://x/api/cash/close", { fecha_jornada: fecha, close_type: "manual" }, { "Idempotency-Key": `pers2-caja-cierre-${Date.now()}` }) } as never)) as Response;
+    const r1 = (await postClose(ctx("http://x/api/cash/close", { body: { fecha_jornada: fecha, close_type: "manual" }, headers: { "Idempotency-Key": `pers2-caja-cierre-${Date.now()}` } }))) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as { fecha_jornada: string; wa: { estado: string } };
     expect(j1.fecha_jornada).toBe(fecha);
     expect(j1.wa.estado).toBe("enviado");
     const g = (await getClose(ctx(`http://x/api/cash/close?fecha=${fecha}`))) as Response;
     expect(g.status).toBe(200);
-    const r2 = (await postClose({ request: req("http://x/api/cash/close", { fecha_jornada: "2026-10-11", close_type: "manual" }, { "Idempotency-Key": `pers2-caja-cierre2-${Date.now()}` }) } as never)) as Response;
+    const r2 = (await postClose(ctx("http://x/api/cash/close", { body: { fecha_jornada: "2026-10-11", close_type: "manual" }, headers: { "Idempotency-Key": `pers2-caja-cierre2-${Date.now()}` } }))) as Response;
     expect(r2.status).toBe(201);
-    const r3 = (await postClose({ request: req("http://x/api/cash/close", { fecha_jornada: fecha, close_type: "manual" }, { "Idempotency-Key": `pers2-caja-cierre3-${Date.now()}` }) } as never)) as Response;
+    const r3 = (await postClose(ctx("http://x/api/cash/close", { body: { fecha_jornada: fecha, close_type: "manual" }, headers: { "Idempotency-Key": `pers2-caja-cierre3-${Date.now()}` } }))) as Response;
     expect(r3.status).toBe(409);
   });
 
   it("reversals: compensatorio 201 y segunda 409", async () => {
     const key = `pers2-caja-revmov-${Date.now()}`;
-    const rm = (await postMovements({ request: req("http://x/api/cash/movements", movimientoBody(9), { "Idempotency-Key": key }) } as never)) as Response;
+    const rm = (await postMovements(ctx("http://x/api/cash/movements", { body: movimientoBody(9), headers: { "Idempotency-Key": key } }))) as Response;
     expect(rm.status).toBe(201);
     const jm = (await rm.json()) as { id: string };
-    const r1 = (await postReversals({ request: req("http://x/api/cash/reversals", { revierte_a: jm.id, actor: "duena" }, { "Idempotency-Key": `pers2-caja-rev-${Date.now()}` }) } as never)) as Response;
+    const r1 = (await postReversals(ctx("http://x/api/cash/reversals", { body: { revierte_a: jm.id, actor: "duena" }, headers: { "Idempotency-Key": `pers2-caja-rev-${Date.now()}` } }))) as Response;
     expect(r1.status).toBe(201);
     expect(((await r1.json()) as { revierte_a: string }).revierte_a).toBe(jm.id);
-    const r2 = (await postReversals({ request: req("http://x/api/cash/reversals", { revierte_a: jm.id, actor: "duena" }, { "Idempotency-Key": `pers2-caja-rev2-${Date.now()}` }) } as never)) as Response;
+    const r2 = (await postReversals(ctx("http://x/api/cash/reversals", { body: { revierte_a: jm.id, actor: "duena" }, headers: { "Idempotency-Key": `pers2-caja-rev2-${Date.now()}` } }))) as Response;
     expect(r2.status).toBe(409);
   });
 });
@@ -248,7 +240,7 @@ describe.skipIf(!hayPG)("PERS2-S12/S13 multi con PG local: caja de A aislada de 
     fijarMulti();
     const body = { fecha_jornada: "2026-10-10", monto_centavos: 50000, creado_por: "duena" };
     const r1 = await conTenant("tenant-a", () =>
-      postDrops({ request: req("http://x/api/cash/drops", body, { "Idempotency-Key": dropKeyPG }) } as never),
+      postDrops(ctx("http://x/api/cash/drops", { body, headers: { "Idempotency-Key": dropKeyPG } })),
     );
     expect((r1 as Response).status).toBe(201);
     const filasA = await conTenant("tenant-a", async () => {
@@ -267,7 +259,7 @@ describe.skipIf(!hayPG)("PERS2-S12/S13 multi con PG local: caja de A aislada de 
     fijarMulti();
     const body = { fecha_jornada: "2026-10-10", monto_centavos: 50000, creado_por: "duena" };
     const rB = await conTenant("tenant-b", () =>
-      postDrops({ request: req("http://x/api/cash/drops", body, { "Idempotency-Key": dropKeyPG }) } as never),
+      postDrops(ctx("http://x/api/cash/drops", { body, headers: { "Idempotency-Key": dropKeyPG } })),
     );
     expect((rB as Response).status).toBe(201);
     for (const t of ["tenant-a", "tenant-b"] as const) {
@@ -292,7 +284,7 @@ describe.skipIf(!hayPG)("PERS2-S12/S13 multi con PG local: caja de A aislada de 
       });
     });
     const r1 = await conTenant("tenant-a", () =>
-      postReversals({ request: req("http://x/api/cash/reversals", { revierte_a: movIdPG, actor: "duena" }, { "Idempotency-Key": revKeyPG }) } as never),
+      postReversals(ctx("http://x/api/cash/reversals", { body: { revierte_a: movIdPG, actor: "duena" }, headers: { "Idempotency-Key": revKeyPG } })),
     );
     expect((r1 as Response).status).toBe(201);
     const revA = await conTenant("tenant-a", async () => {

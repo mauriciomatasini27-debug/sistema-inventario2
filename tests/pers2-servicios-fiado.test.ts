@@ -48,14 +48,6 @@ function modoSingleSinDb() {
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
-}
-
-function reqKey(url: string, key: string, body: unknown): Request {
-  return reqJson(url, body, { "Idempotency-Key": key });
-}
-
 const sufijo = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
 // utility_bills.account_id es uuid en Postgres: el test usa uno fijo valido.
 const CUENTA_UUID = "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a";
@@ -79,17 +71,17 @@ describe("PERS2-S16 single sin DB: factura, vencimientos y pago como hoy", () =>
 
   it("alta 201 con bill_id y message repetido 409", async () => {
     const messageId = `pers2-msg-${sufijo}`;
-    const r1 = (await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(messageId)) } as never)) as Response;
+    const r1 = (await postBill(ctx("http://x/api/utility-bills", { body: cuerpoFactura(messageId) }))) as Response;
     expect(r1.status).toBe(201);
     const j1 = (await r1.json()) as { bill_id: string; advertencias: unknown };
     expect(typeof j1.bill_id).toBe("string");
-    const r2 = (await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(messageId)) } as never)) as Response;
+    const r2 = (await postBill(ctx("http://x/api/utility-bills", { body: cuerpoFactura(messageId) }))) as Response;
     expect(r2.status).toBe(409);
   });
 
   it("due expone proximas y vencidas", async () => {
-    await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(`pers2-prox-${sufijo}`, "2026-10-12")) } as never);
-    await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(`pers2-venc-${sufijo}`, "2026-10-08")) } as never);
+    await postBill(ctx("http://x/api/utility-bills", { body: cuerpoFactura(`pers2-prox-${sufijo}`, "2026-10-12") }));
+    await postBill(ctx("http://x/api/utility-bills", { body: cuerpoFactura(`pers2-venc-${sufijo}`, "2026-10-08") }));
     const res = (await getDue(ctx("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as { proximas: Array<Record<string, string>>; vencidas: Array<Record<string, string>> };
@@ -101,17 +93,17 @@ describe("PERS2-S16 single sin DB: factura, vencimientos y pago como hoy", () =>
 
   it("pago 200 deja pagada, segundo pago 409 y factura inexistente 404", async () => {
     const messageId = `pers2-pay-${sufijo}`;
-    const r1 = (await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(messageId)) } as never)) as Response;
+    const r1 = (await postBill(ctx("http://x/api/utility-bills", { body: cuerpoFactura(messageId) }))) as Response;
     const billId = ((await r1.json()) as { bill_id: string }).bill_id;
     const pago = { bill_id: billId, servicio: "luz", proveedor: "Edenor", numero_cuenta: "12345", medio: "Debito" };
-    const p1 = (await payBill({ request: reqJson("http://x/api/utility-bills/pay", pago) } as never)) as Response;
+    const p1 = (await payBill(ctx("http://x/api/utility-bills/pay", { body: pago }))) as Response;
     expect(p1.status).toBe(200);
     expect(await p1.json()).toMatchObject({ bill_id: billId, estado: "pagada" });
-    const p2 = (await payBill({ request: reqJson("http://x/api/utility-bills/pay", pago) } as never)) as Response;
+    const p2 = (await payBill(ctx("http://x/api/utility-bills/pay", { body: pago }))) as Response;
     expect(p2.status).toBe(409);
-    const p3 = (await payBill({
-      request: reqJson("http://x/api/utility-bills/pay", { ...pago, bill_id: "bill-inexistente" }),
-    } as never)) as Response;
+    const p3 = (await payBill(
+      ctx("http://x/api/utility-bills/pay", { body: { ...pago, bill_id: "bill-inexistente" } }),
+    )) as Response;
     expect(p3.status).toBe(404);
   });
 });
@@ -132,33 +124,36 @@ describe("PERS2-S17 single sin DB: venta a cuenta, cobro y saldo como hoy", () =
       tope_centavos: 100000,
       saldo_actual_centavos: 0,
     };
-    const r = (await postSale({ request: reqKey("http://x/api/credit/sales-on-account", key, cuerpo) } as never)) as Response;
+    const r = (await postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": key } }))) as Response;
     expect(r.status).toBe(201);
     expect(await r.json()).toMatchObject({ total_centavos: "20000" });
     const b = (await getBalance(ctx("http://x/api/credit/balance?customer_id=cli-1"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
     expect(j["saldo_centavos"]).toBe("20000");
     expect(j["fuente"]).toBe("memoria");
-    const dup = (await postSale({ request: reqKey("http://x/api/credit/sales-on-account", key, cuerpo) } as never)) as Response;
+    const dup = (await postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": key } }))) as Response;
     expect(dup.status).toBe(409);
   });
 
   it("cobro 201 resta haber y balance cuadra", async () => {
     const k1 = `pers2-vta2-${sufijo}`;
-    await postSale({
-      request: reqKey("http://x/api/credit/sales-on-account", k1, {
-        customer_id: "cli-2",
-        lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
-        device_code: "caja-01",
-        seq_local: 1,
-        tope_centavos: 100000,
-        saldo_actual_centavos: 0,
+    await postSale(
+      ctx("http://x/api/credit/sales-on-account", {
+        body: {
+          customer_id: "cli-2",
+          lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
+          device_code: "caja-01",
+          seq_local: 1,
+          tope_centavos: 100000,
+          saldo_actual_centavos: 0,
+        },
+        headers: { "Idempotency-Key": k1 },
       }),
-    } as never);
+    );
     const k2 = `pers2-cob-${sufijo}`;
-    const r = (await postPayment({
-      request: reqKey("http://x/api/credit/payments", k2, { customer_id: "cli-2", monto_centavos: 8000, medio: "Efectivo" }),
-    } as never)) as Response;
+    const r = (await postPayment(
+      ctx("http://x/api/credit/payments", { body: { customer_id: "cli-2", monto_centavos: 8000, medio: "Efectivo" }, headers: { "Idempotency-Key": k2 } }),
+    )) as Response;
     expect(r.status).toBe(201);
     const b = (await getBalance(ctx("http://x/api/credit/balance?customer_id=cli-2"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
@@ -213,7 +208,7 @@ describe.skipIf(!hayPG)("PERS2-S16 multi con PG local: factura y pago aislados p
   it("cargo y pago una factura en A: queda en la base de A y B no la ve", async () => {
     fijarMulti();
     const alta = await conTenant("tenant-a", () =>
-      postBill({ request: reqJson("http://x/api/utility-bills", { ...cuerpoFactura(messagePG), monto_centavos: montoPG }) } as never),
+      postBill(ctx("http://x/api/utility-bills", { body: { ...cuerpoFactura(messagePG), monto_centavos: montoPG } })),
     );
     expect((alta as Response).status).toBe(201);
     const altaJson = (await (alta as Response).json()) as { fuente: string; bill_id: string };
@@ -221,15 +216,17 @@ describe.skipIf(!hayPG)("PERS2-S16 multi con PG local: factura y pago aislados p
     const billId = altaJson.bill_id;
 
     const pago = await conTenant("tenant-a", () =>
-      payBill({
-        request: reqJson("http://x/api/utility-bills/pay", {
-          bill_id: billId,
-          servicio: "luz",
-          proveedor: "Edenor",
-          numero_cuenta: "12345",
-          medio: "Debito",
+      payBill(
+        ctx("http://x/api/utility-bills/pay", {
+          body: {
+            bill_id: billId,
+            servicio: "luz",
+            proveedor: "Edenor",
+            numero_cuenta: "12345",
+            medio: "Debito",
+          },
         }),
-      } as never),
+      ),
     );
     expect((pago as Response).status).toBe(200);
 
@@ -301,15 +298,15 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
       saldo_actual_centavos: 0,
     };
     const venta = await conTenant("tenant-a", () =>
-      postSale({ request: reqKey("http://x/api/credit/sales-on-account", claveVentaPG, cuerpo) } as never),
+      postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": claveVentaPG } })),
     );
     expect((venta as Response).status).toBe(201);
     expect(((await (venta as Response).json()) as { fuente: string }).fuente).toBe("db");
 
     const cobro = await conTenant("tenant-a", () =>
-      postPayment({
-        request: reqKey("http://x/api/credit/payments", claveCobroPG, { customer_id: clientePG, monto_centavos: 8000, medio: "Efectivo" }),
-      } as never),
+      postPayment(
+        ctx("http://x/api/credit/payments", { body: { customer_id: clientePG, monto_centavos: 8000, medio: "Efectivo" }, headers: { "Idempotency-Key": claveCobroPG } }),
+      ),
     );
     expect((cobro as Response).status).toBe(201);
     expect(((await (cobro as Response).json()) as { fuente: string }).fuente).toBe("db");

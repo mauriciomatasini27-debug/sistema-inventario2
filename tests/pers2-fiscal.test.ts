@@ -64,16 +64,8 @@ function ventaBody(seq: number) {
   };
 }
 
-function reqJson(url: string, body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-}
-
 async function vender(key: string, seq: number) {
-  const r = (await postSales({ request: reqJson("http://x/api/sales", ventaBody(seq), { "Idempotency-Key": key }) } as never)) as Response;
+  const r = (await postSales(ctx("http://x/api/sales", { body: ventaBody(seq), headers: { "Idempotency-Key": key } }))) as Response;
   expect(r.status).toBe(201);
   return (await r.json()) as { sale_id: string; fiscal_estado: string };
 }
@@ -87,18 +79,18 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
   it("venta crea pendiente y documents/history/export lo sirven desde memoria", async () => {
     const v = await vender(`pers2-fis-${Date.now()}-1`, 101);
     const saleId = v.sale_id;
-    const docs = (await getDocuments({ request: new Request("http://x/api/fiscal/documents"), url: new URL(`http://x/api/fiscal/documents?sale_id=${saleId}`) } as never)) as Response;
+    const docs = (await getDocuments(ctx(`http://x/api/fiscal/documents?sale_id=${saleId}`, { method: "GET" }))) as Response;
     expect(docs.status).toBe(200);
     const jd = (await docs.json()) as { docs: Array<{ sale_id: string }> };
     expect(jd.docs.length).toBeGreaterThanOrEqual(1);
     expect(jd.docs[0]?.sale_id).toBe(saleId);
 
-    const h = (await getHistory({ request: new Request("http://x/api/fiscal/history"), url: new URL("http://x/api/fiscal/history") } as never)) as Response;
+    const h = (await getHistory(ctx("http://x/api/fiscal/history", { method: "GET" }))) as Response;
     expect(h.status).toBe(200);
     const jh = (await h.json()) as { docs: unknown[] };
     expect(jh.docs.length).toBeGreaterThanOrEqual(1);
 
-    const ex = (await getExport({ request: new Request("http://x/api/fiscal/export", { headers: { "X-Rol": "dueno" } }), url: new URL("http://x/api/fiscal/export?formato=csv") } as never)) as Response;
+    const ex = (await getExport(ctx("http://x/api/fiscal/export?formato=csv", { method: "GET", headers: { "X-Rol": "dueno" } }))) as Response;
     expect(ex.status).toBe(200);
     const csv = await ex.text();
     expect(csv).toContain("tipo");
@@ -123,7 +115,7 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
       intentos: 1,
     });
     const docId = [...store.fiscalDocs.values()].find((d) => d.idempotency_key === "k-retry")!.id;
-    const res = (await postRetry({ request: reqJson("http://x/api/fiscal/retry", { fiscal_document_id: docId }) } as never)) as Response;
+    const res = (await postRetry(ctx("http://x/api/fiscal/retry", { body: { fiscal_document_id: docId } }))) as Response;
     expect(res.status).toBe(200);
     expect(store.fiscalDocs.get("k-retry")!.estado).toBe("pendiente");
   });
@@ -139,27 +131,29 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
     store.fiscalDocs.set(fkey, r.doc);
     const cajaId = [...store.movements].find((m) => m.sale_id === saleId)?.id ?? "caja-1";
 
-    const rej = (await postNd({
-      request: reqJson("http://x/api/fiscal/nd", {
+    const rej = (await postNd(ctx("http://x/api/fiscal/nd", {
+      body: {
         factura_sale_id: saleId,
         monto_centavos: 5000,
         motivo: "ajuste",
         actor: "empleado",
         client_occurred_at: new Date().toISOString(),
-      }, { "Idempotency-Key": `nd-k-${Date.now()}`, "X-Rol": "empleado" }),
-    } as never)) as Response;
+      },
+      headers: { "Idempotency-Key": `nd-k-${Date.now()}`, "X-Rol": "empleado" },
+    }))) as Response;
     expect(rej.status).toBe(403);
 
-    const ok = (await postNd({
-      request: reqJson("http://x/api/fiscal/nd", {
+    const ok = (await postNd(ctx("http://x/api/fiscal/nd", {
+      body: {
         factura_sale_id: saleId,
         monto_centavos: 5000,
         motivo: "intereses",
         actor: "dueno",
         caja_movement_id: cajaId,
         client_occurred_at: new Date().toISOString(),
-      }, { "Idempotency-Key": `nd-k2-${Date.now()}` }),
-    } as never)) as Response;
+      },
+      headers: { "Idempotency-Key": `nd-k2-${Date.now()}` },
+    }))) as Response;
     expect(ok.status).toBe(201);
     const j = (await ok.json()) as { nd_tipo: number };
     expect(j.nd_tipo).toBe(12);
@@ -170,9 +164,9 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
     const saleId = v.sale_id;
     const fkey = [...store.fiscalDocs.keys()].find((k) => store.fiscalDocs.get(k)!.sale_id === saleId)!;
     const docId = store.fiscalDocs.get(fkey)!.id;
-    const res = (await postEmitir({
-      request: reqJson("http://x/api/fiscal/emitir", { fiscal_document_id: docId, cuit: "20-93333172-6" }),
-    } as never)) as Response;
+    const res = (await postEmitir(ctx("http://x/api/fiscal/emitir", {
+      body: { fiscal_document_id: docId, cuit: "20-93333172-6" },
+    }))) as Response;
     expect([200, 202, 422]).toContain(res.status);
     if (res.status === 200) {
       const j = (await res.json()) as { fiscal_estado: string };
@@ -182,13 +176,13 @@ describe("PERS2-S8/S9 single sin DB: fiscal se comporta como hoy", () => {
 
   it("wizard avanza y delegacion confirma como hoy", async () => {
     const tid = `t-wiz-${Date.now()}`;
-    const w = (await postWizard({ request: reqJson("http://x/api/fiscal/wizard", { tenant_id: tid, accion: "avanzar", paso: 2 }) } as never)) as Response;
+    const w = (await postWizard(ctx("http://x/api/fiscal/wizard", { body: { tenant_id: tid, accion: "avanzar", paso: 2 } }))) as Response;
     expect(w.status).toBe(200);
     expect(((await w.json()) as { paso: number }).paso).toBe(2);
     const g = (await getWizard(ctx(`http://x/api/fiscal/wizard?tenant_id=${tid}`))) as Response;
     expect(g.status).toBe(200);
     expect(((await g.json()) as { paso: number }).paso).toBe(2);
-    const d = (await postDelegacion({ request: reqJson("http://x/api/fiscal/delegacion-confirmada", { tenant_id: tid, cuit: "20123456789" }) } as never)) as Response;
+    const d = (await postDelegacion(ctx("http://x/api/fiscal/delegacion-confirmada", { body: { tenant_id: tid, cuit: "20123456789" } }))) as Response;
     expect(d.status).toBe(201);
     expect(((await d.json()) as { delegacion: string }).delegacion).toBe("pendiente_proveedor");
   });
@@ -232,11 +226,10 @@ function sesionPara(sub: string, tenantId: string | null): string {
   return c.idPlano;
 }
 
-function reqHistory(cookie: string, tenant: string): { request: Request; url: URL } {
-  const headers = new Headers();
-  headers.set("cookie", `__Host-sesion=${cookie}`);
-  headers.set("X-Tenant-Id", tenant);
-  return { request: new Request("http://x/api/fiscal/history", { headers }), url: new URL("http://x/api/fiscal/history") };
+function historyCtx(cookie: string, tenant: string) {
+  return ctx("http://x/api/fiscal/history", {
+    headers: { cookie: `__Host-sesion=${cookie}`, "X-Tenant-Id": tenant },
+  });
 }
 
 const ventasPG: string[] = [];
@@ -300,16 +293,14 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
     expect(filasB.length).toBe(0);
 
     const hA = await conTenant("tenant-a", () => {
-      const { request, url } = reqHistory(cookieA, "tenant-a");
-      return getHistory({ request, url } as never) as Promise<Response>;
+      return getHistory(historyCtx(cookieA, "tenant-a")) as Promise<Response>;
     });
     expect(hA.status).toBe(200);
     const jA = (await hA.json()) as { docs: Array<{ sale_id: string }> };
     expect(jA.docs.some((d) => d.sale_id === sale_id)).toBe(true);
 
     const hB = await conTenant("tenant-b", () => {
-      const { request, url } = reqHistory(cookieB, "tenant-b");
-      return getHistory({ request, url } as never) as Promise<Response>;
+      return getHistory(historyCtx(cookieB, "tenant-b")) as Promise<Response>;
     });
     expect(hB.status).toBe(200);
     const jB = (await hB.json()) as { docs: Array<{ sale_id: string }> };
@@ -319,7 +310,7 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
   it("wizard de A no se ve en B", async () => {
     fijarMulti();
     const r = await conTenant("tenant-a", () =>
-      postWizard({ request: reqJson("http://x/api/fiscal/wizard", { accion: "avanzar", paso: 3 }) } as never),
+      postWizard(ctx("http://x/api/fiscal/wizard", { body: { accion: "avanzar", paso: 3 } })),
     ) as Response;
     expect(r.status).toBe(200);
     expect(((await r.json()) as { paso: number }).paso).toBe(3);
