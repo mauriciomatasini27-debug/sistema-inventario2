@@ -9,9 +9,10 @@ import type {
   Resultado,
   SkuRot,
 } from "./tipos.js";
+import { diaUTC, sumarDiasAR, type FechaAR } from "../../lib/fecha-ar.js";
 
 function diaStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return diaUTC(d);
 }
 
 function round2(n: number): number {
@@ -172,9 +173,9 @@ export function diasEntre(desde: string, hasta: string): number {
 }
 
 function diaAntes(d: string): string {
-  return new Date(Date.parse(d + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+  return sumarDiasAR(d as FechaAR, -1);
 }
 
 function diaDespues(d: string): string {
-  return new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+  return sumarDiasAR(d as FechaAR, 1);
 }

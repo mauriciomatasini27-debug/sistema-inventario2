@@ -41,6 +41,12 @@ export interface StoredStockMovement {
   tipo: "ALTA" | "VENTA" | "COMPENSATORIO";
 }
 
+export interface MarcaNoFacturar {
+  motivo: string;
+  por: string;
+  cuando: string;
+}
+
 export interface StoredFiscalDoc {
   id: string;
   idempotency_key: string;
@@ -81,7 +87,7 @@ export interface StoredFiscalDoc {
   proximo_intento?: string | null | undefined;
   ultimo_error_codigo?: string | null | undefined;
   motivo_castellano?: string | null | undefined;
-  no_facturar?: { motivo: string; por: string; cuando: string } | null | undefined;
+  no_facturar?: MarcaNoFacturar | null | undefined;
 }
 
 export interface StoredReturn {
@@ -144,7 +150,7 @@ function crearEstado() {
   qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string }>(),
   vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
   ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
-  conteos: [] as Array<{ id: string; sector: string; idemKey: string; creadoEn: string; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>,
+  conteos: [] as Array<{ id: string; sector: string; idemKey: string; creadoEn: string; estado?: string | undefined; contadoPor?: string | undefined; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>,
   conteoVistos: new Map<string, string>(),
   suppliers: new Map<string, Supplier>(),
   purchaseOrders: new Map<string, PurchaseOrder>(),

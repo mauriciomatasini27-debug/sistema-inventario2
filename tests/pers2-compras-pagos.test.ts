@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore, store, control } from "../src/lib/store.js";
@@ -173,9 +174,9 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     } as never)) as Response;
     expect(c.status).toBe(201);
     const { factura_id } = (await c.json()) as { factura_id: string };
-    const a1 = (await getAccount({
-      url: new URL(`http://x/api/supplier-invoices/account?cuit=${encodeURIComponent(CUIT)}`),
-    } as never)) as Response;
+    const a1 = (await getAccount(
+      ctx(`http://x/api/supplier-invoices/account?cuit=${encodeURIComponent(CUIT)}`),
+    )) as Response;
     expect(a1.status).toBe(200);
     expect(((await a1.json()) as { saldoCentavos: string }).saldoCentavos).toBe("16480000");
     const p = (await postPay({
@@ -194,9 +195,9 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     } as never)) as Response;
     expect(p.status).toBe(201);
     expect(((await p.json()) as { pago_id: string }).pago_id).toMatch(/^pag-/);
-    const a2 = (await getAccount({
-      url: new URL(`http://x/api/supplier-invoices/account?cuit=${encodeURIComponent(CUIT)}`),
-    } as never)) as Response;
+    const a2 = (await getAccount(
+      ctx(`http://x/api/supplier-invoices/account?cuit=${encodeURIComponent(CUIT)}`),
+    )) as Response;
     expect(((await a2.json()) as { saldoCentavos: string }).saldoCentavos).toBe("10000000");
   });
 
@@ -270,7 +271,7 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const r1 = (await postSugerir({
       request: req("http://x/api/payment-orders/sugerir-desde-notif", {
         texto,
-        notif_id: `n-${Date.now()}`,
+        notif_id: `n-${Date.now()}-1`,
         hoy_iso: "2026-10-10",
       }),
     } as never)) as Response;
@@ -280,7 +281,7 @@ describe("PERS2-S14/S15 single sin DB: se comporta como hoy", () => {
     const r2 = (await postSugerir({
       request: req("http://x/api/payment-orders/sugerir-desde-notif", {
         texto: "otro texto",
-        notif_id: `n-${Date.now()}`,
+        notif_id: `n-${Date.now()}-2`,
         hoy_iso: "2026-10-10",
       }),
     } as never)) as Response;

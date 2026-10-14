@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as POSTVenc } from "../src/pages/api/jobs/vencimientos-servicios.js";
 import { ejecutar_vencimientos_servicios } from "../src/jobs/vencimientos-servicios.js";
-import { fechaBA } from "../src/jobs/whatsapp-aviso-matutino.js";
+import { fechaAR, sumarDiasAR } from "../src/lib/fecha-ar.js";
 import type { PaymentOrder } from "../src/modules/payments/ordenes.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 
@@ -13,9 +13,8 @@ const DIA = 86_400_000;
 vi.useFakeTimers({ toFake: ["Date"] });
 vi.setSystemTime(new Date("2026-10-14T01:00:00Z"));
 const hoyMs = Date.now();
-const hoyIso = fechaBA(new Date(hoyMs));
-// Fechas en calendario de BA, igual que el job (no UTC).
-const isoDias = (d: number): string => fechaBA(new Date(hoyMs + d * DIA));
+const hoyIso = fechaAR(new Date(hoyMs));
+const isoDias = (d: number): string => sumarDiasAR(hoyIso, d);
 
 function orden(id: string, numero: string, venceMs: number): PaymentOrder {
   return {

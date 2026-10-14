@@ -9,7 +9,8 @@ import {
   obtenerComercioBot,
   waEnviadosVivos,
 } from "../../../lib/repos/whatsapp.js";
-import { ejecutar_aviso_matutino_wa, fechaBA } from "../../../jobs/whatsapp-aviso-matutino.js";
+import { ejecutar_aviso_matutino_wa } from "../../../jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../../../lib/fecha-ar.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
@@ -31,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!g.ok) return g.respuesta;
   return conTenant(g.tenantId, async () => {
     const ahoraMs = Date.now();
-    const fecha = fechaBA(new Date(ahoraMs));
+    const fecha = fechaAR(new Date(ahoraMs));
     let vivos: Awaited<ReturnType<typeof catalogoAvisoVivo>>;
     try {
       vivos = await catalogoAvisoVivo();
