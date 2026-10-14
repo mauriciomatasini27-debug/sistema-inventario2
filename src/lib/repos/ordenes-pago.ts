@@ -7,6 +7,7 @@ import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { store } from "../store.js";
 import type { Medio } from "../validation.js";
 import type { Payee, PayeeTipo } from "../../modules/payments/beneficiarios.js";
+import { crear_payee } from "../../modules/payments/beneficiarios.js";
 import {
   cancelar_orden,
   confirmar_pago,
@@ -676,5 +677,83 @@ export async function persistirOrdenesVencidas(input: {
     for (const o of input.actualizadas) {
       if (marcadas.has(o.id)) store.paymentOrders.set(o.id, o);
     }
+  }
+}
+
+export interface AltaPayeeInput {
+  readonly id: string;
+  readonly nombre: string;
+  readonly tipo: Payee["tipo"];
+  readonly medioPreferido: Payee["medioPreferido"];
+  readonly alias?: string | undefined;
+  readonly cbu?: string | undefined;
+  readonly cuit?: string | undefined;
+  readonly linkPagoUrl?: string | undefined;
+}
+
+export type AltaPayeeResultado =
+  | { ok: true; payeeId: string; nombre: string; fuente: "db" | "memoria" }
+  | { ok: false; codigo: "DUPLICADO" | "NO_VALIDO"; status: number; error: string };
+
+// Alta de beneficiario OP6 (anti-duplicado alias/CBU/CUIT). DB primero via
+// dbVivaTenant() con union del espejo en memoria para el anti-duplicado;
+// solo en single sin base usa la memoria particionada. En multi sin base
+// dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
+export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResultado> {
+  const db = dbVivaTenant();
+  const existentes = async (): Promise<Payee[]> => {
+    const vivos = [...store.payees.values()];
+    if (!db) return vivos;
+    try {
+      const filas = await db.select().from(payees).where(eq(payees.activo, true));
+      const union = new Map<string, Payee>();
+      for (const p of vivos) union.set(p.id, p);
+      for (const f of filas) {
+        if (!union.has(f.id)) union.set(f.id, payeeDeFila(f));
+      }
+      return [...union.values()];
+    } catch (e) {
+      if (esModoMulti()) throw aBaseNoDisponible(e);
+      return vivos;
+    }
+  };
+  const r = crear_payee({
+    id: input.id,
+    nombre: input.nombre,
+    tipo: input.tipo,
+    medioPreferido: input.medioPreferido,
+    ...(input.alias !== undefined ? { alias: input.alias } : {}),
+    ...(input.cbu !== undefined ? { cbu: input.cbu } : {}),
+    ...(input.cuit !== undefined ? { cuit: input.cuit } : {}),
+    ...(input.linkPagoUrl !== undefined ? { linkPagoUrl: input.linkPagoUrl } : {}),
+    existentes: await existentes(),
+  });
+  if (!r.ok) {
+    return { ok: false, codigo: r.codigo === "DUPLICADO" ? "DUPLICADO" : "NO_VALIDO", status: r.status, error: r.error };
+  }
+  if (!db) {
+    store.payees.set(r.payee.id, r.payee);
+    return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "memoria" };
+  }
+  try {
+    await db
+      .insert(payees)
+      .values({
+        id: r.payee.id,
+        nombre: r.payee.nombre,
+        tipo: r.payee.tipo,
+        ...(r.payee.cuit !== undefined ? { cuit: r.payee.cuit } : {}),
+        ...(r.payee.cbu !== undefined ? { cbu: r.payee.cbu } : {}),
+        ...(r.payee.alias !== undefined ? { alias: r.payee.alias } : {}),
+        medioPreferido: r.payee.medioPreferido,
+        ...(r.payee.linkPagoUrl !== undefined ? { linkPagoUrl: r.payee.linkPagoUrl } : {}),
+      })
+      .onConflictDoNothing();
+    store.payees.set(r.payee.id, r.payee);
+    return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "db" };
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    store.payees.set(r.payee.id, r.payee);
+    return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "memoria" };
   }
 }

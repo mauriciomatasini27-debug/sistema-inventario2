@@ -5,6 +5,7 @@ import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { store } from "../store.js";
 import type { Servicio } from "../../modules/utilities/cuentas.js";
+import { crear_cuenta, es_cuenta_duplicada, type CuentaExistente, type CuentaServicio } from "../../modules/utilities/cuentas.js";
 import type { Medio } from "../validation.js";
 import {
   categoria_para,
@@ -253,4 +254,147 @@ export async function listarCuentas(): Promise<Map<string, { proveedor: string; 
     if (esModoMulti()) throw aBaseNoDisponible(e);
     return new Map([...store.serviceAccounts.values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
   }
+}
+
+export interface AltaCuentaInput {
+  readonly servicio: Servicio;
+  readonly proveedor: string;
+  readonly titular: string;
+  readonly numeroCuenta?: string | undefined;
+  readonly alias?: string | undefined;
+  readonly vencimientoTipicoDia?: number | undefined;
+  readonly emailOrigen?: string | undefined;
+  readonly medioHabitual?: "Efectivo" | "Debito" | "Mercado Pago" | "QR" | "Transferencia" | undefined;
+  readonly debitoAutomatico: boolean;
+}
+
+export type AltaCuentaResultado =
+  | { ok: true; accountId: string; servicio: Servicio; fuente: "db" | "memoria" }
+  | { ok: false; codigo: "DUPLICADA" | "NO_VALIDA"; status: number; error: string };
+
+// Alta de cuenta de servicio CS8 (anti-duplicada). DB primero via
+// dbVivaTenant() con union del espejo en memoria para el anti-duplicado;
+// solo en single sin base usa la memoria particionada. En multi sin base
+// dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
+export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResultado> {
+  const db = dbVivaTenant();
+  const existentes = async (): Promise<CuentaExistente[]> => {
+    const vivas = [...store.serviceAccounts.values()].map((c) => ({
+      servicio: c.servicio,
+      proveedor: c.proveedor,
+      titular: c.titular,
+      numeroCuenta: c.numeroCuenta,
+    }));
+    if (!db) return vivas;
+    try {
+      const filas = await db
+        .select({ servicio: serviceAccounts.servicio, proveedor: serviceAccounts.proveedor, titular: serviceAccounts.titular, numeroCuenta: serviceAccounts.numeroCuenta })
+        .from(serviceAccounts);
+      const union = new Map<string, CuentaExistente>();
+      for (const e of vivas) union.set(`${e.servicio}|${e.proveedor}|${e.titular}|${e.numeroCuenta ?? ""}`, e);
+      for (const f of filas) {
+        union.set(`${f.servicio}|${f.proveedor}|${f.titular}|${f.numeroCuenta ?? ""}`, {
+          servicio: f.servicio,
+          proveedor: f.proveedor,
+          titular: f.titular,
+          numeroCuenta: f.numeroCuenta,
+        });
+      }
+      return [...union.values()];
+    } catch (e) {
+      if (esModoMulti()) throw aBaseNoDisponible(e);
+      return vivas;
+    }
+  };
+  const r = crear_cuenta(
+    {
+      servicio: input.servicio,
+      proveedor: input.proveedor,
+      titular: input.titular,
+      ...(input.numeroCuenta !== undefined ? { numeroCuenta: input.numeroCuenta } : {}),
+      ...(input.alias !== undefined ? { alias: input.alias } : {}),
+      ...(input.vencimientoTipicoDia !== undefined ? { vencimientoTipicoDia: input.vencimientoTipicoDia } : {}),
+      ...(input.emailOrigen !== undefined ? { emailOrigen: input.emailOrigen } : {}),
+      ...(input.medioHabitual !== undefined ? { medioHabitual: input.medioHabitual } : {}),
+      debitoAutomatico: input.debitoAutomatico,
+    },
+    await existentes(),
+  );
+  if (!r.ok) {
+    return { ok: false, codigo: r.codigo === "DUPLICADA" ? "DUPLICADA" : "NO_VALIDA", status: r.status, error: r.error };
+  }
+  if (!db) {
+    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "memoria" };
+  }
+  try {
+    if (await esCuentaDuplicadaEnDb(db, r.cuenta)) {
+      return { ok: false, codigo: "DUPLICADA", status: 409, error: "cuenta de servicio duplicada" };
+    }
+    await db
+      .insert(serviceAccounts)
+      .values({
+        id: r.cuenta.id,
+        servicio: r.cuenta.servicio,
+        proveedor: r.cuenta.proveedor,
+        titular: r.cuenta.titular,
+        numeroCuenta: r.cuenta.numeroCuenta,
+        alias: r.cuenta.alias,
+        vencimientoTipicoDia: r.cuenta.vencimientoTipicoDia,
+        emailOrigen: r.cuenta.emailOrigen,
+        medioHabitual: r.cuenta.medioHabitual,
+        debitoAutomatico: r.cuenta.debitoAutomatico,
+      })
+      .onConflictDoNothing();
+    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "db" };
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "memoria" };
+  }
+}
+
+async function esCuentaDuplicadaEnDb(db: TenantDb, cuenta: CuentaServicio): Promise<boolean> {
+  const filas = await db
+    .select({ servicio: serviceAccounts.servicio, proveedor: serviceAccounts.proveedor, titular: serviceAccounts.titular, numeroCuenta: serviceAccounts.numeroCuenta })
+    .from(serviceAccounts);
+  return es_cuenta_duplicada(
+    { servicio: cuenta.servicio, proveedor: cuenta.proveedor, titular: cuenta.titular, numeroCuenta: cuenta.numeroCuenta },
+    filas.map((f) => ({ servicio: f.servicio, proveedor: f.proveedor, titular: f.titular, numeroCuenta: f.numeroCuenta })),
+  );
+}
+
+export interface CuentaVista {
+  account_id: string;
+  servicio: string;
+  proveedor: string;
+  titular: string;
+  alias: string | null;
+  activa: boolean;
+}
+
+// Lista CS7 para el panel (sin emails ni montos): union del espejo en
+// memoria y service_accounts con DB viva; memoria solo en single sin base.
+export async function listarCuentasDetalle(): Promise<CuentaVista[]> {
+  const db = dbVivaTenant();
+  if (!db) return [...store.serviceAccounts.values()].map(aVista);
+  try {
+    const filas = await db.select().from(serviceAccounts);
+    const union = new Map<string, CuentaVista>();
+    for (const c of store.serviceAccounts.values()) union.set(c.id, aVista(c));
+    for (const f of filas) {
+      if (!union.has(f.id)) {
+        union.set(f.id, { account_id: f.id, servicio: f.servicio, proveedor: f.proveedor, titular: f.titular, alias: f.alias, activa: f.activa ?? true });
+      }
+    }
+    return [...union.values()];
+  } catch (e) {
+    if (esModoMulti()) throw aBaseNoDisponible(e);
+    return [...store.serviceAccounts.values()].map(aVista);
+  }
+}
+
+function aVista(c: CuentaServicio): CuentaVista {
+  return { account_id: c.id, servicio: c.servicio, proveedor: c.proveedor, titular: c.titular, alias: c.alias, activa: c.activa };
 }

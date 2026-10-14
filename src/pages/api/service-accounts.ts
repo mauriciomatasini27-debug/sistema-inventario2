@@ -1,10 +1,13 @@
 import type { APIRoute } from "astro";
-import { cuentaSchema, crear_cuenta } from "../../modules/utilities/cuentas.js";
-import { store } from "../../lib/store.js";
+import { cuentaSchema } from "../../modules/utilities/cuentas.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import { altaCuenta, listarCuentasDetalle } from "../../lib/repos/servicios.js";
 
 export const prerender = false;
 
 // POST /api/service-accounts — alta de cuenta de servicio (CS8, anti-duplicada).
+// PERS2-S24: DB-first en el repo de servicios. En multi sin base el repo
+// propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -15,8 +18,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = cuentaSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  const r = crear_cuenta(
-    {
+  let r: Awaited<ReturnType<typeof altaCuenta>>;
+  try {
+    r = await altaCuenta({
       servicio: b.servicio,
       proveedor: b.proveedor,
       titular: b.titular,
@@ -26,31 +30,24 @@ export const POST: APIRoute = async ({ request }) => {
       ...(b.email_origen !== undefined ? { emailOrigen: b.email_origen } : {}),
       ...(b.medio_habitual !== undefined ? { medioHabitual: b.medio_habitual } : {}),
       debitoAutomatico: b.debito_automatico,
-    },
-    [...store.serviceAccounts.values()].map((c) => ({
-      servicio: c.servicio,
-      proveedor: c.proveedor,
-      titular: c.titular,
-      numeroCuenta: c.numeroCuenta,
-    })),
-  );
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
-  store.serviceAccounts.set(r.cuenta.id, r.cuenta);
-  return Response.json({ account_id: r.cuenta.id, servicio: r.cuenta.servicio }, { status: 201 });
+  if (r.fuente === "db") return Response.json({ account_id: r.accountId, servicio: r.servicio, fuente: "db" }, { status: 201 });
+  return Response.json({ account_id: r.accountId, servicio: r.servicio }, { status: 201 });
 };
 
 // GET /api/service-accounts — lista de cuentas para el panel CS7.
 // Sin emails de origen (no los necesita el panel); sin montos (las
 // cuentas nunca guardan dinero, solo las facturas).
 export const GET: APIRoute = async () => {
-  return Response.json({
-    items: [...store.serviceAccounts.values()].map((c) => ({
-      account_id: c.id,
-      servicio: c.servicio,
-      proveedor: c.proveedor,
-      titular: c.titular,
-      alias: c.alias,
-      activa: c.activa,
-    })),
-  });
+  try {
+    return Response.json({ items: await listarCuentasDetalle() });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
 };

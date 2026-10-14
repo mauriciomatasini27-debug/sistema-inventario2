@@ -1,8 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { store } from "../../lib/store.js";
-import { intentarPersistir } from "../../lib/server-db.js";
-import { stockLots, stockMovements } from "../../db/schema.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import { crearLote, listarLotesDetalle } from "../../lib/repos/lotes.js";
 
 export const prerender = false;
 
@@ -17,6 +16,8 @@ const loteSchema = z.object({
 
 // POST /api/lots — CAT-S3 ingreso + FEFO auto.
 // Si controla_vencimiento y sin vence_el => 422. Idempotente por key.
+// PERS2-S23: el lote va por el repo de lotes y el movimiento ALTA solo por
+// stock.ts. En multi sin base el repo propaga BaseNoDisponible (503).
 export const POST: APIRoute = async ({ request }) => {
   const headerKey = request.headers.get("Idempotency-Key") ?? "";
   let body: unknown;
@@ -29,36 +30,35 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
   const sku = b.sku.trim().toUpperCase();
-  if (b.controla_vencimiento && !b.vence_el) {
-    return Response.json({ error: "controla_vencimiento exige vence_el" }, { status: 422 });
-  }
   const idem = b.idempotency_key ?? (headerKey || crypto.randomUUID());
-  const dup = store.stockMoves.find((m) => m.idemKey === idem && m.tipo === "ALTA");
-  if (dup) return Response.json({ error: "duplicado", original: dup }, { status: 409 });
-  const id = crypto.randomUUID();
-  const lote = { id, sku, cantidad: b.cantidad, cantidadRestante: b.cantidad, venceEl: b.vence_el ?? null, costoCentavos: String(b.costo_centavos) };
-  store.lotes.set(id, lote);
-  store.stock.set(sku, (store.stock.get(sku) ?? 0) + b.cantidad);
-  store.stockMoves.push({ idemKey: idem, sku, loteId: id, delta: b.cantidad, tipo: "ALTA" });
-  void intentarPersistir((db) =>
-    db.insert(stockLots).values({ sku, cantidad: b.cantidad, cantidadRestante: b.cantidad, venceEl: b.vence_el ? new Date(b.vence_el) : null, costoCentavos: BigInt(b.costo_centavos) }).onConflictDoNothing(),
-  );
-  void intentarPersistir((db) =>
-    db.insert(stockMovements).values({ idemKey: idem, sku, delta: b.cantidad, tipo: "ALTA" }).onConflictDoNothing(),
-  );
-  return Response.json(lote, { status: 201 });
+  let r: Awaited<ReturnType<typeof crearLote>>;
+  try {
+    r = await crearLote({
+      sku,
+      cantidad: b.cantidad,
+      venceEl: b.vence_el ?? null,
+      costoCentavos: b.costo_centavos,
+      controlaVencimiento: b.controla_vencimiento,
+      idemKey: idem,
+    });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  if (!r.ok) {
+    if (r.codigo === "SIN_VENCIMIENTO") return Response.json({ error: "controla_vencimiento exige vence_el" }, { status: 422 });
+    return Response.json({ error: "duplicado", original: r.original }, { status: 409 });
+  }
+  return Response.json(r.lote, { status: 201 });
 };
 
 // GET /api/lots?sku= — lista orden FEFO (vence_el ASC, nulls last).
 export const GET: APIRoute = async ({ url }) => {
   const sku = (url.searchParams.get("sku") ?? "").trim().toUpperCase();
-  let lista = [...store.lotes.values()];
-  if (sku) lista = lista.filter((l) => l.sku === sku);
-  lista.sort((a, b) => {
-    if (!a.venceEl && !b.venceEl) return a.id < b.id ? -1 : 1;
-    if (!a.venceEl) return 1;
-    if (!b.venceEl) return -1;
-    return a.venceEl < b.venceEl ? -1 : 1;
-  });
-  return Response.json({ lotes: lista });
+  try {
+    return Response.json({ lotes: await listarLotesDetalle(sku || null) });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
 };
