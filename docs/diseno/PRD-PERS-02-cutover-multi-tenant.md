@@ -89,6 +89,14 @@ Requisito PERS2-10: los 6 jobs de `src/pages/api/jobs/` que hoy importan `store`
 
 Arch-test AT13: ningún archivo de `src/pages/api/jobs/` importa `store` de `lib/store`; el contador global baja de 27.
 
+## Épica PERS2-E11. Rutas sin `store`: OCR de facturas (PERS-S4, grupo 8)
+
+Requisito PERS2-11: las 5 rutas de `src/pages/api/ocr/` (jobs, jobs/[id], editar, confirmar, descartar) leen y escriben trabajos y eventos de OCR por `src/lib/repos/ocr.ts`, y los borradores y facturas de proveedor por `src/lib/repos/facturas-proveedor.ts`, con DB primero y memoria solo en `single` sin base (ADR-0053, ADR-0057, ADR-0060).
+
+- Historia PERS2-S20. Trabajos de OCR: alta idempotente por clave, lectura, edición, confirmación (genera la factura del proveedor) y descarte. AC: Given multi con base de A When subo y confirmo un OCR Then el trabajo y la factura quedan en la base de A, B no los ve y las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0060. Talla M. Depende de: PERS2-S14.
+
+Arch-test AT14: ningún archivo de `src/pages/api/ocr/` importa `store` de `lib/store`; el contador global baja de 21.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
