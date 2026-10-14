@@ -1,6 +1,6 @@
 # ADR-0067 - GitHub Actions a la última mayor y política de PRs de Dependabot
 
-Estado: propuesto. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #6, #16, #17 y #18, ADR-0065.
+Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #6, #16, #17 y #18, ADR-0065.
 
 ## Decisión
 
@@ -28,3 +28,10 @@ Fusionar los 4 PRs de Dependabot uno por uno: #17 toca `ci.yml` y `codeql.yml` a
 ## Consecuencias
 
 Menos PRs por semana y uno por mayor. Una mayor nunca entra sin ADR.
+
+## Evidencia de aceptación (2026-10-14)
+
+- Commit: 704f07c, PR #22.
+- CI `ci` verde (run 38505087937) con `actions/checkout@v7` y `actions/setup-node@v7`; `analyze` verde (run 38505087940) con `github/codeql-action@v4` y `actions/upload-artifact@v7`.
+- El fallo de #17 (`tests/pers2-compras-pagos.test.ts` "sugerir-desde-notif: 200 con candidatos y reintento 409", `expected [ 200, 422 ] to include 409`) no se repitió con los mismos tags en #22: es intermitente y no depende de la Action.
+- `.github/dependabot.yml` con grupos `npm-menores`, `astro`, `vitest`, `drizzle`, `seguridad` y `actions`.
