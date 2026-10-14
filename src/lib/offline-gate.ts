@@ -19,14 +19,17 @@ export function estaRevocadoEnCuarentena(grantId: string): boolean {
   return Boolean(g?.revocadoEn);
 }
 
-export function exigirOnlineParaSensible(request: Request, alcance?: string): Response | null {
+export function exigirOnlineParaSensible(request: Request | null | undefined, alcance?: string): Response | null {
+  // Sin request (invocación interna/tests de handler) no hay marcas offline => online.
+  const h = request?.headers;
+  if (!h) return null;
   const grantToken =
-    request.headers.get("x-offline-grant") ?? request.headers.get("x-grant-token") ?? null;
+    h.get("x-offline-grant") ?? h.get("x-grant-token") ?? null;
   const grantId =
-    request.headers.get("x-grant-id") ?? request.headers.get("x-offline-grant-id") ?? null;
+    h.get("x-grant-id") ?? h.get("x-offline-grant-id") ?? null;
   const cuarentena =
-    request.headers.get("x-cuarentena") ?? request.headers.get("x-offline-cuarentena") ?? null;
-  const deviceCode = request.headers.get("x-device-code") ?? null;
+    h.get("x-cuarentena") ?? h.get("x-offline-cuarentena") ?? null;
+  const deviceCode = h.get("x-device-code") ?? null;
 
   if (cuarentena === "1" || cuarentena === "true" || cuarentena === "si") {
     return respuesta403("Necesita conexión: dispositivo en cuarentena. Revalidá online.", "cuarentena_revalidar_online", {

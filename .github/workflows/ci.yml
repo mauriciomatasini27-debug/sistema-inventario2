@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pers_tenant_a
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_TEST_URL_A: postgres://postgres:postgres@127.0.0.1:5432/pers_tenant_a
+      PG_TEST_URL_B: postgres://postgres:postgres@127.0.0.1:5432/pers_tenant_b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Crear y migrar bases de test
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -c "create database pers_tenant_b"
+          TENANT_DATABASE_URL=$PG_TEST_URL_A npx drizzle-kit migrate
+          TENANT_DATABASE_URL=$PG_TEST_URL_B npx drizzle-kit migrate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
