@@ -110,6 +110,7 @@ Fecha límite: desde el 1/12/2026 ARCA rechaza comprobantes sin `CondicionIVARec
 1. PRD-NEG-01 catálogo y oferta (ADR-0012; NEG-S8 superado por PRD-LANDING-01), PRD-ADAP-01 adaptación desde ModoOps (ADR-0013), skills PRD-SK-01 a SK-03 (ADR-0014 a 0016): cumplimiento a verificar.
 2. Poda de comentarios de código (PRD-COM-01, ADR-0064 propuesto): aplicar el grupo borrar del plan `diseno/PLAN-COM-01-poda-comentarios.md`, abrir issues del grupo refactor, regla de lint y checklist de PR. Talla M.
 3. Arquitectura amigable para agentes (PRD-ARQ-01, ADR-0065 aceptado; fase 1 hecha: CRLF, `ctx()`, `FechaAR`, JSON tipado; fase 2 hecha: `tsc`, tests y trinquetes de arquitectura en el job `ci` (sin check obligatorio: el plan gratis privado no tiene branch protection); siguen fases 3 a 5): helper `ctx()` de tests, tipo `FechaAR`, `.gitattributes` LF, CI obligatorio con `tsc` y tests, arch-tests trinquete y puerto de almacenamiento en repositorios (fases 1 a 5). Talla L.
+4. Actualización de dependencias (PRD-DEP-01, ADR-0067 a 0072 propuestos): pila de 6 PRs que reemplaza los Dependabot #6 a #19; Actions, vitest 5 y astro 7 cierran las 4 alertas críticas; después drizzle 0.45, zod 4 y TypeScript 7. Talla M.
 
 ## Decisiones registradas
 
@@ -155,6 +156,12 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `adr/0057-repos-compras-pagos-sin-store.md` | cubierto | Ya implementado (grupo 5: facturas de proveedores y órdenes de pago) |
 | `adr/0058-repos-servicios-fiado-sin-store.md` | cubierto | Ya implementado (grupo 6: consumos de servicios y fiado) |
 | `adr/0059-jobs-sin-store.md` | cubierto | Ya implementado (grupo 7: jobs) |
+| `adr/0067-dependabot-actions-y-politica.md` | cubierto | 9.4 |
+| `adr/0068-vitest-5.md` | cubierto | 9.4 |
+| `adr/0069-astro-7.md` | cubierto | 9.4 |
+| `adr/0070-drizzle-orm-045.md` | cubierto | 9.4 |
+| `adr/0071-zod-4.md` | cubierto | 9.4 |
+| `adr/0072-typescript-7.md` | cubierto | 9.4 |
 | `adr/0066-dueno-real-y-correlativo-unico.md` | cubierto | Ya implementado (2b.4: dueño real, online real, correlativo único) |
 | `adr/0064-politica-comentarios.md` | cubierto | 9.2 |
 | `adr/0065-arquitectura-amigable-agentes.md` | cubierto | 9.3 |
@@ -257,6 +264,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `diseno/PRD-COM-01` | cubierto | 9.2 |
 | `diseno/PRD-ARQ-01` | cubierto | 9.3 |
 | `diseno/PRD-SEC-01` | cubierto | 2b.4 |
+| `diseno/PRD-DEP-01` | cubierto | 9.4 |
 | `diseno/PRD-DS-02` | cubierto | 5.5 |
 | `diseno/PRD-DS-03` | cubierto | 5.5 |
 | `diseno/PRD-E2E-01` | cubierto | 2b.3 |
