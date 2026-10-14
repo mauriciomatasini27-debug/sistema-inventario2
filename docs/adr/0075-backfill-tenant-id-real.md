@@ -1,6 +1,6 @@
 # ADR-0075 - Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`
 
-Estado: propuesto. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-SEC-03-backfill-tenant-id.md`, ADR-0074 (Pendientes), ADR-0051, ADR-0050, `scripts/backfill-tenant-id.mjs`, `scripts/backfill-tenant-id-lib.mjs`, `drizzle/0015_fiscal_tenant_id.sql`, `drizzle/0016_fiscal_settings_tenant.sql`.
+Estado: aceptado (2026-10-14, evidencia: `tests/sec03-backfill-tenant-id.test.ts` 13/13 con Postgres local, commit `bf24de1`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-SEC-03-backfill-tenant-id.md`, ADR-0074 (Pendientes), ADR-0051, ADR-0050, `scripts/backfill-tenant-id.mjs`, `scripts/backfill-tenant-id-lib.mjs`, `drizzle/0015_fiscal_tenant_id.sql`, `drizzle/0016_fiscal_settings_tenant.sql`.
 
 ## Decisión
 
@@ -23,3 +23,15 @@ Filas nulas sobrantes de `fiscal_settings` quedan en la base sin uso; el script 
 ## Pendientes
 
 Extender a otras tablas cuando ganen `tenant_id` (PERS-S4/S5). Fan-out de jobs por tenant (P0.4).
+
+## Evidencia de aceptación (2026-10-14)
+
+- Commits: bf24de1. Sin migración nueva; tests y CLI corridos solo contra Postgres local (127.0.0.1:54329, bases A y B); no se tocó Supabase.
+- `npm run evidencia` con `PG_TEST_URL_A/B` locales:
+  - tsc: 0 errores
+  - vitest: `Test Files  133 passed (133)`
+  - vitest: `Tests  942 passed (942)`
+  - build: `[build] Complete!`
+  - sha: `bf24de1`
+- `npm run check:arch`: `Test Files  11 passed (11)`, `Tests  22 passed (22)`; `tests/arch/baselines.json` sin cambios.
+- Cambio de comportamiento: el modo seco se conecta para contar filas nulas si hay `TENANT_DATABASE_URL` (solo lectura); `--apply` también completa `fiscal_settings` e informa filas cambiadas por tabla.

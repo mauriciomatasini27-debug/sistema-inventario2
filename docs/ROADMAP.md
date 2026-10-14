@@ -39,7 +39,7 @@ Verificado contra `main` (`01202ee`). Orden: seguridad, integridad de datos, deu
 ### P0. Seguridad y aislamiento
 1. Rutas de datos fuera de `PREFIJOS_DATOS` (`src/lib/tenant-context.ts`): `/api/payment-orders` (ADR-0066), y además `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills` y `/api/ocr`, que usan repositorios por tenant sin que el middleware las envuelva en `conTenant`. Talla S.
 2. `fiscal_settings` sin columna `tenant_id` (`src/db/schema-fiscal.ts`, ADR-0066): `resolverCuitFiscal` toma la primera fila sin filtrar y `GET /api/fiscal/settings` lee un mapa en memoria del módulo. Migración Drizzle nueva en `drizzle/`. Talla S.
-3. Backfill real de `tenant_id` (ADR-0050, ADR-0051; `scripts/backfill-tenant-id.mjs` solo en seco). Talla S, depende de confirmar un comercio por base. En curso: PRD-SEC-03, ADR-0075 (propuesto).
+3. Backfill real de `tenant_id` (ADR-0050, ADR-0051; `scripts/backfill-tenant-id.mjs` solo en seco). Talla S, depende de confirmar un comercio por base. Hecho: PRD-SEC-03, ADR-0075 (script listo; falta correrlo con aprobación en cada base real).
 4. Jobs por `X-Job-Secret`: fan-out por tenant (ADR-0052). Talla M.
 
 ### P1. Integridad de datos (memoria con tabla o sin tabla)

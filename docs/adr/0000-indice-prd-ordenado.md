@@ -84,7 +84,7 @@ Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con 
 | `PRD-ARQ-01` | `0073` | Guardas estructurales para errores recurrentes de agentes LLM: errores tragados, `online` literal, comentarios falsos, `/tmp`, evidencia verbatim (aceptado, 2026-10-14) |
 | `PRD-DEP-01` | `0067` a `0072` | Actualización de dependencias: Actions, vitest 5, astro 7, drizzle 0.45, zod 4, TypeScript 7 y política de Dependabot (aceptados en la pila #22 a #27, 2026-10-14) |
 | `PRD-SEC-02` | `0074` | Rutas de datos completas en `PREFIJOS_DATOS` (pagos, conteos, stock, servicios, OCR) y `fiscal_settings` por tenant (aceptado, 2026-10-14) |
-| `PRD-SEC-03` | `0075` | Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`, seco por defecto e idempotente (propuesto, 2026-10-14) |
+| `PRD-SEC-03` | `0075` | Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`, seco por defecto e idempotente (aceptado, 2026-10-14) |
 | `PRD-SEC-01` | `0066` | Dueño real en rutas sensibles (pagos, fiscal), online real en ajustes de precio y correlativo único de tickets entre ventas y sync (aceptado, 2026-10-13) |
 | `PRD-COM-01` | `0064` | Política de comentarios de código: solo por qué no obvio; parches a refactor o issue (propuesto, 2026-10-13) |
 | `PRD-PERS-02` (E14) | `0063` | Ventas, devoluciones y correcciones sin `store`; cierre de PERS-S5 en rutas (2026-10-13) |
