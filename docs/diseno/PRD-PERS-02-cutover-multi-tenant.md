@@ -106,6 +106,15 @@ Requisito PERS2-12: `sync/push`, `sync/pull`, `sync/promote` y `sync/heartbeat` 
 
 Arch-test AT15: ningún archivo de `src/pages/api/sync/` importa `store` de `lib/store`; el contador global baja de 16.
 
+## Épica PERS2-E13. Rutas sin `store`: catálogo, stock y compras (PERS-S4, grupo 10)
+
+Requisito PERS2-13: `products`, `locations`, `lots`, `counts`, `stock/conteo`, `purchase-orders`, `purchase-orders/close`, `payees` y `service-accounts` leen y escriben por `src/lib/repos/catalogo.ts` (productos, códigos, fotos, sectores, ubicaciones), `src/lib/repos/stock.ts` (stock, movimientos y conteos), `lotes.ts`, `proveedores.ts` (órdenes de compra), `ordenes-pago.ts` (beneficiarios) y `servicios.ts` (cuentas de servicio), con DB primero y memoria solo en `single` sin base (ADR-0053, ADR-0062).
+
+- Historia PERS2-S23. Catálogo y stock: alta y lectura de productos, ubicaciones, lotes y conteos con sus movimientos de stock. AC: Given multi con base de A When doy de alta un producto y registro un conteo Then quedan en la base de A, B no los ve y las rutas no importan `store`; Given single sin base Then se comporta como hoy. ADR: 0062. Talla M. Depende de: PERS2-S2.
+- Historia PERS2-S24. Compras y cuentas: órdenes de compra (alta y cierre), beneficiarios de pago y cuentas de servicio por repositorio. AC: Given multi con base de A When creo y cierro una orden de compra Then queda en `purchase_orders` de A y B no la ve. ADR: 0062. Talla S. Depende de: PERS2-S7.
+
+Arch-test AT16: ningún archivo de esas 9 rutas importa `store` de `lib/store`; el contador global baja de 12.
+
 ## Dependencias externas
 
 Postgres local instalado en el box (apt). Producción multi necesita `TENANT_DATABASE_URL_<id>` por comercio (ADR-0002).
