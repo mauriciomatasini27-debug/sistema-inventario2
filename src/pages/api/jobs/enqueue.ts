@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = z.object({ nombre: z.enum(NOMBRES), payload: z.record(z.unknown()).default({}), run_at: z.string().datetime().optional(), idempotency_key: z.string().min(1).max(128).optional() }).safeParse(body);
+  const parsed = z.object({ nombre: z.enum(NOMBRES), payload: z.record(z.string(), z.unknown()).default({}), run_at: z.string().datetime().optional(), idempotency_key: z.string().min(1).max(128).optional() }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const k = parsed.data.idempotency_key ?? (key || crypto.randomUUID());
   if (cola.has(k)) return Response.json({ error: "duplicado", key: k }, { status: 409 });

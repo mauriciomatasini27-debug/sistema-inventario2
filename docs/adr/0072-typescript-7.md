@@ -1,6 +1,6 @@
 # ADR-0072 - TypeScript 5.9 a 7
 
-Estado: propuesto. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #7, notas de versión de TypeScript 6.0 y 7.0.
+Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #7, notas de versión de TypeScript 6.0 y 7.0.
 
 ## Decisión
 
@@ -22,3 +22,10 @@ Riesgo bajo en CI; medio en herramientas futuras que usen la API (por ejemplo `@
 ## Alternativa descartada
 
 TypeScript 6 como paso intermedio: no hay error que lo justifique y Dependabot volvería a abrir el salto a 7.
+
+## Evidencia de aceptación (2026-10-14)
+
+- Commit: ea7f0b2, PR #27.
+- CI `ci` verde (run 38505658911).
+- Local: `npx tsc -v` 7.0.2; `npm run typecheck` 0 errores; un archivo de prueba con `const x: number = "a"` da `error TS2322` (el compilador nativo sí revisa); `npx vitest run` 881 passed; build OK.
+- `npm ls typescript`: solo `typescript@7.0.2`; ningún paquete del árbol usa la API de JavaScript.
