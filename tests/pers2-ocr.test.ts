@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore, store } from "../src/lib/store.js";
@@ -105,7 +106,7 @@ describe("PERS2-S20 single sin DB: OCR como hoy", () => {
     expect(store.ocrEventos.some((e) => e.tipo === "ocr_borrador_listo")).toBe(true);
     const jobId = r.json["job_id"] as string;
 
-    const g = (await getJob({ params: { id: jobId } } as never)) as Response;
+    const g = (await getJob(ctx(`http://x/api/ocr/jobs/${jobId}`, { params: { id: jobId } }))) as Response;
     const gj = (await g.json()) as Record<string, unknown>;
     expect(gj["estado"]).toBe("confirmable");
     expect((gj["borrador"] as Record<string, unknown>)["total_centavos"]).toBe("16480000");
@@ -211,7 +212,7 @@ describe.skipIf(!hayPG)("PERS2-S20 multi con PG local: OCR aislado por tenant", 
     );
     expect(facturasB.length).toBe(0);
 
-    const getB = (await conTenant("tenant-b", () => getJob({ params: { id: jobId } } as never))) as Response;
+    const getB = (await conTenant("tenant-b", () => getJob(ctx(`http://x/api/ocr/jobs/${jobId}`, { params: { id: jobId } })))) as Response;
     expect(getB.status).toBe(404);
   });
 

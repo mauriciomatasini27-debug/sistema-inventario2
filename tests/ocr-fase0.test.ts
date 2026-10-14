@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { resetStore, store } from "../src/lib/store.js";
 import {
   confianza_global,
@@ -91,7 +92,7 @@ describe("ocr jobs API (ADR-0005)", () => {
     expect(store.ocrEventos.some((e) => e.tipo === "ocr_borrador_listo")).toBe(true);
     const jobId = r.json["job_id"] as string;
 
-    const g = (await getJob({ params: { id: jobId } } as never)) as Response;
+    const g = (await getJob(ctx(`http://x/api/ocr/jobs/${jobId}`, { params: { id: jobId } }))) as Response;
     const gj = (await g.json()) as Record<string, unknown>;
     expect(gj["estado"]).toBe("confirmable");
     expect((gj["borrador"] as Record<string, unknown>)["total_centavos"]).toBe("16480000");
@@ -167,7 +168,7 @@ describe("ocr jobs API (ADR-0005)", () => {
     const borrador = store.borradores.get(job.borradorId!)!;
     store.borradores.set(borrador.id, { ...borrador, venceAt: "2020-01-01T00:00:00.000Z" });
 
-    const g = (await getJob({ params: { id: jobId } } as never)) as Response;
+    const g = (await getJob(ctx(`http://x/api/ocr/jobs/${jobId}`, { params: { id: jobId } }))) as Response;
     expect(((await g.json()) as Record<string, unknown>)["estado"]).toBe("vencida");
     const c = (await postConfirmar({
       request: new Request(`http://x/api/ocr/jobs/${jobId}/confirmar`, {

@@ -5,7 +5,7 @@ import { POST as POSTSemanal, calculo_vivo } from "../src/pages/api/jobs/whatsap
 import { POST as POSTLunes, tiendaLunes } from "../src/pages/api/jobs/whatsapp-lunes.js";
 import { POST as POSTCierre } from "../src/pages/api/jobs/whatsapp-cierre.js";
 import { programar_lunes } from "../src/modules/whatsapp/resumen-semanal.js";
-import { fechaBA } from "../src/jobs/whatsapp-aviso-matutino.js";
+import { fechaAR } from "../src/lib/fecha-ar.js";
 import { clave_aviso_wa } from "../src/modules/whatsapp/aviso-matutino.js";
 
 const SECRET = "job-secret";
@@ -98,7 +98,7 @@ describe("job aviso matutino", () => {
 
   it("clave ya enviada no se repite en el día", async () => {
     const { tenantId } = comercio(true);
-    store.waEnviados.add(clave_aviso_wa(tenantId, fechaBA(new Date())));
+    store.waEnviados.add(clave_aviso_wa(tenantId, fechaAR(new Date())));
     const r = await post(POSTAviso, "http://x/api/jobs/whatsapp-aviso");
     const resultados = r.json["resultados"] as Array<{ tenant_id: string; estado: string }>;
     expect(resultados.find((x) => x.tenant_id === tenantId)?.estado).toBe("omitido_ya_enviado");
@@ -136,7 +136,7 @@ describe("job lunes", () => {
     expect(v0.json["resultados"]).toEqual([]);
 
     const { tenantId } = comercio(true);
-    const hoy = fechaBA(new Date());
+    const hoy = fechaAR(new Date());
     const prog = programar_lunes(tiendaLunes, {
       tenantId,
       semanaISO: "2026-W41",

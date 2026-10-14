@@ -29,7 +29,7 @@ import {
 } from "../modules/payments/ordenes.js";
 import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
 import { formatear_pesos } from "../modules/email/plantilla-cierre.js";
-import { fechaBA } from "./whatsapp-aviso-matutino.js";
+import { fechaAR, type FechaAR } from "../lib/fecha-ar.js";
 
 export const VENTANA_SERVICIOS_DIAS = 3;
 export const VENTANA_ORDENES_DIAS = 7;
@@ -68,7 +68,7 @@ export interface VencimientosResult {
   readonly sugerencias: ReadonlyArray<SugerenciaPago>;
 }
 
-function clavePara(tenantId: string, tipo: "servicio" | "orden", refId: string, hoyIso: string): string {
+function clavePara(tenantId: string, tipo: "servicio" | "orden", refId: string, hoyIso: FechaAR): string {
   return `vencimiento:wa:${tenantId}:${tipo}:${refId}:${hoyIso}`;
 }
 
@@ -77,7 +77,7 @@ export function ejecutar_vencimientos_servicios(args: {
   readonly facturas: ReadonlyArray<FacturaServicio>;
   readonly ordenes: ReadonlyArray<PaymentOrder>;
   readonly cuentas: ReadonlyMap<string, { proveedor: string; servicio: string }>;
-  readonly hoyIso: string;
+  readonly hoyIso: FechaAR;
   readonly hoyMs: number;
   readonly serviciosDentroDias?: number | undefined;
   readonly ordenesVentanaDias?: number | undefined;
@@ -155,7 +155,7 @@ export function ejecutar_vencimientos_servicios(args: {
       "orden_proxima",
       "orden",
       o.id,
-      `${comercio.nombreComercio}: orden ${o.numero} (${o.concepto}) vence el ${fechaBA(new Date(o.venceElMs))} por ${formatear_pesos(o.montoCentavos)}.`,
+      `${comercio.nombreComercio}: orden ${o.numero} (${o.concepto}) vence el ${fechaAR(o.venceElMs)} por ${formatear_pesos(o.montoCentavos)}.`,
     );
     sugerencias.push({ tipo: "orden", refId: o.id, montoCentavos: o.montoCentavos.toString(), concepto: o.concepto });
   }

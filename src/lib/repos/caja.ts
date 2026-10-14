@@ -226,7 +226,7 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
       fechaJornada: r.cierre.fechaJornada,
       closeType: r.cierre.closeType,
       totalCentavos: r.cierre.totalCentavos,
-      porMedio: Object.fromEntries(Object.entries(porMedio).map(([k, v]) => [k, v.toString()])) as never,
+      porMedio: Object.fromEntries(Object.entries(porMedio).map(([k, v]) => [k, v.toString()])),
       ultimoMovimientoId: r.cierre.ultimoMovimientoId && esUuid(r.cierre.ultimoMovimientoId) ? r.cierre.ultimoMovimientoId : null,
     });
     store.cierres.set(input.key, r);
@@ -429,7 +429,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
         accion: "reversion",
         movimientoId: movId,
         revierteA: input.revierteA,
-        detalle: { motivo: input.motivo ?? null } as never,
+        detalle: { motivo: input.motivo ?? null },
         actor: input.actor,
       });
     });

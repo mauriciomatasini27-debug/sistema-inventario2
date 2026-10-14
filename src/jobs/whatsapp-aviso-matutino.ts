@@ -55,16 +55,6 @@ export function limpiar_corridas_wa(): void {
   corridasWa.clear();
 }
 
-export function fechaBA(ahora = new Date()): string {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return fmt.format(ahora);
-}
-
 // Reparte los envíos en el tiempo para no pegar todo junto: el comercio
 // i de n sale a los i*n-ésimos de la ventana. Puro.
 export function demora_para(indice: number, total: number, ventanaMs = 600000): number {
