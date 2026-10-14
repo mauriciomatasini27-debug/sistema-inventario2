@@ -46,6 +46,6 @@ export const POST: APIRoute = async ({ request }) => {
   t.estado = parsed.data.accion === "suspender" ? "suspendido" : "activo";
   control.tenants.set(t.id, t);
   adminStore.eventosVida.push({ id: crypto.randomUUID(), tenantId: t.id, deEstado: de, aEstado: t.estado, motivo: (conf as { motivo: string }).motivo, actor: (admin as { googleSub: string }).googleSub, idempotencyKey: crypto.randomUUID(), creadoEn: new Date().toISOString() });
-  auditar({ kind: parsed.data.accion === "suspender" ? "tenant_suspendido" : "tenant_reactivado", tenantId: t.id } as never, (admin as { googleSub: string }).googleSub, "panel");
+  auditar({ kind: parsed.data.accion === "suspender" ? "tenant_suspendido" : "tenant_reactivado", tenantId: t.id }, (admin as { googleSub: string }).googleSub, "panel");
   return Response.json({ tenant_id: t.id, estado: t.estado });
 };

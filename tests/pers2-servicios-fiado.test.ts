@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { resetStore } from "../src/lib/store.js";
@@ -89,7 +90,7 @@ describe("PERS2-S16 single sin DB: factura, vencimientos y pago como hoy", () =>
   it("due expone proximas y vencidas", async () => {
     await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(`pers2-prox-${sufijo}`, "2026-10-12")) } as never);
     await postBill({ request: reqJson("http://x/api/utility-bills", cuerpoFactura(`pers2-venc-${sufijo}`, "2026-10-08")) } as never);
-    const res = (await getDue({ url: new URL("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7") } as never)) as Response;
+    const res = (await getDue(ctx("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as { proximas: Array<Record<string, string>>; vencidas: Array<Record<string, string>> };
     expect(j.proximas.map((f) => f["periodo"])).toEqual(["2026-10"]);
@@ -134,7 +135,7 @@ describe("PERS2-S17 single sin DB: venta a cuenta, cobro y saldo como hoy", () =
     const r = (await postSale({ request: reqKey("http://x/api/credit/sales-on-account", key, cuerpo) } as never)) as Response;
     expect(r.status).toBe(201);
     expect(await r.json()).toMatchObject({ total_centavos: "20000" });
-    const b = (await getBalance({ url: new URL("http://x/api/credit/balance?customer_id=cli-1") } as never)) as Response;
+    const b = (await getBalance(ctx("http://x/api/credit/balance?customer_id=cli-1"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
     expect(j["saldo_centavos"]).toBe("20000");
     expect(j["fuente"]).toBe("memoria");
@@ -159,7 +160,7 @@ describe("PERS2-S17 single sin DB: venta a cuenta, cobro y saldo como hoy", () =
       request: reqKey("http://x/api/credit/payments", k2, { customer_id: "cli-2", monto_centavos: 8000, medio: "Efectivo" }),
     } as never)) as Response;
     expect(r.status).toBe(201);
-    const b = (await getBalance({ url: new URL("http://x/api/credit/balance?customer_id=cli-2") } as never)) as Response;
+    const b = (await getBalance(ctx("http://x/api/credit/balance?customer_id=cli-2"))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
     expect(j["saldo_centavos"]).toBe("12000");
     expect(j["estado"]).toBe("al_dia");
@@ -263,7 +264,7 @@ describe.skipIf(!hayPG)("PERS2-S16 multi con PG local: factura y pago aislados p
     expect(movsB.length).toBe(0);
 
     const dueB = await conTenant("tenant-b", () =>
-      getDue({ url: new URL("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7") } as never),
+      getDue(ctx("http://x/api/utility-bills/due?hoy=2026-10-10&dentro_dias=7")),
     );
     expect((dueB as Response).status).toBe(200);
     const cuerpoB = (await (dueB as Response).json()) as { proximas: unknown[]; vencidas: unknown[] };
@@ -310,7 +311,7 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
     expect(((await (cobro as Response).json()) as { fuente: string }).fuente).toBe("db");
 
     const saldoA = await conTenant("tenant-a", () =>
-      getBalance({ url: new URL(`http://x/api/credit/balance?customer_id=${clientePG}`) } as never),
+      getBalance(ctx(`http://x/api/credit/balance?customer_id=${clientePG}`)),
     );
     expect((saldoA as Response).status).toBe(200);
     const cuerpoA = (await (saldoA as Response).json()) as Record<string, unknown>;
@@ -318,7 +319,7 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
     expect(cuerpoA["saldo_centavos"]).toBe("12000");
 
     const saldoB = await conTenant("tenant-b", () =>
-      getBalance({ url: new URL(`http://x/api/credit/balance?customer_id=${clientePG}`) } as never),
+      getBalance(ctx(`http://x/api/credit/balance?customer_id=${clientePG}`)),
     );
     expect((saldoB as Response).status).toBe(200);
     const cuerpoB = (await (saldoB as Response).json()) as Record<string, unknown>;

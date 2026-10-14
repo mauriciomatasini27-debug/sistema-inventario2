@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, afterEach, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { gateJob } from "../src/lib/tenant-context.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { fechaBA } from "../src/jobs/whatsapp-aviso-matutino.js";
+import { fechaAR, sumarDiasAR } from "../src/lib/fecha-ar.js";
 import { clave_aviso_wa } from "../src/modules/whatsapp/aviso-matutino.js";
 import { closingSummaries } from "../src/db/schema-caja.js";
 import { serviceAccounts, utilityBills } from "../src/db/schema-servicios.js";
@@ -198,7 +199,7 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
 
   it("aviso con clave ya enviada no se repite en el día", async () => {
     const { tenantId } = comercioWa(true);
-    store.waEnviados.add(clave_aviso_wa(tenantId, fechaBA(new Date())));
+    store.waEnviados.add(clave_aviso_wa(tenantId, fechaAR(new Date())));
     const r = (await postAviso({ request: reqJob("http://x/api/jobs/whatsapp-aviso") } as never)) as Response;
     const j = (await r.json()) as { resultados: Array<{ tenant_id: string; estado: string }> };
     expect(j.resultados.find((x) => x.tenant_id === tenantId)?.estado).toBe("omitido_ya_enviado");
@@ -293,9 +294,8 @@ function semillaVencimientos() {
     activa: true,
   });
   const hoyMs = Date.now();
-  const hoyBA = fechaBA(new Date(hoyMs));
-  const [by, bm, bd] = hoyBA.split("-").map(Number) as [number, number, number];
-  const isoDias = (d: number): string => new Date(Date.UTC(by, bm - 1, bd + d)).toISOString().slice(0, 10);
+  const hoyBA = fechaAR(new Date(hoyMs));
+  const isoDias = (d: number): string => sumarDiasAR(hoyBA, d);
   const base = {
     accountId: "acc-luz",
     periodo: "2026-10",
@@ -339,7 +339,7 @@ describe("PERS2-S19 single sin DB: vencimientos como hoy", () => {
       }),
     } as never)) as Response;
     expect(alta.status).toBe(201);
-    const j = (await postVencLotes({} as never)) as Response;
+    const j = (await postVencLotes(ctx("http://x/api/jobs/vencimientos-lotes", { method: "POST" }))) as Response;
     expect(((await j.json()) as { alertas_3d: unknown[] }).alertas_3d.length).toBe(1);
   });
 
@@ -475,7 +475,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
     const numeroA = "+5491100000231";
     control.botLinks.set(numeroA, { tenantId: "tenant-a", googleSub: "due-tenant-a", estado: "verificado" });
     control.waPrefs.set("tenant-a:due-tenant-a", { optIn: true, avisoHora: "08:00", pausadoHastaMs: null });
-    const ayerIso = new Date(Date.now() - DIA_MS).toISOString().slice(0, 10);
+    const ayerIso = sumarDiasAR(fechaAR(Date.now()), -1);
     const ayerMs = Date.now() - DIA_MS;
 
     const idsA = await conTenant("tenant-a", async () => {
@@ -509,7 +509,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
           venceEl: new Date(ayerMs),
           metodoSugerido: "Transferencia",
           instruccionTipo: "transferencia",
-          instruccionSnapshot: {},
+          instruccionSnapshot: { medioSugerido: "Transferencia" },
           creadoPor: "sistema",
         })
         .returning({ id: paymentOrders.id });
@@ -541,7 +541,7 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
         venceEl: new Date(ayerMs),
         metodoSugerido: "Transferencia",
         instruccionTipo: "transferencia",
-        instruccionSnapshot: {},
+        instruccionSnapshot: { medioSugerido: "Transferencia" },
         creadoPor: "sistema",
       });
     });

@@ -56,6 +56,16 @@ export interface EventoOrden {
   readonly atMs: number;
 }
 
+export interface InstruccionSnapshot {
+  readonly medioSugerido: string;
+  readonly linkUrl?: string | undefined;
+  readonly referencia?: string | undefined;
+}
+
+export interface DetalleEventoOrden {
+  readonly motivo: string | null;
+}
+
 export interface PaymentOrder {
   readonly id: string;
   readonly numero: string;

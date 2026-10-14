@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { ctx } from "./helpers/ctx.js";
 import { eq } from "drizzle-orm";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -62,7 +63,7 @@ describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
     expect([201, 409]).toContain(creado.status);
 
     const saldoA = await conTenant("tenant-a", () =>
-      saldoGET({ url: new URL(`http://test/api/credit/balance?customer_id=${cliente}`) } as never),
+      saldoGET(ctx(`http://test/api/credit/balance?customer_id=${cliente}`)),
     );
     expect(saldoA.status).toBe(200);
     const cuerpoA = await saldoA.json();
@@ -71,7 +72,7 @@ describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
     expect(cuerpoA.saldo_centavos).toBe("15000");
 
     const saldoB = await conTenant("tenant-b", () =>
-      saldoGET({ url: new URL(`http://test/api/credit/balance?customer_id=${cliente}`) } as never),
+      saldoGET(ctx(`http://test/api/credit/balance?customer_id=${cliente}`)),
     );
     expect(saldoB.status).toBe(200);
     const cuerpoB = await saldoB.json();

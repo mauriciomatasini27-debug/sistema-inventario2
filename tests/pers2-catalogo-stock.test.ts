@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore, store } from "../src/lib/store.js";
@@ -85,9 +86,9 @@ describe("PERS2-S23 single sin DB: catalogo y stock como hoy", () => {
       request: req("http://x/api/products", { sku: "YERBA-1", nombre: "Otra", precio_centavos: 1 }),
     } as never)) as Response;
     expect(r2.status).toBe(409);
-    const g = (await getProducts({ url: new URL("http://x/api/products?q=yerba") } as never)) as Response;
+    const g = (await getProducts(ctx("http://x/api/products?q=yerba"))) as Response;
     expect(((await g.json()) as { productos: unknown[] }).productos.length).toBe(1);
-    const gc = (await getProducts({ url: new URL("http://x/api/products?codigo=779123") } as never)) as Response;
+    const gc = (await getProducts(ctx("http://x/api/products?codigo=779123"))) as Response;
     expect(((await gc.json()) as { productos: unknown[] }).productos.length).toBe(1);
     const p = (await patchProducts({
       request: req("http://x/api/products", { nombre: "Yerba Nueva" }),
@@ -102,7 +103,7 @@ describe("PERS2-S23 single sin DB: catalogo y stock como hoy", () => {
     expect(a.status).toBe(201);
     const b = (await postLocations({ request: req("http://x/api/locations", { nombre: "deposito" }) } as never)) as Response;
     expect(b.status).toBe(409);
-    const g = (await getLocations({} as never)) as Response;
+    const g = (await getLocations(ctx("http://x/api/locations"))) as Response;
     expect(((await g.json()) as { ubicaciones: unknown[] }).ubicaciones.length).toBe(1);
   });
 
@@ -117,7 +118,7 @@ describe("PERS2-S23 single sin DB: catalogo y stock como hoy", () => {
     await postLots({
       request: req("http://x/api/lots", { sku: "LECHE", cantidad: 5, vence_el: new Date(Date.now() + 2 * 86400_000).toISOString() }),
     } as never);
-    const g = (await getLots({ url: new URL("http://x/api/lots?sku=LECHE") } as never)) as Response;
+    const g = (await getLots(ctx("http://x/api/lots?sku=LECHE"))) as Response;
     const j = (await g.json()) as { lotes: Array<{ venceEl: string }> };
     expect(j.lotes.length).toBe(2);
     expect(j.lotes[0]!.venceEl < j.lotes[1]!.venceEl).toBe(true);
@@ -187,7 +188,7 @@ describe("PERS2-S24 single sin DB: compras y cuentas como hoy", () => {
     expect(r1.status).toBe(201);
     const r2 = (await postAccounts({ request: req("http://x/api/service-accounts", cuerpo) } as never)) as Response;
     expect(r2.status).toBe(409);
-    const g = (await getAccounts({} as never)) as Response;
+    const g = (await getAccounts(ctx("http://x/api/service-accounts"))) as Response;
     const j = (await g.json()) as { items: Array<Record<string, unknown>> };
     expect(j.items).toHaveLength(1);
     expect(j.items[0]).toMatchObject({ servicio: "luz", proveedor: "Edenor", activa: true });
