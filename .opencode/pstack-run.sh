@@ -5,6 +5,8 @@
 set -euo pipefail
 OC=${OPENCODE_BIN:-$HOME/.local/bin/opencode}; PORT=${PSTACK_PORT:-4096}; URL=http://127.0.0.1:$PORT
 cd "$(dirname "$0")/.."
+mkdir -p "$PWD/.pstack-tmp"
+export TMPDIR="$PWD/.pstack-tmp"
 # A server started without GH_TOKEN leaves every session's `gh` unauthenticated
 # (why/blast-radius need `gh pr view`). Restart it if this shell has the token and it doesn't.
 spid=$(pgrep -f "opencode serve .*--port $PORT" | head -1 || true)

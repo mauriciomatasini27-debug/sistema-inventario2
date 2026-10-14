@@ -18,7 +18,7 @@
 //
 // Roles (mismo criterio que caja.ts sueldos/retiro_dueno): preparar puede
 // cualquiera; confirmar_pago y cancelar exigen Dueño (Empleado => 403).
-// supplierInvoiceId es OPACO: Lane E (purchases) no existe aún; cuando exista,
+// supplierInvoiceId es OPACO: Lane E vive en src/modules/purchases;
 // el adaptador resolverá el vínculo sin cambiar este dominio.
 
 import { registrar_movimiento, type Movimiento, type Rol } from "../cash/caja.js";

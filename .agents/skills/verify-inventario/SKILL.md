@@ -53,6 +53,9 @@ per-feature steps.
 
 ## Evidence
 
+Run `npm run evidencia` and paste its output verbatim (tsc / vitest / build
+summary lines plus sha) into the report; never paraphrase counts.
+
 Write under `.agents/skills/verify-inventario/artifacts/<feature>/`: Playwright
 report + one screenshot + captured `#estado`/`#balance` text (and `doc_id`/`cae` for
 fiscal). Prove the real path (click `#cobrar`/`#sync`, real `fetch`), action plus
