@@ -11,7 +11,7 @@ export const prerender = false;
 // PERS2-S20: job por el repo de OCR; borrador por facturas-proveedor.
 export const GET: APIRoute = async ({ params }) => {
   try {
-    const job = obtenerJob(params.id ?? "");
+    const job = await obtenerJob(params.id ?? "");
     if (!job) return Response.json({ error: "job inexistente" }, { status: 404 });
     const borrador = job.borradorId ? await leerBorradorOcrRepo(job.borradorId) : null;
     if (!borrador) return Response.json({ job_id: job.id, estado_job: job.estado, borrador: null }, { status: 200 });

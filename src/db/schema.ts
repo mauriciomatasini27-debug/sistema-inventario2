@@ -351,3 +351,27 @@ export const ticketPayments = pgTable("ticket_payments", {
   cashMovementId: uuid("cash_movement_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// PERS4-S1 (ADR-0079): trabajos y eventos OCR. Sin tenant_id (base por tenant).
+// idempotency_key único = replay de Idempotency-Key. Timestamps explícitos
+// (no default en creado/actualizado) porque el dominio ya trae ISO del caller.
+export const ocrJobs = pgTable("ocr_jobs", {
+  id: uuid("id").primaryKey(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  origen: text("origen").notNull(),
+  bytesRef: text("bytes_ref").notNull(),
+  emisor: text("emisor"),
+  estado: text("estado").notNull().default("en_cola"),
+  borradorId: text("borrador_id"),
+  error: text("error"),
+  creadoEn: timestamp("creado_en").notNull(),
+  actualizadoEn: timestamp("actualizado_en").notNull(),
+  recordadoEn: timestamp("recordado_en"),
+});
+
+export const ocrEventos = pgTable("ocr_eventos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tipo: text("tipo").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});

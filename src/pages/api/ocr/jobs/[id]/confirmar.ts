@@ -20,7 +20,7 @@ export const POST: APIRoute = async ({ request, params }) => {
   const parsed = ocrConfirmarSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   try {
-    const job = obtenerJob(params.id ?? "");
+    const job = await obtenerJob(params.id ?? "");
     if (!job || !job.borradorId) return Response.json({ error: "job inexistente" }, { status: 404 });
     const r = await confirmarBorradorOcrRepo({
       draftId: job.borradorId,
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, params }) => {
       ahoraIso: new Date().toISOString(),
     });
     if (r.status !== 201) return Response.json({ error: r.error }, { status: r.status });
-    registrarEventoOcr("ocr_confirmado", {
+    await registrarEventoOcr("ocr_confirmado", {
       job_id: job.id,
       factura_id: r.factura.id,
       confirmado_por: parsed.data.quien,

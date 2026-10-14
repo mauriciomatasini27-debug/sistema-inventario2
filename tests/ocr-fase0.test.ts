@@ -180,7 +180,7 @@ describe("ocr jobs API (ADR-0005)", () => {
     } as never)) as Response;
     expect(c.status).toBe(410);
 
-    const v = ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
+    const v = await ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
     expect(v.vencidos).toContain(jobId);
     expect(store.ocrEventos.some((e) => e.tipo === "ocr_vencido")).toBe(true);
 
@@ -188,7 +188,7 @@ describe("ocr jobs API (ADR-0005)", () => {
     const jobId2 = r2.json["job_id"] as string;
     const job2 = store.ocrJobs.get(jobId2)!;
     store.ocrJobs.set(jobId2, { ...job2, creadoEn: "2026-10-08T12:00:00.000Z" });
-    const v2 = ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
+    const v2 = await ejecutarVencimientoOcr("2026-10-10T12:00:00.000Z");
     expect(v2.recuerdos).toContain(jobId2);
 
     const sinSecret = (await postVencer({ request: reqJob("x", {}) } as never)) as Response;

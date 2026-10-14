@@ -37,9 +37,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
 
-  const previo = buscarJobPorClave(key);
-  if (previo) {
-    return Response.json({ job_id: previo.id, estado: previo.estado, duplicado: true }, { status: 200 });
+  try {
+    const previo = await buscarJobPorClave(key);
+    if (previo) {
+      return Response.json({ job_id: previo.id, estado: previo.estado, duplicado: true }, { status: 200 });
+    }
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
   }
   if (!b.es_comprobante) return Response.json({ error: "adjunto no es comprobante" }, { status: 415 });
 
@@ -53,8 +58,6 @@ export const POST: APIRoute = async ({ request }) => {
     emisor: b.emisor ?? null,
     ahoraIso,
   });
-  crearJobRegistro(job);
-
   // Extracción en orden pdf → OCR → email (ADR-0005). Motor Paddle solo si hay
   // endpoint configurado y no vino texto directo; si falla, E6 local.
   const endpoint = process.env.OCR_PADDLE_ENDPOINT ?? "";
@@ -68,6 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
   });
 
   try {
+    await crearJobRegistro(job);
     const ing = await ingerirBorradorOcrRepo({
       key: `ocr-${jobId}`,
       origen: b.origen,
@@ -81,18 +85,18 @@ export const POST: APIRoute = async ({ request }) => {
       ahoraIso,
     });
     if (ing.status === 415 || ing.status === 422) {
-      marcarJobFallo(job, ing.error);
+      await marcarJobFallo(job, ing.error);
       return Response.json({ error: ing.error }, { status: ing.status });
     }
     if (ing.status === 200) {
-      const vinculado = vincularBorradorAlJob(job, ing.borrador.id, ahoraIso);
+      const vinculado = await vincularBorradorAlJob(job, ing.borrador.id, ahoraIso);
       return Response.json({ job_id: jobId, estado: vinculado.estado, duplicado: true }, { status: 200 });
     }
     const borrador = ing.borrador;
-    const vinculado = vincularBorradorAlJob(job, borrador.id, ahoraIso);
+    const vinculado = await vincularBorradorAlJob(job, borrador.id, ahoraIso);
 
     const global = confianza_global(ext.confianza);
-    registrarEventoOcr("ocr_borrador_listo", {
+    await registrarEventoOcr("ocr_borrador_listo", {
       job_id: jobId,
       origen: b.origen,
       confianza_global: global,

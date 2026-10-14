@@ -20,7 +20,7 @@ export const POST: APIRoute = async ({ request, params }) => {
   const parsed = ocrEditarSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   try {
-    const job = obtenerJob(params.id ?? "");
+    const job = await obtenerJob(params.id ?? "");
     if (!job || !job.borradorId) return Response.json({ error: "job inexistente" }, { status: 404 });
     const b = parsed.data;
     const r = await editarBorradorOcrRepo({

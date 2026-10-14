@@ -19,11 +19,11 @@ export const POST: APIRoute = async ({ request, params }) => {
   const parsed = ocrDescartarSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   try {
-    const job = obtenerJob(params.id ?? "");
+    const job = await obtenerJob(params.id ?? "");
     if (!job || !job.borradorId) return Response.json({ error: "job inexistente" }, { status: 404 });
     const r = await descartarBorradorOcrRepo({ draftId: job.borradorId, ahoraIso: new Date().toISOString() });
     if (r.status !== 200) return Response.json({ error: r.error }, { status: r.status });
-    registrarEventoOcr("ocr_descartado", { job_id: job.id, motivo: parsed.data.motivo ?? "sin_motivo" });
+    await registrarEventoOcr("ocr_descartado", { job_id: job.id, motivo: parsed.data.motivo ?? "sin_motivo" });
     return Response.json({ borrador_id: r.borrador.id, estado: "descartada" }, { status: 200 });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
