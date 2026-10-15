@@ -1,9 +1,14 @@
 import { eq } from "drizzle-orm";
 import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store, type StoredFiscalDoc } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
+import {
+  crearAlmacenCorrecciones,
+  crearAlmacenDevoluciones,
+  crearAlmacenDevolucionVistos,
+  crearAlmacenIdempotenciaVentas,
+  crearContadorDevoluciones,
+} from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
 import { decidir_nc } from "../../modules/fiscal/nc.js";
@@ -27,11 +32,7 @@ import { acumuladoNcParaVenta, asegurarDoc, buscarFacturaParaNd } from "./fiscal
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (503).
 // PERS5-S2 (ADR-0080): el correlativo D-* sale de ticket_counters (serie
 // devolucion, FOR UPDATE) en la misma tx que inserta sale_returns;
-// store.nextReturn queda como fuente solo en single sin base y como espejo.
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
+// el contador queda como fuente solo en single sin base y como espejo.
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -45,7 +46,8 @@ export interface VentaParaDevolucion {
 
 /** Venta por sale_id: memoria caliente, luego sales del tenant. Sin DB (solo single) cae a memoria. */
 export async function buscarVentaPorId(saleId: string): Promise<VentaParaDevolucion | null> {
-  const mem = [...store.idempotency.values()].find((t) => t.sale_id === saleId) ?? null;
+  const idempotencia = crearAlmacenIdempotenciaVentas();
+  const mem = [...idempotencia.comoMapaSoloLectura().values()].find((t) => t.sale_id === saleId) ?? null;
   if (mem) return { sale_id: mem.sale_id, total_centavos: mem.total_centavos, medio: mem.medio };
   const db = dbVivaTenant();
   if (!db) return null;
@@ -55,7 +57,7 @@ export async function buscarVentaPorId(saleId: string): Promise<VentaParaDevoluc
     if (!f) return null;
     return { sale_id: f.id, total_centavos: f.totalCentavos.toString(), medio: f.medio as Medio };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    idempotencia.anteFalloPersistencia(e);
     return null;
   }
 }
@@ -67,7 +69,8 @@ export interface VistoDevolucion {
 
 /** Visto idempotente de devolución: memoria, luego sale_returns con espejo. */
 export async function leerVistoDevolucion(key: string): Promise<VistoDevolucion | null> {
-  const mem = store.returnVistos.get(key);
+  const vistos = crearAlmacenDevolucionVistos();
+  const mem = vistos.obtener(key);
   if (mem) return { ...mem };
   const db = dbVivaTenant();
   if (!db) return null;
@@ -76,18 +79,19 @@ export async function leerVistoDevolucion(key: string): Promise<VistoDevolucion 
     const f = filas[0];
     if (!f) return null;
     const visto: VistoDevolucion = { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId };
-    store.returnVistos.set(key, visto);
+    vistos.guardar(key, visto);
     return { ...visto };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    vistos.anteFalloPersistencia(e);
     return null;
   }
 }
 
 /** Acumulado devuelto por venta: union memoria + sale_returns dedup por número. */
 export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
+  const devoluciones = crearAlmacenDevoluciones();
   const vistos = new Map<string, bigint>();
-  for (const r of store.returns.values()) {
+  for (const r of devoluciones.comoMapaSoloLectura().values()) {
     if (r.sale_id === saleId) vistos.set(r.numero_devolucion, BigInt(r.total_centavos));
   }
   const db = dbVivaTenant();
@@ -99,13 +103,13 @@ export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
     }
     return [...vistos.values()].reduce((a, b) => a + b, 0n);
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    devoluciones.anteFalloPersistencia(e);
     return [...vistos.values()].reduce((a, b) => a + b, 0n);
   }
 }
 
 function ultimoNumeroDevolucion(): DevolucionSeq | null {
-  const nr = store.nextReturn;
+  const nr = crearContadorDevoluciones().leer();
   const n = nr > 1 ? nr - 1 : 0;
   return n > 0 ? { n } : null;
 }
@@ -134,7 +138,10 @@ function espejoMemoriaDevolucion(
   numero: string,
   input: RegistrarDevolucionInput,
 ): void {
-  store.returns.set(returnId, {
+  const devoluciones = crearAlmacenDevoluciones();
+  const vistosRet = crearAlmacenDevolucionVistos();
+  const contador = crearContadorDevoluciones();
+  devoluciones.guardar(returnId, {
     return_id: returnId,
     sale_id: input.saleId,
     numero_devolucion: numero,
@@ -142,9 +149,9 @@ function espejoMemoriaDevolucion(
     medio: input.medio,
   });
   const visto: VistoDevolucion = { numero_devolucion: numero, sale_id: input.saleId };
-  store.returnVistos.set(key, visto);
+  vistosRet.guardar(key, visto);
   const n = Number(/^D-(\d+)$/.exec(numero)?.[1] ?? 0);
-  if (n >= store.nextReturn) store.nextReturn = n + 1;
+  if (n >= contador.leer()) contador.fijar(n + 1);
 }
 
 type SalidaTxDevolucion =
@@ -153,6 +160,7 @@ type SalidaTxDevolucion =
   | { readonly estado: "ok"; readonly numero: string; readonly efecto: EfectoDevolucion };
 
 export async function registrarDevolucion(input: RegistrarDevolucionInput): Promise<RegistrarDevolucionResultado> {
+  const vistosRet = crearAlmacenDevolucionVistos();
   const visto = await leerVistoDevolucion(input.key);
   if (visto) return { ok: false, status: 409, error: "idempotency-key repetida", original: visto };
 
@@ -282,7 +290,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         return { estado: "ok", numero: num, efecto: dev.efecto };
       });
       if (salida.estado === "repetida") {
-        store.returnVistos.set(input.key, salida.original);
+        vistosRet.guardar(input.key, salida.original);
         return { ok: false, status: 409, error: "idempotency-key repetida", original: salida.original };
       }
       if (salida.estado === "fallo") return mapearFallo(salida.fallo);
@@ -296,15 +304,15 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
           const f = previo[0];
           if (f) {
             const v: VistoDevolucion = { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId };
-            store.returnVistos.set(input.key, v);
+            vistosRet.guardar(input.key, v);
             return { ok: false, status: 409, error: "idempotency-key repetida", original: v };
           }
         } catch (err2) {
-          if (esModoMulti()) throw aBaseNoDisponible(err2);
+          vistosRet.anteFalloPersistencia(err2);
         }
-        if (esModoMulti()) throw aBaseNoDisponible(err);
-      } else if (esModoMulti()) {
-        throw aBaseNoDisponible(err);
+        vistosRet.anteFalloPersistencia(err);
+      } else {
+        vistosRet.anteFalloPersistencia(err);
       }
       // Single con base caída: camino memoria como hoy (la tx revirtió).
       const ultimo = ultimoNumeroDevolucion();
@@ -465,7 +473,8 @@ function filaACorreccion(f: typeof ticketPaymentCorrections.$inferSelect): Corre
 
 /** Vistos de corrección: memoria caliente + ticket_payment_corrections, gana memoria. */
 export async function vistosCorreccion(): Promise<Map<string, CorreccionOk>> {
-  const union = new Map<string, CorreccionOk>(store.correcciones);
+  const correcciones = crearAlmacenCorrecciones();
+  const union = new Map<string, CorreccionOk>(correcciones.comoMapaSoloLectura());
   const db = dbVivaTenant();
   if (!db) return union;
   try {
@@ -475,7 +484,7 @@ export async function vistosCorreccion(): Promise<Map<string, CorreccionOk>> {
     }
     return union;
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    correcciones.anteFalloPersistencia(e);
     return union;
   }
 }
@@ -495,6 +504,7 @@ export type RegistrarCorreccionResultado =
   | { ok: false; status: 422; error: string };
 
 export async function registrarCorreccion(input: RegistrarCorreccionInput): Promise<RegistrarCorreccionResultado> {
+  const correcciones = crearAlmacenCorrecciones();
   const venta = await buscarVentaPorId(input.saleId);
   if (!venta) return { ok: false, status: 404, error: "venta inexistente" };
   const r = corregir_medio({
@@ -513,7 +523,7 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
   // Puerta de escritura: en multi sin base propaga BaseNoDisponible (503).
   const db = dbVivaTenant();
   if (!db) {
-    store.correcciones.set(input.key, r);
+    correcciones.guardar(input.key, r);
     return { ok: true, status: 201, correccion: r };
   }
   try {
@@ -524,7 +534,7 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
       .limit(1);
     if (previo[0]) {
       const original = filaACorreccion(previo[0]);
-      store.correcciones.set(input.key, original);
+      correcciones.guardar(input.key, original);
       return { ok: false, status: 409, error: "idempotency-key repetida", original };
     }
     const filas = await db
@@ -546,10 +556,10 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
         .where(eq(ticketPaymentCorrections.idempotencyKey, input.key))
         .limit(1);
       const original = carrera[0] ? filaACorreccion(carrera[0]) : r;
-      store.correcciones.set(input.key, original);
+      correcciones.guardar(input.key, original);
       return { ok: false, status: 409, error: "idempotency-key repetida", original };
     }
-    store.correcciones.set(input.key, r);
+    correcciones.guardar(input.key, r);
     return { ok: true, status: 201, correccion: r };
   } catch (e) {
     if (esConflictoUnico(e)) {
@@ -561,17 +571,17 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
           .limit(1);
         if (previo[0]) {
           const original = filaACorreccion(previo[0]);
-          store.correcciones.set(input.key, original);
+          correcciones.guardar(input.key, original);
           return { ok: false, status: 409, error: "idempotency-key repetida", original };
         }
       } catch (e2) {
-        if (esModoMulti()) throw aBaseNoDisponible(e2);
+        correcciones.anteFalloPersistencia(e2);
       }
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    } else if (esModoMulti()) {
-      throw aBaseNoDisponible(e);
+      correcciones.anteFalloPersistencia(e);
+    } else {
+      correcciones.anteFalloPersistencia(e);
     }
-    store.correcciones.set(input.key, r);
+    correcciones.guardar(input.key, r);
     return { ok: true, status: 201, correccion: r };
   }
 }

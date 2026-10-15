@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { store, type StoredMovement, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { store, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -11,8 +11,9 @@ import type { MatchLogEntry } from "../../modules/purchases/matching.js";
 import type { Payee } from "../../modules/payments/beneficiarios.js";
 import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
 import type { RevocacionLink, TicketLinkEmitido } from "../../modules/sales/ticket_link.js";
+import type { CorreccionOk } from "../../modules/sales/correccion_medio.js";
 
-export type { StoredMovement, StoredStockMovement, StoredTicket };
+export type { StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
 // factoría de abajo. Quien llama usa el puerto y nunca vuelve a preguntar el
@@ -406,4 +407,35 @@ export function crearListaConteos(): ListaAlmacen<ConteoStock> {
 
 export function crearAlmacenConteoVistos(): AlmacenVivo<string> {
   return crearAlmacenVivo(store.conteoVistos);
+}
+
+// Corte 9: mapas y contador de ventas (devoluciones, vistos y
+// correcciones de medio). Misma politica que caja: en multi el fallo de
+// DB se propaga como BaseNoDisponible; en single la llamada sigue hacia
+// memoria. La idempotencia se reutiliza del corte 7; el contador no toca
+// DB y no tiene fallo.
+export interface VistoDevolucion {
+  numero_devolucion: string;
+  sale_id: string;
+}
+
+export function crearAlmacenDevoluciones(): AlmacenVivo<StoredReturn> {
+  return crearAlmacenVivo(store.returns);
+}
+
+export function crearAlmacenDevolucionVistos(): AlmacenVivo<VistoDevolucion> {
+  return crearAlmacenVivo(store.returnVistos);
+}
+
+export function crearAlmacenCorrecciones(): AlmacenVivo<CorreccionOk> {
+  return crearAlmacenVivo(store.correcciones);
+}
+
+export function crearContadorDevoluciones(): ContadorAlmacen {
+  return {
+    leer: () => store.nextReturn,
+    fijar: (valor) => {
+      store.nextReturn = valor;
+    },
+  };
 }
