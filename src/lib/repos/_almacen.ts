@@ -492,3 +492,18 @@ export function crearListaMovimientosCredito(): ListaAlmacen<MovimientoCredito> 
 export function crearAlmacenSuppliers(): AlmacenVivo<Supplier> {
   return crearAlmacenVivo(store.suppliers);
 }
+
+// Corte 14: lotes. Misma politica que caja: en multi el fallo de DB se
+// propaga como BaseNoDisponible; en single la llamada sigue hacia memoria.
+// Los movimientos de stock se reutilizan de `crearListaMovimientosStock`
+// del corte 8.
+export function crearAlmacenLotes(): AlmacenVivo<{
+  id: string;
+  sku: string;
+  cantidad: number;
+  cantidadRestante: number;
+  venceEl: string | null;
+  costoCentavos: string;
+}> {
+  return crearAlmacenVivo(store.lotes);
+}

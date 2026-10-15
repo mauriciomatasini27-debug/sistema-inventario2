@@ -1,18 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { stockLots } from "../../db/schema.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
+import { crearAlmacenLotes, crearListaMovimientosStock } from "./_almacen.js";
 import { aplicarMovimiento, movimientoDuplicado } from "./stock.js";
 
 // PERS2-S19 (ADR-0059): lotes para el job de vencimientos. DB primero via
 // dbVivaTenant(); solo en single sin base usa la memoria particionada. En
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (503).
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
 
 export interface LoteVista {
   id: string;
@@ -24,14 +19,15 @@ export interface LoteVista {
 // Lotes del tenant con DB viva (stock_lots), memoria particionada solo en
 // single sin base. En multi sin base propaga BaseNoDisponible.
 export async function listarLotes(): Promise<LoteVista[]> {
+  const almacenLotes = crearAlmacenLotes();
   const db = dbVivaTenant();
-  if (!db) return [...store.lotes.values()].map((l) => ({ id: l.id, sku: l.sku, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl }));
+  if (!db) return [...almacenLotes.comoMapaSoloLectura().values()].map((l) => ({ id: l.id, sku: l.sku, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl }));
   try {
     const filas = await db.select().from(stockLots);
     return filas.map((f) => ({ id: f.id, sku: f.sku, cantidadRestante: f.cantidadRestante, venceEl: f.venceEl ? f.venceEl.toISOString() : null }));
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return [...store.lotes.values()].map((l) => ({ id: l.id, sku: l.sku, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl }));
+    almacenLotes.anteFalloPersistencia(e);
+    return [...almacenLotes.comoMapaSoloLectura().values()].map((l) => ({ id: l.id, sku: l.sku, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl }));
   }
 }
 
@@ -81,12 +77,13 @@ export interface LoteDetalle {
 // Lista CAT-S3 ordenada FEFO (vence_el ASC, nulls last): union del espejo en
 // memoria y stock_lots con DB viva; memoria solo en single sin base.
 export async function listarLotesDetalle(sku: string | null): Promise<LoteDetalle[]> {
+  const almacenLotes = crearAlmacenLotes();
   const db = dbVivaTenant();
   if (!db) return ordenarFefo(filtrarLotes(sku));
   try {
     const filas = await db.select().from(stockLots);
     const union = new Map<string, LoteDetalle>();
-    for (const l of store.lotes.values()) {
+    for (const l of almacenLotes.comoMapaSoloLectura().values()) {
       union.set(l.id, { id: l.id, sku: l.sku, cantidad: l.cantidad, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl, costoCentavos: l.costoCentavos });
     }
     for (const f of filas) {
@@ -103,13 +100,13 @@ export async function listarLotesDetalle(sku: string | null): Promise<LoteDetall
     }
     return ordenarFefo(sku ? [...union.values()].filter((l) => l.sku === sku) : [...union.values()]);
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    almacenLotes.anteFalloPersistencia(e);
     return ordenarFefo(filtrarLotes(sku));
   }
 }
 
 function filtrarLotes(sku: string | null): LoteDetalle[] {
-  let lista = [...store.lotes.values()];
+  let lista = [...crearAlmacenLotes().comoMapaSoloLectura().values()];
   if (sku) lista = lista.filter((l) => l.sku === sku);
   return ordenarFefo(lista.map((l) => ({ id: l.id, sku: l.sku, cantidad: l.cantidad, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl, costoCentavos: l.costoCentavos })));
 }
@@ -144,9 +141,10 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
     return { ok: false, codigo: "SIN_VENCIMIENTO", error: "controla_vencimiento exige vence_el" };
   }
   if (await movimientoDuplicado(input.idemKey, "ALTA")) {
-    const original = store.stockMoves.find((m) => m.idemKey === input.idemKey && m.tipo === "ALTA") ?? null;
+    const original = crearListaMovimientosStock().listar().find((m) => m.idemKey === input.idemKey && m.tipo === "ALTA") ?? null;
     return { ok: false, codigo: "DUPLICADO", error: "duplicado", original };
   }
+  const almacenLotes = crearAlmacenLotes();
   const id = randomUUID();
   const lote: LoteDetalle = {
     id,
@@ -158,7 +156,7 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
   };
   const db = dbVivaTenant();
   if (!db) {
-    store.lotes.set(id, { ...lote });
+    almacenLotes.guardar(id, { ...lote });
     const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     return { ok: true, lote, fuente: r.fuente };
   }
@@ -170,12 +168,12 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
       venceEl: input.venceEl ? new Date(input.venceEl) : null,
       costoCentavos: BigInt(input.costoCentavos),
     }).onConflictDoNothing();
-    store.lotes.set(id, { ...lote });
+    almacenLotes.guardar(id, { ...lote });
     const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     return { ok: true, lote, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    store.lotes.set(id, { ...lote });
+    almacenLotes.anteFalloPersistencia(e);
+    almacenLotes.guardar(id, { ...lote });
     const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     return { ok: true, lote, fuente: r.fuente };
   }
