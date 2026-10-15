@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { serviceAccounts, utilityBills } from "../../db/schema-servicios.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  crearAlmacenCuentasServicio,
+  crearAlmacenFacturasServicio,
+  crearAlmacenFacturasServicioPorMensaje,
+} from "./_almacen.js";
 import type { Servicio } from "../../modules/utilities/cuentas.js";
 import { crear_cuenta, es_cuenta_duplicada, type CuentaExistente, type CuentaServicio } from "../../modules/utilities/cuentas.js";
 import type { Medio } from "../validation.js";
@@ -23,10 +26,6 @@ import { registrarEgresoRetiro } from "./caja.js";
 // message-id, vencimientos, pago con su egreso). DB primero via
 // dbVivaTenant(); solo en single sin base usa la memoria particionada. En
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (503).
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -50,13 +49,14 @@ export type RegistrarFacturaResultado =
   | { ok: false; codigo: "NO_VALIDO"; status: 422; error: string };
 
 function espejoFactura(factura: FacturaServicio): void {
-  store.utilityBills.set(factura.id, factura);
+  crearAlmacenFacturasServicio().guardar(factura.id, factura);
   // Sin tabla propia: el indice por message-id vive solo en memoria.
-  store.utilityBillsByMessage.set(factura.messageId, factura);
+  crearAlmacenFacturasServicioPorMensaje().guardar(factura.messageId, factura);
 }
 
 // Alta CS9.1: message-id UNIQUE. Retry identico => 409 con el original.
 export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFacturaResultado> {
+  const facturasPorMensaje = crearAlmacenFacturasServicioPorMensaje();
   const r = registrar_factura(
     {
       accountId: input.accountId,
@@ -69,7 +69,7 @@ export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFa
       confianzaMonto: input.confianzaMonto,
       confianzaVencimiento: input.confianzaVencimiento,
     },
-    store.utilityBillsByMessage,
+    facturasPorMensaje.comoMapaSoloLectura(),
   );
   if (r.status === 409) return { ok: false, codigo: "MENSAJE_REPETIDO", error: r.error };
   if (r.status !== 201) return { ok: false, codigo: "NO_VALIDO", status: 422, error: r.error };
@@ -110,11 +110,11 @@ export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFa
           return { ok: false, codigo: "MENSAJE_REPETIDO", error: "message-id repetido" };
         }
       } catch (e2) {
-        if (esModoMulti()) throw aBaseNoDisponible(e2);
+        facturasPorMensaje.anteFalloPersistencia(e2);
       }
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    } else if (esModoMulti()) {
-      throw aBaseNoDisponible(e);
+      facturasPorMensaje.anteFalloPersistencia(e);
+    } else {
+      facturasPorMensaje.anteFalloPersistencia(e);
     }
     espejoFactura(r.factura);
     return { ok: true, factura: r.factura, advertencias: r.advertencias, fuente: "memoria" };
@@ -143,13 +143,14 @@ function filaAFactura(f: FilaFactura): FacturaServicio {
 // Vencimientos: todas las facturas del tenant con DB viva, memoria
 // particionada solo en single sin base. En multi sin base propaga.
 export async function listarFacturas(): Promise<FacturaServicio[]> {  const db = dbVivaTenant();
-  if (!db) return [...store.utilityBills.values()];
+  const facturas = crearAlmacenFacturasServicio();
+  if (!db) return [...facturas.comoMapaSoloLectura().values()];
   try {
     const filas = await db.select().from(utilityBills);
     return filas.map(filaAFactura);
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return [...store.utilityBills.values()];
+    facturas.anteFalloPersistencia(e);
+    return [...facturas.comoMapaSoloLectura().values()];
   }
 }
 
@@ -181,15 +182,16 @@ export type PagarFacturaResultado =
 // caja.ts). En multi sin base propaga BaseNoDisponible.
 export async function pagarFactura(input: PagoServicioInput): Promise<PagarFacturaResultado> {
   const db = dbVivaTenant();
+  const facturas = crearAlmacenFacturasServicio();
   let factura: FacturaServicio | null;
   if (!db) {
-    factura = store.utilityBills.get(input.billId) ?? null;
+    factura = facturas.obtener(input.billId) ?? null;
   } else {
     try {
       factura = await leerFacturaEnDb(db, input.billId);
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-      factura = store.utilityBills.get(input.billId) ?? null;
+      facturas.anteFalloPersistencia(e);
+      factura = facturas.obtener(input.billId) ?? null;
     }
   }
   if (!factura) return { ok: false, codigo: "NO_ENCONTRADA", error: "factura inexistente" };
@@ -226,7 +228,7 @@ export async function pagarFactura(input: PagoServicioInput): Promise<PagarFactu
     espejoFactura(r.factura);
     return { ok: true, billId: r.factura.id, estado: r.factura.estado };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    facturas.anteFalloPersistencia(e);
     espejoFactura(r.factura);
     await registrarEgresoRetiro({
       key: randomUUID(),
@@ -244,15 +246,16 @@ export async function pagarFactura(input: PagoServicioInput): Promise<PagarFactu
 // multi sin base propaga BaseNoDisponible.
 export async function listarCuentas(): Promise<Map<string, { proveedor: string; servicio: string }>> {
   const db = dbVivaTenant();
+  const cuentas = crearAlmacenCuentasServicio();
   if (!db) {
-    return new Map([...store.serviceAccounts.values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
+    return new Map([...cuentas.comoMapaSoloLectura().values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
   }
   try {
     const filas = await db.select({ id: serviceAccounts.id, proveedor: serviceAccounts.proveedor, servicio: serviceAccounts.servicio }).from(serviceAccounts);
     return new Map(filas.map((f) => [f.id, { proveedor: f.proveedor, servicio: f.servicio }]));
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return new Map([...store.serviceAccounts.values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
+    cuentas.anteFalloPersistencia(e);
+    return new Map([...cuentas.comoMapaSoloLectura().values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
   }
 }
 
@@ -278,8 +281,9 @@ export type AltaCuentaResultado =
 // dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
 export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResultado> {
   const db = dbVivaTenant();
+  const cuentas = crearAlmacenCuentasServicio();
   const existentes = async (): Promise<CuentaExistente[]> => {
-    const vivas = [...store.serviceAccounts.values()].map((c) => ({
+    const vivas = [...cuentas.comoMapaSoloLectura().values()].map((c) => ({
       servicio: c.servicio,
       proveedor: c.proveedor,
       titular: c.titular,
@@ -302,7 +306,7 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
       }
       return [...union.values()];
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      cuentas.anteFalloPersistencia(e);
       return vivas;
     }
   };
@@ -324,7 +328,7 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
     return { ok: false, codigo: r.codigo === "DUPLICADA" ? "DUPLICADA" : "NO_VALIDA", status: r.status, error: r.error };
   }
   if (!db) {
-    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    cuentas.guardar(r.cuenta.id, r.cuenta);
     return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "memoria" };
   }
   try {
@@ -346,11 +350,11 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
         debitoAutomatico: r.cuenta.debitoAutomatico,
       })
       .onConflictDoNothing();
-    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    cuentas.guardar(r.cuenta.id, r.cuenta);
     return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    store.serviceAccounts.set(r.cuenta.id, r.cuenta);
+    cuentas.anteFalloPersistencia(e);
+    cuentas.guardar(r.cuenta.id, r.cuenta);
     return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "memoria" };
   }
 }
@@ -378,11 +382,12 @@ export interface CuentaVista {
 // memoria y service_accounts con DB viva; memoria solo en single sin base.
 export async function listarCuentasDetalle(): Promise<CuentaVista[]> {
   const db = dbVivaTenant();
-  if (!db) return [...store.serviceAccounts.values()].map(aVista);
+  const cuentas = crearAlmacenCuentasServicio();
+  if (!db) return [...cuentas.comoMapaSoloLectura().values()].map(aVista);
   try {
     const filas = await db.select().from(serviceAccounts);
     const union = new Map<string, CuentaVista>();
-    for (const c of store.serviceAccounts.values()) union.set(c.id, aVista(c));
+    for (const c of cuentas.comoMapaSoloLectura().values()) union.set(c.id, aVista(c));
     for (const f of filas) {
       if (!union.has(f.id)) {
         union.set(f.id, { account_id: f.id, servicio: f.servicio, proveedor: f.proveedor, titular: f.titular, alias: f.alias, activa: f.activa ?? true });
@@ -390,8 +395,8 @@ export async function listarCuentasDetalle(): Promise<CuentaVista[]> {
     }
     return [...union.values()];
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return [...store.serviceAccounts.values()].map(aVista);
+    cuentas.anteFalloPersistencia(e);
+    return [...cuentas.comoMapaSoloLectura().values()].map(aVista);
   }
 }
 

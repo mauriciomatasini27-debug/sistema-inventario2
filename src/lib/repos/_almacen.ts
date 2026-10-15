@@ -13,6 +13,8 @@ import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordene
 import type { RevocacionLink, TicketLinkEmitido } from "../../modules/sales/ticket_link.js";
 import type { CorreccionOk } from "../../modules/sales/correccion_medio.js";
 import type { WizardEstado } from "../../modules/fiscal/wizard.js";
+import type { CuentaServicio } from "../../modules/utilities/cuentas.js";
+import type { FacturaServicio } from "../../modules/utilities/facturas_servicios.js";
 
 export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 
@@ -452,4 +454,20 @@ export function crearAlmacenFiscalDocs(): AlmacenVivo<StoredFiscalDoc> {
 
 export function crearAlmacenFiscalWizard(): AlmacenVivo<WizardEstado> {
   return crearAlmacenVivo(store.fiscalWizard);
+}
+
+// Corte 11: mapas de servicios (facturas por id y por message-id, cuentas).
+// Misma politica que caja: en multi el fallo de DB se propaga como
+// BaseNoDisponible; en single la llamada sigue hacia memoria. El indice por
+// message-id vive solo en memoria y comparte el espejo de facturas.
+export function crearAlmacenFacturasServicio(): AlmacenVivo<FacturaServicio> {
+  return crearAlmacenVivo(store.utilityBills);
+}
+
+export function crearAlmacenFacturasServicioPorMensaje(): AlmacenVivo<FacturaServicio> {
+  return crearAlmacenVivo(store.utilityBillsByMessage);
+}
+
+export function crearAlmacenCuentasServicio(): AlmacenVivo<CuentaServicio> {
+  return crearAlmacenVivo(store.serviceAccounts);
 }
