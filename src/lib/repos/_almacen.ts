@@ -6,7 +6,7 @@ import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
 import type { Ajuste } from "../../modules/pricing/precios.js";
 import type { Borrador, Factura, PagoProveedor } from "../../modules/purchases/facturas.js";
-import type { PurchaseOrder } from "../../modules/purchases/proveedores.js";
+import type { PurchaseOrder, Supplier } from "../../modules/purchases/proveedores.js";
 import type { MatchLogEntry } from "../../modules/purchases/matching.js";
 import type { Payee } from "../../modules/payments/beneficiarios.js";
 import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
@@ -484,4 +484,11 @@ export function crearAlmacenCreditoVistos(): AlmacenVivo<unknown> {
 
 export function crearListaMovimientosCredito(): ListaAlmacen<MovimientoCredito> {
   return crearLista(store.creditMovs);
+}
+
+// Corte 13: suppliers. Misma politica que caja: en multi el fallo de DB
+// se propaga como BaseNoDisponible; en single la llamada sigue hacia
+// memoria. Las ordenes y sus vistos se reutilizan del corte 3.
+export function crearAlmacenSuppliers(): AlmacenVivo<Supplier> {
+  return crearAlmacenVivo(store.suppliers);
 }

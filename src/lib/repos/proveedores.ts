@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import { purchaseOrderLines, purchaseOrders, suppliers } from "../../db/schema-proveedores.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  crearAlmacenOrderVistos,
+  crearAlmacenPurchaseOrders,
+  crearAlmacenSuppliers,
+} from "./_almacen.js";
 import {
   cerrarOrden,
   crearOrden,
@@ -26,18 +29,15 @@ export type AltaProveedorResultado =
   | { ok: false; codigo: "CUIT_EXISTE"; error: string }
   | { ok: false; codigo: "NO_VALIDO"; error: string };
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
 export async function altaProveedor(input: ProveedorNuevo): Promise<AltaProveedorResultado> {
+  const almacenSuppliers = crearAlmacenSuppliers();
   const r = crearSupplier({
     cuit: input.cuit,
     nombre: input.nombre,
     ...(input.email !== undefined ? { email: input.email } : {}),
     ...(input.telefono !== undefined ? { telefono: input.telefono } : {}),
     ahoraIso: input.ahoraIso,
-    creados: store.suppliers,
+    creados: almacenSuppliers.comoMapaSoloLectura(),
   });
   if (r.status !== 201) {
     if (r.status === 409) return { ok: false, codigo: "CUIT_EXISTE", error: r.error };
@@ -46,14 +46,14 @@ export async function altaProveedor(input: ProveedorNuevo): Promise<AltaProveedo
   const cuit = normalizarCuit(r.supplier.cuit);
   const db = dbVivaTenant();
   if (!db) {
-    store.suppliers.set(cuit, r.supplier);
+    almacenSuppliers.guardar(cuit, r.supplier);
     return { ok: true, supplierId: r.supplier.id, cuit: r.supplier.cuit, fuente: "memoria" };
   }
   try {
     return await altaProveedorEnDb(db, cuit, r.supplier);
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    store.suppliers.set(cuit, r.supplier);
+    almacenSuppliers.anteFalloPersistencia(e);
+    almacenSuppliers.guardar(cuit, r.supplier);
     return { ok: true, supplierId: r.supplier.id, cuit: r.supplier.cuit, fuente: "memoria" };
   }
 }
@@ -74,7 +74,7 @@ async function altaProveedorEnDb(db: TenantDb, cuit: string, supplier: Supplier)
     .onConflictDoNothing({ target: suppliers.cuit })
     .returning({ id: suppliers.id });
   if (!filas[0]) return { ok: false, codigo: "CUIT_EXISTE", error: "proveedor ya existe" };
-  store.suppliers.set(cuit, supplier);
+  crearAlmacenSuppliers().guardar(cuit, supplier);
   return { ok: true, supplierId: supplier.id, cuit: supplier.cuit, fuente: "db" };
 }
 
@@ -94,19 +94,21 @@ export type CrearOrdenRepoResultado =
 // idempotency-key con cabecera+lineas en 1 tx y espejo memoria. En multi sin
 // base dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta es 503).
 export async function crearOrdenRepo(input: CrearOrdenRepoInput): Promise<CrearOrdenRepoResultado> {
+  const ordenes = crearAlmacenPurchaseOrders();
+  const ordenVistos = crearAlmacenOrderVistos();
   const r = crearOrden({
     idempotencyKey: input.key,
     supplierCuit: input.supplierCuit,
     lineas: input.lineas.map((l) => ({ sku: l.sku, qty: l.qty, costoCentavos: l.costoCentavos })),
     creadoPor: input.creadoPor,
     ahoraIso: input.ahoraIso,
-    vistos: store.orderVistos,
+    vistos: ordenVistos.comoMapaSoloLectura(),
   });
   if (r.status !== 201) return { ok: false, codigo: r.status === 409 ? "DUPLICADA" : "NO_VALIDA", error: r.error };
 
   const espejo = () => {
-    store.orderVistos.set(input.key, r.orden);
-    store.purchaseOrders.set(r.orden.id, r.orden);
+    ordenVistos.guardar(input.key, r.orden);
+    ordenes.guardar(r.orden.id, r.orden);
   };
 
   const db = dbVivaTenant();
@@ -149,7 +151,7 @@ export async function crearOrdenRepo(input: CrearOrdenRepoInput): Promise<CrearO
     espejo();
     return { ok: true, orderId: r.orden.id, totalCentavos: r.orden.totalCentavos.toString(), fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    ordenVistos.anteFalloPersistencia(e);
     espejo();
     return { ok: true, orderId: r.orden.id, totalCentavos: r.orden.totalCentavos.toString(), fuente: "memoria" };
   }
@@ -169,13 +171,15 @@ export type CerrarOrdenRepoResultado =
 // igual que antes y el cierre se escribe durable; con memoria fria se
 // reconstruye el dominio desde cabecera+lineas. En multi sin base propaga.
 export async function cerrarOrdenRepo(input: CerrarOrdenRepoInput): Promise<CerrarOrdenRepoResultado> {
-  const enMemoria = store.purchaseOrders.get(input.orderId);
+  const ordenes = crearAlmacenPurchaseOrders();
+  const ordenVistos = crearAlmacenOrderVistos();
+  const enMemoria = ordenes.obtener(input.orderId);
   const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "INEXISTENTE", error: "orden inexistente" };
     const r = cerrarOrden(enMemoria, input.quien, input.ahoraIso);
     if (!r.ok) return { ok: false, codigo: "NO_VALIDA", error: r.error };
-    store.purchaseOrders.set(input.orderId, r.orden);
+    ordenes.guardar(input.orderId, r.orden);
     return { ok: true, orderId: r.orden.id, estado: r.orden.estado, fuente: "memoria" };
   }
 
@@ -185,15 +189,15 @@ export async function cerrarOrdenRepo(input: CerrarOrdenRepoInput): Promise<Cerr
     const r = cerrarOrden(base, input.quien, input.ahoraIso);
     if (!r.ok) return { ok: false, codigo: "NO_VALIDA", error: r.error };
     await persistirCierre(db, r.orden);
-    store.orderVistos.set(r.orden.idempotencyKey, r.orden);
-    store.purchaseOrders.set(r.orden.id, r.orden);
+    ordenVistos.guardar(r.orden.idempotencyKey, r.orden);
+    ordenes.guardar(r.orden.id, r.orden);
     return { ok: true, orderId: r.orden.id, estado: r.orden.estado, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    ordenes.anteFalloPersistencia(e);
     if (!enMemoria) return { ok: false, codigo: "INEXISTENTE", error: "orden inexistente" };
     const r = cerrarOrden(enMemoria, input.quien, input.ahoraIso);
     if (!r.ok) return { ok: false, codigo: "NO_VALIDA", error: r.error };
-    store.purchaseOrders.set(input.orderId, r.orden);
+    ordenes.guardar(input.orderId, r.orden);
     return { ok: true, orderId: r.orden.id, estado: r.orden.estado, fuente: "memoria" };
   }
 }
