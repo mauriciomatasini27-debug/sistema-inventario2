@@ -54,7 +54,13 @@ per-feature steps.
 ## Evidence
 
 Run `npm run evidencia` and paste its output verbatim (tsc / vitest / build
-summary lines plus sha) into the report; never paraphrase counts.
+summary lines plus sha) into the report; never paraphrase counts, and never
+write "preexistente": every failure is fixed or gets a linked issue
+(`https://github.com/<org>/<repo>/issues/N` or `#N`, per ARQ-S8 and
+`docs/adr/_plantilla.md`).
+
+Handler tests call handlers with a real `Request` via `tests/helpers/ctx.ts`
+(`ctx(url, init)`); never spread-then-cast (`{...} as never`).
 
 Write under `.agents/skills/verify-inventario/artifacts/<feature>/`: Playwright
 report + one screenshot + captured `#estado`/`#balance` text (and `doc_id`/`cae` for

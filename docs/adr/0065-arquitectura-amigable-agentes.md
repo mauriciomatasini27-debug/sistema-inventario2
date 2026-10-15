@@ -30,6 +30,8 @@ Un PR grande de fin de línea sin cambios de comportamiento y una migración de 
 - Fase 2 hecha (ARQ-S5, ARQ-S6): el job `ci` corre `npm run typecheck`, el paso "Trinquetes de arquitectura" (`npm run check:arch`: `tests/arch` y `tests/pers2-arch.test.ts`), `npm test` y `npm run build`, sin `continue-on-error`. Trinquetes en `tests/arch/trinquetes.test.ts` con baselines en `tests/arch/baselines.json` (fallan si el conteo sube y también si baja sin actualizar el baseline): `as never` en tests 443, `as never` en llamadas a handlers con `request` 241 (AT2), `store.` en `src/lib/repos` 435 (AT4), comentarios "no existe/no hay tabla" 10 (AT5), `esModoMulti` 151 (métrica de ARQ-S4). AT1 y AT3 y `as never` en `src` quedan en cero absoluto.
 - Limitación del plan: el repo es privado en el plan gratis de GitHub, sin branch protection ni rulesets, así que `ci` no puede marcarse como check obligatorio. Un PR en rojo sigue pudiendo mergearse; la regla es no mergear con `ci` en rojo. Si el repo pasa a público o a un plan pago, exigir `ci` en `main`.
 
+- Fase 5 hecha (ARQ-S8): el arch-test `tests/arch/sin-preexistente.test.ts` no acepta "preexistente" en `## Evidencia de aceptación` sin issue enlazado (`github.com/.../issues/N` o `#N`); los 12 ADR anteriores (0053–0063 y 0066) quedan en una lista explícita de permitidos y la plantilla `docs/adr/_plantilla.md` fija la regla para el contenido nuevo.
+
 ## Pendientes
 
-Fases 3 a 5 de PRD-ARQ-01; exigir `ci` como check obligatorio cuando el plan lo permita. Medir tests salteados por `PG_TEST_URL` cuando exista el job con Postgres.
+Fases 3 y 4 de PRD-ARQ-01; exigir `ci` como check obligatorio cuando el plan lo permita. Medir tests salteados por `PG_TEST_URL` cuando exista el job con Postgres.
