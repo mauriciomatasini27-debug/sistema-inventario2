@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
-import { dbVivaTenant } from "../server-db.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
 import {
   crearAlmacenCodigos,
   crearAlmacenFotosProducto,
@@ -23,6 +24,10 @@ import {
 
 export type FichaProducto = FichaCatalogo;
 export type Ubicacion = UbicacionCatalogo;
+
+// Por qué vista de listado: la ficha guardada no lleva presentación; las
+// iniciales y la foto se derivan al leer para no duplicar estado.
+export type FichaListado = FichaProducto & { iniciales: string; fotoUrl: string | null };
 
 // Por qué código + mensaje: el driver expone el 23505 y el nombre del índice via mensaje.
 function esChoqueUnicoUbicacion(e: unknown): boolean {
@@ -51,9 +56,45 @@ function sectorDe(sku: string, sectores: AlmacenVivo<string>): string {
   return sectores.obtener(sku) ?? "general";
 }
 
+// Por qué última foto: el alta agrega al final y no hay borrado; el espejo en
+// memoria ya trae ese orden.
+function fotoMemoria(sku: string): string | null {
+  const arr = crearAlmacenFotosProducto().obtener(sku) ?? [];
+  return arr.length > 0 ? (arr[arr.length - 1]?.url ?? null) : null;
+}
+
+function conPresentacion(ficha: FichaProducto, fotoUrl: string | null): FichaListado {
+  return { ...ficha, iniciales: inicialesProducto(ficha.nombre), fotoUrl };
+}
+
+// Por qué orden por creada: la foto vigente es la carga más reciente del sku.
+async function fotosRecientesDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, string>> {
+  const recientes = new Map<string, string>();
+  if (skus.length === 0) return recientes;
+  const filas = await db
+    .select({ sku: productPhotos.sku, url: productPhotos.url })
+    .from(productPhotos)
+    .where(inArray(productPhotos.sku, [...skus]))
+    .orderBy(desc(productPhotos.createdAt));
+  for (const f of filas) {
+    if (!recientes.has(f.sku)) recientes.set(f.sku, f.url);
+  }
+  return recientes;
+}
+
+// Por qué doble fuente: la DB puede no tener la foto (alta vieja) y el espejo
+// en memoria sí; el cliente muestra placeholder solo si ambas faltan.
+async function presentarDb(db: TenantDb, fichas: FichaProducto[]): Promise<FichaListado[]> {
+  const recientes = await fotosRecientesDb(
+    db,
+    fichas.map((f) => f.sku),
+  );
+  return fichas.map((f) => conPresentacion(f, recientes.get(f.sku) ?? fotoMemoria(f.sku)));
+}
+
 // Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
 
-export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: FichaProducto; fuente: "db" | "memoria" } | null> {
+export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: FichaListado; fuente: "db" | "memoria" } | null> {
   const productos = crearAlmacenProductos();
   const codigos = crearAlmacenCodigos();
   const sectores = crearAlmacenSectores();
@@ -61,32 +102,40 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
   const enMemoria = codigos.obtener(cod);
   const memoria = enMemoria ? (productos.obtener(enMemoria) ?? null) : null;
   const db = dbVivaTenant();
-  if (!db) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
+  if (!db) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
   try {
     const filas = await db.select().from(productCodes).where(eq(productCodes.codigo, cod)).limit(1);
     const fila = filas[0];
-    if (!fila) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
+    if (!fila) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
     const prods = await db
       .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
       .from(products)
       .where(eq(products.sku, fila.sku))
       .limit(1);
     const p = prods[0];
-    if (!p) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
-    return { ficha: fichaDeFila(p, sectorDe(p.sku, sectores)), fuente: "db" };
+    if (!p) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
+    const ficha = fichaDeFila(p, sectorDe(p.sku, sectores));
+    const recientes = await fotosRecientesDb(db, [ficha.sku]);
+    return { ficha: conPresentacion(ficha, recientes.get(ficha.sku) ?? fotoMemoria(ficha.sku)), fuente: "db" };
   } catch (e) {
     productos.anteFalloPersistencia(e);
-    return memoria ? { ficha: memoria, fuente: "memoria" } : null;
+    return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
   }
 }
 
-export async function listarProductos(q: string): Promise<{ fichas: FichaProducto[]; fuente: "db" | "memoria" }> {
+export async function listarProductos(q: string): Promise<{ fichas: FichaListado[]; fuente: "db" | "memoria" }> {
   const productos = crearAlmacenProductos();
   const sectores = crearAlmacenSectores();
   const existencias = crearAlmacenStock();
   const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
-  if (!db) return { fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios), fuente: "memoria" };
+  if (!db)
+    return {
+      fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios).map((f) =>
+        conPresentacion(f, fotoMemoria(f.sku)),
+      ),
+      fuente: "memoria",
+    };
   try {
     // La DB local puede no tener la columna sector (drift conocido): se
     // leen solo las columnas que existen y el sector queda en memoria.
@@ -102,10 +151,16 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaProduct
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
       lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
     }
-    return { fichas: filtrar(lista, q, existencias, precios), fuente: "db" };
+    const filtradas = filtrar(lista, q, existencias, precios);
+    return { fichas: await presentarDb(db, filtradas), fuente: "db" };
   } catch (e) {
     productos.anteFalloPersistencia(e);
-    return { fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios), fuente: "memoria" };
+    return {
+      fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios).map((f) =>
+        conPresentacion(f, fotoMemoria(f.sku)),
+      ),
+      fuente: "memoria",
+    };
   }
 }
 
@@ -115,7 +170,8 @@ function filtrar(lista: FichaProducto[], q: string, existencias: AlmacenVivo<num
     return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
   }
   if (!query) return lista;
-  return lista.filter((p) => p.sku.toUpperCase().includes(query) || p.nombre.toUpperCase().includes(query));
+  // Por qué difusa sobre exacta: el mostrador tipea rápido y con tildes.
+  return lista.filter((p) => coincideDifuso([p.sku, p.nombre], q));
 }
 
 export interface AltaProductoInput {
