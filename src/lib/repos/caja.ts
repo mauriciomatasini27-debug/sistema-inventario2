@@ -215,6 +215,9 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
     });
     return conAvisoMemoria(wa.vivos(), input.key, mem.movs, r, "memoria");
   }
+  // H1 #78: el conteo QR corre fuera del try de persistencia para que su
+  // fallo nunca dispare el repliegue a memoria ni duplique el cierre.
+  let exito: { cierre: CierreOk["cierre"]; wa: AvisoCierre } | null = null;
   try {
     const porKey = cierres.obtener(input.key);
     if (porKey) {
@@ -257,7 +260,7 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
     cierres.guardar(input.key, r);
     cierres.guardar(r.cierre.fechaJornada, r);
     const aviso = asegurarAviso(wa.vivos(), snapshotAviso(r.cierre.fechaJornada, input.key, r.cierre.totalCentavos, porMedio, r.cierre.closeType));
-    return { status: 201, cierre: r.cierre, wa: aviso, fuente: "db", qrSinComprobante: await contarQrSinComprobante() };
+    exito = { cierre: r.cierre, wa: aviso };
   } catch (e) {
     cierres.anteFalloPersistencia(e);
     const mem = movimientosCierreMemoria(movimientos.listar(), turnos.comoMapaSoloLectura());
@@ -272,6 +275,9 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
     });
     return conAvisoMemoria(wa.vivos(), input.key, mem.movs, r, "memoria");
   }
+  // Inalcanzable con exito nulo: el catch siempre devuelve o lanza.
+  if (exito === null) throw new Error("cierre sin exito");
+  return { status: 201, cierre: exito.cierre, wa: exito.wa, fuente: "db", qrSinComprobante: await contarQrSinComprobanteSeguro() };
 }
 
 async function conAvisoMemoria(
@@ -289,7 +295,7 @@ async function conAvisoMemoria(
     return { ...r, fuente };
   }
   const wa = asegurarAviso(waVivos, snapshotAviso(r.cierre.fechaJornada, key, r.cierre.totalCentavos, derivar_balance(movs).porMedio, r.cierre.closeType));
-  return { status: 201, cierre: r.cierre, wa, fuente, qrSinComprobante: await contarQrSinComprobante() };
+  return { status: 201, cierre: r.cierre, wa, fuente, qrSinComprobante: await contarQrSinComprobanteSeguro() };
 }
 
 // waEnviados has no table: el aviso de cierre vive en memoria del repo.
@@ -969,6 +975,16 @@ function listarQrMemoria(filtro: string, qrRecibos: AlmacenVivo<QrRecibo>): QrRe
 // de listarQr para no duplicar la definición de pendiente.
 export async function contarQrSinComprobante(): Promise<number> {
   return (await listarQr("sin_comprobante")).length;
+}
+
+// H1 #78: el conteo QR es informativo y nunca puede revertir ni duplicar
+// un cierre ya persistido; ante cualquier fallo informa 0.
+async function contarQrSinComprobanteSeguro(): Promise<number> {
+  try {
+    return await contarQrSinComprobante();
+  } catch {
+    return 0;
+  }
 }
 
 export async function deshacerQr(num: string): Promise<{ status: 200; num: string; estado: string } | { status: 404; error: string } | { status: 409; error: string }> {
