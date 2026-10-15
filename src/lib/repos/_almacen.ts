@@ -16,6 +16,7 @@ import type { WizardEstado } from "../../modules/fiscal/wizard.js";
 import type { CuentaServicio } from "../../modules/utilities/cuentas.js";
 import type { FacturaServicio } from "../../modules/utilities/facturas_servicios.js";
 import type { OcrJob } from "../../modules/ocr/jobs.js";
+import type { EventoResumen, OutboxPendiente } from "../../modules/email/resumen-cierre.js";
 
 export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 
@@ -565,4 +566,18 @@ export function crearAlmacenWaSessions(): AlmacenVivo<SesionWa> {
 
 export function crearAlmacenWaFriday(): AlmacenVivo<Array<ItemViernesWa>> {
   return crearAlmacenVivo(store.waFriday);
+}
+
+// Corte 17: email (outbox de envíos por idempotency_key y eventos de
+// resumen por dedupe_key). Misma politica que caja: en multi el fallo de DB
+// se propaga como BaseNoDisponible; en single la llamada sigue hacia
+// memoria. Los movimientos de caja se reutilizan de
+// `crearListaMovimientos` del corte 2; outbox y eventos son propios de
+// este corte y reutilizan los tipos exportados del núcleo.
+export function crearAlmacenEmailOutbox(): AlmacenVivo<OutboxPendiente> {
+  return crearAlmacenVivo(store.emailOutbox);
+}
+
+export function crearAlmacenEmailEventos(): AlmacenVivo<EventoResumen> {
+  return crearAlmacenVivo(store.emailEventos);
 }
