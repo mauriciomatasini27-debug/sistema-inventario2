@@ -338,6 +338,11 @@ export const cashQrReceipts = pgTable("cash_qr_receipts", {
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
   estado: text("estado").notNull().default("pendiente"),
   idempotencyKey: text("idempotency_key").notNull().unique(),
+  // CAJA-S1 (migración 0022): fecha del comprobante e ingesta bot|gmail|manual.
+  fechaOperacion: timestamp("fecha_operacion"),
+  origen: text("origen").notNull().default("manual"),
+  // CAJA-S1: movimiento asociado en auto, SET NULL al borrarlo.
+  cashMovementId: uuid("cash_movement_id").references(() => cashMovements.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

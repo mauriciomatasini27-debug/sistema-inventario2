@@ -20,4 +20,4 @@ Manual puro sin QR: se descarta porque C13 ya fija el contrato determinista.
 
 ## Pendientes
 
-CAJA-S1→S4 + tests auto vs ambiguo + `ya registrado`.
+CAJA-S1 hecho (migración 0022 + asociación ±15 min con auto y Deshacer). Quedan CAJA-S2→S4 + `cash_due_items` sin migración.

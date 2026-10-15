@@ -58,6 +58,10 @@ export interface QrRecibo {
   montoCentavos: string;
   estado: string;
   idemKey: string;
+  // CAJA-S1: fecha del comprobante, ingesta bot|gmail|manual y asociado.
+  fechaOperacion?: string;
+  origen?: string;
+  cashMovementId?: string | null;
 }
 
 export interface VencimientoCaja {

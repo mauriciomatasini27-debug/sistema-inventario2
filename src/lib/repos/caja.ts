@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { cashDueItems, cashMovements, cashQrReceipts } from "../../db/schema.js";
 import {
   cashAuditLog,
@@ -31,6 +31,7 @@ import {
   type VencimientoCaja,
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
+import { asociarQr, type AsociacionQr, type QrCandidato } from "../../modules/cash/qr-asociacion.js";
 import { derivar_balance, type Movimiento, type Rol } from "../../modules/cash/caja.js";
 import { cerrar_jornada, fecha_jornada_ar, type CierreOk } from "../../modules/cash/cierre.js";
 import {
@@ -410,6 +411,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
           monto_centavos: orig.movimiento.monto_centavos.toString(),
           origen: orig.movimiento.origen,
           idempotency_key: input.key,
+          ocurrido_en: new Date().toISOString(),
         });
         reversiones.guardar(input.revierteA, orig.movimiento.id);
         reversionVistos.guardar(input.key, orig);
@@ -479,6 +481,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
       monto_centavos: ok.movimiento.monto_centavos.toString(),
       origen: ok.movimiento.origen,
       idempotency_key: input.key,
+      ocurrido_en: new Date().toISOString(),
     });
     reversiones.guardar(input.revierteA, movId);
     reversionVistos.guardar(input.key, ok);
@@ -521,6 +524,7 @@ function revertirMemoria(
     monto_centavos: r.movimiento.monto_centavos.toString(),
     origen: r.movimiento.origen,
     idempotency_key: input.key,
+    ocurrido_en: new Date().toISOString(),
   });
   return r;
 }
@@ -806,14 +810,69 @@ function registrarRetiroMemoria(input: {
 }
 
 // QR (CAJA-S1/S2): dedupe por numero_operacion, lista y deshacer. Filas en
-// cash_qr_receipts con DB viva, memoria solo en single sin base.
+// cash_qr_receipts con DB viva, memoria solo en single sin base. Con
+// fecha_operacion corre la asociación monto exacto ±15 min (auto si un solo
+// candidato, si no toque); Deshacer desvincula el auto a pendiente.
+export type QrOrigen = "bot" | "gmail" | "manual";
+
 function filaAQrRecibo(f: typeof cashQrReceipts.$inferSelect): QrRecibo {
-  return { numeroOperacion: f.numeroOperacion, montoCentavos: f.montoCentavos.toString(), estado: f.estado, idemKey: f.idempotencyKey };
+  return {
+    numeroOperacion: f.numeroOperacion,
+    montoCentavos: f.montoCentavos.toString(),
+    estado: f.estado,
+    idemKey: f.idempotencyKey,
+    ...(f.fechaOperacion ? { fechaOperacion: f.fechaOperacion.toISOString() } : {}),
+    ...(f.origen ? { origen: f.origen } : {}),
+    ...(f.cashMovementId ? { cashMovementId: f.cashMovementId } : {}),
+  };
+}
+
+export interface RegistrarQrInput {
+  num: string;
+  montoCentavos: number;
+  key: string;
+  fechaOperacion?: string | undefined;
+  origen?: QrOrigen | undefined;
+}
+
+export type RegistrarQrResult =
+  | { status: 201; recibo: QrRecibo; asociacion?: AsociacionQr | undefined }
+  | { status: 409; error: string; numero_operacion: string };
+
+// Movimientos QR sin comprobante asociado, para el matcher. Con DB viva lee
+// createdAt como ocurrido_en; en memoria usa el ocurrido_en del espejo.
+async function candidatosQrSinComprobante(db: TenantDb | null, vinculadosMemoria: Set<string>): Promise<QrCandidato[]> {
+  if (db) {
+    const movs = await db
+      .select({ id: cashMovements.id, monto: cashMovements.montoCentavos, creado: cashMovements.createdAt })
+      .from(cashMovements)
+      .where(eq(cashMovements.metodo, "QR"));
+    const vinculados = await db
+      .select({ id: cashQrReceipts.cashMovementId })
+      .from(cashQrReceipts)
+      .where(and(ne(cashQrReceipts.estado, "pendiente"), isNotNull(cashQrReceipts.cashMovementId)));
+    const usados = new Set(vinculados.map((v) => v.id).filter((v): v is string => v !== null));
+    return movs
+      .filter((m) => !usados.has(m.id))
+      .map((m) => ({ id: m.id, monto_centavos: m.monto.toString(), ocurrido_en: m.creado.toISOString() }));
+  }
+  return crearListaMovimientos()
+    .listar()
+    .filter((m) => m.metodo === "QR" && !vinculadosMemoria.has(m.id) && m.ocurrido_en !== undefined)
+    .map((m) => ({ id: m.id, monto_centavos: m.monto_centavos, ocurrido_en: m.ocurrido_en as string }));
+}
+
+function vinculadosMemoria(qrRecibos: AlmacenVivo<QrRecibo>): Set<string> {
+  const usados = new Set<string>();
+  for (const r of qrRecibos.comoMapaSoloLectura().values()) {
+    if (r.estado !== "pendiente" && r.cashMovementId) usados.add(r.cashMovementId);
+  }
+  return usados;
 }
 
 // QR (CAJA-S1/S2): dedupe por numero_operacion, lista y deshacer. Filas en
 // cash_qr_receipts con DB viva, memoria solo en single sin base.
-export async function registrarQr(input: { num: string; montoCentavos: number; key: string }): Promise<{ status: 201; recibo: QrRecibo } | { status: 409; error: string; numero_operacion: string }> {
+export async function registrarQr(input: RegistrarQrInput): Promise<RegistrarQrResult> {
   const qrRecibos = crearAlmacenQrRecibos();
   const db = dbVivaTenant();
   if (!db) return registrarQrMemoria(input, qrRecibos);
@@ -825,21 +884,63 @@ export async function registrarQr(input: { num: string; montoCentavos: number; k
       qrRecibos.guardar(input.num, recibo);
       return { status: 409, error: "ya registrado", numero_operacion: input.num };
     }
-    const recibo: QrRecibo = { numeroOperacion: input.num, montoCentavos: String(input.montoCentavos), estado: "pendiente", idemKey: input.key };
-    await db.insert(cashQrReceipts).values({ numeroOperacion: input.num, montoCentavos: BigInt(input.montoCentavos), idempotencyKey: input.key }).onConflictDoNothing();
+    const origen = input.origen ?? "manual";
+    let recibo: QrRecibo = {
+      numeroOperacion: input.num,
+      montoCentavos: String(input.montoCentavos),
+      estado: "pendiente",
+      idemKey: input.key,
+      ...(input.fechaOperacion !== undefined ? { fechaOperacion: input.fechaOperacion } : {}),
+      origen,
+    };
+    let asociacion: AsociacionQr | undefined;
+    if (input.fechaOperacion !== undefined) {
+      const candidatos = await candidatosQrSinComprobante(db, vinculadosMemoria(qrRecibos));
+      asociacion = asociarQr({ monto_centavos: input.montoCentavos, fecha_operacion: input.fechaOperacion }, candidatos);
+      if (asociacion.tipo === "auto") recibo = { ...recibo, estado: "asociado", cashMovementId: asociacion.movimiento_id };
+    }
+    await db
+      .insert(cashQrReceipts)
+      .values({
+        numeroOperacion: input.num,
+        montoCentavos: BigInt(input.montoCentavos),
+        estado: recibo.estado,
+        idempotencyKey: input.key,
+        ...(input.fechaOperacion !== undefined ? { fechaOperacion: new Date(input.fechaOperacion) } : {}),
+        origen,
+        ...(recibo.cashMovementId ? { cashMovementId: recibo.cashMovementId } : {}),
+      })
+      .onConflictDoNothing();
     qrRecibos.guardar(input.num, recibo);
-    return { status: 201, recibo };
+    return { status: 201, recibo, ...(asociacion !== undefined ? { asociacion } : {}) };
   } catch (e) {
     qrRecibos.anteFalloPersistencia(e);
     return registrarQrMemoria(input, qrRecibos);
   }
 }
 
-function registrarQrMemoria(input: { num: string; montoCentavos: number; key: string }, qrRecibos: AlmacenVivo<QrRecibo>): { status: 201; recibo: QrRecibo } | { status: 409; error: string; numero_operacion: string } {
+async function registrarQrMemoria(
+  input: RegistrarQrInput,
+  qrRecibos: AlmacenVivo<QrRecibo>,
+): Promise<RegistrarQrResult> {
   if (qrRecibos.contiene(input.num)) return { status: 409, error: "ya registrado", numero_operacion: input.num };
-  const recibo: QrRecibo = { numeroOperacion: input.num, montoCentavos: String(input.montoCentavos), estado: "pendiente", idemKey: input.key };
+  const origen = input.origen ?? "manual";
+  let recibo: QrRecibo = {
+    numeroOperacion: input.num,
+    montoCentavos: String(input.montoCentavos),
+    estado: "pendiente",
+    idemKey: input.key,
+    ...(input.fechaOperacion !== undefined ? { fechaOperacion: input.fechaOperacion } : {}),
+    origen,
+  };
+  let asociacion: AsociacionQr | undefined;
+  if (input.fechaOperacion !== undefined) {
+    const candidatos = await candidatosQrSinComprobante(null, vinculadosMemoria(qrRecibos));
+    asociacion = asociarQr({ monto_centavos: input.montoCentavos, fecha_operacion: input.fechaOperacion }, candidatos);
+    if (asociacion.tipo === "auto") recibo = { ...recibo, estado: "asociado", cashMovementId: asociacion.movimiento_id };
+  }
   qrRecibos.guardar(input.num, recibo);
-  return { status: 201, recibo };
+  return { status: 201, recibo, ...(asociacion !== undefined ? { asociacion } : {}) };
 }
 
 export async function listarQr(filtro: string): Promise<QrRecibo[]> {
@@ -864,7 +965,7 @@ function listarQrMemoria(filtro: string, qrRecibos: AlmacenVivo<QrRecibo>): QrRe
   return lista;
 }
 
-export async function deshacerQr(num: string): Promise<{ status: 200; num: string } | { status: 404; error: string } | { status: 409; error: string }> {
+export async function deshacerQr(num: string): Promise<{ status: 200; num: string; estado: string } | { status: 404; error: string } | { status: 409; error: string }> {
   const qrRecibos = crearAlmacenQrRecibos();
   const db = dbVivaTenant();
   if (!db) return deshacerQrMemoria(num, qrRecibos);
@@ -876,22 +977,36 @@ export async function deshacerQr(num: string): Promise<{ status: 200; num: strin
       if (!filas[0]) return { status: 404, error: "desconocido" };
       estado = filas[0].estado;
     }
+    // Deshacer del auto: desvincula y vuelve a pendiente (no borra).
+    if (estado === "asociado") {
+      await db
+        .update(cashQrReceipts)
+        .set({ estado: "pendiente", cashMovementId: null })
+        .where(eq(cashQrReceipts.numeroOperacion, num));
+      const actual = qrRecibos.obtener(num);
+      if (actual) qrRecibos.guardar(num, { ...actual, estado: "pendiente", cashMovementId: null });
+      return { status: 200, num, estado: "pendiente" };
+    }
     if (estado !== "pendiente") return { status: 409, error: "no deshace confirmado" };
     await db.delete(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, num));
     qrRecibos.mapaVivo().delete(num);
-    return { status: 200, num };
+    return { status: 200, num, estado: "deshecho" };
   } catch (e) {
     qrRecibos.anteFalloPersistencia(e);
     return deshacerQrMemoria(num, qrRecibos);
   }
 }
 
-function deshacerQrMemoria(num: string, qrRecibos: AlmacenVivo<QrRecibo>): { status: 200; num: string } | { status: 404; error: string } | { status: 409; error: string } {
+function deshacerQrMemoria(num: string, qrRecibos: AlmacenVivo<QrRecibo>): { status: 200; num: string; estado: string } | { status: 404; error: string } | { status: 409; error: string } {
   const r = qrRecibos.obtener(num);
   if (!r) return { status: 404, error: "desconocido" };
+  if (r.estado === "asociado") {
+    qrRecibos.guardar(num, { ...r, estado: "pendiente", cashMovementId: null });
+    return { status: 200, num, estado: "pendiente" };
+  }
   if (r.estado !== "pendiente") return { status: 409, error: "no deshace confirmado" };
   qrRecibos.mapaVivo().delete(num);
-  return { status: 200, num };
+  return { status: 200, num, estado: "deshecho" };
 }
 
 // Vencimientos (CAJA-S3): filas en cash_due_items con DB viva, memoria solo
@@ -946,7 +1061,7 @@ export async function pagarVencimiento(input: { id: string; key: string }): Prom
     }
     if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
     const movId = randomUUID();
-    const mov = { id: movId, tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key };
+    const mov = { id: movId, tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: new Date().toISOString() };
     await db.update(cashDueItems).set({ estado: "pagada" }).where(eq(cashDueItems.id, input.id));
     await db.insert(cashMovements).values({
       id: movId,
@@ -977,7 +1092,7 @@ function pagarVencimientoMemoria(
   if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
   d.estado = "pagada";
   vencimientos.guardar(input.id, d);
-  const mov = { id: randomUUID(), tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key };
+  const mov = { id: randomUUID(), tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: new Date().toISOString() };
   movimientos.agregar(mov);
   return { status: 200, id: input.id, egresoId: mov.id };
 }
@@ -999,6 +1114,7 @@ export async function registrarEgresoRetiro(input: {
     monto_centavos: input.montoCentavos.toString(),
     origen: input.origen ?? "retiro",
     idempotency_key: input.key,
+    ocurrido_en: new Date().toISOString(),
   };
   const db = dbVivaTenant();
   const movimientos = crearListaMovimientos();
@@ -1041,6 +1157,7 @@ export async function registrarMovimientoDevolucion(input: {
     origen: "devolucion",
     sale_id: input.saleId,
     idempotency_key: input.key,
+    ocurrido_en: new Date().toISOString(),
   };
   const db = dbVivaTenant();
   const movimientos = crearListaMovimientos();
@@ -1081,6 +1198,7 @@ export async function registrarIngresoCobro(input: {
     monto_centavos: input.montoCentavos.toString(),
     origen: "cobro_fiado",
     idempotency_key: input.key,
+    ocurrido_en: new Date().toISOString(),
   };
   const db = dbVivaTenant();
   const movimientos = crearListaMovimientos();

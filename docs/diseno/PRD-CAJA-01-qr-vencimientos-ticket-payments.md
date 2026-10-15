@@ -2,6 +2,17 @@
 
 Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Gap: sin tabla `cash_qr_receipts|cash_due_items|ticket_payments`; sin `/api/cash/qr`.
 
+## Estado por slice (2026-10-15)
+
+Parte del bullet Nivel 1 de P3 (P3-1), separado de CAT (PRD-CAT-01, hecho), PWA (P1.8) y SYNC (PRD-SYNC-01). Avances propios en `docs/roadmap/avances/CAJA-S<n>.md`.
+
+| Slice | Estado | Nota |
+|---|---|---|
+| CAJA-S1 | en curso | rutas y repo existen; falta migración de `cash_qr_receipts` (0022), asociación ±15 min y auto + Deshacer |
+| CAJA-S2 | pendiente | dedupe 409 existe; falta cuenta en cierre |
+| CAJA-S3 | pendiente | rutas existen; `cash_due_items` sin migración |
+| CAJA-S4 | pendiente | `ticket_payments` migrada en 0008 |
+
 ## Épica CAJA-E1. Comprobantes QR (C13)
 
 - CAJA-S1. Ingesta bot + Gmail (`gmail.readonly`, clasifica `comprobante QR`). AC: Given foto/PDF con monto/fecha/Op. When llega Then extrae + asocia monto exacto ±15min con toque; auto solo si Op. nuevo+monto exacto+único candidato + `[Deshacer]`. Tablas: `cash_qr_receipts(numero_operacion único)`. Depende de: nada.

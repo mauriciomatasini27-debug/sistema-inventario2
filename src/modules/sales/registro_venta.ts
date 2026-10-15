@@ -143,6 +143,8 @@ function espejoMemoria(
       origen: "venta",
       sale_id: saleId,
       idempotency_key: esDividido ? `${key}:${p.medio}` : key,
+      // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
+      ocurrido_en: new Date().toISOString(),
     });
   }
   store.ticketPagos.set(

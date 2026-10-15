@@ -48,6 +48,8 @@ function espejoMemoria(i: RegistrarMovimientoInput): StoredMovement {
     origen: i.origen,
     ...(i.sale_id !== undefined ? { sale_id: i.sale_id } : {}),
     idempotency_key: i.key,
+    // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
+    ocurrido_en: new Date().toISOString(),
   };
   store.movements.push(mov);
   return mov;

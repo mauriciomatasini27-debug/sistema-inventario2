@@ -31,6 +31,8 @@ export interface StoredMovement {
   origen: string;
   sale_id?: string;
   idempotency_key: string;
+  // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
+  ocurrido_en?: string;
 }
 
 export interface StoredStockMovement {
@@ -148,7 +150,7 @@ function crearEstado() {
   // N1 CAT-S5: ubicaciones + conteos con líneas/estado.
   ubicaciones: new Map<string, { id: string; nombre: string; archivada: boolean }>(),
   // N1 CAJA-S1/S3/S4: qr, vencimientos caja, pagos divididos.
-  qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string }>(),
+  qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string; fechaOperacion?: string; origen?: string; cashMovementId?: string | null }>(),
   vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
   ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
   conteos: [] as Array<{ id: string; sector: string; idemKey: string; creadoEn: string; estado?: string | undefined; contadoPor?: string | undefined; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>,
