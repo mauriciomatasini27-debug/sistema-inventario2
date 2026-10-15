@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
+import { scryptSync } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -51,6 +52,35 @@ function req(plano: string | null, body: unknown) {
   });
 }
 
+// El hash es `scrypt$<saltHex>$<hashHex>`: la sal y el hex son aleatorios y
+// cualquier ventana de 4 hex puede ser "1234" por azar (~1/1000 por corrida).
+// Por eso el "PIN no expuesto" se verifica con comparaciones exactas
+// (formato, campos `$`, verificarPin), nunca con substring sobre el hash.
+function verificarHashSinPlano(hash: string, plano: string): void {
+  expect(hash).not.toBe(plano);
+  const partes = hash.split("$");
+  expect(partes[0]).toBe("scrypt");
+  expect(partes).toHaveLength(3);
+  expect(partes).not.toContain(plano);
+  expect(verificarPin(plano, hash)).toBe(true);
+}
+
+// El evento auditado no debe llevar el plano: sin campo `pin` y sin ningún
+// valor estrictamente igual al plano (recorrido exacto, no substring, porque
+// ids/hashes/timestamps aleatorios pueden contener "1234" por azar).
+function rutasConPlano(valor: unknown, plano: string, ruta = "$"): string[] {
+  if (typeof valor === "string") return valor === plano ? [ruta] : [];
+  if (Array.isArray(valor)) {
+    return valor.flatMap((v, i) => rutasConPlano(v, plano, `${ruta}[${i}]`));
+  }
+  if (valor !== null && typeof valor === "object") {
+    return Object.entries(valor as Record<string, unknown>).flatMap(([k, v]) =>
+      k === "pin" ? [`${ruta}.${k}`] : rutasConPlano(v, plano, `${ruta}.${k}`),
+    );
+  }
+  return [];
+}
+
 beforeEach(() => {
   resetStore();
 });
@@ -101,10 +131,27 @@ describe("P1-3 PIN rutas", () => {
     expect(r2.status).toBe(422);
     const r3 = await postPin(req(d.idPlano, { tenant_id: "t1", device_code: "PC1", pin: "1234" }));
     expect(r3.status).toBe(200);
-    expect(control.devicePins.get("PC1")?.pinHash).not.toContain("1234");
+    const guardado = control.devicePins.get("PC1")?.pinHash;
+    expect(guardado).toBeTruthy();
+    verificarHashSinPlano(guardado as string, "1234");
+    expect(verificarPin("0000", guardado as string)).toBe(false);
     const ev = control.events.find((x) => x.tipo === "pin_definido");
     expect(ev).toBeTruthy();
-    expect(JSON.stringify(ev)).not.toContain("1234");
+    expect(rutasConPlano(ev, "1234")).toEqual([]);
+  });
+
+  it("aserciones exactas pasan aunque el hex contenga 1234 (determinista)", () => {
+    // Fixture con "1234" garantizado en la sal: la aserción vieja por
+    // substring (`not.toContain("1234")`) fallaría acá (red); las exactas pasan.
+    const sal = "12341234123412341234123412341234";
+    const fragil = `scrypt$${sal}$${scryptSync("1234", sal, 32).toString("hex")}`;
+    expect(fragil).toContain("1234");
+    verificarHashSinPlano(fragil, "1234");
+    // Evento con un id aleatorio que contiene "1234": el substring sobre el
+    // JSON fallaría; el recorrido exacto pasa (ningún valor === "1234").
+    const evFragil = { tipo: "pin_definido", id: "evt-1234abcd", detalle: { device_code: "PC1" } };
+    expect(JSON.stringify(evFragil)).toContain("1234");
+    expect(rutasConPlano(evFragil, "1234")).toEqual([]);
   });
 
   it("bloquear sin PIN 409; bloquear/desbloquear con PIN", async () => {
