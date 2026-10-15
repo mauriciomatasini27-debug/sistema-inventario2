@@ -159,7 +159,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 |---|---|---|---|---|
 | 2026-10-15 | P2-2 | hecho | P2-2 hecho: ARQ-S4 cerrado, todos los repos sobre el puerto Almacen; el `store.` restante vive solo dentro de `_almacen.ts`. | — / — |
 | 2026-10-15 | P2-3 | hecho | P2-3 hecho: ARQ-S8 cerrado, la evidencia de ADR ya no admite "preexistente" sin issue; fase 5 de PRD-ARQ-01 completa. | — / — |
-| 2026-10-15 | P3-1 | en curso | P3-1 en curso: CAT-S1 y CAT-S2 cerrados (alta corta + pendiente_revision); sigue CAT-S3. | PRD-CAT-01 / — |
+| 2026-10-15 | P3-1 | en curso | P3-1 en curso: CAT-S1..S3 cerrados (ingreso /api/stock/ingreso + FEFO); sigue CAT-S4. | PRD-CAT-01 / — |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
