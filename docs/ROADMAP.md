@@ -163,6 +163,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-15 | P9-7 | hecho | P9-7: `tests/auth-pin.test.ts` determinista (sin substring de PIN sobre hash aleatorio) + guard E11. | — / — |
 | 2026-10-15 | CAJA-S1 | hecho | CAJA-S1 hecho: migración 0022 de `cash_qr_receipts` (`fecha_operacion`, `origen`, `cash_movement_id` SET NULL) + asociación QR monto exacto ±15 min con auto solo ante Op. nuevo y único candidato, con Deshacer a pendiente. | PRD-CAJA-01 / ADR-0027 |
 | 2026-10-15 | CAJA-S2 | hecho | CAJA-S2 hecho: `POST /api/cash/close` informa `qr_sin_comprobante` con `contarQrSinComprobante` sobre recibos pendientes, sin migración y con `tests/caja-s2-qr-cierre.test.ts` 3/3. | PRD-CAJA-01 / ADR-0027 |
+| 2026-10-15 | CAJA-S3 | hecho | CAJA-S3 hecho: migración 0023 crea `cash_due_items` con `avisado_el`/`pagado_el`/`cash_movement_id`, job `POST /api/jobs/vencimientos-caja` avisa a 3 días (72h inclusive, idempotente por `avisado_el`), `GET ?id=` precarga `Registrar pago` y el pago acepta `metodo`, con `tests/caja-s3-vencimientos.test.ts` 8/8 (incluye PG). | PRD-CAJA-01 / ADR-0027 |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
