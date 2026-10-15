@@ -1,4 +1,4 @@
-import { gateJob } from "./tenant-context.js";
+import { esSingle, gateJob } from "./tenant-context.js";
 import { conTenant } from "./tenant-mode.js";
 import { BaseNoDisponible } from "./server-db.js";
 import { jsonError } from "./control.js";
@@ -43,4 +43,24 @@ export async function correrJob(
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;
   }
+}
+
+// CAJA-S3 review M1: los jobs de vencimientos corren sin secreto solo en
+// single (contexto actual como hoy); en multi exigen secreto válido y el
+// fan-out de correrJob. Header wrong (o secreto sin setear con header
+// presente) → 401 sin correr nada.
+export async function correrJobVencimientos(
+  request: Request,
+  correr: () => Promise<Response>,
+  cuerpo: (tenantId: string) => Promise<Response>,
+): Promise<Response> {
+  if (request.headers.get("X-Job-Secret") !== null) {
+    const esperado = process.env.JOBS_SECRET;
+    if (!esperado || request.headers.get("X-Job-Secret") !== esperado) {
+      return Response.json({ error: "no autorizado" }, { status: 401 });
+    }
+    return correrJob(request, cuerpo);
+  }
+  if (esSingle()) return correr();
+  return Response.json({ error: "no autorizado" }, { status: 401 });
 }

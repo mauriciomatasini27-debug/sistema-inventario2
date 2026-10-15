@@ -70,10 +70,16 @@ export function gateTenantDatos(request: Request, path: string): TenantResuelto 
 // en multi con comercio explícito corre solo ese si está activo o suspendido
 // (PERS2-S3); sin comercio y bajo /api/jobs/* devuelve todos los elegibles
 // para el fan-out (SEC4-S1, enmienda PERS2-S3).
+// Single-tenant: un solo comercio, sin sesión ni fan-out. También decide si
+// un job puede correr sin X-Job-Secret (CAJA-S3 review M1).
+export function esSingle(): boolean {
+  return !esModoMulti();
+}
+
 export function gateJob(request: Request): JobResuelto | null {
   const secreto = process.env.JOBS_SECRET;
   if (!secreto || request.headers.get("X-Job-Secret") !== secreto) return null;
-  if (!esModoMulti()) return { ok: true, tenantId: tenantPorDefecto() };
+  if (esSingle()) return { ok: true, tenantId: tenantPorDefecto() };
   const pedido = request.headers.get("X-Tenant-Id");
   if (!pedido) {
     if (!new URL(request.url).pathname.startsWith("/api/jobs/")) {
@@ -95,7 +101,7 @@ export function gateJob(request: Request): JobResuelto | null {
 // Por qué el servidor resuelve el tenant: el cliente solo elige entre sus
 // memberships con X-Tenant-Id (ADR-0050). En single no hay sesión y vale hoy.
 export function tenantDeRequest(request: Request): TenantResuelto {
-  if (!esModoMulti()) return { ok: true, tenantId: tenantPorDefecto() };
+  if (esSingle()) return { ok: true, tenantId: tenantPorDefecto() };
   const ctx = resolverSesion(request);
   const pedido = request.headers.get("X-Tenant-Id") ?? ctx?.sesion.tenantId ?? null;
   // Por qué E5 en ambos casos: no revelar si el tenant existe.

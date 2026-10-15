@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 import { cashDueItems, cashMovements, cashQrReceipts } from "../../db/schema.js";
 import {
   cashAuditLog,
@@ -1082,8 +1082,10 @@ export async function obtenerVencimiento(id: string): Promise<VencimientoCaja | 
   }
 }
 
-// Marca avisado_el en los pendientes aún sin avisar. Idempotente: el
-// segundo llamado con los mismos ids marca 0. Devuelve los marcados.
+// Marca avisado_el en los pendientes aún sin avisar con UN solo UPDATE
+// atómico (idempotente: el segundo llamado con los mismos ids marca 0).
+// Devuelve solo los ids reclamados por este llamado; ante fallo de DB no
+// marca nada en memoria.
 export async function marcarAvisados(ids: string[], ahoraIso: string): Promise<string[]> {
   const vencimientos = crearAlmacenVencimientosCaja();
   const marcados: string[] = [];
@@ -1098,25 +1100,21 @@ export async function marcarAvisados(ids: string[], ahoraIso: string): Promise<s
     return marcados;
   }
   try {
-    for (const id of ids) {
-      const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, id)).limit(1);
-      const f = filas[0];
-      if (!f || f.estado !== "pendiente" || f.avisadoEl) continue;
-      await db.update(cashDueItems).set({ avisadoEl: new Date(ahoraIso) }).where(eq(cashDueItems.id, id));
-      const d = vencimientos.obtener(id);
-      if (d) vencimientos.guardar(id, { ...d, avisadoEl: ahoraIso });
-      marcados.push(id);
+    if (ids.length === 0) return [];
+    const reclamados = await db
+      .update(cashDueItems)
+      .set({ avisadoEl: new Date(ahoraIso) })
+      .where(and(inArray(cashDueItems.id, ids), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.avisadoEl)))
+      .returning({ id: cashDueItems.id });
+    for (const f of reclamados) {
+      const d = vencimientos.obtener(f.id);
+      if (d) vencimientos.guardar(f.id, { ...d, avisadoEl: ahoraIso });
+      marcados.push(f.id);
     }
     return marcados;
   } catch (e) {
     vencimientos.anteFalloPersistencia(e);
-    for (const id of ids) {
-      const d = vencimientos.obtener(id);
-      if (!d || d.estado !== "pendiente" || d.avisadoEl) continue;
-      vencimientos.guardar(id, { ...d, avisadoEl: ahoraIso });
-      marcados.push(id);
-    }
-    return marcados;
+    return [];
   }
 }
 
