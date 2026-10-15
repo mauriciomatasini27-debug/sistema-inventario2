@@ -3,9 +3,19 @@ import { products, stockMovements } from "../../db/schema.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
 import { suppliers } from "../../db/schema-proveedores.js";
 import { whatsappSessions } from "../../db/schema-whatsapp.js";
-import { conTenant, esModoMulti, tenantActual } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { control, store, type EstadoStore } from "../store.js";
+import { conTenant, tenantActual } from "../tenant-mode.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  control,
+  crearAlmacenPrecios,
+  crearAlmacenPurchaseOrders,
+  crearAlmacenStock,
+  crearAlmacenSuppliers,
+  crearAlmacenWaFriday,
+  crearAlmacenWaSessions,
+  crearConjuntoWaEnviados,
+  crearListaMovimientosStock,
+} from "./_almacen.js";
 import { catalogo_vivo } from "../../modules/whatsapp/catalogo.js";
 import { crear_item_viernes, type ListaViernes } from "../../modules/whatsapp/lista-viernes.js";
 import type { MovimientoVista, PedidoDia } from "../../modules/whatsapp/dia-a-dia.js";
@@ -14,20 +24,26 @@ import type { Preferencias } from "../../modules/whatsapp/optin.js";
 import type { ItemStock } from "../../modules/email/stock-matutino.js";
 import { calcular_semanal, type CalculoSemanal, type FaltanteSemana, type VentaSemana } from "../../modules/email/resumen-semanal.js";
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
 // Sin contexto en multi (webhook, email/send) la memoria particionada no es
-// alcanzable: solo se toca con tenant explícito o dentro de conTenant.
-function hayMemoria(tenantId?: string): boolean {
-  if (!esModoMulti()) return true;
-  return Boolean(tenantId ?? tenantActual());
+// alcanzable: solo se toca con tenant explícito o dentro de conTenant. Las
+// factorías resuelven la partición al crearse, por eso se crean dentro del
+// contexto del tenant y nunca a nivel de módulo.
+function conParticion<T>(tenantId: string | undefined, fn: () => T): T {
+  if (tenantId) return conTenant(tenantId, fn);
+  return fn();
 }
 
-function enMemoria<T>(tenantId: string | undefined, fn: (s: EstadoStore) => T): T {
-  if (tenantId) return conTenant(tenantId, () => fn(store));
-  return fn(store);
+// Sin leer el modo en este archivo: con tenant (explícito o ambiente) la
+// memoria es alcanzable; sin tenant solo single la tiene (en multi el acceso
+// lanza "Falta tenant" y se responde que no hay memoria).
+function hayMemoria(tenantId?: string): boolean {
+  if (tenantId ?? tenantActual()) return true;
+  try {
+    crearAlmacenWaSessions().comoMapaSoloLectura();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export interface FilaConsulta {
@@ -41,34 +57,37 @@ export interface FilaConsulta {
 // memoria particionada en single sin base. En multi sin base propaga.
 export async function listarProductosConsulta(tenantId?: string): Promise<{ filas: FilaConsulta[]; fuente: "db" | "memoria" }> {
   const db = dbVivaTenant(tenantId);
-  if (!db) return { filas: enMemoria(tenantId, (s) => filasConsultaMemoria(s)), fuente: "memoria" };
+  if (!db) return { filas: conParticion(tenantId, filasConsultaMemoria), fuente: "memoria" };
   try {
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos })
       .from(products);
     return { filas, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return { filas: enMemoria(tenantId, (s) => filasConsultaMemoria(s)), fuente: "memoria" };
+    conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
+    return { filas: conParticion(tenantId, filasConsultaMemoria), fuente: "memoria" };
   }
 }
 
-function filasConsultaMemoria(s: EstadoStore): FilaConsulta[] {
-  return [...s.stock.entries()].map(([sku, stock]) => ({ sku, nombre: sku, stock, precio: BigInt(s.prices.get(sku) ?? 0) }));
+function filasConsultaMemoria(): FilaConsulta[] {
+  const stock = crearAlmacenStock().mapaVivo();
+  const precios = crearAlmacenPrecios().mapaVivo();
+  return [...stock.entries()].map(([sku, cantidad]) => ({ sku, nombre: sku, stock: cantidad, precio: BigInt(precios.get(sku) ?? 0) }));
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
 export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]> {
   const db = dbVivaTenant(tenantId);
-  if (!db) return enMemoria(tenantId, (s) => catalogo_vivo(s.stock, s.prices));
+  if (!db)
+    return conParticion(tenantId, () => catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo()));
   try {
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos })
       .from(products);
     return filas.map((p) => ({ sku: p.sku, nombre: p.nombre, stock: p.stock, umbral: 0, precioCentavos: p.precio, proveedor: null }));
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return enMemoria(tenantId, (s) => catalogo_vivo(s.stock, s.prices));
+    conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
+    return conParticion(tenantId, () => catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo()));
   }
 }
 
@@ -92,12 +111,12 @@ export async function leerSesion(numero: string, ahoraMs: number, tenantId?: str
       }
       if (!hayMemoria(tenantId)) return null;
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      conParticion(tenantId, () => crearAlmacenWaSessions()).anteFalloPersistencia(e);
     }
   }
   if (!hayMemoria(tenantId)) return null;
-  return enMemoria(tenantId, (s) => {
-    const mem = s.waSessions.get(numero);
+  return conParticion(tenantId, () => {
+    const mem = crearAlmacenWaSessions().obtener(numero);
     if (!mem || ahoraMs > mem.expiraEn) return null;
     return { paso: mem.paso, contexto: mem.contexto as Record<string, unknown> };
   });
@@ -115,19 +134,19 @@ export async function guardarSesion(numero: string, paso: string, contexto: Reco
           set: { paso, contexto, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) },
         });
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      conParticion(tenantId, () => crearAlmacenWaSessions()).anteFalloPersistencia(e);
     }
   }
   if (!hayMemoria(tenantId)) return;
-  enMemoria(tenantId, (s) => {
-    s.waSessions.set(numero, { paso, contexto, updatedAt: ahoraMs, expiraEn: ahoraMs + SESION_TTL_MS });
+  conParticion(tenantId, () => {
+    crearAlmacenWaSessions().guardar(numero, { paso, contexto, updatedAt: ahoraMs, expiraEn: ahoraMs + SESION_TTL_MS });
   });
 }
 
 // waFriday has no table: la lista del viernes vive en memoria del repo.
 export function leerListaViernes(tenantId: string, catalogo: ItemVivo[], ahoraMs: number): ListaViernes {
   void ahoraMs;
-  const guardados = enMemoria(tenantId, (s) => s.waFriday.get(tenantId) ?? []);
+  const guardados = conParticion(tenantId, () => crearAlmacenWaFriday().obtener(tenantId) ?? []);
   const porSku = new Map(catalogo.map((c) => [c.sku, c]));
   const mapa = new Map<string, ReturnType<typeof crear_item_viernes>[]>();
   for (const g of guardados) {
@@ -144,8 +163,9 @@ export function leerListaViernes(tenantId: string, catalogo: ItemVivo[], ahoraMs
 // waFriday has no table: la lista del viernes vive en memoria del repo.
 export function agregarListaViernes(tenantId: string, friday: ListaViernes, ahoraMs: number): void {
   if (!tenantId) return;
-  enMemoria(tenantId, (s) => {
-    const previa = s.waFriday.get(tenantId) ?? [];
+  conParticion(tenantId, () => {
+    const lista = crearAlmacenWaFriday();
+    const previa = lista.obtener(tenantId) ?? [];
     const vistos = new Set(previa.map((g) => g.sku));
     const next = [...previa];
     for (const items of friday.values()) {
@@ -155,7 +175,7 @@ export function agregarListaViernes(tenantId: string, friday: ListaViernes, ahor
         next.push({ sku: i.sku, proveedor: i.proveedor, agregadoEn: ahoraMs });
       }
     }
-    s.waFriday.set(tenantId, next);
+    lista.guardar(tenantId, next);
   });
 }
 
@@ -166,11 +186,11 @@ export async function listarPedidosDia(tenantId?: string): Promise<PedidoDia[]> 
     try {
       return await pedidosDiaEnDb(db);
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      conParticion(tenantId, () => crearAlmacenPurchaseOrders()).anteFalloPersistencia(e);
     }
   }
   if (!hayMemoria(tenantId)) return [];
-  return enMemoria(tenantId, (s) => pedidosDiaEnMemoria(s));
+  return conParticion(tenantId, pedidosDiaEnMemoria);
 }
 
 async function pedidosDiaEnDb(db: TenantDb): Promise<PedidoDia[]> {
@@ -188,10 +208,12 @@ async function pedidosDiaEnDb(db: TenantDb): Promise<PedidoDia[]> {
   }));
 }
 
-function pedidosDiaEnMemoria(s: EstadoStore): PedidoDia[] {
+function pedidosDiaEnMemoria(): PedidoDia[] {
+  const ordenes = crearAlmacenPurchaseOrders().mapaVivo();
+  const proveedores = crearAlmacenSuppliers().mapaVivo();
   const out: PedidoDia[] = [];
-  for (const o of s.purchaseOrders.values()) {
-    const sup = s.suppliers.get(`sup-${o.supplierCuit}`);
+  for (const o of ordenes.values()) {
+    const sup = proveedores.get(`sup-${o.supplierCuit}`);
     out.push({
       id: o.id,
       proveedor: sup?.nombre ?? o.supplierCuit,
@@ -211,11 +233,15 @@ export async function listarMovimientosVista(ahoraMs: number, tenantId?: string)
       const filas = await db.select({ idemKey: stockMovements.idemKey, sku: stockMovements.sku, delta: stockMovements.delta, tipo: stockMovements.tipo }).from(stockMovements);
       return filas.map((m) => ({ idemKey: m.idemKey, sku: m.sku, delta: m.delta, tipo: m.tipo as MovimientoVista["tipo"], fechaMs: ahoraMs }));
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      conParticion(tenantId, () => crearListaMovimientosStock()).anteFalloPersistencia(e);
     }
   }
   if (!hayMemoria(tenantId)) return [];
-  return enMemoria(tenantId, (s) => s.stockMoves.map((m) => ({ idemKey: m.idemKey, sku: m.sku, delta: m.delta, tipo: m.tipo, fechaMs: ahoraMs })));
+  return conParticion(tenantId, () =>
+    crearListaMovimientosStock()
+      .listar()
+      .map((m) => ({ idemKey: m.idemKey, sku: m.sku, delta: m.delta, tipo: m.tipo, fechaMs: ahoraMs })),
+  );
 }
 
 export interface ComercioBot {
@@ -259,24 +285,27 @@ export async function catalogoAvisoVivo(tenantId?: string): Promise<ItemStock[]>
 
 // waEnviados has no table: las claves de idempotencia WA viven en memoria del repo.
 export function waEnviadosVivos(tenantId?: string): Set<string> {
-  return enMemoria(tenantId, (s) => s.waEnviados);
+  return conParticion(tenantId, () => crearConjuntoWaEnviados().vivos());
 }
 
 // waEnviados has no table: las claves de idempotencia WA viven en memoria del repo.
 export function marcarWaEnviado(clave: string, tenantId?: string): void {
-  enMemoria(tenantId, (s) => {
-    s.waEnviados.add(clave);
+  conParticion(tenantId, () => {
+    crearConjuntoWaEnviados().agregar(clave);
   });
 }
 
-function ventasSemanalesEnMemoria(s: EstadoStore): { ventas: VentaSemana[]; faltantes: FaltanteSemana[] } {
-  const catalogo = catalogo_vivo(s.stock, s.prices);
+function ventasSemanalesEnMemoria(): { ventas: VentaSemana[]; faltantes: FaltanteSemana[] } {
+  const stock = crearAlmacenStock().mapaVivo();
+  const precios = crearAlmacenPrecios().mapaVivo();
+  const movs = crearListaMovimientosStock().listar();
+  const catalogo = catalogo_vivo(stock, precios);
   const porSku = new Map(catalogo.map((c) => [c.sku, c]));
   const ventas = new Map<string, { unidades: number; importe: bigint }>();
-  for (const m of s.stockMoves) {
+  for (const m of movs) {
     if (m.tipo !== "VENTA" || m.delta >= 0) continue;
     const u = -m.delta;
-    const precio = BigInt(s.prices.get(m.sku) ?? 0);
+    const precio = BigInt(precios.get(m.sku) ?? 0);
     const e = ventas.get(m.sku) ?? { unidades: 0, importe: 0n };
     ventas.set(m.sku, { unidades: e.unidades + u, importe: e.importe + BigInt(u) * precio });
   }
@@ -296,8 +325,8 @@ function ventasSemanalesEnMemoria(s: EstadoStore): { ventas: VentaSemana[]; falt
 // Cálculo semanal en memoria (misma cuenta que hoy); lo usa la ruta para la
 // exportación síncrona y como fallback sin base.
 export function calculoSemanalMemoria(tenantId?: string): CalculoSemanal {
-  return enMemoria(tenantId, (s) => {
-    const { ventas, faltantes } = ventasSemanalesEnMemoria(s);
+  return conParticion(tenantId, () => {
+    const { ventas, faltantes } = ventasSemanalesEnMemoria();
     return calcular_semanal({ ventas, faltantes });
   });
 }
@@ -333,7 +362,7 @@ export async function calculoSemanalVivo(tenantId?: string): Promise<CalculoSema
       faltantes: [],
     });
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
     return calculoSemanalMemoria(tenantId);
   }
 }

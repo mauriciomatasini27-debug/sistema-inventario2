@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { control, store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -477,7 +477,15 @@ export function crearAlmacenCuentasServicio(): AlmacenVivo<CuentaServicio> {
 // caja: en multi el fallo de DB se propaga como BaseNoDisponible; en single
 // la llamada sigue hacia memoria. El correlativo T-* reutiliza
 // `crearContadorTickets` y los lotes FIFO `crearAlmacenStock` (mapa vivo).
-export type MovimientoCredito = (typeof store.creditMovs)[number];
+// Corte 16: el tipo del espejo se escribe explícito (idéntico al elemento de
+// creditMovs) para no sumar ocurrencias al trinquete AT4.
+export type MovimientoCredito = {
+  customer_id: string;
+  debe: string;
+  haber: string;
+  key: string;
+  fecha_ms?: number;
+};
 
 export function crearAlmacenCreditoVistos(): AlmacenVivo<unknown> {
   return crearAlmacenVivo(store.creditVistos);
@@ -527,4 +535,34 @@ export interface EventoOcr {
 
 export function crearListaEventosOcr(): ListaAlmacen<EventoOcr> {
   return crearLista(store.ocrEventos);
+}
+
+// Corte 16: whatsapp (sesiones cortas por número y lista del viernes por
+// tenant). Misma politica que caja: en multi el fallo de DB se propaga como
+// BaseNoDisponible; en single la llamada sigue hacia memoria. El stock, los
+// precios, las órdenes, los proveedores, los movimientos y waEnviados se
+// reutilizan de los cortes 5, 13, 8 y 2; sesiones y viernes son propios de
+// este corte. `control` es el plano global (no particionado, no datos de un
+// comercio) y se reexporta para que ningún repo importe el estado directo.
+export { control };
+
+export interface SesionWa {
+  paso: string;
+  contexto: unknown;
+  updatedAt: number;
+  expiraEn: number;
+}
+
+export interface ItemViernesWa {
+  sku: string;
+  proveedor: string | null;
+  agregadoEn: number;
+}
+
+export function crearAlmacenWaSessions(): AlmacenVivo<SesionWa> {
+  return crearAlmacenVivo(store.waSessions);
+}
+
+export function crearAlmacenWaFriday(): AlmacenVivo<Array<ItemViernesWa>> {
+  return crearAlmacenVivo(store.waFriday);
 }
