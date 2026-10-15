@@ -157,6 +157,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
+| 2026-10-15 | P2-2 | en curso | P2-2 en curso: puerto Almacen, caja migrado en corte 2; quedan ~13 cortes (337 `store.`, 124 `esModoMulti`). | — / — |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
@@ -171,7 +172,6 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | P1-7 | hecho | P1-7: journal de migraciones arreglado (cierra Para implementar 1.1): 20 entradas en `drizzle/meta/_journal.json` para 20 SQL `0000` a `0019`. | — / — |
 | 2026-10-14 | P1-8 | hecho | P1-8: PWA-S5 borrado remoto cerrado (revocar-remoto → heartbeat wipe → latido → revocarDispositivo). | — / — |
 | 2026-10-14 | P2-1 | hecho | P2-1: fase 3 cerrada (casts en piso intencional 1/0; ARQ-S7 ya en CI). | — / — |
-| 2026-10-14 | P2-2 | en curso | P2-2 en curso: puerto Almacen, precios migrado; quedan ~14 cortes (427 `store.`, 143 `esModoMulti`). | — / — |
 | 2026-10-14 | P9-1 | bloqueado (decisión de Mauri) | P9-1 bloqueado por decisiones de Mauri: Proveedor de OCR definitivo (ADR-0005: PaddleOCR propio vs Vision/Textract). | — / — |
 | 2026-10-14 | P9-2 | bloqueado (decisión de Mauri) | P9-2 bloqueado por decisiones de Mauri: Consulta legal/fiscal con contador y abogado y certificados ARCA (fecha límite 1/12/2026 para `CondicionIVAReceptorId`). | — / — |
 | 2026-10-14 | P9-3 | bloqueado (decisión de Mauri) | P9-3 bloqueado por decisiones de Mauri: Número central de WhatsApp en Meta (alta, verificación del negocio y plantillas). | — / — |
