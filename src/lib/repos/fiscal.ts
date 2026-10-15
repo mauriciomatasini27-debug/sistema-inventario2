@@ -2,7 +2,12 @@ import { eq } from "drizzle-orm";
 import { cashMovements } from "../../db/schema.js";
 import { fiscalSettings } from "../../db/schema-fiscal.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store, type StoredFiscalDoc } from "../store.js";
+import {
+  crearAlmacenFiscalDocs,
+  crearAlmacenFiscalWizard,
+  crearListaMovimientos,
+  type StoredFiscalDoc,
+} from "./_almacen.js";
 import {
   asegurarFiscalDoc,
   leerFiscalDocPorId,
@@ -26,7 +31,8 @@ function aBaseNoDisponible(e: unknown): BaseNoDisponible {
 }
 
 function memoriaDelTenant(tenantId: string): StoredFiscalDoc[] {
-  return soloDelTenant([...store.fiscalDocs.values()], tenantId);
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  return soloDelTenant([...fiscalDocs.comoMapaSoloLectura().values()], tenantId);
 }
 
 function dbActual(): TenantDb | null {
@@ -54,7 +60,8 @@ export async function listarFiscalDocs(tenantId: string): Promise<StoredFiscalDo
 
 /** Lookup por id en union (memoria primero, luego DB). Sin espejo: igual que la via historica. */
 export async function buscarFiscalDocPorId(docId: string): Promise<StoredFiscalDoc | null> {
-  for (const d of store.fiscalDocs.values()) {
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  for (const d of fiscalDocs.comoMapaSoloLectura().values()) {
     if (d.id === docId) return d;
   }
   const db = dbActual();
@@ -69,13 +76,14 @@ export async function buscarFiscalDocPorId(docId: string): Promise<StoredFiscalD
 /** Pre-check ND por prefijo `nd:<key>:%`. Espeja a memoria el hit de DB como hacia la ruta. */
 export async function buscarNdPrevio(headerKey: string): Promise<StoredFiscalDoc | null> {
   const prefijo = `nd:${headerKey}:`;
-  const memPrevio = [...store.fiscalDocs.values()].find((d) => d.idempotency_key.startsWith(prefijo)) ?? null;
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  const memPrevio = [...fiscalDocs.comoMapaSoloLectura().values()].find((d) => d.idempotency_key.startsWith(prefijo)) ?? null;
   if (memPrevio) return memPrevio;
   const db = dbActual();
   if (!db) return null;
   try {
     const previoDb = await leerNdPorHeaderKey(db, headerKey);
-    if (previoDb) store.fiscalDocs.set(previoDb.idempotency_key, previoDb);
+    if (previoDb) fiscalDocs.guardar(previoDb.idempotency_key, previoDb);
     return previoDb;
   } catch {
     return null;
@@ -86,7 +94,8 @@ export async function buscarNdPrevio(headerKey: string): Promise<StoredFiscalDoc
 export async function buscarFacturaParaNd(saleId: string, tenantId?: string): Promise<StoredFiscalDoc | null> {
   const esFactura = (d: StoredFiscalDoc) =>
     d.sale_id === saleId && (d.cbte_tipo === "11" || d.cbte_tipo === "6" || d.cbte_tipo === "1");
-  const memDocs = [...store.fiscalDocs.values()];
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  const memDocs = [...fiscalDocs.comoMapaSoloLectura().values()];
   const enMemoria = memDocs.find(esFactura) ?? null;
   if (enMemoria) return enMemoria;
   const db = dbActual();
@@ -102,13 +111,14 @@ export async function buscarFacturaParaNd(saleId: string, tenantId?: string): Pr
 
 /** Lookup por idempotency_key en union (memoria primero, luego DB con espejo). Lectura con fallback a memoria. */
 export async function buscarDocPorKey(key: string): Promise<StoredFiscalDoc | null> {
-  const mem = store.fiscalDocs.get(key);
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  const mem = fiscalDocs.obtener(key);
   if (mem) return mem;
   const db = dbActual();
   if (!db) return null;
   try {
     const doc = await leerFiscalDocPorKey(db, key);
-    if (doc) store.fiscalDocs.set(doc.idempotency_key, doc);
+    if (doc) fiscalDocs.guardar(doc.idempotency_key, doc);
     return doc;
   } catch {
     return null;
@@ -117,7 +127,8 @@ export async function buscarDocPorKey(key: string): Promise<StoredFiscalDoc | nu
 
 /** NC acumuladas (13/8/3) por sale_id en union (memoria del tenant + DB). Para el tope de decidir_nc. */
 export async function acumuladoNcParaVenta(saleId: string, tenantId?: string): Promise<bigint> {
-  const memBase = tenantId ? memoriaDelTenant(tenantId) : [...store.fiscalDocs.values()];
+  const fiscalDocs = crearAlmacenFiscalDocs();
+  const memBase = tenantId ? memoriaDelTenant(tenantId) : [...fiscalDocs.comoMapaSoloLectura().values()];
   let docs = memBase;
   const db = dbActual();
   if (db) {
@@ -139,7 +150,8 @@ export async function acumuladoNcParaVenta(saleId: string, tenantId?: string): P
 
 /** Cobro asociado a la venta: memoria + cash_movements. Lectura con fallback a memoria. */
 export async function hayCobroParaVenta(saleId: string): Promise<boolean> {
-  const enMemoria = [...store.movements.values()].some((m) => m.sale_id === saleId);
+  const movimientos = crearListaMovimientos();
+  const enMemoria = movimientos.listar().some((m) => m.sale_id === saleId);
   if (enMemoria) return true;
   const db = dbActual();
   if (!db) return enMemoria;
@@ -160,7 +172,7 @@ export type AsegurarDocResultado = { doc: StoredFiscalDoc; fuente: "db" | "exist
 /** Alta idempotente por idempotency_key con espejo memoria (igual que la ruta historica). */
 export async function asegurarDoc(doc: StoredFiscalDoc, tenantId?: string): Promise<AsegurarDocResultado> {
   const r = await asegurarFiscalDoc(doc, tenantId);
-  store.fiscalDocs.set(r.doc.idempotency_key, r.doc);
+  crearAlmacenFiscalDocs().guardar(r.doc.idempotency_key, r.doc);
   return r;
 }
 
@@ -169,13 +181,14 @@ export type ReencolarDocResultado =
   | { ok: false; codigo: "inexistente" | "no-facturar" | "no-reintentable"; doc: StoredFiscalDoc | null };
 
 function buscarEnMemoriaPorId(docId: string): StoredFiscalDoc | null {
-  for (const d of store.fiscalDocs.values()) {
+  for (const d of crearAlmacenFiscalDocs().comoMapaSoloLectura().values()) {
     if (d.id === docId) return d;
   }
   return null;
 }
 
 function reencolarEnMemoria(doc: StoredFiscalDoc, corr: ReintentoCorrecciones): ReencolarDocResultado {
+  const fiscalDocs = crearAlmacenFiscalDocs();
   const actualizado: StoredFiscalDoc = {
     ...doc,
     estado: "pendiente",
@@ -186,9 +199,9 @@ function reencolarEnMemoria(doc: StoredFiscalDoc, corr: ReintentoCorrecciones): 
     ...(corr.docNro !== undefined ? { doc_nro: corr.docNro } : {}),
     ...(corr.condIva !== undefined ? { cond_iva_receptor: corr.condIva } : {}),
   };
-  store.fiscalDocs.set(doc.idempotency_key, actualizado);
+  fiscalDocs.guardar(doc.idempotency_key, actualizado);
   void asegurarFiscalDoc(actualizado).then(
-    (r) => store.fiscalDocs.set(r.doc.idempotency_key, r.doc),
+    (r) => fiscalDocs.guardar(r.doc.idempotency_key, r.doc),
     () => {},
   );
   return { ok: true, doc: actualizado };
@@ -196,6 +209,7 @@ function reencolarEnMemoria(doc: StoredFiscalDoc, corr: ReintentoCorrecciones): 
 
 /** Reencolado DB-first con backfill desde memoria y via memoria ante caida (igual que la ruta historica). */
 export async function reencolarDoc(docId: string, corr: ReintentoCorrecciones): Promise<ReencolarDocResultado> {
+  const fiscalDocs = crearAlmacenFiscalDocs();
   const memDoc = buscarEnMemoriaPorId(docId);
   const db = dbActual();
   if (!db) {
@@ -227,10 +241,10 @@ export async function reencolarDoc(docId: string, corr: ReintentoCorrecciones): 
       r = await reencolarFiscalDoc(db, docId, corr);
     }
     if (!r.ok) {
-      if (r.doc) store.fiscalDocs.set(r.doc.idempotency_key, r.doc);
+      if (r.doc) fiscalDocs.guardar(r.doc.idempotency_key, r.doc);
       return r;
     }
-    store.fiscalDocs.set(r.doc.idempotency_key, r.doc);
+    fiscalDocs.guardar(r.doc.idempotency_key, r.doc);
     return r;
   } catch {
     const doc = memDoc ?? (await buscarFiscalDocPorId(docId));
@@ -245,7 +259,7 @@ export async function reencolarDoc(docId: string, corr: ReintentoCorrecciones): 
 
 /** Wizard actual: memoria, luego DB, luego inicial. Lectura con fallback a memoria. */
 export async function leerWizard(tenantId: string): Promise<WizardEstado> {
-  const mem = store.fiscalWizard.get(tenantId);
+  const mem = crearAlmacenFiscalWizard().obtener(tenantId);
   if (mem) return { ...mem };
   const db = dbActual();
   if (!db) return { ...wizard_inicial() };
@@ -261,7 +275,7 @@ export async function guardarWizardEstado(tenantId: string, estado: WizardEstado
   const db = dbActual();
   const guardado = await guardarWizard(db, tenantId, estado);
   const final = guardado ?? estado;
-  store.fiscalWizard.set(tenantId, { ...final });
+  crearAlmacenFiscalWizard().guardar(tenantId, { ...final });
   return { ...final };
 }
 
@@ -299,8 +313,4 @@ export async function resolverCuitFiscal(bodyCuit: string | undefined): Promise<
   const digitos = crudo.replace(/\D/g, "");
   if (!digitos || !validar_cuit(digitos)) return null;
   return Number(digitos);
-}
-
-export function aBaseNoDisponiblePropaga(e: unknown): never {
-  throw aBaseNoDisponible(e);
 }

@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { store, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -12,8 +12,9 @@ import type { Payee } from "../../modules/payments/beneficiarios.js";
 import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
 import type { RevocacionLink, TicketLinkEmitido } from "../../modules/sales/ticket_link.js";
 import type { CorreccionOk } from "../../modules/sales/correccion_medio.js";
+import type { WizardEstado } from "../../modules/fiscal/wizard.js";
 
-export type { StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
+export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
 // factoría de abajo. Quien llama usa el puerto y nunca vuelve a preguntar el
@@ -438,4 +439,17 @@ export function crearContadorDevoluciones(): ContadorAlmacen {
       store.nextReturn = valor;
     },
   };
+}
+
+// Corte 10: mapas de fiscal (docs por idempotency_key y wizard por
+// tenant). Excepcion ADR-0052: los caminos de fiscal nunca propagan
+// BaseNoDisponible, caen a memoria; por eso fiscal no llama a
+// `anteFalloPersistencia` y usa el almacen solo como espejo vivo.
+// Los cobros reutilizan `crearListaMovimientos` del corte 2.
+export function crearAlmacenFiscalDocs(): AlmacenVivo<StoredFiscalDoc> {
+  return crearAlmacenVivo(store.fiscalDocs);
+}
+
+export function crearAlmacenFiscalWizard(): AlmacenVivo<WizardEstado> {
+  return crearAlmacenVivo(store.fiscalWizard);
 }
