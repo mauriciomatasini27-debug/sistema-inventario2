@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { store, type StoredMovement } from "../store.js";
+import { store, type StoredMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -10,8 +10,9 @@ import type { PurchaseOrder } from "../../modules/purchases/proveedores.js";
 import type { MatchLogEntry } from "../../modules/purchases/matching.js";
 import type { Payee } from "../../modules/payments/beneficiarios.js";
 import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
+import type { RevocacionLink, TicketLinkEmitido } from "../../modules/sales/ticket_link.js";
 
-export type { StoredMovement };
+export type { StoredMovement, StoredTicket };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
 // factoría de abajo. Quien llama usa el puerto y nunca vuelve a preguntar el
@@ -346,4 +347,36 @@ export function crearAlmacenFotosProducto(): AlmacenVivo<Array<FotoProducto>> {
 
 export function crearAlmacenUbicaciones(): AlmacenVivo<UbicacionCatalogo> {
   return crearAlmacenVivo(store.ubicaciones);
+}
+
+// Corte 7: mapas de tickets. Misma politica que caja: en multi el fallo de
+// DB se propaga como BaseNoDisponible; en single la llamada sigue hacia
+// memoria. La idempotencia de ventas es un mapa compartido que ventas
+// reutiliza en un corte siguiente.
+export function crearAlmacenTicketLinks(): AlmacenVivo<TicketLinkEmitido> {
+  return crearAlmacenVivo(store.ticketLinks);
+}
+
+export function crearAlmacenTicketLinksPorHash(): AlmacenVivo<TicketLinkEmitido> {
+  return crearAlmacenVivo(store.ticketLinksByHash);
+}
+
+export function crearAlmacenTicketLinkVistos(): AlmacenVivo<TicketLinkEmitido> {
+  return crearAlmacenVivo(store.ticketLinkVistos);
+}
+
+export function crearAlmacenTicketLinkRevocaciones(): AlmacenVivo<RevocacionLink> {
+  return crearAlmacenVivo(store.ticketLinkRevocaciones);
+}
+
+export function crearAlmacenTicketLinkRevokeVistos(): AlmacenVivo<Array<RevocacionLink>> {
+  return crearAlmacenVivo(store.ticketLinkRevokeVistos);
+}
+
+export function crearAlmacenTicketEnviosCentral(): AlmacenVivo<unknown> {
+  return crearAlmacenVivo(store.ticketEnviosCentral);
+}
+
+export function crearAlmacenIdempotenciaVentas(): AlmacenVivo<StoredTicket> {
+  return crearAlmacenVivo(store.idempotency);
 }

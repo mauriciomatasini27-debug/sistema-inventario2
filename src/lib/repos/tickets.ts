@@ -2,9 +2,18 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq, or } from "drizzle-orm";
 import { sales, tickets } from "../../db/schema.js";
 import { ticketLinkRevocations, ticketLinks } from "../../db/schema-tickets.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  crearAlmacenIdempotenciaVentas,
+  crearAlmacenTicketEnviosCentral,
+  crearAlmacenTicketLinkRevocaciones,
+  crearAlmacenTicketLinkRevokeVistos,
+  crearAlmacenTicketLinks,
+  crearAlmacenTicketLinksPorHash,
+  crearAlmacenTicketLinkVistos,
+  type AlmacenVivo,
+  type StoredTicket,
+} from "./_almacen.js";
 import {
   bytesABase64Url,
   crear_link,
@@ -56,21 +65,23 @@ function filaARevocacion(f: typeof ticketLinkRevocations.$inferSelect): Revocaci
   };
 }
 
-function espejoLink(link: TicketLinkEmitido): void {
-  store.ticketLinks.set(link.id, link);
-  store.ticketLinksByHash.set(link.tokenHash, link);
-  store.ticketLinkVistos.set(link.idempotencyKey, link);
-}
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
+function espejoLink(
+  link: TicketLinkEmitido,
+  links: AlmacenVivo<TicketLinkEmitido>,
+  porHash: AlmacenVivo<TicketLinkEmitido>,
+  vistos: AlmacenVivo<TicketLinkEmitido>,
+): void {
+  links.guardar(link.id, link);
+  porHash.guardar(link.tokenHash, link);
+  vistos.guardar(link.idempotencyKey, link);
 }
 
 export async function buscarTicketPorNumero(
   numero: string,
 ): Promise<{ ticket: TicketResumen; fuente: "db" | "memoria" } | null> {
+  const idempotencia = crearAlmacenIdempotenciaVentas();
   const db = dbVivaTenant();
-  if (!db) return buscarTicketEnMemoria(numero);
+  if (!db) return buscarTicketEnMemoria(numero, idempotencia);
   try {
     const filas = await db
       .select({
@@ -99,13 +110,16 @@ export async function buscarTicketPorNumero(
       fuente: "db",
     };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return buscarTicketEnMemoria(numero);
+    idempotencia.anteFalloPersistencia(e);
+    return buscarTicketEnMemoria(numero, idempotencia);
   }
 }
 
-function buscarTicketEnMemoria(numero: string): { ticket: TicketResumen; fuente: "db" | "memoria" } | null {
-  for (const t of store.idempotency.values()) {
+function buscarTicketEnMemoria(
+  numero: string,
+  idempotencia: AlmacenVivo<StoredTicket>,
+): { ticket: TicketResumen; fuente: "db" | "memoria" } | null {
+  for (const t of idempotencia.comoMapaSoloLectura().values()) {
     if (t.ticket_definitivo === numero || t.ticket_provisorio === numero) {
       return {
         ticket: {
@@ -125,11 +139,13 @@ function buscarTicketEnMemoria(numero: string): { ticket: TicketResumen; fuente:
 
 // ticketEnviosCentral has no table: envios centrales viven en memoria del repo.
 export function envioCentralYaVisto(key: string): boolean {
-  return ya_enviado(store.ticketEnviosCentral, key);
+  const envios = crearAlmacenTicketEnviosCentral();
+  return ya_enviado(envios.comoMapaSoloLectura(), key);
 }
 
 export function registrarEnvioCentral(key: string, envio: unknown): void {
-  store.ticketEnviosCentral.set(key, envio);
+  const envios = crearAlmacenTicketEnviosCentral();
+  envios.guardar(key, envio);
 }
 
 export type CrearLinkResultado =
@@ -147,11 +163,14 @@ export async function crearLinkPublico(input: {
   tokenPlano: string;
   ttlMs?: number | undefined;
 }): Promise<CrearLinkResultado> {
+  const links = crearAlmacenTicketLinks();
+  const porHash = crearAlmacenTicketLinksPorHash();
+  const vistos = crearAlmacenTicketLinkVistos();
   const hash = sha256Hex(input.tokenPlano);
   const db = dbVivaTenant();
-  if (!db) return crearLinkEnMemoria(input, hash);
+  if (!db) return crearLinkEnMemoria(input, hash, links, porHash, vistos);
   try {
-    return await crearLinkEnDb(db, input, hash);
+    return await crearLinkEnDb(db, input, hash, links, porHash, vistos);
   } catch (e) {
     if (esConflictoUnico(e)) {
       try {
@@ -163,13 +182,13 @@ export async function crearLinkPublico(input: {
         const filaPrevia = previo[0];
         if (filaPrevia) return { ok: false, codigo: "YA_VISTO", original: filaALink(filaPrevia) };
       } catch (e2) {
-        if (esModoMulti()) throw aBaseNoDisponible(e2);
+        links.anteFalloPersistencia(e2);
       }
-      if (!esModoMulti()) return crearLinkEnMemoria(input, hash);
-      throw aBaseNoDisponible(e);
+      links.anteFalloPersistencia(e);
+      return crearLinkEnMemoria(input, hash, links, porHash, vistos);
     }
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return crearLinkEnMemoria(input, hash);
+    links.anteFalloPersistencia(e);
+    return crearLinkEnMemoria(input, hash, links, porHash, vistos);
   }
 }
 
@@ -177,6 +196,9 @@ async function crearLinkEnDb(
   db: TenantDb,
   input: { saleId: string; idempotencyKey: string; tokenPlano: string; ttlMs?: number | undefined },
   hash: string,
+  links: AlmacenVivo<TicketLinkEmitido>,
+  porHash: AlmacenVivo<TicketLinkEmitido>,
+  vistos: AlmacenVivo<TicketLinkEmitido>,
 ): Promise<CrearLinkResultado> {
   const previo = await db.select().from(ticketLinks).where(eq(ticketLinks.idempotencyKey, input.idempotencyKey)).limit(1);
   const filaPrevia = previo[0];
@@ -204,13 +226,16 @@ async function crearLinkEnDb(
     tokenHash: r.link.tokenHash,
     expiraAt: new Date(r.link.expiraAtMs),
   });
-  espejoLink(r.link);
+  espejoLink(r.link, links, porHash, vistos);
   return { ok: true, link: r.link, fuente: "db" };
 }
 
 function crearLinkEnMemoria(
   input: { saleId: string; idempotencyKey: string; tokenPlano: string; ttlMs?: number | undefined },
   hash: string,
+  links: AlmacenVivo<TicketLinkEmitido>,
+  porHash: AlmacenVivo<TicketLinkEmitido>,
+  vistos: AlmacenVivo<TicketLinkEmitido>,
 ): CrearLinkResultado {
   const r = crear_link({
     saleId: input.saleId,
@@ -220,14 +245,14 @@ function crearLinkEnMemoria(
     nowMs: Date.now(),
     ...(input.ttlMs !== undefined ? { ttlMs: input.ttlMs } : {}),
     linkId: crypto.randomUUID(),
-    vistos: store.ticketLinkVistos,
-    hashesVistos: new Set(store.ticketLinksByHash.keys()),
+    vistos: vistos.mapaVivo(),
+    hashesVistos: new Set(porHash.comoMapaSoloLectura().keys()),
   });
   if (!r.ok) {
     if (r.codigo === "YA_VISTO") return { ok: false, codigo: "YA_VISTO", original: r.original };
     return { ok: false, codigo: "LINK_INVALIDO" };
   }
-  espejoLink(r.link);
+  espejoLink(r.link, links, porHash, vistos);
   return { ok: true, link: r.link, fuente: "memoria" };
 }
 
@@ -237,6 +262,8 @@ export type ResolverLinkResultado =
 
 export async function resolverLinkPublico(tokenPlano: string): Promise<ResolverLinkResultado> {
   if (!esTokenPlanoValido(tokenPlano)) return { ok: false, codigo: "TOKEN_INVALIDO" };
+  const porHash = crearAlmacenTicketLinksPorHash();
+  const revocaciones = crearAlmacenTicketLinkRevocaciones();
   const hash = sha256Hex(tokenPlano);
   const db = dbVivaTenant();
   if (db) {
@@ -262,15 +289,21 @@ export async function resolverLinkPublico(tokenPlano: string): Promise<ResolverL
         return { ok: true, saleId: r.saleId, linkId: r.linkId, leyenda: r.leyenda };
       }
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      porHash.anteFalloPersistencia(e);
     }
   }
-  return resolverLinkEnMemoria(tokenPlano, hash);
+  return resolverLinkEnMemoria(tokenPlano, hash, porHash, revocaciones);
 }
 
-function resolverLinkEnMemoria(tokenPlano: string, hash: string): ResolverLinkResultado {
+function resolverLinkEnMemoria(
+  tokenPlano: string,
+  hash: string,
+  porHash: AlmacenVivo<TicketLinkEmitido>,
+  revocaciones: AlmacenVivo<RevocacionLink>,
+): ResolverLinkResultado {
+  const vista = porHash.comoMapaSoloLectura();
   let encontrado = false;
-  for (const h of store.ticketLinksByHash.keys()) {
+  for (const h of vista.keys()) {
     const a = Buffer.from(h, "utf8");
     const b2 = Buffer.from(hash, "utf8");
     if (a.length === b2.length && timingSafeEqual(a, b2)) {
@@ -278,15 +311,15 @@ function resolverLinkEnMemoria(tokenPlano: string, hash: string): ResolverLinkRe
       break;
     }
   }
-  if (!encontrado && !store.ticketLinksByHash.has(hash)) {
+  if (!encontrado && !vista.has(hash)) {
     return { ok: false, codigo: "TOKEN_INVALIDO" };
   }
   const r = resolver_link({
     tokenPlano,
     tokenHash: hash,
     nowMs: Date.now(),
-    porHash: store.ticketLinksByHash,
-    revocadas: new Set(store.ticketLinkRevocaciones.keys()),
+    porHash: vista,
+    revocadas: new Set(revocaciones.comoMapaSoloLectura().keys()),
   });
   if (!r.ok) {
     if (r.codigo === "TOKEN_INVALIDO") return { ok: false, codigo: "TOKEN_INVALIDO" };
@@ -306,8 +339,11 @@ export async function revocarLinksPorVenta(input: {
   motivo: string;
   idempotencyKey: string;
 }): Promise<RevocarLinksResultado> {
+  const links = crearAlmacenTicketLinks();
+  const revocaciones = crearAlmacenTicketLinkRevocaciones();
+  const revokeVistos = crearAlmacenTicketLinkRevokeVistos();
   const db = dbVivaTenant();
-  if (!db) return revocarLinksEnMemoria(input);
+  if (!db) return revocarLinksEnMemoria(input, links, revocaciones, revokeVistos);
   try {
     const linksDb = await db.select().from(ticketLinks).where(eq(ticketLinks.saleId, input.saleId));
     const revsDb = await db.select().from(ticketLinkRevocations).where(eq(ticketLinkRevocations.saleId, input.saleId));
@@ -338,40 +374,45 @@ export async function revocarLinksPorVenta(input: {
       );
     }
     for (const rev of r.revocaciones) {
-      store.ticketLinkRevocaciones.set(rev.linkId, rev);
+      revocaciones.guardar(rev.linkId, rev);
     }
-    store.ticketLinkRevokeVistos.set(input.idempotencyKey, [...r.revocaciones]);
+    revokeVistos.guardar(input.idempotencyKey, [...r.revocaciones]);
     return { ok: true, revocaciones: [...r.revocaciones] };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return revocarLinksEnMemoria(input);
+    revocaciones.anteFalloPersistencia(e);
+    return revocarLinksEnMemoria(input, links, revocaciones, revokeVistos);
   }
 }
 
-function revocarLinksEnMemoria(input: {
-  saleId: string;
-  actor: string;
-  motivo: string;
-  idempotencyKey: string;
-}): RevocarLinksResultado {
-  const links = [...store.ticketLinks.values()].filter((l) => l.saleId === input.saleId);
+function revocarLinksEnMemoria(
+  input: {
+    saleId: string;
+    actor: string;
+    motivo: string;
+    idempotencyKey: string;
+  },
+  links: AlmacenVivo<TicketLinkEmitido>,
+  revocaciones: AlmacenVivo<RevocacionLink>,
+  revokeVistos: AlmacenVivo<Array<RevocacionLink>>,
+): RevocarLinksResultado {
+  const deLaVenta = [...links.comoMapaSoloLectura().values()].filter((l) => l.saleId === input.saleId);
   const r = revocar_por_venta({
     saleId: input.saleId,
     actor: input.actor,
     motivo: input.motivo,
     nowMs: Date.now(),
     idempotencyKey: input.idempotencyKey,
-    linksDeLaVenta: links,
-    revocacionesPrevias: store.ticketLinkRevocaciones,
-    vistos: store.ticketLinkRevokeVistos,
+    linksDeLaVenta: deLaVenta,
+    revocacionesPrevias: revocaciones.mapaVivo(),
+    vistos: revokeVistos.mapaVivo(),
   });
   if (!r.ok) {
     if (r.codigo === "YA_VISTO") return { ok: false, codigo: "YA_VISTO", originales: r.originales };
     return { ok: false, codigo: "REVOQUE_INVALIDO" };
   }
   for (const rev of r.revocaciones) {
-    store.ticketLinkRevocaciones.set(rev.linkId, rev);
+    revocaciones.guardar(rev.linkId, rev);
   }
-  store.ticketLinkRevokeVistos.set(input.idempotencyKey, [...r.revocaciones]);
+  revokeVistos.guardar(input.idempotencyKey, [...r.revocaciones]);
   return { ok: true, revocaciones: [...r.revocaciones] };
 }
