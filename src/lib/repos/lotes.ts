@@ -120,6 +120,12 @@ function ordenarFefo(lista: LoteDetalle[]): LoteDetalle[] {
   });
 }
 
+// Invariante CAT-S3, pura: stock = suma de restantes de lotes = suma de
+// deltas de movimientos. Sin IO.
+export function invarianteStockLotesMovs(args: { stockActual: number; lotesCantidadRestante: number; movsDeltaSum: number }): boolean {
+  return args.stockActual === args.lotesCantidadRestante && args.lotesCantidadRestante === args.movsDeltaSum;
+}
+
 export interface CrearLoteInput {
   readonly sku: string;
   readonly cantidad: number;
