@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { store, type StoredMovement, type StoredTicket } from "../store.js";
+import { store, type StoredMovement, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -12,7 +12,7 @@ import type { Payee } from "../../modules/payments/beneficiarios.js";
 import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
 import type { RevocacionLink, TicketLinkEmitido } from "../../modules/sales/ticket_link.js";
 
-export type { StoredMovement, StoredTicket };
+export type { StoredMovement, StoredStockMovement, StoredTicket };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
 // factoría de abajo. Quien llama usa el puerto y nunca vuelve a preguntar el
@@ -379,4 +379,31 @@ export function crearAlmacenTicketEnviosCentral(): AlmacenVivo<unknown> {
 
 export function crearAlmacenIdempotenciaVentas(): AlmacenVivo<StoredTicket> {
   return crearAlmacenVivo(store.idempotency);
+}
+
+// Corte 8: movimientos y conteos de stock. Misma politica que caja: en
+// multi el fallo de DB se propaga como BaseNoDisponible; en single la
+// llamada sigue hacia memoria. Las existencias y los sectores se reutilizan
+// de los cortes 5 y 6; movimientos, conteos y vistos son propios de este
+// corte.
+export interface ConteoStock {
+  id: string;
+  sector: string;
+  idemKey: string;
+  creadoEn: string;
+  estado?: string | undefined;
+  contadoPor?: string | undefined;
+  diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }>;
+}
+
+export function crearListaMovimientosStock(): ListaAlmacen<StoredStockMovement> {
+  return crearLista(store.stockMoves);
+}
+
+export function crearListaConteos(): ListaAlmacen<ConteoStock> {
+  return crearLista(store.conteos);
+}
+
+export function crearAlmacenConteoVistos(): AlmacenVivo<string> {
+  return crearAlmacenVivo(store.conteoVistos);
 }

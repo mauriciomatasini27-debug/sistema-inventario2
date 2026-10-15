@@ -1,24 +1,24 @@
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { products, stockCounts, stockCountLines, stockMovements } from "../../db/schema.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store, type StoredStockMovement } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
+import {
+  crearAlmacenConteoVistos,
+  crearAlmacenSectores,
+  crearAlmacenStock,
+  crearListaConteos,
+  crearListaMovimientosStock,
+  type AlmacenVivo,
+  type ConteoStock,
+  type ListaAlmacen,
+  type StoredStockMovement,
+} from "./_almacen.js";
 import { conteo_por_sector, type LineaFisica } from "../../modules/inventario/sectores.js";
 
 // PERS2-S23 (ADR-0062): stock, movimientos y conteos. Los movimientos de
 // stock se escriben solo por este modulo. DB primero via dbVivaTenant();
 // solo en single sin base usa la memoria particionada. En multi sin base
 // dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
-// Por qué helper único: cada mención textual suma al trinquete.
-function propagarSiMulti(e: unknown): void {
-  if (esModoMulti()) throw aBaseNoDisponible(e);
-}
 
 // Por qué código 23505: dos altas con la misma key compiten y la DB dirime.
 function esChoqueIdemKey(e: unknown): boolean {
@@ -29,25 +29,34 @@ function esChoqueIdemKey(e: unknown): boolean {
 
 type DiferenciaConteo = { sku: string; teorico: number; fisico: number; diferencia: number };
 
-function diferenciasDe(lineas: ReadonlyArray<{ sku: string; fisico: number }>): DiferenciaConteo[] {
+function diferenciasDe(lineas: ReadonlyArray<{ sku: string; fisico: number }>, existencias: AlmacenVivo<number>): DiferenciaConteo[] {
   return lineas.map((l) => {
     const sku = l.sku.trim().toUpperCase();
-    const teorico = store.stock.get(sku) ?? 0;
+    const teorico = existencias.obtener(sku) ?? 0;
     return { sku, teorico, fisico: l.fisico, diferencia: l.fisico - teorico };
   });
 }
 
 function espejarCrearConteo(
-  conteo: { id: string; sector: string; idemKey: string; creadoEn: string; estado?: string | undefined; contadoPor?: string | undefined; diferencias: DiferenciaConteo[] },
+  conteo: ConteoStock,
   key: string,
+  conteos: ListaAlmacen<ConteoStock>,
+  vistos: AlmacenVivo<string>,
 ): void {
-  store.conteos.push(conteo);
-  store.conteoVistos.set(key, conteo.id);
+  conteos.agregar(conteo);
+  vistos.guardar(key, conteo.id);
 }
 
-function espejarConteoSector(id: string, key: string, sector: string, diferencias: DiferenciaConteo[]): void {
-  store.conteos.push({ id, sector, idemKey: key, creadoEn: new Date().toISOString(), diferencias });
-  store.conteoVistos.set(key, id);
+function espejarConteoSector(
+  id: string,
+  key: string,
+  sector: string,
+  diferencias: DiferenciaConteo[],
+  conteos: ListaAlmacen<ConteoStock>,
+  vistos: AlmacenVivo<string>,
+): void {
+  conteos.agregar({ id, sector, idemKey: key, creadoEn: new Date().toISOString(), diferencias });
+  vistos.guardar(key, id);
 }
 
 export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO";
@@ -71,7 +80,8 @@ export interface ConteoRegistrado {
 }
 
 export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoStock): Promise<boolean> {
-  if (store.stockMoves.some((m) => m.idemKey === idemKey && m.tipo === tipo)) return true;
+  const movimientos = crearListaMovimientosStock();
+  if (movimientos.listar().some((m) => m.idemKey === idemKey && m.tipo === tipo)) return true;
   const db = dbVivaTenant();
   if (!db) return false;
   try {
@@ -82,7 +92,7 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
       .limit(1);
     return Boolean(filas[0]);
   } catch (e) {
-    propagarSiMulti(e);
+    movimientos.anteFalloPersistencia(e);
     return false;
   }
 }
@@ -91,9 +101,11 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
 // products.stock_actual. En multi sin base propaga BaseNoDisponible.
 export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuente: "db" | "memoria" }> {
   const registro: StoredStockMovement = { idemKey: m.idemKey, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo };
+  const existencias = crearAlmacenStock();
+  const movimientos = crearListaMovimientosStock();
   const db = dbVivaTenant();
   if (!db) {
-    aplicarEnMemoria(registro);
+    aplicarEnMemoria(registro, existencias, movimientos);
     return { fuente: "memoria" };
   }
   try {
@@ -109,31 +121,37 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
       .update(products)
       .set({ stockActual: sql`${products.stockActual} + ${m.delta}` })
       .where(eq(products.sku, m.sku));
-    aplicarEnMemoria(registro);
+    aplicarEnMemoria(registro, existencias, movimientos);
     return { fuente: "db" };
   } catch (e) {
-    propagarSiMulti(e);
-    aplicarEnMemoria(registro);
+    movimientos.anteFalloPersistencia(e);
+    aplicarEnMemoria(registro, existencias, movimientos);
     return { fuente: "memoria" };
   }
 }
 
-function aplicarEnMemoria(m: StoredStockMovement): void {
-  store.stock.set(m.sku, (store.stock.get(m.sku) ?? 0) + m.delta);
-  store.stockMoves.push(m);
+function aplicarEnMemoria(
+  m: StoredStockMovement,
+  existencias: AlmacenVivo<number>,
+  movimientos: ListaAlmacen<StoredStockMovement>,
+): void {
+  existencias.guardar(m.sku, (existencias.obtener(m.sku) ?? 0) + m.delta);
+  movimientos.agregar(m);
 }
 
 export function nivelStock(sku: string): number {
-  return store.stock.get(sku) ?? 0;
+  return crearAlmacenStock().obtener(sku) ?? 0;
 }
 
 export async function listarMovimientos(): Promise<StoredStockMovement[]> {
+  const movimientos = crearListaMovimientosStock();
+  const enMemoria = movimientos.listar();
   const db = dbVivaTenant();
-  if (!db) return [...store.stockMoves];
+  if (!db) return [...enMemoria];
   try {
     const filas = await db.select().from(stockMovements);
     const union = new Map<string, StoredStockMovement>();
-    for (const m of store.stockMoves) union.set(`${m.tipo}:${m.idemKey}:${m.sku}`, m);
+    for (const m of enMemoria) union.set(`${m.tipo}:${m.idemKey}:${m.sku}`, m);
     for (const f of filas) {
       union.set(`${f.tipo}:${f.idemKey}:${f.sku}`, {
         idemKey: f.idemKey,
@@ -145,8 +163,8 @@ export async function listarMovimientos(): Promise<StoredStockMovement[]> {
     }
     return [...union.values()];
   } catch (e) {
-    propagarSiMulti(e);
-    return [...store.stockMoves];
+    movimientos.anteFalloPersistencia(e);
+    return [...enMemoria];
   }
 }
 
@@ -161,9 +179,12 @@ export type CrearConteoResultado =
   | { ok: false; codigo: "DUPLICADO"; error: string; original: unknown };
 
 export async function crearConteo(input: CrearConteoInput): Promise<CrearConteoResultado> {
-  const dupMemoria = store.conteos.find((c) => c.idemKey === input.key);
+  const conteos = crearListaConteos();
+  const vistos = crearAlmacenConteoVistos();
+  const existencias = crearAlmacenStock();
+  const dupMemoria = conteos.listar().find((c) => c.idemKey === input.key);
   if (dupMemoria) return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: dupMemoria };
-  const diferencias = diferenciasDe(input.lineas);
+  const diferencias = diferenciasDe(input.lineas, existencias);
   const db = dbVivaTenant();
   if (db) {
     try {
@@ -176,17 +197,17 @@ export async function crearConteo(input: CrearConteoInput): Promise<CrearConteoR
       for (const d of diferencias) {
         await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
       }
-      espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key);
+      espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key, conteos, vistos);
       return { ok: true, id, diferencias };
     } catch (e) {
       if (esChoqueIdemKey(e)) {
         return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: { idemKey: input.key } };
       }
-      propagarSiMulti(e);
+      conteos.anteFalloPersistencia(e);
     }
   }
   const id = crypto.randomUUID();
-  espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key);
+  espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key, conteos, vistos);
   return { ok: true, id, diferencias };
 }
 
@@ -202,7 +223,8 @@ export type ConfirmarConteoResultado =
   | { ok: false; codigo: "DESCONOCIDO" | "MOTIVO_REQUERIDO"; error: string };
 
 export async function confirmarConteo(input: ConfirmarConteoInput): Promise<ConfirmarConteoResultado> {
-  const enMemoria = store.conteos.find((x) => x.id === input.id);
+  const conteos = crearListaConteos();
+  const enMemoria = conteos.listar().find((x) => x.id === input.id);
   const db = dbVivaTenant();
   if (db) {
     try {
@@ -229,7 +251,7 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
       }
       if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     } catch (e) {
-      propagarSiMulti(e);
+      conteos.anteFalloPersistencia(e);
     }
   }
   if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
@@ -260,12 +282,16 @@ export type ConteoSectorResultado =
   | { ok: false; codigo: "LINEA_INVALIDA" | "SECTOR_INVALIDO" | "SIN_IDEMKEY"; error: string };
 
 export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoSectorResultado> {
-  const visto = store.conteoVistos.get(input.key);
+  const conteos = crearListaConteos();
+  const vistos = crearAlmacenConteoVistos();
+  const existencias = crearAlmacenStock();
+  const sectores = crearAlmacenSectores();
+  const visto = vistos.obtener(input.key);
   if (visto !== undefined) return { ok: false, codigo: "DUPLICADO", conteoId: visto };
   const r = conteo_por_sector(
     input.motivo === undefined
-      ? { teorico: store.stock, fisico: [...input.fisico], sectorDe: store.productSectores, sector: input.sector, idemKey: input.key }
-      : { teorico: store.stock, fisico: [...input.fisico], sectorDe: store.productSectores, sector: input.sector, idemKey: input.key, motivo: input.motivo },
+      ? { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe: sectores.mapaVivo(), sector: input.sector, idemKey: input.key }
+      : { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe: sectores.mapaVivo(), sector: input.sector, idemKey: input.key, motivo: input.motivo },
   );
   if (!r.ok) return { ok: false, codigo: r.codigo, error: r.codigo };
   const diferencias: DiferenciaConteo[] = r.valor.diferencias.map((d) => ({
@@ -287,7 +313,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
       for (const m of r.valor.movimientos) {
         await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
       }
-      espejarConteoSector(id, input.key, r.valor.sector, diferencias);
+      espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
       return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
     } catch (e) {
       if (esChoqueIdemKey(e)) {
@@ -295,10 +321,10 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
           const rival = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
           return { ok: false, codigo: "DUPLICADO", conteoId: rival[0]?.id ?? "" };
         } catch {
-          propagarSiMulti(e);
+          conteos.anteFalloPersistencia(e);
         }
       } else {
-        propagarSiMulti(e);
+        conteos.anteFalloPersistencia(e);
       }
     }
   }
@@ -306,6 +332,6 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
   }
   const id = crypto.randomUUID();
-  espejarConteoSector(id, input.key, r.valor.sector, diferencias);
+  espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
   return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
 }
