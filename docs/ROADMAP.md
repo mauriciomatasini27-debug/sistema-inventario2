@@ -157,7 +157,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
-| 2026-10-15 | P2-2 | en curso | P2-2 en curso: puerto Almacen, ordenes-pago migrado en corte 4; quedan ~11 cortes (234 `store.`, 102 `esModoMulti`). | — / — |
+| 2026-10-15 | P2-2 | en curso | P2-2 en curso: puerto Almacen, sync migrado en corte 5; quedan ~10 cortes (212 `store.`, 95 `esModoMulti`). | — / — |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
