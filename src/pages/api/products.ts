@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { actualizarProducto, altaProducto, buscarProductoPorCodigo, listarProductos } from "../../lib/repos/catalogo.js";
+import { estadoAltaDesdeRol } from "../../modules/inventario/escaneo.js";
 
 export const prerender = false;
 
@@ -12,6 +13,8 @@ const crearSchema = z.object({
   sector: z.string().max(64).default("general"),
   codigo: z.string().max(64).optional(),
   controla_vencimiento: z.boolean().default(false),
+  rol: z.enum(["dueno", "empleado"]).default("dueno"),
+  permisos: z.array(z.string().max(64)).max(32).default([]),
   foto: z.object({ url: z.string().url(), ancho: z.number().int().max(800).default(800), alto: z.number().int().max(800).default(800), bytes: z.number().int().max(200 * 1024).default(0) }).optional(),
 });
 
@@ -25,7 +28,7 @@ export const GET: APIRoute = async ({ url }) => {
     if (codigo) {
       const r = await buscarProductoPorCodigo(codigo);
       if (r) return Response.json({ productos: [r.ficha], fuente: r.fuente });
-      return Response.json({ productos: [] });
+      return Response.json({ productos: [], alta_corta: { codigo } });
     }
     const { fichas, fuente } = await listarProductos(q);
     return Response.json({ productos: fichas, fuente });
@@ -55,6 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
       sector: b.sector,
       ...(b.codigo !== undefined ? { codigo: b.codigo } : {}),
       controlaVencimiento: b.controla_vencimiento,
+      estado: estadoAltaDesdeRol(b.rol, b.permisos),
       ...(b.foto !== undefined ? { foto: b.foto } : {}),
     });
   } catch (e) {

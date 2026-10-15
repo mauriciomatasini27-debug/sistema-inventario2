@@ -385,6 +385,6 @@ describe("contratos", () => {
     for (const nombre of Object.keys(schema)) {
       expect(nombre).not.toMatch(/password|passwd|hash_clave|refresh_token|access_token/i);
     }
-    expect([...PERMISOS_EMPLEADO]).toEqual(["registrar_devoluciones", "registrar_retiros_caja", "ver_saldos_caja"]);
+    expect([...PERMISOS_EMPLEADO]).toEqual(["registrar_devoluciones", "registrar_retiros_caja", "ver_saldos_caja", "crear_productos"]);
   });
 });

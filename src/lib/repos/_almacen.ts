@@ -319,6 +319,7 @@ export interface FichaCatalogo {
   locationId: string | null;
   archivado: boolean;
   controlaVencimiento: boolean;
+  estado: "activo" | "pendiente_revision";
 }
 
 export interface UbicacionCatalogo {

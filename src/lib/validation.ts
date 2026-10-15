@@ -120,6 +120,7 @@ export const PERMISOS_EMPLEADO = [
   "registrar_devoluciones",
   "registrar_retiros_caja",
   "ver_saldos_caja",
+  "crear_productos",
 ] as const;
 export type PermisoEmpleado = (typeof PERMISOS_EMPLEADO)[number];
 export const permisoEmpleadoSchema = z.enum(PERMISOS_EMPLEADO);

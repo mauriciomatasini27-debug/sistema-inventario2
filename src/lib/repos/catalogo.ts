@@ -49,6 +49,7 @@ function fichaDeFila(f: { sku: string; nombre: string; precioCentavos: bigint },
     locationId: null,
     archivado: false,
     controlaVencimiento: false,
+    estado: "activo",
   };
 }
 
@@ -114,7 +115,9 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
       .limit(1);
     const p = prods[0];
     if (!p) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
-    const ficha = fichaDeFila(p, sectorDe(p.sku, sectores));
+    // Por qué estado de memoria: products no tiene columna estado (CAT-S2,
+    // igual que archivado); sin esto un alta pendiente_revision se leería activo.
+    const ficha: FichaProducto = { ...fichaDeFila(p, sectorDe(p.sku, sectores)), estado: productos.obtener(p.sku)?.estado ?? "activo" };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
     return { ficha: conPresentacion(ficha, recientes.get(ficha.sku) ?? fotoMemoria(ficha.sku)), fuente: "db" };
   } catch (e) {
@@ -149,7 +152,7 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
-      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
+      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo" }];
     }
     const filtradas = filtrar(lista, q, existencias, precios);
     return { fichas: await presentarDb(db, filtradas), fuente: "db" };
@@ -167,7 +170,7 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
 function filtrar(lista: FichaProducto[], q: string, existencias: AlmacenVivo<number>, precios: AlmacenVivo<number>): FichaProducto[] {
   const query = q.trim().toUpperCase();
   if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
-    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
+    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo" }];
   }
   if (!query) return lista;
   // Por qué difusa sobre exacta: el mostrador tipea rápido y con tildes.
@@ -181,6 +184,7 @@ export interface AltaProductoInput {
   readonly sector: string;
   readonly codigo?: string | undefined;
   readonly controlaVencimiento: boolean;
+  readonly estado?: "activo" | "pendiente_revision" | undefined;
   readonly foto?: { url: string; ancho: number; alto: number; bytes: number } | undefined;
 }
 
@@ -209,6 +213,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     locationId: null,
     archivado: false,
     controlaVencimiento: input.controlaVencimiento,
+    estado: input.estado ?? "activo",
   };
   const db = dbVivaTenant();
   if (!db) {
