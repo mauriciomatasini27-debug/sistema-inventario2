@@ -1,8 +1,18 @@
 import { and, eq } from "drizzle-orm";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import type { Medio } from "../validation.js";
+import {
+  crearAlmacenBorradores,
+  crearAlmacenBorradorVistos,
+  crearAlmacenFacturasProv,
+  crearAlmacenOrderVistos,
+  crearAlmacenPagosProv,
+  crearAlmacenPurchaseOrders,
+  crearListaSupplierMatchLog,
+  type AlmacenVivo,
+  type ListaAlmacen,
+} from "./_almacen.js";
+import type { Borrador } from "../../modules/purchases/facturas.js";
 import {
   confirmarBorrador,
   descartarBorrador,
@@ -10,14 +20,13 @@ import {
   estadoCuenta,
   ingerirBorrador,
   registrarPago,
-  type Borrador,
   type ConfianzaPorCampo,
   type Factura,
   type PagoProveedor,
   type ParcheBorrador,
   type RegistrarPagoInput,
 } from "../../modules/purchases/facturas.js";
-import { cerrarOrden } from "../../modules/purchases/proveedores.js";
+import { cerrarOrden, type PurchaseOrder } from "../../modules/purchases/proveedores.js";
 import {
   matchearBorrador,
   vincular_auto,
@@ -51,10 +60,6 @@ import { registrarEgresoRetiro } from "./caja.js";
 // single sin base usa la memoria particionada. En multi sin base
 // dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
 export interface RespuestaRepo {
   status: number;
   body: Record<string, unknown>;
@@ -80,6 +85,8 @@ export interface IngestaBorradorInput {
 // Ingesta FP (foto bot -> OCR sugerencia). Borrador MUTABLE; clave repetida
 // => 200 con existente. DB-first con pre-check por idempotency-key.
 export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<RespuestaRepo> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
   const r = ingerirBorrador({
     idempotencyKey: input.key,
     origen: input.origen,
@@ -91,18 +98,18 @@ export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<
     ...(input.totalTexto !== undefined ? { totalTexto: input.totalTexto } : {}),
     fotoPendiente: input.fotoPendiente,
     ahoraIso: input.ahoraIso,
-    vistos: store.borradorVistos,
+    vistos: borradorVistos.comoMapaSoloLectura(),
   });
   if (r.status === 415 || r.status === 422) return { status: r.status, body: { error: r.error } };
   if (r.status === 200) {
-    store.borradorVistos.set(input.key, r.borrador);
-    store.borradores.set(r.borrador.id, r.borrador);
+    borradorVistos.guardar(input.key, r.borrador);
+    borradores.guardar(r.borrador.id, r.borrador);
     return { status: 200, body: { draft_id: r.borrador.id, duplicado: true } };
   }
 
   const espejo = () => {
-    store.borradorVistos.set(input.key, r.borrador);
-    store.borradores.set(r.borrador.id, r.borrador);
+    borradorVistos.guardar(input.key, r.borrador);
+    borradores.guardar(r.borrador.id, r.borrador);
   };
 
   const db = dbVivaTenant();
@@ -114,8 +121,8 @@ export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<
   try {
     const previo = await leerBorradorPorKey(db, input.key);
     if (previo) {
-      store.borradorVistos.set(input.key, previo.borrador);
-      store.borradores.set(previo.borrador.id, previo.borrador);
+      borradorVistos.guardar(input.key, previo.borrador);
+      borradores.guardar(previo.borrador.id, previo.borrador);
       return { status: 200, body: { draft_id: previo.borrador.id, duplicado: true } };
     }
     await db
@@ -142,14 +149,14 @@ export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<
     // Carrera entre pre-check e insert: si el rival gano, 200 con existente.
     const carrera = await leerBorradorPorKey(db, input.key);
     if (carrera && carrera.borrador.bytesRef !== r.borrador.bytesRef) {
-      store.borradorVistos.set(input.key, carrera.borrador);
-      store.borradores.set(carrera.borrador.id, carrera.borrador);
+      borradorVistos.guardar(input.key, carrera.borrador);
+      borradores.guardar(carrera.borrador.id, carrera.borrador);
       return { status: 200, body: { draft_id: carrera.borrador.id, duplicado: true } };
     }
     espejo();
     return { status: 201, body: { draft_id: r.borrador.id, aviso_revisar: r.avisoRevisar, fuente: "db" } };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     espejo();
     return { status: 201, body: { draft_id: r.borrador.id, aviso_revisar: r.avisoRevisar } };
   }
@@ -163,8 +170,15 @@ export async function confirmarBorradorRepo(input: {
   quien: string;
   ahoraIso: string;
 }): Promise<RespuestaRepo> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
+  const facturasProv = crearAlmacenFacturasProv();
+  const ocs = crearAlmacenPurchaseOrders();
+  const ocsVistos = crearAlmacenOrderVistos();
+  const matchLog = crearListaSupplierMatchLog();
+  const mem = { borradores, borradorVistos, facturasProv, purchaseOrders: ocs, supplierMatchLog: matchLog };
   const db = dbVivaTenant();
-  const enMemoria = store.borradores.get(input.draftId);
+  const enMemoria = borradores.obtener(input.draftId);
   const base: Borrador | null =
     enMemoria ?? (db ? ((await leerBorradorPorId(db, input.draftId))?.borrador ?? null) : null);
   if (!base) return { status: 404, body: { error: "borrador inexistente" } };
@@ -172,13 +186,13 @@ export async function confirmarBorradorRepo(input: {
   if (r.status !== 201) return { status: r.status, body: { error: r.error } };
 
   if (!db) {
-    return confirmarEnMemoria(r.borrador, r.factura, r.avisoRevisar, input.quien, input.ahoraIso);
+    return confirmarEnMemoria(r.borrador, r.factura, r.avisoRevisar, input.quien, input.ahoraIso, mem);
   }
 
   try {
     const filaDraft = await asegurarFilaBorrador(db, base);
     const ordenesDb = await leerOrdenesDb(db);
-    const ordenes = unionOrdenes(store.purchaseOrders.values(), ordenesDb);
+    const ordenes = unionOrdenes(ocs.comoMapaSoloLectura().values(), ordenesDb);
     const uuidPorOrden = new Map(ordenesDb.map((o) => [o.matchable.id, o.uuid]));
     const m =
       r.borrador.cuit !== null && r.borrador.totalCentavos !== null
@@ -199,11 +213,11 @@ export async function confirmarBorradorRepo(input: {
       const uuid = candidato ? (uuidPorOrden.get(candidato) ?? null) : null;
       if (candidato && !uuid) {
         // OC solo en memoria (alta durante un corte): cierre historico.
-        const oc = store.purchaseOrders.get(candidato);
+        const oc = ocs.obtener(candidato);
         if (oc !== undefined && oc.estado === "abierta") {
           const c = cerrarOrden(oc, input.quien, input.ahoraIso);
           if (c.ok) {
-            store.purchaseOrders.set(oc.id, c.orden);
+            ocs.guardar(oc.id, c.orden);
             vinculadaId = oc.id;
           } else {
             vinculoMotivo = "orden ya no abierta";
@@ -288,22 +302,21 @@ export async function confirmarBorradorRepo(input: {
     });
 
     // Espejo memoria (identico estado al historico).
-    store.borradores.set(r.borrador.id, r.borrador);
-    store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
-    store.facturasProv.set(r.factura.id, r.factura);
-    if (m) escribirLogMemoria(m.log, vinculadaId);
+    borradores.guardar(r.borrador.id, r.borrador);
+    borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
+    facturasProv.guardar(r.factura.id, r.factura);
+    if (m) escribirLogMemoria(m.log, vinculadaId, matchLog);
     if (vinculadaId) {
-      const cerrada =
-        store.purchaseOrders.get(vinculadaId) ?? (await leerOrdenCompleta(db, vinculadaId));
+      const cerrada = ocs.obtener(vinculadaId) ?? (await leerOrdenCompleta(db, vinculadaId));
       if (cerrada && cerrada.estado !== "cerrada") {
         const c = cerrarOrden(cerrada, input.quien, input.ahoraIso);
         if (c.ok) {
-          store.purchaseOrders.set(c.orden.id, c.orden);
-          store.orderVistos.set(c.orden.idempotencyKey, c.orden);
+          ocs.guardar(c.orden.id, c.orden);
+          ocsVistos.guardar(c.orden.idempotencyKey, c.orden);
         }
       } else if (cerrada) {
-        store.purchaseOrders.set(cerrada.id, cerrada);
-        store.orderVistos.set(cerrada.idempotencyKey, cerrada);
+        ocs.guardar(cerrada.id, cerrada);
+        ocsVistos.guardar(cerrada.idempotencyKey, cerrada);
       }
     }
     return {
@@ -322,12 +335,12 @@ export async function confirmarBorradorRepo(input: {
     if (e === RESUELTO) {
       return { status: 409, body: { error: "borrador ya resuelto (confirmado o descartado)" } };
     }
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     // Caida de DB: la tx revirtio; via memoria como antes.
     if (!enMemoria) return { status: 404, body: { error: "borrador inexistente" } };
     const r2 = confirmarBorrador(enMemoria, { quien: input.quien, ahoraIso: input.ahoraIso });
     if (r2.status !== 201) return { status: r2.status, body: { error: r2.error } };
-    return confirmarEnMemoria(r2.borrador, r2.factura, r2.avisoRevisar, input.quien, input.ahoraIso);
+    return confirmarEnMemoria(r2.borrador, r2.factura, r2.avisoRevisar, input.quien, input.ahoraIso, mem);
   }
 }
 
@@ -361,15 +374,28 @@ async function asegurarFilaBorrador(db: TenantDb, base: Borrador): Promise<{ id:
   return { id: fila.fila.id };
 }
 
-function escribirLogMemoria(log: ReadonlyArray<MatchLogEntry>, vinculadaId: string | null): void {
+function escribirLogMemoria(
+  log: ReadonlyArray<MatchLogEntry>,
+  vinculadaId: string | null,
+  matchLog: ListaAlmacen<MatchLogEntry>,
+): void {
+  const vivas = matchLog.listar();
   for (const e of log) {
-    if (store.supplierMatchLog.some((x) => x.id === e.id)) continue;
-    store.supplierMatchLog.push(
+    if (vivas.some((x) => x.id === e.id)) continue;
+    matchLog.agregar(
       e.orderId === vinculadaId && e.coincide
         ? { ...e, motivo: "auto-exacto: OC cerrada al confirmar" }
         : e,
     );
   }
+}
+
+interface MemoriaConfirmar {
+  borradores: AlmacenVivo<Borrador>;
+  borradorVistos: AlmacenVivo<Borrador>;
+  facturasProv: AlmacenVivo<Factura>;
+  purchaseOrders: AlmacenVivo<PurchaseOrder>;
+  supplierMatchLog: ListaAlmacen<MatchLogEntry>;
 }
 
 // Via historica exacta (sin DB o fallback): matching sobre memoria, cierre en
@@ -380,10 +406,11 @@ function confirmarEnMemoria(
   avisoRevisar: boolean,
   quien: string,
   ahoraIso: string,
+  mem: MemoriaConfirmar,
 ): RespuestaRepo {
-  store.borradores.set(borrador.id, borrador);
-  store.borradorVistos.set(borrador.idempotencyKey, borrador);
-  store.facturasProv.set(factura.id, factura);
+  mem.borradores.guardar(borrador.id, borrador);
+  mem.borradorVistos.guardar(borrador.idempotencyKey, borrador);
+  mem.facturasProv.guardar(factura.id, factura);
   let vinculo: { order_id: string } | null = null;
   let vinculoMotivo = "borrador sin cuit o total";
   let matchIntentos = 0;
@@ -392,7 +419,7 @@ function confirmarEnMemoria(
       draftId: borrador.id,
       cuit: borrador.cuit,
       totalCentavos: borrador.totalCentavos,
-      ordenes: [...store.purchaseOrders.values()].map((o) => ({
+      ordenes: [...mem.purchaseOrders.comoMapaSoloLectura().values()].map((o) => ({
         id: o.id,
         supplierCuit: o.supplierCuit,
         estado: o.estado,
@@ -404,11 +431,11 @@ function confirmarEnMemoria(
     vinculoMotivo = m.motivo;
     let vinculadaId: string | null = null;
     if (m.vinculado !== null) {
-      const oc = store.purchaseOrders.get(m.vinculado.orderId);
+      const oc = mem.purchaseOrders.obtener(m.vinculado.orderId);
       if (oc !== undefined && oc.estado === "abierta") {
         const c = cerrarOrden(oc, quien, ahoraIso);
         if (c.ok) {
-          store.purchaseOrders.set(oc.id, c.orden);
+          mem.purchaseOrders.guardar(oc.id, c.orden);
           vinculadaId = oc.id;
         } else {
           vinculoMotivo = "orden ya no abierta";
@@ -417,7 +444,7 @@ function confirmarEnMemoria(
         vinculoMotivo = "orden ya no abierta";
       }
     }
-    escribirLogMemoria(m.log, vinculadaId);
+    escribirLogMemoria(m.log, vinculadaId, mem.supplierMatchLog);
     if (vinculadaId !== null) vinculo = { order_id: vinculadaId };
   }
   return {
@@ -439,13 +466,15 @@ export async function descartarBorradorRepo(input: {
   draftId: string;
   ahoraIso: string;
 }): Promise<RespuestaRepo> {
-  const enMemoria = store.borradores.get(input.draftId);
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
+  const enMemoria = borradores.obtener(input.draftId);
   const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return { status: 404, body: { error: "borrador inexistente" } };
     const r = descartarBorrador(enMemoria, input.ahoraIso);
     if (r.status !== 200) return { status: r.status, body: { error: r.error } };
-    store.borradores.set(input.draftId, r.borrador);
+    borradores.guardar(input.draftId, r.borrador);
     return { status: 200, body: { draft_id: r.borrador.id, estado: r.borrador.estado } };
   }
 
@@ -458,15 +487,15 @@ export async function descartarBorradorRepo(input: {
       .update(supplierDrafts)
       .set({ estado: r.borrador.estado })
       .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
-    store.borradores.set(r.borrador.id, r.borrador);
-    store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+    borradores.guardar(r.borrador.id, r.borrador);
+    borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
     return { status: 200, body: { draft_id: r.borrador.id, estado: r.borrador.estado, fuente: "db" } };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     if (!enMemoria) return { status: 404, body: { error: "borrador inexistente" } };
     const r = descartarBorrador(enMemoria, input.ahoraIso);
     if (r.status !== 200) return { status: r.status, body: { error: r.error } };
-    store.borradores.set(input.draftId, r.borrador);
+    borradores.guardar(input.draftId, r.borrador);
     return { status: 200, body: { draft_id: r.borrador.id, estado: r.borrador.estado } };
   }
 }
@@ -493,24 +522,23 @@ export async function matchearBorradorRepo(input: { draftId: string }): Promise<
     };
   };
 
-  const enMemoria = store.borradores.get(input.draftId);
+  const borradores = crearAlmacenBorradores();
+  const ocs = crearAlmacenPurchaseOrders();
+  const aMatchables = (memoria: AlmacenVivo<PurchaseOrder>): OrdenMatchable[] =>
+    [...memoria.comoMapaSoloLectura().values()].map((o) => ({
+      id: o.id,
+      supplierCuit: o.supplierCuit,
+      estado: o.estado,
+      totalCentavos: o.totalCentavos,
+    }));
+  const enMemoria = borradores.obtener(input.draftId);
   const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return { status: 404, body: { error: "borrador inexistente" } };
     if (enMemoria.cuit === null || enMemoria.totalCentavos === null) {
       return { status: 422, body: { error: "borrador sin cuit o total" } };
     }
-    return responder(
-      enMemoria.id,
-      enMemoria.cuit,
-      enMemoria.totalCentavos,
-      [...store.purchaseOrders.values()].map((o) => ({
-        id: o.id,
-        supplierCuit: o.supplierCuit,
-        estado: o.estado,
-        totalCentavos: o.totalCentavos,
-      })),
-    );
+    return responder(enMemoria.id, enMemoria.cuit, enMemoria.totalCentavos, aMatchables(ocs));
   }
 
   try {
@@ -523,25 +551,15 @@ export async function matchearBorradorRepo(input: { draftId: string }): Promise<
       borrador.id,
       borrador.cuit,
       borrador.totalCentavos,
-      unionOrdenes(store.purchaseOrders.values(), await leerOrdenesDb(db)),
+      unionOrdenes(ocs.comoMapaSoloLectura().values(), await leerOrdenesDb(db)),
     );
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     if (!enMemoria) return { status: 404, body: { error: "borrador inexistente" } };
     if (enMemoria.cuit === null || enMemoria.totalCentavos === null) {
       return { status: 422, body: { error: "borrador sin cuit o total" } };
     }
-    return responder(
-      enMemoria.id,
-      enMemoria.cuit,
-      enMemoria.totalCentavos,
-      [...store.purchaseOrders.values()].map((o) => ({
-        id: o.id,
-        supplierCuit: o.supplierCuit,
-        estado: o.estado,
-        totalCentavos: o.totalCentavos,
-      })),
-    );
+    return responder(enMemoria.id, enMemoria.cuit, enMemoria.totalCentavos, aMatchables(ocs));
   }
 }
 
@@ -552,27 +570,33 @@ export async function estadoCuentaRepo(input: { cuit: string }): Promise<{
   totalPagadoCentavos: string;
   saldoCentavos: string;
 }> {
+  const facturasProv = crearAlmacenFacturasProv();
+  const pagosProv = crearAlmacenPagosProv();
   const ncuit = normalizarCuit(input.cuit);
   const soloMemoria = () =>
-    estadoCuenta(ncuit, [...store.facturasProv.values()], [...store.pagosProv.values()]);
+    estadoCuenta(
+      ncuit,
+      [...facturasProv.comoMapaSoloLectura().values()],
+      [...pagosProv.comoMapaSoloLectura().values()],
+    );
 
   const db = dbVivaTenant();
   if (!db) return aJson(soloMemoria());
 
   try {
-    const facturas = [...store.facturasProv.values()];
+    const facturas = [...facturasProv.comoMapaSoloLectura().values()];
     const vistosF = new Set(facturas.map((f) => f.id));
     for (const f of await leerFacturasPorCuit(db, ncuit)) {
       if (!vistosF.has(f.id)) facturas.push(f);
     }
-    const pagos = [...store.pagosProv.values()];
+    const pagos = [...pagosProv.comoMapaSoloLectura().values()];
     const vistosP = new Set(pagos.map((p) => p.id));
     for (const p of await leerPagosPorCuit(db, ncuit)) {
       if (!vistosP.has(p.id)) pagos.push(p);
     }
     return aJson(estadoCuenta(ncuit, facturas, pagos));
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    facturasProv.anteFalloPersistencia(e);
     return aJson(soloMemoria());
   }
 }
@@ -600,8 +624,13 @@ export interface PagoProveedorInput {
   readonly ahoraIso: string;
 }
 
-async function espejoPago(pago: PagoProveedor, montoCentavos: bigint, metodo: Medio): Promise<void> {
-  store.pagosProv.set(pago.idempotencyKey, pago);
+async function espejoPago(
+  pago: PagoProveedor,
+  montoCentavos: bigint,
+  metodo: Medio,
+  pagosProv: AlmacenVivo<PagoProveedor>,
+): Promise<void> {
+  pagosProv.guardar(pago.idempotencyKey, pago);
   await registrarEgresoRetiro({ key: pago.idempotencyKey, montoCentavos, metodo });
 }
 
@@ -609,24 +638,34 @@ async function espejoPago(pago: PagoProveedor, montoCentavos: bigint, metodo: Me
 // (409 real aunque la memoria este fria); el egreso va por el repo de caja.
 // Sin DB o ante error, la via memoria historica.
 export async function registrarPagoProveedorRepo(input: PagoProveedorInput): Promise<RespuestaRepo> {
+  const facturasProv = crearAlmacenFacturasProv();
+  const pagosProv = crearAlmacenPagosProv();
   const cuit = normalizarCuit(input.supplierCuit);
 
   const db = dbVivaTenant();
   if (!db) {
-    return viaMemoria(input.facturaId, input.key, cuit, input, [...store.pagosProv.values()]);
+    return viaMemoria(
+      input.facturaId,
+      input.key,
+      cuit,
+      input,
+      [...pagosProv.comoMapaSoloLectura().values()],
+      facturasProv,
+      pagosProv,
+    );
   }
 
   try {
     const factura =
       input.facturaId !== undefined
-        ? ((store.facturasProv.get(input.facturaId) ??
+        ? ((facturasProv.obtener(input.facturaId) ??
             (await leerFacturaPorId(db, input.facturaId))?.factura) ??
           null)
         : null;
     if (input.facturaId !== undefined && !factura) {
       return { status: 404, body: { error: "factura inexistente" } };
     }
-    const pagosPrevios = [...store.pagosProv.values()];
+    const pagosPrevios = [...pagosProv.comoMapaSoloLectura().values()];
     const vistosP = new Set(pagosPrevios.map((p) => p.id));
     for (const p of await leerPagosPorCuit(db, cuit)) {
       if (!vistosP.has(p.id)) pagosPrevios.push(p);
@@ -640,7 +679,7 @@ export async function registrarPagoProveedorRepo(input: PagoProveedorInput): Pro
       fechaIso: input.fechaIso,
       creadoPor: input.creadoPor,
       ahoraIso: input.ahoraIso,
-      vistos: store.pagosProv,
+      vistos: pagosProv.comoMapaSoloLectura(),
       pagosPrevios,
     };
     const r = registrarPago(comando);
@@ -686,14 +725,22 @@ export async function registrarPagoProveedorRepo(input: PagoProveedorInput): Pro
         body: { error: r2.status !== 201 ? r2.error : "idempotency-key repetida" },
       };
     }
-    await espejoPago(r.pago, r.egresoCaja.montoCentavos, r.egresoCaja.metodo);
+    await espejoPago(r.pago, r.egresoCaja.montoCentavos, r.egresoCaja.metodo, pagosProv);
     return {
       status: 201,
       body: { pago_id: r.pago.id, monto_centavos: r.pago.montoCentavos.toString(), fuente: "db" },
     };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return viaMemoria(input.facturaId, input.key, cuit, input, [...store.pagosProv.values()]);
+    pagosProv.anteFalloPersistencia(e);
+    return viaMemoria(
+      input.facturaId,
+      input.key,
+      cuit,
+      input,
+      [...pagosProv.comoMapaSoloLectura().values()],
+      facturasProv,
+      pagosProv,
+    );
   }
 }
 
@@ -712,8 +759,10 @@ async function viaMemoria(
   cuit: string,
   input: PagoProveedorInput,
   pagosPrevios: PagoProveedor[],
+  facturasProv: AlmacenVivo<Factura>,
+  pagosProv: AlmacenVivo<PagoProveedor>,
 ): Promise<RespuestaRepo> {
-  const factura = facturaId !== undefined ? (store.facturasProv.get(facturaId) ?? null) : null;
+  const factura = facturaId !== undefined ? (facturasProv.obtener(facturaId) ?? null) : null;
   if (facturaId !== undefined && !factura) {
     return { status: 404, body: { error: "factura inexistente" } };
   }
@@ -726,11 +775,11 @@ async function viaMemoria(
     fechaIso: input.fechaIso,
     creadoPor: input.creadoPor,
     ahoraIso: input.ahoraIso,
-    vistos: store.pagosProv,
+    vistos: pagosProv.comoMapaSoloLectura(),
     pagosPrevios,
   });
   if (r.status !== 201) return { status: r.status, body: { error: r.error } };
-  await espejoPago(r.pago, r.egresoCaja.montoCentavos, r.egresoCaja.metodo);
+  await espejoPago(r.pago, r.egresoCaja.montoCentavos, r.egresoCaja.metodo, pagosProv);
   return { status: 201, body: { pago_id: r.pago.id, monto_centavos: r.pago.montoCentavos.toString() } };
 }
 
@@ -758,6 +807,8 @@ export type IngestaOcrResultado =
   | { status: 422; error: string };
 
 export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<IngestaOcrResultado> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
   const r = ingerirBorrador({
     idempotencyKey: input.key,
     origen: input.origen,
@@ -770,18 +821,18 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
     confianza: { ...input.confianza },
     fotoPendiente: input.fotoPendiente,
     ahoraIso: input.ahoraIso,
-    vistos: store.borradorVistos,
+    vistos: borradorVistos.comoMapaSoloLectura(),
   });
   if (r.status === 415 || r.status === 422) return { status: r.status, error: r.error };
   if (r.status === 200) {
-    store.borradorVistos.set(input.key, r.borrador);
-    store.borradores.set(r.borrador.id, r.borrador);
+    borradorVistos.guardar(input.key, r.borrador);
+    borradores.guardar(r.borrador.id, r.borrador);
     return { status: 200, borrador: r.borrador, duplicado: true };
   }
 
   const espejo = () => {
-    store.borradorVistos.set(input.key, r.borrador);
-    store.borradores.set(r.borrador.id, r.borrador);
+    borradorVistos.guardar(input.key, r.borrador);
+    borradores.guardar(r.borrador.id, r.borrador);
   };
 
   const db = dbVivaTenant();
@@ -793,8 +844,8 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
   try {
     const previo = await leerBorradorPorKey(db, input.key);
     if (previo) {
-      store.borradorVistos.set(input.key, previo.borrador);
-      store.borradores.set(previo.borrador.id, previo.borrador);
+      borradorVistos.guardar(input.key, previo.borrador);
+      borradores.guardar(previo.borrador.id, previo.borrador);
       return { status: 200, borrador: previo.borrador, duplicado: true };
     }
     await db
@@ -820,7 +871,7 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
     espejo();
     return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     espejo();
     return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
   }
@@ -828,20 +879,22 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
 
 // Lectura de borrador para el canal OCR: memoria primero, DB despues.
 export async function leerBorradorOcrRepo(draftId: string): Promise<Borrador | null> {
-  const enMemoria = store.borradores.get(draftId);
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
+  const enMemoria = borradores.obtener(draftId);
   if (enMemoria) return enMemoria;
   const db = dbVivaTenant();
   if (!db) return null;
   try {
     const fila = await leerBorradorPorId(db, draftId);
     if (fila) {
-      store.borradores.set(fila.borrador.id, fila.borrador);
-      store.borradorVistos.set(fila.borrador.idempotencyKey, fila.borrador);
+      borradores.guardar(fila.borrador.id, fila.borrador);
+      borradorVistos.guardar(fila.borrador.idempotencyKey, fila.borrador);
       return fila.borrador;
     }
     return null;
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     return null;
   }
 }
@@ -858,12 +911,14 @@ export async function editarBorradorOcrRepo(input: {
   parche: ParcheBorrador;
   ahoraIso: string;
 }): Promise<EdicionOcrResultado> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
   const base = await leerBorradorOcrRepo(input.draftId);
   if (!base) return { status: 404, error: "borrador inexistente" };
   const r = editarBorrador(base, input.parche, input.ahoraIso);
   if (r.status !== 200) return r;
-  store.borradores.set(r.borrador.id, r.borrador);
-  store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+  borradores.guardar(r.borrador.id, r.borrador);
+  borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
   const db = dbVivaTenant();
   if (!db) return r;
   try {
@@ -900,7 +955,7 @@ export async function editarBorradorOcrRepo(input: {
     }
     return r;
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     return r;
   }
 }
@@ -917,14 +972,17 @@ export async function confirmarBorradorOcrRepo(input: {
   quien: string;
   ahoraIso: string;
 }): Promise<ConfirmacionOcrResultado> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
+  const facturasProv = crearAlmacenFacturasProv();
   const base = await leerBorradorOcrRepo(input.draftId);
   if (!base) return { status: 404, error: "borrador inexistente" };
   const r = confirmarBorrador(base, { quien: input.quien, ahoraIso: input.ahoraIso });
   if (r.status !== 201) return { status: r.status, error: r.error };
   const espejo = () => {
-    store.borradores.set(r.borrador.id, r.borrador);
-    store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
-    store.facturasProv.set(r.factura.id, r.factura);
+    borradores.guardar(r.borrador.id, r.borrador);
+    borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
+    facturasProv.guardar(r.factura.id, r.factura);
   };
   const db = dbVivaTenant();
   if (!db) {
@@ -959,7 +1017,7 @@ export async function confirmarBorradorOcrRepo(input: {
     espejo();
     return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     espejo();
     return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
   }
@@ -975,12 +1033,14 @@ export async function descartarBorradorOcrRepo(input: {
   draftId: string;
   ahoraIso: string;
 }): Promise<DescarteOcrResultado> {
+  const borradores = crearAlmacenBorradores();
+  const borradorVistos = crearAlmacenBorradorVistos();
   const base = await leerBorradorOcrRepo(input.draftId);
   if (!base) return { status: 404, error: "borrador inexistente" };
   const r = descartarBorrador(base, input.ahoraIso);
   if (r.status !== 200) return r;
-  store.borradores.set(r.borrador.id, r.borrador);
-  store.borradorVistos.set(r.borrador.idempotencyKey, r.borrador);
+  borradores.guardar(r.borrador.id, r.borrador);
+  borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
   const db = dbVivaTenant();
   if (!db) return r;
   try {
@@ -990,7 +1050,7 @@ export async function descartarBorradorOcrRepo(input: {
       .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
     return r;
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    borradores.anteFalloPersistencia(e);
     return r;
   }
 }

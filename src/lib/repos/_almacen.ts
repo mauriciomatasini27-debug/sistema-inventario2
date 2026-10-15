@@ -5,6 +5,9 @@ import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
 import type { Ajuste } from "../../modules/pricing/precios.js";
+import type { Borrador, Factura, PagoProveedor } from "../../modules/purchases/facturas.js";
+import type { PurchaseOrder } from "../../modules/purchases/proveedores.js";
+import type { MatchLogEntry } from "../../modules/purchases/matching.js";
 
 export type { StoredMovement };
 
@@ -181,4 +184,35 @@ export function crearListaAuditoria(): ListaAlmacen<AuditEntry> {
 
 export function crearConjuntoWaEnviados(): ConjuntoAlmacen {
   return crearConjunto(store.waEnviados);
+}
+
+// Corte 3: mapas/colecciones de facturas-proveedor. Misma politica que caja:
+// en multi el fallo de DB se propaga como BaseNoDisponible; en single la
+// llamada sigue hacia memoria.
+export function crearAlmacenBorradores(): AlmacenVivo<Borrador> {
+  return crearAlmacenVivo(store.borradores);
+}
+
+export function crearAlmacenBorradorVistos(): AlmacenVivo<Borrador> {
+  return crearAlmacenVivo(store.borradorVistos);
+}
+
+export function crearAlmacenFacturasProv(): AlmacenVivo<Factura> {
+  return crearAlmacenVivo(store.facturasProv);
+}
+
+export function crearAlmacenPagosProv(): AlmacenVivo<PagoProveedor> {
+  return crearAlmacenVivo(store.pagosProv);
+}
+
+export function crearAlmacenPurchaseOrders(): AlmacenVivo<PurchaseOrder> {
+  return crearAlmacenVivo(store.purchaseOrders);
+}
+
+export function crearAlmacenOrderVistos(): AlmacenVivo<PurchaseOrder> {
+  return crearAlmacenVivo(store.orderVistos);
+}
+
+export function crearListaSupplierMatchLog(): ListaAlmacen<MatchLogEntry> {
+  return crearLista(store.supplierMatchLog);
 }
