@@ -1,9 +1,21 @@
 import { eq, sql } from "drizzle-orm";
 import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState } from "../../db/schema-sync.js";
-import { esModoMulti, tenantActual } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { tenantActual } from "../tenant-mode.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  crearAlmacenDeviceSeq,
+  crearAlmacenDeviceSync,
+  crearAlmacenOutbox,
+  crearAlmacenPrecios,
+  crearAlmacenPromociones,
+  crearAlmacenStock,
+  crearContadorTickets,
+  type AlmacenVivo,
+  type ContadorAlmacen,
+  type LatidoSync,
+  type PromocionSync,
+} from "./_almacen.js";
 
 // PERS2-S21/S22 (ADR-0061): outbox, secuencia por dispositivo, mapeos provisorio
 // a definitivo y estado por dispositivo. DB del tenant primero; memoria
@@ -12,10 +24,6 @@ import { store } from "../store.js";
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
-}
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
 }
 
 export interface PushEntrada {
@@ -37,24 +45,28 @@ async function contarOutbox(db: TenantDb): Promise<number> {
   return Number(filas[0]?.n ?? 0);
 }
 
-function pushEnMemoria(b: PushEntrada): RespuestaRepo {
-  const prev = store.outbox.get(b.opId);
+function pushEnMemoria(
+  b: PushEntrada,
+  buzon: AlmacenVivo<unknown>,
+  secuencias: AlmacenVivo<number>,
+): RespuestaRepo {
+  const prev = buzon.obtener(b.opId);
   if (prev) {
     const same = JSON.stringify(prev) === JSON.stringify(b.payload);
     if (!same) return { status: 409, cuerpo: { error: "op_id duplicado", original: prev } };
-    return { status: 200, cuerpo: { op_id: b.opId, cursor_nuevo: String(store.outbox.size) } };
+    return { status: 200, cuerpo: { op_id: b.opId, cursor_nuevo: String(buzon.comoMapaSoloLectura().size) } };
   }
   // deviceSeq has no table: la secuencia por dispositivo vive en memoria del repo.
-  const lastSeq = store.deviceSeq.get(b.deviceCode) ?? 0;
+  const lastSeq = secuencias.obtener(b.deviceCode) ?? 0;
   if (b.deviceSeq <= lastSeq) {
     return { status: 422, cuerpo: { error: "device_seq duplicado o desordenado" } };
   }
-  store.outbox.set(b.opId, b.payload);
-  store.deviceSeq.set(b.deviceCode, b.deviceSeq);
+  buzon.guardar(b.opId, b.payload);
+  secuencias.guardar(b.deviceCode, b.deviceSeq);
   const idMapeado = `srv-${b.opId.slice(0, 8)}`;
   return {
     status: 201,
-    cuerpo: { op_id: b.opId, cursor_nuevo: String(store.outbox.size), id_mapeado: idMapeado },
+    cuerpo: { op_id: b.opId, cursor_nuevo: String(buzon.comoMapaSoloLectura().size), id_mapeado: idMapeado },
   };
 }
 
@@ -72,8 +84,10 @@ async function replayDb(db: TenantDb, opId: string, payload: unknown, fila: { pa
 // Push idempotente por op_id con secuencia por dispositivo. Carrera entre
 // pre-check e insert responde el mismo 200/409 con relectura.
 export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
+  const buzon = crearAlmacenOutbox();
+  const secuencias = crearAlmacenDeviceSeq();
   const db = dbVivaTenant();
-  if (!db) return pushEnMemoria(b);
+  if (!db) return pushEnMemoria(b, buzon, secuencias);
   try {
     const previo = await db.select().from(outbox).where(eq(outbox.opId, b.opId)).limit(1);
     const fila = previo[0];
@@ -84,7 +98,7 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
       .from(outbox)
       .where(eq(outbox.deviceCode, b.deviceCode));
     // deviceSeq has no table: la secuencia por dispositivo vive en memoria del repo.
-    const lastSeq = Math.max(Number(maxFilas[0]?.m ?? 0), store.deviceSeq.get(b.deviceCode) ?? 0);
+    const lastSeq = Math.max(Number(maxFilas[0]?.m ?? 0), secuencias.obtener(b.deviceCode) ?? 0);
     if (b.deviceSeq <= lastSeq) {
       return { status: 422, cuerpo: { error: "device_seq duplicado o desordenado" } };
     }
@@ -104,8 +118,8 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
         .values({ opId: b.opId, idProvisorio: b.opId, idDefinitivo: idMapeado })
         .onConflictDoNothing({ target: idMappings.opId });
     });
-    store.outbox.set(b.opId, b.payload);
-    store.deviceSeq.set(b.deviceCode, b.deviceSeq);
+    buzon.guardar(b.opId, b.payload);
+    secuencias.guardar(b.deviceCode, b.deviceSeq);
     const total = await contarOutbox(db);
     return {
       status: 201,
@@ -121,8 +135,8 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
         // Cae al espejo memoria de abajo.
       }
     }
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return pushEnMemoria(b);
+    buzon.anteFalloPersistencia(e);
+    return pushEnMemoria(b, buzon, secuencias);
   }
 }
 
@@ -152,27 +166,34 @@ async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
 }
 
 // Catálogo del delta en memoria: solo para single sin base y fallback single.
-function catalogoMemoria(): LoteSync["catalogo"] {
+function catalogoMemoria(stock: AlmacenVivo<number>, precios: AlmacenVivo<number>): LoteSync["catalogo"] {
   return {
-    stock: Object.fromEntries(store.stock.entries()),
-    prices: Object.fromEntries(store.prices.entries()),
+    stock: Object.fromEntries(stock.comoMapaSoloLectura().entries()),
+    prices: Object.fromEntries(precios.comoMapaSoloLectura().entries()),
   };
 }
 
-function loteEnMemoria(start: number, limite: number): LoteSync {
-  const entries = Array.from(store.outbox.entries());
+function loteEnMemoria(
+  start: number,
+  limite: number,
+  buzon: AlmacenVivo<unknown>,
+  promociones: AlmacenVivo<PromocionSync>,
+  stock: AlmacenVivo<number>,
+  precios: AlmacenVivo<number>,
+): LoteSync {
+  const entries = Array.from(buzon.comoMapaSoloLectura().entries());
   const page = entries.slice(start, start + limite);
   const movimientos = page.map(([op_id, payload]) => ({ op_id, payload }));
   return {
     movimientos,
     cursorNuevo: String(start + page.length),
-    mappings: Array.from(store.promociones.entries()).map(([op_id, m]) => ({
+    mappings: Array.from(promociones.comoMapaSoloLectura().entries()).map(([op_id, m]) => ({
       op_id,
       prov: m.provisorio,
       def: m.definitivo,
     })),
-    catalogo: catalogoMemoria(),
-    total: store.outbox.size,
+    catalogo: catalogoMemoria(stock, precios),
+    total: buzon.comoMapaSoloLectura().size,
     fuente: "memoria",
   };
 }
@@ -180,8 +201,12 @@ function loteEnMemoria(start: number, limite: number): LoteSync {
 // Pull con el mismo paginado por offset; con base viva el catálogo sale de
 // products del tenant (PERS6-S1 / ADR-0081), en memoria solo sin base.
 export async function leerLote(start: number, limite: number): Promise<LoteSync> {
+  const buzon = crearAlmacenOutbox();
+  const promociones = crearAlmacenPromociones();
+  const stock = crearAlmacenStock();
+  const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
-  if (!db) return loteEnMemoria(start, limite);
+  if (!db) return loteEnMemoria(start, limite, buzon, promociones, stock, precios);
   try {
     const filas = await db
       .select()
@@ -201,8 +226,8 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
       fuente: "db",
     };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return loteEnMemoria(start, limite);
+    buzon.anteFalloPersistencia(e);
+    return loteEnMemoria(start, limite, buzon, promociones, stock, precios);
   }
 }
 
@@ -222,13 +247,16 @@ function esPromovido(definitivo: string): boolean {
 // El número sale de ticket_counters con lock en la misma tx (DB) o del
 // contador del store compartido con ventas (memoria/single sin DB).
 export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRepo> {
+  const promociones = crearAlmacenPromociones();
+  const buzon = crearAlmacenOutbox();
+  const contador: ContadorAlmacen = crearContadorTickets();
   const db = dbVivaTenant();
   if (db) {
     try {
       const previoDb = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
       const previoDbRow = previoDb?.[0];
       if (previoDbRow && esPromovido(previoDbRow.idDefinitivo)) {
-        store.promociones.set(b.opId, { provisorio: previoDbRow.idProvisorio, definitivo: previoDbRow.idDefinitivo });
+        promociones.guardar(b.opId, { provisorio: previoDbRow.idProvisorio, definitivo: previoDbRow.idDefinitivo });
         return {
           status: 200,
           cuerpo: {
@@ -240,10 +268,10 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         };
       }
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      promociones.anteFalloPersistencia(e);
     }
   }
-  const previo = store.promociones.get(b.opId);
+  const previo = promociones.obtener(b.opId);
   if (previo) {
     return {
       status: 200,
@@ -256,22 +284,22 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
     };
   }
 
-  let hayOp = store.outbox.has(b.opId);
+  let hayOp = buzon.contiene(b.opId);
   if (db && !hayOp) {
     try {
       const opsDb = await db.select({ opId: outbox.opId }).from(outbox).where(eq(outbox.opId, b.opId));
       hayOp = (opsDb?.length ?? 0) > 0;
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      promociones.anteFalloPersistencia(e);
     }
   }
   if (!hayOp) return { status: 404, cuerpo: { error: "op desconocido" } };
 
   const provisorio = `${b.deviceCode}-${b.deviceSeq}`;
   if (!db) {
-    const definitivo = `T-${String(store.nextTicket).padStart(6, "0")}`;
-    store.nextTicket += 1;
-    store.promociones.set(b.opId, { provisorio, definitivo });
+    const definitivo = `T-${String(contador.leer()).padStart(6, "0")}`;
+    contador.fijar(contador.leer() + 1);
+    promociones.guardar(b.opId, { provisorio, definitivo });
     return {
       status: 201,
       cuerpo: {
@@ -311,8 +339,8 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, "mostrador"));
       return { definitivo, provisorio, gano: true };
     });
-    store.promociones.set(b.opId, { provisorio: salida.provisorio, definitivo: salida.definitivo });
-    store.nextTicket = Math.max(store.nextTicket, Number(salida.definitivo.slice(2)) + 1);
+    promociones.guardar(b.opId, { provisorio: salida.provisorio, definitivo: salida.definitivo });
+    contador.fijar(Math.max(contador.leer(), Number(salida.definitivo.slice(2)) + 1));
     return {
       status: salida.gano ? 201 : 200,
       cuerpo: {
@@ -328,7 +356,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         const previo = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
         const fila = previo[0];
         if (fila && esPromovido(fila.idDefinitivo)) {
-          store.promociones.set(b.opId, { provisorio: fila.idProvisorio, definitivo: fila.idDefinitivo });
+          promociones.guardar(b.opId, { provisorio: fila.idProvisorio, definitivo: fila.idDefinitivo });
           return {
             status: 200,
             cuerpo: {
@@ -343,10 +371,10 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         // Cae al 503/throw de abajo.
       }
     }
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    const definitivo = `T-${String(store.nextTicket).padStart(6, "0")}`;
-    store.nextTicket += 1;
-    store.promociones.set(b.opId, { provisorio, definitivo });
+    promociones.anteFalloPersistencia(e);
+    const definitivo = `T-${String(contador.leer()).padStart(6, "0")}`;
+    contador.fijar(contador.leer() + 1);
+    promociones.guardar(b.opId, { provisorio, definitivo });
     return {
       status: 201,
       cuerpo: {
@@ -373,13 +401,15 @@ export interface LatidoEntrada {
 }
 
 export function leerLatidoPrevio(deviceCode: string): LatidoPrevio | null {
-  return store.deviceSync.get(deviceCode) ?? null;
+  const latidos: AlmacenVivo<LatidoSync> = crearAlmacenDeviceSync();
+  return latidos.obtener(deviceCode) ?? null;
 }
 
 // Heartbeat: registra device_sync_state (ultima vista + pendientes + ultima op).
 // Espejo en memoria para el indicador; tabla del tenant con DB viva.
 export async function guardarLatido(b: LatidoEntrada): Promise<void> {
-  store.deviceSync.set(b.deviceCode, {
+  const latidos = crearAlmacenDeviceSync();
+  latidos.guardar(b.deviceCode, {
     ultimaVistaEn: b.ultimaVistaEn,
     pendientes: b.pendientes,
     ultimaOpHlc: b.ultimaOpHlc,
@@ -407,6 +437,6 @@ export async function guardarLatido(b: LatidoEntrada): Promise<void> {
         },
       });
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    latidos.anteFalloPersistencia(e);
   }
 }

@@ -251,3 +251,51 @@ export function crearContadorOrdenesPago(): ContadorAlmacen {
     },
   };
 }
+
+// Corte 5: mapas y contador de sync. Misma politica que caja: en multi el
+// fallo de DB se propaga como BaseNoDisponible; en single la llamada sigue
+// hacia memoria. Precios y stock son mapas compartidos que otros repos
+// reutilizan en cortes siguientes; el contador no toca DB y no tiene fallo.
+export function crearAlmacenOutbox(): AlmacenVivo<unknown> {
+  return crearAlmacenVivo(store.outbox);
+}
+
+export function crearAlmacenDeviceSeq(): AlmacenVivo<number> {
+  return crearAlmacenVivo(store.deviceSeq);
+}
+
+export interface PromocionSync {
+  provisorio: string;
+  definitivo: string;
+}
+
+export function crearAlmacenPromociones(): AlmacenVivo<PromocionSync> {
+  return crearAlmacenVivo(store.promociones);
+}
+
+export interface LatidoSync {
+  ultimaVistaEn: string;
+  pendientes: number;
+  ultimaOpHlc: string | null;
+}
+
+export function crearAlmacenDeviceSync(): AlmacenVivo<LatidoSync> {
+  return crearAlmacenVivo(store.deviceSync);
+}
+
+export function crearAlmacenPrecios(): AlmacenVivo<number> {
+  return crearAlmacenVivo(store.prices);
+}
+
+export function crearAlmacenStock(): AlmacenVivo<number> {
+  return crearAlmacenVivo(store.stock);
+}
+
+export function crearContadorTickets(): ContadorAlmacen {
+  return {
+    leer: () => store.nextTicket,
+    fijar: (valor) => {
+      store.nextTicket = valor;
+    },
+  };
+}
