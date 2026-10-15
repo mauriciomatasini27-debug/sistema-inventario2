@@ -12,12 +12,12 @@ export TMPDIR="$PWD/.pstack-tmp"
 spid=$(pgrep -f "opencode serve .*--port $PORT" | head -1 || true)
 if [ -n "${GH_TOKEN:-}" ] && [ -n "$spid" ] && ! tr '\0' '\n' < /proc/$spid/environ 2>/dev/null | grep -q '^GH_TOKEN='; then
   echo "pstack-run: restarting opencode serve to pick up GH_TOKEN" >&2
-  kill "$spid"; for _ in $(seq 1 10); do curl -fsS -o /dev/null "$URL/doc" 2>/dev/null || break; sleep 1; done
+  kill "$spid"; for _ in $(seq 1 10); do curl -fsS --max-time 5 -o /dev/null "$URL/doc" 2>/dev/null || break; sleep 1; done
 fi
-if ! curl -fsS -o /dev/null "$URL/doc" 2>/dev/null; then
+if ! curl -fsS --max-time 5 -o /dev/null "$URL/doc" 2>/dev/null; then
   setsid nohup "$OC" serve --hostname 127.0.0.1 --port "$PORT" </dev/null >/tmp/opencode-serve.log 2>&1 &
-  for _ in $(seq 1 30); do curl -fsS -o /dev/null "$URL/doc" 2>/dev/null && break; sleep 1; done
-  curl -fsS -o /dev/null "$URL/doc" 2>/dev/null || { echo "opencode serve did not start, see /tmp/opencode-serve.log" >&2; exit 1; }
+  for _ in $(seq 1 30); do curl -fsS --max-time 5 -o /dev/null "$URL/doc" 2>/dev/null && break; sleep 1; done
+  curl -fsS --max-time 5 -o /dev/null "$URL/doc" 2>/dev/null || { echo "opencode serve did not start, see /tmp/opencode-serve.log" >&2; exit 1; }
   # Known issue (OpenCode 1.19.0): the first attach after a cold start can hang. Burn it on a throwaway warm-up.
   timeout 45 "$OC" run --attach "$URL" --dir "$PWD" "Reply OK" </dev/null >/dev/null 2>&1 || true
 fi

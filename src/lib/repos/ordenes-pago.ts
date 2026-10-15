@@ -2,9 +2,17 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { cashMovements } from "../../db/schema.js";
 import { payees, paymentOrderEvents, paymentOrders } from "../../db/schema-pagos.js";
-import { esModoMulti, tenantActual } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { store } from "../store.js";
+import { tenantActual } from "../tenant-mode.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import {
+  crearAlmacenPayees,
+  crearAlmacenPaymentOrders,
+  crearAlmacenPaymentOrderVistos,
+  crearAlmacenPaymentPagosVistos,
+  crearContadorOrdenesPago,
+  type AlmacenVivo,
+  type ContadorAlmacen,
+} from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import type { Payee, PayeeTipo } from "../../modules/payments/beneficiarios.js";
 import { crear_payee } from "../../modules/payments/beneficiarios.js";
@@ -30,10 +38,6 @@ import { registrarEgresoRetiro } from "./caja.js";
 // dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
 // Los egresos de caja van por el repo de caja.
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
 export interface RespuestaRepo {
   status: number;
   body: Record<string, unknown>;
@@ -51,8 +55,8 @@ export function limpiarVistosNotif(): void {
 }
 
 function claveNotif(notifId: string): string {
-  if (!esModoMulti()) return notifId;
-  return `${tenantActual() ?? "?"}:${notifId}`;
+  const t = tenantActual();
+  return t === undefined ? notifId : `${t}:${notifId}`;
 }
 
 function payeeDeFila(f: typeof payees.$inferSelect): Payee {
@@ -69,8 +73,8 @@ function payeeDeFila(f: typeof payees.$inferSelect): Payee {
   };
 }
 
-async function payeesVivos(db: TenantDb): Promise<Map<string, Payee>> {
-  const vivos = new Map<string, Payee>(store.payees);
+async function payeesVivos(db: TenantDb, payeesAlm: AlmacenVivo<Payee>): Promise<Map<string, Payee>> {
+  const vivos = new Map<string, Payee>(payeesAlm.comoMapaSoloLectura());
   try {
     const filas = await db.select().from(payees).where(eq(payees.activo, true));
     for (const f of filas) {
@@ -175,17 +179,15 @@ function maxSufijo(numeros: ReadonlyArray<string>): number {
   return max;
 }
 
-// Numeracion por tenant: con DB viva el siguiente sale del maximo entre las
-// filas del tenant y el espejo memoria; sin base rige el contador en memoria.
-async function siguienteNumero(db: TenantDb | null): Promise<{ numero: string; n: number }> {
-  if (!db) {
-    const n = store.payOrderCounter;
-    return { numero: `OP-${String(n).padStart(4, "0")}`, n };
-  }
+async function siguienteNumero(
+  db: TenantDb,
+  ordenes: AlmacenVivo<PaymentOrder>,
+  vistos: AlmacenVivo<PaymentOrder>,
+): Promise<{ numero: string; n: number }> {
   const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders);
   const numeros = filas.map((f) => f.numero);
-  for (const o of store.paymentOrders.values()) numeros.push(o.numero);
-  for (const o of store.paymentOrderVistos.values()) numeros.push(o.numero);
+  for (const o of ordenes.comoMapaSoloLectura().values()) numeros.push(o.numero);
+  for (const o of vistos.comoMapaSoloLectura().values()) numeros.push(o.numero);
   const n = maxSufijo(numeros) + 1;
   return { numero: `OP-${String(n).padStart(4, "0")}`, n };
 }
@@ -207,15 +209,19 @@ export interface PrepararOrdenInput {
 
 // El bot prepara, el comerciante paga. La plata NUNCA se mueve aca.
 export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<RespuestaRepo> {
+  const ordenes = crearAlmacenPaymentOrders();
+  const vistos = crearAlmacenPaymentOrderVistos();
+  const payees = crearAlmacenPayees();
+  const contador: ContadorAlmacen = crearContadorOrdenesPago();
   const db = dbVivaTenant();
   if (!db) {
-    const n = store.payOrderCounter;
+    const n = contador.leer();
     const r = preparar_orden({
       id: randomUUID(),
       idempotencyKey: input.key,
       numero: `OP-${String(n).padStart(4, "0")}`,
       payeeId: input.payeeId,
-      payees: store.payees,
+      payees: payees.comoMapaSoloLectura(),
       concepto: input.concepto,
       montoCentavos: input.montoCentavos,
       venceElMs: input.venceElMs,
@@ -228,30 +234,30 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
       creadoPor: input.creadoPor,
       origen: "web",
       ahoraMs: Date.now(),
-      vistos: store.paymentOrderVistos,
+      vistos: vistos.mapaVivo(),
     });
     if (!r.ok) return mapearFalloOrden(r);
-    store.payOrderCounter = n + 1;
-    store.paymentOrders.set(r.orden.id, r.orden);
+    contador.fijar(n + 1);
+    ordenes.guardar(r.orden.id, r.orden);
     return { status: 201, body: { order_id: r.orden.id, numero: r.orden.numero, estado: r.orden.estado } };
   }
 
   try {
     const previo = await leerOrdenPorKey(db, input.key);
     if (previo) {
-      store.paymentOrders.set(previo.id, previo);
-      store.paymentOrderVistos.set(input.key, previo);
+      ordenes.guardar(previo.id, previo);
+      vistos.guardar(input.key, previo);
       return { status: 409, body: { error: "idempotency-key repetida" } };
     }
-    const visto = store.paymentOrderVistos.get(input.key);
+    const visto = vistos.obtener(input.key);
     if (visto) return { status: 409, body: { error: "idempotency-key repetida" } };
-    const { numero, n } = await siguienteNumero(db);
+    const { numero, n } = await siguienteNumero(db, ordenes, vistos);
     const r = preparar_orden({
       id: randomUUID(),
       idempotencyKey: input.key,
       numero,
       payeeId: input.payeeId,
-      payees: await payeesVivos(db),
+      payees: await payeesVivos(db, payees),
       concepto: input.concepto,
       montoCentavos: input.montoCentavos,
       venceElMs: input.venceElMs,
@@ -267,7 +273,7 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
       vistos: new Map(),
     });
     if (!r.ok) return mapearFalloOrden(r);
-    const payee = (await payeesVivos(db)).get(input.payeeId);
+    const payee = (await payeesVivos(db, payees)).get(input.payeeId);
     try {
       await db.transaction(async (tx) => {
         await tx.insert(paymentOrders).values({
@@ -304,28 +310,28 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
     } catch (e) {
       const rival = await ordenRivalTrasConflicto(db, input.key);
       if (rival) {
-        store.paymentOrders.set(rival.id, rival);
-        store.paymentOrderVistos.set(input.key, rival);
+        ordenes.guardar(rival.id, rival);
+        vistos.guardar(input.key, rival);
         return { status: 409, body: { error: "idempotency-key repetida" } };
       }
       throw e;
     }
-    store.payOrderCounter = Math.max(store.payOrderCounter, n + 1);
-    store.paymentOrders.set(r.orden.id, r.orden);
-    store.paymentOrderVistos.set(input.key, r.orden);
+    contador.fijar(Math.max(contador.leer(), n + 1));
+    ordenes.guardar(r.orden.id, r.orden);
+    vistos.guardar(input.key, r.orden);
     return {
       status: 201,
       body: { order_id: r.orden.id, numero: r.orden.numero, estado: r.orden.estado, fuente: "db" },
     };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    const n = store.payOrderCounter;
+    ordenes.anteFalloPersistencia(e);
+    const n = contador.leer();
     const r = preparar_orden({
       id: randomUUID(),
       idempotencyKey: input.key,
       numero: `OP-${String(n).padStart(4, "0")}`,
       payeeId: input.payeeId,
-      payees: store.payees,
+      payees: payees.comoMapaSoloLectura(),
       concepto: input.concepto,
       montoCentavos: input.montoCentavos,
       venceElMs: input.venceElMs,
@@ -338,11 +344,11 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
       creadoPor: input.creadoPor,
       origen: "web",
       ahoraMs: Date.now(),
-      vistos: store.paymentOrderVistos,
+      vistos: vistos.mapaVivo(),
     });
     if (!r.ok) return mapearFalloOrden(r);
-    store.payOrderCounter = n + 1;
-    store.paymentOrders.set(r.orden.id, r.orden);
+    contador.fijar(n + 1);
+    ordenes.guardar(r.orden.id, r.orden);
     return { status: 201, body: { order_id: r.orden.id, numero: r.orden.numero, estado: r.orden.estado } };
   }
 }
@@ -362,11 +368,12 @@ export async function cancelarOrdenRepo(input: {
   motivo: string;
   actor: string;
 }): Promise<RespuestaRepo> {
-  const enMemoria = store.paymentOrders.get(input.orderId);
+  const ordenes = crearAlmacenPaymentOrders();
+  const enMemoria = ordenes.obtener(input.orderId);
   const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return { status: 404, body: { error: "orden inexistente" } };
-    return cancelarEnMemoria(enMemoria, input);
+    return cancelarEnMemoria(ordenes, enMemoria, input);
   }
 
   try {
@@ -397,16 +404,17 @@ export async function cancelarOrdenRepo(input: {
       origen: "web",
       detalle: { motivo: r.orden.motivoCancelacion ?? null },
     });
-    store.paymentOrders.set(r.orden.id, r.orden);
+    ordenes.guardar(r.orden.id, r.orden);
     return { status: 200, body: { order_id: r.orden.id, estado: r.orden.estado, fuente: "db" } };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    ordenes.anteFalloPersistencia(e);
     if (!enMemoria) return { status: 404, body: { error: "orden inexistente" } };
-    return cancelarEnMemoria(enMemoria, input);
+    return cancelarEnMemoria(ordenes, enMemoria, input);
   }
 }
 
 function cancelarEnMemoria(
+  ordenes: AlmacenVivo<PaymentOrder>,
   orden: PaymentOrder,
   input: { orderId: string; versionEsperada: number; motivo: string; actor: string },
 ): RespuestaRepo {
@@ -420,7 +428,7 @@ function cancelarEnMemoria(
     ahoraMs: Date.now(),
   });
   if (!r.ok) return mapearFalloOrden(r);
-  store.paymentOrders.set(input.orderId, r.orden);
+  ordenes.guardar(input.orderId, r.orden);
   return { status: 200, body: { order_id: r.orden.id, estado: r.orden.estado } };
 }
 
@@ -438,7 +446,9 @@ export interface ConfirmarPagoOrdenInput {
 // `Ya pague`. Rol fijo dueno: la ruta ya verificó la membership dueño.
 // Registra el egreso en caja por el repo de caja y marca la orden pagada.
 export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Promise<RespuestaRepo> {
-  const enMemoria = store.paymentOrders.get(input.orderId);
+  const ordenes = crearAlmacenPaymentOrders();
+  const pagosVistos = crearAlmacenPaymentPagosVistos();
+  const enMemoria = ordenes.obtener(input.orderId);
   const db = dbVivaTenant();
   if (!db) {
     if (!enMemoria) return { status: 404, body: { error: "orden inexistente" } };
@@ -454,10 +464,10 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
       actor: input.actor,
       origen: "web",
       ahoraMs: Date.now(),
-      vistosPagos: store.paymentPagosVistos,
+      vistosPagos: pagosVistos.mapaVivo(),
     });
     if (!r.ok) return mapearFalloOrden(r);
-    store.paymentOrders.set(input.orderId, r.efecto.orden);
+    ordenes.guardar(input.orderId, r.efecto.orden);
     await registrarEgresoRetiro({
       key: input.key,
       montoCentavos: r.efecto.egreso.monto_centavos,
@@ -469,7 +479,7 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
   try {
     const orden = enMemoria ?? (await leerOrdenFria(db, input.orderId));
     if (!orden) return { status: 404, body: { error: "orden inexistente" } };
-    if (store.paymentPagosVistos.has(input.key)) {
+    if (pagosVistos.contiene(input.key)) {
       return { status: 409, body: { error: "idempotency-key repetida" } };
     }
     // Replay en frio: el egreso durable con la misma key delata el pago ya hecho.
@@ -522,14 +532,14 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
       actor: input.actor,
       origen: "web",
     });
-    store.paymentOrders.set(r.efecto.orden.id, r.efecto.orden);
-    store.paymentPagosVistos.set(input.key, r.efecto);
+    ordenes.guardar(r.efecto.orden.id, r.efecto.orden);
+    pagosVistos.guardar(input.key, r.efecto);
     return {
       status: 200,
       body: { order_id: r.efecto.orden.id, estado: r.efecto.orden.estado, fuente: "db" },
     };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    ordenes.anteFalloPersistencia(e);
     if (!enMemoria) return { status: 404, body: { error: "orden inexistente" } };
     const r = confirmar_pago({
       idempotencyKey: input.key,
@@ -543,10 +553,10 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
       actor: input.actor,
       origen: "web",
       ahoraMs: Date.now(),
-      vistosPagos: store.paymentPagosVistos,
+      vistosPagos: pagosVistos.mapaVivo(),
     });
     if (!r.ok) return mapearFalloOrden(r);
-    store.paymentOrders.set(input.orderId, r.efecto.orden);
+    ordenes.guardar(input.orderId, r.efecto.orden);
     await registrarEgresoRetiro({
       key: input.key,
       montoCentavos: r.efecto.egreso.monto_centavos,
@@ -611,19 +621,20 @@ export async function sugerirDesdeNotifRepo(input: {
 }
 
 async function listarOrdenesSugerencia(): Promise<PaymentOrder[]> {
+  const ordenes = crearAlmacenPaymentOrders();
   const db = dbVivaTenant();
-  if (!db) return [...store.paymentOrders.values()];
+  if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
     const filas = await db.select().from(paymentOrders);
     const union = new Map<string, PaymentOrder>();
-    for (const o of store.paymentOrders.values()) union.set(o.id, o);
+    for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
       if (!union.has(f.id)) union.set(f.id, ordenDeFila(f, []));
     }
     return [...union.values()];
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return [...store.paymentOrders.values()];
+    ordenes.anteFalloPersistencia(e);
+    return [...ordenes.comoMapaSoloLectura().values()];
   }
 }
 
@@ -631,19 +642,20 @@ async function listarOrdenesSugerencia(): Promise<PaymentOrder[]> {
 // tenant con DB viva (con sus eventos), memoria particionada solo en single
 // sin base. En multi sin base propaga BaseNoDisponible.
 export async function listarOrdenesJob(): Promise<PaymentOrder[]> {
+  const ordenes = crearAlmacenPaymentOrders();
   const db = dbVivaTenant();
-  if (!db) return [...store.paymentOrders.values()];
+  if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
     const filas = await db.select().from(paymentOrders);
     const union = new Map<string, PaymentOrder>();
-    for (const o of store.paymentOrders.values()) union.set(o.id, o);
+    for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
       if (!union.has(f.id)) union.set(f.id, ordenDeFila(f, await eventosDeOrden(db, f.id)));
     }
     return [...union.values()];
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    return [...store.paymentOrders.values()];
+    ordenes.anteFalloPersistencia(e);
+    return [...ordenes.comoMapaSoloLectura().values()];
   }
 }
 
@@ -656,17 +668,18 @@ export async function persistirOrdenesVencidas(input: {
   hoyMs: number;
 }): Promise<void> {
   const marcadas = new Set(input.vencidasIds);
+  const ordenes = crearAlmacenPaymentOrders();
   const db = dbVivaTenant();
   if (!db) {
     for (const o of input.actualizadas) {
-      if (marcadas.has(o.id)) store.paymentOrders.set(o.id, o);
+      if (marcadas.has(o.id)) ordenes.guardar(o.id, o);
     }
     return;
   }
   try {
     for (const o of input.actualizadas) {
       if (!marcadas.has(o.id)) continue;
-      store.paymentOrders.set(o.id, o);
+      ordenes.guardar(o.id, o);
       if (!esUuid(o.id)) continue;
       await db
         .update(paymentOrders)
@@ -682,9 +695,9 @@ export async function persistirOrdenesVencidas(input: {
       });
     }
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    ordenes.anteFalloPersistencia(e);
     for (const o of input.actualizadas) {
-      if (marcadas.has(o.id)) store.paymentOrders.set(o.id, o);
+      if (marcadas.has(o.id)) ordenes.guardar(o.id, o);
     }
   }
 }
@@ -709,9 +722,10 @@ export type AltaPayeeResultado =
 // solo en single sin base usa la memoria particionada. En multi sin base
 // dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
 export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResultado> {
+  const payeesAlm = crearAlmacenPayees();
   const db = dbVivaTenant();
   const existentes = async (): Promise<Payee[]> => {
-    const vivos = [...store.payees.values()];
+    const vivos = [...payeesAlm.comoMapaSoloLectura().values()];
     if (!db) return vivos;
     try {
       const filas = await db.select().from(payees).where(eq(payees.activo, true));
@@ -722,7 +736,7 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
       }
       return [...union.values()];
     } catch (e) {
-      if (esModoMulti()) throw aBaseNoDisponible(e);
+      payeesAlm.anteFalloPersistencia(e);
       return vivos;
     }
   };
@@ -741,7 +755,7 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
     return { ok: false, codigo: r.codigo === "DUPLICADO" ? "DUPLICADO" : "NO_VALIDO", status: r.status, error: r.error };
   }
   if (!db) {
-    store.payees.set(r.payee.id, r.payee);
+    payeesAlm.guardar(r.payee.id, r.payee);
     return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "memoria" };
   }
   try {
@@ -758,11 +772,11 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
         ...(r.payee.linkPagoUrl !== undefined ? { linkPagoUrl: r.payee.linkPagoUrl } : {}),
       })
       .onConflictDoNothing();
-    store.payees.set(r.payee.id, r.payee);
+    payeesAlm.guardar(r.payee.id, r.payee);
     return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
-    store.payees.set(r.payee.id, r.payee);
+    payeesAlm.anteFalloPersistencia(e);
+    payeesAlm.guardar(r.payee.id, r.payee);
     return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "memoria" };
   }
 }

@@ -8,6 +8,8 @@ import type { Ajuste } from "../../modules/pricing/precios.js";
 import type { Borrador, Factura, PagoProveedor } from "../../modules/purchases/facturas.js";
 import type { PurchaseOrder } from "../../modules/purchases/proveedores.js";
 import type { MatchLogEntry } from "../../modules/purchases/matching.js";
+import type { Payee } from "../../modules/payments/beneficiarios.js";
+import type { PagoConfirmado, PaymentOrder } from "../../modules/payments/ordenes.js";
 
 export type { StoredMovement };
 
@@ -215,4 +217,37 @@ export function crearAlmacenOrderVistos(): AlmacenVivo<PurchaseOrder> {
 
 export function crearListaSupplierMatchLog(): ListaAlmacen<MatchLogEntry> {
   return crearLista(store.supplierMatchLog);
+}
+
+// Corte 4: mapas y contador de ordenes-pago. Misma politica que caja: en
+// multi el fallo de DB se propaga como BaseNoDisponible; en single la
+// llamada sigue hacia memoria. El contador no toca DB y no tiene fallo.
+export function crearAlmacenPayees(): AlmacenVivo<Payee> {
+  return crearAlmacenVivo(store.payees);
+}
+
+export function crearAlmacenPaymentOrders(): AlmacenVivo<PaymentOrder> {
+  return crearAlmacenVivo(store.paymentOrders);
+}
+
+export function crearAlmacenPaymentOrderVistos(): AlmacenVivo<PaymentOrder> {
+  return crearAlmacenVivo(store.paymentOrderVistos);
+}
+
+export function crearAlmacenPaymentPagosVistos(): AlmacenVivo<PagoConfirmado> {
+  return crearAlmacenVivo(store.paymentPagosVistos);
+}
+
+export interface ContadorAlmacen {
+  leer(): number;
+  fijar(valor: number): void;
+}
+
+export function crearContadorOrdenesPago(): ContadorAlmacen {
+  return {
+    leer: () => store.payOrderCounter,
+    fijar: (valor) => {
+      store.payOrderCounter = valor;
+    },
+  };
 }
