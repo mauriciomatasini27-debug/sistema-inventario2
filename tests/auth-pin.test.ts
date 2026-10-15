@@ -66,7 +66,11 @@ describe("P1-3 PIN núcleo", () => {
 
   it("hash verifica y no expone el plano", () => {
     const h = hashearPin("1234");
-    expect(h).not.toContain("1234");
+    // El plano no es el hash ni un campo $-separado; la sal/hex puede
+    // contener "1234" por azar (flake en CI).
+    expect(h).not.toBe("1234");
+    expect(h.startsWith("scrypt$")).toBe(true);
+    expect(h.split("$")).not.toContain("1234");
     expect(verificarPin("1234", h)).toBe(true);
     expect(verificarPin("4321", h)).toBe(false);
     expect(verificarPin("1234", "basura")).toBe(false);
