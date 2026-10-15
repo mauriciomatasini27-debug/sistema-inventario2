@@ -1,24 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
+import {
+  crearAlmacenCodigos,
+  crearAlmacenFotosProducto,
+  crearAlmacenPrecios,
+  crearAlmacenProductos,
+  crearAlmacenSectores,
+  crearAlmacenStock,
+  crearAlmacenUbicaciones,
+  type AlmacenVivo,
+  type FichaCatalogo,
+  type UbicacionCatalogo,
+} from "./_almacen.js";
 
 // PERS2-S23 (ADR-0062): catalogo (productos, codigos, fotos, sectores,
 // ubicaciones). DB primero via dbVivaTenant(); solo en single sin base usa la
 // memoria particionada. En multi sin base dbVivaTenant lanza
 // BaseNoDisponible y se propaga (la ruta responde 503). Los sectores quedan
-// donde viven hoy (store.productSectores, sin columna propia en la DB local).
+// en el mapa de sectores en memoria, sin columna propia en la DB local.
 
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
-// Por qué helper único: cada mención textual suma al trinquete.
-function propagarSiMulti(e: unknown): void {
-  if (esModoMulti()) throw aBaseNoDisponible(e);
-}
+export type FichaProducto = FichaCatalogo;
+export type Ubicacion = UbicacionCatalogo;
 
 // Por qué código + mensaje: el driver expone el 23505 y el nombre del índice via mensaje.
 function esChoqueUnicoUbicacion(e: unknown): boolean {
@@ -27,18 +31,8 @@ function esChoqueUnicoUbicacion(e: unknown): boolean {
   return msg.includes("locations_nombre_lower_unique");
 }
 
-function espejarUbicacion(u: Ubicacion): void {
-  store.ubicaciones.set(u.id, u);
-}
-
-export interface FichaProducto {
-  sku: string;
-  nombre: string;
-  precioCentavos: number;
-  sector: string;
-  locationId: string | null;
-  archivado: boolean;
-  controlaVencimiento: boolean;
+function espejarUbicacion(u: Ubicacion, ubicaciones: AlmacenVivo<Ubicacion>): void {
+  ubicaciones.guardar(u.id, u);
 }
 
 function fichaDeFila(f: { sku: string; nombre: string; precioCentavos: bigint }, sector: string): FichaProducto {
@@ -53,21 +47,19 @@ function fichaDeFila(f: { sku: string; nombre: string; precioCentavos: bigint },
   };
 }
 
-function sectorDe(sku: string): string {
-  return store.productSectores.get(sku) ?? "general";
+function sectorDe(sku: string, sectores: AlmacenVivo<string>): string {
+  return sectores.obtener(sku) ?? "general";
 }
 
 // Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
-export interface Ubicacion {
-  id: string;
-  nombre: string;
-  archivada: boolean;
-}
 
 export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: FichaProducto; fuente: "db" | "memoria" } | null> {
+  const productos = crearAlmacenProductos();
+  const codigos = crearAlmacenCodigos();
+  const sectores = crearAlmacenSectores();
   const cod = codigo.trim().toUpperCase();
-  const enMemoria = store.codigos.get(cod);
-  const memoria = enMemoria ? (store.productos.get(enMemoria) ?? null) : null;
+  const enMemoria = codigos.obtener(cod);
+  const memoria = enMemoria ? (productos.obtener(enMemoria) ?? null) : null;
   const db = dbVivaTenant();
   if (!db) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
   try {
@@ -81,16 +73,20 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
       .limit(1);
     const p = prods[0];
     if (!p) return memoria ? { ficha: memoria, fuente: "memoria" } : null;
-    return { ficha: fichaDeFila(p, sectorDe(p.sku)), fuente: "db" };
+    return { ficha: fichaDeFila(p, sectorDe(p.sku, sectores)), fuente: "db" };
   } catch (e) {
-    propagarSiMulti(e);
+    productos.anteFalloPersistencia(e);
     return memoria ? { ficha: memoria, fuente: "memoria" } : null;
   }
 }
 
 export async function listarProductos(q: string): Promise<{ fichas: FichaProducto[]; fuente: "db" | "memoria" }> {
+  const productos = crearAlmacenProductos();
+  const sectores = crearAlmacenSectores();
+  const existencias = crearAlmacenStock();
+  const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
-  if (!db) return { fichas: filtrar([...store.productos.values()], q), fuente: "memoria" };
+  if (!db) return { fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios), fuente: "memoria" };
   try {
     // La DB local puede no tener la columna sector (drift conocido): se
     // leen solo las columnas que existen y el sector queda en memoria.
@@ -98,25 +94,25 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaProduct
       .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
       .from(products);
     const union = new Map<string, FichaProducto>();
-    for (const p of store.productos.values()) union.set(p.sku, p);
+    for (const p of productos.comoMapaSoloLectura().values()) union.set(p.sku, p);
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku)));
+      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores)));
     }
     let lista = [...union.values()];
-    if (lista.length === 0 && store.stock.has("demo-sku-1")) {
-      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: store.prices.get("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
+    if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
+      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
     }
-    return { fichas: filtrar(lista, q), fuente: "db" };
+    return { fichas: filtrar(lista, q, existencias, precios), fuente: "db" };
   } catch (e) {
-    propagarSiMulti(e);
-    return { fichas: filtrar([...store.productos.values()], q), fuente: "memoria" };
+    productos.anteFalloPersistencia(e);
+    return { fichas: filtrar([...productos.comoMapaSoloLectura().values()], q, existencias, precios), fuente: "memoria" };
   }
 }
 
-function filtrar(lista: FichaProducto[], q: string): FichaProducto[] {
+function filtrar(lista: FichaProducto[], q: string, existencias: AlmacenVivo<number>, precios: AlmacenVivo<number>): FichaProducto[] {
   const query = q.trim().toUpperCase();
-  if (lista.length === 0 && store.stock.has("demo-sku-1")) {
-    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: store.prices.get("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
+  if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
+    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false }];
   }
   if (!query) return lista;
   return lista.filter((p) => p.sku.toUpperCase().includes(query) || p.nombre.toUpperCase().includes(query));
@@ -137,12 +133,18 @@ export type AltaProductoResultado =
   | { ok: false; codigo: "SKU_DUPLICADO" | "CODIGO_DUPLICADO"; error: string };
 
 export async function altaProducto(input: AltaProductoInput): Promise<AltaProductoResultado> {
+  const productos = crearAlmacenProductos();
+  const codigos = crearAlmacenCodigos();
+  const existencias = crearAlmacenStock();
+  const precios = crearAlmacenPrecios();
+  const sectores = crearAlmacenSectores();
+  const fotos = crearAlmacenFotosProducto();
   const sku = input.sku.trim().toUpperCase();
-  if (store.productos.has(sku) || store.stock.has(sku) || store.stock.has(input.sku)) {
-    if (store.productos.has(sku)) return { ok: false, codigo: "SKU_DUPLICADO", error: "sku duplicado" };
+  if (productos.contiene(sku) || existencias.contiene(sku) || existencias.contiene(input.sku)) {
+    if (productos.contiene(sku)) return { ok: false, codigo: "SKU_DUPLICADO", error: "sku duplicado" };
   }
   const cod = input.codigo?.trim().toUpperCase() || null;
-  if (cod && store.codigos.has(cod)) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+  if (cod && codigos.contiene(cod)) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
   const ficha: FichaProducto = {
     sku,
     nombre: input.nombre,
@@ -154,7 +156,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
   };
   const db = dbVivaTenant();
   if (!db) {
-    espejoProducto(ficha, cod, input.foto);
+    espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "memoria" };
   }
   try {
@@ -173,25 +175,35 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     if (input.foto) {
       await db.insert(productPhotos).values({ sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes });
     }
-    espejoProducto(ficha, cod, input.foto);
+    espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
-    propagarSiMulti(e);
-    espejoProducto(ficha, cod, input.foto);
+    productos.anteFalloPersistencia(e);
+    espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "memoria" };
   }
 }
 
-function espejoProducto(ficha: FichaProducto, cod: string | null, foto?: { url: string; ancho: number; alto: number; bytes: number } | undefined): void {
-  store.productos.set(ficha.sku, ficha);
-  if (!store.stock.has(ficha.sku)) store.stock.set(ficha.sku, 0);
-  store.prices.set(ficha.sku, ficha.precioCentavos);
-  store.productSectores.set(ficha.sku, ficha.sector);
-  if (cod) store.codigos.set(cod, ficha.sku);
+function espejoProducto(
+  ficha: FichaProducto,
+  cod: string | null,
+  foto: { url: string; ancho: number; alto: number; bytes: number } | undefined,
+  productos: AlmacenVivo<FichaProducto>,
+  existencias: AlmacenVivo<number>,
+  precios: AlmacenVivo<number>,
+  sectores: AlmacenVivo<string>,
+  codigos: AlmacenVivo<string>,
+  fotos: AlmacenVivo<Array<{ id: string; url: string; ancho: number; alto: number; bytes: number }>>,
+): void {
+  productos.guardar(ficha.sku, ficha);
+  if (!existencias.contiene(ficha.sku)) existencias.guardar(ficha.sku, 0);
+  precios.guardar(ficha.sku, ficha.precioCentavos);
+  sectores.guardar(ficha.sku, ficha.sector);
+  if (cod) codigos.guardar(cod, ficha.sku);
   if (foto) {
-    const arr = store.fotosProducto.get(ficha.sku) ?? [];
+    const arr = fotos.obtener(ficha.sku) ?? [];
     arr.push({ id: randomUUID(), url: foto.url, ancho: foto.ancho, alto: foto.alto, bytes: foto.bytes });
-    store.fotosProducto.set(ficha.sku, arr);
+    fotos.guardar(ficha.sku, arr);
   }
 }
 
@@ -207,11 +219,14 @@ export type ActualizarProductoResultado =
   | { ok: false; codigo: "DESCONOCIDO"; error: string };
 
 export async function actualizarProducto(sku: string, parche: ParcheProducto): Promise<ActualizarProductoResultado> {
+  const productos = crearAlmacenProductos();
+  const sectores = crearAlmacenSectores();
+  const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
-  const enMemoria = store.productos.get(sku);
+  const enMemoria = productos.obtener(sku);
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    return { ok: true, ficha: aplicarParche(enMemoria, parche) };
+    return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
   }
   try {
     const filas = await db
@@ -220,22 +235,28 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku)) : null);
+    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores)) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    const next = aplicarParche(base, parche);
+    const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
       .update(products)
       .set({ nombre: next.nombre, precioCentavos: BigInt(next.precioCentavos) })
       .where(eq(products.sku, sku));
     return { ok: true, ficha: next };
   } catch (e) {
-    propagarSiMulti(e);
+    productos.anteFalloPersistencia(e);
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    return { ok: true, ficha: aplicarParche(enMemoria, parche) };
+    return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
   }
 }
 
-function aplicarParche(p: FichaProducto, parche: ParcheProducto): FichaProducto {
+function aplicarParche(
+  p: FichaProducto,
+  parche: ParcheProducto,
+  productos: AlmacenVivo<FichaProducto>,
+  precios: AlmacenVivo<number>,
+  sectores: AlmacenVivo<string>,
+): FichaProducto {
   const next: FichaProducto = {
     ...p,
     ...(parche.nombre ? { nombre: parche.nombre } : {}),
@@ -243,14 +264,15 @@ function aplicarParche(p: FichaProducto, parche: ParcheProducto): FichaProducto 
     ...(parche.sector ? { sector: parche.sector } : {}),
     ...(parche.archivado !== undefined ? { archivado: parche.archivado } : {}),
   };
-  store.productos.set(p.sku, next);
-  if (parche.precioCentavos !== undefined) store.prices.set(p.sku, parche.precioCentavos);
-  if (parche.sector) store.productSectores.set(p.sku, parche.sector);
+  productos.guardar(p.sku, next);
+  if (parche.precioCentavos !== undefined) precios.guardar(p.sku, parche.precioCentavos);
+  if (parche.sector) sectores.guardar(p.sku, parche.sector);
   return next;
 }
 
 export async function listarUbicaciones(): Promise<Ubicacion[]> {
-  const memoria = [...store.ubicaciones.values()];
+  const ubicaciones = crearAlmacenUbicaciones();
+  const memoria = [...ubicaciones.comoMapaSoloLectura().values()];
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
@@ -262,7 +284,7 @@ export async function listarUbicaciones(): Promise<Ubicacion[]> {
     }
     return [...union.values()];
   } catch (e) {
-    propagarSiMulti(e);
+    ubicaciones.anteFalloPersistencia(e);
     return memoria;
   }
 }
@@ -272,6 +294,7 @@ export type AltaUbicacionResultado =
   | { ok: false; codigo: "DUPLICADA"; error: string };
 
 export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResultado> {
+  const ubicaciones = crearAlmacenUbicaciones();
   const limpio = nombre.trim();
   const db = dbVivaTenant();
   if (db) {
@@ -287,18 +310,18 @@ export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResult
         if (esChoqueUnicoUbicacion(ins)) return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
         throw ins;
       }
-      espejarUbicacion(u);
+      espejarUbicacion(u, ubicaciones);
       return { ok: true, ubicacion: u };
     } catch (e) {
-      propagarSiMulti(e);
+      ubicaciones.anteFalloPersistencia(e);
     }
   }
-  for (const u of store.ubicaciones.values()) {
+  for (const u of ubicaciones.comoMapaSoloLectura().values()) {
     if (u.nombre.toLowerCase() === limpio.toLowerCase() && !u.archivada) {
       return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
     }
   }
   const creada: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
-  espejarUbicacion(creada);
+  espejarUbicacion(creada, ubicaciones);
   return { ok: true, ubicacion: creada };
 }

@@ -299,3 +299,51 @@ export function crearContadorTickets(): ContadorAlmacen {
     },
   };
 }
+
+// Corte 6: mapas de catalogo. Misma politica que caja: en multi el fallo
+// de DB se propaga como BaseNoDisponible; en single la llamada sigue hacia
+// memoria. Precios y stock se reutilizan del corte 5; sectores, codigos,
+// productos, fotos y ubicaciones son propios de este corte.
+export interface FichaCatalogo {
+  sku: string;
+  nombre: string;
+  precioCentavos: number;
+  sector: string;
+  locationId: string | null;
+  archivado: boolean;
+  controlaVencimiento: boolean;
+}
+
+export interface UbicacionCatalogo {
+  id: string;
+  nombre: string;
+  archivada: boolean;
+}
+
+export interface FotoProducto {
+  id: string;
+  url: string;
+  ancho: number;
+  alto: number;
+  bytes: number;
+}
+
+export function crearAlmacenProductos(): AlmacenVivo<FichaCatalogo> {
+  return crearAlmacenVivo(store.productos);
+}
+
+export function crearAlmacenCodigos(): AlmacenVivo<string> {
+  return crearAlmacenVivo(store.codigos);
+}
+
+export function crearAlmacenSectores(): AlmacenVivo<string> {
+  return crearAlmacenVivo(store.productSectores);
+}
+
+export function crearAlmacenFotosProducto(): AlmacenVivo<Array<FotoProducto>> {
+  return crearAlmacenVivo(store.fotosProducto);
+}
+
+export function crearAlmacenUbicaciones(): AlmacenVivo<UbicacionCatalogo> {
+  return crearAlmacenVivo(store.ubicaciones);
+}
