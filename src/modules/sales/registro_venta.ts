@@ -260,6 +260,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       if (e.ingresaACaja) {
         await tx.insert(cashMovements).values(
           pagosConId.map((p) => ({
+            id: p.cashMovementId,
             saleId,
             idempotencyKey: esDividido ? `${i.key}:${p.medio}` : i.key,
             tipo: "egreso",

@@ -22,7 +22,7 @@ export const postSalesSchema = z.object({
   lineas: z.array(salesLineSchema).min(1).max(50),
   medio: medioSchema,
   // CAJA-S4: pagos divididos opcionales. Si viene, Σ debe igualar total y
-  // se crean N ingresos (1 por medio). Si ausente, 1 ingreso con medio.
+  // se crean N egresos (1 por medio). Si ausente, 1 egreso con medio.
   pagos: z.array(z.object({ medio: medioSchema, monto_centavos: z.number().int().min(1) })).min(1).max(5).optional(),
   device_code: z.string().min(4).max(32),
   seq_local: z.number().int().positive(),

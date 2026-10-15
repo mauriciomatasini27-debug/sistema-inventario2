@@ -20,4 +20,4 @@ Manual puro sin QR: se descarta porque C13 ya fija el contrato determinista.
 
 ## Pendientes
 
-CAJA-S1 hecho (migración 0022 + asociación ±15 min con auto y Deshacer). CAJA-S2 hecho 2026-10-15 (cuenta en cierre, sin migración). CAJA-S3 hecho 2026-10-15 (migración 0023 + aviso 3d + pago precargado). Queda CAJA-S4.
+CAJA-S1 hecho (migración 0022 + asociación ±15 min con auto y Deshacer). CAJA-S2 hecho 2026-10-15 (cuenta en cierre, sin migración). CAJA-S3 hecho 2026-10-15 (migración 0023 + aviso 3d + pago precargado). CAJA-S4 hecho 2026-10-15 (`cash_movements.id = ticket_payments.cash_movement_id` en `registro_venta.ts`, sin migración).

@@ -11,7 +11,7 @@ Parte del bullet Nivel 1 de P3 (P3-1), separado de CAT (PRD-CAT-01, hecho), PWA 
 | CAJA-S1 | en curso | rutas y repo existen; falta migración de `cash_qr_receipts` (0022), asociación ±15 min y auto + Deshacer |
 | CAJA-S2 | hecho | dedupe 409 y filtro existían; cuenta en cierre agregada 2026-10-15 |
 | CAJA-S3 | hecho | migración 0023 + job aviso 3d + pago precargado (2026-10-15) |
-| CAJA-S4 | pendiente | `ticket_payments` migrada en 0008 |
+| CAJA-S4 | hecho | `ticket_payments` migrada en 0008; `cash_movements.id = ticket_payments.cash_movement_id` desde 2026-10-15 |
 
 ## Épica CAJA-E1. Comprobantes QR (C13)
 
