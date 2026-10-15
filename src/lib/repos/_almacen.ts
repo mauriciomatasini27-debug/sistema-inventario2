@@ -70,6 +70,10 @@ export interface VencimientoCaja {
   venceEl: string;
   montoCentavos: string;
   estado: string;
+  // CAJA-S3: marca idempotente del aviso, fecha de pago y egreso asociado.
+  avisadoEl?: string | null;
+  pagadoEl?: string | null;
+  cashMovementId?: string | null;
 }
 
 function crearAlmacenMemoria<T>(mapa: Map<string, T>, anteFallo: (error: unknown) => void): Almacen<T> {

@@ -1017,18 +1017,90 @@ function deshacerQrMemoria(num: string, qrRecibos: AlmacenVivo<QrRecibo>): { sta
 
 // Vencimientos (CAJA-S3): filas en cash_due_items con DB viva, memoria solo
 // en single sin base. El pago crea el egreso en cash_movements.
+type FilaVencimiento = typeof cashDueItems.$inferSelect;
+
+function filaAVencimiento(f: FilaVencimiento): VencimientoCaja {
+  return {
+    id: f.id,
+    concepto: f.concepto,
+    venceEl: f.venceEl.toISOString(),
+    montoCentavos: f.montoCentavos.toString(),
+    estado: f.estado,
+    avisadoEl: f.avisadoEl ? f.avisadoEl.toISOString() : null,
+    pagadoEl: f.pagadoEl ? f.pagadoEl.toISOString() : null,
+    cashMovementId: f.cashMovementId,
+  };
+}
+
 export async function listarVencimientos(): Promise<VencimientoCaja[]> {
   const vencimientos = crearAlmacenVencimientosCaja();
   const db = dbVivaTenant();
   if (!db) return [...vencimientos.comoMapaSoloLectura().values()];
   try {
     const filas = await db.select().from(cashDueItems).orderBy(asc(cashDueItems.createdAt));
-    const lista = filas.map((f) => ({ id: f.id, concepto: f.concepto, venceEl: f.venceEl.toISOString(), montoCentavos: f.montoCentavos.toString(), estado: f.estado }));
+    const lista = filas.map(filaAVencimiento);
     for (const d of lista) vencimientos.guardar(d.id, d);
     return lista;
   } catch (e) {
     vencimientos.anteFalloPersistencia(e);
     return [...vencimientos.comoMapaSoloLectura().values()];
+  }
+}
+
+export async function obtenerVencimiento(id: string): Promise<VencimientoCaja | null> {
+  const vencimientos = crearAlmacenVencimientosCaja();
+  const enMemoria = vencimientos.obtener(id);
+  if (enMemoria) return enMemoria;
+  const db = dbVivaTenant();
+  if (!db) return null;
+  try {
+    const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, id)).limit(1);
+    const f = filas[0];
+    if (!f) return null;
+    const d = filaAVencimiento(f);
+    vencimientos.guardar(id, d);
+    return d;
+  } catch (e) {
+    vencimientos.anteFalloPersistencia(e);
+    return vencimientos.obtener(id) ?? null;
+  }
+}
+
+// Marca avisado_el en los pendientes aún sin avisar. Idempotente: el
+// segundo llamado con los mismos ids marca 0. Devuelve los marcados.
+export async function marcarAvisados(ids: string[], ahoraIso: string): Promise<string[]> {
+  const vencimientos = crearAlmacenVencimientosCaja();
+  const marcados: string[] = [];
+  const db = dbVivaTenant();
+  if (!db) {
+    for (const id of ids) {
+      const d = vencimientos.obtener(id);
+      if (!d || d.estado !== "pendiente" || d.avisadoEl) continue;
+      vencimientos.guardar(id, { ...d, avisadoEl: ahoraIso });
+      marcados.push(id);
+    }
+    return marcados;
+  }
+  try {
+    for (const id of ids) {
+      const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, id)).limit(1);
+      const f = filas[0];
+      if (!f || f.estado !== "pendiente" || f.avisadoEl) continue;
+      await db.update(cashDueItems).set({ avisadoEl: new Date(ahoraIso) }).where(eq(cashDueItems.id, id));
+      const d = vencimientos.obtener(id);
+      if (d) vencimientos.guardar(id, { ...d, avisadoEl: ahoraIso });
+      marcados.push(id);
+    }
+    return marcados;
+  } catch (e) {
+    vencimientos.anteFalloPersistencia(e);
+    for (const id of ids) {
+      const d = vencimientos.obtener(id);
+      if (!d || d.estado !== "pendiente" || d.avisadoEl) continue;
+      vencimientos.guardar(id, { ...d, avisadoEl: ahoraIso });
+      marcados.push(id);
+    }
+    return marcados;
   }
 }
 
@@ -1052,54 +1124,77 @@ export async function crearVencimiento(input: { concepto: string; venceEl: strin
   }
 }
 
-export async function pagarVencimiento(input: { id: string; key: string }): Promise<{ status: 200; id: string; egresoId: string } | { status: 404; error: string } | { status: 409; error: string }> {
+export function esMedioValido(metodo: string): metodo is Medio {
+  return (MEDIOS as string[]).includes(metodo);
+}
+
+export async function pagarVencimiento(input: { id: string; key: string; metodo?: Medio }): Promise<{ status: 200; id: string; egresoId: string } | { status: 404; error: string } | { status: 409; error: string }> {
+  const metodo = input.metodo ?? "Efectivo";
   const vencimientos = crearAlmacenVencimientosCaja();
   const movimientos = crearListaMovimientos();
   const db = dbVivaTenant();
-  if (!db) return pagarVencimientoMemoria(input, vencimientos, movimientos);
+  if (!db) return pagarVencimientoMemoria({ ...input, metodo }, vencimientos, movimientos);
   try {
+    const previos = await db.select().from(cashMovements).where(eq(cashMovements.idempotencyKey, input.key)).limit(1);
+    const previo = previos[0];
+    if (previo && previo.origen === `vencimiento:${input.id}`) {
+      // Replay: repara la fila si el corte quedó entre el insert y el update,
+      // sin pisar pagado_el de un pago ya registrado.
+      await db
+        .update(cashDueItems)
+        .set({ estado: "pagada", pagadoEl: new Date(), cashMovementId: previo.id })
+        .where(and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente")));
+      const d = vencimientos.obtener(input.id);
+      if (d) vencimientos.guardar(input.id, { ...d, estado: "pagada", cashMovementId: previo.id });
+      return { status: 200, id: input.id, egresoId: previo.id };
+    }
+    if (previo) return { status: 409, error: "clave en uso" };
     let d = vencimientos.obtener(input.id);
     if (!d) {
       const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, input.id)).limit(1);
       const f = filas[0];
       if (!f) return { status: 404, error: "desconocido" };
-      d = { id: f.id, concepto: f.concepto, venceEl: f.venceEl.toISOString(), montoCentavos: f.montoCentavos.toString(), estado: f.estado };
+      d = filaAVencimiento(f);
     }
     if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
     const movId = randomUUID();
-    const mov = { id: movId, tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: new Date().toISOString() };
-    await db.update(cashDueItems).set({ estado: "pagada" }).where(eq(cashDueItems.id, input.id));
+    const ahoraIso = new Date().toISOString();
+    const mov = { id: movId, tipo: "egreso" as const, metodo, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: ahoraIso };
     await db.insert(cashMovements).values({
       id: movId,
       saleId: null,
       idempotencyKey: input.key,
       tipo: "egreso",
-      metodo: "Efectivo",
+      metodo,
       categoriaId: "vencimiento",
       origen: `vencimiento:${input.id}`,
       montoCentavos: BigInt(d.montoCentavos),
     });
-    vencimientos.guardar(input.id, { ...d, estado: "pagada" });
+    await db.update(cashDueItems).set({ estado: "pagada", pagadoEl: new Date(ahoraIso), cashMovementId: movId }).where(eq(cashDueItems.id, input.id));
+    vencimientos.guardar(input.id, { ...d, estado: "pagada", pagadoEl: ahoraIso, cashMovementId: movId });
     movimientos.agregar(mov);
     return { status: 200, id: input.id, egresoId: movId };
   } catch (e) {
     vencimientos.anteFalloPersistencia(e);
-    return pagarVencimientoMemoria(input, vencimientos, movimientos);
+    return pagarVencimientoMemoria({ ...input, metodo }, vencimientos, movimientos);
   }
 }
 
 function pagarVencimientoMemoria(
-  input: { id: string; key: string },
+  input: { id: string; key: string; metodo: Medio },
   vencimientos: AlmacenVivo<VencimientoCaja>,
   movimientos: ListaAlmacen<StoredMovement>,
 ): { status: 200; id: string; egresoId: string } | { status: 404; error: string } | { status: 409; error: string } {
+  const previo = movimientos.listar().find((m) => m.idempotency_key === input.key);
+  if (previo && previo.origen === `vencimiento:${input.id}`) return { status: 200, id: input.id, egresoId: previo.id };
+  if (previo) return { status: 409, error: "clave en uso" };
   const d = vencimientos.obtener(input.id);
   if (!d) return { status: 404, error: "desconocido" };
   if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
-  d.estado = "pagada";
-  vencimientos.guardar(input.id, d);
-  const mov = { id: randomUUID(), tipo: "egreso" as const, metodo: "Efectivo" as const, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: new Date().toISOString() };
+  const ahoraIso = new Date().toISOString();
+  const mov = { id: randomUUID(), tipo: "egreso" as const, metodo: input.metodo, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: ahoraIso };
   movimientos.agregar(mov);
+  vencimientos.guardar(input.id, { ...d, estado: "pagada", pagadoEl: ahoraIso, cashMovementId: mov.id });
   return { status: 200, id: input.id, egresoId: mov.id };
 }
 

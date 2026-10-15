@@ -352,6 +352,11 @@ export const cashDueItems = pgTable("cash_due_items", {
   venceEl: timestamp("vence_el").notNull(),
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
   estado: text("estado").notNull().default("pendiente"),
+  // CAJA-S3 (migración 0023): marca idempotente del aviso a 3d, fecha de
+  // pago y movimiento asociado (SET NULL al borrarlo).
+  avisadoEl: timestamp("avisado_el"),
+  pagadoEl: timestamp("pagado_el"),
+  cashMovementId: uuid("cash_movement_id").references(() => cashMovements.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
