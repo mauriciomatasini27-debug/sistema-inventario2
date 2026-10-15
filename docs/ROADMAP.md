@@ -160,6 +160,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-15 | P2-2 | hecho | P2-2 hecho: ARQ-S4 cerrado, todos los repos sobre el puerto Almacen; el `store.` restante vive solo dentro de `_almacen.ts`. | — / — |
 | 2026-10-15 | P2-3 | hecho | P2-3 hecho: ARQ-S8 cerrado, la evidencia de ADR ya no admite "preexistente" sin issue; fase 5 de PRD-ARQ-01 completa. | — / — |
 | 2026-10-15 | P3-1 | en curso | P3-1 en curso: PRD-CAT-01 hecho (CAT-S1..S6); siguen PRD-CAJA-01 (CAJA-S1..S4), PWA P1.8 y SYNC-S1..S7, cada uno con su avance. | PRD-CAT-01 / — |
+| 2026-10-15 | P9-7 | hecho | P9-7: `tests/auth-pin.test.ts` determinista (sin substring de PIN sobre hash aleatorio) + guard E11. | — / — |
 | 2026-10-15 | CAJA-S1 | hecho | CAJA-S1 hecho: migración 0022 de `cash_qr_receipts` (`fecha_operacion`, `origen`, `cash_movement_id` SET NULL) + asociación QR monto exacto ±15 min con auto solo ante Op. nuevo y único candidato, con Deshacer a pendiente. | PRD-CAJA-01 / ADR-0027 |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
