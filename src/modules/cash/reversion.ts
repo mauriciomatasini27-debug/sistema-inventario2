@@ -43,7 +43,25 @@ export interface AuditoriaUbicacion {
   actor: string;
 }
 
-export type AuditEntry = AuditoriaReversion | AuditoriaUbicacion;
+// CAT-S6: confirmación de conteo en dos roles. Reusa la lista de
+// auditoría en memoria: el ajuste deja stock_movements tipo
+// AJUSTE_CONTEO y acá queda quién contó, quién confirmó y el motivo.
+export interface AuditoriaConteo {
+  accion: "conteo_confirmado";
+  countId: string;
+  contadoPor: string;
+  confirmadoPor: string;
+  motivo: string;
+}
+
+export interface AuditoriaConteoListo {
+  accion: "conteo_listo_revisar";
+  countId: string;
+  contadoPor: string;
+  confirmadoPor: string;
+}
+
+export type AuditEntry = AuditoriaReversion | AuditoriaUbicacion | AuditoriaConteo | AuditoriaConteoListo;
 
 export interface DetalleReversion {
   readonly motivo: string | null;

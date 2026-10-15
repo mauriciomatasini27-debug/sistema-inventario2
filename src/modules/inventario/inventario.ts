@@ -26,7 +26,7 @@ export interface Lote {
   readonly costoCentavos: bigint;
 }
 
-export type TipoMovimiento = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
+export type TipoMovimiento = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
 
 export interface MovimientoStock {
   readonly idemKey: string;

@@ -38,7 +38,7 @@ export interface StoredStockMovement {
   sku: string;
   loteId: string | null;
   delta: number;
-  tipo: "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
+  tipo: "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
   motivo?: string | undefined;
 }
 

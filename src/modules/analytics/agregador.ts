@@ -100,7 +100,7 @@ function filaSku(args: {
         devuelto += m.delta;
       }
     }
-    if (m.delta > 0 && (m.tipo === "ALTA" || m.tipo === "COMPENSATORIO")) {
+    if (m.delta > 0 && (m.tipo === "ALTA" || m.tipo === "COMPENSATORIO" || m.tipo === "AJUSTE_CONTEO")) {
       altasEventos.add(m.eventoId);
     }
   }

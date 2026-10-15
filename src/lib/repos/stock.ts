@@ -6,6 +6,7 @@ import {
   crearAlmacenConteoVistos,
   crearAlmacenSectores,
   crearAlmacenStock,
+  crearListaAuditoria,
   crearListaConteos,
   crearListaMovimientosStock,
   type AlmacenVivo,
@@ -59,7 +60,7 @@ function espejarConteoSector(
   vistos.guardar(key, id);
 }
 
-export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
+export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
 
 export interface MovimientoStockNuevo {
   readonly idemKey: string;
@@ -232,6 +233,7 @@ export type ConfirmarConteoResultado =
 
 export async function confirmarConteo(input: ConfirmarConteoInput): Promise<ConfirmarConteoResultado> {
   const conteos = crearListaConteos();
+  const auditoria = crearListaAuditoria();
   const enMemoria = conteos.listar().find((x) => x.id === input.id);
   const db = dbVivaTenant();
   if (db) {
@@ -239,9 +241,11 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
       const cab = await db.select().from(stockCounts).where(eq(stockCounts.id, input.id)).limit(1);
       const fila = cab[0];
       if (fila) {
+        const contadoPor = fila.contadoPor ?? enMemoria?.contadoPor ?? "";
         if (input.rol === "empleado") {
           await db.update(stockCounts).set({ estado: "listo_revisar" }).where(eq(stockCounts.id, input.id));
           if (enMemoria) enMemoria.estado = "listo_revisar";
+          auditoria.agregar({ accion: "conteo_listo_revisar", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor });
           return { ok: true, id: input.id, estado: "listo_revisar" };
         }
         if (!input.motivo) return { ok: false, codigo: "MOTIVO_REQUERIDO", error: "confirmar exige motivo" };
@@ -251,10 +255,11 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
         for (const l of lineas) {
           const dif = l.fisico - l.teorico;
           if (dif !== 0) {
-            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId: null, delta: dif, tipo: "COMPENSATORIO", motivo: input.motivo });
+            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId: null, delta: dif, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
           }
         }
         if (enMemoria) enMemoria.estado = "confirmado";
+        auditoria.agregar({ accion: "conteo_confirmado", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor, motivo: input.motivo });
         return { ok: true, id: input.id, estado: "confirmado" };
       }
       if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
@@ -263,17 +268,20 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
     }
   }
   if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+  const contadoPor = enMemoria.contadoPor ?? "";
   if (input.rol === "empleado") {
     enMemoria.estado = "listo_revisar";
+    auditoria.agregar({ accion: "conteo_listo_revisar", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor });
     return { ok: true, id: input.id, estado: "listo_revisar" };
   }
   if (!input.motivo) return { ok: false, codigo: "MOTIVO_REQUERIDO", error: "confirmar exige motivo" };
   enMemoria.estado = "confirmado";
   for (const d of enMemoria.diferencias) {
     if (d.diferencia !== 0) {
-      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "COMPENSATORIO" });
+      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
     }
   }
+  auditoria.agregar({ accion: "conteo_confirmado", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor, motivo: input.motivo });
   return { ok: true, id: input.id, estado: "confirmado" };
 }
 
