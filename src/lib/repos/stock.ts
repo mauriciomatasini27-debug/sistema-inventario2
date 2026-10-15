@@ -59,7 +59,7 @@ function espejarConteoSector(
   vistos.guardar(key, id);
 }
 
-export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO";
+export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
 
 export interface MovimientoStockNuevo {
   readonly idemKey: string;
@@ -100,7 +100,14 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
 // Escritura unica de movimientos: espejo memoria + stock_movements durable +
 // products.stock_actual. En multi sin base propaga BaseNoDisponible.
 export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuente: "db" | "memoria" }> {
-  const registro: StoredStockMovement = { idemKey: m.idemKey, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo };
+  const registro: StoredStockMovement = {
+    idemKey: m.idemKey,
+    sku: m.sku,
+    loteId: m.loteId,
+    delta: m.delta,
+    tipo: m.tipo,
+    ...(m.motivo !== undefined ? { motivo: m.motivo } : {}),
+  };
   const existencias = crearAlmacenStock();
   const movimientos = crearListaMovimientosStock();
   const db = dbVivaTenant();
@@ -159,6 +166,7 @@ export async function listarMovimientos(): Promise<StoredStockMovement[]> {
         loteId: f.loteId,
         delta: f.delta,
         tipo: f.tipo as TipoMovimientoStock,
+        ...(f.motivo != null ? { motivo: f.motivo } : {}),
       });
     }
     return [...union.values()];

@@ -38,7 +38,8 @@ export interface StoredStockMovement {
   sku: string;
   loteId: string | null;
   delta: number;
-  tipo: "ALTA" | "VENTA" | "COMPENSATORIO";
+  tipo: "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
+  motivo?: string | undefined;
 }
 
 export interface MarcaNoFacturar {

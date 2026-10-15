@@ -13,7 +13,7 @@ export interface Grant {
   readonly permisos: ReadonlyArray<string>;
 }
 
-export type TipoMovVentana = "ALTA" | "VENTA" | "COMPENSATORIO";
+export type TipoMovVentana = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA";
 
 // Movimiento ya filtrado por ventana en el adaptador (una query agg).
 export interface MovimientoVentana {

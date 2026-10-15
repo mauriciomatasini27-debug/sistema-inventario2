@@ -39,15 +39,24 @@ export interface AlertaLote {
   cantidad_restante: number;
 }
 
+export interface PromoVencer {
+  sku: string;
+  lote_id: string;
+  vence_en_dias: number;
+}
+
 export interface ClasificacionLotes {
   alertas_15d: AlertaLote[];
   alertas_7d: AlertaLote[];
   alertas_3d: AlertaLote[];
   vencidos: Array<AlertaLote & { accion: "baja_merma" }>;
   promo_bot: boolean;
+  promos_vencer: PromoVencer[];
 }
 
 // Clasificación CAT-S4 (15/7/3 días + vencidos), pura como la ruta actual.
+// Un vencido con restante <= 0 ya fue dado de baja: no se reporta de nuevo
+// (la idempotencia del job se apoya en esto más el idemKey merma:vencido:).
 export function clasificarLotes(lotes: ReadonlyArray<LoteVista>, ahoraMs: number): ClasificacionLotes {
   const alertas15: AlertaLote[] = [];
   const alertas7: AlertaLote[] = [];
@@ -57,12 +66,59 @@ export function clasificarLotes(lotes: ReadonlyArray<LoteVista>, ahoraMs: number
     if (!l.venceEl) continue;
     const dias = Math.ceil((new Date(l.venceEl).getTime() - ahoraMs) / 86400_000);
     const item = { lote_id: l.id, sku: l.sku, vence_el: l.venceEl, dias, cantidad_restante: l.cantidadRestante };
-    if (dias < 0) vencidos.push({ ...item, accion: "baja_merma" });
-    else if (dias <= 3) alertas3.push(item);
+    if (dias < 0) {
+      if (l.cantidadRestante > 0) vencidos.push({ ...item, accion: "baja_merma" });
+    } else if (dias <= 3) alertas3.push(item);
     else if (dias <= 7) alertas7.push(item);
     else if (dias <= 15) alertas15.push(item);
   }
-  return { alertas_15d: alertas15, alertas_7d: alertas7, alertas_3d: alertas3, vencidos, promo_bot: alertas3.length > 0 };
+  const promos_vencer: PromoVencer[] = alertas3.map((a) => ({ sku: a.sku, lote_id: a.lote_id, vence_en_dias: a.dias }));
+  return { alertas_15d: alertas15, alertas_7d: alertas7, alertas_3d: alertas3, vencidos, promo_bot: alertas3.length > 0, promos_vencer };
+}
+
+export interface BajaMerma {
+  lote_id: string;
+  sku: string;
+  cantidad: number;
+}
+
+// Baja CAT-S4: cada vencido con restante > 0 genera UN movimiento MERMA
+// (delta -restante, motivo "vencido", idemKey merma:vencido:<lote_id>) y pone
+// el restante en 0 en memoria y en stock_lots con DB viva. Idempotente: la
+// segunda corrida no aplica ni reporta nada (duplicado o restante ya en 0).
+// Devuelve solo lo dado de baja en ESTA corrida.
+export async function darDeBajaVencidos(vencidos: ReadonlyArray<{ lote_id: string; sku: string; cantidad_restante: number }>): Promise<BajaMerma[]> {
+  const bajas: BajaMerma[] = [];
+  const almacenLotes = crearAlmacenLotes();
+  const db = dbVivaTenant();
+  for (const v of vencidos) {
+    if (v.cantidad_restante <= 0) continue;
+    const idemKey = `merma:vencido:${v.lote_id}`;
+    const actual = almacenLotes.obtener(v.lote_id)?.cantidadRestante ?? v.cantidad_restante;
+    if (actual <= 0 || (await movimientoDuplicado(idemKey, "MERMA"))) {
+      await ponerLoteEnCero(v.lote_id, almacenLotes, db);
+      continue;
+    }
+    await aplicarMovimiento({ idemKey, sku: v.sku, loteId: v.lote_id, delta: -actual, tipo: "MERMA", motivo: "vencido" });
+    await ponerLoteEnCero(v.lote_id, almacenLotes, db);
+    bajas.push({ lote_id: v.lote_id, sku: v.sku, cantidad: actual });
+  }
+  return bajas;
+}
+
+async function ponerLoteEnCero(
+  loteId: string,
+  almacenLotes: ReturnType<typeof crearAlmacenLotes>,
+  db: ReturnType<typeof dbVivaTenant>,
+): Promise<void> {
+  const lote = almacenLotes.obtener(loteId);
+  if (lote) almacenLotes.guardar(loteId, { ...lote, cantidadRestante: 0 });
+  if (!db) return;
+  try {
+    await db.update(stockLots).set({ cantidadRestante: 0 }).where(eq(stockLots.id, loteId));
+  } catch (e) {
+    almacenLotes.anteFalloPersistencia(e);
+  }
 }
 
 export interface LoteDetalle {
@@ -167,7 +223,10 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
     return { ok: true, lote, fuente: r.fuente };
   }
   try {
+    // CAT-S4: el insert lleva el id generado para que la fila DB y el espejo
+    // en memoria compartan id (el UPDATE de baja por id acierta).
     await db.insert(stockLots).values({
+      id,
       sku: input.sku,
       cantidad: input.cantidad,
       cantidadRestante: input.cantidad,
