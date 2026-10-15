@@ -22,6 +22,9 @@ export const products = pgTable("products", {
   stockActual: integer("stock_actual").notNull().default(0),
   // Nivel 1: sector para conteo por sector (default 'general').
   sector: text("sector").notNull().default("general"),
+  // CAT-S5: ubicación del producto (migración 0021, SET NULL al borrar).
+  // Referencia perezosa: locations se declara más abajo en este módulo.
+  locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),
 });
 
 // Nivel 1: conteos por sector, append-only (inmutable runtime en migración).

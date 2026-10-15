@@ -11,6 +11,7 @@ import {
   crearAlmacenSectores,
   crearAlmacenStock,
   crearAlmacenUbicaciones,
+  crearListaAuditoria,
   type AlmacenVivo,
   type FichaCatalogo,
   type UbicacionCatalogo,
@@ -40,13 +41,17 @@ function espejarUbicacion(u: Ubicacion, ubicaciones: AlmacenVivo<Ubicacion>): vo
   ubicaciones.guardar(u.id, u);
 }
 
-function fichaDeFila(f: { sku: string; nombre: string; precioCentavos: bigint }, sector: string): FichaProducto {
+function fichaDeFila(
+  f: { sku: string; nombre: string; precioCentavos: bigint },
+  sector: string,
+  locationId: string | null = null,
+): FichaProducto {
   return {
     sku: f.sku,
     nombre: f.nombre,
     precioCentavos: Number(f.precioCentavos),
     sector,
-    locationId: null,
+    locationId,
     archivado: false,
     controlaVencimiento: false,
     estado: "activo",
@@ -55,6 +60,42 @@ function fichaDeFila(f: { sku: string; nombre: string; precioCentavos: bigint },
 
 function sectorDe(sku: string, sectores: AlmacenVivo<string>): string {
   return sectores.obtener(sku) ?? "general";
+}
+
+// Por qué defensivo: una base de tenant sin la migración 0021 no tiene la
+// columna location_id (mismo drift conocido que sector); en ese caso la
+// ubicación queda solo en el espejo en memoria en vez de romper la lectura.
+function esColumnaLocationFaltante(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("location_id");
+}
+
+async function ubicacionesDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, string | null>> {
+  const mapa = new Map<string, string | null>();
+  if (skus.length === 0) return mapa;
+  try {
+    const filas = await db
+      .select({ sku: products.sku, locationId: products.locationId })
+      .from(products)
+      .where(inArray(products.sku, [...skus]));
+    for (const f of filas) mapa.set(f.sku, f.locationId);
+  } catch (e) {
+    if (!esColumnaLocationFaltante(e)) throw e;
+  }
+  return mapa;
+}
+
+async function fijarLocationDb(db: TenantDb, sku: string, locationId: string | null): Promise<void> {
+  try {
+    await db.update(products).set({ locationId }).where(eq(products.sku, sku));
+  } catch (e) {
+    if (!esColumnaLocationFaltante(e)) throw e;
+  }
+}
+
+async function ubicacionExiste(id: string): Promise<boolean> {
+  return (await listarUbicaciones()).some((u) => u.id === id);
 }
 
 // Por qué última foto: el alta agrega al final y no hay borrado; el espejo en
@@ -117,7 +158,14 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     if (!p) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
     // Por qué estado de memoria: products no tiene columna estado (CAT-S2,
     // igual que archivado); sin esto un alta pendiente_revision se leería activo.
-    const ficha: FichaProducto = { ...fichaDeFila(p, sectorDe(p.sku, sectores)), estado: productos.obtener(p.sku)?.estado ?? "activo" };
+    // Por qué ubicación de memoria primero: el espejo es la escritura más
+    // reciente del proceso; la DB solo rellena fichas sin espejo.
+    const enMem = productos.obtener(p.sku);
+    const ubicDb = enMem ? null : (await ubicacionesDb(db, [p.sku])).get(p.sku) ?? null;
+    const ficha: FichaProducto = {
+      ...fichaDeFila(p, sectorDe(p.sku, sectores), enMem?.locationId ?? ubicDb),
+      estado: enMem?.estado ?? "activo",
+    };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
     return { ficha: conPresentacion(ficha, recientes.get(ficha.sku) ?? fotoMemoria(ficha.sku)), fuente: "db" };
   } catch (e) {
@@ -147,8 +195,12 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       .from(products);
     const union = new Map<string, FichaProducto>();
     for (const p of productos.comoMapaSoloLectura().values()) union.set(p.sku, p);
+    const ubicDb = await ubicacionesDb(
+      db,
+      filas.map((f) => f.sku),
+    );
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores)));
+      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores), ubicDb.get(f.sku) ?? null));
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
@@ -185,12 +237,13 @@ export interface AltaProductoInput {
   readonly codigo?: string | undefined;
   readonly controlaVencimiento: boolean;
   readonly estado?: "activo" | "pendiente_revision" | undefined;
+  readonly locationId?: string | undefined;
   readonly foto?: { url: string; ancho: number; alto: number; bytes: number } | undefined;
 }
 
 export type AltaProductoResultado =
   | { ok: true; ficha: FichaProducto; fuente: "db" | "memoria" }
-  | { ok: false; codigo: "SKU_DUPLICADO" | "CODIGO_DUPLICADO"; error: string };
+  | { ok: false; codigo: "SKU_DUPLICADO" | "CODIGO_DUPLICADO" | "UBICACION_DESCONOCIDA"; error: string };
 
 export async function altaProducto(input: AltaProductoInput): Promise<AltaProductoResultado> {
   const productos = crearAlmacenProductos();
@@ -205,12 +258,17 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
   }
   const cod = input.codigo?.trim().toUpperCase() || null;
   if (cod && codigos.contiene(cod)) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+  // Por qué validar ubicación: products.location_id referencia locations;
+  // un id inexistente se rechaza con 422 en vez de romper la FK.
+  if (input.locationId !== undefined && !(await ubicacionExiste(input.locationId))) {
+    return { ok: false, codigo: "UBICACION_DESCONOCIDA", error: "ubicacion desconocida" };
+  }
   const ficha: FichaProducto = {
     sku,
     nombre: input.nombre,
     precioCentavos: input.precioCentavos,
     sector: input.sector,
-    locationId: null,
+    locationId: input.locationId ?? null,
     archivado: false,
     controlaVencimiento: input.controlaVencimiento,
     estado: input.estado ?? "activo",
@@ -236,6 +294,9 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     if (input.foto) {
       await db.insert(productPhotos).values({ sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes });
     }
+    // Por qué update separado: el insert crudo omite location_id a
+    // propósito (drift de bases sin la 0021); fijarLocationDb tolera eso.
+    if (ficha.locationId !== null) await fijarLocationDb(db, sku, ficha.locationId);
     espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
@@ -272,12 +333,13 @@ export interface ParcheProducto {
   readonly nombre?: string | undefined;
   readonly precioCentavos?: number | undefined;
   readonly sector?: string | undefined;
+  readonly locationId?: string | null | undefined;
   readonly archivado?: boolean | undefined;
 }
 
 export type ActualizarProductoResultado =
   | { ok: true; ficha: FichaProducto }
-  | { ok: false; codigo: "DESCONOCIDO"; error: string };
+  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA"; error: string };
 
 export async function actualizarProducto(sku: string, parche: ParcheProducto): Promise<ActualizarProductoResultado> {
   const productos = crearAlmacenProductos();
@@ -285,6 +347,9 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
   const enMemoria = productos.obtener(sku);
+  if (parche.locationId !== undefined && parche.locationId !== null && !(await ubicacionExiste(parche.locationId))) {
+    return { ok: false, codigo: "UBICACION_DESCONOCIDA", error: "ubicacion desconocida" };
+  }
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
@@ -296,13 +361,14 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores)) : null);
+    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
       .update(products)
       .set({ nombre: next.nombre, precioCentavos: BigInt(next.precioCentavos) })
       .where(eq(products.sku, sku));
+    if (parche.locationId !== undefined) await fijarLocationDb(db, sku, parche.locationId);
     return { ok: true, ficha: next };
   } catch (e) {
     productos.anteFalloPersistencia(e);
@@ -323,6 +389,7 @@ function aplicarParche(
     ...(parche.nombre ? { nombre: parche.nombre } : {}),
     ...(parche.precioCentavos !== undefined ? { precioCentavos: parche.precioCentavos } : {}),
     ...(parche.sector ? { sector: parche.sector } : {}),
+    ...(parche.locationId !== undefined ? { locationId: parche.locationId } : {}),
     ...(parche.archivado !== undefined ? { archivado: parche.archivado } : {}),
   };
   productos.guardar(p.sku, next);
@@ -385,4 +452,71 @@ export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResult
   const creada: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
   espejarUbicacion(creada, ubicaciones);
   return { ok: true, ubicacion: creada };
+}
+
+export interface AsignacionMasivaInput {
+  readonly locationId: string;
+  readonly skus: ReadonlyArray<string>;
+}
+
+export type AsignarUbicacionResultado =
+  | { ok: true; asignados: number; no_encontrados: string[] }
+  | { ok: false; codigo: "UBICACION_DESCONOCIDA"; error: string };
+
+// CAT-S5 masiva auditada sin mover stock: fija location_id en los
+// productos dados, audita un ubicacion_asignada por cambio real
+// (antes/después) en la lista de auditoría existente y no toca
+// stock_movements ni existencias. Idempotente: reasignar la misma
+// ubicación no escribe auditoría. Skus desconocidos se reportan y el
+// resto se aplica.
+export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Promise<AsignarUbicacionResultado> {
+  const productos = crearAlmacenProductos();
+  const auditoria = crearListaAuditoria();
+  if (!(await ubicacionExiste(input.locationId))) {
+    return { ok: false, codigo: "UBICACION_DESCONOCIDA", error: "ubicacion desconocida" };
+  }
+  const db = dbVivaTenant();
+  const no_encontrados: string[] = [];
+  let asignados = 0;
+  const vistos = new Set<string>();
+  try {
+    for (const crudo of input.skus) {
+      const sku = crudo.trim().toUpperCase();
+      if (!sku || vistos.has(sku)) continue;
+      vistos.add(sku);
+      const enMemoria = productos.obtener(sku);
+      let base: FichaProducto | null = enMemoria ?? null;
+      if (!base && db) {
+        const filas = await db
+          .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
+          .from(products)
+          .where(eq(products.sku, sku))
+          .limit(1);
+        const fila = filas[0];
+        if (!fila) {
+          no_encontrados.push(sku);
+          continue;
+        }
+        const sectores = crearAlmacenSectores();
+        base = fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null);
+      }
+      if (!base) {
+        no_encontrados.push(sku);
+        continue;
+      }
+      if (base.locationId === input.locationId) {
+        asignados += 1;
+        continue;
+      }
+      const antes = base.locationId;
+      productos.guardar(sku, { ...base, locationId: input.locationId });
+      if (db) await fijarLocationDb(db, sku, input.locationId);
+      auditoria.agregar({ accion: "ubicacion_asignada", sku, antes, despues: input.locationId, actor: "sistema" });
+      asignados += 1;
+    }
+    return { ok: true, asignados, no_encontrados };
+  } catch (e) {
+    productos.anteFalloPersistencia(e);
+    throw e;
+  }
 }

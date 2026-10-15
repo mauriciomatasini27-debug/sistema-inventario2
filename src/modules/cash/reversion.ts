@@ -22,13 +22,28 @@ export interface MovimientoRevertido extends Movimiento {
   revierteA: string;
 }
 
-export interface AuditEntry {
+export interface AuditoriaReversion {
   accion: "reversion";
   movimientoId: string;
   revierteA: string;
   actor: string;
   motivo?: string | undefined;
 }
+
+// CAT-S5: asignación de ubicación a un producto. Reusa la lista de
+// auditoría en memoria (store.auditoria via crearListaAuditoria): la
+// asignación no mueve stock, así que no deja stock_movements; el
+// antes/después es la prueba auditable. Esta talla no agrega migración
+// nueva para auditoría.
+export interface AuditoriaUbicacion {
+  accion: "ubicacion_asignada";
+  sku: string;
+  antes: string | null;
+  despues: string;
+  actor: string;
+}
+
+export type AuditEntry = AuditoriaReversion | AuditoriaUbicacion;
 
 export interface DetalleReversion {
   readonly motivo: string | null;

@@ -76,6 +76,6 @@ describe("C7 reversión por movimiento opuesto", () => {
     expect(r.status).toBe(201);
     expect(c.auditoria).toHaveLength(1);
     expect(c.auditoria[0]).toMatchObject({ accion: "reversion", revierteA: "m1", actor: "duena", motivo: "error de carga" });
-    if (r.status === 201) expect(r.auditoria.movimientoId).toBe(r.movimiento.id);
+    if (r.status === 201 && r.auditoria.accion === "reversion") expect(r.auditoria.movimientoId).toBe(r.movimiento.id);
   });
 });

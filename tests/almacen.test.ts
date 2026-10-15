@@ -161,7 +161,9 @@ describe("ARQ-S4 Almacenes de caja (corte 2)", () => {
     const auditoria = crearListaAuditoria();
     auditoria.agregar({ accion: "reversion", movimientoId: "m-1", revierteA: "m-0", actor: "ana" });
     expect(auditoria.listar()).toHaveLength(1);
-    expect(auditoria.listar()[0]?.movimientoId).toBe("m-1");
+    const entrada = auditoria.listar()[0];
+    expect(entrada?.accion).toBe("reversion");
+    if (entrada?.accion === "reversion") expect(entrada.movimientoId).toBe("m-1");
   });
 
   it("conjunto wa: agregar luego contiene, vivos() entrega el Set vivo", () => {
