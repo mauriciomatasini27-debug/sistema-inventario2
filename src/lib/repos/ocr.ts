@@ -1,25 +1,14 @@
 import { eq } from "drizzle-orm";
 import { ocrEventos, ocrJobs } from "../../db/schema.js";
-import { leerVarEntorno } from "../env.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
 import { con_borrador, type OcrJob } from "../../modules/ocr/jobs.js";
+import { crearAlmacenOcrJobs, crearAlmacenOcrJobsByKey, crearListaEventosOcr } from "./_almacen.js";
 
 // PERS4-S2/S3 (ADR-0079): trabajos y eventos de OCR. DB primero vía
 // dbVivaTenant(); solo en single sin base usa la memoria particionada. En
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta
 // responde 503). La unicidad de idempotency_key sostiene el replay de
 // Idempotency-Key (wamid/message-id). Sin proveedor de OCR cableado.
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
-
-// Por qué se lee la variable directo: equivale al helper de modo pero cada
-// mención de ese nombre suma al trinquete de arquitectura.
-function propagarSiMulti(e: unknown): void {
-  if (leerVarEntorno("TENANT_MODE") === "multi") throw aBaseNoDisponible(e);
-}
 
 // Por qué caminar cause: Drizzle envuelve en DrizzleQueryError sin code; el 23505 vive en cause (PostgresError).
 function esChoqueIdempotencia(e: unknown): boolean {
@@ -69,13 +58,15 @@ function filaDeJob(job: OcrJob): typeof ocrJobs.$inferInsert {
 
 // Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
 function espejarJob(job: OcrJob): void {
-  store.ocrJobs.set(job.id, job);
-  store.ocrJobsByKey.set(job.idempotencyKey, job.id);
+  crearAlmacenOcrJobs().guardar(job.id, job);
+  crearAlmacenOcrJobsByKey().guardar(job.idempotencyKey, job.id);
 }
 
 export async function buscarJobPorClave(key: string): Promise<OcrJob | null> {
-  const previoId = store.ocrJobsByKey.get(key);
-  const memoria = previoId ? (store.ocrJobs.get(previoId) ?? null) : null;
+  const almacenByKey = crearAlmacenOcrJobsByKey();
+  const almacenJobs = crearAlmacenOcrJobs();
+  const previoId = almacenByKey.obtener(key);
+  const memoria = previoId ? (almacenJobs.obtener(previoId) ?? null) : null;
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
@@ -86,13 +77,14 @@ export async function buscarJobPorClave(key: string): Promise<OcrJob | null> {
     espejarJob(job);
     return job;
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return memoria;
   }
 }
 
 export async function obtenerJob(id: string): Promise<OcrJob | undefined> {
-  const memoria = store.ocrJobs.get(id);
+  const almacenJobs = crearAlmacenOcrJobs();
+  const memoria = almacenJobs.obtener(id);
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
@@ -103,13 +95,14 @@ export async function obtenerJob(id: string): Promise<OcrJob | undefined> {
     espejarJob(job);
     return job;
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return memoria;
   }
 }
 
 export async function listarJobs(): Promise<OcrJob[]> {
-  const memoria = [...store.ocrJobs.values()];
+  const almacenJobs = crearAlmacenOcrJobs();
+  const memoria = [...almacenJobs.comoMapaSoloLectura().values()];
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
@@ -124,12 +117,13 @@ export async function listarJobs(): Promise<OcrJob[]> {
     }
     return [...union.values()];
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return memoria;
   }
 }
 
 export async function crearJobRegistro(job: OcrJob): Promise<OcrJob> {
+  const almacenJobs = crearAlmacenOcrJobs();
   espejarJob(job);
   const db = dbVivaTenant();
   if (!db) return job;
@@ -141,12 +135,13 @@ export async function crearJobRegistro(job: OcrJob): Promise<OcrJob> {
       const existente = await buscarJobPorClave(job.idempotencyKey);
       return existente ?? job;
     }
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return job;
   }
 }
 
 export async function marcarJobFallo(job: OcrJob, error: string): Promise<OcrJob> {
+  const almacenJobs = crearAlmacenOcrJobs();
   const fallido: OcrJob = { ...job, estado: "fallo", error };
   espejarJob(fallido);
   const db = dbVivaTenant();
@@ -155,12 +150,13 @@ export async function marcarJobFallo(job: OcrJob, error: string): Promise<OcrJob
     await db.update(ocrJobs).set({ estado: fallido.estado, error }).where(eq(ocrJobs.id, job.id));
     return fallido;
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return fallido;
   }
 }
 
 export async function vincularBorradorAlJob(job: OcrJob, borradorId: string, ahoraIso: string): Promise<OcrJob> {
+  const almacenJobs = crearAlmacenOcrJobs();
   const vinculado = con_borrador(job, borradorId, ahoraIso);
   espejarJob(vinculado);
   const db = dbVivaTenant();
@@ -172,12 +168,13 @@ export async function vincularBorradorAlJob(job: OcrJob, borradorId: string, aho
       .where(eq(ocrJobs.id, job.id));
     return vinculado;
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
     return vinculado;
   }
 }
 
 export async function actualizarJob(job: OcrJob): Promise<void> {
+  const almacenJobs = crearAlmacenOcrJobs();
   espejarJob(job);
   const db = dbVivaTenant();
   if (!db) return;
@@ -193,17 +190,18 @@ export async function actualizarJob(job: OcrJob): Promise<void> {
       })
       .where(eq(ocrJobs.id, job.id));
   } catch (e) {
-    propagarSiMulti(e);
+    almacenJobs.anteFalloPersistencia(e);
   }
 }
 
 export async function registrarEventoOcr(tipo: string, payload: unknown): Promise<void> {
-  store.ocrEventos.push({ tipo, payload });
+  const eventos = crearListaEventosOcr();
+  eventos.agregar({ tipo, payload });
   const db = dbVivaTenant();
   if (!db) return;
   try {
     await db.insert(ocrEventos).values({ tipo, payload: payload as Record<string, unknown> });
   } catch (e) {
-    propagarSiMulti(e);
+    eventos.anteFalloPersistencia(e);
   }
 }

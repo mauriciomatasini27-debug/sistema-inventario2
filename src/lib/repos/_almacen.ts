@@ -15,6 +15,7 @@ import type { CorreccionOk } from "../../modules/sales/correccion_medio.js";
 import type { WizardEstado } from "../../modules/fiscal/wizard.js";
 import type { CuentaServicio } from "../../modules/utilities/cuentas.js";
 import type { FacturaServicio } from "../../modules/utilities/facturas_servicios.js";
+import type { OcrJob } from "../../modules/ocr/jobs.js";
 
 export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 
@@ -506,4 +507,24 @@ export function crearAlmacenLotes(): AlmacenVivo<{
   costoCentavos: string;
 }> {
   return crearAlmacenVivo(store.lotes);
+}
+
+// Corte 15: ocr (jobs por id, indice por idempotency_key y eventos).
+// Misma politica que caja: en multi el fallo de DB se propaga como
+// BaseNoDisponible; en single la llamada sigue hacia memoria.
+export function crearAlmacenOcrJobs(): AlmacenVivo<OcrJob> {
+  return crearAlmacenVivo(store.ocrJobs);
+}
+
+export function crearAlmacenOcrJobsByKey(): AlmacenVivo<string> {
+  return crearAlmacenVivo(store.ocrJobsByKey);
+}
+
+export interface EventoOcr {
+  tipo: string;
+  payload: unknown;
+}
+
+export function crearListaEventosOcr(): ListaAlmacen<EventoOcr> {
+  return crearLista(store.ocrEventos);
 }
