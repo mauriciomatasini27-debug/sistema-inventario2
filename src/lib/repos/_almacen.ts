@@ -471,3 +471,17 @@ export function crearAlmacenFacturasServicioPorMensaje(): AlmacenVivo<FacturaSer
 export function crearAlmacenCuentasServicio(): AlmacenVivo<CuentaServicio> {
   return crearAlmacenVivo(store.serviceAccounts);
 }
+
+// Corte 12: fiado (vistos y movimientos de credito). Misma politica que
+// caja: en multi el fallo de DB se propaga como BaseNoDisponible; en single
+// la llamada sigue hacia memoria. El correlativo T-* reutiliza
+// `crearContadorTickets` y los lotes FIFO `crearAlmacenStock` (mapa vivo).
+export type MovimientoCredito = (typeof store.creditMovs)[number];
+
+export function crearAlmacenCreditoVistos(): AlmacenVivo<unknown> {
+  return crearAlmacenVivo(store.creditVistos);
+}
+
+export function crearListaMovimientosCredito(): ListaAlmacen<MovimientoCredito> {
+  return crearLista(store.creditMovs);
+}

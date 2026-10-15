@@ -1,9 +1,13 @@
 import { eq } from "drizzle-orm";
 import { customerMovements } from "../../db/schema-credito.js";
 import { SERIE_MOSTRADOR, ticketCounters } from "../../db/schema.js";
-import { esModoMulti } from "../tenant-mode.js";
-import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
-import { store } from "../store.js";
+import { dbVivaTenant } from "../server-db.js";
+import {
+  crearAlmacenCreditoVistos,
+  crearAlmacenStock,
+  crearContadorTickets,
+  crearListaMovimientosCredito,
+} from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { lotesDesdeStock, type Sku } from "../../modules/inventario/inventario.js";
 import { cobro_fiado, venta_a_cuenta } from "../../modules/credit/fiado.js";
@@ -15,10 +19,6 @@ import { registrarIngresoCobro } from "./caja.js";
 // DB primero via dbVivaTenant(); solo en single sin base usa la memoria
 // particionada. En multi sin base dbVivaTenant lanza BaseNoDisponible y se
 // propaga (la ruta responde 503). Los ingresos a caja van por caja.ts.
-
-function aBaseNoDisponible(e: unknown): BaseNoDisponible {
-  return e instanceof BaseNoDisponible ? e : new BaseNoDisponible();
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -47,10 +47,14 @@ export type VentaACuentaResultado =
 // FC2/C18: descuenta stock, suma fiado, cero caja. Clave repetida => 409 con
 // relectura; el debe entra con espejo memoria.
 export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuentaResultado> {
-  if (store.creditVistos.has(input.key)) {
+  const creditoVistos = crearAlmacenCreditoVistos();
+  const movsCredito = crearListaMovimientosCredito();
+  const contadorTickets = crearContadorTickets();
+  const almacenStock = crearAlmacenStock();
+  if (creditoVistos.contiene(input.key)) {
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
-  const nt = store.nextTicket;
+  const nt = contadorTickets.leer();
   const r = venta_a_cuenta({
     idempotencyKey: input.key,
     customerId: input.customerId,
@@ -59,7 +63,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     seqLocal: input.seqLocal,
     offline: false,
     // Ningun repo cubre lotes FIFO: se leen de la memoria particionada.
-    lotes: lotesDesdeStock(store.stock),
+    lotes: lotesDesdeStock(almacenStock.mapaVivo()),
     vistos: new Map(),
     ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
     saldoActualCentavos: BigInt(input.saldoActualCentavos),
@@ -74,19 +78,19 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
 
   const espejoMemoria = (ticket: string | null, siguiente: number | null) => {
     // Sin tabla propia: vistos y movimientos en memoria (durable via UNIQUE).
-    store.creditVistos.set(input.key, { customer_id: input.customerId });
-    store.creditMovs.push({ customer_id: input.customerId, debe: total.toString(), haber: "0", key: input.key, fecha_ms: Date.now() });
+    creditoVistos.guardar(input.key, { customer_id: input.customerId });
+    movsCredito.agregar({ customer_id: input.customerId, debe: total.toString(), haber: "0", key: input.key, fecha_ms: Date.now() });
     // Espejo del correlativo T-*: en memoria avanza de a uno; con base viva
     // se alinea al número dado por ticket_counters (PERS5-S3).
     if (ticket) {
-      const actual = store.nextTicket;
-      store.nextTicket = siguiente !== null ? Math.max(actual, siguiente) : actual + 1;
+      const actual = contadorTickets.leer();
+      contadorTickets.fijar(siguiente !== null ? Math.max(actual, siguiente) : actual + 1);
     }
   };
 
   const db = dbVivaTenant();
   if (!db) {
-    const dup = store.creditMovs.find((m) => m.key === input.key);
+    const dup = movsCredito.listar().find((m) => m.key === input.key);
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     espejoMemoria(r.efecto.ticket.definitivo, null);
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
@@ -133,11 +137,11 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       } catch {
         // Cae al espejo memoria de abajo.
       }
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    } else if (esModoMulti()) {
-      throw aBaseNoDisponible(e);
+      creditoVistos.anteFalloPersistencia(e);
+    } else {
+      creditoVistos.anteFalloPersistencia(e);
     }
-    if (store.creditVistos.has(input.key)) {
+    if (creditoVistos.contiene(input.key)) {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
     espejoMemoria(r.efecto.ticket.definitivo, null);
@@ -159,7 +163,9 @@ export type CobroFiadoResultado =
 // C18: cobro ingresa a caja (origen cobro_fiado). Clave repetida => 409 con
 // relectura; cobro e ingreso entran con espejo memoria.
 export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResultado> {
-  if (store.creditVistos.has(input.key)) {
+  const creditoVistos = crearAlmacenCreditoVistos();
+  const movsCredito = crearListaMovimientosCredito();
+  if (creditoVistos.contiene(input.key)) {
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
   const r = cobro_fiado({
@@ -173,13 +179,13 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
   if (!r.ok) return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
 
   const espejoCredito = () => {
-    store.creditVistos.set(input.key, { customer_id: input.customerId });
-    store.creditMovs.push({ customer_id: input.customerId, debe: "0", haber: input.montoCentavos.toString(), key: input.key });
+    creditoVistos.guardar(input.key, { customer_id: input.customerId });
+    movsCredito.agregar({ customer_id: input.customerId, debe: "0", haber: input.montoCentavos.toString(), key: input.key });
   };
 
   const db = dbVivaTenant();
   if (!db) {
-    const dup = store.creditMovs.find((m) => m.key === input.key);
+    const dup = movsCredito.listar().find((m) => m.key === input.key);
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     espejoCredito();
     await registrarIngresoCobro({ key: input.key, montoCentavos: input.montoCentavos, medio: input.medio });
@@ -208,11 +214,11 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
       } catch {
         // Cae al espejo memoria de abajo.
       }
-      if (esModoMulti()) throw aBaseNoDisponible(e);
-    } else if (esModoMulti()) {
-      throw aBaseNoDisponible(e);
+      creditoVistos.anteFalloPersistencia(e);
+    } else {
+      creditoVistos.anteFalloPersistencia(e);
     }
-    if (store.creditVistos.has(input.key)) {
+    if (creditoVistos.contiene(input.key)) {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
     espejoCredito();
@@ -230,6 +236,7 @@ export interface SaldoCliente {
 // Saldo derivado (SUM, no persistido) + mora dia 15. Con DB viva deriva de
 // customer_movements; sin DB cae a memoria. En multi sin base propaga.
 export async function saldoCliente(customerId: string, hoyMs: number): Promise<SaldoCliente> {
+  const creditoVistos = crearAlmacenCreditoVistos();
   const db = dbVivaTenant();
   if (!db) return saldoMemoria(customerId, hoyMs);
   try {
@@ -250,13 +257,13 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
     }
     return { saldoCentavos: saldo.toString(), diasMax, fuente: "db" };
   } catch (e) {
-    if (esModoMulti()) throw aBaseNoDisponible(e);
+    creditoVistos.anteFalloPersistencia(e);
     return saldoMemoria(customerId, hoyMs);
   }
 }
 
 function saldoMemoria(customerId: string, hoyMs: number): SaldoCliente {
-  const movs = store.creditMovs.filter((m) => m.customer_id === customerId);
+  const movs = crearListaMovimientosCredito().listar().filter((m) => m.customer_id === customerId);
   const saldo = derivar_saldo(movs.map((m) => ({ debeCentavos: BigInt(m.debe), haberCentavos: BigInt(m.haber) })));
   let diasMax = 0;
   for (const m of movs) {
