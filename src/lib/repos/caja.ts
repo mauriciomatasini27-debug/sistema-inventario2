@@ -189,7 +189,7 @@ function snapshotAviso(fechaJornada: string, cierreId: string, total: bigint, po
 }
 
 export type CerrarCajaResultado =
-  | { status: 201; cierre: CierreOk["cierre"]; wa: AvisoCierre; fuente: "db" | "memoria" }
+  | { status: 201; cierre: CierreOk["cierre"]; wa: AvisoCierre; fuente: "db" | "memoria"; qrSinComprobante: number }
   | { status: 409; error: string; original?: CierreOk; wa?: AvisoCierre; fuente: "db" | "memoria" }
   | { status: 422; error: string; fuente: "db" | "memoria" };
 
@@ -257,7 +257,7 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
     cierres.guardar(input.key, r);
     cierres.guardar(r.cierre.fechaJornada, r);
     const aviso = asegurarAviso(wa.vivos(), snapshotAviso(r.cierre.fechaJornada, input.key, r.cierre.totalCentavos, porMedio, r.cierre.closeType));
-    return { status: 201, cierre: r.cierre, wa: aviso, fuente: "db" };
+    return { status: 201, cierre: r.cierre, wa: aviso, fuente: "db", qrSinComprobante: await contarQrSinComprobante() };
   } catch (e) {
     cierres.anteFalloPersistencia(e);
     const mem = movimientosCierreMemoria(movimientos.listar(), turnos.comoMapaSoloLectura());
@@ -274,13 +274,13 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
   }
 }
 
-function conAvisoMemoria(
+async function conAvisoMemoria(
   waVivos: Set<string>,
   key: string,
   movs: Movimiento[],
   r: ReturnType<typeof cerrar_jornada>,
   fuente: "memoria",
-): CerrarCajaResultado {
+): Promise<CerrarCajaResultado> {
   if (r.status !== 201) {
     if (r.status === 409 && r.original) {
       const wa = asegurarAviso(waVivos, snapshotAviso(r.original.cierre.fechaJornada, key, r.original.cierre.totalCentavos, derivar_balance(movs).porMedio, r.original.cierre.closeType));
@@ -289,7 +289,7 @@ function conAvisoMemoria(
     return { ...r, fuente };
   }
   const wa = asegurarAviso(waVivos, snapshotAviso(r.cierre.fechaJornada, key, r.cierre.totalCentavos, derivar_balance(movs).porMedio, r.cierre.closeType));
-  return { status: 201, cierre: r.cierre, wa, fuente };
+  return { status: 201, cierre: r.cierre, wa, fuente, qrSinComprobante: await contarQrSinComprobante() };
 }
 
 // waEnviados has no table: el aviso de cierre vive en memoria del repo.
@@ -963,6 +963,12 @@ function listarQrMemoria(filtro: string, qrRecibos: AlmacenVivo<QrRecibo>): QrRe
   let lista = [...qrRecibos.comoMapaSoloLectura().values()];
   if (filtro === "sin_comprobante") lista = lista.filter((r) => r.estado === "pendiente");
   return lista;
+}
+
+// QR sin comprobante (CAJA-S2): recibos en estado pendiente. Reusa el filtro
+// de listarQr para no duplicar la definición de pendiente.
+export async function contarQrSinComprobante(): Promise<number> {
+  return (await listarQr("sin_comprobante")).length;
 }
 
 export async function deshacerQr(num: string): Promise<{ status: 200; num: string; estado: string } | { status: 404; error: string } | { status: 409; error: string }> {

@@ -48,8 +48,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
   // C10: notificación WA de caja una vez por jornada. No bloquea el cierre:
   // si ya se avisó, se informa duplicado. Slice-0 sin auth => rol dueno.
+  // CAJA-S2: el cierre informa cuántos QR siguen sin comprobante.
   return Response.json(
-    { fecha_jornada: r.cierre.fechaJornada, total_centavos: r.cierre.totalCentavos.toString(), wa: r.wa },
+    { fecha_jornada: r.cierre.fechaJornada, total_centavos: r.cierre.totalCentavos.toString(), qr_sin_comprobante: r.qrSinComprobante, wa: r.wa },
     { status: 201 },
   );
 };

@@ -9,7 +9,7 @@ Parte del bullet Nivel 1 de P3 (P3-1), separado de CAT (PRD-CAT-01, hecho), PWA 
 | Slice | Estado | Nota |
 |---|---|---|
 | CAJA-S1 | en curso | rutas y repo existen; falta migración de `cash_qr_receipts` (0022), asociación ±15 min y auto + Deshacer |
-| CAJA-S2 | pendiente | dedupe 409 existe; falta cuenta en cierre |
+| CAJA-S2 | hecho | dedupe 409 y filtro existían; cuenta en cierre agregada 2026-10-15 |
 | CAJA-S3 | pendiente | rutas existen; `cash_due_items` sin migración |
 | CAJA-S4 | pendiente | `ticket_payments` migrada en 0008 |
 
