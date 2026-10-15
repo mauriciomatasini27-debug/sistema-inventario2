@@ -1,10 +1,10 @@
 # Roadmap - Sistema de Inventario
 
-Fecha: 2026-10-12 (actualizado 2026-10-14). Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6. Actualización 2026-10-14: PRs #1 a #30 fusionados en `main` (cutover por dominio ADR-0053 a 0063, SEC-01, ARQ fases 1 y 2, pila de dependencias ADR-0067 a 0072, guardas ADR-0073); estado verificado contra el código de `main` (`01202ee`); nueva sección "Pendientes priorizados". Actualización 2026-10-14 (tarde): P0.1 a P0.4, P1.1 a P1.6 y P2.1 hechos (SEC-02/03/04, PERS-03 a PERS-07, P1-6, P2-1); P2.2 en curso; journal de migraciones cerrado (20/20); `src/lib/repos` con 427 referencias `store.` y 143 `esModoMulti` en `src/`.
+Fecha: 2026-10-12 (actualizado 2026-10-15). Este archivo reemplaza a `CHECKLIST-documentacion.md` como fuente de estado de implementación (el checklist queda como historia, sin cambios). Estados: `funciona`, `en memoria (store.ts)`, `parcial`, `simulado`, `a verificar`. Basado en relevamientos de `src/` del 2026-10-12; los tests no se corrieron para armar este archivo. Actualización 2026-10-12: UX-S0 (Sonner) y LAND-S11/LAND-S12 (sin Descubrimiento, precios solo desde planes) implementados con `tests/landing.test.ts` 38/38 y `npm run build` en verde. Actualización 2026-10-12: PERS-S1 hecho (sales y cash/movements DB-first en 1 tx con contador sin huecos; suite 710/714 con 2 fallos caja-c11 preexistentes). Actualización 2026-10-13: 422 fiscal post-apply eliminados de `src/pages/api/sales.ts` (código muerto, la puerta decide pre-apply con los mismos inputs); caja standalone sin cambios (un solo INSERT atómico con clave única); base 110 de 136 con store; PERS-S2 hecho 2026-10-13: push/pull sync DB-first verificado en vivo. Actualización 2026-10-13: SUP-S1 a S4 hechos (proyecto Supabase en `ca-central-1`, desvío de `sa-east-1`; `.env` con Session pooler 5432; `npm i @supabase/supabase-js @supabase/ssr`; `db:migrate` 15/15 verificado en DB); restan SUP-S5 y SUP-S6. Actualización 2026-10-14: PRs #1 a #30 fusionados en `main` (cutover por dominio ADR-0053 a 0063, SEC-01, ARQ fases 1 y 2, pila de dependencias ADR-0067 a 0072, guardas ADR-0073); estado verificado contra el código de `main` (`01202ee`); nueva sección "Pendientes priorizados". Actualización 2026-10-14 (tarde): P0.1 a P0.4, P1.1 a P1.6 y P2.1 hechos (SEC-02/03/04, PERS-03 a PERS-07, P1-6, P2-1). Actualización 2026-10-15: P2-2 hecho (ARQ-S4 cerrado, cada repo sobre el puerto Almacen) y P2-3 hecho (ARQ-S8 cerrado, fase 5 de PRD-ARQ-01 completa). P3-1 en curso (PRD-CAT-01 hecho con CAT-S1 a CAT-S6, CAJA-S1 y CAJA-S2 hechos; siguen CAJA-S3 y S4, PWA P1.8 hecho, SYNC-S1 a S7). Journal con 23 entradas para 23 SQL (`0000` a `0022`). `store.` vive solo en `src/lib/repos/_almacen.ts` (72 refs) y `esModoMulti` suma 34 en `src/` (3 en repos). 44 rutas de `src/pages/api` importan `control` desde `src/lib/store.js` y ninguna importa el objeto `store`. Verificado contra `main` (`420ddee`).
 
 ## Ya implementado
 
-Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts` (ADR-0063); la memoria sobrevive dentro de `src/lib/repos` (427 referencias `store.` y 143 `esModoMulti`, trinquete AT4) y como fuente de verdad en single sin base, a retirar repo por repo en P2.2.
+Dato base (2026-10-15): ninguna ruta de `src/pages/api` importa el objeto `store` (44 importan `control` desde `src/lib/store.js`); la memoria sobrevive dentro de `src/lib/repos/_almacen.ts` (72 referencias `store.` y 3 `esModoMulti`, trinquete AT4) y como fuente de verdad en single sin base (P2-2 hecho 2026-10-15, ARQ-S4 cerrado).
 
 | Área | Estado | Qué hay | Rutas | PRD / ADR |
 |---|---|---|---|---|
@@ -32,16 +32,16 @@ Dato base (2026-10-14): 0 archivos de `src/pages/api` importan `src/lib/store.ts
 | Dependencias | funciona (fusionado #22 a #29) | Actions v7, vitest 5, astro 7, drizzle 0.45, zod 4, TypeScript 7 | `package.json` | PRD-DEP-01, ADR-0067 a 0072 |
 | Asistente IA, chat de landing, planes, umbrales | sin código | — | — | PRD-IA-01, PRD-LP-04, PRD-PLAN-01, PRD-ALR-01 |
 
-## Pendientes priorizados (2026-10-14)
+## Pendientes priorizados (2026-10-15)
 
-Verificado contra `main` (`01202ee`); estados actualizados 2026-10-14 con `docs/roadmap/avances/`. Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
+Verificado contra `main` (`420ddee`); estados actualizados 2026-10-15 con `docs/roadmap/avances/`. Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
 
 ### P0. Seguridad y aislamiento
 1. Hecho (SEC-02, ADR-0074): rutas de datos fuera de `PREFIJOS_DATOS` (`/api/payment-orders`, `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills`, `/api/ocr`) sumadas con arch-test.
 2. Hecho (SEC-02, ADR-0074): `fiscal_settings.tenant_id` con migración `0016`; aplicarla a la base real está bloqueado (ver abajo).
 3. Hecho (SEC-03, ADR-0075): `scripts/backfill-tenant-id.mjs` listo; correrlo en la base real está bloqueado (ver abajo).
 4. Hecho (SEC-04, ADR-0077): jobs por `X-Job-Secret` con fan-out por tenant.
-5. Nuevo (P0-5): idempotencia durable del webhook de Mercado Pago (`src/pages/api/billing/webhooks/mercadopago.ts` deduplica en memoria; tabla con clave única por evento en la misma tx). Talla S.
+5. Hecho 2026-10-14 (P0-5): idempotencia durable del webhook de Mercado Pago (reclamo por evento en `mp_webhook_events`). Talla S.
 
 ### P1. Integridad de datos (memoria con tabla o sin tabla)
 1. Hecho (PERS-03, ADR-0078): ubicaciones, fotos y conteos DB-first en `locations`, `product_photos`, `stock_counts`.
@@ -50,17 +50,17 @@ Verificado contra `main` (`01202ee`); estados actualizados 2026-10-14 con `docs/
 4. Hecho (PERS-06, ADR-0081): catálogo del delta de `GET /api/sync/pull` desde `products`.
 5. Hecho (PERS-07, ADR-0082): los 9 errores tragados de E7 en 0.
 6. Hecho (P1-6): tests intermitentes de base B aislados sin reintentos.
-7. Hecho (P1-7): journal de migraciones con 20 entradas para 20 SQL (`0000` a `0019`).
-8. Nuevo (P1-8): PWA cifrado local y borrado remoto (PWA-S5, ADR-0025); `photos_queue` ya hecho. Talla M.
+7. Hecho (P1-7), ampliado 2026-10-15: journal de migraciones con 23 entradas para 23 SQL (`0000` a `0022`).
+8. Hecho 2026-10-14 (P1-8): PWA-S5 borrado remoto cerrado (revocar-remoto, heartbeat wipe, latido, revocarDispositivo). Talla M.
 
 ### P2. Arquitectura (PRD-ARQ-01, ADR-0065)
 1. Hecho (P2-1): fase 3 cerrada (casts en piso intencional; ARQ-S7 en CI).
-2. En curso (P2-2): fase 4, ARQ-S4 puerto `Almacen<T>`; corte 1 (precios) hecho. Quedan ~14 cortes, `store.` por repo: caja 99, facturas-proveedor 67, ordenes-pago 47, sync 29, catalogo 29, tickets 20, ventas 19, stock 18, fiscal 18, servicios 17, fiado 16, proveedores 13, lotes 9, ocr 8 (427 `store.`, 143 `esModoMulti`). Talla L.
-3. Fase 5: ARQ-S8 evidencia sin "preexistente" y skill `verify-inventario`. Talla S.
+2. Hecho 2026-10-15 (P2-2): fase 4 cerrada, ARQ-S4 puerto `Almacen<T>` en cada repo; `store.` vive solo en `_almacen.ts` (72 refs) y `esModoMulti` en 3 puntos de repos (34 en `src/`). Talla L.
+3. Hecho 2026-10-15 (P2-3): fase 5 cerrada, ARQ-S8 sin "preexistente" sin issue y skill `verify-inventario`. Talla S.
 4. SUP-S5 y SUP-S6 (fuente db en Supabase, tests). Talla M.
 
 ### P3. PRD sin construir, por nivel
-1. Nivel 1 núcleo: PRD-CAT-01 (CRUD, FEFO, ubicaciones, conteo), PRD-CAJA-01 (QR, vencimientos, pagos divididos), PWA cifrado/borrado remoto (P1.8), sync durable SYNC-S1 a S7.
+1. Nivel 1 núcleo: PRD-CAT-01 hecho (CAT-S1 a S6), PRD-CAJA-01 en curso (CAJA-S1 hecho, restan S2 a S4), PWA P1.8 hecho, sync durable SYNC-S1 a S7 pendiente.
 2. Nivel 0 identidad: verificar AU-01/AU-02 y ON1-ON13, PRD-E2E-01 dos tenants.
 3. Nivel 2 compras: OCR definitivo (ADR-0005), Gmail `users.watch` (CS), OP1-OP13 cableado real.
 4. Nivel 3 fiscal: sección 2 completa (fecha límite 1/12/2026 para `CondicionIVAReceptorId`).
@@ -73,7 +73,7 @@ Verificado contra `main` (`01202ee`); estados actualizados 2026-10-14 con `docs/
 Orden por prioridad y dependencias. Tallas de cada PRD.
 
 ### 1. Base de datos (bloquea todo lo cobrable)
-1. Hecho 2026-10-14 (P1-7): journal de migraciones arreglado; `drizzle/meta/_journal.json` con 20 entradas que coinciden con los 20 SQL `0000` a `0019`.
+1. Hecho 2026-10-14 (P1-7), ampliado 2026-10-15: journal de migraciones con 23 entradas que coinciden con los 23 SQL `0000` a `0022` (se sumaron `0020` webhook MP, `0021` location_id y `0022` cash_qr_receipts).
 2. Completar cutover a DB y retirar `store.ts` de `src/pages/api` (PERS-S4/S5, ADR-0024; PERS-S1 hecho 2026-10-12, ticket_lines queda diferido). Talla L. Primer corte hecho 2026-10-13 (PRD-PERS-02, ADR-0052, ver Ya implementado); resta el cutover por dominio de PERS-S4 y PERS-S5. Cutover por dominio hecho (grupos 1 a 11, ADR-0053 a ADR-0063, PRD-PERS-02 PERS2-E4 a PERS2-E14): 0 rutas de `src/pages/api` importan `store`. Resta pasar a tablas los mapas que siguen en memoria dentro de los repositorios (OCR, ubicaciones, fotos, conteos, correlativos y claves de avisos; ver Pendientes de cada ADR).
 3. Migración a Supabase según `diseno/PRD-SUP-01-conexion-supabase.md`: SUP-S1 a S4 hechos 2026-10-13 (proyecto en `ca-central-1`, desvío de `sa-east-1`; `.env` Session pooler 5432; `db:migrate` 15/15 verificado); restan SUP-S5 (fuente db) y SUP-S6 (tests); más `adr/0048-supabase-single-project.md` y `adr/0049-supabase-driver-pooler.md`; guía en `docs/migracion-supabase.md`.
 4. Cierre durable de sync: `device_sync_state`, `offline_grants` con DB en CI (SYNC-S1 a S7, ADR-0023).
@@ -162,6 +162,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-15 | P3-1 | en curso | P3-1 en curso: PRD-CAT-01 hecho (CAT-S1..S6); siguen PRD-CAJA-01 (CAJA-S1..S4), PWA P1.8 y SYNC-S1..S7, cada uno con su avance. | PRD-CAT-01 / — |
 | 2026-10-15 | P9-7 | hecho | P9-7: `tests/auth-pin.test.ts` determinista (sin substring de PIN sobre hash aleatorio) + guard E11. | — / — |
 | 2026-10-15 | CAJA-S1 | hecho | CAJA-S1 hecho: migración 0022 de `cash_qr_receipts` (`fecha_operacion`, `origen`, `cash_movement_id` SET NULL) + asociación QR monto exacto ±15 min con auto solo ante Op. nuevo y único candidato, con Deshacer a pendiente. | PRD-CAJA-01 / ADR-0027 |
+| 2026-10-15 | CAJA-S2 | hecho | CAJA-S2 hecho: `POST /api/cash/close` informa `qr_sin_comprobante` con `contarQrSinComprobante` sobre recibos pendientes, sin migración y con `tests/caja-s2-qr-cierre.test.ts` 3/3. | PRD-CAJA-01 / ADR-0027 |
 | 2026-10-14 | P0-1 | hecho | P0-1: rutas fuera de `PREFIJOS_DATOS` sumadas (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-2 | hecho | P0-2: `fiscal_settings.tenant_id` con migración 0016 (PRD-SEC-02, ADR-0074). | — / — |
 | 2026-10-14 | P0-3 | hecho | P0-3: script de backfill de `tenant_id` listo (PRD-SEC-03, ADR-0075). | — / — |
