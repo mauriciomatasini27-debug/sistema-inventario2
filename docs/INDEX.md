@@ -69,14 +69,14 @@ Generado por `npm run docs:index`. No editar a mano.
 - [ADR-0063](adr/0063-ventas-devoluciones-sin-store.md) · aceptado · persistencia, ventas · src/lib/repos/ventas.ts para devoluciones y correcciones; sales y returns reusan fiscal.ts, stock.ts y
 - [ADR-0064](adr/0064-politica-comentarios.md) · propuesto · - · Un comentario en src/ se queda solo si explica un por qué que el código no puede decir, en una de tres clases:
 - [ADR-0065](adr/0065-arquitectura-amigable-agentes.md) · aceptado · persistencia · Cada error que un agente repitió más de una vez se ataca en este orden: primero se vuelve imposible o lo marca
-- [ADR-0066](adr/0066-dueno-real-y-correlativo-unico.md) · aceptado · - · Las rutas que se declaran "solo Dueño" verifican sesión y membership dueño del tenant que resuelve el servidor
+- [ADR-0066](adr/0066-dueno-real-y-correlativo-unico.md) · aceptado · - · Las rutas que se declaran "solo Dueño" verifican sesión y membership dueño del tenant que resuelve el servidor · modificado por ADR-0080
 - [ADR-0067](adr/0067-dependabot-actions-y-politica.md) · aceptado · - · Las cuatro Actions suben juntas en un PR propio: actions/checkout v4 a v7, actions/setup-node v4 a v7,
 - [ADR-0068](adr/0068-vitest-5.md) · aceptado · - · Subir vitest a ^5.0.4 (arrastra @vitest/mocker 5 y tinypool 2.x) en un PR propio, con el lockfile de #10, que
 - [ADR-0069](adr/0069-astro-7.md) · aceptado · - · Subir astro a ^7.3.8 y @astrojs/node a ^11.1.7 juntos, con sharp 0.35 que trae Astro, en un PR propio.
 - [ADR-0070](adr/0070-drizzle-orm-045.md) · aceptado · persistencia · Subir drizzle-orm a ^0.45.4 en un PR propio, con lockfile regenerado. drizzle-kit 0.31 ya es compatible.
 - [ADR-0071](adr/0071-zod-4.md) · aceptado · email · Subir zod a ^4.6.5 y corregir el código que el cambio rompe, en un PR propio con TDD sobre los cuerpos de
 - [ADR-0072](adr/0072-typescript-7.md) · aceptado · - · Subir typescript a ^7.0.2 en un PR propio, con lockfile regenerado, como último paso de la pila.
-- [ADR-0073](adr/0073-errores-recurrentes-llm-guardas.md) · aceptado · persistencia · Los errores que los agentes repiten y que ADR-0065 no cubre se cierran con un arch-test o un script, y recién
+- [ADR-0073](adr/0073-errores-recurrentes-llm-guardas.md) · aceptado · persistencia · Los errores que los agentes repiten y que ADR-0065 no cubre se cierran con un arch-test o un script, y recién · modificado por ADR-0082
 - [ADR-0074](adr/0074-prefijos-datos-y-fiscal-settings-tenant.md) · aceptado · fiscal, persistencia, tenant · PREFIJOSDATOS suma /api/payment-orders, /api/payees, /api/counts, /api/stock, /api/service-accounts,
 - [ADR-0075](adr/0075-backfill-tenant-id-real.md) · aceptado · fiscal, tenant · planBackfill devuelve una sentencia por tabla: fiscaldocuments actualiza todas las filas con tenantid nulo;
 - [ADR-0076](adr/0076-avances-roadmap-sin-conflictos.md) · aceptado · - · Los PRs de implementación dejan de editar docs/ROADMAP.md. Cada uno agrega

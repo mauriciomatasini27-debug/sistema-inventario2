@@ -20,6 +20,8 @@ const BASE = {
   depende_de: [],
   reemplaza: [],
   reemplazado_por: "",
+  modifica: [],
+  modificado_por: [],
   resumen: "Resumen factual en una línea.",
 };
 
@@ -97,6 +99,8 @@ describe("serializeFrontmatter", () => {
       "depende_de",
       "reemplaza",
       "reemplazado_por",
+      "modifica",
+      "modificado_por",
       "resumen",
     ]);
     expect(out).toContain("modulos: [caja, inventario]");
@@ -112,6 +116,33 @@ describe("serializeFrontmatter", () => {
     ]) {
       expect(parseFrontmatter(serializeFrontmatter(datos)).datos).toEqual(datos);
     }
+  });
+
+  it("roundtrip con modifica y modificado_por poblados", () => {
+    const datos = { ...BASE, modifica: ["ADR-0001"], modificado_por: ["ADR-0080"] };
+    expect(parseFrontmatter(serializeFrontmatter(datos)).datos).toEqual(datos);
+  });
+
+  it("parsea modifica y modificado_por como listas", () => {
+    const texto =
+      "---\n" +
+      "id: ADR-0082\n" +
+      "tipo: adr\n" +
+      "estado: aceptado\n" +
+      "modulos: []\n" +
+      "depende_de: []\n" +
+      "reemplaza: []\n" +
+      'reemplazado_por: ""\n' +
+      "modifica: [ADR-0073]\n" +
+      "modificado_por: []\n" +
+      'resumen: ""\n' +
+      "---\n" +
+      "Cuerpo\n";
+    const r = parseFrontmatter(texto);
+    expect(r.tiene).toBe(true);
+    expect(r.datos.modifica).toEqual(["ADR-0073"]);
+    expect(r.datos.modificado_por).toEqual([]);
+    expect(r.cuerpo).toBe("Cuerpo\n");
   });
 });
 

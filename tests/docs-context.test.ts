@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buscarContexto, cargarCandidatos } from "../scripts/docs-context-lib.mjs";
+import { buscarContexto, cargarCandidatos, formatearTexto } from "../scripts/docs-context-lib.mjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const CLI = join(AQUI, "..", "scripts", "docs-context.mjs");
@@ -18,6 +18,8 @@ function fm(sobre: Record<string, string> = {}): string {
     depende_de: "[]",
     reemplaza: "[]",
     reemplazado_por: '""',
+    modifica: "[]",
+    modificado_por: "[]",
     resumen: '""',
     ...sobre,
   };
@@ -30,6 +32,8 @@ function fm(sobre: Record<string, string> = {}): string {
     `depende_de: ${d.depende_de}`,
     `reemplaza: ${d.reemplaza}`,
     `reemplazado_por: ${d.reemplazado_por}`,
+    `modifica: ${d.modifica}`,
+    `modificado_por: ${d.modificado_por}`,
     `resumen: ${d.resumen}`,
     "---",
     "",
@@ -99,6 +103,73 @@ describe("docs:context por id", () => {
   });
 });
 
+describe("docs:context modifica/modificado_por", () => {
+  function raizModifica(): string {
+    return mkRaiz({
+      "old.md":
+        `${fm({ id: "ADR-0066", estado: "aceptado", modificado_por: "[ADR-0080]", resumen: '"Viejo resumen."' })}\n` +
+        "# ADR-0066 Viejo\n\n## Decisión\n\nViejo texto.\n",
+      "new.md":
+        `${fm({ id: "ADR-0080", estado: "aceptado", modifica: "[ADR-0066]", resumen: '"Nuevo resumen."' })}\n` +
+        "# ADR-0080 Nuevo\n\n## Decisión\n\nNuevo texto.\n",
+    });
+  }
+
+  it("candidatos exponen modifica y modificado_por", () => {
+    const docs = cargarCandidatos(raizModifica());
+    expect(docs.find((d) => d.id === "ADR-0066")?.modificado_por).toEqual(["ADR-0080"]);
+    expect(docs.find((d) => d.id === "ADR-0066")?.modifica).toEqual([]);
+    expect(docs.find((d) => d.id === "ADR-0080")?.modifica).toEqual(["ADR-0066"]);
+    expect(docs.find((d) => d.id === "ADR-0080")?.modificado_por).toEqual([]);
+  });
+
+  it("el id exacto arrastra a sus modificadores con rango de Decisión", () => {
+    const raiz = raizModifica();
+    const docs = cargarCandidatos(raiz);
+    const r = buscarContexto("ADR-0066", docs);
+    expect(r.tipo).toBe("id");
+    expect(r.docs[0]?.id).toBe("ADR-0066");
+    expect(r.docs.map((d) => d.id)).toContain("ADR-0080");
+    const primero = r.docs[0];
+    expect(primero?.modificado_por).toEqual(["ADR-0080"]);
+    expect(primero?.modificadores).toEqual([
+      {
+        id: "ADR-0080",
+        ruta: `${raiz}/new.md`,
+        resumen: "Nuevo resumen.",
+        decision: { start: 16, end: 19, heading: "Decisión" },
+      },
+    ]);
+  });
+
+  it("formatearTexto imprime la línea ↳ con el rango de Decisión del modificador", () => {
+    const raiz = raizModifica();
+    const docs = cargarCandidatos(raiz);
+    const texto = formatearTexto(buscarContexto("ADR-0066", docs));
+    expect(texto).toContain(`↳ modificado por ADR-0080 · ${raiz}/new.md · Nuevo resumen.`);
+    expect(texto).toContain("    - L16-L19 ## Decisión");
+  });
+
+  it("los modificadores cuentan dentro del tope de 10", () => {
+    const archivos: Record<string, string> = {};
+    const ids = Array.from({ length: 11 }, (_, i) => `ADR-${String(80 + i).padStart(4, "0")}`);
+    archivos["old.md"] =
+      `${fm({ id: "ADR-0066", estado: "aceptado", modificado_por: `[${ids.join(", ")}]`, resumen: '"Base."' })}\n` +
+      "# ADR-0066 Base\n\n## Decisión\n\nBase.\n";
+    for (let i = 0; i < ids.length; i += 1) {
+      const id = ids[i] ?? "";
+      archivos[`m${i}.md`] =
+        `${fm({ id, estado: "aceptado", modifica: "[ADR-0066]", resumen: `"Mod ${i}."` })}\n` +
+        `# ${id} Mod\n\n## Decisión\n\nMod ${i}.\n`;
+    }
+    const docs = cargarCandidatos(mkRaiz(archivos));
+    const r = buscarContexto("ADR-0066", docs);
+    expect(r.docs.length).toBe(10);
+    expect(r.docs[0]?.id).toBe("ADR-0066");
+    expect(r.docs[0]?.modificado_por?.length).toBe(11);
+  });
+});
+
 describe("docs:context por modulo", () => {
   it("prioriza docs con el modulo en frontmatter", () => {
     const docs = cargarCandidatos(raizBase());
@@ -134,9 +205,9 @@ describe("docs:context por tema", () => {
     const sec = r.docs[0]?.secciones ?? [];
     expect(sec.length).toBe(1);
     expect(sec[0]?.heading).toMatch(/Devoluciones/);
-    // frontmatter 10 líneas + "" + "# ..." = heading ## en línea 14, sección hasta línea 17
-    expect(sec[0]?.start).toBe(14);
-    expect(sec[0]?.end).toBe(17);
+    // frontmatter 12 líneas + "" + "# ..." = heading ## en línea 16, sección hasta línea 19
+    expect(sec[0]?.start).toBe(16);
+    expect(sec[0]?.end).toBe(19);
   });
 });
 

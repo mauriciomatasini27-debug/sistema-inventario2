@@ -9,6 +9,8 @@ depende_de: []
 reemplaza: []
 # reemplazado_por es obligatorio si estado=reemplazado
 reemplazado_por: ""
+modifica: []
+modificado_por: []
 resumen: Resumen factual del PRD en un máximo de 3 líneas.
 ---
 # PRD-XXX-00 - Título

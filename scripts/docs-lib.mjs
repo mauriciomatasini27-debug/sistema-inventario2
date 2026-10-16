@@ -10,6 +10,8 @@ import { join } from "node:path";
  * @property {string[]} depende_de
  * @property {string[]} reemplaza
  * @property {string} reemplazado_por
+ * @property {string[]} modifica
+ * @property {string[]} modificado_por
  * @property {string} resumen
  */
 
@@ -29,9 +31,11 @@ const CLAVES = [
   "depende_de",
   "reemplaza",
   "reemplazado_por",
+  "modifica",
+  "modificado_por",
   "resumen",
 ];
-const LISTAS = new Set(["modulos", "depende_de", "reemplaza"]);
+const LISTAS = new Set(["modulos", "depende_de", "reemplaza", "modifica", "modificado_por"]);
 
 // quita comillas simples/dobles de un escalar
 function sinComillas(s) {
@@ -387,6 +391,8 @@ export function inferirFrontmatter(ruta, texto) {
     depende_de: menciones(cuerpo, id),
     reemplaza: reemplazos(cuerpo),
     reemplazado_por: reemplazadoPor,
+    modifica: [],
+    modificado_por: [],
     resumen: "",
   };
 }

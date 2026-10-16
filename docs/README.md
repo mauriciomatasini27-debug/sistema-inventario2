@@ -74,7 +74,7 @@ Lo público y el sistema de diseño.
 
 ## Frontmatter de docs
 
-Cada plantilla usa un registro con `id` (ej. ADR-0052, PRD-PERS-02, PLAN-COM-01, o slug para docs de módulo), `tipo` (adr|prd|plan|spec|historico), `estado` (propuesto|aceptado|hecho|reemplazado|deprecado), `modulos` (ej. [caja, inventario]), `depende_de`, `reemplaza`, `reemplazado_por` (obligatorio si estado=reemplazado) y `resumen` (máx 3 líneas, factual). El frontmatter va al inicio del archivo entre --- líneas y el cuerpo no cambia. Los archivos que empiezan con _ son plantillas ignoradas por los indexers.
+Cada plantilla usa un registro con `id` (ej. ADR-0052, PRD-PERS-02, PLAN-COM-01, o slug para docs de módulo), `tipo` (adr|prd|plan|spec|historico), `estado` (propuesto|aceptado|hecho|reemplazado|deprecado), `modulos` (ej. [caja, inventario]), `depende_de`, `reemplaza`, `reemplazado_por` (obligatorio si estado=reemplazado), `modifica` (ids cuyas decisiones este doc cambia en parte), `modificado_por` (inverso: ids que cambian en parte este doc) y `resumen` (máx 3 líneas, factual). La modificación es parcial: el doc modificado sigue vigente. El frontmatter va al inicio del archivo entre --- líneas y el cuerpo no cambia. Los archivos que empiezan con _ son plantillas ignoradas por los indexers.
 
 ```yaml
 ---
@@ -85,6 +85,8 @@ modulos: [caja, inventario]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
+modifica: []
+modificado_por: []
 resumen: Resumen factual en un máximo de 3 líneas.
 ---
 ```

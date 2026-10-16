@@ -2615,6 +2615,11 @@
     },
     {
       "de": "ADR-0066",
+      "a": "ADR-0080",
+      "tipo": "modificado_por"
+    },
+    {
+      "de": "ADR-0066",
       "a": "PRD-SEC-01",
       "tipo": "depende_de"
     },
@@ -2667,6 +2672,11 @@
       "de": "ADR-0073",
       "a": "ADR-0065",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0073",
+      "a": "ADR-0082",
+      "tipo": "modificado_por"
     },
     {
       "de": "ADR-0073",
@@ -2830,6 +2840,11 @@
     },
     {
       "de": "ADR-0080",
+      "a": "ADR-0066",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0080",
       "a": "PRD-PERS-05",
       "tipo": "depende_de"
     },
@@ -2867,6 +2882,11 @@
       "de": "ADR-0082",
       "a": "ADR-0073",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0082",
+      "a": "ADR-0073",
+      "tipo": "modifica"
     },
     {
       "de": "ADR-0082",

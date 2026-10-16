@@ -6,6 +6,7 @@ modulos: [fiado, offline, persistencia, ventas]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, PRD-PERS-05]
 reemplaza: []
 reemplazado_por: ""
+modifica: [ADR-0066]
 resumen: |
   Los correlativos internos con base viva salen de ticketcounters, una fila por serie con lock FOR UPDATE dentro
   de la transacción que escribe la fila numerada: mostrador para T- (ventas, promote y venta a cuenta) y

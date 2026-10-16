@@ -92,6 +92,8 @@ export function cargarCandidatos(raiz = "docs") {
       modulos: comoArreglo(d.modulos).map((m) => String(m).toLowerCase()),
       depende_de: comoArreglo(d.depende_de),
       reemplaza: comoArreglo(d.reemplaza),
+      modifica: comoArreglo(d.modifica),
+      modificado_por: comoArreglo(d.modificado_por),
       resumen: primeraLinea(comoTexto(d.resumen)),
       titulo: extraerTitulo(parsed.cuerpo),
       headings: extraerHeadings(lineas),
@@ -158,6 +160,19 @@ function seccionesPara(doc, qn, tipo) {
   return [rangoSeccion(doc, 0)];
 }
 
+function rangoDecision(cand) {
+  const headings = cand?.headings ?? [];
+  const i = headings.findIndex((h) => /decisi/i.test(h.heading ?? ""));
+  if (i < 0) return null;
+  const h = headings[i];
+  const sig = headings[i + 1];
+  return {
+    start: h.line,
+    end: sig ? sig.line - 1 : (cand?.lineas ?? []).length,
+    heading: h.heading,
+  };
+}
+
 export function buscarContexto(query, docs) {
   const q = String(query ?? "").trim();
   const qn = q.toLowerCase();
@@ -168,7 +183,12 @@ export function buscarContexto(query, docs) {
   const vecinos = new Set();
   if (tipo === "id" && exacto) {
     const enlaces = new Set(
-      [...(exacto.depende_de ?? []), ...(exacto.reemplaza ?? [])].map((x) => String(x).toLowerCase()),
+      [
+        ...(exacto.depende_de ?? []),
+        ...(exacto.reemplaza ?? []),
+        ...(exacto.modifica ?? []),
+        ...(exacto.modificado_por ?? []),
+      ].map((x) => String(x).toLowerCase()),
     );
     for (const d of lista) {
       const idl = String(d.id).toLowerCase();
@@ -177,9 +197,12 @@ export function buscarContexto(query, docs) {
         vecinos.add(idl);
         continue;
       }
-      const apunta = [...(d.depende_de ?? []), ...(d.reemplaza ?? [])].some(
-        (x) => String(x).toLowerCase() === qn,
-      );
+      const apunta = [
+        ...(d.depende_de ?? []),
+        ...(d.reemplaza ?? []),
+        ...(d.modifica ?? []),
+        ...(d.modificado_por ?? []),
+      ].some((x) => String(x).toLowerCase() === qn);
       if (apunta) vecinos.add(idl);
     }
   }
@@ -231,8 +254,25 @@ export function buscarContexto(query, docs) {
     estado: d.estado,
     resumen: d.resumen,
     secciones: seccionesPara(d, qn, tipo),
+    modificado_por: [...(d.modificado_por ?? [])],
+    modificadores: [],
     score,
   }));
+  const porItem = new Map(items.map((it) => [String(it.id).toLowerCase(), it]));
+  top.forEach(({ doc: d }, idx) => {
+    const mods = [];
+    for (const mid of d.modificado_por ?? []) {
+      const ml = String(mid).toLowerCase();
+      const cand = porId.get(ml) ?? null;
+      if (!cand) continue;
+      let decision = null;
+      const secDec = (porItem.get(ml)?.secciones ?? []).find((s) => /decisi/i.test(s.heading ?? ""));
+      if (secDec) decision = { start: secDec.start, end: secDec.end, heading: secDec.heading };
+      else decision = rangoDecision(cand);
+      mods.push({ id: cand.id, ruta: cand.ruta, resumen: cand.resumen, decision });
+    }
+    items[idx].modificadores = mods;
+  });
   let chars = 0;
   for (const item of items) {
     const d = lista.find((x) => x.id === item.id && x.rel === item.rel);
@@ -251,6 +291,13 @@ export function formatearTexto(resultado) {
     if (d.resumen && d.resumen.trim() !== "") lineas.push(`  ${d.resumen.trim()}`);
     for (const s of d.secciones ?? []) {
       lineas.push(`  - L${s.start}-L${s.end} ${"#".repeat(s.level)} ${s.heading}`);
+    }
+    for (const m of d.modificadores ?? []) {
+      const res = m.resumen && m.resumen.trim() !== "" ? ` · ${m.resumen.trim()}` : "";
+      lineas.push(`  ↳ modificado por ${m.id} · ${m.ruta}${res}`);
+      if (m.decision) {
+        lineas.push(`    - L${m.decision.start}-L${m.decision.end} ## ${m.decision.heading}`);
+      }
     }
   }
   lineas.push(

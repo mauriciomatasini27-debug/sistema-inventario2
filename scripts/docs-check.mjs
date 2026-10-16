@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, join, normalize } from "node:path";
 import { generarContenidos } from "./docs-index-lib.mjs";
 import { listarDocs } from "./docs-lib.mjs";
-import { aplicarBaseline, checkEnlaces, checkEsquema, checkIds, formatoError } from "./docs-check-lib.mjs";
+import { aplicarBaseline, checkEnlaces, checkEsquema, checkIds, checkSimetria, formatoError } from "./docs-check-lib.mjs";
 
 const args = process.argv.slice(2);
 let raiz = "docs";
@@ -26,6 +26,7 @@ const existentes = new Set(archivos.map((a) => a.ruta));
 const errores = [];
 errores.push(...checkEsquema(archivos));
 errores.push(...checkIds(archivos));
+errores.push(...checkSimetria(archivos));
 
 let baseline = [];
 try {

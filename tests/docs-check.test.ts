@@ -9,6 +9,7 @@ import {
   checkEnlaces,
   checkEsquema,
   checkIds,
+  checkSimetria,
   esEsquemaDoc,
   formatoError,
 } from "../scripts/docs-check-lib.mjs";
@@ -26,6 +27,8 @@ function fm(sobre: Record<string, string> = {}): string {
     `depende_de: ${sobre.depende_de ?? "[]"}`,
     `reemplaza: ${sobre.reemplaza ?? "[]"}`,
     `reemplazado_por: ${sobre.reemplazado_por ?? '""'}`,
+    `modifica: ${sobre.modifica ?? "[]"}`,
+    `modificado_por: ${sobre.modificado_por ?? "[]"}`,
     `resumen: ${sobre.resumen ?? '""'}`,
     "---",
     "",
@@ -114,6 +117,37 @@ describe("docs:check esquema", () => {
     expect(errores[0]?.mensaje).toMatch(/reemplaza/);
   });
 
+  it("falla cuando modifica no es lista", () => {
+    const texto = `${fm()}\n# T\n`.replace("modifica: []", "modifica: ADR-0002");
+    const errores = checkEsquema([doc("docs/adr/0001-x.md", texto)]);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.mensaje).toMatch(/modifica/);
+  });
+
+  it("falla cuando modificado_por no es lista", () => {
+    const texto = `${fm()}\n# T\n`.replace("modificado_por: []", "modificado_por: ADR-0080");
+    const errores = checkEsquema([doc("docs/adr/0001-x.md", texto)]);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.mensaje).toMatch(/modificado_por/);
+  });
+
+  it("acepta docs sin modifica ni modificado_por (campos opcionales)", () => {
+    const texto = [
+      "---",
+      "id: ADR-0001",
+      "tipo: adr",
+      "estado: propuesto",
+      "modulos: []",
+      "depende_de: []",
+      "reemplaza: []",
+      'reemplazado_por: ""',
+      'resumen: ""',
+      "---",
+      "",
+    ].join("\n");
+    expect(checkEsquema([doc("docs/adr/0001-x.md", `${texto}\n# T\n`)])).toEqual([]);
+  });
+
   it("falla con resumen de más de 3 líneas", () => {
     const texto = [
       "---",
@@ -186,6 +220,63 @@ describe("docs:check ids existen", () => {
     const errores = checkIds(archivos);
     expect(errores.map((e) => e.mensaje).join("\n")).toContain("FANTASMA-1");
     expect(errores.map((e) => e.mensaje).join("\n")).toContain("FANTASMA-2");
+  });
+
+  it("falla cuando modifica apunta a un id ausente", () => {
+    const archivos = [doc("docs/a.md", `${fm({ id: "SPEC-UI-00", modifica: "[FANTASMA-9]" })}\n# T\n`)];
+    const errores = checkIds(archivos);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.ruta).toBe("docs/a.md");
+    expect(errores[0]?.mensaje).toContain("FANTASMA-9");
+  });
+
+  it("falla cuando modificado_por apunta a un id ausente", () => {
+    const archivos = [doc("docs/a.md", `${fm({ id: "SPEC-UI-00", modificado_por: "[FANTASMA-8]" })}\n# T\n`)];
+    const errores = checkIds(archivos);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.ruta).toBe("docs/a.md");
+    expect(errores[0]?.mensaje).toContain("FANTASMA-8");
+  });
+});
+
+describe("docs:check simetría modifica/modificado_por", () => {
+  it("acepta un par simétrico sin errores", () => {
+    const archivos = [
+      doc("docs/adr/0066-x.md", `${fm({ id: "ADR-0066", modificado_por: "[ADR-0080]" })}\n# A\n`),
+      doc("docs/adr/0080-x.md", `${fm({ id: "ADR-0080", modifica: "[ADR-0066]" })}\n# B\n`),
+    ];
+    expect(checkSimetria(archivos)).toEqual([]);
+  });
+
+  it("falla si A.modifica incluye B pero B.modificado_por no tiene A", () => {
+    const archivos = [
+      doc("docs/adr/0066-x.md", `${fm({ id: "ADR-0066" })}\n# A\n`),
+      doc("docs/adr/0080-x.md", `${fm({ id: "ADR-0080", modifica: "[ADR-0066]" })}\n# B\n`),
+    ];
+    const errores = checkSimetria(archivos);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.ruta).toBe("docs/adr/0080-x.md");
+    expect(errores[0]?.mensaje).toContain("ADR-0080");
+    expect(errores[0]?.mensaje).toContain("ADR-0066");
+    expect(errores[0]?.mensaje).toContain("modificado_por");
+  });
+
+  it("falla si B.modificado_por incluye A pero A.modifica no tiene B", () => {
+    const archivos = [
+      doc("docs/adr/0066-x.md", `${fm({ id: "ADR-0066", modificado_por: "[ADR-0080]" })}\n# A\n`),
+      doc("docs/adr/0080-x.md", `${fm({ id: "ADR-0080" })}\n# B\n`),
+    ];
+    const errores = checkSimetria(archivos);
+    expect(errores.length).toBe(1);
+    expect(errores[0]?.ruta).toBe("docs/adr/0066-x.md");
+    expect(errores[0]?.mensaje).toContain("ADR-0066");
+    expect(errores[0]?.mensaje).toContain("ADR-0080");
+    expect(errores[0]?.mensaje).toContain("modifica");
+  });
+
+  it("ignora enlaces a ids inexistentes (los cubre checkIds)", () => {
+    const archivos = [doc("docs/a.md", `${fm({ id: "A-1", modifica: "[FANTASMA-1]" })}\n# T\n`)];
+    expect(checkSimetria(archivos)).toEqual([]);
   });
 });
 

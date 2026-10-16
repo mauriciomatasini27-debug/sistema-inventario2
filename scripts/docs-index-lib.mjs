@@ -52,6 +52,8 @@ export function leerDoc(rel, texto) {
     depende_de: comoArreglo(d.depende_de),
     reemplaza: comoArreglo(d.reemplaza),
     reemplazado_por: comoTexto(d.reemplazado_por),
+    modifica: comoArreglo(d.modifica),
+    modificado_por: comoArreglo(d.modificado_por),
     resumen: primeraLinea(comoTexto(d.resumen)),
   };
 }
@@ -76,7 +78,8 @@ function lineaDoc(doc) {
   const flecha = doc.reemplazado_por !== "" ? ` → ${doc.reemplazado_por}` : "";
   const resumen = primeraLinea(doc.resumen);
   const cola = resumen === "" ? "" : ` · ${resumen}`;
-  return `- [${doc.id}](${doc.rel}) · ${doc.estado}${flecha} · ${mods}${cola}`;
+  const modif = doc.modificado_por.length > 0 ? ` · modificado por ${doc.modificado_por.join(", ")}` : "";
+  return `- [${doc.id}](${doc.rel}) · ${doc.estado}${flecha} · ${mods}${cola}${modif}`;
 }
 
 export function renderIndice(docs, sinFm) {
@@ -122,6 +125,8 @@ export function renderGrafo(docs) {
     for (const a of d.depende_de) enlazar(d.id, a, "depende_de");
     for (const a of d.reemplaza) enlazar(d.id, a, "reemplaza");
     if (d.reemplazado_por !== "") enlazar(d.id, d.reemplazado_por, "reemplazado_por");
+    for (const a of d.modifica) enlazar(d.id, a, "modifica");
+    for (const a of d.modificado_por) enlazar(d.id, a, "modificado_por");
   }
   const porDeA = (x, y) => (x.de < y.de ? -1 : x.de > y.de ? 1 : x.a < y.a ? -1 : x.a > y.a ? 1 : 0);
   aristas.sort((x, y) => porDeA(x, y) || (x.tipo < y.tipo ? -1 : 1));

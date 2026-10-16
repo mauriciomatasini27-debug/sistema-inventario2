@@ -2,7 +2,9 @@ import { parseFrontmatter } from "./docs-lib.mjs";
 
 export const TIPOS_VALIDOS = ["adr", "prd", "plan", "spec", "historico"];
 export const ESTADOS_VALIDOS = ["propuesto", "aceptado", "en curso", "hecho", "reemplazado", "deprecado"];
-const LISTAS = ["modulos", "depende_de", "reemplaza"];
+const LISTAS = ["modulos", "depende_de", "reemplaza", "modifica", "modificado_por"];
+// modifica/modificado_por son opcionales: ausentes pasan, presentes deben ser lista.
+const LISTAS_OPCIONALES = new Set(["modifica", "modificado_por"]);
 
 function normRuta(ruta) {
   return String(ruta ?? "").replace(/\\/g, "/");
@@ -69,6 +71,7 @@ export function checkEsquema(archivos) {
       });
     }
     for (const clave of LISTAS) {
+      if (d[clave] === undefined && LISTAS_OPCIONALES.has(clave)) continue;
       if (!Array.isArray(d[clave])) {
         errores.push({
           ruta: a.ruta,
@@ -114,6 +117,12 @@ function refsDe(datos) {
   for (const a of Array.isArray(datos.reemplaza) ? datos.reemplaza : []) {
     out.push({ campo: "reemplaza", id: String(a ?? "").trim() });
   }
+  for (const a of Array.isArray(datos.modifica) ? datos.modifica : []) {
+    out.push({ campo: "modifica", id: String(a ?? "").trim() });
+  }
+  for (const a of Array.isArray(datos.modificado_por) ? datos.modificado_por : []) {
+    out.push({ campo: "modificado_por", id: String(a ?? "").trim() });
+  }
   const por = comoTexto(datos.reemplazado_por);
   if (por !== "") out.push({ campo: "reemplazado_por", id: por });
   return out.filter((r) => r.id !== "");
@@ -140,6 +149,51 @@ export function checkIds(archivos) {
           mensaje: `${r.campo} apunta a id inexistente "${r.id}"`,
         });
       }
+    }
+  }
+  errores.sort((x, y) => (x.ruta < y.ruta ? -1 : x.ruta > y.ruta ? 1 : x.linea - y.linea));
+  return errores;
+}
+
+function comoLista(v) {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x ?? "").trim()).filter((x) => x !== "");
+}
+
+export function checkSimetria(archivos) {
+  const porId = new Map();
+  for (const a of archivos ?? []) {
+    if (!esEsquemaDoc(a.ruta)) continue;
+    const p = parseFrontmatter(a.texto);
+    if (!p.tiene) continue;
+    const id = idDe(p.datos ?? {}, a.ruta);
+    if (id === "" || porId.has(id)) continue;
+    porId.set(id, {
+      ruta: a.ruta,
+      texto: a.texto,
+      modifica: comoLista(p.datos?.modifica),
+      modificado_por: comoLista(p.datos?.modificado_por),
+    });
+  }
+  const errores = [];
+  for (const [id, d] of porId) {
+    for (const m of d.modifica) {
+      const otro = porId.get(m);
+      if (!otro || otro.modificado_por.includes(id)) continue;
+      errores.push({
+        ruta: d.ruta,
+        linea: lineaDe(d.texto, "modifica"),
+        mensaje: `modifica sin espejo: ${id} modifica ${m} pero ${m} no lo lista en modificado_por`,
+      });
+    }
+    for (const p of d.modificado_por) {
+      const otro = porId.get(p);
+      if (!otro || otro.modifica.includes(id)) continue;
+      errores.push({
+        ruta: d.ruta,
+        linea: lineaDe(d.texto, "modificado_por"),
+        mensaje: `modificado_por sin espejo: ${id} lista ${p} en modificado_por pero ${p} no lo lista en modifica`,
+      });
     }
   }
   errores.sort((x, y) => (x.ruta < y.ruta ? -1 : x.ruta > y.ruta ? 1 : x.linea - y.linea));

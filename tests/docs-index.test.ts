@@ -19,6 +19,8 @@ function fm(sobre: Record<string, string> = {}): string {
     `depende_de: ${sobre.depende_de ?? "[]"}`,
     `reemplaza: ${sobre.reemplaza ?? "[]"}`,
     `reemplazado_por: ${sobre.reemplazado_por ?? '""'}`,
+    `modifica: ${sobre.modifica ?? "[]"}`,
+    `modificado_por: ${sobre.modificado_por ?? "[]"}`,
     `resumen: ${sobre.resumen ?? '""'}`,
     "---",
     "",
@@ -184,6 +186,34 @@ describe("docs:index graph.json", () => {
       { de: "PRD-X-01", a: "ADR-0001", tipo: "depende_de" },
     ]);
     expect(g.faltantes).toEqual([{ de: "PRD-X-01", a: "ADR-9999" }]);
+  });
+
+  it("emite aristas modifica y modificado_por solo a ids existentes", () => {
+    const raiz = mkRaiz({
+      "old.md": `${fm({ id: "ADR-0066", modificado_por: "[ADR-0080]" })}\n# Viejo\n`,
+      "new.md": `${fm({ id: "ADR-0080", modifica: "[ADR-0066, ADR-9999]" })}\n# Nuevo\n`,
+    });
+    const { grafo } = generarContenidos(raiz);
+    const g = JSON.parse(grafo) as {
+      aristas: { de: string; a: string; tipo: string }[];
+      faltantes: { de: string; a: string }[];
+    };
+    expect(g.aristas).toContainEqual({ de: "ADR-0080", a: "ADR-0066", tipo: "modifica" });
+    expect(g.aristas).toContainEqual({ de: "ADR-0066", a: "ADR-0080", tipo: "modificado_por" });
+    expect(g.faltantes).toContainEqual({ de: "ADR-0080", a: "ADR-9999" });
+  });
+
+  it("la línea INDEX anuncia modificado por con todos los ids", () => {
+    const raiz = mkRaiz({
+      "old.md": `${fm({ id: "ADR-0066", modificado_por: "[ADR-0080, ADR-0081]" })}\n# Viejo\n`,
+      "new.md": `${fm({ id: "ADR-0080", modifica: "[ADR-0066]" })}\n# Nuevo\n`,
+      "new2.md": `${fm({ id: "ADR-0081", modifica: "[ADR-0066]" })}\n# Nuevo 2\n`,
+    });
+    const { index } = generarContenidos(raiz);
+    const linea = index.split("\n").find((l) => l.includes("ADR-0066")) ?? "";
+    expect(linea).toContain("· modificado por ADR-0080, ADR-0081");
+    const limpia = index.split("\n").find((l) => l.startsWith("- [ADR-0080]")) ?? "";
+    expect(limpia).not.toContain("modificado por");
   });
 });
 
