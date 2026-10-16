@@ -1,5 +1,5 @@
 ---
-import { nav, brand } from '../../data/business';
+import { nav, brand, accesos } from '../../data/business';
 ---
 
 <header
@@ -18,11 +18,25 @@ import { nav, brand } from '../../data/business';
         ))
       }
     </nav>
-    <a
-      href="#contacto"
-      class="rounded-[var(--radius-button)] bg-star-warm px-4 py-2 text-sm font-medium text-star-white transition-colors hover:bg-star-glow"
-    >
-      Pedir demo
-    </a>
+    <div class="flex flex-wrap items-center gap-3">
+      <a
+        href={accesos.comercio.href}
+        class="rounded-[var(--radius-button)] border border-nebula-cyan/40 px-4 py-2 text-sm font-medium text-core-cream transition-colors hover:border-nebula-cyan"
+      >
+        {accesos.comercio.label}
+      </a>
+      <a
+        href="#contacto"
+        class="rounded-[var(--radius-button)] bg-star-warm px-4 py-2 text-sm font-medium text-star-white transition-colors hover:bg-star-glow"
+      >
+        Pedir demo
+      </a>
+      <a
+        href={accesos.admin.href}
+        class="text-xs text-ash-gray/70 transition-colors hover:text-nebula-cyan"
+      >
+        {accesos.admin.label}
+      </a>
+    </div>
   </div>
 </header>
