@@ -158,6 +158,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
 | 2026-10-16 | P9-10 | hecho | P9-10: pago de vencimiento atómico con claim-first (M2): un 200 y un 409 ante doble pago concurrente. | — / — |
+| 2026-10-16 | SYNC-S5 | hecho | SYNC-S5/S6 hecho: grants y registro de devices DB-first en la base del tenant (offline_grants/device_sync_state con espejo en memoria, 503 en multi sin base), register idempotente con grant inicial en la misma tx y revocación legible tras reinicio, con tests/sync-s5-s6-durable.test.ts 7/7 (incluye PG A/B); pendientes sin migración: rol/permisos y registrado_por/en/nombre siguen en JWT/memoria. | PRD-SYNC-01 / ADR-0023 |
 | 2026-10-16 | PS-S1 a S3 | hecho | PS-S1 a S3: conformidad de 4 agentes sin `auto`, fixtures rotas en proceso más hijo en rojo y pendientes reales en ADR-0085 (M3). | PRD-PS-01 / ADR-0085 |
 | 2026-10-15 | P2-2 | hecho | P2-2 hecho: ARQ-S4 cerrado, todos los repos sobre el puerto Almacen; el `store.` restante vive solo dentro de `_almacen.ts`. | — / — |
 | 2026-10-15 | P2-3 | hecho | P2-3 hecho: ARQ-S8 cerrado, la evidencia de ADR ya no admite "preexistente" sin issue; fase 5 de PRD-ARQ-01 completa. | — / — |
