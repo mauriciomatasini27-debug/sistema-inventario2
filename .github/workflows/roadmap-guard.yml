@@ -19,6 +19,8 @@ jobs:
           node scripts/roadmap.mjs --guard cambiados.txt
       - name: Validar avances
         run: node scripts/roadmap.mjs --validate
+      - name: Chequear docs (schema, ids, links, INDEX fresco)
+        run: node scripts/docs-check.mjs
       - name: Sección generada de la base al día
         run: |
           git worktree add ../base ${{ github.event.pull_request.base.sha }}

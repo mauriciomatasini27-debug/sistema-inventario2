@@ -3,7 +3,7 @@ id: SPEC-UI-00
 tipo: spec
 estado: propuesto
 modulos: []
-depende_de: [PRD-UI-00, PRD-UI-07]
+depende_de: [PRD-UI-07]
 reemplaza: []
 reemplazado_por: ""
 resumen: |

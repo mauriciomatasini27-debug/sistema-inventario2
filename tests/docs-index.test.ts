@@ -187,6 +187,22 @@ describe("docs:index graph.json", () => {
   });
 });
 
+describe("docs:index roadmap", () => {
+  it("excluye docs/roadmap de docs, INDEX y grafo", () => {
+    const raiz = mkRaiz({
+      "a.md": `${fm({ id: "ADR-0001" })}\n# A\n`,
+      "roadmap/avances/P1-6.md": `${fm({ id: "P1-6", estado: "hecho" })}\n# Av\n`,
+    });
+    const { docs, sinFm } = colectarDocs(raiz);
+    expect(docs.map((d) => d.id)).toEqual(["ADR-0001"]);
+    expect(sinFm).toEqual([]);
+    const { index, grafo } = generarContenidos(raiz);
+    expect(index).not.toContain("P1-6");
+    const g = JSON.parse(grafo) as { nodos: { id: string }[] };
+    expect(g.nodos.map((n) => n.id)).toEqual(["ADR-0001"]);
+  });
+});
+
 describe("docs:index CLI --raiz/--check", () => {
   it("--check sale 0 cuando está fresco y 1 con archivos rancios", () => {
     const raiz = raizBase();

@@ -31,6 +31,7 @@ function esReemplazado(estado) {
 
 function omitir(rel) {
   const partes = String(rel).split("/");
+  if (partes.includes("roadmap")) return true;
   if (partes.some((p) => p.startsWith("_") || p === "_origen-docx")) return true;
   const base = partes[partes.length - 1] ?? "";
   return GENERADOS.has(base);

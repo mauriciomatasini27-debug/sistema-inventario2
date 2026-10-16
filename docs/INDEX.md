@@ -159,10 +159,6 @@ Generado por `npm run docs:index`. No editar a mano.
 ## Spec
 
 - [ADR-0000](adr/0000-indice-prd-ordenado.md) · propuesto · inventario, persistencia · PRD - Autenticación y Gestión de Usuarios - AU1-AU10+. Google OIDC puro openid email profile, Code+PKCE
-- [CAJA-S1](roadmap/avances/CAJA-S1.md) · hecho · -
-- [CAJA-S2](roadmap/avances/CAJA-S2.md) · hecho · -
-- [CAJA-S3](roadmap/avances/CAJA-S3.md) · hecho · -
-- [CAJA-S4](roadmap/avances/CAJA-S4.md) · hecho · -
 - [EVIDENCIA-UI-00](diseno/EVIDENCIA-UI-00-tickets.md) · propuesto · - · Fuente: corridas del 2026-10-12 con check-contrast.mjs, review-scope.mjs y grep sobre src/pages.
 - [MOD-01-COSTOS-POR-CLIENTE](01-fundacion/costos-por-cliente.md) · propuesto · bot, inventario · Decisión (dueño, 9/10/2026): un único número central de WhatsApp Business. La WABA y el número son del
 - [MOD-01-MODO-OFFLINE](01-fundacion/modo-offline.md) · propuesto · inventario, offline · En los kioscos y comercios chicos de Argentina la conexión falla seguido: el Wi-Fi del local se cae, los datos
@@ -195,41 +191,6 @@ Generado por `npm run docs:index`. No editar a mano.
 - [MOD-08-PANEL-ADMIN-PARTE-3](08-operacion-admin-analytics/panel-admin-parte-3.md) · propuesto · admin · Legal: redacción de la cláusula de los términos y la política sobre los datos de gestión y el "no acceso" a
 - [MOD-08-REPORTES-ROTACION](08-operacion-admin-analytics/reportes-rotacion.md) · propuesto · admin · El dueño de un kiosco sabe "más o menos" qué se vende, pero no tiene números: compra de más lo que no sale (y
 - [MOD-09-LANDING-GAPS-MODOOPS](09-frontend-landing-diseno/landing-gaps-modoops.md) · propuesto · landing · La landing nueva cubre 8 de 18 secciones del arco canónico ModoOps. Orden nuevo: Hero / Problema / Solucion /
-- [P0-1](roadmap/avances/P0-1.md) · hecho · -
-- [P0-2](roadmap/avances/P0-2.md) · hecho · -
-- [P0-3](roadmap/avances/P0-3.md) · hecho · -
-- [P0-4](roadmap/avances/P0-4.md) · hecho · -
-- [P0-5](roadmap/avances/P0-5.md) · hecho · -
-- [P1-1](roadmap/avances/P1-1.md) · hecho · -
-- [P1-2](roadmap/avances/P1-2.md) · hecho · -
-- [P1-3](roadmap/avances/P1-3.md) · hecho · -
-- [P1-4](roadmap/avances/P1-4.md) · hecho · -
-- [P1-5](roadmap/avances/P1-5.md) · hecho · -
-- [P1-6](roadmap/avances/P1-6.md) · hecho · -
-- [P1-7](roadmap/avances/P1-7.md) · hecho · -
-- [P1-8](roadmap/avances/P1-8.md) · hecho · -
-- [P2-1](roadmap/avances/P2-1.md) · hecho · -
-- [P2-2](roadmap/avances/P2-2.md) · hecho · -
-- [P2-3](roadmap/avances/P2-3.md) · hecho · -
-- [P3-1](roadmap/avances/P3-1.md) · en curso · -
-- [P9-1](roadmap/avances/P9-1.md) · bloqueado (decisión de mauri) · -
-- [P9-2](roadmap/avances/P9-2.md) · bloqueado (decisión de mauri) · -
-- [P9-3](roadmap/avances/P9-3.md) · bloqueado (decisión de mauri) · -
-- [P9-4](roadmap/avances/P9-4.md) · bloqueado (decisión de mauri) · -
-- [P9-5](roadmap/avances/P9-5.md) · bloqueado (decisión de mauri) · -
-- [P9-6](roadmap/avances/P9-6.md) · hecho · -
-- [P9-7](roadmap/avances/P9-7.md) · hecho · -
-- [P9-8](roadmap/avances/P9-8.md) · hecho · -
-- [P9-9](roadmap/avances/P9-9.md) · hecho · -
-- [PERS3-S1 a S4](roadmap/avances/0078.md) · hecho · -
-- [PERS4-S1 a S4](roadmap/avances/0079.md) · hecho · -
-- [PERS5-S1 a S3](roadmap/avances/0080.md) · hecho · -
-- [PERS6-S1](roadmap/avances/0081.md) · hecho · -
-- [PERS7-S1 a S3](roadmap/avances/0082.md) · hecho · -
-- [PROC1-S1 a S3](roadmap/avances/0083.md) · hecho · -
-- [PS-S1 a S3](roadmap/avances/0085.md) · hecho · -
-- [ROAD1-S1 a S4](roadmap/avances/0076.md) · hecho · -
-- [SEC4-S1 a S3](roadmap/avances/0077.md) · hecho · -
 - [SPEC-UI-00](diseno/SPEC-UI-00-implementacion.md) · propuesto · - · Fuente: diseno/PRD-UI-0.md, adr/0032..0038, hallazgos repo 2026-10-12: sin --mo-, Tailwind v4 @theme en
 
 ## Sin frontmatter
@@ -239,5 +200,3 @@ Generado por `npm run docs:index`. No editar a mano.
 - ROADMAP.md
 - historico/panel-admin-version-anterior-DEPRECADA.md
 - migracion-supabase.md
-- roadmap/avances/README.md
-- roadmap/migraciones-aplicadas.md
