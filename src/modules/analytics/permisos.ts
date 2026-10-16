@@ -21,11 +21,19 @@ export function puede_marcar_promo(grant: Grant): boolean {
   return grant.rol === "dueno";
 }
 
-// Recorte servidor para Empleado: sin costo/valorizado. El adaptador además
-// bloquea orden por columnas financieras y export (403).
-export type FilaEmpleado = Omit<FilaRotacion, "costoCentavos" | "valorizadoCentavos"> & {
+// Recorte servidor para Empleado: sin costo/valorizado ni financieros
+// (ingresos, ganancia, margen, markup). El adaptador además bloquea orden
+// por columnas financieras y export (403).
+export type FilaEmpleado = Omit<
+  FilaRotacion,
+  "costoCentavos" | "valorizadoCentavos" | "ingresosCentavos" | "gananciaCentavos" | "margenBp" | "markupBp"
+> & {
   readonly costoCentavos?: never;
   readonly valorizadoCentavos?: never;
+  readonly ingresosCentavos?: never;
+  readonly gananciaCentavos?: never;
+  readonly margenBp?: never;
+  readonly markupBp?: never;
 };
 
 export function recortar_para_rol(
@@ -34,7 +42,15 @@ export function recortar_para_rol(
 ): ReadonlyArray<FilaRotacion> | ReadonlyArray<FilaEmpleado> {
   if (grant.rol === "dueno") return filas;
   return filas.map((f) => {
-    const { costoCentavos: _c, valorizadoCentavos: _v, ...resto } = f;
+    const {
+      costoCentavos: _c,
+      valorizadoCentavos: _v,
+      ingresosCentavos: _i,
+      gananciaCentavos: _g,
+      margenBp: _m,
+      markupBp: _k,
+      ...resto
+    } = f;
     return resto;
   });
 }

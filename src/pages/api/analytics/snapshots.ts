@@ -3,12 +3,10 @@ import { snapshotSchema } from "../../../lib/validation-analytics.js";
 import { calcular_rotacion } from "../../../modules/analytics/agregador.js";
 import { fuente_memoria } from "../../../modules/analytics/fuente.js";
 import {
+  construir_resumen,
   describir_snapshot,
   encolar_snapshot,
-  top_n,
-  type ResumenRotacion,
 } from "../../../modules/analytics/snapshots.js";
-import { listar_dormidos, reponer_primero } from "../../../modules/analytics/selectores.js";
 import { DEFAULT_SETTINGS, type SnapshotRotacion, type SkuRot } from "../../../modules/analytics/tipos.js";
 
 export const prerender = false;
@@ -47,15 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
   });
   const e = encolar_snapshot(tienda, snap);
   if (e.status === 409) return Response.json({ error: e.error }, { status: 409 });
-  const top = top_n(r.valor, 3);
-  const rep = reponer_primero(r.valor, DEFAULT_SETTINGS);
-  const dorm = listar_dormidos(r.valor, new Set(), DEFAULT_SETTINGS);
-  const resumen: ResumenRotacion = {
-    top: top.map((f) => ({ nombre: f.nombre, neto: f.neto })),
-    reponer: rep.items.slice(0, 3).map((f) => ({ nombre: f.nombre, cobertura: f.coberturaDias })),
-    dormidos: dorm.length,
-    inmovilizadoCentavos: dorm.reduce((acc, d) => acc + d.inmovilizadoCentavos, 0n),
-  };
+  const resumen = construir_resumen({ filas: r.valor, settings: DEFAULT_SETTINGS, excluidos: new Set() });
   return Response.json(
     {
       snapshot_id: snap.id,

@@ -62,6 +62,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     cursor: b.cursor ?? null,
   });
   const recortadas = recortar_para_rol(vista.items, grant);
+  const aStr = (f: object, k: "costoCentavos" | "valorizadoCentavos" | "ingresosCentavos" | "gananciaCentavos") => {
+    const v = (f as Record<string, unknown>)[k];
+    return typeof v === "bigint" ? v.toString() : undefined;
+  };
   return Response.json(
     {
       desde: b.desde,
@@ -69,13 +73,10 @@ export const GET: APIRoute = async ({ request, url }) => {
       datos_actualizados: new Date().toISOString(),
       items: recortadas.map((f) => ({
         ...f,
-        costoCentavos: typeof (f as { costoCentavos?: bigint }).costoCentavos === "bigint"
-          ? ((f as { costoCentavos: bigint }).costoCentavos).toString()
-          : undefined,
-        valorizadoCentavos:
-          typeof (f as { valorizadoCentavos?: bigint }).valorizadoCentavos === "bigint"
-            ? ((f as { valorizadoCentavos: bigint }).valorizadoCentavos).toString()
-            : undefined,
+        costoCentavos: aStr(f, "costoCentavos"),
+        valorizadoCentavos: aStr(f, "valorizadoCentavos"),
+        ingresosCentavos: aStr(f, "ingresosCentavos"),
+        gananciaCentavos: aStr(f, "gananciaCentavos"),
       })),
       next_cursor: vista.nextCursor,
     },

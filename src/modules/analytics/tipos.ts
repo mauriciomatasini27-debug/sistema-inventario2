@@ -22,6 +22,14 @@ export interface MovimientoVentana {
   readonly tipo: TipoMovVentana;
   readonly creadoEn: Date;
   readonly eventoId: string;
+  // RT2.5: recepción de pedido (cuenta 1 por pedido). Sin pedidoId es carga
+  // manual (agrupa por día). Solo en ALTA con delta > 0.
+  readonly pedidoId?: string | null | undefined;
+  // RT1.3/RT2.2: valores congelados de la venta (descuentos y costo al
+  // momento incluidos). VENTA delta < 0 suma; VENTA delta > 0 y
+  // COMPENSATORIO delta > 0 revierten; COMPENSATORIO delta < 0 suma.
+  readonly importeCentavos?: bigint | undefined;
+  readonly gananciaCentavos?: bigint | undefined;
 }
 
 export interface FotoCatalogo {
@@ -33,6 +41,10 @@ export interface FotoCatalogo {
   readonly precioCentavos: bigint;
   readonly excluidoDormidos: boolean;
   readonly stockActual: number;
+  // RT1.6: fecha de alta (YYYY-MM-DD). Sin ella el D efectivo es la ventana.
+  readonly altaDia?: string | undefined;
+  // RT1.5: los archivados no salen en "menos vendidos".
+  readonly archivado?: boolean | undefined;
 }
 
 export interface ParamsVentana {
@@ -60,13 +72,23 @@ export interface FilaRotacion {
   readonly stockPromedio: number;
   readonly rotacion: number | null;
   readonly ventaDiaria: number | null;
+  readonly ventaSemanal: number | null;
+  readonly ventaMensual: number | null;
   readonly coberturaDias: number | null;
   readonly vecesRepuesto: number;
   readonly costoCentavos: bigint;
   readonly valorizadoCentavos: bigint;
+  // RT1.3/RT2.2: netos del período con valores congelados. Solo Dueño.
+  readonly ingresosCentavos: bigint;
+  readonly gananciaCentavos: bigint;
+  readonly margenBp: number | null;
+  readonly markupBp: number | null;
   readonly pocosDatos: boolean;
   readonly motivoPocosDatos: "DIAS_LT7" | "VENTAS_LT3" | null;
   readonly ultimaVenta: string | null; // YYYY-MM-DD
+  readonly archivado: boolean;
+  readonly esNuevo: boolean;
+  readonly nuncaVendido: boolean;
 }
 
 export interface RotationSettings {

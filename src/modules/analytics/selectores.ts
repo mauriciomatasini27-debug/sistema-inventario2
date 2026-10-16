@@ -46,8 +46,9 @@ export function pagina_ranking(
   };
 }
 
-// RT3 ABC Pareto (P1): por valorizado neto (neto * precio). Cortes en basis
-// points. SinVentas aparte (no es C). Requiere >= abcMinDias de ventana.
+// RT3 ABC Pareto (P1): por ingresos netos (o neto × precio cuando el
+// adaptador aún no informa importes). La clase la decide el acumulado
+// previo: el producto que cruza el corte queda en la clase superior.
 export type ClaseABC = "A" | "B" | "C" | "SinVentas" | "P1_pendiente";
 
 export function clasificar_abc(
@@ -60,7 +61,10 @@ export function clasificar_abc(
     return filas.map((f) => ({ sku: f.sku, clase: "P1_pendiente" as const, pctAcumBp: 0 }));
   }
   const conVentas = filas
-    .map((f) => ({ f, val: BigInt(Math.max(0, f.neto)) * (precios.get(f.sku) ?? 0n) }))
+    .map((f) => ({
+      f,
+      val: f.ingresosCentavos > 0n ? f.ingresosCentavos : BigInt(Math.max(0, f.neto)) * (precios.get(f.sku) ?? 0n),
+    }))
     .filter((x) => x.val > 0n)
     .sort((a, b) => {
       if (a.val !== b.val) return a.val > b.val ? -1 : 1;
@@ -70,10 +74,11 @@ export function clasificar_abc(
   const out: { sku: SkuRot; clase: ClaseABC; pctAcumBp: number }[] = [];
   let acum = 0n;
   for (const x of conVentas) {
+    const prevBp = total === 0n ? 0 : Number((acum * 10000n) / total);
     acum += x.val;
     const pctBp = total === 0n ? 0 : Number((acum * 10000n) / total);
     const clase: ClaseABC =
-      pctBp <= settings.abcCorteA_bp ? "A" : pctBp <= settings.abcCorteB_bp ? "B" : "C";
+      prevBp < settings.abcCorteA_bp ? "A" : prevBp < settings.abcCorteB_bp ? "B" : "C";
     out.push({ sku: x.f.sku, clase, pctAcumBp: pctBp });
   }
   for (const f of filas) {
@@ -84,12 +89,35 @@ export function clasificar_abc(
   return out;
 }
 
+// RT1.5 menos vendidos: solo activos con stock > 0. Ceros primero;
+// desempate por valorización (Dueño) o días sin venta (Empleado).
+export function ranking_menos_vendidos(
+  filas: ReadonlyArray<FilaRotacion>,
+  vista: "dueno" | "empleado",
+): FilaRotacion[] {
+  return filas
+    .filter((f) => !f.archivado && f.stockFinal > 0)
+    .sort((a, b) => {
+      if (a.neto !== b.neto) return a.neto - b.neto;
+      if (vista === "dueno" && a.valorizadoCentavos !== b.valorizadoCentavos) {
+        return a.valorizadoCentavos > b.valorizadoCentavos ? -1 : 1;
+      }
+      if (vista === "empleado" && a.diasSinVenta !== b.diasSinVenta) {
+        return b.diasSinVenta - a.diasSinVenta;
+      }
+      return a.sku < b.sku ? -1 : a.sku > b.sku ? 1 : 0;
+    });
+}
+
 // RT4 dormidos: diasSinVenta >= N y stock > 0 y no excluido ni pocos datos.
+export type MotivoDormido = "sin_ventas" | "cobertura";
+
 export interface Dormido {
   readonly sku: SkuRot;
   readonly diasSinVenta: number;
   readonly inmovilizadoCentavos: bigint;
   readonly critico: boolean;
+  readonly motivos: ReadonlyArray<MotivoDormido>;
 }
 
 export function listar_dormidos(
@@ -103,11 +131,16 @@ export function listar_dormidos(
     if (f.pocosDatos) continue;
     if (excluidos.has(f.sku)) continue;
     if (f.diasSinVenta < settings.dormidoN) continue;
+    const motivos: MotivoDormido[] = ["sin_ventas"];
+    if (f.coberturaDias !== null && f.coberturaDias >= settings.dormidoX) {
+      motivos.push("cobertura");
+    }
     out.push({
       sku: f.sku,
       diasSinVenta: f.diasSinVenta,
       inmovilizadoCentavos: f.valorizadoCentavos,
       critico: f.diasSinVenta >= settings.dormidoX,
+      motivos,
     });
   }
   out.sort((a, b) => b.diasSinVenta - a.diasSinVenta || (a.sku < b.sku ? -1 : 1));
@@ -120,7 +153,14 @@ export function listar_dormidos(
 export function reponer_primero(
   filas: ReadonlyArray<FilaRotacion>,
   settings: RotationSettings,
-): { readonly items: ReadonlyArray<FilaRotacion>; readonly altaRotacion: ReadonlySet<SkuRot> } {
+  // RT5.4: días hasta la próxima visita del proveedor. Los que no llegan
+  // (cobertura < días) se informan en noLlega.
+  opts?: { readonly diasHastaVisita?: number | null | undefined },
+): {
+  readonly items: ReadonlyArray<FilaRotacion>;
+  readonly altaRotacion: ReadonlySet<SkuRot>;
+  readonly noLlega: ReadonlySet<SkuRot>;
+} {
   const candidatos = filas.filter(
     (f) =>
       !f.pocosDatos &&
@@ -144,16 +184,29 @@ export function reponer_primero(
   // Rotación alta primero (RT5.3), estable dentro de cada grupo.
   const alta = items.filter((f) => altaRotacion.has(f.sku));
   const resto = items.filter((f) => !altaRotacion.has(f.sku));
-  return { items: [...alta, ...resto], altaRotacion };
+  const dias = opts?.diasHastaVisita ?? null;
+  const noLlega = new Set<SkuRot>();
+  if (dias !== null) {
+    for (const f of items) {
+      if (f.coberturaDias !== null && f.coberturaDias < dias) noLlega.add(f.sku);
+    }
+  }
+  return { items: [...alta, ...resto], altaRotacion, noLlega };
 }
 
 // RT5.6 (P1-ready, cálculo puro disponible ya): cantidad sugerida por cobertura
 // objetivo. P0 la expone como ayuda; el pedido la confirma (F5).
+// Con unidadesPorCaja se redondea a cajas enteras (F5.3).
 export function cantidad_sugerida(args: {
   readonly ventaDiaria: number | null;
   readonly stockFinal: number;
   readonly diasObjetivo: number;
+  readonly unidadesPorCaja?: number | null | undefined;
 }): number {
   if (args.ventaDiaria === null || args.ventaDiaria <= 0) return 0;
-  return Math.max(0, Math.ceil(args.ventaDiaria * args.diasObjetivo - args.stockFinal));
+  const unidades = Math.max(0, Math.ceil(args.ventaDiaria * args.diasObjetivo - args.stockFinal));
+  const pack = args.unidadesPorCaja ?? null;
+  if (pack === null || pack <= 0) return unidades;
+  if (unidades === 0) return 0;
+  return Math.ceil(unidades / pack) * pack;
 }

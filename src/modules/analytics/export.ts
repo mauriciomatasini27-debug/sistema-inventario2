@@ -27,6 +27,8 @@ export function fila_csv(f: FilaRotacion): string {
     String(f.diasSinVenta),
     String(f.stockFinal),
     (f.valorizadoCentavos).toString(),
+    (f.ingresosCentavos).toString(),
+    (f.gananciaCentavos).toString(),
   ];
   return celdas.map(escCsv).join(",");
 }
@@ -40,7 +42,7 @@ export function armar_csv(args: {
 }): string {
   const head = [
     `# reporte rotacion ${args.desde}..${args.hasta} generado ${args.generadoEn} por ${args.generador}`,
-    "sku,nombre,categoria,ubicacion,neto,bruto,devuelto,venta_diaria,stock_promedio,rotacion,veces_repuesto,cobertura_dias,dias_sin_venta,stock_final,valorizado_centavos",
+    "sku,nombre,categoria,ubicacion,neto,bruto,devuelto,venta_diaria,stock_promedio,rotacion,veces_repuesto,cobertura_dias,dias_sin_venta,stock_final,valorizado_centavos,ingresos_centavos,ganancia_centavos",
   ];
   return `\uFEFF${head.join("\n")}\n${args.filas.map(fila_csv).join("\n")}\n`;
 }

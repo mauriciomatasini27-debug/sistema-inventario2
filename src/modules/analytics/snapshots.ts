@@ -1,7 +1,7 @@
 // Núcleo puro RT6: snapshot único WA+email (mismo objeto, mismos números).
 // Patrón resumen-cierre: dedupeKey estable + 409 en reintento.
-import type { FilaRotacion, OrigenSnapshot, SnapshotRotacion } from "./tipos.js";
-import { ranking_neto } from "./selectores.js";
+import type { FilaRotacion, OrigenSnapshot, RotationSettings, SkuRot, SnapshotRotacion } from "./tipos.js";
+import { listar_dormidos, ranking_neto, reponer_primero } from "./selectores.js";
 
 export function clave_snapshot(desde: string, hasta: string, origen: OrigenSnapshot): string {
   return `rotacion:${desde}:${hasta}:${origen}`;
@@ -68,4 +68,22 @@ export function cuerpo_wa(args: {
 
 export function top_n(filas: ReadonlyArray<FilaRotacion>, n: number): FilaRotacion[] {
   return ranking_neto(filas).slice(0, n);
+}
+
+// RT6.5: un único resumen derivado del snapshot; WA (top 3) y email
+// (top 10) leen los mismos números.
+export function construir_resumen(args: {
+  readonly filas: ReadonlyArray<FilaRotacion>;
+  readonly settings: RotationSettings;
+  readonly excluidos: ReadonlySet<SkuRot>;
+}): ResumenRotacion {
+  const top = top_n(args.filas, 3);
+  const rep = reponer_primero(args.filas, args.settings);
+  const dorm = listar_dormidos(args.filas, args.excluidos, args.settings);
+  return {
+    top: top.map((f) => ({ nombre: f.nombre, neto: f.neto })),
+    reponer: rep.items.slice(0, 3).map((f) => ({ nombre: f.nombre, cobertura: f.coberturaDias })),
+    dormidos: dorm.length,
+    inmovilizadoCentavos: dorm.reduce((acc, d) => acc + d.inmovilizadoCentavos, 0n),
+  };
 }
