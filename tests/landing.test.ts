@@ -213,7 +213,7 @@ describe("landing Gaps B1 (ADR-0022)", () => {
     for (const [a, cta] of [
       ["components/sections/Hero.astro", 'data-cta="hero-whatsapp"'],
       ["components/sections/Contacto.astro", 'data-cta="contacto-whatsapp"'],
-      ["components/ui/FloatingWhatsApp.astro", 'data-cta="floating-whatsapp"'],
+      ["components/ui/ChatLanding.astro", 'data-cta="chat-whatsapp"'],
     ] as const) {
       const c = src(a);
       expect(c, a).toContain("whatsappWithUtm");

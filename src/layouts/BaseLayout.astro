@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import SiteHeader from '../components/ui/SiteHeader.astro';
-import FloatingWhatsApp from '../components/ui/FloatingWhatsApp.astro';
+import ChatLanding from '../components/ui/ChatLanding.astro';
 import { Toaster } from '../components/ui/Toaster';
 
 interface Props {
@@ -59,7 +59,7 @@ const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toSt
     <div id="contenido" tabindex="-1">
       <slot />
     </div>
-    <FloatingWhatsApp />
+    <ChatLanding />
     <Toaster client:idle />
     <script>
       // PWA-S1: registra el SW sin romper si no hay soporte o falla la red.

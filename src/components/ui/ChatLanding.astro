@@ -1,0 +1,249 @@
+---
+import { faq, whatsappWithUtm } from '../../data/business';
+import { AVISO_LEY_25326 } from '../../modules/landing/chat';
+
+const sugerencias = faq.items.slice(0, 3);
+const waDirecto = whatsappWithUtm('chat');
+---
+
+<div class="chat-landing" data-chat-landing>
+  <button
+    type="button"
+    class="chat-burbuja"
+    data-chat-abrir
+    aria-expanded="false"
+    aria-controls="chat-panel"
+    aria-label="Abrir chat de ayuda"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="chat-icono" aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.4 14.1c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a7.6 7.6 0 0 1-1.4-.5 8.4 8.4 0 0 1-4.3-3.8c-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.7-.3h.5c.1 0 .3 0 .5.4l.8 1.9c.1.1.1.3 0 .4l-.4.5c-.1.1-.3.3-.1.6.1.2.6 1 1.4 1.7 1 .9 1.8 1.1 2 1.2.3.1.4 0 .5-.1l.8-1c.2-.2.4-.2.6-.1l1.7.8c.3.1.4.2.5.3 0 .1 0 .6-.2 1.1z"/>
+    </svg>
+  </button>
+
+  <section
+    id="chat-panel"
+    class="chat-panel"
+    data-chat-panel
+    hidden
+    role="dialog"
+    aria-label="Chat de ayuda"
+  >
+    <header class="chat-cabecera">
+      <span class="chat-saludo">Hola, ¿en qué te ayudo?</span>
+      <a
+        href={waDirecto}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cta="chat-whatsapp"
+        class="chat-wa"
+      >WhatsApp</a>
+      <button type="button" data-chat-cerrar aria-label="Cerrar chat" class="chat-cerrar">×</button>
+    </header>
+
+    <div class="chat-mensajes" data-chat-mensajes aria-live="polite"></div>
+
+    <div class="chat-sugerencias" data-chat-sugerencias>
+      {sugerencias.map((s) => (
+        <button type="button" data-chat-sugerencia={s.q} class="chat-sugerencia">{s.q}</button>
+      ))}
+    </div>
+
+    <div class="chat-derivacion" data-chat-derivacion hidden>
+      <a href={waDirecto} target="_blank" rel="noopener noreferrer" data-chat-derivacion-wa class="chat-wa">
+        Seguir por WhatsApp
+      </a>
+      <a href="#contacto" class="chat-form">O dejános tu consulta en el formulario</a>
+    </div>
+
+    <form class="chat-formulario" data-chat-form>
+      <label class="chat-label" for="chat-entrada">Tu mensaje</label>
+      <input id="chat-entrada" class="chat-entrada" data-chat-entrada type="text" autocomplete="off" maxlength="500" />
+      <button type="submit" class="chat-enviar">Enviar</button>
+    </form>
+
+    <p class="chat-aviso">{AVISO_LEY_25326}</p>
+  </section>
+
+  <noscript>
+    <a href={waDirecto} target="_blank" rel="noopener noreferrer" data-cta="chat-whatsapp-noscript" class="chat-burbuja" aria-label="WhatsApp">WhatsApp</a>
+  </noscript>
+</div>
+
+<script>
+  import { whatsappWithUtm } from '../../data/business';
+  (function () {
+    var raiz = document.querySelector('[data-chat-landing]');
+    if (!(raiz instanceof HTMLElement)) return;
+    var abrir = raiz.querySelector('[data-chat-abrir]');
+    var panel = raiz.querySelector('[data-chat-panel]');
+    var cerrar = raiz.querySelector('[data-chat-cerrar]');
+    var form = raiz.querySelector('[data-chat-form]');
+    var entrada = raiz.querySelector('[data-chat-entrada]');
+    var mensajes = raiz.querySelector('[data-chat-mensajes]');
+    var derivacion = raiz.querySelector('[data-chat-derivacion]');
+    var derivacionWa = raiz.querySelector('[data-chat-derivacion-wa]');
+    if (!(abrir instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) return;
+    var waHeader = raiz.querySelector('[data-cta="chat-whatsapp"]');
+    if (waHeader instanceof HTMLAnchorElement) waHeader.href = whatsappWithUtm('chat');
+
+    var ultimoFoco = null;
+    function enfocables() {
+      var nodos = panel.querySelectorAll('a[href], button:not([disabled]), input');
+      return Array.prototype.filter.call(nodos, function (el) { return el.offsetParent !== null; });
+    }
+    function abrirChat() {
+      ultimoFoco = document.activeElement;
+      panel.hidden = false;
+      abrir.setAttribute('aria-expanded', 'true');
+      var f = enfocables();
+      if (f[0] instanceof HTMLElement) f[0].focus();
+    }
+    function cerrarChat() {
+      panel.hidden = true;
+      abrir.setAttribute('aria-expanded', 'false');
+      if (ultimoFoco instanceof HTMLElement) ultimoFoco.focus();
+    }
+    abrir.addEventListener('click', function () {
+      if (panel.hidden) abrirChat();
+      else cerrarChat();
+    });
+    if (cerrar instanceof HTMLButtonElement) cerrar.addEventListener('click', cerrarChat);
+    document.addEventListener('keydown', function (evento) {
+      if (evento.key === "Escape" && !panel.hidden) {
+        cerrarChat();
+        return;
+      }
+      if (evento.key !== "Tab" || panel.hidden) return;
+      var f = enfocables();
+      if (f.length === 0) return;
+      var primero = f[0];
+      var ultimo = f[f.length - 1];
+      if (evento.shiftKey && document.activeElement === primero) {
+        evento.preventDefault();
+        if (ultimo instanceof HTMLElement) ultimo.focus();
+      } else if (!evento.shiftKey && document.activeElement === ultimo) {
+        evento.preventDefault();
+        if (primero instanceof HTMLElement) primero.focus();
+      }
+    });
+
+    function agregarMensaje(autor, texto) {
+      if (!(mensajes instanceof HTMLElement)) return;
+      var p = document.createElement('p');
+      p.className = autor === 'vos' ? 'chat-yo' : 'chat-ellos';
+      p.textContent = texto;
+      mensajes.appendChild(p);
+      mensajes.scrollTop = mensajes.scrollHeight;
+    }
+    function mostrarDerivacion(datos) {
+      if (derivacion instanceof HTMLElement) derivacion.hidden = false;
+      if (derivacionWa instanceof HTMLAnchorElement && typeof datos.whatsapp === 'string') {
+        derivacionWa.href = datos.whatsapp;
+      }
+    }
+    function enviarTexto(texto) {
+      agregarMensaje('vos', texto);
+      fetch('/api/landing-chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mensaje: texto }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (datos) {
+          agregarMensaje('chat', typeof datos.texto === 'string' ? datos.texto : 'Te leo por acá.');
+          if (datos && datos.deriva === true) mostrarDerivacion(datos);
+        })
+        .catch(function (error) {
+          console.warn('[chat] no se pudo enviar el mensaje', error);
+          agregarMensaje('chat', 'No pude enviar tu mensaje. Probá por WhatsApp.');
+        });
+    }
+    if (form instanceof HTMLFormElement && entrada instanceof HTMLInputElement) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var texto = entrada.value.trim();
+        if (!texto) return;
+        entrada.value = '';
+        enviarTexto(texto);
+      });
+    }
+    var sugerencias = raiz.querySelectorAll('[data-chat-sugerencia]');
+    Array.prototype.forEach.call(sugerencias, function (b) {
+      if (!(b instanceof HTMLButtonElement)) return;
+      b.addEventListener('click', function () {
+        var texto = b.getAttribute('data-chat-sugerencia') || '';
+        if (texto) enviarTexto(texto);
+      });
+    });
+  })();
+</script>
+
+<style>
+  .chat-landing {
+    position: fixed;
+    z-index: 30;
+    bottom: max(1.5rem, env(safe-area-inset-bottom));
+    right: max(1.5rem, env(safe-area-inset-right));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+  .chat-burbuja {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 999px;
+    background: #1a1a1a;
+    color: #fff;
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.4);
+  }
+  .chat-icono {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .chat-panel {
+    width: min(22rem, calc(100vw - 2rem));
+    max-height: min(28rem, calc(100dvh - 7rem));
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.35);
+    padding: 1rem;
+  }
+  .chat-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .chat-saludo {
+    font-weight: 600;
+    flex: 1;
+  }
+  .chat-wa {
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .chat-mensajes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+  }
+  .chat-sugerencias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .chat-aviso {
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-landing * {
+      transition: none;
+    }
+  }
+</style>

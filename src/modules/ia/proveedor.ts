@@ -18,6 +18,8 @@ export interface ProveedorLLM {
   completar(mensajes: readonly MensajeLLM[], opciones?: OpcionesCompletar): Promise<ResultadoLLM>;
 }
 
+export const CLAVE_LLM_ASISTENTE = "ASSISTANT_LLM_KEY";
+
 function contarTokens(texto: string): number {
   const n = texto.split(/\s+/).filter(Boolean).length;
   return Math.max(1, n);
