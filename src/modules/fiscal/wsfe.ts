@@ -110,6 +110,47 @@ export async function fe_param_get_ptos_venta(ambiente: "homo" | "prod", a: Wsfe
   return parsed;
 }
 
+export interface CondicionIvaReceptorParam {
+  readonly id: number;
+  readonly desc: string;
+  readonly clases: string;
+}
+
+export function condicion_iva_receptor_envelope(a: WsfeAuth, claseCmp?: string): string {
+  const clase = claseCmp !== undefined ? `<ClaseCmp>${claseCmp}</ClaseCmp>` : "";
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">` +
+    `<soapenv:Body><FEParamGetCondicionIvaReceptor xmlns="http://ar.gov.afip.dif.FEV1/">` +
+    `${auth_xml(a)}${clase}</FEParamGetCondicionIvaReceptor></soapenv:Body></soapenv:Envelope>`
+  );
+}
+
+export function parse_condicion_iva_receptor_response(xml: string): CondicionIvaReceptorParam[] | null {
+  const items = [
+    ...xml.matchAll(
+      /<CondicionIvaReceptor>\s*<Id>([^<]+)<\/Id>\s*<Desc>([^<]+)<\/Desc>\s*<Cmp_Clase>([^<]+)<\/Cmp_Clase>\s*<\/CondicionIvaReceptor>/g,
+    ),
+  ].map((m) => ({ id: Number(m[1]), desc: m[2] ?? "", clases: m[3] ?? "" }));
+  if (items.length === 0) return null;
+  return items.filter((c) => Number.isInteger(c.id) && c.desc.length > 0);
+}
+
+export async function fe_param_get_condicion_iva_receptor(
+  ambiente: "homo" | "prod",
+  a: WsfeAuth,
+  claseCmp?: string,
+): Promise<CondicionIvaReceptorParam[]> {
+  const xml = await post_xml(
+    WSFE_URL[ambiente],
+    condicion_iva_receptor_envelope(a, claseCmp),
+    "FEParamGetCondicionIvaReceptor",
+  );
+  const parsed = parse_condicion_iva_receptor_response(xml);
+  if (!parsed) throw new Error("FEParamGetCondicionIvaReceptor sin CondicionIvaReceptor");
+  return parsed;
+}
+
 // Prueba técnica delegación (FE-S5): FEDummy + PtosVenta + Ultimo con Auth.Cuit=comercio.
 // 601 = falta delegación, nunca "Error 601".
 export async function probar_delegacion(

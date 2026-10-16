@@ -47,6 +47,29 @@ export const CONCEPTO_PRODUCTOS = 1 as const;
 export const DOC_TIPO_CF = 99 as const;
 export const DOC_TIPO_CUIT = 80 as const;
 export const COND_IVA_CF = 5 as const;
+// Tabla vigente ARCA (FEParamGetCondicionIvaReceptor, manual WSFEv1 v4.8):
+// 11 IDs con clase; lo fuera de la tabla se rechaza con condicion_invalida.
+export interface CondicionIvaReceptor {
+  readonly id: number;
+  readonly desc: string;
+  readonly clases: "A/M/C" | "B/C";
+}
+export const CONDICIONES_IVA_RECEPTOR: ReadonlyArray<CondicionIvaReceptor> = [
+  { id: 1, desc: "IVA Responsable Inscripto", clases: "A/M/C" },
+  { id: 4, desc: "IVA Sujeto Exento", clases: "B/C" },
+  { id: 5, desc: "Consumidor Final", clases: "B/C" },
+  { id: 6, desc: "Responsable Monotributo", clases: "A/M/C" },
+  { id: 7, desc: "Sujeto No Categorizado", clases: "B/C" },
+  { id: 8, desc: "Proveedor del Exterior", clases: "B/C" },
+  { id: 9, desc: "Cliente del Exterior", clases: "B/C" },
+  { id: 10, desc: "IVA Liberado – Ley N° 19.640", clases: "B/C" },
+  { id: 13, desc: "Monotributista Social", clases: "A/M/C" },
+  { id: 15, desc: "IVA No Alcanzado", clases: "B/C" },
+  { id: 16, desc: "Monotributo Trabajador Independiente Promovido", clases: "A/M/C" },
+] as const;
+export function condicion_iva_receptor_valida(id: number): boolean {
+  return CONDICIONES_IVA_RECEPTOR.some((c) => c.id === id);
+}
 // Umbral identificación RG 5700/5866: $10.000.000 exacta ya exige DNI.
 // En DB vive en fiscal_params (no hardcodeado en ruta); esta const es el
 // default del núcleo puro para tests y slice.
@@ -103,7 +126,7 @@ export function resolver_receptor(input: ReceptorInput): ReceptorResuelto {
   if (input.cuit !== undefined) {
     if (!validar_cuit(input.cuit)) return { ok: false, codigo: "cuit_invalido" };
     const cond = input.condIvaReceptor;
-    if (cond === undefined || !Number.isInteger(cond) || cond < 1 || cond > 9) {
+    if (cond === undefined || !condicion_iva_receptor_valida(cond)) {
       return { ok: false, codigo: "condicion_invalida" };
     }
     return { ok: true, docTipo: DOC_TIPO_CUIT, docNro: input.cuit.replace(/\D/g, ""), condIvaReceptor: cond };
@@ -229,7 +252,7 @@ export function armar_pedido_con_receptor(input: PedidoConReceptorInput): Pedido
     input.cbteTipo !== CBTE_ND_C
   )
     return null;
-  if (!Number.isInteger(input.condIvaReceptor) || input.condIvaReceptor < 1 || input.condIvaReceptor > 9) return null;
+  if (!condicion_iva_receptor_valida(input.condIvaReceptor)) return null;
   if (input.docTipo === DOC_TIPO_CF) {
     if (input.docNro !== "0") return null;
     return {
@@ -352,7 +375,7 @@ export function armar_pedido_b(input: PedidoBInput): PedidoB | null {
   if (!Number.isInteger(input.ptoVta) || input.ptoVta < 1 || input.ptoVta > 99998) return null;
   if (!Number.isInteger(input.cbteNro) || input.cbteNro < 1) return null;
   if (!/^\d{8}$/.test(input.cbteFch)) return null;
-  if (!Number.isInteger(input.condIvaReceptor) || input.condIvaReceptor < 1 || input.condIvaReceptor > 9) return null;
+  if (!condicion_iva_receptor_valida(input.condIvaReceptor)) return null;
   if (!Number.isInteger(input.alicId) || input.alicId < 1 || input.alicId > 9) return null;
   if (input.impNetoCentavos < 0n || input.impIvaCentavos < 0n) return null;
   if (input.impNetoCentavos + input.impIvaCentavos !== input.totalCentavos) return null;
