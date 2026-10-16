@@ -12,6 +12,8 @@ export const EVENTOS_ONBOARDING = [
   "bienvenida_respondida",
   "primer_ingreso_app",
   "tour_completado",
+  "video_inicio",
+  "video_50",
   "video_fin",
   "primer_producto",
   "decimo_producto",

@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
+import { calcular_checklist } from "../src/modules/onboarding/checklist.js";
 import { POST as postAlta } from "../src/pages/api/onboarding/alta.js";
 
 function sesionEnStore(sub: string, tenantId: string | null = null) {
@@ -76,5 +77,22 @@ describe("alta autoservicio ON1", () => {
     const plano = sesionEnStore("dueno-2");
     const r422 = await postAlta(req(plano, { nombre_comercio: "Kiosco X", rubro: "kiosco", numero: "abc" }));
     expect(r422.status).toBe(422);
+  });
+
+  it("verificar después: sin número crea igual sin vincular y la checklist lo pide primero (ON1.5)", async () => {
+    const plano = sesionEnStore("dueno-tardio");
+    const r = await postAlta(req(plano, { nombre_comercio: "Kiosco Tardío", rubro: "almacen" }));
+    expect(r.status).toBe(201);
+    const j = (await r.json()) as { tenant_id: string; vincular: null; estado: string };
+    expect(j.vincular).toBeNull();
+    expect(j.estado).toBe("activo");
+    const checklist = calcular_checklist({
+      productos: 0,
+      productosConUmbral: 0,
+      proveedores: 0,
+      invitaciones: 0,
+      whatsappVerificado: false,
+    });
+    expect(checklist.pasos[0]?.id).toBe("whatsapp");
   });
 });

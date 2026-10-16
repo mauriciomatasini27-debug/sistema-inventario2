@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { resetStore } from "../src/lib/store.js";
+import { control, resetStore } from "../src/lib/store.js";
 import { decidir_bienvenida, texto_bienvenida } from "../src/modules/onboarding/bienvenida.js";
 import { ejecutarBienvenida } from "../src/jobs/bienvenida.js";
 
@@ -47,5 +47,24 @@ describe("bienvenida ON5", () => {
     expect(r1).toEqual({ canal: "libre", enviada: true });
     expect(r2).toEqual({ canal: "nada", enviada: false });
     expect(texto_bienvenida("Mauricio", "Kiosco La Esquina")).toContain("¿qué ubicaciones tengo?");
+  });
+
+  it("marca onboarding en el outbox y en el evento sin descontar del cupo (ON5.8)", () => {
+    const r = ejecutarBienvenida({
+      tenantId: "t-cupo",
+      numero: "+5491155551234",
+      nombre: "Mauricio",
+      comercio: "Kiosco La Esquina",
+      escribioPrimero: true,
+      ventanaAbierta: true,
+      optIn: false,
+    });
+    expect(r).toEqual({ canal: "libre", enviada: true });
+    const salida = control.opsOutbox[control.opsOutbox.length - 1];
+    expect(salida?.tipo).toBe("bienvenida_enviada");
+    expect((salida?.payload as { onboarding: boolean }).onboarding).toBe(true);
+    const evento = control.events.filter((e) => e.tenantId === "t-cupo").at(-1);
+    expect(evento?.tipo).toBe("bienvenida_enviada");
+    expect((evento?.detalle as { onboarding: boolean }).onboarding).toBe(true);
   });
 });
