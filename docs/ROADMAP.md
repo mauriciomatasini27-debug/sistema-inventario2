@@ -157,6 +157,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
+| 2026-10-16 | P3-1 | hecho | P3-1 hecho: PRD-CAT-01 (CAT-S1..S6), PRD-CAJA-01 (CAJA-S1..S4, #76 #78 #81 #82), PWA P1.8 (#51) y SYNC-S1..S7 (#103 #104 #105 #102) mergeados en `main`, cada uno con su avance. | PRD-CAT-01 / — |
 | 2026-10-16 | P9-10 | hecho | P9-10: pago de vencimiento atómico con claim-first (M2): un 200 y un 409 ante doble pago concurrente. | — / — |
 | 2026-10-16 | P9-11 | hecho | P9-11: tests de aviso-sync y heartbeat aislados con DB-first (sec04 y pers2-sync en bases privadas). | — / — |
 | 2026-10-16 | P9-12 | hecho | P9-12: lista única ADMIN_ALLOWLIST_SUBS para admin y superadmin, con SUPERADMIN_SUBS como fallback deprecado. | — / — |
@@ -182,7 +183,6 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-16 | PS-S1 a S3 | hecho | PS-S1 a S3: conformidad de 4 agentes sin `auto`, fixtures rotas en proceso más hijo en rojo y pendientes reales en ADR-0085 (M3). | PRD-PS-01 / ADR-0085 |
 | 2026-10-15 | P2-2 | hecho | P2-2 hecho: ARQ-S4 cerrado, todos los repos sobre el puerto Almacen; el `store.` restante vive solo dentro de `_almacen.ts`. | — / — |
 | 2026-10-15 | P2-3 | hecho | P2-3 hecho: ARQ-S8 cerrado, la evidencia de ADR ya no admite "preexistente" sin issue; fase 5 de PRD-ARQ-01 completa. | — / — |
-| 2026-10-15 | P3-1 | en curso | P3-1 en curso: PRD-CAT-01 hecho (CAT-S1..S6); siguen PRD-CAJA-01 (CAJA-S1..S4), PWA P1.8 y SYNC-S1..S7, cada uno con su avance. | PRD-CAT-01 / — |
 | 2026-10-15 | P9-7 | hecho | P9-7: `tests/auth-pin.test.ts` determinista (sin substring de PIN sobre hash aleatorio) + guard E11. | — / — |
 | 2026-10-15 | P9-8 | hecho | P9-8: `cerrarCaja` cuenta QR fuera del try de persistencia con helper seguro que informa 0 si falla (H1 #78). | — / — |
 | 2026-10-15 | P9-9 | hecho | P9-9: review CAJA-S3 (#81): aviso atómico y auth de jobs (H3, M1, L4; M2 skipped). | — / — |
