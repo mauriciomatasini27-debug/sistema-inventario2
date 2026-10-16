@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import forge from "node-forge";
 import { armar_tra_xml, firmar_tra_cms, tra_times } from "../src/modules/fiscal/tra.js";
+import { generarCertificadoPrueba, opensslDisponible } from "./helpers/openssl-cert.js";
 import {
   consultar_envelope,
   dummy_envelope,
@@ -22,18 +22,9 @@ describe("fase 0 wsaa/wsfe", () => {
     expect(xml).toContain("<service>wsfe</service>");
   });
 
-  it("CMS firma con certificado de prueba", () => {
-    const keys = forge.pki.rsa.generateKeyPair({ bits: 512, workers: -1 });
-    const cert = forge.pki.createCertificate();
-    cert.publicKey = keys.publicKey;
-    cert.serialNumber = "01";
-    cert.validity.notBefore = new Date();
-    cert.validity.notAfter = new Date(Date.now() + 86400000);
-    const attrs = [{ name: "commonName", value: "test" }];
-    cert.setSubject(attrs);
-    cert.setIssuer(attrs);
-    cert.sign(keys.privateKey, forge.md.sha256.create());
-    const cms = firmar_tra_cms("<loginTicketRequest/>", forge.pki.certificateToPem(cert), forge.pki.privateKeyToPem(keys.privateKey));
+  it.skipIf(!opensslDisponible())("CMS firma con certificado de prueba", () => {
+    const { certPem, keyPem } = generarCertificadoPrueba();
+    const cms = firmar_tra_cms("<loginTicketRequest/>", certPem, keyPem);
     expect(cms.length).toBeGreaterThan(100);
   });
 

@@ -1,5 +1,5 @@
 // Fake homo para slice (ADR-0019): autoriza sin red ni certificado.
-// El adaptador real WSAA/WSFEv1 (Fase 0: node-forge vs openssl) lo reemplaza
+// El adaptador real WSAA/WSFEv1 (CMS con node:crypto en tra.ts) lo reemplaza
 // implementando la misma interfaz FiscalProvider.
 import type { ConsultaEsperada, FiscalProvider, PedidoAutorizable } from "./fiscal.js";
 
