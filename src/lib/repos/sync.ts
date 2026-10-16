@@ -430,8 +430,39 @@ export function leerLatidoPrevio(deviceCode: string): LatidoPrevio | null {
   return latidos.obtener(deviceCode) ?? null;
 }
 
+// SYNC-S3/S4 durable: previo DB-first. Con base viva del tenant la fuente es
+// `device_sync_state`; la memoria solo hidrata. Columnas explícitas: el
+// esquema tipado puede tener columnas que la base aún no tiene.
+export async function leerLatidoPrevioDuro(deviceCode: string): Promise<LatidoPrevio | null> {
+  const latidos: AlmacenVivo<LatidoSync> = crearAlmacenDeviceSync();
+  const db = dbVivaTenant();
+  if (!db) return latidos.obtener(deviceCode) ?? null;
+  try {
+    const filas = await db
+      .select({
+        ultimaVistaEn: deviceSyncState.ultimaVistaEn,
+        pendientes: deviceSyncState.pendientes,
+        ultimaOpHlc: deviceSyncState.ultimaOpHlc,
+      })
+      .from(deviceSyncState)
+      .where(eq(deviceSyncState.deviceCode, deviceCode))
+      .limit(1);
+    const f = filas[0];
+    if (!f) return latidos.obtener(deviceCode) ?? null;
+    const visto = f.ultimaVistaEn instanceof Date ? f.ultimaVistaEn.toISOString() : String(f.ultimaVistaEn);
+    const previo: LatidoPrevio = { ultimaVistaEn: visto, pendientes: f.pendientes, ultimaOpHlc: f.ultimaOpHlc ?? null };
+    latidos.guardar(deviceCode, { ultimaVistaEn: previo.ultimaVistaEn, pendientes: previo.pendientes, ultimaOpHlc: previo.ultimaOpHlc });
+    return previo;
+  } catch (e) {
+    latidos.anteFalloPersistencia(e);
+    return latidos.obtener(deviceCode) ?? null;
+  }
+}
+
 // Heartbeat: registra device_sync_state (ultima vista + pendientes + ultima op).
 // Espejo en memoria para el indicador; tabla del tenant con DB viva.
+// SYNC-S3/S4 durable: el upsert limpia las marcas de aviso (nuevo ciclo: el
+// device acaba de avisar que está vivo, un aviso previo queda superado).
 export async function guardarLatido(b: LatidoEntrada): Promise<void> {
   const latidos = crearAlmacenDeviceSync();
   latidos.guardar(b.deviceCode, {
@@ -451,6 +482,9 @@ export async function guardarLatido(b: LatidoEntrada): Promise<void> {
         pendientes: b.pendientes,
         ultimaOpHlc: b.ultimaOpHlc,
         actualizadoEn: new Date(),
+        aviso24En: null,
+        aviso60En: null,
+        aviso72En: null,
       })
       .onConflictDoUpdate({
         target: deviceSyncState.deviceCode,
@@ -459,6 +493,9 @@ export async function guardarLatido(b: LatidoEntrada): Promise<void> {
           pendientes: b.pendientes,
           ultimaOpHlc: b.ultimaOpHlc,
           actualizadoEn: new Date(),
+          aviso24En: null,
+          aviso60En: null,
+          aviso72En: null,
         },
       });
   } catch (e) {

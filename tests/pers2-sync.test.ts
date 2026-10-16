@@ -11,6 +11,7 @@ import { POST as POSTPush } from "../src/pages/api/sync/push.js";
 import { GET as GETPull } from "../src/pages/api/sync/pull.js";
 import { POST as POSTPromote } from "../src/pages/api/sync/promote.js";
 import { POST as POSTHeartbeat } from "../src/pages/api/sync/heartbeat.js";
+import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 const RUTAS_SIN_STORE = [
   "src/pages/api/sync/push.ts",
@@ -191,10 +192,13 @@ describe("PERS2-S21/S22 single sin DB: push/pull/promote/heartbeat como hoy", ()
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const sufijoPG = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
 
+let basePrivA = "";
+let basePrivB = "";
+
 function fijarMulti() {
   process.env.TENANT_MODE = "multi";
-  process.env["TENANT_DATABASE_URL_tenant-a"] = process.env.PG_TEST_URL_A ?? "";
-  process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
+  process.env["TENANT_DATABASE_URL_tenant-a"] = basePrivA;
+  process.env["TENANT_DATABASE_URL_tenant-b"] = basePrivB;
 }
 
 const opPG = crypto.randomUUID();
@@ -227,7 +231,9 @@ async function limpiarRastroPG() {
 }
 
 describe.skipIf(!hayPG)("PERS2-S21/S22 multi con PG local: outbox y heartbeat aislados por tenant", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
+    basePrivA = await asegurarBasePrivada("pers_pers2sync_a", process.env.PG_TEST_URL_A ?? "");
+    basePrivB = await asegurarBasePrivada("pers_pers2sync_b", process.env.PG_TEST_URL_B ?? "");
     fijarMulti();
     resetStore();
   });

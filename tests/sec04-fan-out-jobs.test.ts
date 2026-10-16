@@ -3,12 +3,13 @@ import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
 import { gateJob } from "../src/lib/tenant-context.js";
 import { correrJob } from "../src/lib/jobs-tenant.js";
-import { control, resetStore, store } from "../src/lib/store.js";
+import { control, resetStore } from "../src/lib/store.js";
 import { conTenant, tenantActual } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { BaseNoDisponible } from "../src/lib/server-db.js";
 import { fechaAR, sumarDiasAR } from "../src/lib/fecha-ar.js";
 import { serviceAccounts, utilityBills } from "../src/db/schema-servicios.js";
+import { deviceSyncState } from "../src/db/schema-sync.js";
 import { paymentOrders, paymentOrderEvents } from "../src/db/schema-pagos.js";
 import { POST as postCierreJob } from "../src/pages/api/jobs/cierre-medianoche.js";
 import { POST as postVencServ } from "../src/pages/api/jobs/vencimientos-servicios.js";
@@ -235,25 +236,22 @@ describe("SEC4-S2 ruta real en fan-out", () => {
     expect(j.resultados.map((r) => r.tenant_id)).toEqual(["tenant-a", "tenant-b"]);
   });
 
-  it("aviso-sync en multi sin X-Tenant-Id lee la memoria de cada tenant", async () => {
+  it("aviso-sync en multi sin base responde 503 por tenant (fail-closed DB-first)", async () => {
     modoMulti();
     fijarTenant("tenant-a", "activo");
     fijarTenant("tenant-b", "activo");
-    conTenant("tenant-a", () => {
-      store.deviceSync.set("caja-a", { ultimaVistaEn: new Date().toISOString(), pendientes: 0, ultimaOpHlc: null });
-    });
     const res = (await postAvisoSync(
       ctx("http://x/api/jobs/aviso-sync", { method: "POST", headers: { "X-Job-Secret": SECRETO } }),
     )) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       fallidos: number;
-      resultados: Array<{ tenant_id: string; status: number; cuerpo: { revisados: number } }>;
+      resultados: Array<{ tenant_id: string; status: number; cuerpo: { error: string } }>;
     };
-    expect(j.fallidos).toBe(0);
-    expect(j.resultados.map((r) => [r.tenant_id, r.cuerpo.revisados])).toEqual([
-      ["tenant-a", 1],
-      ["tenant-b", 0],
+    expect(j.fallidos).toBe(2);
+    expect(j.resultados.map((r) => [r.tenant_id, r.status, r.cuerpo.error])).toEqual([
+      ["tenant-a", 503, "base_no_disponible"],
+      ["tenant-b", 503, "base_no_disponible"],
     ]);
   });
 
@@ -401,5 +399,101 @@ describe.skipIf(!hayPG)("SEC4-S2 fan-out con PG local: vencimientos-servicios po
       return db.select().from(paymentOrders).where(eq(paymentOrders.id, ordenB));
     });
     expect(estadoB[0]?.estado).toBe("vencida");
+  });
+});
+
+describe.skipIf(!hayPG)("SEC4-S2 aviso-sync DB-first en fan-out con PG local", () => {
+  const DEV_A = "sec04-aviso-a";
+  const DEV_B = "sec04-aviso-b";
+
+  let baseAvisoA = "";
+  let baseAvisoB = "";
+
+  function fijarAvisoPG() {
+    process.env.TENANT_MODE = "multi";
+    process.env["TENANT_DATABASE_URL_tenant-a"] = baseAvisoA;
+    process.env["TENANT_DATABASE_URL_tenant-b"] = baseAvisoB;
+    process.env.JOBS_SECRET = SECRETO;
+  }
+
+  async function limpiarAvisoPG() {
+    for (const tenant of ["tenant-a", "tenant-b"] as const) {
+      await conTenant(tenant, async () => {
+        const db = getTenantDb();
+        await db.delete(deviceSyncState).where(eq(deviceSyncState.deviceCode, DEV_A));
+        await db.delete(deviceSyncState).where(eq(deviceSyncState.deviceCode, DEV_B));
+      });
+    }
+  }
+
+  beforeAll(async () => {
+    baseAvisoA = await asegurarBasePrivada("pers_sec04aviso_a", process.env.PG_TEST_URL_A ?? "");
+    baseAvisoB = await asegurarBasePrivada("pers_sec04aviso_b", process.env.PG_TEST_URL_B ?? "");
+    fijarAvisoPG();
+    resetStore();
+    fijarTenant("tenant-a", "activo");
+    fijarTenant("tenant-b", "activo");
+    await limpiarAvisoPG();
+    const ahora = new Date();
+    await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      await db.insert(deviceSyncState).values({
+        deviceCode: DEV_A,
+        tenantId: "tenant-a",
+        ultimaVistaEn: ahora,
+        pendientes: 0,
+        ultimaOpHlc: null,
+        actualizadoEn: ahora,
+      });
+    });
+    await conTenant("tenant-b", async () => {
+      const db = getTenantDb();
+      await db.insert(deviceSyncState).values({
+        deviceCode: DEV_B,
+        tenantId: "tenant-b",
+        ultimaVistaEn: new Date(ahora.getTime() - 80 * 3_600_000),
+        pendientes: 3,
+        ultimaOpHlc: "5:0",
+        actualizadoEn: ahora,
+      });
+    });
+  });
+
+  afterAll(async () => {
+    fijarAvisoPG();
+    await limpiarAvisoPG();
+    delete process.env.TENANT_MODE;
+    delete process.env["TENANT_DATABASE_URL_tenant-a"];
+    delete process.env["TENANT_DATABASE_URL_tenant-b"];
+  });
+
+  it("un disparo sin X-Tenant-Id revisa cada base y avisa solo los devices propios", async () => {
+    fijarAvisoPG();
+    const res = (await postAvisoSync(
+      ctx("http://x/api/jobs/aviso-sync", { method: "POST", headers: { "X-Job-Secret": SECRETO } }),
+    )) as Response;
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as {
+      fallidos: number;
+      resultados: Array<{
+        tenant_id: string;
+        status: number;
+        cuerpo: { revisados: number; avisos: Array<{ device_code: string; nivel: number; cuarentena: boolean }> };
+      }>;
+    };
+    expect(j.fallidos).toBe(0);
+    const porTenant = new Map(j.resultados.map((r) => [r.tenant_id, r]));
+    const enA = porTenant.get("tenant-a")?.cuerpo;
+    const enB = porTenant.get("tenant-b")?.cuerpo;
+    expect(porTenant.get("tenant-a")?.status).toBe(200);
+    expect(enA?.revisados).toBe(1);
+    expect(enA?.avisos).toEqual([]);
+    expect(porTenant.get("tenant-b")?.status).toBe(200);
+    expect(enB?.revisados).toBe(1);
+    expect(enB?.avisos.map((a) => a.device_code)).toEqual([DEV_B]);
+    expect(enB?.avisos.map((a) => a.device_code)).not.toContain(DEV_A);
+    expect(enA?.avisos.map((a) => a.device_code)).not.toContain(DEV_B);
+    expect(enB?.avisos[0]?.nivel).toBe(72);
+    expect(enB?.avisos[0]?.cuarentena).toBe(true);
   });
 });

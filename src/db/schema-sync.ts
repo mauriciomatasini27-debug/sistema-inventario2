@@ -5,6 +5,9 @@ import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 // `control.devices`, `control.offlineGrants`). La fuente de verdad en
 // monoproceso sigue siendo la memoria; estas tablas solo agregan durabilidad
 // cuando hay CONTROL_DATABASE_URL viva. Nunca bloquean el flujo.
+// SYNC-S3/S4 durable: con base viva del tenant, `device_sync_state` es la
+// fuente (heartbeat upsert + lectura previa + avisos). `aviso_*_en` marca qué
+// nivel ya se notificó para reclamar una sola vez con UPDATE condicional.
 export const deviceSyncState = pgTable("device_sync_state", {
   deviceCode: text("device_code").primaryKey(),
   tenantId: text("tenant_id"),
@@ -12,6 +15,9 @@ export const deviceSyncState = pgTable("device_sync_state", {
   pendientes: integer("pendientes").notNull().default(0),
   ultimaOpHlc: text("ultima_op_hlc"),
   actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
+  aviso24En: timestamp("aviso_24_en"),
+  aviso60En: timestamp("aviso_60_en"),
+  aviso72En: timestamp("aviso_72_en"),
 });
 
 export const syncState = pgTable("sync_state", {

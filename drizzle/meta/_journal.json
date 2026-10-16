@@ -169,6 +169,13 @@
       "when": 1791736737510,
       "tag": "0023_cash_due_items",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791736738510,
+      "tag": "0024_device_sync_avisos",
+      "breakpoints": true
     }
   ]
 }

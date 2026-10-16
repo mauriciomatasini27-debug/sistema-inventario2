@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
 import { correrJob } from "../../../lib/jobs-tenant.js";
-import { ejecutarAvisoSync } from "../../../jobs/aviso-sync.js";
+import { ejecutarAvisoSyncDuro } from "../../../jobs/aviso-sync.js";
 
 export const prerender = false;
 
 // POST /api/jobs/aviso-sync — job diario SYNC-S4 (24/60/72h + cuarentena).
-// Solo con X-Job-Secret. Lee la memoria del comercio: en multi sin
-// X-Tenant-Id corre por tenant (SEC4-S2).
+// Solo con X-Job-Secret. Con base viva lee `device_sync_state` del comercio
+// y reclama cada nivel con UPDATE condicional (sin doble aviso); en multi
+// sin base responde 503 por tenant (fail-closed) y en single sin base lee
+// la memoria. En multi sin X-Tenant-Id corre por tenant (SEC4-S2).
 export const POST: APIRoute = async ({ request }) =>
-  correrJob(request, async () => Response.json(ejecutarAvisoSync(new Date()), { status: 200 }));
+  correrJob(request, async () => Response.json(await ejecutarAvisoSyncDuro(new Date()), { status: 200 }));

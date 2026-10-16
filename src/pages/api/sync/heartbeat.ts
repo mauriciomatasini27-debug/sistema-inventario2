@@ -3,7 +3,7 @@ import { syncHeartbeatSchema } from "../../../lib/validation.js";
 import { control } from "../../../lib/store.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { persistirDeviceSync } from "../../../lib/control-db.js";
-import { guardarLatido, leerLatidoPrevio } from "../../../lib/repos/sync.js";
+import { guardarLatido, leerLatidoPrevioDuro } from "../../../lib/repos/sync.js";
 import { enCuarentena, horasSinSync, nivelAviso } from "../../../offline/avisos.js";
 
 export const prerender = false;
@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
 
   const ahora = new Date().toISOString();
-  const previo = leerLatidoPrevio(parsed.data.device_code);
+  const previo = await leerLatidoPrevioDuro(parsed.data.device_code);
   const horasPrevio = previo ? horasSinSync(previo.ultimaVistaEn, new Date(ahora)) : 0;
   const nivelPrevio = nivelAviso(horasPrevio);
   try {
