@@ -29,7 +29,7 @@ if (cmd === "check") {
       console.log(`tomado pid=${pid}`);
       process.exit(0);
     }
-    if (Date.now() > limite) {
+    if (Date.now() >= limite) {
       console.log(`timeout: ocupado por pid=${r.dueño}`);
       process.exit(3);
     }
