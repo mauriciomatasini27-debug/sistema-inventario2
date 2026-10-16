@@ -48,6 +48,12 @@ Nunca editar `docs/ROADMAP.md` en un PR de implementación; el workflow `roadmap
 
 Ítems chicos (sin decisión de arquitectura nueva) llevan solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR completos solo para decisiones reales de arquitectura o producto.
 
+## Lectura de docs
+
+Para trabajar un PRD/ADR o un módulo, primero corré `npm run docs:context <tema|modulo|id>`; leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` si hace falta ubicar algo). No leas docs completos "por las dudas".
+Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
+Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`), luego `npm run docs:index` y `npm run docs:check` antes del PR.
+
 ## Errores recurrentes (ADR de errores LLM)
 
 Cada error tiene un guard estructural; la doc es el último recurso. E1: nunca escribir en `/tmp` (pstack-run.sh exporta `TMPDIR="$PWD/.pstack-tmp"`, cubierto por `tests/arch/pstack-run.test.ts`). E2: citar salida real verbatim con `npm run evidencia` (`scripts/evidencia.mjs`, `tests/evidencia.test.ts`), nunca parafrasear conteos. E3: comentarios que dicen "no existe/sin tabla" los verifica `tests/arch/sin-comentario-falso.test.ts`. E4: día de Argentina vía `FechaAR` (fase 1, AT1). E5: nunca renormalizar finales de línea de un archivo entero (`.gitattributes` + AT3, fase 1). E6: tests con base viva solo vía Postgres de servicio (fase 3). E7: errores tragados (`catch {}` vacío o `.catch(() => null)`) solo en la allowlist de `tests/arch/sin-errores-tragados.test.ts`: loguear o relanzar. E8: `online` nunca como literal en repos/rutas, solo desde `src/lib/offline-gate.ts` (`tests/arch/sin-online-literal.test.ts`). E9: los imports terminan en `.js` pero las fuentes son `.ts`, así que un "File not found" para `x.js` significa leer `x.ts`; antes de afirmar que un archivo o tabla falta, correr `glob`/`rg` y citar la salida del comando; los nombres de skill son nombres de carpeta (`poteto-mode`). E10: sin casts para callar tipos en tests, usar el helper `ctx()` (fase 1, AT2). E11: nunca `not.toContain(<PIN>)` sobre hash/sal/uuid ni sobre `JSON.stringify` (flake ~1/1000 por sal aleatoria); comparar campos exactos (`tests/auth-pin.test.ts`), guard en `tests/arch/sin-substring-sobre-hash.test.ts`.

@@ -12,6 +12,12 @@ Agregá tu avance en `docs/roadmap/avances/<número-ADR>.md` con front-matter `i
 
 Antes de abrir el PR corré `npm run roadmap -- --validate`.
 
+## Lectura de docs
+
+Para trabajar un PRD/ADR o un módulo, primero corré `npm run docs:context <tema|modulo|id>`; leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` si hace falta ubicar algo). No leas docs completos "por las dudas".
+Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
+Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`), luego `npm run docs:index` y `npm run docs:check` antes del PR.
+
 ## Cadena de implementación
 
 Procedimiento obligatorio de cada corrida (no hay otro mecanismo de lock; nunca un holder ad-hoc `bash -c` que escriba `/workspace/.cadena.lock` a mano):
