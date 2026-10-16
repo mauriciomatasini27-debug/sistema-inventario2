@@ -590,3 +590,34 @@ export function crearAlmacenEmailOutbox(): AlmacenVivo<OutboxPendiente> {
 export function crearAlmacenEmailEventos(): AlmacenVivo<EventoResumen> {
   return crearAlmacenVivo(store.emailEventos);
 }
+
+// Corte 18: grants offline + registro de devices (SYNC-S5/S6, PRD-SYNC-01).
+// Espejo en memoria del plano control (global, no particionado por tenant);
+// con base viva la fuente es offline_grants/device_sync_state de la base del
+// tenant. Misma politica que caja: ante un fallo de DB el almacen decide si
+// se propaga o se sigue con memoria.
+export interface GrantOffline {
+  grantId: string;
+  tokenHash: string;
+  tenantId: string;
+  googleSub: string;
+  deviceCode: string;
+  alcance: string;
+  expiraEn: string;
+  revocadoEn?: string | undefined;
+}
+
+export function crearAlmacenGrants(): AlmacenVivo<GrantOffline> {
+  return crearAlmacenVivo(control.offlineGrants);
+}
+
+export interface RegistroDevice {
+  deviceCode: string;
+  tenantId: string;
+  registradoPor: string;
+  registradoEn: string;
+}
+
+export function crearAlmacenDevices(): AlmacenVivo<RegistroDevice> {
+  return crearAlmacenVivo(control.devices);
+}

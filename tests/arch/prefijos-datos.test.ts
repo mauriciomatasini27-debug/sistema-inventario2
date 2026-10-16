@@ -29,8 +29,12 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // /api/billing/webhooks/mercadopago: webhook externo de MP verificado con
 // HMAC, el reclamo durable va por base de tenant sin sesión (P0-5).
 // /api/email/send: outbox de infraestructura con tenantId opcional, sin sesión.
+// /api/devices/register: ruta de control con sesión que persiste el device y
+// su grant inicial en la base del tenant explícito del cuerpo (SYNC-S6,
+// PRD-SYNC-01); no corre bajo el middleware de datos.
 const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/billing/webhooks/mercadopago",
+  "/api/devices/register",
   "/api/email/send",
   "/api/jobs/cierre-medianoche",
   "/api/jobs/vencimientos-caja",
@@ -55,7 +59,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(10);
+    expect(EXCEPCIONES_CONTROL.size).toBe(11);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

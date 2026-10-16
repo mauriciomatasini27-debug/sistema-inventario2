@@ -1,11 +1,13 @@
 import { eq, sql } from "drizzle-orm";
 import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
-import { deviceSyncState } from "../../db/schema-sync.js";
+import { deviceSyncState, offlineGrants } from "../../db/schema-sync.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenDeviceSeq,
   crearAlmacenDeviceSync,
+  crearAlmacenDevices,
+  crearAlmacenGrants,
   crearAlmacenOutbox,
   crearAlmacenPrecios,
   crearAlmacenPromociones,
@@ -438,5 +440,290 @@ export async function guardarLatido(b: LatidoEntrada): Promise<void> {
       });
   } catch (e) {
     latidos.anteFalloPersistencia(e);
+  }
+}
+
+// SYNC-S5/S6 (PRD-SYNC-01, ADR-0023): grants offline + registro de devices
+// DB-first. Con base viva la fuente es offline_grants/device_sync_state de la
+// base del tenant; la memoria queda como espejo para el indicador y el gate.
+// En single sin base todo sigue en memoria. Sin columna nueva: rol/permisos
+// viajan en el JWT y registrado_por/en/nombre quedan en el espejo.
+
+// Fila de offline_grants llevada a ISO para comparar con la memoria.
+export interface GrantEntrada {
+  readonly grantId: string;
+  readonly tokenHash: string;
+  readonly tenantId: string;
+  readonly googleSub: string;
+  readonly deviceCode: string;
+  readonly alcance: string;
+  readonly expiraEn: string;
+}
+
+export interface GrantVista extends GrantEntrada {
+  readonly revocadoEn: string | null;
+  readonly fuente: "db" | "memoria";
+}
+
+function vistaDesdeMemoria(
+  g: { grantId: string; tokenHash: string; tenantId: string; googleSub: string; deviceCode: string; alcance: string; expiraEn: string; revocadoEn?: string | undefined },
+): GrantVista {
+  return {
+    grantId: g.grantId,
+    tokenHash: g.tokenHash,
+    tenantId: g.tenantId,
+    googleSub: g.googleSub,
+    deviceCode: g.deviceCode,
+    alcance: g.alcance,
+    expiraEn: g.expiraEn,
+    revocadoEn: g.revocadoEn ?? null,
+    fuente: "memoria",
+  };
+}
+
+// Emite un grant: inserta en offline_grants (idempotente por grant_id) y deja
+// el espejo en memoria. Con base viva la fila manda ante un reinicio.
+export async function guardarGrant(g: GrantEntrada, tenantId?: string): Promise<{ fuente: "db" | "memoria" }> {
+  const grants = crearAlmacenGrants();
+  grants.guardar(g.grantId, { ...g });
+  // Tenant explícito: las rutas de control fuera del prefijo de datos no
+  // corren bajo el contexto del middleware y dan el comercio validado.
+  const db = dbVivaTenant(tenantId);
+  if (!db) return { fuente: "memoria" };
+  try {
+    await db
+      .insert(offlineGrants)
+      .values({
+        grantId: g.grantId,
+        tokenHash: g.tokenHash,
+        tenantId: g.tenantId,
+        googleSub: g.googleSub,
+        deviceCode: g.deviceCode,
+        alcance: g.alcance,
+        expiraEn: new Date(g.expiraEn),
+      })
+      .onConflictDoNothing();
+    return { fuente: "db" };
+  } catch (e) {
+    grants.anteFalloPersistencia(e);
+    return { fuente: "memoria" };
+  }
+}
+
+// Lee un grant con la base primero: un revoke hecho en otro proceso se ve
+// aunque la memoria esté fresca. Con base viva un faltante es null aunque la
+// memoria tenga una copia de otro contexto.
+export async function leerGrant(grantId: string, tenantId?: string): Promise<GrantVista | null> {
+  const grants = crearAlmacenGrants();
+  const db = dbVivaTenant(tenantId);
+  if (!db) {
+    const m = grants.obtener(grantId);
+    return m ? vistaDesdeMemoria(m) : null;
+  }
+  try {
+    const filas = await db.select().from(offlineGrants).where(eq(offlineGrants.grantId, grantId)).limit(1);
+    const f = filas[0];
+    if (!f) return null;
+    grants.guardar(grantId, {
+      grantId: f.grantId,
+      tokenHash: f.tokenHash,
+      tenantId: f.tenantId,
+      googleSub: f.googleSub,
+      deviceCode: f.deviceCode,
+      alcance: f.alcance,
+      expiraEn: f.expiraEn.toISOString(),
+      ...(f.revocadoEn ? { revocadoEn: f.revocadoEn.toISOString() } : {}),
+    });
+    return {
+      grantId: f.grantId,
+      tokenHash: f.tokenHash,
+      tenantId: f.tenantId,
+      googleSub: f.googleSub,
+      deviceCode: f.deviceCode,
+      alcance: f.alcance,
+      expiraEn: f.expiraEn.toISOString(),
+      revocadoEn: f.revocadoEn ? f.revocadoEn.toISOString() : null,
+      fuente: "db",
+    };
+  } catch (e) {
+    grants.anteFalloPersistencia(e);
+    const m = grants.obtener(grantId);
+    return m ? vistaDesdeMemoria(m) : null;
+  }
+}
+
+// Revoca un grant: marca revocado_en en la base y en el espejo. Null si el
+// grant no está en la fuente que manda.
+export async function revocarGrant(grantId: string, tenantId?: string): Promise<GrantVista | null> {
+  const grants = crearAlmacenGrants();
+  const ahora = new Date().toISOString();
+  const db = dbVivaTenant(tenantId);
+  if (!db) {
+    const m = grants.obtener(grantId);
+    if (!m) return null;
+    const rev = { ...m, revocadoEn: ahora };
+    grants.guardar(grantId, rev);
+    return vistaDesdeMemoria(rev);
+  }
+  try {
+    const filas = await db.select().from(offlineGrants).where(eq(offlineGrants.grantId, grantId)).limit(1);
+    const f = filas[0];
+    if (!f) return null;
+    await db.update(offlineGrants).set({ revocadoEn: new Date() }).where(eq(offlineGrants.grantId, grantId));
+    grants.guardar(grantId, {
+      grantId: f.grantId,
+      tokenHash: f.tokenHash,
+      tenantId: f.tenantId,
+      googleSub: f.googleSub,
+      deviceCode: f.deviceCode,
+      alcance: f.alcance,
+      expiraEn: f.expiraEn.toISOString(),
+      revocadoEn: ahora,
+    });
+    return {
+      grantId: f.grantId,
+      tokenHash: f.tokenHash,
+      tenantId: f.tenantId,
+      googleSub: f.googleSub,
+      deviceCode: f.deviceCode,
+      alcance: f.alcance,
+      expiraEn: f.expiraEn.toISOString(),
+      revocadoEn: ahora,
+      fuente: "db",
+    };
+  } catch (e) {
+    grants.anteFalloPersistencia(e);
+    const m = grants.obtener(grantId);
+    if (!m) return null;
+    const rev = { ...m, revocadoEn: ahora };
+    grants.guardar(grantId, rev);
+    return vistaDesdeMemoria(rev);
+  }
+}
+
+// ¿Grant revocado (cuarentena post-revocación)? Lee la fuente que manda.
+export async function grantEstaRevocado(grantId: string, tenantId?: string): Promise<boolean> {
+  const g = await leerGrant(grantId, tenantId);
+  return g?.revocadoEn !== null && g?.revocadoEn !== undefined;
+}
+
+export interface DeviceVista {
+  readonly deviceCode: string;
+  readonly tenantId: string;
+  readonly registradoPor: string | null;
+  readonly registradoEn: string | null;
+  readonly fuente: "db" | "memoria";
+}
+
+// Lee un device con la base primero. registrado_por/en no tienen columna y
+// salen del espejo cuando coinciden device y tenant.
+export async function leerDevice(deviceCode: string, tenantId?: string): Promise<DeviceVista | null> {
+  const devices = crearAlmacenDevices();
+  const db = dbVivaTenant(tenantId);
+  if (!db) {
+    const m = devices.obtener(deviceCode);
+    return m ? { ...m, fuente: "memoria" } : null;
+  }
+  try {
+    const filas = await db.select().from(deviceSyncState).where(eq(deviceSyncState.deviceCode, deviceCode)).limit(1);
+    const f = filas[0];
+    if (!f) return null;
+    const m = devices.obtener(deviceCode);
+    const mismoTenant = m && m.tenantId === (f.tenantId ?? "");
+    return {
+      deviceCode: f.deviceCode,
+      tenantId: f.tenantId ?? "",
+      registradoPor: mismoTenant && m ? m.registradoPor : null,
+      registradoEn: mismoTenant && m ? m.registradoEn : null,
+      fuente: "db",
+    };
+  } catch (e) {
+    devices.anteFalloPersistencia(e);
+    const m = devices.obtener(deviceCode);
+    return m ? { ...m, fuente: "memoria" } : null;
+  }
+}
+
+export interface RegistroDeviceEntrada {
+  readonly deviceCode: string;
+  readonly tenantId: string;
+  readonly registradoPor: string;
+  readonly registradoEn: string;
+  readonly grant: GrantEntrada;
+}
+
+// Registra el device y su grant inicial en la misma transacción. El choque de
+// PK (device_code) deja una sola fila: el perdedor relee y responde replay con
+// el mismo id. El grant solo se inserta cuando el device lo inserta esta
+// llamada, así un registro concurrente no duplica grants.
+export async function registrarDeviceConGrant(e: RegistroDeviceEntrada, tenantId?: string): Promise<{ creado: boolean; fuente: "db" | "memoria" }> {
+  const devices = crearAlmacenDevices();
+  const grants = crearAlmacenGrants();
+  const db = dbVivaTenant(tenantId ?? e.tenantId);
+  if (!db) {
+    if (devices.obtener(e.deviceCode)) return { creado: false, fuente: "memoria" };
+    devices.guardar(e.deviceCode, {
+      deviceCode: e.deviceCode,
+      tenantId: e.tenantId,
+      registradoPor: e.registradoPor,
+      registradoEn: e.registradoEn,
+    });
+    grants.guardar(e.grant.grantId, { ...e.grant });
+    return { creado: true, fuente: "memoria" };
+  }
+  try {
+    const salida = await db.transaction(async (tx) => {
+      const ins = await tx
+        .insert(deviceSyncState)
+        .values({
+          deviceCode: e.deviceCode,
+          tenantId: e.tenantId,
+          ultimaVistaEn: new Date(e.registradoEn),
+          pendientes: 0,
+          ultimaOpHlc: null,
+          actualizadoEn: new Date(),
+        })
+        .onConflictDoNothing()
+        .returning({ deviceCode: deviceSyncState.deviceCode });
+      if (ins.length === 0) return { creado: false as const };
+      await tx
+        .insert(offlineGrants)
+        .values({
+          grantId: e.grant.grantId,
+          tokenHash: e.grant.tokenHash,
+          tenantId: e.grant.tenantId,
+          googleSub: e.grant.googleSub,
+          deviceCode: e.grant.deviceCode,
+          alcance: e.grant.alcance,
+          expiraEn: new Date(e.grant.expiraEn),
+        })
+        .onConflictDoNothing();
+      return { creado: true as const };
+    });
+    if (salida.creado) {
+      devices.guardar(e.deviceCode, {
+        deviceCode: e.deviceCode,
+        tenantId: e.tenantId,
+        registradoPor: e.registradoPor,
+        registradoEn: e.registradoEn,
+      });
+      grants.guardar(e.grant.grantId, { ...e.grant });
+    }
+    return { creado: salida.creado, fuente: "db" };
+  } catch (err) {
+    if (esConflictoUnico(err) && db) {
+      const vigente = await leerDevice(e.deviceCode, tenantId ?? e.tenantId);
+      if (vigente) return { creado: false, fuente: "db" };
+    }
+    devices.anteFalloPersistencia(err);
+    if (devices.obtener(e.deviceCode)) return { creado: false, fuente: "memoria" };
+    devices.guardar(e.deviceCode, {
+      deviceCode: e.deviceCode,
+      tenantId: e.tenantId,
+      registradoPor: e.registradoPor,
+      registradoEn: e.registradoEn,
+    });
+    grants.guardar(e.grant.grantId, { ...e.grant });
+    return { creado: true, fuente: "memoria" };
   }
 }

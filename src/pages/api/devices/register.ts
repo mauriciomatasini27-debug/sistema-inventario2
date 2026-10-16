@@ -1,8 +1,11 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { control } from "../../../lib/store.js";
-import { persistirDeviceSync } from "../../../lib/control-db.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { leerDevice, registrarDeviceConGrant } from "../../../lib/repos/sync.js";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
+import { sha256Hex } from "../../../modules/auth/sesiones.js";
+import { emitirGrantJWT } from "../../../offline/grants.js";
 import { validarNombreDispositivo } from "../../../modules/auth/dispositivos.js";
 
 export const prerender = false;
@@ -15,7 +18,9 @@ const bodySchema = z.object({
 
 // POST /api/devices/register — SYNC-S6 (OF9, PRD-SYNC-01).
 // Registra el device del local (cualquier miembro activo; login sigue online).
-// Idempotente: mismo device+tenant => 200 replay. Otro tenant => 409.
+// Idempotente: mismo device+tenant => 200 replay con el mismo id. Otro tenant
+// => 409. El alta crea el offline_grant inicial en la misma transacción
+// (alcance venta, 72h); registrado_por/en y nombre quedan en el espejo.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
@@ -31,7 +36,13 @@ export const POST: APIRoute = async ({ request }) => {
   const m = membershipActiva(parsed.data.tenant_id, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
 
-  const previo = control.devices.get(parsed.data.device_code);
+  let previo;
+  try {
+    previo = await leerDevice(parsed.data.device_code, parsed.data.tenant_id);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   if (previo) {
     if (previo.tenantId !== parsed.data.tenant_id) {
       return jsonError("Ese dispositivo ya está registrado en otro comercio.", 409);
@@ -40,19 +51,52 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const ahora = new Date().toISOString();
-  control.devices.set(parsed.data.device_code, {
-    deviceCode: parsed.data.device_code,
+  const grantId = crypto.randomUUID();
+  const expiraEn = new Date(Date.now() + 72 * 3600_000).toISOString();
+  const token = await emitirGrantJWT({
+    grantId,
     tenantId: parsed.data.tenant_id,
-    registradoPor: ctx.googleSub,
-    registradoEn: ahora,
-  });
-  void persistirDeviceSync({
     deviceCode: parsed.data.device_code,
-    tenantId: parsed.data.tenant_id,
-    ultimaVistaEn: ahora,
-    pendientes: 0,
-    ultimaOpHlc: null,
+    alcance: "venta",
+    expiraEn,
   });
+  let creado;
+  try {
+    creado = await registrarDeviceConGrant(
+      {
+        deviceCode: parsed.data.device_code,
+        tenantId: parsed.data.tenant_id,
+        registradoPor: ctx.googleSub,
+        registradoEn: ahora,
+        grant: {
+          grantId,
+          tokenHash: sha256Hex(token),
+          tenantId: parsed.data.tenant_id,
+          googleSub: ctx.googleSub,
+          deviceCode: parsed.data.device_code,
+          alcance: "venta",
+          expiraEn,
+        },
+      },
+      parsed.data.tenant_id,
+    );
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  if (!creado.creado) {
+    let vigente;
+    try {
+      vigente = await leerDevice(parsed.data.device_code, parsed.data.tenant_id);
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      throw e;
+    }
+    if (!vigente || vigente.tenantId !== parsed.data.tenant_id) {
+      return jsonError("Ese dispositivo ya está registrado en otro comercio.", 409);
+    }
+    return Response.json({ device_code: vigente.deviceCode, tenant_id: vigente.tenantId }, { status: 200 });
+  }
   if (parsed.data.nombre) {
     const v = validarNombreDispositivo(parsed.data.nombre);
     if (!v.ok) return jsonError("Nombre de dispositivo inválido (1 a 40 caracteres).", 422);
@@ -66,7 +110,11 @@ export const POST: APIRoute = async ({ request }) => {
     creadoEn: ahora,
   });
   return Response.json(
-    { device_code: parsed.data.device_code, tenant_id: parsed.data.tenant_id },
+    {
+      device_code: parsed.data.device_code,
+      tenant_id: parsed.data.tenant_id,
+      offline_grant: { grant_id: grantId, token, alcance: "venta", expira_en: expiraEn },
+    },
     { status: 201 },
   );
 };

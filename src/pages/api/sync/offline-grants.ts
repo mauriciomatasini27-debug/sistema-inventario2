@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { control } from "../../../lib/store.js";
-import { persistirOfflineGrant, revocarOfflineGrantDb } from "../../../lib/control-db.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { guardarGrant, leerGrant, revocarGrant } from "../../../lib/repos/sync.js";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { emitirGrantJWT } from "../../../offline/grants.js";
@@ -48,24 +49,23 @@ export const POST: APIRoute = async ({ request }) => {
     alcance: parsed.data.alcance,
     expiraEn,
   });
-  control.offlineGrants.set(grantId, {
-    grantId,
-    tokenHash: sha256Hex(token),
-    tenantId: parsed.data.tenant_id,
-    googleSub: ctx.googleSub,
-    deviceCode: parsed.data.device_code,
-    alcance: parsed.data.alcance,
-    expiraEn,
-  });
-  void persistirOfflineGrant({
-    grantId,
-    tokenHash: sha256Hex(token),
-    tenantId: parsed.data.tenant_id,
-    googleSub: ctx.googleSub,
-    deviceCode: parsed.data.device_code,
-    alcance: parsed.data.alcance,
-    expiraEn,
-  });
+  try {
+    await guardarGrant(
+      {
+        grantId,
+        tokenHash: sha256Hex(token),
+        tenantId: parsed.data.tenant_id,
+        googleSub: ctx.googleSub,
+        deviceCode: parsed.data.device_code,
+        alcance: parsed.data.alcance,
+        expiraEn,
+      },
+      parsed.data.tenant_id,
+    );
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   control.events.push({
     tenantId: parsed.data.tenant_id,
     tipo: "offline_grant_emitido",
@@ -88,27 +88,38 @@ export const POST: APIRoute = async ({ request }) => {
 
 // DELETE /api/sync/offline-grants?grant_id= — revoca (Dueño o propio).
 // Revocado => cuarentena post-revocación: el device exige revalidar online.
+// Lee la fuente que manda, así revoca aunque la memoria esté fresca.
 export const DELETE: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   const grantId = new URL(request.url).searchParams.get("grant_id");
   if (!grantId) return jsonError("Falta grant_id.", 422);
-  const g = control.offlineGrants.get(grantId);
+  let g;
+  try {
+    g = await leerGrant(grantId);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   if (!g) return jsonError("Grant desconocido.", 404);
   const m = membershipActiva(g.tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
   if (m.rol !== "dueno" && g.googleSub !== ctx.googleSub) {
     return jsonError("No tenés permiso para revocar este grant.", 403);
   }
-  g.revocadoEn = new Date().toISOString();
-  control.offlineGrants.set(grantId, g);
-  void revocarOfflineGrantDb(grantId);
+  const revocadoEn = new Date().toISOString();
+  try {
+    await revocarGrant(grantId, g.tenantId);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   control.events.push({
     tenantId: g.tenantId,
     tipo: "offline_grant_revocado",
     actor: ctx.googleSub,
     detalle: { device_code: g.deviceCode },
-    creadoEn: g.revocadoEn,
+    creadoEn: revocadoEn,
   });
-  return Response.json({ grant_id: grantId, revocado_en: g.revocadoEn }, { status: 200 });
+  return Response.json({ grant_id: grantId, revocado_en: revocadoEn }, { status: 200 });
 };
