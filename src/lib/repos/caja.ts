@@ -1142,6 +1142,22 @@ export function esMedioValido(metodo: string): metodo is Medio {
   return (MEDIOS as string[]).includes(metodo);
 }
 
+// Por qué caminar cause: Drizzle envuelve en DrizzleQueryError sin code; el 23505 vive en cause (PostgresError).
+function esChoqueIdempotencia(e: unknown): boolean {
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (typeof (cur as { code?: unknown }).code === "string" && (cur as { code: string }).code === "23505") return true;
+    const msg = cur instanceof Error ? cur.message : String(cur);
+    if (msg.includes("cash_movements_idempotency_key_unique")) return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+// Pago atómico (M2): claim-first en UNA transacción. El UPDATE con
+// WHERE pendiente AND pagado_el IS NULL reclama la fila; 0 filas es 409
+// ya_pagado (o 404). Recién después inserta el egreso y enlaza
+// cash_movement_id; cualquier fallo revierte también el claim.
 export async function pagarVencimiento(input: { id: string; key: string; metodo?: Medio }): Promise<{ status: 200; id: string; egresoId: string } | { status: 404; error: string } | { status: 409; error: string }> {
   const metodo = input.metodo ?? "Efectivo";
   const vencimientos = crearAlmacenVencimientosCaja();
@@ -1163,32 +1179,48 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
       return { status: 200, id: input.id, egresoId: previo.id };
     }
     if (previo) return { status: 409, error: "clave en uso" };
-    let d = vencimientos.obtener(input.id);
-    if (!d) {
-      const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, input.id)).limit(1);
-      const f = filas[0];
-      if (!f) return { status: 404, error: "desconocido" };
-      d = filaAVencimiento(f);
-    }
-    if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
-    const movId = randomUUID();
     const ahoraIso = new Date().toISOString();
-    const mov = { id: movId, tipo: "egreso" as const, metodo, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: ahoraIso };
-    await db.insert(cashMovements).values({
-      id: movId,
-      saleId: null,
-      idempotencyKey: input.key,
+    const salida = await db.transaction(async (tx) => {
+      const reclamadas = await tx
+        .update(cashDueItems)
+        .set({ estado: "pagada", pagadoEl: new Date(ahoraIso) })
+        .where(and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.pagadoEl)))
+        .returning();
+      const fila = reclamadas[0];
+      if (!fila) {
+        const existentes = await tx.select({ id: cashDueItems.id }).from(cashDueItems).where(eq(cashDueItems.id, input.id)).limit(1);
+        if (!existentes[0]) return { status: 404 as const, error: "desconocido" };
+        return { status: 409 as const, error: "ya_pagado" };
+      }
+      const movId = randomUUID();
+      await tx.insert(cashMovements).values({
+        id: movId,
+        saleId: null,
+        idempotencyKey: input.key,
+        tipo: "egreso",
+        metodo,
+        categoriaId: "vencimiento",
+        origen: `vencimiento:${input.id}`,
+        montoCentavos: fila.montoCentavos,
+      });
+      await tx.update(cashDueItems).set({ cashMovementId: movId }).where(eq(cashDueItems.id, input.id));
+      return { status: 200 as const, egresoId: movId, fila };
+    });
+    if (salida.status !== 200) return salida;
+    const pagada = { ...filaAVencimiento(salida.fila), cashMovementId: salida.egresoId };
+    vencimientos.guardar(input.id, pagada);
+    movimientos.agregar({
+      id: salida.egresoId,
       tipo: "egreso",
       metodo,
-      categoriaId: "vencimiento",
+      monto_centavos: salida.fila.montoCentavos.toString(),
       origen: `vencimiento:${input.id}`,
-      montoCentavos: BigInt(d.montoCentavos),
+      idempotency_key: input.key,
+      ocurrido_en: ahoraIso,
     });
-    await db.update(cashDueItems).set({ estado: "pagada", pagadoEl: new Date(ahoraIso), cashMovementId: movId }).where(eq(cashDueItems.id, input.id));
-    vencimientos.guardar(input.id, { ...d, estado: "pagada", pagadoEl: ahoraIso, cashMovementId: movId });
-    movimientos.agregar(mov);
-    return { status: 200, id: input.id, egresoId: movId };
+    return { status: 200, id: input.id, egresoId: salida.egresoId };
   } catch (e) {
+    if (esChoqueIdempotencia(e)) return { status: 409, error: "clave en uso" };
     vencimientos.anteFalloPersistencia(e);
     return pagarVencimientoMemoria({ ...input, metodo }, vencimientos, movimientos);
   }
@@ -1204,7 +1236,7 @@ function pagarVencimientoMemoria(
   if (previo) return { status: 409, error: "clave en uso" };
   const d = vencimientos.obtener(input.id);
   if (!d) return { status: 404, error: "desconocido" };
-  if (d.estado === "pagada") return { status: 409, error: "ya pagada" };
+  if (d.estado === "pagada") return { status: 409, error: "ya_pagado" };
   const ahoraIso = new Date().toISOString();
   const mov = { id: randomUUID(), tipo: "egreso" as const, metodo: input.metodo, monto_centavos: d.montoCentavos, origen: `vencimiento:${input.id}`, idempotency_key: input.key, ocurrido_en: ahoraIso };
   movimientos.agregar(mov);
