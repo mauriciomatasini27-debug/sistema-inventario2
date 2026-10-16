@@ -2,9 +2,9 @@
   "nodos": [
     {
       "id": "ADR-0000",
-      "ruta": "docs/adr/0000-indice-prd-ordenado.md",
-      "tipo": "spec",
-      "estado": "propuesto",
+      "ruta": "docs/archivo/0000-indice-prd-ordenado.md",
+      "tipo": "historico",
+      "estado": "deprecado",
       "modulos": [
         "inventario",
         "persistencia"
@@ -781,6 +781,29 @@
       "modulos": []
     },
     {
+      "id": "HIST-ARCHIVO",
+      "ruta": "docs/archivo/README.md",
+      "tipo": "historico",
+      "estado": "deprecado",
+      "modulos": []
+    },
+    {
+      "id": "HIST-CHECKLIST-DOCUMENTACION",
+      "ruta": "docs/archivo/CHECKLIST-documentacion.md",
+      "tipo": "historico",
+      "estado": "deprecado",
+      "modulos": []
+    },
+    {
+      "id": "HIST-PANEL-ADMIN-ANTERIOR",
+      "ruta": "docs/archivo/panel-admin-version-anterior-DEPRECADA.md",
+      "tipo": "historico",
+      "estado": "deprecado",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
       "id": "MOD-01-COSTOS-POR-CLIENTE",
       "ruta": "docs/01-fundacion/costos-por-cliente.md",
       "tipo": "spec",
@@ -1093,6 +1116,78 @@
     {
       "id": "PLAN-COM-01",
       "ruta": "docs/diseno/PLAN-COM-01-poda-comentarios.md",
+      "tipo": "plan",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "auth",
+        "bot",
+        "caja",
+        "compras",
+        "email",
+        "fiado",
+        "fiscal",
+        "inventario",
+        "offline",
+        "onboarding",
+        "pagos",
+        "persistencia",
+        "precios",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PLAN-COM-01-A",
+      "ruta": "docs/diseno/PLAN-COM-01/a-borrar.md",
+      "tipo": "plan",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "auth",
+        "bot",
+        "caja",
+        "compras",
+        "email",
+        "fiado",
+        "fiscal",
+        "inventario",
+        "offline",
+        "onboarding",
+        "pagos",
+        "persistencia",
+        "precios",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PLAN-COM-01-B",
+      "ruta": "docs/diseno/PLAN-COM-01/b-refactor.md",
+      "tipo": "plan",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "auth",
+        "bot",
+        "caja",
+        "compras",
+        "email",
+        "fiado",
+        "fiscal",
+        "inventario",
+        "offline",
+        "onboarding",
+        "pagos",
+        "persistencia",
+        "precios",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PLAN-COM-01-C",
+      "ruta": "docs/diseno/PLAN-COM-01/c-conservar.md",
       "tipo": "plan",
       "estado": "propuesto",
       "modulos": [
@@ -2861,6 +2956,21 @@
     {
       "de": "PLAN-COM-01",
       "a": "ADR-0020",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-A",
+      "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-B",
+      "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-C",
+      "a": "PLAN-COM-01",
       "tipo": "depende_de"
     },
     {

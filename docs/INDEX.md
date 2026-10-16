@@ -155,10 +155,12 @@ Generado por `npm run docs:index`. No editar a mano.
 ## Plan
 
 - [PLAN-COM-01](diseno/PLAN-COM-01-poda-comentarios.md) · propuesto · admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas · Plan de poda de comentarios: 603 a borrar, 65 a refactor, 135 a conservar y 39 falsos verificados.
+- [PLAN-COM-01-A](diseno/PLAN-COM-01/a-borrar.md) · propuesto · admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas · Grupo borrar: 603 comentarios a borrar con cita y motivo.
+- [PLAN-COM-01-B](diseno/PLAN-COM-01/b-refactor.md) · propuesto · admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas · Grupo refactor: 65 comentarios a refactorizar con talla.
+- [PLAN-COM-01-C](diseno/PLAN-COM-01/c-conservar.md) · propuesto · admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas · Grupo conservar: 135 comentarios a conservar con motivo.
 
 ## Spec
 
-- [ADR-0000](adr/0000-indice-prd-ordenado.md) · propuesto · inventario, persistencia · PRD - Autenticación y Gestión de Usuarios - AU1-AU10+. Google OIDC puro openid email profile, Code+PKCE
 - [EVIDENCIA-UI-00](diseno/EVIDENCIA-UI-00-tickets.md) · propuesto · - · Fuente: corridas del 2026-10-12 con check-contrast.mjs, review-scope.mjs y grep sobre src/pages.
 - [MOD-01-COSTOS-POR-CLIENTE](01-fundacion/costos-por-cliente.md) · propuesto · bot, inventario · Decisión (dueño, 9/10/2026): un único número central de WhatsApp Business. La WABA y el número son del
 - [MOD-01-MODO-OFFLINE](01-fundacion/modo-offline.md) · propuesto · inventario, offline · En los kioscos y comercios chicos de Argentina la conexión falla seguido: el Wi-Fi del local se cae, los datos
@@ -193,10 +195,15 @@ Generado por `npm run docs:index`. No editar a mano.
 - [MOD-09-LANDING-GAPS-MODOOPS](09-frontend-landing-diseno/landing-gaps-modoops.md) · propuesto · landing · La landing nueva cubre 8 de 18 secciones del arco canónico ModoOps. Orden nuevo: Hero / Problema / Solucion /
 - [SPEC-UI-00](diseno/SPEC-UI-00-implementacion.md) · propuesto · - · Fuente: diseno/PRD-UI-0.md, adr/0032..0038, hallazgos repo 2026-10-12: sin --mo-, Tailwind v4 @theme en
 
+## Reemplazados / deprecados
+
+- [ADR-0000](archivo/0000-indice-prd-ordenado.md) · deprecado · inventario, persistencia · PRD - Autenticación y Gestión de Usuarios - AU1-AU10+. Google OIDC puro openid email profile, Code+PKCE
+- [HIST-ARCHIVO](archivo/README.md) · deprecado · - · Indice del historico deprecado archivado en docs/archivo.
+- [HIST-CHECKLIST-DOCUMENTACION](archivo/CHECKLIST-documentacion.md) · deprecado · - · Checklist de gaps 2026-10-11, reemplazado por ROADMAP como fuente de estado.
+- [HIST-PANEL-ADMIN-ANTERIOR](archivo/panel-admin-version-anterior-DEPRECADA.md) · deprecado · admin · Version anterior del panel admin, solo referencia historica.
+
 ## Sin frontmatter
 
-- CHECKLIST-documentacion.md
 - README.md
 - ROADMAP.md
-- historico/panel-admin-version-anterior-DEPRECADA.md
 - migracion-supabase.md

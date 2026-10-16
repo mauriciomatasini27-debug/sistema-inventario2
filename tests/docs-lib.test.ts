@@ -173,6 +173,12 @@ describe("inferirFrontmatter", () => {
     expect(d.estado).toBe("deprecado");
   });
 
+  it("archivo usa tipo historico y estado deprecado", () => {
+    const d = inferirFrontmatter("docs/archivo/algo.md", "# Viejo\n");
+    expect(d.tipo).toBe("historico");
+    expect(d.estado).toBe("deprecado");
+  });
+
   it("doc de módulo 0N usa id MOD-0N y tipo spec", () => {
     const d = inferirFrontmatter("docs/01-fundacion/modo-offline.md", "# T\n");
     expect(d.id).toBe("MOD-01-MODO-OFFLINE");

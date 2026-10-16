@@ -16,7 +16,7 @@ for (let i = 0; i < args.length; i += 1) {
 }
 
 const base = basename(normalize(raiz)) || "docs";
-const rels = listarDocs(raiz).filter((r) => !r.split("/").includes("archivo"));
+const rels = listarDocs(raiz);
 const archivos = rels.map((rel) => ({
   ruta: `${base}/${rel.replace(/\\/g, "/")}`,
   texto: readFileSync(join(raiz, rel), "utf8"),

@@ -5,7 +5,7 @@
 Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funcionalidad del código.
 Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales en `docs/_origen-docx/`).
 ADRs en `docs/adr/` y PRDs de diseño en `docs/diseno/` se referencian, no se duplican.
-Checklist de gaps 2026-10-11: `CHECKLIST-documentacion.md` (PRDs `PRD-SYNC-01`, `PRD-PERS-01`, `PRD-PWA-01`, `PRD-CAT-01`, `PRD-CAJA-01`, `PRD-CH-01`, `PRD-OP-01` + ADRs `0023`-`0031`).
+Checklist de gaps 2026-10-11: `archivo/CHECKLIST-documentacion.md` (PRDs `PRD-SYNC-01`, `PRD-PERS-01`, `PRD-PWA-01`, `PRD-CAT-01`, `PRD-CAJA-01`, `PRD-CH-01`, `PRD-OP-01` + ADRs `0023`-`0031`).
 Estado de implementación y roadmap 2026-10-12: `ROADMAP.md` (reemplaza al checklist como fuente de estado).
 
 ## 01-fundacion/ — Arquitectura, stack, costos y offline transversal
@@ -55,9 +55,9 @@ Canales de aviso y consulta.
 Operar la plataforma, no los comercios.
 - `reportes-rotacion.md` (RT1-RT11, `product_daily_stats`, vistas 7/30/90d) → `src/modules/analytics/*`, `src/pages/api/analytics/*`, `src/db/schema-analytics.ts`
 - `panel-admin-parte-1.md`, `panel-admin-parte-2.md`, `panel-admin-parte-3.md` (PA1-PA14 vigente, solo gestión, Ley 25.326) → `src/modules/admin/*`, `src/pages/api/admin/*`, `src/db/schema-admin.ts`
-- `panel-admin-version-anterior-DEPRECADA.md` ⚠️ versión vieja prohibida por Parte 1 Tabla 3/O2, solo referencia histórica
+- `panel-admin-version-anterior-DEPRECADA.md` ⚠️ versión vieja prohibida por Parte 1 Tabla 3/O2, solo referencia histórica (`archivo/panel-admin-version-anterior-DEPRECADA.md`)
 - `dashboard-indice-navegacion.md` → `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/`
-- ADRs: `adr/0006-panel.md`, `adr/0020-dashboard.md`, `adr/0000-indice-prd-ordenado.md` (orden de dependencias Nivel 0-5)
+- ADRs: `adr/0006-panel.md`, `adr/0020-dashboard.md`, `archivo/0000-indice-prd-ordenado.md` (orden de dependencias Nivel 0-5)
 - Dashboard, asistente y planes: `diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md`, `diseno/PRD-IA-01-asistente-preguntas-negocio.md` + `adr/0044-asistente-ia-catalogo-cerrado.md`, `adr/0045-proveedor-llm-asistente.md`; `diseno/PRD-PLAN-01-planes-suscripcion.md`, `diseno/PRD-PLAN-02-precios-suscripcion.md` + `adr/0047-cobro-por-plan-mensual.md`
 
 ## 09-frontend-landing-diseno/ — Landing, tema papel y skills
@@ -69,7 +69,7 @@ Lo público y el sistema de diseño.
 - Rutas de datos completas en el middleware y configuración fiscal por tenant: `diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md` + `adr/0074-prefijos-datos-y-fiscal-settings-tenant.md`
 - Dueño real, online real y correlativo único de tickets: `diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md` + `adr/0066-dueno-real-y-correlativo-unico.md`
 - Guardas para errores recurrentes de agentes LLM: `adr/0073-errores-recurrentes-llm-guardas.md` (complementa `adr/0065-arquitectura-amigable-agentes.md`)
-- Política de comentarios de código: `diseno/PRD-COM-01-poda-comentarios.md` + `adr/0064-politica-comentarios.md`; plan en `diseno/PLAN-COM-01-poda-comentarios.md`
+- Política de comentarios de código: `diseno/PRD-COM-01-poda-comentarios.md` + `adr/0064-politica-comentarios.md`; plan en `diseno/PLAN-COM-01-poda-comentarios.md` (grupos en `diseno/PLAN-COM-01/a-borrar.md`, `diseno/PLAN-COM-01/b-refactor.md`, `diseno/PLAN-COM-01/c-conservar.md`)
 - Chat de landing y skills de diseño del dashboard: `diseno/PRD-LP-04-chat-flotante-landing.md` + `adr/0046-chat-landing-llm-aislado.md`; `diseno/PRD-UX-01-uso-skills-diseno-dashboard.md`
 
 ## Frontmatter de docs

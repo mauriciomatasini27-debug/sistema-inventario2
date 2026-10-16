@@ -1,7 +1,7 @@
 ---
 id: ADR-0000
-tipo: spec
-estado: propuesto
+tipo: historico
+estado: deprecado
 modulos: [inventario, persistencia]
 depende_de: [ADR-0037, ADR-0039, PRD-ALR-01, PRD-ARQ-01, PRD-BOT-01, PRD-BOT-02, PRD-COM-01, PRD-DASH-01, PRD-DEP-01, PRD-FE-01]
 reemplaza: []

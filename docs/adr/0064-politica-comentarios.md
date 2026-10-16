@@ -39,4 +39,4 @@ Menos comentarios y más issues. La regla de lint entra después de abrir los is
 
 ## Pendientes
 
-Aplicar el grupo borrar del plan, abrir los issues del grupo refactor y escribir la regla de lint.
+Aplicar el grupo borrar del plan (`diseno/PLAN-COM-01/a-borrar.md`), abrir los issues del grupo refactor (`diseno/PLAN-COM-01/b-refactor.md`) y escribir la regla de lint.

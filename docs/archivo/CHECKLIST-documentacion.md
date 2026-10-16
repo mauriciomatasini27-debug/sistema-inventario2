@@ -1,3 +1,14 @@
+---
+id: HIST-CHECKLIST-DOCUMENTACION
+tipo: historico
+estado: deprecado
+modulos: []
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: Checklist de gaps 2026-10-11, reemplazado por ROADMAP como fuente de estado.
+---
+
 # Checklist — Completar documentación y desarrollo (gaps 2026-10-11)
 
 > Reemplazado por `docs/ROADMAP.md` (y `docs/roadmap/avances/`) como fuente de estado de implementación desde 2026-10-12. Este checklist queda como historia; actualización 2026-10-14: tildados CH-01, `photos_queue` y Gmail watch con evidencia en código.
@@ -82,7 +93,7 @@ Marca una casilla solo con evidencia en archivo mas test en verde. No cambies la
 - [ ] PWA fotos y borrado. Evidencia. Cola `photos_queue` con subida posterior mas cifrado y borrado remoto. Hoy solo DDL y dual-write. Ver `CHECKLIST:30`. Actualización 2026-10-14: `photos_queue` hecho (`src/offline/fotos.ts`); falta cifrado y borrado remoto.
 - [ ] Fuente oficial en consolas y dispositivos. Evidencia. `docs/01-fundacion/verificacion-fuente-oficial.md` en verde total con contador. Hoy esta parcial.
 - [ ] OCR definitivo Fase 0. Evidencia. ADR con PaddleOCR propio o Vision o Textract mas costo. Hoy abierto. Ver `docs/README.md:65`.
-- [ ] Legal fiscal Ley 25.326. Evidencia. Minuta con contador o abogado sobre leyenda y ARCA. Hoy abierto. Ver `docs/adr/0000-indice-prd-ordenado.md:56`.
+- [ ] Legal fiscal Ley 25.326. Evidencia. Minuta con contador o abogado sobre leyenda y ARCA. Hoy abierto. Ver `0000-indice-prd-ordenado.md:56`.
 - [ ] UI T-UI-01 a T-UI-07. Evidencia. `npm run check:ui` mas cero `alert()` mas Sonner unico mas contraste AA registrado. Hoy parcial. Cero `alert()` ya verde en `src`. Sonner diferido a tickets por decision 2026-10-12 segun `SPEC-UI-00:13`. Ver `docs/diseno/SPEC-UI-00-implementacion.md`.
 - [ ] Panel sin hardcode. Evidencia. `/panel` lee tickets y KPIs desde API sin `n-tickets=91` y sin `Proximamente P1`. Hoy pendiente. Ver `docs/diseno/PRD-OP-01-panel-cierre-landing.md:12`.
 - [ ] Landing E13. Evidencia. `business.ts:36-39` sin placeholders mas `site` prod mas OG mas PDF espejo mas dominio mas Formspree. Hoy parcial. R1 contacto hecho 2026-10-12 con telefono y email reales mas wa de ejemplo a confirmar. R2 precios, dominio, Formspree y PDF pendientes. Ver `CHECKLIST:59`.

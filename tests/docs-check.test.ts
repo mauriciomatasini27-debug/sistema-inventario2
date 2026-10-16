@@ -263,4 +263,20 @@ describe("docs:check CLI --raiz", () => {
     expect(r.estado).toBe(1);
     expect(r.salida).toMatch(/docs\/a\.md:\d+ /);
   });
+
+  it("valida el esquema de docs/archivo pero ignora enlaces hacia archivo", () => {
+    const raiz = raizCon({
+      "docs/a.md": "# T\n\nVer [h](archivo/x.md).\n",
+      "docs/archivo/x.md": `${fm({ id: "HIST-1", tipo: "ensayo" })}\n# H\n`,
+    });
+    const base = join(raiz, "baseline.json");
+    writeFileSync(base, "[]");
+    execFileSync(process.execPath, [join(AQUI, "..", "scripts", "docs-index.mjs"), "--raiz", join(raiz, "docs")], {
+      stdio: "pipe",
+    });
+    const r = correr(join(raiz, "docs"), base);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toMatch(/archivo\/x\.md/);
+    expect(r.salida).not.toMatch(/enlace roto/);
+  });
 });

@@ -353,7 +353,8 @@ export function inferirFrontmatter(ruta, texto) {
   const src = String(texto ?? "");
   const cuerpo = parseFrontmatter(src).cuerpo;
   const porRuta = idPorRuta(ruta);
-  const historico = String(ruta ?? "").replace(/\\/g, "/").includes("docs/historico/");
+  const p = String(ruta ?? "").replace(/\\/g, "/");
+  const historico = p.includes("docs/historico/") || p.includes("docs/archivo/");
   let id = porRuta?.id ?? slugMayus(ruta);
   let tipo = historico ? "historico" : (porRuta?.tipo ?? "spec");
   const mTitulo = /^#\s*(ADR-\d{1,4}|PRD-[A-Za-z]+-\d{1,2}|PLAN-[A-Za-z0-9-]+|EVIDENCIA-[A-Za-z0-9-]+|SPEC-[A-Za-z0-9-]+)\b/im.exec(

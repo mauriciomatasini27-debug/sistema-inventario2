@@ -32,8 +32,8 @@ Requisito COM-R1: un comentario se queda solo si explica un por qué que el cód
 Requisito COM-R2: un plan revisado a mano antes de tocar código.
 
 - Historia COM-S4. Relevar `src/` por área (rutas API, repositorios, `lib`, jobs, componentes de UI, `db`) con `/no-comments` en sesiones de OpenCode de hasta 250k de contexto, y verificar a mano cada comentario marcado falso u obsoleto. AC: Given cierro el relevamiento When abro el plan Then cada entrada trae archivo, línea, cita y motivo en uno de tres grupos: borrar, refactor, conservar. ADR: 0064. Talla M. Depende de: COM-S1.
-- Historia COM-S5. Ejecutar el grupo borrar en un commit por área sin cambios de comportamiento. AC: Given aplico el grupo borrar When corro `npm test` y `tsc --noEmit` Then los resultados son los mismos que antes. ADR: 0064. Talla S. Depende de: COM-S4.
-- Historia COM-S6. Abrir un issue por cada refactor del grupo refactor con talla y propuesta. AC: Given el plan tiene N refactors When reviso el tablero Then hay N issues enlazados desde el plan. ADR: 0064. Talla S. Depende de: COM-S4.
+- Historia COM-S5. Ejecutar el grupo borrar (`PLAN-COM-01/a-borrar.md`) en un commit por área sin cambios de comportamiento. AC: Given aplico el grupo borrar When corro `npm test` y `tsc --noEmit` Then los resultados son los mismos que antes. ADR: 0064. Talla S. Depende de: COM-S4.
+- Historia COM-S6. Abrir un issue por cada refactor del grupo refactor (`PLAN-COM-01/b-refactor.md`) con talla y propuesta. AC: Given el plan tiene N refactors When reviso el tablero Then hay N issues enlazados desde el plan. ADR: 0064. Talla S. Depende de: COM-S4.
 
 ## Épica COM-E3. Cumplimiento
 
@@ -54,6 +54,6 @@ COM-S1 no espera a nadie. COM-S5 y COM-S6 esperan al plan de COM-S4. La regla de
 | Feliz | Comentario de regla fiscal | `// RG 5616 ARCA: ...` | Se conserva |
 | Fallo | Comentario falso | `// la tabla X no existe` con X en `src/db` | Se borra en el mismo cambio |
 | Fallo | Parche sin issue | `// TODO por ahora en memoria` | Lint falla hasta enlazar issue o refactorizar |
-| Regresión | Poda sin cambios de comportamiento | Commit del grupo borrar | `npm test` y `tsc --noEmit` igual que antes |
+| Regresión | Poda sin cambios de comportamiento | Commit del grupo borrar (`PLAN-COM-01/a-borrar.md`) | `npm test` y `tsc --noEmit` igual que antes |
 
 Arch-tests: AT1 lint de marcadores temporales con enlace a issue obligatorio. AT2 checklist de PR con clase por comentario nuevo.

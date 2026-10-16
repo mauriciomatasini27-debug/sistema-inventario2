@@ -1,3 +1,14 @@
+---
+id: HIST-PANEL-ADMIN-ANTERIOR
+tipo: historico
+estado: deprecado
+modulos: [admin]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: Version anterior del panel admin, solo referencia historica.
+---
+
 > Origen: `PRD - Panel de Administración Multi-Kiosco para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/admin` (versión vieja, ver Parte 1-3 vigente)
 
 ---
