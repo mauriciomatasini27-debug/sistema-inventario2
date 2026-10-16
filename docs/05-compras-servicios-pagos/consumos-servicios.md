@@ -6,7 +6,10 @@ modulos: [compras, pagos]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Además de la mercadería, el kiosco paga todos los meses (o cada dos meses) una lista de servicios e impuestos:
+  la luz (Edenor, Edesur, EPEC, etc.), el gas (Metrogas, Naturgy, Camuzzi), el agua (AySA u organismo
+  provincial), internet y teléfono, las tasas municipales (ABL, seguridad e higiene) y las obligaciones de ARCA
 ---
 > Origen: `PRD - Consumos de Servicios para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/utilities`, `src/pages/api/utility-bills/*`, `src/db/schema-servicios.ts`
 

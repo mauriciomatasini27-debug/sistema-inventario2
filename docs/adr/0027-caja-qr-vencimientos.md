@@ -6,7 +6,9 @@ modulos: [caja, persistencia, ventas]
 depende_de: [PRD-CAJA-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Implementar cashqrreceipts (ingesta bot+Gmail, auto solo Op. nuevo+monto exacto+único + Deshacer),
+  cashdueitems y ticketpayments (dividido P1). PRD: diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md.
 ---
 # ADR-0027 - Caja QR, vencimientos y ticket_payments
 

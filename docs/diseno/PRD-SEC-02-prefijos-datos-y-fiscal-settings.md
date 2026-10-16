@@ -6,7 +6,9 @@ modulos: [fiscal, persistencia, tenant]
 depende_de: [ADR-0024, ADR-0050, ADR-0051, ADR-0066, ADR-0074]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  PREFIJOSDATOS (src/lib/tenant-context.ts) lista las rutas que el middleware envuelve en conTenant y corta con
+  403 en TENANTMODE=multi sin tenant.
 ---
 # PRD-SEC-02 - Rutas de datos completas en el middleware y configuración fiscal por tenant
 

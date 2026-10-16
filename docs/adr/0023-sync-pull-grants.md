@@ -6,7 +6,9 @@ modulos: [offline]
 depende_de: [ADR-0003, PRD-SYNC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cerrar OF3-OF5/OF9 con GET /api/sync/pull?cursor=, POST /api/sync/heartbeat (+ GET /api/health), POST
+  /api/sync/offline-grants firmado y POST /api/devices/register. PRD: diseno/PRD-SYNC-01-sync-pull-grants.md.
 ---
 # ADR-0023 - Sync pull, heartbeat, grants y devices
 

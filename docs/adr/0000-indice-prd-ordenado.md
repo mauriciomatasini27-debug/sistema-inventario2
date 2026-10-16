@@ -6,7 +6,9 @@ modulos: [inventario, persistencia]
 depende_de: [ADR-0037, ADR-0039, PRD-ALR-01, PRD-ARQ-01, PRD-BOT-01, PRD-BOT-02, PRD-COM-01, PRD-DASH-01, PRD-DEP-01, PRD-FE-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  PRD - Autenticación y Gestión de Usuarios - AU1-AU10+. Google OIDC puro openid email profile, Code+PKCE
+  servidor, sin passwords. Tablas control: users, memberships, invitations, sessions, botlinks, authevents.
 ---
 # 0000 - Índice PRD ordenado - Sistema de Inventario
 

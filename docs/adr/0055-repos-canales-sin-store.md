@@ -6,7 +6,9 @@ modulos: [bot, email, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Un repositorio por canal en src/lib/repos/. Las lecturas de catálogo (precios, stock, proveedores) reusan los
+  repositorios de dominio que ya existen cuando cubren el caso y si no se agregan al repositorio del canal.
 ---
 # ADR-0055 - Repositorios de canales en `src/lib/repos/whatsapp.ts` y `email.ts`: rutas `whatsapp/*` y `email/*` sin `store`
 

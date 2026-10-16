@@ -6,7 +6,9 @@ modulos: [inventario]
 depende_de: [ADR-0012, PRD-LANDING-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: consultoria/CONTEXT.md (42k), modoops-configurador.md, catalogo-modoops-inicial.md, ADR 0005.
+  Restringido por ADR-0012. Tipo proceso según ADR-0012.
 ---
 # PRD-NEG-01 - Negocio y catálogo ModoOps (R2)
 

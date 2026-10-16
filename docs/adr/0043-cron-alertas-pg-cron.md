@@ -6,7 +6,10 @@ modulos: [bot, inventario]
 depende_de: [ADR-0028, PRD-ALR-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Supabase pgcron dispara cada 2 h (y 08:00 por TZ de tenant) un pgnet.httppost a POST /api/jobs/alertas-stock
+  con header JOBSSECRET. La lógica vive en la app (TypeScript), no en SQL. Idempotencia por clave
+  tenant+producto+día registrada antes de enviar; mensaje agrupado de hasta 10 ítems por canal.
 ---
 # ADR-0043 - Cron de alertas de stock con pg_cron + pg_net en Supabase
 

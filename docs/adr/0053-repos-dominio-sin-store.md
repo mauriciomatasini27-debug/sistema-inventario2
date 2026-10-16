@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0024, ADR-0052, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cada dominio expone un repositorio en src/lib/repos/<dominio>.ts con las lecturas y escrituras que hoy hacen
+  las rutas sobre store. El repositorio va primero a Postgres del tenant con dbVivaTenant() (ADR-0052); solo si
+  devuelve null (modo single sin base: dev, tests, build) usa la memoria particionada.
 ---
 # ADR-0053 - Repositorios de dominio en `src/lib/repos/`: rutas sin `store`
 

@@ -6,7 +6,10 @@ modulos: [fiado, offline, persistencia, ventas]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, PRD-PERS-05]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los correlativos internos con base viva salen de ticketcounters, una fila por serie con lock FOR UPDATE dentro
+  de la transacción que escribe la fila numerada: mostrador para T- (ventas, promote y venta a cuenta) y
+  devolucion para D-. La migración Drizzle 0019 siembra devolucion con el máximo D- existente en salereturns.
 ---
 # ADR-0080 - Correlativos de devoluciones y tickets DB-first
 

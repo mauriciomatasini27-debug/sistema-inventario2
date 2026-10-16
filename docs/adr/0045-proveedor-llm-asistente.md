@@ -6,7 +6,10 @@ modulos: [compras]
 depende_de: [ADR-0044, PRD-IA-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Interfaz LlmProvider con dos adaptadores: Claude (Anthropic) por defecto con modelo chico, GPT (OpenAI) como
+  alternativa. Ambos con function calling. Cupo mensual de consultas por plan y registro aiusage(tenantid,
+  tokensin, tokensout, costocentavos); cupo agotado = no se llama.
 ---
 # ADR-0045 - Proveedor LLM del asistente y cupo por plan
 

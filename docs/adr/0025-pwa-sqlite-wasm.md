@@ -6,7 +6,10 @@ modulos: [offline, persistencia]
 depende_de: [ADR-0003, PRD-PWA-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Ship PWA con manifest.webmanifest + sw.js + SQLite-WASM sobre OPFS con misma firma que src/offline/db.ts;
+  fotos en cola 800px/200KB 100/50MB; cifrado en compartidos + borrado remoto. PRD:
+  diseno/PRD-PWA-01-offline-local.md.
 ---
 # ADR-0025 - PWA instalable + SQLite-WASM/OPFS
 

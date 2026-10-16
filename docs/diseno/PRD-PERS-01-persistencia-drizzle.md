@@ -6,7 +6,9 @@ modulos: [offline, persistencia]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría 2026-10-11. Gap: 100 endpoints importan src/lib/store.ts (Map volátil); solo
+  src/pages/api/sync/promote.ts usa Drizzle (intentarLeer/intentarPersistir). 86 tablas en src/db/.ts sin uso.
 ---
 # PRD-PERS-01 - Persistencia Drizzle real tras store en memoria
 

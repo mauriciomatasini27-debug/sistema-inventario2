@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-DS-02, PRD-DS-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Adoptar launcher, rail, hub, POS oscuro con ticket papel, login, listas y onboarding smoke como base visual en
+  Astro. Sin backend Odoo.
 ---
 # ADR-0009 - Componentes y adopción Tema Papel
 

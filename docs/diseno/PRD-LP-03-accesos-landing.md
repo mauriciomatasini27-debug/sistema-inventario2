@@ -6,7 +6,10 @@ modulos: [landing]
 depende_de: [ADR-0010, ADR-0022, ADR-0030, PRD-AU-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría panel 3 workers (SiteHeader.astro, Hero.astro, business.ts:293-298 sin ningún link a app;
+  consultoria/web tampoco los tenía: hay que crearlos, no copiarlos). Restringido por ADR-0030, ADR-0010,
+  ADR-0022 (E10 acotado, E4 noindex vigente).
 ---
 # PRD-LP-03 - Accesos a la app desde la landing (R3)
 

@@ -6,7 +6,10 @@ modulos: [admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, off
 depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0017, ADR-0018, ADR-0019, ADR-0020]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Plan de poda de comentarios: 603 a borrar, 65 a refactor, 135 a conservar y 39 falsos verificados.
+  Tres comentarios afirman un control que el código no hace y piden agregar el control.
+  Solo análisis por áreas de src sin cambiar código.
 ---
 # PLAN-COM-01 - Plan de poda de comentarios de código
 

@@ -6,7 +6,10 @@ modulos: [bot, inventario]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Decisión (dueño, 9/10/2026): un único número central de WhatsApp Business. La WABA y el número son del
+  proveedor (nosotros). Los kioscos no necesitan su propia cuenta de WhatsApp Business ni cargar una tarjeta en
+  Meta.
 ---
 > Origen: `Costos estimados por cliente - Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/payments`, `src/modules/whatsapp`, `src/modules/ocr`
 

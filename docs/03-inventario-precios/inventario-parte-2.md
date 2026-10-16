@@ -6,7 +6,9 @@ modulos: [inventario, precios]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Documento dividido en 3 partes por tamaño (Parte 2 de 3). Parte 1: secciones 1 a 4 (F1 a F7). Parte 2: sección
+  4 (F8 a F14) y sección 5 (flujos de usuario).
 ---
 > Origen: `PRD - Sistema de Inventario para Kioscos y Comercios - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/inventario`, `src/pages/api/stock/*`
 

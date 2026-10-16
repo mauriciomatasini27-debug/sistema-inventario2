@@ -6,7 +6,10 @@ modulos: [fiscal, persistencia, ventas]
 depende_de: [ADR-0017, ADR-0018, PRD-FE-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El primer incremento fiscal es vender 1 producto online en mostrador (slice-0) y obtener 1 Factura C (11) con
+  CAE+QR en homologación. Comercio monotributo ya activo (delegación hecha a mano en homo). Nada de wizard UI,
+  B/A, NC/ND, offline ni producción antes.
 ---
 # ADR-0019 - Slice fiscal mínimo: 1 Factura C online en homo
 

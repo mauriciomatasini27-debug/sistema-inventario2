@@ -394,6 +394,172 @@ function esDocMd(nombre) {
   return nombre.endsWith(".md") && !nombre.split("/").pop().startsWith("_");
 }
 
+function sinTildes(s) {
+  return String(s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function limpiarMd(s) {
+  let t = String(s ?? "");
+  t = t.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1");
+  t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  t = t.replace(/[`*_~]+/g, "");
+  t = t.replace(/^\s{0,3}>\s?/gm, "");
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+function esBasura(linea) {
+  const t = String(linea ?? "").trim();
+  if (t === "") return true;
+  if (/^(---|\*\*\*|___)\s*$/.test(t)) return true;
+  const sin = t.replace(/^[>\s*]+/, "").replace(/\*/g, "").trim();
+  if (/^(estado|fecha|fuentes)\s*:/i.test(sin)) return true;
+  if (/^#{1,4}\s/.test(t)) return true;
+  if (t.startsWith("|")) return true;
+  if (/^\|?[\s:|-]+\|?[\s:|-]*$/.test(t) && t.includes("-")) return true;
+  if (t.startsWith("```")) return true;
+  if (t.startsWith(">")) return true;
+  if (/\bAC\s*:/i.test(t)) return true;
+  const contenidoLista = t.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+  if (contenidoLista !== t && /^(given|when|then)\b/i.test(contenidoLista)) return true;
+  return false;
+}
+
+function partirFrases(parrafo) {
+  const limpio = String(parrafo ?? "").replace(/\s+/g, " ").trim();
+  if (limpio === "") return [];
+  const partes = limpio.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s !== "");
+  return partes.filter((s) => /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,}/.test(s) && s.length >= 10);
+}
+
+function envolver(frases, maxLineas = 3, maxAncho = 110) {
+  const elegidas = [];
+  for (const f of frases) {
+    if (elegidas.length >= maxLineas) break;
+    const prueba = [...elegidas, f].join(" ");
+    const palabras = prueba.split(/\s+/).filter((w) => w !== "");
+    const lineas = [];
+    let actual = "";
+    for (const w of palabras) {
+      const cand = actual === "" ? w : `${actual} ${w}`;
+      if (cand.length <= maxAncho) actual = cand;
+      else {
+        lineas.push(actual);
+        actual = w;
+      }
+    }
+    if (actual !== "") lineas.push(actual);
+    if (lineas.length <= maxLineas) elegidas.push(f);
+    else if (elegidas.length === 0) {
+      const solas = [];
+      let acc = "";
+      for (const w of String(f).split(/\s+/)) {
+        const cand = acc === "" ? w : `${acc} ${w}`;
+        if (cand.length <= maxAncho) acc = cand;
+        else {
+          solas.push(acc);
+          acc = w;
+          if (solas.length >= maxLineas) break;
+        }
+      }
+      if (acc !== "" && solas.length < maxLineas) solas.push(acc);
+      return solas.slice(0, maxLineas).join("\n");
+    } else break;
+  }
+  if (elegidas.length === 0) return "";
+  const palabras = elegidas.join(" ").split(/\s+/).filter((w) => w !== "");
+  const lineas = [];
+  let actual = "";
+  for (const w of palabras) {
+    const cand = actual === "" ? w : `${actual} ${w}`;
+    if (cand.length <= maxAncho) actual = cand;
+    else {
+      lineas.push(actual);
+      actual = w;
+    }
+  }
+  if (actual !== "") lineas.push(actual);
+  return lineas.slice(0, maxLineas).join("\n");
+}
+
+/**
+ * @param {unknown} texto
+ * @returns {string}
+ */
+export function extraerResumen(texto) {
+  const src = String(texto ?? "");
+  if (src.trim() === "") return "";
+  const parsed = parseFrontmatter(src);
+  const cuerpo = parsed.tiene ? parsed.cuerpo : src;
+  const sinCodigo = cuerpo.replace(/```[\s\S]*?```/g, "\n");
+  const lineas = sinCodigo.split("\n");
+  const secciones = [];
+  for (let i = 0; i < lineas.length; i += 1) {
+    const m = /^(#{1,4})\s+(.*)$/.exec(lineas[i].trim());
+    if (m) secciones.push({ titulo: m[2] ?? "", linea: i, nivel: m[1].length });
+  }
+  let fuente = "";
+  const finSeccion = (idx) => {
+    const nivel = secciones[idx].nivel;
+    for (let j = idx + 1; j < secciones.length; j += 1) {
+      if (secciones[j].nivel <= nivel) return secciones[j].linea;
+    }
+    return lineas.length;
+  };
+  const primerParrafo = () => {
+    let desde = 0;
+    const h1 = secciones.findIndex((s) => s.nivel === 1);
+    if (h1 >= 0) desde = secciones[h1].linea + 1;
+    const parrafo = [];
+    for (let i = desde; i < lineas.length; i += 1) {
+      const t = lineas[i].trim();
+      if (/^#{1,4}\s/.test(t)) {
+        if (parrafo.length > 0) break;
+        else continue;
+      }
+      if (t === "") {
+        if (parrafo.length > 0) break;
+        else continue;
+      }
+      if (esBasura(lineas[i])) continue;
+      const sinMarca = t.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+      parrafo.push(sinMarca);
+      if (parrafo.join(" ").length > 600) break;
+    }
+    return parrafo.join(" ");
+  };
+  const idxDecision = secciones.findIndex((s) => sinTildes(s.titulo).includes("decisi"));
+  if (idxDecision >= 0) {
+    fuente = lineas.slice(secciones[idxDecision].linea + 1, finSeccion(idxDecision)).join("\n");
+  } else {
+    const idxAlt = secciones.findIndex((s) =>
+      /objetivo|problema|resumen|contexto/.test(sinTildes(s.titulo)),
+    );
+    if (idxAlt >= 0) {
+      fuente = lineas.slice(secciones[idxAlt].linea + 1, finSeccion(idxAlt)).join("\n");
+    } else {
+      fuente = primerParrafo();
+    }
+  }
+  const aFrases = (textoFuente) => {
+    const utiles = [];
+    for (const l of String(textoFuente).split("\n")) {
+      if (esBasura(l)) continue;
+      const sinMarca = l.trim().replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+      const limpio = limpiarMd(sinMarca);
+      if (limpio !== "") utiles.push(limpio);
+    }
+    return partirFrases(utiles.join(" "));
+  };
+  let frases = aFrases(fuente);
+  if (frases.length === 0) frases = aFrases(primerParrafo());
+  if (frases.length === 0) return "";
+  return envolver(frases.slice(0, 3));
+}
+
 /**
  * @param {string} [raiz]
  * @returns {string[]}

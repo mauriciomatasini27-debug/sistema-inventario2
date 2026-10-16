@@ -6,7 +6,9 @@ modulos: [fiado, offline, persistencia, ventas]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, ADR-0080]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Devoluciones: src/lib/repos/ventas.ts calcula el próximo D- con ultimoNumeroDevolucion, que mezcla
+  store.nextReturn con un SELECT de todos los salereturns fuera de transacción.
 ---
 # PRD-PERS-05 - Correlativos de devoluciones y tickets DB-first
 

@@ -6,7 +6,7 @@ modulos: [caja, fiado, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Parte 2 · Ver también: Parte 1: Núcleo · Parte 3: Integraciones, Riesgos, Fases y Glosario"
 ---
 > Origen: `PRD - Caja Digital (Parte 2_ Turnos, Retiros, Sueldos y Fiado).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/cash/turnos.ts`, `src/pages/api/cash/shifts*`
 

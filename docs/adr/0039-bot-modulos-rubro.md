@@ -6,7 +6,9 @@ modulos: [bot]
 depende_de: [ADR-0012, PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Un solo bot (número central WABA) con módulos activables por tenant según rubro (quiosco, pyme, fabrica,
+  logistica). Tabla tenantbotmodules; el router filtra intenciones por módulo activo.
 ---
 # ADR-0039 - Bot único con módulos activables por rubro
 

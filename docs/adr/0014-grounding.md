@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-SK-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Ningún diseño arranca sin grounding salvo greenfield real. Runtime y ubicación con how, motivo y tradeoffs con
+  why.
 ---
 # ADR-0014 - Grounding con how + why
 

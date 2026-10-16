@@ -6,7 +6,10 @@ modulos: [caja, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  src/lib/repos/caja.ts concentra movimientos, cierres, turnos, retiros, reversiones, auditoría, recibos QR y
+  vencimientos de caja. Los mapas sin tabla quedan en memoria dentro del repositorio, marcados con un
+  comentario, hasta que tengan tabla.
 ---
 # ADR-0056 - Repositorio de caja en `src/lib/repos/caja.ts`: rutas `cash/*` sin `store`
 

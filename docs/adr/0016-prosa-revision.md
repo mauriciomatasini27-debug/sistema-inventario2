@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0008, PRD-DS-01, PRD-SK-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Toda superficie de prosa pasa por technical-writing más unslop. Todo diseño one-way-door pasa por interrogate
+  antes de cerrarse.
 ---
 # ADR-0016 - Prosa y revisión con technical-writing + unslop + interrogate
 

@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0002, ADR-0003, PRD-SUP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Usar un solo proyecto Supabase Free con una sola base para desarrollo y demo. CONTROLDATABASEURL y
+  TENANTDATABASEURL llevan la misma URL del Session pooler en sa-east-1 por puerto 5432 con sslmode=require.
+  Región sa-east-1.
 ---
 # ADR-0048 - Supabase en un solo proyecto Free con Session pooler
 

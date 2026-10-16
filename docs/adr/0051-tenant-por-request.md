@@ -6,7 +6,9 @@ modulos: [compras, persistencia, tenant]
 depende_de: [ADR-0002, ADR-0050, PRD-ISO-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El middleware resuelve el tenant una vez por request para las rutas de datos (tenantDeRequest, ADR-0050) y
+  ejecuta la ruta dentro de un AsyncLocalStorage. getTenantDb() sin argumento toma el tenant de ese contexto.
 ---
 # ADR-0051 - Tenant por request con AsyncLocalStorage para todo el plano de datos
 

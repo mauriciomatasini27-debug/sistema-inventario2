@@ -6,7 +6,10 @@ modulos: [auth]
 depende_de: [PRD-AU-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Adjuntar los Set-Cookie de OAuth al redirect de login con el patrón ya probado de reauth.ts:56-59, dar a
+  pendingAuth la misma expiración de 10 min que pendingReauth, y cubrir el flujo con test punta a punta sin
+  mockear redirect más test de regresión anti-return redirect(...) pelado.
 ---
 # ADR-0031 - Login: cookies en el redirect y expiración de pendingAuth
 

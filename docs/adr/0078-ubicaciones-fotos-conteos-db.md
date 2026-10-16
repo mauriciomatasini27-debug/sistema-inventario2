@@ -6,7 +6,9 @@ modulos: [inventario, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0062, PRD-PERS-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Las tablas del esquema que todavía no tenían migración se crean con Drizzle 0017 (incluido sector en
+  stockcounts y unicidad case-insensitive de locations.nombre).
 ---
 # ADR-0078 - Ubicaciones, fotos de producto y conteos DB-first
 

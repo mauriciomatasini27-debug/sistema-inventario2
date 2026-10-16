@@ -6,7 +6,10 @@ modulos: [inventario, precios]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  En el kiosco y el comercio chico argentino los precios cambian todo el tiempo: llegan listas nuevas de los
+  proveedores cada pocas semanas, sube el costo de un producto con cada factura y el dueño remarca "a ojo",
+  producto por producto, muchas veces fuera de hora o el domingo a la noche para arrancar el lunes con precios
 ---
 > Origen: `PRD - Gestión de Precios para Sistema de Inventario (Parte 1).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/pricing`, `src/pages/api/prices/*`, `src/db/schema-precios.ts`
 

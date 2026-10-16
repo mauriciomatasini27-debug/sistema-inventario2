@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-UI-07]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Automatizar pipeline build → variant → states → worst-case → gate en harness internal dev-only según
+  PRD-UI-07. PRD: diseno/PRD-UI-07-revision-stress.md.
 ---
 # ADR-0038 - Revisión y stress automatizado
 

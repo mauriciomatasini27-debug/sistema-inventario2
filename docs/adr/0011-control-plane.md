@@ -6,7 +6,7 @@ modulos: [admin, inventario]
 depende_de: [ADR-0006, PRD-CP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Copiar modelo Tenant, historias MVP, mora y logs de ModoOps al Panel PA solo-datos-gestión."
 ---
 # ADR-0011 - Control plane a Panel Inventario
 

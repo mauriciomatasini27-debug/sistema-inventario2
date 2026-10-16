@@ -6,7 +6,9 @@ modulos: [inventario, offline]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  En los kioscos y comercios chicos de Argentina la conexión falla seguido: el Wi-Fi del local se cae, los datos
+  móviles se cortan en horas pico o el abono se queda sin saldo, y en muchos barrios la señal es mala.
 ---
 > Origen: `PRD - Modo Offline para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/offline/`, `src/pages/api/sync/*`, `src/lib/outbox.ts`
 

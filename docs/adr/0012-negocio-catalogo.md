@@ -6,7 +6,7 @@ modulos: [inventario]
 depende_de: [PRD-NEG-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Copiar marca blanca, catálogo cerrado y configurador interno. Adaptar precios a SaaS."
 ---
 # ADR-0012 - Negocio y catálogo a Inventario
 

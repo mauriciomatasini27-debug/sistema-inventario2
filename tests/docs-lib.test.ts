@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   aplicarFrontmatter,
+  extraerResumen,
   inferirFrontmatter,
   listarDocs,
   parseFrontmatter,
@@ -291,5 +292,105 @@ describe("CLI docs-frontmatter", () => {
     expect(parseFrontmatter(una).datos.id).toBe("ADR-0052");
     execFileSync("node", [CLI, "--write", docs], { encoding: "utf8" });
     expect(readFileSync(join(adr, "0052-memoria.md"), "utf8")).toBe(una);
+  });
+
+  it("--resumen rellena solo vacíos sin tocar cuerpo ni sobrescribir", () => {
+    const base = mkdtempSync(join(tmpdir(), "docsfm-res-"));
+    const docs = join(base, "docs");
+    mkdirSync(docs, { recursive: true });
+    const conDecision = "# T\n\n## Decisión\n\nAdoptar monolito modular para kioscos.\n";
+    writeFileSync(join(docs, "a.md"), conDecision);
+    execFileSync("node", [CLI, "--write", "--resumen", docs], { encoding: "utf8" });
+    const una = readFileSync(join(docs, "a.md"), "utf8");
+    expect(parseFrontmatter(una).cuerpo).toBe(conDecision);
+    expect(String(parseFrontmatter(una).datos.resumen)).toContain("Adoptar monolito");
+    execFileSync("node", [CLI, "--write", "--resumen", docs], { encoding: "utf8" });
+    expect(readFileSync(join(docs, "a.md"), "utf8")).toBe(una);
+    const fija = una.replace(/resumen: .*\n/, "resumen: Fijo a mano.\n");
+    writeFileSync(join(docs, "a.md"), fija);
+    execFileSync("node", [CLI, "--write", "--resumen", docs], { encoding: "utf8" });
+    expect(String(parseFrontmatter(readFileSync(join(docs, "a.md"), "utf8")).datos.resumen)).toContain(
+      "Fijo a mano",
+    );
+  });
+});
+
+describe("extraerResumen", () => {
+  it("prioriza la sección Decisión sobre el resto", () => {
+    const texto = [
+      "# ADR-0001 - Algo",
+      "",
+      "## Contexto",
+      "",
+      "Este contexto no debe salir en el resumen.",
+      "",
+      "## Decisión",
+      "",
+      "Adoptar monolito modular con Postgres por cliente.",
+      "",
+    ].join("\n");
+    expect(extraerResumen(texto)).toBe("Adoptar monolito modular con Postgres por cliente.");
+  });
+
+  it("usa Objetivo cuando no hay Decisión", () => {
+    const texto = ["# Título", "", "## Objetivo", "", "Reducir quiebres de stock en kioscos."].join("\n");
+    expect(extraerResumen(texto)).toBe("Reducir quiebres de stock en kioscos.");
+  });
+
+  it("ignora frontmatter y salta Estado, Fecha, Fuentes, tablas, código y AC", () => {
+    const texto = [
+      "---",
+      "id: ADR-0001",
+      "tipo: adr",
+      "estado: aceptado",
+      "modulos: []",
+      "depende_de: []",
+      "reemplaza: []",
+      'reemplazado_por: ""',
+      'resumen: ""',
+      "---",
+      "# ADR-0001 - Algo",
+      "",
+      "Estado: aceptado. Fecha: 2026-10-10.",
+      "Fuentes: doc interno.",
+      "",
+      "## Decisión",
+      "",
+      "| Par | Ratio |",
+      "|---|---|",
+      "| a | 1 |",
+      "```",
+      "codigo -- raro",
+      "```",
+      "- Historia X. AC: Given algo When algo Then algo.",
+      "Adoptar [monolito](https://ejemplo.com) con `Drizzle` para kioscos.",
+      "",
+    ].join("\n");
+    expect(extraerResumen(texto)).toBe("Adoptar monolito con Drizzle para kioscos.");
+  });
+
+  it("incluye subsecciones y cae al primer párrafo si la sección no sirve", () => {
+    const anidado = ["# T", "", "## 1. Resumen", "", "### 1.1 Problema", "", "El fiado es parte del kiosco."].join(
+      "\n",
+    );
+    expect(extraerResumen(anidado)).toBe("El fiado es parte del kiosco.");
+    const soloTabla = ["# T", "", "## Resumen", "", "| a | b |", "", "Primer párrafo real del doc."].join("\n");
+    expect(extraerResumen(soloTabla)).toBe("Primer párrafo real del doc.");
+  });
+
+  it("corta en 3 líneas de 110 con frases completas y devuelve vacío sin prosa", () => {
+    const larga =
+      "Primera frase factual sobre el sistema de inventario. " +
+      "Segunda frase factual sobre ventas y caja offline. " +
+      "Tercera frase factual sobre sincronización por tenant. " +
+      "Cuarta frase que no debe entrar en el resumen.";
+    const r = extraerResumen(`# T\n\n${larga}\n`);
+    const lineas = r.split("\n");
+    expect(lineas.length).toBeLessThanOrEqual(3);
+    for (const l of lineas) expect(l.length).toBeLessThanOrEqual(110);
+    expect(r).toContain("Primera frase factual");
+    expect(r).not.toContain("Cuarta frase");
+    expect(extraerResumen("# Solo título\n\n| a | b |\n")).toBe("");
+    expect(extraerResumen("")).toBe("");
   });
 });

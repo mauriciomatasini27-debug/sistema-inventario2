@@ -6,7 +6,9 @@ modulos: [inventario]
 depende_de: [ADR-0006, ADR-0013, PRD-CP-01, PRD-LP-01, PRD-NEG-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-LP-01, PRD-CP-01, PRD-NEG-01, Parte 3 sec 6 (separado de ModoOps salvo aprendizajes y Tema papel).
+  Restringido por ADR-0013, ADR-0006.
 ---
 # PRD-ADAP-01 - Adaptación ModoOps a Sistema de Inventario (R2)
 

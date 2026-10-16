@@ -6,7 +6,10 @@ modulos: [inventario, precios]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  La mayoría de los kioscos, almacenes, maxikioscos y comercios chicos de Argentina controlan el stock "de
+  memoria", con un cuaderno o con una planilla de Excel que nadie actualiza. Las consecuencias son conocidas: Se
+  quedan sin los productos que más rotan (gaseosas, cigarrillos, golosinas) y pierden ventas.
 ---
 > Origen: `PRD - Sistema de Inventario para Kioscos y Comercios (Parte 1).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/inventario`, `src/pages/api/stock/*`, `src/db/schema.ts`
 

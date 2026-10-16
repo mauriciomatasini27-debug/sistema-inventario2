@@ -6,7 +6,9 @@ modulos: [caja, ventas]
 depende_de: [PRD-CAT-01, PRD-SYNC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: docs/04-ventas-caja-fiado/caja-digital-.md (C9, C13), ticket-venta-.md (TV5.8 dividido P1). Gap: sin
+  tabla cashqrreceipts|cashdueitems|ticketpayments; sin /api/cash/qr.
 ---
 # PRD-CAJA-01 - QR, vencimientos y ticket_payments
 

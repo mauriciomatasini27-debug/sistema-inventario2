@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Legal: redacción de la cláusula de los términos y la política sobre los datos de gestión y el "no acceso" a
+  los datos de la app; plazo de retención de la auditoría (5 años propuestos), del backup final (90 días
+  propuestos) y del directorio tras la baja; inscripción de las bases en el Registro Nacional de Bases de Datos;
 ---
 > Origen: `PRD - Panel de Administración Multi-Kiosco para Sistema de Inventario (Parte 3 de 3).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/admin`, `src/pages/api/admin/*`
 

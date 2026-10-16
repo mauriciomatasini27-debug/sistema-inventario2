@@ -6,7 +6,9 @@ modulos: [bot, compras]
 depende_de: [ADR-0007, ADR-0039, ADR-0042, PRD-BOT-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El bot de stock usa la Cloud API oficial de WhatsApp Business (Meta) directa, con el número central del
+  proveedor. Baileys no se usa en ningún ambiente productivo.
 ---
 # ADR-0041 - Proveedor WhatsApp: Cloud API oficial, Baileys descartado
 

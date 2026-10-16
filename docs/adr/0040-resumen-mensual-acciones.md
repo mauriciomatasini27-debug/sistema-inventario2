@@ -6,7 +6,9 @@ modulos: [bot]
 depende_de: [PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Job mensual día 1 09:00 TZ tenant, mismo runner que viernes/lunes/cierre: WA + email con un snapshot, clave
+  tenant+mes+canal. Hasta 3 acciones deterministas por módulo; cada botón crea borrador, nunca ejecuta.
 ---
 # ADR-0040 - Resumen mensual y acciones propuestas
 

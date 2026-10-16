@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-DS-01, PRD-UI-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fijar escala con line-height unitless, medida 60-75ch y truncado siempre con retorno según PRD-UI-02. PRD:
+  diseno/PRD-UI-02-tipografia-escala.md.
 ---
 # ADR-0033 - Tipografía y escala
 

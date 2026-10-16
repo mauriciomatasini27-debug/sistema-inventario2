@@ -6,7 +6,10 @@ modulos: [fiscal, persistencia, tenant]
 depende_de: [ADR-0048, ADR-0050, ADR-0051, ADR-0066, PRD-SEC-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  PREFIJOSDATOS suma /api/payment-orders, /api/payees, /api/counts, /api/stock, /api/service-accounts,
+  /api/utility-bills y /api/ocr, y un arch-test exige que toda ruta de src/pages/api que use repositorios por
+  tenant esté cubierta.
 ---
 # ADR-0074 - Rutas de datos completas en el middleware y `fiscal_settings` por tenant
 

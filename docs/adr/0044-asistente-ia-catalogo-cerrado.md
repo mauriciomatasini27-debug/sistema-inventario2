@@ -6,7 +6,9 @@ modulos: [inventario, persistencia]
 depende_de: [ADR-0003, ADR-0006, PRD-IA-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El asistente solo responde un catálogo fijo de 8-12 preguntas. Cada una es una función tipada con zod, de solo
+  lectura sobre Drizzle. El LLM elige función y parámetros y redacta; nunca escribe SQL ni produce números.
 ---
 # ADR-0044 - Asistente IA: catálogo cerrado + function calling de solo lectura
 

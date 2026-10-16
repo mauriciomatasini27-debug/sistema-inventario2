@@ -6,7 +6,10 @@ modulos: [fiscal, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  src/lib/repos/fiscal.ts concentra el acceso a comprobantes, ND y wizard. Reusa fiscal-db.ts (leerFiscalDocs,
+  asegurarFiscalDoc, persistirFiscalDoc, reencolarFiscalDoc, leerWizardPorTenant, guardarWizard) y deja la
+  memoria particionada como fallback solo cuando dbVivaTenant() devuelve null.
 ---
 # ADR-0054 - Repositorio fiscal en `src/lib/repos/fiscal.ts`: rutas `fiscal/*` sin `store`
 

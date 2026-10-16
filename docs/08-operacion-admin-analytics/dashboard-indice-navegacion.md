@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El usuario abre localhost:4321 y solo ve Venta mostrador. Las demás capacidades (caja, tickets, precios,
+  proveedores, órdenes de pago, fiado, facturas, servicios, WhatsApp, email, fiscal) existen como APIs pero no
+  se ven ni se pueden navegar. No hay índice, ni menú, ni home que explique qué hay hecho.
 ---
 > Origen: `PRD - Indice y Navegacion Dashboard Principal para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/`
 

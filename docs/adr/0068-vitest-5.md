@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0069, PRD-DEP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Subir vitest a ^5.0.4 (arrastra @vitest/mocker 5 y tinypool 2.x) en un PR propio, con el lockfile de #10, que
+  es el único de los cuatro que instala, pasa CI y trae tinypool corregido.
 ---
 # ADR-0068 - Vitest 2 a 5
 

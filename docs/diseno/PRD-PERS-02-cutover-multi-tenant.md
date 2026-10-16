@@ -6,7 +6,10 @@ modulos: [bot, caja, compras, email, fiado, fiscal, inventario, offline, pagos, 
 depende_de: [ADR-0002, ADR-0023, ADR-0024, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-PERS-01 (PERS-S4 y PERS-S5 pendientes), ADR-0024, ADR-0050, ADR-0051, PRD-ISO-02 (Pendientes),
+  node scripts/cutover-scope.mjs (110 archivos de src/pages/api importan src/lib/store.ts, medido 2026-10-13),
+  src/lib/store.ts:97 (store único por proceso), src/lib/server-db.ts (intentarLeer/intentarPersistir devuelven
 ---
 # PRD-PERS-02 - Cutover a Postgres por tenant: memoria aislada, sin fallback silencioso en multi y jobs con tenant (R1)
 

@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0002, ADR-0038, PRD-UI-01, PRD-UI-06]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: .agents/skills/better-interface/SKILL.md, .agents/skills/interface-review/SKILL.md,
+  .agents/skills/break/SKILL.md, .agents/skills/break-ui/SKILL.md, .agents/skills/state-machine/SKILL.md,
+  .agents/skills/variant/SKILL.md, .agents/skills/build-design/SKILL.md,
 ---
 # PRD-UI-07 - Revisión y stress automatizado (R2)
 

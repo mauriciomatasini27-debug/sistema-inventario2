@@ -6,7 +6,9 @@ modulos: [caja, fiado, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  En el kiosco, una venta termina con el cliente yéndose sin ningún papel en la mano, o con un "papelito"
+  escrito a mano.
 ---
 > Origen: `PRD - Ticket de Venta para Sistema de Inventario - Parte 1.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/sales/ticket_*`, `src/pages/api/tickets/*`
 

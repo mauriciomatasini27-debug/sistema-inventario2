@@ -6,7 +6,9 @@ modulos: [email]
 depende_de: [ADR-0002]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: ADR-0002, docs/07-canales-whatsapp-email/, docs/05-compras-servicios-pagos/ordenes-pago.md. Gap: grep
+  email/send|media/upload|jobs/enqueue|billing/webhook|mercadopago en src/pages/api = 0 endpoints.
 ---
 # PRD-CH-01 - Canales faltantes: email/send, media, jobs, billing
 

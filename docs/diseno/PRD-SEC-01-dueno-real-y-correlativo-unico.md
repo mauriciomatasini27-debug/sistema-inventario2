@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0024, ADR-0031, ADR-0051, ADR-0064, ADR-0066]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cuatro comentarios prometen controles que el código no hace. payment-orders/confirm-paid y cancel dicen "solo
+  Dueño" pero no leen la sesión y el repositorio pasa siempre rol dueno. fiscal/settings dice "Dueño+reauth"
+  pero toma el tenant del header x-tenant-id con demo por defecto y sin sesión.
 ---
 # PRD-SEC-01 - Dueño real, online real y correlativo único de tickets
 

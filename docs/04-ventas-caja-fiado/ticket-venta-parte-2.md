@@ -6,7 +6,10 @@ modulos: [caja, fiado, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Documento dividido en dos partes por tamaño. Esta es la Parte 2: sección 4 desde TV1 (TV1 a TV18 y 4.19),
+  secciones 5 a 8 y Anexo A. La Parte 1 (encabezado, secciones 1 a 3 y 4.0 Priorización) está en:
+  https://docs.google.com/document/d/1dA4AIxaHbLXS8ZoATx9Bh4fmBhXKfHA4oWnXprku4cM/edit .
 ---
 > Origen: `PRD - Ticket de Venta para Sistema de Inventario - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/sales/ticket_*`, `src/pages/api/tickets/*`
 

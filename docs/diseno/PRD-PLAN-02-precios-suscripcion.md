@@ -6,7 +6,10 @@ modulos: [bot, fiscal, precios]
 depende_de: [ADR-0018, ADR-0041, ADR-0045, ADR-0047, PRD-ALR-01, PRD-BOT-02, PRD-CAJA-01, PRD-CAT-01, PRD-DASH-01, PRD-FE-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-PLAN-01, ADR-0047 (no fija montos; cita 15/35/59 USD solo como referencia de
+  costos-por-cliente.md), docs/01-fundacion/costos-por-cliente.md,
+  docs/02-identidad-onboarding/onboarding-parte-2.md (cupo Básico 100 mensajes), PRD-NEG-01 (único precio
 ---
 # PRD-PLAN-02 - Precios de la suscripción: rango por plan, costos y mercado (R2)
 

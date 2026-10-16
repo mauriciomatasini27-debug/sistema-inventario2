@@ -6,7 +6,10 @@ modulos: [caja, fiado, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  En el kiosco o comercio chico, la plata entra y sale por muchos lados: efectivo en el cajón, débito con el
+  posnet, cobros con QR (QR de Mercado Pago o QR del posnet), Mercado Pago (link de pago o transferencia a la
+  cuenta) y transferencias al CBU/CVU del dueño.
 ---
 > Origen: `PRD - Caja Digital para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/cash/caja.ts`, `src/pages/api/cash/*`, `src/db/schema-caja.ts`
 

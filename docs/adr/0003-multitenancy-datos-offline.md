@@ -6,7 +6,7 @@ modulos: [offline, tenant]
 depende_de: [ADR-0004]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "1 DB Postgres por cliente + 1 base control catálogo. Local SQLite por dispositivo con outbox idempotente."
 ---
 # ADR-0003 - Multitenancy, datos y offline
 

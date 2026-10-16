@@ -6,7 +6,10 @@ modulos: [admin, bot, landing]
 depende_de: [ADR-0006, ADR-0020, ADR-0029, ADR-0032, ADR-0038, ADR-0039, ADR-0041, ADR-0045, ADR-0046, PRD-ALR-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-BOT-02, PRD-ALR-01, PRD-IA-01, PRD-LP-04, PRD-BOT-01, PRD-OP-01, PRD-DS-02, PRD-UI-01 a PRD-UI-07,
+  docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md, docs/07-canales-whatsapp-email/,
+  src/pages/panel.astro, src/pages/index.astro, src/components/ui/FloatingWhatsApp.astro,
 ---
 # PRD-DASH-01 - Implementación en dashboard: bot, alertas, asistente IA y chat de landing (R2)
 

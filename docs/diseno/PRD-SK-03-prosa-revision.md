@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0008, ADR-0016, PRD-DS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: /.config/opencode/skills/technical-writing/SKILL.md, unslop/SKILL.md, interrogate/SKILL.md. Uso en
+  este sistema: todo PRD, ADR, email y plantilla WhatsApp. Restringido por ADR-0016.
 ---
 # PRD-SK-03 - Skills de prosa y revisión: technical-writing + unslop + interrogate (R2)
 

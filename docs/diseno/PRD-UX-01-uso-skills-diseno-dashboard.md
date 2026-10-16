@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: [ADR-0036, ADR-0037, ADR-0038, ADR-0044, ADR-0046, PRD-DASH-01, PRD-DS-01, PRD-DS-02, PRD-UI-01, PRD-UI-07]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-DASH-01, PRD-UI-01 a PRD-UI-07, PRD-DS-01, PRD-DS-02, package.json (sin sonner, sin react, sin
+  @astrojs/react), src/pages/panel.astro (HTML propio sin layout, tarjetas .card con id caja, movimientos,
+  reportes, ventas, medios, consumos, pagar-servicio, stock, precios, proveedores, fiado, ajustes; colores
 ---
 # PRD-UX-01 - Uso de skills de diseño en el dashboard: PRD-DASH-01 y pulido del panel actual (R2)
 

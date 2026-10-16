@@ -6,7 +6,10 @@ modulos: [caja]
 depende_de: [ADR-0084]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoria 2026-10-15 sobre opencode.json (agents poteto-agent, comment-sicko, pstack-worker,
+  pstack-judge), .opencode/pstack-models.md (roles a agentes nombrados), .opencode/pstack-opencode.md y
+  .opencode/pstack-run.sh en main. Gap: hay cableado sin spec de efectividad ni test de conformidad.
 ---
 # PRD-PS-01 - Pstack efectivo en opencode
 

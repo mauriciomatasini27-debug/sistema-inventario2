@@ -6,7 +6,9 @@ modulos: [landing, persistencia]
 depende_de: [ADR-0010, ADR-0022, ADR-0045, PRD-LP-02, PRD-LP-04]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El chat usa el modelo más barato disponible del proveedor elegido en ADR-0045, sin tools, con contexto fijo de
+  FAQ, planes públicos y rubros.
 ---
 # ADR-0046 - Chat de landing: LLM barato, solo FAQ, aislado del sistema
 

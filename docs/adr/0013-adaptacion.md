@@ -6,7 +6,7 @@ modulos: [inventario]
 depende_de: [ADR-0006, PRD-ADAP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Fase 0 landing, Fase 1 panel PA, Fase 2 catálogo SaaS. Sin backend Odoo."
 ---
 # ADR-0013 - Adaptación ModoOps a Inventario
 

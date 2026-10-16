@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-DS-02, PRD-UI-05]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Exigir semántica nativa, teclado completo, foco visible 3:1 y reduced-motion según PRD-UI-05. PRD:
+  diseno/PRD-UI-05-accesibilidad.md.
 ---
 # ADR-0036 - Accesibilidad WCAG
 

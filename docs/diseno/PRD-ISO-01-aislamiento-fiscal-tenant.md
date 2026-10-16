@@ -6,7 +6,7 @@ modulos: [compras, fiscal, persistencia, tenant]
 depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0018, ADR-0019, ADR-0048, ADR-0050]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Requisito ISO-1: el tenant de una request fiscal lo resuelve el servidor, nunca el cliente por sí solo."
 ---
 # PRD-ISO-01 - Aislamiento por tenant de los datos fiscales (R1)
 

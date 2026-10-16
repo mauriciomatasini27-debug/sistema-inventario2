@@ -6,7 +6,7 @@ modulos: []
 depende_de: [PRD-DEP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Subir typescript a ^7.0.2 en un PR propio, con lockfile regenerado, como último paso de la pila."
 ---
 # ADR-0072 - TypeScript 5.9 a 7
 

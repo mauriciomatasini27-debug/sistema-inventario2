@@ -6,7 +6,9 @@ modulos: [offline]
 depende_de: [PRD-DS-02, PRD-UI-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Adoptar agrupación por espacio, props lógicas y base instalada 360px según PRD-UI-01. PRD:
+  diseno/PRD-UI-01-layout-pwa-360.md.
 ---
 # ADR-0032 - Layout y base PWA 360px
 

@@ -6,7 +6,9 @@ modulos: [auth, onboarding]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Identidad única: cuenta de Google vía OIDC. No hay password local. Roles por comercio: dueno / empleado, con
+  matriz cerrada de permisos.
 ---
 # Autenticación y Gestión de Usuarios — referencia técnica
 

@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0041, ADR-0045, ADR-0046, ADR-0047, PRD-ALR-01, PRD-BOT-01, PRD-BOT-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: docs/01-fundacion/costos-por-cliente.md (precios de referencia Básico 15 / Plus 35 / Pro 59 USD,
+  número central WABA, USD 0,026 por mensaje AR a verificar, WhatsApp dentro del precio del plan, "cupo y cobrar
+  el excedente"), docs/03-inventario-precios/inventario-parte-1.md:49 (suscripción mensual ARS con ajuste o USD,
 ---
 # PRD-PLAN-01 - Planes de suscripción mensual, cupos y estrategia comercial (R2)
 

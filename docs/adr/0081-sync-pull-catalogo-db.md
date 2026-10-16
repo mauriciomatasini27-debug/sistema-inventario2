@@ -6,7 +6,10 @@ modulos: [inventario, offline, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, PRD-PERS-06, PRD-SYNC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Con base viva del tenant, el catalogo de GET /api/sync/pull se arma con un SELECT a products (sku,
+  stockactual, preciocentavos) dentro de leerLote. La memoria (store.stock, store.prices) queda como fuente solo
+  en single sin base y en el fallback single ante error de DB. En multi sin base, 503 como el resto del cutover.
 ---
 # ADR-0081 - Catálogo del delta de sync/pull DB-first
 

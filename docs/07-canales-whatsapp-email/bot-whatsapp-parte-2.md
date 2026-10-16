@@ -6,7 +6,10 @@ modulos: [bot, email]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El bot usa el mismo backend que la web y una base de datos por cliente, como ModoOps; la base se resuelve
+  desde el número de teléfono a través de la base de control del Control Plane. Las fotos y la configuración se
+  hacen en la web; el bot es para el día a día. Ningún pedido sale sin confirmación explícita.
 ---
 > Origen: `PRD - Bot de WhatsApp para Sistema de Inventario - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/whatsapp`, `src/pages/api/whatsapp/*`
 

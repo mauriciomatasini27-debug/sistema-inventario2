@@ -6,7 +6,10 @@ modulos: [fiscal, tenant]
 depende_de: [ADR-0050, ADR-0051, ADR-0074, PRD-SEC-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  planBackfill devuelve una sentencia por tabla: fiscaldocuments actualiza todas las filas con tenantid nulo;
+  fiscalsettings actualiza solo la fila nula más reciente (createdat, luego id) y solo si no existe ya una fila
+  del tenant, para respetar el índice único.
 ---
 # ADR-0075 - Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`
 

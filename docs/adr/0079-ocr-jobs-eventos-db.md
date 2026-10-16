@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0005, ADR-0024, ADR-0052, ADR-0060, PRD-PERS-04]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Se crean las tablas ocrjobs y ocreventos con migración Drizzle 0018 (sin tenantid: aislamiento por base de
+  tenant). El repositorio src/lib/repos/ocr.ts pasa a DB-first vía dbVivaTenant() para altas, lecturas,
+  actualizaciones e idempotencia por idempotencykey, con espejo memoria y 503 en multi sin base.
 ---
 # ADR-0079 - Trabajos y eventos de OCR DB-first
 

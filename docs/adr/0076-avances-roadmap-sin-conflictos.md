@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0065, ADR-0073, PRD-ROAD-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los PRs de implementación dejan de editar docs/ROADMAP.md. Cada uno agrega
+  docs/roadmap/avances/<número-ADR>.md con front-matter (item, estado, adr, prd, fecha) y una línea de texto.
 ---
 # ADR-0076 - Avances del roadmap por archivo y sección generada
 

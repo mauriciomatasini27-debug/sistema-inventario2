@@ -6,7 +6,10 @@ modulos: [admin, landing, tenant]
 depende_de: [ADR-0010, ADR-0011, ADR-0022, ADR-0031, PRD-AU-02, PRD-LP-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  La landing expone dos accesos que pasan por login Google OIDC (sin password local): Mi comercio → GET
+  /api/auth/login?next=/panel (kiosquero/tenant). Admin → GET /api/auth/login?next=/admin (superadmin, control
+  plane).
 ---
 # ADR-0030 - Accesos desde la landing al control plane y a la app tenant
 

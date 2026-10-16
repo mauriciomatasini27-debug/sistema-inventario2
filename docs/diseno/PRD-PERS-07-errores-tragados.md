@@ -6,7 +6,10 @@ modulos: [admin, bot, offline, pagos, persistencia, ventas]
 depende_de: [ADR-0065, ADR-0073, ADR-0082]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  tests/arch/sin-errores-tragados.test.ts impide errores tragados nuevos, pero deja 9 en una lista explícita
+  (PERMITIDOS): el registro del service worker en src/layouts/BaseLayout.astro, la lectura de la orden rival en
+  src/lib/repos/ordenes-pago.ts, dos res.json().catch(() => null) en src/modules/sales/tickettemplate.ts y
 ---
 # PRD-PERS-07 - Errores tragados de E7 a cero
 

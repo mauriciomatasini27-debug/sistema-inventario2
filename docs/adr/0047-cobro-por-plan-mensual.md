@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0045, PRD-PLAN-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Se cobra una suscripción mensual por plan (Básico, Plus, Pro). El plan define qué módulos están encendidos y
+  qué cupos mensuales tiene el tenant (mensajes de WhatsApp, consultas al asistente IA). No se venden módulos
+  sueltos.
 ---
 # ADR-0047 - Cobro por plan mensual, no por módulo
 

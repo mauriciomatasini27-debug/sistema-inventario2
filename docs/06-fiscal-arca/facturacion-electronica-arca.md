@@ -6,7 +6,9 @@ modulos: [fiscal]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Hoy el sistema emite un ticket de venta no fiscal. Los kioscos y comercios chicos, en su mayoría
+  monotributistas, tienen que facturar sus ventas en ARCA.
 ---
 > Origen: `PRD - Facturación Electrónica ARCA para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/fiscal`, `src/pages/api/fiscal/*`, `src/db/schema-fiscal.ts`
 

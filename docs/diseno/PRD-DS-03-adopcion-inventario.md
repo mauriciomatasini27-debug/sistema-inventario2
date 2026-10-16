@@ -6,7 +6,9 @@ modulos: [inventario]
 depende_de: [ADR-0002, ADR-0008, ADR-0009, PRD-DS-01, PRD-DS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: Parte 3 sec 6.1/6.2 (reutilizar Tema papel sin backend Odoo), NE12.2 (email basado en Tema papel),
+  PRD-DS-01 y PRD-DS-02. Restringido por ADR-0009, ADR-0008, ADR-0002.
 ---
 # PRD-DS-03 - Adopcion Tema Papel en Sistema de Inventario (R2)
 

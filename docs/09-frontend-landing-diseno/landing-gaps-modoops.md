@@ -6,7 +6,9 @@ modulos: [landing]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  La landing nueva cubre 8 de 18 secciones del arco canónico ModoOps. Orden nuevo: Hero / Problema / Solucion /
+  Camino / Planes / Publico / ComoTrabajamos / Contacto.
 ---
 > Origen: `PRD - Landing Page - Gaps vs ModoOps.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/pages/index.astro`, `src/components/sections/`, `docs/adr/0022-landing-gaps.md`
 

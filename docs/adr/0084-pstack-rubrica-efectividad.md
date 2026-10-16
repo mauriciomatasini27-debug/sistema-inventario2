@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-PS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Pstack es efectivo en opencode solo si pasa esta rubrica de 5 criterios. Cada criterio se mide sobre receipts
+  y archivos. Sin excepciones.
 ---
 # ADR-0084 - Rubrica de efectividad pstack en opencode
 

@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0044, ADR-0045, PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: docs/08-operacion-admin-analytics/reportes-rotacion.md (RT1-RT11),
+  docs/04-ventas-caja-fiado/caja-digital-parte-1.md, docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md,
+  src/db/schema.ts, PRD-BOT-01. Fecha extracción: 2026-10-12.
 ---
 # PRD-IA-01 - Asistente de IA para preguntas del negocio (R2)
 

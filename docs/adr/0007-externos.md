@@ -6,7 +6,7 @@ modulos: []
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Fuente: https://accounts.google.com/.well-known/openid-configuration leída 2026-10-10."
 ---
 # ADR-0007 - Verificación externos en fuentes oficiales
 

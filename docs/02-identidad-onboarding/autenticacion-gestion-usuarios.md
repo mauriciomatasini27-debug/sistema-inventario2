@@ -6,7 +6,9 @@ modulos: [auth, onboarding]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El sistema de inventario lo usan el dueño del kiosco y, en muchos casos, uno a tres empleados que atienden el
+  mostrador por turnos, desde su propio celular o desde la PC del local.
 ---
 > Origen: `PRD - Autenticación y Gestión de Usuarios para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/auth`, `src/pages/api/auth/*`, `src/db/schema.ts`
 

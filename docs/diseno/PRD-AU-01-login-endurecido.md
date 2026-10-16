@@ -6,7 +6,9 @@ modulos: [auth]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría pstack 3 workers sobre src/pages/api/auth/login.ts, reauth.ts, auth/callback.ts (commits
+  0c920ec, d6d16eb). El PRD de Autenticación en .docx no está disponible; este PRD cubre solo el fix.
 ---
 # PRD-AU-01 - Login OAuth: cookies perdidas y pendingAuth sin expiración
 

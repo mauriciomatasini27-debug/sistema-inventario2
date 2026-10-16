@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-UI-06]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fijar polish exacto y motion con restraint menor a 300ms con librerías probadas según PRD-UI-06. PRD:
+  diseno/PRD-UI-06-polish-motion.md.
 ---
 # ADR-0037 - Polish y motion
 

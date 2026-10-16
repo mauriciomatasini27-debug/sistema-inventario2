@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0002, ADR-0035]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: .agents/skills/better-writing/SKILL.md, .agents/skills/writing-guidelines/SKILL.md,
+  .agents/skills/ask-sonner/SKILL.md (toasts). Fecha extracción: 2026-10-12. Restringido por ADR-0035, ADR-0002.
 ---
 # PRD-UI-04 - Copy y voz (R2)
 

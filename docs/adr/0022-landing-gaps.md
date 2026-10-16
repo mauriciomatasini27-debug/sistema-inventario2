@@ -6,7 +6,10 @@ modulos: [landing]
 depende_de: [ADR-0010, ADR-0021]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cerrar los gaps P0/P1 del PRD adoptando el arco canónico ModoOps (18 secciones) adaptado a kiosco, más
+  Checklist como micro-compromiso (19 en total). Las 8 secciones existentes quedan intactas como base; las 10
+  faltantes se agregan como extensiones. Sin backend propio.
 ---
 # ADR-0022 - Landing cierre gaps vs ModoOps (PRD Gaps E1-E13)
 

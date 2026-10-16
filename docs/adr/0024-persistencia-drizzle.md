@@ -6,7 +6,10 @@ modulos: [offline, persistencia]
 depende_de: [PRD-PERS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Migrar Slice-0 primero (sales, cash/movements, balance, outbox, idmappings) a Drizzle/Postgres en 1 tx con
+  idempotencykey único; luego resto por dominio; retirar store salvo tests. PRD:
+  diseno/PRD-PERS-01-persistencia-drizzle.md.
 ---
 # ADR-0024 - Persistencia Drizzle real tras store en memoria
 

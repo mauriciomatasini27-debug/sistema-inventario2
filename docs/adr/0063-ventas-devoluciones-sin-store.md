@@ -6,7 +6,9 @@ modulos: [persistencia, ventas]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  src/lib/repos/ventas.ts para devoluciones y correcciones; sales y returns reusan fiscal.ts, stock.ts y
+  caja.ts. Los mapas sin tabla quedan en memoria dentro del repositorio, marcados con un comentario.
 ---
 # ADR-0063 - Ventas, devoluciones y correcciones de medio sin `store`: cierre de PERS-S5 en `src/pages/api`
 

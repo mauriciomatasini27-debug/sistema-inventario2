@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0065, PRD-DEP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Las cuatro Actions suben juntas en un PR propio: actions/checkout v4 a v7, actions/setup-node v4 a v7,
+  actions/upload-artifact v4 a v7 y github/codeql-action v3 a v4.
 ---
 # ADR-0067 - GitHub Actions a la última mayor y política de PRs de Dependabot
 

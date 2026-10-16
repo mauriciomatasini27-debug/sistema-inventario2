@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0024, ADR-0031, ADR-0051, ADR-0064, PRD-SEC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Las rutas que se declaran "solo Dueño" verifican sesión y membership dueño del tenant que resuelve el servidor
+  (tenantDeRequest), con los helpers existentes de src/lib/control.ts. La configuración fiscal suma reauth
+  reciente (exigirReauthReciente).
 ---
 # ADR-0066 - Dueño real en rutas sensibles y correlativo único de tickets
 

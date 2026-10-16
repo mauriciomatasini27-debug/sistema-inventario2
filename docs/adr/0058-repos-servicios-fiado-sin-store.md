@@ -6,7 +6,9 @@ modulos: [fiado, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Un repositorio por dominio (servicios.ts, fiado.ts); los movimientos de caja por caja.ts; los mapas sin tabla
+  quedan en memoria dentro del repositorio, marcados con un comentario.
 ---
 # ADR-0058 - Repositorios de consumos de servicios y fiado: rutas `utility-bills*` y `credit/*` sin `store`
 

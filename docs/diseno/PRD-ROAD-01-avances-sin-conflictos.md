@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0065, ADR-0073, ADR-0076]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cada PR de implementación edita docs/ROADMAP.md para marcar su avance. Dos PRs abiertos a la vez tocan las
+  mismas líneas (la cabecera de "Actualización" y las filas de la tabla), así que el segundo en fusionarse
+  siempre choca y hay que mergear main a mano.
 ---
 # PRD-ROAD-01 - Avances del roadmap sin conflictos entre PRs
 

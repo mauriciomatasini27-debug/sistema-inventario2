@@ -1,10 +1,11 @@
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { aplicarFrontmatter, inferirFrontmatter, listarDocs, parseFrontmatter } from "./docs-lib.mjs";
+import { aplicarFrontmatter, extraerResumen, inferirFrontmatter, listarDocs, parseFrontmatter } from "./docs-lib.mjs";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
-const objetivos = args.filter((a) => a !== "--write" && a !== "--dry-run");
+const soloResumen = args.includes("--resumen");
+const objetivos = args.filter((a) => a !== "--write" && a !== "--dry-run" && a !== "--resumen");
 if (objetivos.length === 0) objetivos.push("docs");
 
 // rutas absolutas de los md a procesar
@@ -28,6 +29,7 @@ for (const archivo of archivos) {
   const ruta = relative(process.cwd(), archivo) || archivo;
   const texto = readFileSync(archivo, "utf8");
   const inferidos = inferirFrontmatter(ruta.replace(/\\/g, "/"), texto);
+  if (soloResumen) inferidos.resumen = extraerResumen(texto);
   const nuevo = aplicarFrontmatter(texto, inferidos);
   const cuerpoViejo = parseFrontmatter(texto).cuerpo;
   if (parseFrontmatter(nuevo).cuerpo !== cuerpoViejo) {

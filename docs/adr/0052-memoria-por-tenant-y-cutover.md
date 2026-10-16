@@ -6,7 +6,10 @@ modulos: [persistencia, tenant]
 depende_de: [ADR-0024, ADR-0051, ADR-0077, PRD-PERS-02, PRD-SEC-04]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  store pasa a ser una partición por tenant resuelta con tenantActual() (ADR-0051); en multi fuera de contexto
+  lanza. En multi la falta de base del tenant ya no cae a memoria: server-db.ts y los dbViva() locales propagan
+  el error y la ruta responde 503. La memoria como fallback queda permitida solo en single (dev, tests y build).
 ---
 # ADR-0052 - Memoria por tenant, sin fallback silencioso en multi y jobs con tenant
 

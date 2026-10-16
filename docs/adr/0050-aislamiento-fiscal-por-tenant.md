@@ -6,7 +6,10 @@ modulos: [fiscal, persistencia, tenant]
 depende_de: [ADR-0002, ADR-0003, ADR-0048, ADR-0049, PRD-ISO-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los datos fiscales se aíslan en dos capas. Primero, el servidor resuelve el tenant de cada request fiscal
+  (tenantDeRequest) desde la sesión y la membership; el cliente solo puede elegir entre sus memberships con
+  X-Tenant-Id. Segundo, fiscaldocuments guarda tenantid y toda lectura filtra por él, en DB y en memoria.
 ---
 # ADR-0050 - Aislamiento fiscal por tenant: contexto en servidor, `tenant_id` y fail-closed
 

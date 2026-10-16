@@ -6,7 +6,10 @@ modulos: [compras, pagos]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El bot prepara y entrega; el comerciante paga desde su propia app. Sin ejecución de pagos ni credenciales, en
+  todas las fases. Una base de datos por cliente más una base de control, como ModoOps; las órdenes viven en la
+  base del comercio.
 ---
 > Origen: `PRD - Órdenes de Pago para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/payments`, `src/pages/api/payment-orders/*`, `src/db/schema-pagos.ts`
 

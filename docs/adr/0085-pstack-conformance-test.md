@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0084, PRD-PS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  tests/pstack-wiring.test.ts fija el contrato entre opencode.json y el sheet. Exige el puntero en instructions,
+  los 4 agentes (pstack-worker, pstack-judge, poteto-agent, comment-sicko) con modo subagent y modelo no vacío,
+  cero filas del sheet mapeadas a inherit-parent o auto, y el runner .opencode/pstack-run.sh presente.
 ---
 # ADR-0085 - Test de conformidad del cableado pstack
 

@@ -6,7 +6,10 @@ modulos: [bot]
 depende_de: [ADR-0041, PRD-BOT-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Toda salida y entrada de WhatsApp pasa por una interfaz WhatsAppTransport (enviar, recibir, estado). El núcleo
+  puro (router.ts, consulta.ts, envio.ts) no importa adaptadores. Adaptadores: cloud (productivo, ADR-0041) y
+  fake (tests y dev).
 ---
 # ADR-0042 - Interfaz WhatsAppTransport intercambiable
 

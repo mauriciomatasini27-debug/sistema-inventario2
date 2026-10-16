@@ -6,7 +6,9 @@ modulos: [tenant]
 depende_de: [ADR-0050, ADR-0051, ADR-0052, ADR-0077, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los jobs con X-Job-Secret (src/pages/api/jobs/) en TENANTMODE=multi exigen X-Tenant-Id y corren para un solo
+  comercio (PERS2-S3). Sin ese encabezado gateJob responde 403.
 ---
 # PRD-SEC-04 - Fan-out de jobs por tenant
 

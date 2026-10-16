@@ -6,7 +6,10 @@ modulos: [auth, offline, persistencia]
 depende_de: [ADR-0005]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Parcial 2026-10-12: verificado código vs doc oficial vía web; falta verificación manual en consolas (Google
+  Cloud, Meta Business, ARCA WSASS/homo), prueba en iOS/Android reales y validación contador (lista RG 1415,
+  fechas offline, padrón, conservación 10 años).
 ---
 # Verificación fuente oficial — 5 APIs (paso 4, parcial 2026-10-12)
 

@@ -6,7 +6,7 @@ modulos: [inventario, landing]
 depende_de: [PRD-LP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: Reutilizar arquitectura landing Astro de ModoOps con copy y marca de Inventario.
 ---
 # ADR-0010 - Landing ModoOps a Inventario
 

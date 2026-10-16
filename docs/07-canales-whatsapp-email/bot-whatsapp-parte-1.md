@@ -6,7 +6,10 @@ modulos: [bot, email]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El dueño de un kiosco vive en WhatsApp: ahí habla con los preventistas, con los proveedores y con los
+  empleados. Abrir una app web para preguntar "¿cuántos Milka me quedan?" o para armar un pedido mientras
+  atiende el mostrador es fricción.
 ---
 > Origen: `PRD - Bot de WhatsApp para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/whatsapp`, `src/pages/api/whatsapp/*`, `src/db/schema-whatsapp.ts`
 

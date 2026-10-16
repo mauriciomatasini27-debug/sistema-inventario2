@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0016, ADR-0064]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los agentes copian los comentarios junto con el código. Un comentario que explica un parche temporal hace que
+  el parche se repita en otras rutas. Un comentario falso se repite como verdad: ya hubo comentarios que decían
+  que una tabla no existía cuando la tabla estaba en src/db.
 ---
 # PRD-COM-01 - Poda de comentarios de código
 

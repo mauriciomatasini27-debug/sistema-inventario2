@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0006, ADR-0011]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: consultoria/docs/modoops-control-plane-spec.md, modoopsadmin/ (manifest, tenant model, views), ADR
+  0006/0007. Restringido por ADR-0011, ADR-0006.
 ---
 # PRD-CP-01 - Control Plane ModoOps reutilizable (R2)
 

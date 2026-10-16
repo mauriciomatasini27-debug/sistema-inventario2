@@ -6,7 +6,9 @@ modulos: [inventario, landing]
 depende_de: [ADR-0002, ADR-0008, ADR-0010, ADR-0021, PRD-LANDING-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría LP-S1/S7 vs consultoria/web (ModoOps: 10 bloques, FAQ 4 Q&A, SupportModel 3 fases, Discovery
+  con entregables, newsletter, canvas three.js). Restringido por ADR-0021, ADR-0010, ADR-0008, ADR-0002.
 ---
 # PRD-LP-02 - Landing Inventario, iteración contenido (R2)
 

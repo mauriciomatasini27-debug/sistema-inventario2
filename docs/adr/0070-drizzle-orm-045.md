@@ -6,7 +6,7 @@ modulos: [persistencia]
 depende_de: [PRD-DEP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Subir drizzle-orm a ^0.45.4 en un PR propio, con lockfile regenerado. drizzle-kit 0.31 ya es compatible."
 ---
 # ADR-0070 - Drizzle ORM 0.36 a 0.45
 

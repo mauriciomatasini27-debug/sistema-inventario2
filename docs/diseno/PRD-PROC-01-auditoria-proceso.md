@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0076, ADR-0083]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  check:arch corre tests/arch y tests/pers2-arch.test.ts, y después npm test los corre de nuevo. npm run
+  evidencia vuelve a correr toda la suite aunque se acabe de correr, y no muestra qué tests cambiaron ni los
+  baselines de los trinquetes. Cada ítem chico paga ADR + PRD.
 ---
 # PRD-PROC-01 - Mejoras de proceso de la auditoría
 

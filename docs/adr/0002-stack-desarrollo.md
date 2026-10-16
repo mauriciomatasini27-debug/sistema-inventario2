@@ -6,7 +6,10 @@ modulos: []
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Monorepo TypeScript estricto. Frontend Astro + TS + islas React/Preact, Tema papel adaptado, 360px touch 44px
+  bottom-sheets. PWA manifest + SW + IndexedDB + SQLite-WASM/OPFS, fallback Dexie, plan B Capacitor SQLCipher si
+  iOS falla Fase 0.
 ---
 # ADR-0002 - Stack desarrollo y despliegue
 

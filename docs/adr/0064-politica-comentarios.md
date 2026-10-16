@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0016, PRD-COM-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Un comentario en src/ se queda solo si explica un por qué que el código no puede decir, en una de tres clases:
+  particularidad de navegador o plataforma, regla fiscal o legal con referencia, invariante de seguridad o de
+  aislamiento por tenant. Todo lo demás se borra.
 ---
 # ADR-0064 - Política de comentarios de código: solo por qué no obvio
 

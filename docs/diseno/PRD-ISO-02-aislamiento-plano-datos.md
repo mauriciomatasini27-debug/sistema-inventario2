@@ -6,7 +6,10 @@ modulos: [caja, compras, fiscal, persistencia, tenant, ventas]
 depende_de: [ADR-0002, ADR-0003, ADR-0048, ADR-0050, ADR-0051, PRD-ISO-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-ISO-01 (Pendientes), ADR-0050, auditoría de código 2026-10-13: 13 rutas con dbViva() local que
+  llama getTenantDb() sin tenant
+  (src/pages/api/{sync/pull,sync/push,credit/payments,credit/sales-on-account,purchase-orders,purchase-orders/close,suppliers,tickets/link,prices/adjustments}.ts,
 ---
 # PRD-ISO-02 - Aislamiento por tenant del resto del plano de datos (R1)
 

@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0065, ADR-0067, ADR-0072]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Dependabot abrió 14 PRs sueltos, varios repetidos o encadenados entre sí, y ninguno se puede fusionar tal
+  cual: 7 fallan en npm ci y 1 en tests. npm audit sobre main da 25 vulnerabilidades (3 críticas en el árbol, 4
+  alertas críticas en GitHub), todas en paquetes que solo se arreglan con un salto de versión mayor.
 ---
 # PRD-DEP-01 - Actualización de dependencias
 

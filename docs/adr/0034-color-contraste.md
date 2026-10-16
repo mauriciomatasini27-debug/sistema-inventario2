@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-DS-01, PRD-UI-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Exigir un color igual un significado, contraste medido en par real y dark propio según PRD-UI-03. PRD:
+  diseno/PRD-UI-03-color-contraste.md.
 ---
 # ADR-0034 - Color semántico y contraste
 

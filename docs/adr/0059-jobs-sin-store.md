@@ -6,7 +6,9 @@ modulos: [persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los jobs no tienen repositorio propio: reusan los de dominio y agregan funciones donde falten. Se crea
+  src/lib/repos/lotes.ts porque lotes todavía no tiene repositorio. El tenant sale siempre de gateJob.
 ---
 # ADR-0059 - Jobs programados sin `store`: rutas `jobs/*` por repositorios de dominio
 

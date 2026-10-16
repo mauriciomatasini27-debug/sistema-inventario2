@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0002, ADR-0008]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: consultoria/modoopscore/static/src/scss/modoopstokens.scss (166 lineas), modoopsprimaryvariables.scss
+  (41), modoopsbackend.scss (167). Fecha extraccion: 2026-10-10. Restringido por ADR-0008, ADR-0002.
 ---
 # PRD-DS-01 - Tokens Tema Papel (R2)
 

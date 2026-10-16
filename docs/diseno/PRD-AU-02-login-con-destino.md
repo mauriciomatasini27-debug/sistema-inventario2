@@ -6,7 +6,9 @@ modulos: [admin, auth, tenant]
 depende_de: [ADR-0030, ADR-0031, PRD-AU-01, PRD-LP-03]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría panel 3 workers sobre src/pages/api/auth/login.ts (sin next, solo invitationtoken + prompt),
+  src/pages/api/auth/callback.ts:177 (redirect hardcodeado tenantId ?
 ---
 # PRD-AU-02 - Login con destino: `next` y bifurcación admin/tenant (R2)
 

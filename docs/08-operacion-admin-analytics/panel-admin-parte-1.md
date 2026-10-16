@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Hoy el Control Plane está descripto en pedazos en varios PRD: el PRD principal (6.4) habla de una "lista de
+  comercios, plan, estado de suscripción, uso, suspensión/reactivación"; el de onboarding (3.3, ON3.8 y ON12) de
+  las altas en curso y los errores de aprovisionamiento; el del bot y el de costos de la tabla whatsappusage; el
 ---
 > Origen: `PRD - Panel de Administración Multi-Kiosco para Sistema de Inventario (Parte 1 de 3).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/admin`, `src/pages/api/admin/*`, `src/db/schema-admin.ts`
 

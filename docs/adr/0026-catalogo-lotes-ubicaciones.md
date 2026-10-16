@@ -6,7 +6,9 @@ modulos: [inventario, persistencia]
 depende_de: [ADR-0012, PRD-CAT-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Implementar products CRUD + búsqueda, lots + FEFO auto, locations y counts/confirmar según PRD-CAT-01. PRD:
+  diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md.
 ---
 # ADR-0026 - Catálogo, lotes FEFO, ubicaciones y conteo
 

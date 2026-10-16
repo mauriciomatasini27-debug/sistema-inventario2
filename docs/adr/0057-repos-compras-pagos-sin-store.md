@@ -6,7 +6,10 @@ modulos: [compras, pagos, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Un repositorio por dominio (facturas-proveedor.ts, ordenes-pago.ts). Los movimientos de caja se escriben por
+  el repositorio de caja para no duplicar esa lógica. Los mapas sin tabla quedan en memoria dentro del
+  repositorio, marcados con un comentario.
 ---
 # ADR-0057 - Repositorios de facturas de proveedores y órdenes de pago: rutas `supplier-invoices/*` y `payment-orders/*` sin `store`
 

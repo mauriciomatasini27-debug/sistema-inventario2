@@ -6,7 +6,9 @@ modulos: [auth, onboarding]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El dueño de un kiosco, almacén, despensa o librería decide probar el sistema en un rato libre, muchas veces
+  desde el celular y con clientes entrando.
 ---
 > Origen: `PRD - Onboarding de Nuevos Clientes para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/onboarding`, `src/modules/tenants`, `src/pages/api/onboarding/*`
 

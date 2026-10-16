@@ -6,7 +6,7 @@ modulos: []
 depende_de: [ADR-0006, ADR-0014]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Requisito SK-HW2: responder por qué X tiene esta forma, con evidencia y marco epistémico."
 ---
 # PRD-SK-01 - Skills de grounding: how + why (R2)
 

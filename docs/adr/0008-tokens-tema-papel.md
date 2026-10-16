@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-DS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Portar tokens con nombres --mo- intactos a marca nueva Inventario. Conservar papel, radios y blur aunque
+  cambie la llama.
 ---
 # ADR-0008 - Tokens Tema Papel
 

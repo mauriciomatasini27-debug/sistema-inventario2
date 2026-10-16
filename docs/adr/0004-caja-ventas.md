@@ -6,7 +6,9 @@ modulos: [caja, fiado, precios, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Dinero siempre bigint centavos + lint. Todo corrige con documento vinculado, nunca UPDATE. Offline nunca
+  bloquea mostrador, servidor reasigna y audita.
 ---
 # ADR-0004 - Caja, Ventas, Fiado y Precios
 

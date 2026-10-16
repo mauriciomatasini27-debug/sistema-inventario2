@@ -6,7 +6,9 @@ modulos: []
 depende_de: [PRD-UI-04]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Unificar inventario de strings, errores con fix y destructivas con confirm o undo según PRD-UI-04. PRD:
+  diseno/PRD-UI-04-copy-voz.md.
 ---
 # ADR-0035 - Copy y voz
 

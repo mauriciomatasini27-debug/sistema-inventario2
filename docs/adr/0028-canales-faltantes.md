@@ -6,7 +6,10 @@ modulos: [email]
 depende_de: [ADR-0002, PRD-CH-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Agregar POST /api/email/send (Resend/SES), POST /api/media/upload-url (R2 firmada), POST /api/jobs/enqueue
+  (pg-boss) y POST /api/billing/webhooks/mercadopago verificado por firma. PRD:
+  diseno/PRD-CH-01-canales-faltantes.md.
 ---
 # ADR-0028 - Canales faltantes: email/send, media, jobs, billing
 

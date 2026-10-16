@@ -6,7 +6,9 @@ modulos: [caja, fiado, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Principio rector: todo se opera al 100% desde el celular, con y sin conexión, salvo las acciones sensibles que
+  piden conexión (OF9.5).
 ---
 > Origen: `PRD - Fiado y Cuenta Corriente de Clientes para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/credit`, `src/pages/api/credit/*`, `src/db/schema-credito.ts`
 

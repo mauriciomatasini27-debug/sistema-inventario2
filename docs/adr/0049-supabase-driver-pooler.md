@@ -6,7 +6,9 @@ modulos: [persistencia]
 depende_de: [PRD-SUP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  clientFor en src/lib/db.ts deriva todo desde la URL. isTxPooler es URL con :6543. isLocal es URL con localhost
+  o 127.0.0.1.
 ---
 # ADR-0049 - Driver postgres-js con TLS y flags derivados de la URL
 

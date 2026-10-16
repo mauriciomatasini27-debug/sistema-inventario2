@@ -6,7 +6,10 @@ modulos: [inventario, offline, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0081, PRD-SYNC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  GET /api/sync/pull ya arma el lote (outbox + mappings) desde Postgres del tenant cuando hay base viva
+  (leerLote en src/lib/repos/sync.ts, ADR-0061 / PERS2-S22). El campo catalogo del delta, en cambio, sigue
+  saliendo de catalogoMemoria() (store.stock y store.prices).
 ---
 # PRD-PERS-06 - Catálogo del delta de sync/pull DB-first
 

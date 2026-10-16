@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0005, ADR-0024, ADR-0052, ADR-0060, ADR-0079]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  src/lib/repos/ocr.ts concentra buscarJobPorClave, obtenerJob, crearJobRegistro, marcarJobFallo,
+  vincularBorradorAlJob, actualizarJob y registrarEventoOcr, pero solo escribe en store.ocrJobs / ocrJobsByKey /
+  ocrEventos. El job src/jobs/vencer-ocr.ts itera store.ocrJobs y empuja eventos directo a memoria.
 ---
 # PRD-PERS-04 - Trabajos y eventos de OCR DB-first
 

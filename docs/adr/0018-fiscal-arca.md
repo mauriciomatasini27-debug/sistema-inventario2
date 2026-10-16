@@ -6,7 +6,9 @@ modulos: [fiscal]
 depende_de: [ADR-0007, PRD-FE-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  D1 FiscalProvider propio con abstracción. Desarrollo propio por volumen de comercios y no pagar por CUIT.
+  pyafipws descartado (LGPL + TA en archivo 5 h) como runtime; solo referencia.
 ---
 # ADR-0018 - Fiscal ARCA Nivel 3: FiscalProvider, WSAA/WSFEv1, cola y seguridad
 

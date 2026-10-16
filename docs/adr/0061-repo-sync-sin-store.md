@@ -6,7 +6,10 @@ modulos: [offline, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  src/lib/repos/sync.ts concentra outbox, secuencias y estado por dispositivo. Precios, stock y promociones se
+  leen por los repositorios de dominio cuando existen; si no, por funciones en sync.ts. Los mapas sin tabla
+  quedan en memoria dentro del repositorio, marcados con un comentario.
 ---
 # ADR-0061 - Repositorio de sincronización en `src/lib/repos/sync.ts`: rutas `sync/*` sin `store`
 

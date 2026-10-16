@@ -6,7 +6,10 @@ modulos: [auth, onboarding]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  (9/10/2026, decisión del dueño; resuelve la pregunta 3) Verificación del número de WhatsApp: el método
+  principal es el iniciado por el usuario: la web muestra un botón (en el celular, un link wa.me) o un QR (en la
+  computadora) que abre WhatsApp con el mensaje precargado VINCULAR <código> hacia el número central; el
 ---
 > Origen: `PRD - Onboarding de Nuevos Clientes para Sistema de Inventario - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/onboarding`, `src/modules/tenants`, `src/pages/api/onboarding/*`
 

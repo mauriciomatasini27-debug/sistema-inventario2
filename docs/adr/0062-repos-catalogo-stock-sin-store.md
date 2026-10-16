@@ -6,7 +6,10 @@ modulos: [compras, inventario, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Dos repositorios nuevos (catalogo.ts y stock.ts) y funciones nuevas en los que ya existen. Los movimientos de
+  stock se escriben solo por stock.ts. Los mapas sin tabla quedan en memoria dentro del repositorio, marcados
+  con un comentario.
 ---
 # ADR-0062 - Repositorios de catálogo, stock y compras: productos, ubicaciones, lotes, conteos, órdenes de compra, beneficiarios y cuentas de servicio sin `store`
 

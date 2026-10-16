@@ -6,7 +6,10 @@ modulos: [bot, email]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El dueño de un kiosco se entera de lo que pasa en su negocio (cuánto vendió, qué se está acabando, cómo cerró
+  la caja, si algo falló) solo si abre la app o si le llega un WhatsApp. Si está en la calle, en el mayorista o
+  de vacaciones, depende de que alguien le avise.
 ---
 > Origen: `PRD - Notificaciones por Email para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/email`, `src/pages/api/email/*`, `src/db/schema-email.ts`
 

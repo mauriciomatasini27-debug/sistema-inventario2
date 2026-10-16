@@ -6,7 +6,10 @@ modulos: [inventario, precios]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  pricingsettings suma: retiroobjetivomensualcentavos (nullable), condicionfiscal (monotributo /
+  responsableinscripto), iibbpb (nullable = 0), comisionesmediopago (JSON: medio → pb; vacío = 0),
+  periodomezclacobros (1 / 3 meses), gananciadeseadapb (nullable = 0); categoriascostofijo incluye "Sueldos y
 ---
 > Origen: `PRD - Gestión de Precios para Sistema de Inventario (Parte 2).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/pricing`, `src/pages/api/prices/*`
 

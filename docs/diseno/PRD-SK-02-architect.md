@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0001, ADR-0005, ADR-0015]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: /.config/opencode/skills/architect/SKILL.md más references/design-red-flags.md y
+  rationale-template.md. Uso en este sistema: toda decisión one-way-door (multitenancy, auth, offline, panel).
+  Restringido por ADR-0015.
 ---
 # PRD-SK-02 - Skill de diseño: architect (R2)
 

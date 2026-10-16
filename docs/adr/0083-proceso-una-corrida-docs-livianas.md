@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0076, ADR-0082, PRD-PROC-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  npm test excluye tests/arch/ y tests/pers2-arch.test.ts; esos archivos corren solo en npm run check:arch, que
+  sigue siendo su propio paso de CI. Ningún test corre dos veces en CI.
 ---
 # ADR-0083 - Una sola corrida de tests y docs livianas para ítems chicos
 

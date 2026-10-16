@@ -6,7 +6,10 @@ modulos: [inventario]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Candidato A. Principios aplicados: foundational-thinking (scaffold tipos y fronteras antes de features),
+  laziness-protocol (no segunda arena, MVP monolito), model-the-domain (dominios como módulos con tablas
+  propias, no servicios), boundary-discipline (guards en borde: OIDC, webhooks, ARCA, WA).
 ---
 # ADR-0001 - Arquitectura base Sistema de Inventario
 

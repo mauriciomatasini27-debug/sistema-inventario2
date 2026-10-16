@@ -6,7 +6,7 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Panel en admin.<dominio> solo datos de gestión. Ley 25.326. Sin ver ni tocar negocio tenant."
 ---
 # ADR-0006 - Panel Multi-Kiosco
 

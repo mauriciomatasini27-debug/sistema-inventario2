@@ -6,7 +6,10 @@ modulos: [admin, landing, tenant]
 depende_de: [ADR-0006, PRD-OP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cerrar admin (tenants, suspender|reactivar, rollouts/reintentar, audit, tablas
+  platformadmins/migrationrollouts/infrahosts/tenantdailyusage), panel comercio (adiós n-tickets=91 fijo y
+  Próximamente P1) y landing E13 (placeholders, site prod, OG PNG, PDF espejo, dominio, Formspree).
 ---
 # ADR-0029 - Cierre paneles y landing
 

@@ -6,7 +6,9 @@ modulos: [inventario, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0062, ADR-0078]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Las tablas locations, productphotos, stockcounts y stockcountlines están en el esquema Drizzle
+  (src/db/schema.ts) pero no existen en las migraciones aplicadas ni se usan en runtime.
 ---
 # PRD-PERS-03 - Ubicaciones, fotos de producto y conteos DB-first
 

@@ -6,7 +6,9 @@ modulos: [bot, offline, pagos, persistencia, ventas]
 depende_de: [ADR-0065, ADR-0073, PRD-PERS-07]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los 9 errores tragados permitidos por E7 se reemplazan por console.warn con prefijo del módulo y el error,
+  devolviendo el mismo valor por defecto que hoy, salvo donde el error ya tiene a quién subir.
 ---
 # ADR-0082 - Errores tragados de E7 a cero
 

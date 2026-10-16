@@ -6,7 +6,10 @@ modulos: [bot, inventario]
 depende_de: [ADR-0007, ADR-0024, ADR-0039, ADR-0041, ADR-0042]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md y bot-whatsapp-parte-2.md (B1 vinculación, B3
+  consulta texto libre), src/modules/whatsapp/consulta.ts, src/modules/whatsapp/router.ts,
+  src/pages/api/whatsapp/consult.ts (lee products con fallback a memoria, fuente: db|memoria),
 ---
 # PRD-BOT-02 - Consulta de stock por WhatsApp en tiempo real (R2)
 

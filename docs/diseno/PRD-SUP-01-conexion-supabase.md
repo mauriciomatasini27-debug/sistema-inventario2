@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: auditoría 2026-10-13 sobre docs/migracion-supabase.md, src/lib/db.ts, drizzle.config.ts,
+  drizzle/meta/journal.json, .env.example, package.json. Gap: la app habla a localhost y clientFor no negocia
+  TLS ni pooler. El journal ya lista 0000 a 0014 medido hoy.
 ---
 # PRD-SUP-01 - Conexión Supabase como Postgres gerenciado
 

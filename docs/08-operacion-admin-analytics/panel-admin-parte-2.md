@@ -6,7 +6,10 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Documento dividido en 3 partes por tamaño; la numeración es continua. Parte 1 (encabezado, secciones 1 a 3:
+  Resumen, Objetivos y no-objetivos, Usuarios):
+  https://docs.google.com/document/d/1n3E6NmmvCdnXJBuoSAm4YmPRoTCadOM8QI-MCzkSkFA/edit.
 ---
 > Origen: `PRD - Panel de Administración Multi-Kiosco para Sistema de Inventario (Parte 2 de 3).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/admin`, `src/pages/api/admin/*`
 

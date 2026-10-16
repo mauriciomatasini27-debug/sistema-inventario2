@@ -6,7 +6,10 @@ modulos: [landing, precios]
 depende_de: [ADR-0010, ADR-0012, ADR-0021, ADR-0022, ADR-0029, ADR-0030, ADR-0032, ADR-0038, ADR-0046, ADR-0047]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: PRD-PLAN-01 (tabla de planes, PLAN-E6 embudo, PLAN-S15 prueba 14 días, PLAN-S16 chat como captación),
+  PRD-PLAN-02 (rangos y PLAN2-S4 condiciones de publicación), ADR-0047, docs/01-fundacion/costos-por-cliente.md
+  (referencia 15/35/59 USD), PRD-LP-01 (LP-S2 fuente única business.ts, LP-S5 un solo precio público), PRD-LP-02
 ---
 # PRD-LANDING-01 - Planes y precios en la landing (R2)
 

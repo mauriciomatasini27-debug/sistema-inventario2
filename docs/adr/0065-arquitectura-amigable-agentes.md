@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [PRD-ARQ-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Cada error que un agente repitió más de una vez se ataca en este orden: primero se vuelve imposible o lo marca
+  el compilador (tipos, módulos únicos, helpers de test), después un arch-test o paso de CI que solo deja bajar
+  el conteo, y recién al final una instrucción en docs o skill.
 ---
 # ADR-0065 - Errores recurrentes de agentes se eliminan por estructura y trinquetes de CI
 

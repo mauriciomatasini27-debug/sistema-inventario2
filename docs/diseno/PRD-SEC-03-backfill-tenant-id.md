@@ -6,7 +6,10 @@ modulos: [tenant]
 depende_de: [ADR-0050, ADR-0051, ADR-0074, ADR-0075]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  scripts/backfill-tenant-id.mjs solo imprime un UPDATE sobre fiscaldocuments y nunca verificó el resultado.
+  fiscalsettings ganó tenantid en la migración 0016 (ADR-0074) y sus filas previas quedaron con tenantid nulo:
+  no se leen, y el CUIT de emisión cae a ARCACUITPROVEEDOR hasta que alguien vuelva a guardar la configuración.
 ---
 # PRD-SEC-03 - Backfill real de `tenant_id` en filas fiscales previas
 

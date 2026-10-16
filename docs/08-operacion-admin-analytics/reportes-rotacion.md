@@ -6,7 +6,9 @@ modulos: [admin]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  El dueño de un kiosco sabe "más o menos" qué se vende, pero no tiene números: compra de más lo que no sale (y
+  se le vence o le inmoviliza plata) y se queda sin lo que más rota.
 ---
 > Origen: `PRD - Reportes de Rotación de Productos para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/analytics`, `src/pages/api/analytics/*`, `src/db/schema-analytics.ts`
 

@@ -6,7 +6,9 @@ modulos: []
 depende_de: [ADR-0002, ADR-0008, ADR-0033, PRD-DS-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: .agents/skills/better-typography/SKILL.md, docs/diseno/PRD-DS-01-tokens-tema-papel.md (DS-S6). Fecha
+  extracción: 2026-10-12. Restringido por ADR-0033, ADR-0008, ADR-0002.
 ---
 # PRD-UI-02 - Tipografía y escala (R2)
 

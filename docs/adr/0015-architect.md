@@ -6,7 +6,7 @@ modulos: []
 depende_de: [ADR-0001, ADR-0005, PRD-SK-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: "Toda decisión one-way-door pasa por architect con dos candidatos y síntesis antes de implementar."
 ---
 # ADR-0015 - Diseño con architect
 

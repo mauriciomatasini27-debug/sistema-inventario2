@@ -6,7 +6,7 @@ modulos: [landing]
 depende_de: [ADR-0010, PRD-LP-02]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: Iterar la landing solo con contenido + micro-interacciones CSS. Sin canvas three.js. 8 secciones intactas.
 ---
 # ADR-0021 - Landing iteración contenido (PRD-LP-02)
 

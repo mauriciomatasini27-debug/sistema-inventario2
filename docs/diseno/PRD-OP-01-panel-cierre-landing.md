@@ -6,7 +6,9 @@ modulos: [admin, landing]
 depende_de: [ADR-0006, ADR-0020, ADR-0022]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Fuente: ADR-0006, ADR-0020, ADR-0022, src/pages/admin.astro:4-6, src/pages/panel.astro:204-230,
+  src/data/business.ts:36-39. Gap: admin resto demo; panel comercio KPIs hardcodeados; landing placeholders E13.
 ---
 # PRD-OP-01 - Cierre paneles y landing
 

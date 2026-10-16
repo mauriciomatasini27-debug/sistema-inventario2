@@ -6,7 +6,10 @@ modulos: [tenant]
 depende_de: [ADR-0051, ADR-0052, PRD-PERS-02, PRD-SEC-04]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  En TENANTMODE=multi, un job con X-Job-Secret válido en /api/jobs/ y sin X-Tenant-Id corre una vez por cada
+  tenant de control.tenants con estado activo o suspendido, en secuencia y ordenado por id, cada vez dentro de
+  su conTenant.
 ---
 # ADR-0077 - Fan-out de jobs por tenant
 

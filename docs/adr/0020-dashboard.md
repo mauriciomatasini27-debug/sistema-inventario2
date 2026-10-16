@@ -6,7 +6,10 @@ modulos: []
 depende_de: [ADR-0008, ADR-0009]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Home dashboard en / con estética Crextio (crema, tarjetas blancas, tarjeta oscura, acento amarillo)
+  implementado 100% en Astro + islas, consumiendo solo los GET/POST ya existentes. La venta mostrador
+  (src/pages/index.astro) se mueve a /venta sin cambiar su lógica offline.
 ---
 # ADR-0020 - Dashboard principal índice/nav estilo Crextio en Astro
 

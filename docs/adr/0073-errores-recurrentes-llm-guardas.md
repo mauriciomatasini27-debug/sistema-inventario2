@@ -6,7 +6,10 @@ modulos: [persistencia]
 depende_de: [ADR-0064, ADR-0065, PRD-ARQ-01, PRD-DEP-01]
 reemplaza: []
 reemplazado_por: ""
-resumen: ""
+resumen: |
+  Los errores que los agentes repiten y que ADR-0065 no cubre se cierran con un arch-test o un script, y recién
+  después con una línea en .opencode/pstack-opencode.md, .opencode/poteto-agent.prompt.md o la skill
+  verify-inventario.
 ---
 # ADR-0073 - Guardas estructurales para errores recurrentes de agentes LLM
 
