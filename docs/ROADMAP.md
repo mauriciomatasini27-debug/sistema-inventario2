@@ -157,6 +157,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
+| 2026-10-16 | P9-10 | hecho | P9-10: pago de vencimiento atómico con claim-first (M2): un 200 y un 409 ante doble pago concurrente. | — / — |
 | 2026-10-16 | PS-S1 a S3 | hecho | PS-S1 a S3: conformidad de 4 agentes sin `auto`, fixtures rotas en proceso más hijo en rojo y pendientes reales en ADR-0085 (M3). | PRD-PS-01 / ADR-0085 |
 | 2026-10-15 | P2-2 | hecho | P2-2 hecho: ARQ-S4 cerrado, todos los repos sobre el puerto Almacen; el `store.` restante vive solo dentro de `_almacen.ts`. | — / — |
 | 2026-10-15 | P2-3 | hecho | P2-3 hecho: ARQ-S8 cerrado, la evidencia de ADR ya no admite "preexistente" sin issue; fase 5 de PRD-ARQ-01 completa. | — / — |
