@@ -98,6 +98,52 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   });
 });
 
+describe("P3-2a flags de cookies y fin de la nonce-cookie (AU-FIX-S1/S4)", () => {
+  it("las 2 cookies traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600; sin nonce-cookie", async () => {
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    const cookies = setCookies(rLogin);
+    expect(cookies).toHaveLength(2);
+    for (const c of cookies) {
+      expect(c).toContain("HttpOnly");
+      expect(c).toContain("Secure");
+      expect(c).toContain("SameSite=Lax");
+      expect(c).toContain("Path=/");
+      expect(c).toContain("Max-Age=600");
+    }
+    expect(cookies.join("; ")).not.toContain("__Host-oauth-nonce=");
+  });
+});
+
+describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:178)", () => {
+  async function flujoConNext(next: string | null): Promise<{ destino: string | null; pendienteNext: string | undefined }> {
+    const qs = next === null ? "" : `?next=${encodeURIComponent(next)}`;
+    const rLogin = await getLogin(ctx(`http://x/api/auth/login${qs}`));
+    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const pendienteNext = control.pendingAuth.get(state)?.next;
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+        headers: { cookie: setCookies(rLogin).join("; ") },
+      }),
+    );
+    return { destino: rCb.headers.get("Location"), pendienteNext };
+  }
+
+  it("next=/panel se guarda y el callback redirige ahí", async () => {
+    const { destino, pendienteNext } = await flujoConNext("/panel");
+    expect(pendienteNext).toBe("/panel");
+    expect(destino).toBe("/panel");
+  });
+
+  it("next absoluto y protocol-relative se ignoran (sin open-redirect)", async () => {
+    for (const malo of ["https://evil.example/", "//evil.example/", "javascript:alert(1)"]) {
+      resetStore();
+      const { destino, pendienteNext } = await flujoConNext(malo);
+      expect(pendienteNext).toBeUndefined();
+      expect(destino).toBe("/?alta=pendiente");
+      expect(destino ?? "").not.toContain("evil");
+    }
+  });
+});
 describe("AU-FIX-S6 regresión: redirects siempre con Set-Cookie", () => {
   it("login adjunta state+pkce; reauth adjunta reauth-state+pkce", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
