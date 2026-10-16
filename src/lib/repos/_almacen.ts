@@ -621,3 +621,33 @@ export interface RegistroDevice {
 export function crearAlmacenDevices(): AlmacenVivo<RegistroDevice> {
   return crearAlmacenVivo(control.devices);
 }
+
+// Corte 19: planes y uso (PLAN-S1/S10, PRD-PLAN-01). Espejos en memoria con
+// mapa propio del corte; la fuente con base viva son plans, plan_features,
+// subscriptions y usage_counters de la base del tenant. Misma politica que
+// caja: ante un fallo de DB el almacen decide si se propaga o se sigue con
+// memoria. La memoria se particiona por tenantId en la clave o el valor: el
+// aislamiento entre comercios lo da la base por tenant con DB viva.
+export interface SuscripcionPlanes {
+  id: string;
+  tenantId: string;
+  planId: string;
+  estado: "activa" | "cancelada";
+}
+
+const suscripcionesPlanes = new Map<string, SuscripcionPlanes>();
+
+export function crearAlmacenSuscripciones(): AlmacenVivo<SuscripcionPlanes> {
+  return crearAlmacenVivo(suscripcionesPlanes);
+}
+
+export interface ContadorUsoPlanes {
+  usado: number;
+  costoCentavos: bigint;
+}
+
+const usoPlanes = new Map<string, ContadorUsoPlanes>();
+
+export function crearAlmacenUsoPlanes(): AlmacenVivo<ContadorUsoPlanes> {
+  return crearAlmacenVivo(usoPlanes);
+}
