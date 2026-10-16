@@ -1,6 +1,8 @@
 export interface UsoIA {
   readonly tenantId: string;
   readonly mes: string;
+  readonly proveedor?: string | undefined;
+  readonly modelo?: string | undefined;
   readonly tokensEntrada: number;
   readonly tokensSalida: number;
   readonly costoCentavos: number;
@@ -14,18 +16,18 @@ export interface ResumenUsoIA {
 }
 
 export interface RegistroUsoIA {
-  registrar(uso: UsoIA): void;
-  usoDelMes(tenantId: string, mes: string): ResumenUsoIA;
+  registrar(uso: UsoIA): Promise<void>;
+  usoDelMes(tenantId: string, mes: string): Promise<ResumenUsoIA>;
 }
 
 export class RegistroUsoIAMemoria implements RegistroUsoIA {
   private readonly filas: UsoIA[] = [];
 
-  registrar(uso: UsoIA): void {
+  async registrar(uso: UsoIA): Promise<void> {
     this.filas.push(uso);
   }
 
-  usoDelMes(tenantId: string, mes: string): ResumenUsoIA {
+  async usoDelMes(tenantId: string, mes: string): Promise<ResumenUsoIA> {
     let consultas = 0;
     let tokensEntrada = 0;
     let tokensSalida = 0;

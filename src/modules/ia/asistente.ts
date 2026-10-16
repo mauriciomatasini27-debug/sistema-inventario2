@@ -145,6 +145,8 @@ export function crearAsistente(opts: {
   lecturas?: LecturasIA;
   cupoConsultasPorMes?: number;
   mesActual?: () => string;
+  proveedorNombre?: string;
+  modeloNombre?: string;
 }): { catalogo: HerramientaIA[]; preguntar(sesion: SesionIA, pregunta: string): Promise<RespuestaAsistente> } {
   const catalogo = crear_catalogo(opts.lecturas ?? {});
   const cupo = opts.cupoConsultasPorMes ?? 100;
@@ -162,7 +164,7 @@ export function crearAsistente(opts: {
       return { rechazada: true, texto: RESPUESTA_SIN_PERMISO };
     }
     const mes = mesActual();
-    if (opts.registro.usoDelMes(sesion.tenantId, mes).consultas >= cupo) {
+    if ((await opts.registro.usoDelMes(sesion.tenantId, mes)).consultas >= cupo) {
       return { rechazada: true, texto: RESPUESTA_SIN_CUPO };
     }
     const validado = herramienta.esquema.safeParse({});
@@ -171,9 +173,11 @@ export function crearAsistente(opts: {
       { rol: "sistema", contenido: `Respondé en español rioplatense breve usando solo estos datos: ${JSON.stringify(datos)}` },
       { rol: "usuario", contenido: pregunta },
     ]);
-    opts.registro.registrar({
+    await opts.registro.registrar({
       tenantId: sesion.tenantId,
       mes,
+      ...(opts.proveedorNombre !== undefined ? { proveedor: opts.proveedorNombre } : {}),
+      ...(opts.modeloNombre !== undefined ? { modelo: opts.modeloNombre } : {}),
       tokensEntrada: redaccion.tokensEntrada,
       tokensSalida: redaccion.tokensSalida,
       costoCentavos: 0,

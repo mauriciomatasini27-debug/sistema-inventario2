@@ -35,7 +35,7 @@ describe("ia-asistente (PRD-IA-01 núcleo, sin DB)", () => {
     expect(r.texto).toContain(RESPUESTA_FUERA_CATALOGO);
     expect(r.texto).toContain("top_productos");
     expect(proveedor.llamadas).toBe(0);
-    expect(registro.usoDelMes("t1", "2026-10").consultas).toBe(0);
+    expect((await registro.usoDelMes("t1", "2026-10")).consultas).toBe(0);
   });
 
   it("responde top_productos con datos de la herramienta y registra uso", async () => {
@@ -45,7 +45,7 @@ describe("ia-asistente (PRD-IA-01 núcleo, sin DB)", () => {
     expect(r.herramienta).toBe("top_productos");
     expect(r.texto).toContain("Yerba");
     expect(proveedor.llamadas).toBe(1);
-    const uso = registro.usoDelMes("t1", "2026-10");
+    const uso = await registro.usoDelMes("t1", "2026-10");
     expect(uso.consultas).toBe(1);
     expect(uso.tokensSalida).toBeGreaterThan(0);
   });
@@ -67,7 +67,7 @@ describe("ia-asistente (PRD-IA-01 núcleo, sin DB)", () => {
     const r = await asistente.preguntar({ tenantId: "t1", rol: "empleado" }, "¿cuál es el margen del producto Yerba?");
     expect(r.rechazada).toBe(true);
     expect(proveedor.llamadas).toBe(0);
-    expect(registro.usoDelMes("t1", "2026-10").consultas).toBe(0);
+    expect((await registro.usoDelMes("t1", "2026-10")).consultas).toBe(0);
   });
 
   it("con cupo agotado avisa y no llama al LLM", async () => {
