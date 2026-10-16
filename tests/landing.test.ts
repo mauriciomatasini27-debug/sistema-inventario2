@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { audience, business, checklist, circuito, contraste, contactConfigured, crecer, despues, ejemplo, faq, fiscal, garantia, howWeWork, migracion, nav, parseUtm, planesPage, seo, whatsappWithUtm, path as camino } from "../src/data/business.js";
+import { accesos, audience, business, checklist, circuito, contraste, contactConfigured, crecer, despues, ejemplo, faq, fiscal, garantia, howWeWork, migracion, nav, parseUtm, planesPage, seo, whatsappWithUtm, path as camino } from "../src/data/business.js";
 
 const src = (...p: string[]) => readFileSync(join(process.cwd(), "src", ...p), "utf8");
 
@@ -221,9 +221,9 @@ describe("landing Gaps B1 (ADR-0022)", () => {
     }
   });
 
-  it("E10: nav sin app operativa, brand a / y CTA en header", () => {
-    // ADR-0030: accesos Comercio/Admin vía login?next= (no app operativa directa).
-    expect(nav.map((n) => n.href)).toEqual(["#checklist", "#camino", "#planes", "#contacto", "/api/auth/login?next=/panel", "/api/auth/login?next=/admin"]);
+  it("E10: nav solo anclas, brand a / y CTA en header", () => {
+    // ADR-0030: accesos Mi comercio/Admin como CTAs a login?next= fuera del nav.
+    expect(nav.map((n) => n.href)).toEqual(["#checklist", "#camino", "#planes", "#contacto"]);
     const header = src("components/ui/SiteHeader.astro");
     expect(header).toContain('href="/"');
     expect(header).not.toContain('href="#"');
@@ -390,5 +390,65 @@ describe("landing Gaps E6 (ADR-0022)", () => {
       expect(c, f).not.toMatch(/\$\s*\d/);
     }
     expect(src("components/sections/Planes.astro")).toContain("plan.precioUnico");
+  });
+});
+
+// PRD-LP-03 + ADR-0030: accesos a la app desde la landing (R3).
+describe("landing LP3 (ADR-0030)", () => {
+  it("LP3-S3: accesos con labels y hrefs de login con destino", () => {
+    expect(accesos.comercio).toEqual({ label: "Mi comercio", href: "/api/auth/login?next=/panel" });
+    expect(accesos.admin).toEqual({ label: "Admin", href: "/api/auth/login?next=/admin" });
+  });
+
+  it("AT1: business.ts única fuente de accesos (ningún .astro hardcodea labels ni hrefs)", () => {
+    for (const a of ["components/ui/SiteHeader.astro", "components/sections/Hero.astro"] as const) {
+      const c = src(a);
+      expect(c, a).toContain("accesos.");
+      expect(c, a).not.toContain("/api/auth/login");
+      expect(c, a).not.toContain("Mi comercio");
+    }
+  });
+
+  it("AT2: accesos vía Button (<a>) sin <button> en header ni hero", () => {
+    for (const a of ["components/ui/SiteHeader.astro", "components/sections/Hero.astro"] as const) {
+      expect(src(a), a).not.toContain("<button");
+    }
+    expect(src("components/sections/Hero.astro")).toContain('variant="ghost-dark"');
+  });
+
+  it("AT3: ningún href a /panel, /admin o login dentro del nav de anclas", () => {
+    for (const n of nav) {
+      expect(n.href.startsWith("#"), n.href).toBe(true);
+    }
+    const header = src("components/ui/SiteHeader.astro");
+    const navBlock = header.slice(header.indexOf("<nav"), header.indexOf("</nav>"));
+    expect(navBlock).toContain("nav.map");
+    expect(navBlock).not.toContain('href="');
+    expect(navBlock).not.toContain("/api/auth/login");
+    expect(navBlock).not.toContain("/panel");
+    expect(navBlock).not.toContain("/admin");
+  });
+
+  it("LP3-S1/S2: header con Pedir demo, Mi comercio y Admin fuera del nav", () => {
+    const header = src("components/ui/SiteHeader.astro");
+    expect(header).toContain("Pedir demo");
+    expect(header).toContain("accesos.comercio");
+    expect(header).toContain("accesos.admin");
+    const afterNav = header.slice(header.indexOf("</nav>"));
+    expect(afterNav).toContain("accesos.comercio");
+    expect(afterNav).toContain("accesos.admin");
+  });
+
+  it("LP3-S4: hero con fila secundaria de accesos ghost-dark", () => {
+    const heroC = src("components/sections/Hero.astro");
+    expect(heroC).toContain("accesos.comercio");
+    expect(heroC).toContain("accesos.admin");
+    expect(heroC).toContain('variant="ghost-dark"');
+  });
+
+  it("LP3-S5: alta/estado Entrar apunta a /panel", () => {
+    const estado = src("pages/alta/estado.astro");
+    expect(estado).toContain("Entrar a mi comercio");
+    expect(estado).toContain('href="/panel"');
   });
 });

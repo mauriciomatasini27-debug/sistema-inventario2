@@ -280,13 +280,26 @@ export const howWeWork = {
   ],
 } as const;
 
+export interface Acceso {
+  label: string;
+  href: string;
+}
+
+export interface Accesos {
+  comercio: Acceso;
+  admin: Acceso;
+}
+
+export const accesos: Accesos = {
+  comercio: { label: "Mi comercio", href: "/api/auth/login?next=/panel" },
+  admin: { label: "Admin", href: "/api/auth/login?next=/admin" },
+};
+
 export const nav = [
   { href: "#checklist", label: "Checklist" },
   { href: "#camino", label: "Camino" },
   { href: "#planes", label: "Planes" },
   { href: "#contacto", label: "Contacto" },
-  { href: "/api/auth/login?next=/panel", label: "Comercio" },
-  { href: "/api/auth/login?next=/admin", label: "Admin" },
 ] as const;
 
 export const footer = {

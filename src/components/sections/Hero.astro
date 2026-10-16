@@ -1,6 +1,6 @@
 ---
 import Button from '../ui/Button.astro';
-import { contact, contactConfigured, hero, whatsappWithUtm } from '../../data/business';
+import { accesos, contact, contactConfigured, hero, whatsappWithUtm } from '../../data/business';
 ---
 
 <section id="inicio" class="relative flex min-h-[min(88vh,52rem)] items-center overflow-hidden text-canvas-white">
@@ -33,6 +33,10 @@ import { contact, contactConfigured, hero, whatsappWithUtm } from '../../data/bu
           </>
         )
       }
+    </div>
+    <div class="mt-4 flex flex-wrap gap-4">
+      <Button href={accesos.comercio.href} variant="ghost-dark">{accesos.comercio.label}</Button>
+      <Button href={accesos.admin.href} variant="ghost-dark">{accesos.admin.label}</Button>
     </div>
   </div>
 </section>
