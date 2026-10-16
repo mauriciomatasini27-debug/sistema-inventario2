@@ -24,3 +24,11 @@ export function estadoAltaDesdeRol(rol: RolAlta, permisos: readonly string[]): E
   if (rol === "dueno") return "activo";
   return permisos.includes("crear_productos") ? "activo" : "pendiente_revision";
 }
+
+export type RolUmbral = "dueno" | "empleado" | "encargado";
+
+// ALR-S1: min_stock y reorder_qty solo los editan Dueño y encargado; el
+// resto de los campos del producto sigue el criterio de cada ruta.
+export function puedeEditarUmbrales(rol: RolUmbral): boolean {
+  return rol === "dueno" || rol === "encargado";
+}

@@ -13,6 +13,8 @@ export interface ItemAlertaJob {
   readonly minimo: number | null | undefined;
   readonly ventas7d: number;
   readonly proveedor: string | null;
+  // ALR-S1: cantidad a reponer (products.reorder_qty); ausente = sin valor.
+  readonly reorderQty?: number | null | undefined;
 }
 
 export interface DestinoJob {
@@ -30,6 +32,8 @@ export interface AlertaDecidida {
   readonly umbral: number;
   readonly proveedor: string | null;
   readonly clave: string;
+  // ALR-S1: cantidad sugerida a pedir; ausente = sin valor.
+  readonly reorderQty?: number | null | undefined;
 }
 
 export interface ResultadoAlertas {
@@ -69,7 +73,15 @@ export function ejecutar_alertas_stock(args: {
       omitidasYa += 1;
       continue;
     }
-    alertas.push({ sku: it.sku, nombre: it.nombre, stock: it.stock, umbral, proveedor: it.proveedor, clave });
+    alertas.push({
+      sku: it.sku,
+      nombre: it.nombre,
+      stock: it.stock,
+      umbral,
+      proveedor: it.proveedor,
+      clave,
+      ...(it.reorderQty != null ? { reorderQty: it.reorderQty } : {}),
+    });
   }
   if (alertas.length === 0 || args.destinatarios.length === 0) {
     return { alertas: Object.freeze(alertas), enviadas: 0, omitidasYa, clavesRegistradas: Object.freeze([]), enviosProveedor: 0 };
@@ -79,7 +91,10 @@ export function ejecutar_alertas_stock(args: {
     clavesProceso.add(a.clave);
     registradas.push(a.clave);
     args.registrar?.(a.clave);
-    const texto = `${a.nombre}: quedan ${a.stock} (umbral ${a.umbral}). Sugerido a pedir.`;
+    const texto =
+      a.reorderQty != null
+        ? `${a.nombre}: quedan ${a.stock} (umbral ${a.umbral}). Sugerido a pedir: ${a.reorderQty}.`
+        : `${a.nombre}: quedan ${a.stock} (umbral ${a.umbral}). Sugerido a pedir.`;
     for (const d of args.destinatarios) {
       if (d.canales.includes("whatsapp")) {
         try {

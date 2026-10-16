@@ -69,6 +69,8 @@ export interface ItemVivo {
   readonly costoCentavos?: bigint | undefined;
   readonly proveedor?: string | null | undefined;
   readonly alias?: ReadonlyArray<string> | undefined;
+  // ALR-S1: cantidad a reponer (products.reorder_qty); ausente = sin valor.
+  readonly reorderQty?: number | null | undefined;
 }
 
 const SIN_TILDES = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");

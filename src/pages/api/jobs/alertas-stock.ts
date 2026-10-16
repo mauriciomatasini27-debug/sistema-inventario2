@@ -43,7 +43,15 @@ export const POST: APIRoute = async ({ request }) => {
       tenantId: comercio.tenantId,
       fecha,
       modo,
-      catalogo: vivos.map((v) => ({ sku: v.sku, nombre: v.nombre, stock: v.stock, minimo: v.umbral, ventas7d: 0, proveedor: v.proveedor })),
+      catalogo: vivos.map((v) => ({
+        sku: v.sku,
+        nombre: v.nombre,
+        stock: v.stock,
+        minimo: v.umbral,
+        ventas7d: 0,
+        proveedor: v.proveedor,
+        ...(v.reorderQty != null ? { reorderQty: v.reorderQty } : {}),
+      })),
       destinatarios: [
         {
           googleSub: comercio.googleSub,
@@ -62,7 +70,13 @@ export const POST: APIRoute = async ({ request }) => {
       {
         fecha,
         modo,
-        alertas: r.alertas.map((a) => ({ sku: a.sku, stock: a.stock, umbral: a.umbral, clave: a.clave })),
+        alertas: r.alertas.map((a) => ({
+          sku: a.sku,
+          stock: a.stock,
+          umbral: a.umbral,
+          clave: a.clave,
+          reorder_qty: a.reorderQty ?? null,
+        })),
         enviadas: r.enviadas,
         omitidas_ya: r.omitidasYa,
       },

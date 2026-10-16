@@ -45,6 +45,7 @@ function fichaDeFila(
   f: { sku: string; nombre: string; precioCentavos: bigint },
   sector: string,
   locationId: string | null = null,
+  umbrales: { minStock: number | null; reorderQty: number | null } | null = null,
 ): FichaProducto {
   return {
     sku: f.sku,
@@ -55,6 +56,8 @@ function fichaDeFila(
     archivado: false,
     controlaVencimiento: false,
     estado: "activo",
+    minStock: umbrales?.minStock ?? null,
+    reorderQty: umbrales?.reorderQty ?? null,
   };
 }
 
@@ -92,6 +95,51 @@ async function fijarLocationDb(db: TenantDb, sku: string, locationId: string | n
   } catch (e) {
     if (!esColumnaLocationFaltante(e)) throw e;
   }
+}
+
+// Por qué defensivo: mismo drift conocido que location_id; una base de
+// tenant sin la migración 0027 no trae min_stock/reorder_qty y los umbrales
+// quedan solo en el espejo en memoria en vez de romper la lectura.
+function esColumnaUmbralFaltante(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("min_stock") || msg.includes("reorder_qty");
+}
+
+async function umbralesDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, { minStock: number | null; reorderQty: number | null }>> {
+  const mapa = new Map<string, { minStock: number | null; reorderQty: number | null }>();
+  if (skus.length === 0) return mapa;
+  try {
+    const filas = await db
+      .select({ sku: products.sku, minStock: products.minStock, reorderQty: products.reorderQty })
+      .from(products)
+      .where(inArray(products.sku, [...skus]));
+    for (const f of filas) mapa.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
+  } catch (e) {
+    if (!esColumnaUmbralFaltante(e)) throw e;
+  }
+  return mapa;
+}
+
+async function fijarUmbralesDb(db: TenantDb, sku: string, umbrales: { minStock: number | null; reorderQty: number | null }): Promise<void> {
+  try {
+    await db.update(products).set(umbrales).where(eq(products.sku, sku));
+  } catch (e) {
+    if (!esColumnaUmbralFaltante(e)) throw e;
+  }
+}
+
+// ALR-S1: min_stock entero >= 0 (null limpia), reorder_qty entero > 0
+// (null limpia). El API valida con zod; el repo revalida para quien lo
+// llame directo. Devuelve el mensaje o null cuando es válido.
+export function validarUmbrales(minStock: number | null | undefined, reorderQty: number | null | undefined): string | null {
+  if (minStock !== undefined && minStock !== null && (!Number.isInteger(minStock) || minStock < 0)) {
+    return "min_stock debe ser entero >= 0 o null";
+  }
+  if (reorderQty !== undefined && reorderQty !== null && (!Number.isInteger(reorderQty) || reorderQty <= 0)) {
+    return "reorder_qty debe ser entero > 0 o null";
+  }
+  return null;
 }
 
 async function ubicacionExiste(id: string): Promise<boolean> {
@@ -162,8 +210,11 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     // reciente del proceso; la DB solo rellena fichas sin espejo.
     const enMem = productos.obtener(p.sku);
     const ubicDb = enMem ? null : (await ubicacionesDb(db, [p.sku])).get(p.sku) ?? null;
+    // Por qué umbrales con la misma precedencia: el espejo trae la
+    // escritura más reciente del proceso; la DB rellena lo sin espejo.
+    const umDb = enMem ? null : (await umbralesDb(db, [p.sku])).get(p.sku) ?? null;
     const ficha: FichaProducto = {
-      ...fichaDeFila(p, sectorDe(p.sku, sectores), enMem?.locationId ?? ubicDb),
+      ...fichaDeFila(p, sectorDe(p.sku, sectores), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb),
       estado: enMem?.estado ?? "activo",
     };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
@@ -199,12 +250,16 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       db,
       filas.map((f) => f.sku),
     );
+    const umDb = await umbralesDb(
+      db,
+      filas.map((f) => f.sku),
+    );
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores), ubicDb.get(f.sku) ?? null));
+      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null));
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
-      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo" }];
+      lista = [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo", minStock: null, reorderQty: null }];
     }
     const filtradas = filtrar(lista, q, existencias, precios);
     return { fichas: await presentarDb(db, filtradas), fuente: "db" };
@@ -222,7 +277,7 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
 function filtrar(lista: FichaProducto[], q: string, existencias: AlmacenVivo<number>, precios: AlmacenVivo<number>): FichaProducto[] {
   const query = q.trim().toUpperCase();
   if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
-    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo" }];
+    return [{ sku: "demo-sku-1", nombre: "Demo", precioCentavos: precios.obtener("demo-sku-1") ?? 15000, sector: "general", locationId: null, archivado: false, controlaVencimiento: false, estado: "activo", minStock: null, reorderQty: null }];
   }
   if (!query) return lista;
   // Por qué difusa sobre exacta: el mostrador tipea rápido y con tildes.
@@ -238,12 +293,14 @@ export interface AltaProductoInput {
   readonly controlaVencimiento: boolean;
   readonly estado?: "activo" | "pendiente_revision" | undefined;
   readonly locationId?: string | undefined;
+  readonly minStock?: number | null | undefined;
+  readonly reorderQty?: number | null | undefined;
   readonly foto?: { url: string; ancho: number; alto: number; bytes: number } | undefined;
 }
 
 export type AltaProductoResultado =
   | { ok: true; ficha: FichaProducto; fuente: "db" | "memoria" }
-  | { ok: false; codigo: "SKU_DUPLICADO" | "CODIGO_DUPLICADO" | "UBICACION_DESCONOCIDA"; error: string };
+  | { ok: false; codigo: "SKU_DUPLICADO" | "CODIGO_DUPLICADO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO"; error: string };
 
 export async function altaProducto(input: AltaProductoInput): Promise<AltaProductoResultado> {
   const productos = crearAlmacenProductos();
@@ -263,6 +320,8 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
   if (input.locationId !== undefined && !(await ubicacionExiste(input.locationId))) {
     return { ok: false, codigo: "UBICACION_DESCONOCIDA", error: "ubicacion desconocida" };
   }
+  const umbralMal = validarUmbrales(input.minStock, input.reorderQty);
+  if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   const ficha: FichaProducto = {
     sku,
     nombre: input.nombre,
@@ -272,6 +331,8 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     archivado: false,
     controlaVencimiento: input.controlaVencimiento,
     estado: input.estado ?? "activo",
+    minStock: input.minStock ?? null,
+    reorderQty: input.reorderQty ?? null,
   };
   const db = dbVivaTenant();
   if (!db) {
@@ -297,6 +358,11 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     // Por qué update separado: el insert crudo omite location_id a
     // propósito (drift de bases sin la 0021); fijarLocationDb tolera eso.
     if (ficha.locationId !== null) await fijarLocationDb(db, sku, ficha.locationId);
+    // Por qué separado como location_id: el insert crudo tampoco lleva los
+    // umbrales (drift de bases sin la 0027); fijarUmbralesDb tolera eso.
+    if (ficha.minStock !== null || ficha.reorderQty !== null) {
+      await fijarUmbralesDb(db, sku, { minStock: ficha.minStock, reorderQty: ficha.reorderQty });
+    }
     espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
@@ -335,11 +401,13 @@ export interface ParcheProducto {
   readonly sector?: string | undefined;
   readonly locationId?: string | null | undefined;
   readonly archivado?: boolean | undefined;
+  readonly minStock?: number | null | undefined;
+  readonly reorderQty?: number | null | undefined;
 }
 
 export type ActualizarProductoResultado =
   | { ok: true; ficha: FichaProducto }
-  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA"; error: string };
+  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO"; error: string };
 
 export async function actualizarProducto(sku: string, parche: ParcheProducto): Promise<ActualizarProductoResultado> {
   const productos = crearAlmacenProductos();
@@ -350,6 +418,8 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   if (parche.locationId !== undefined && parche.locationId !== null && !(await ubicacionExiste(parche.locationId))) {
     return { ok: false, codigo: "UBICACION_DESCONOCIDA", error: "ubicacion desconocida" };
   }
+  const umbralMal = validarUmbrales(parche.minStock, parche.reorderQty);
+  if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
@@ -361,7 +431,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
+    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
@@ -369,6 +439,11 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .set({ nombre: next.nombre, precioCentavos: BigInt(next.precioCentavos) })
       .where(eq(products.sku, sku));
     if (parche.locationId !== undefined) await fijarLocationDb(db, sku, parche.locationId);
+    // Por qué separado: fijarUmbralesDb tolera bases sin la 0027 igual
+    // que fijarLocationDb tolera las sin la 0021.
+    if (parche.minStock !== undefined || parche.reorderQty !== undefined) {
+      await fijarUmbralesDb(db, sku, { minStock: next.minStock, reorderQty: next.reorderQty });
+    }
     return { ok: true, ficha: next };
   } catch (e) {
     productos.anteFalloPersistencia(e);
@@ -391,6 +466,8 @@ function aplicarParche(
     ...(parche.sector ? { sector: parche.sector } : {}),
     ...(parche.locationId !== undefined ? { locationId: parche.locationId } : {}),
     ...(parche.archivado !== undefined ? { archivado: parche.archivado } : {}),
+    ...(parche.minStock !== undefined ? { minStock: parche.minStock } : {}),
+    ...(parche.reorderQty !== undefined ? { reorderQty: parche.reorderQty } : {}),
   };
   productos.guardar(p.sku, next);
   if (parche.precioCentavos !== undefined) precios.guardar(p.sku, parche.precioCentavos);
@@ -498,7 +575,7 @@ export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Prom
           continue;
         }
         const sectores = crearAlmacenSectores();
-        base = fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null);
+        base = fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null);
       }
       if (!base) {
         no_encontrados.push(sku);

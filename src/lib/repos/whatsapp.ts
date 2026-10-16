@@ -8,6 +8,7 @@ import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   control,
   crearAlmacenPrecios,
+  crearAlmacenProductos,
   crearAlmacenPurchaseOrders,
   crearAlmacenStock,
   crearAlmacenSuppliers,
@@ -76,19 +77,44 @@ function filasConsultaMemoria(): FilaConsulta[] {
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
+// ALR-S1: el umbral sale de products.min_stock (DB primero); sin mínimo
+// vale 0 y el job usa el fallback de rotación 7d.
 export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]> {
   const db = dbVivaTenant(tenantId);
-  if (!db)
-    return conParticion(tenantId, () => catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo()));
+  if (!db) return conParticion(tenantId, catalogoVivoMemoria);
   try {
     const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos })
+      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
       .from(products);
-    return filas.map((p) => ({ sku: p.sku, nombre: p.nombre, stock: p.stock, umbral: 0, precioCentavos: p.precio, proveedor: null }));
+    return filas.map((p) => ({
+      sku: p.sku,
+      nombre: p.nombre,
+      stock: p.stock,
+      umbral: p.minStock ?? 0,
+      precioCentavos: p.precio,
+      proveedor: null,
+      ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
+    }));
   } catch (e) {
-    conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
-    return conParticion(tenantId, () => catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo()));
+    // Por qué tolera 0027 ausente: una base sin min_stock/reorder_qty lee
+    // el resto igual y el umbral queda en 0 (fallback de rotación).
+    if (!esUmbralFaltante(e)) conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
+    return conParticion(tenantId, catalogoVivoMemoria);
   }
+}
+
+function esUmbralFaltante(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("min_stock") || msg.includes("reorder_qty");
+}
+
+// Por qué overlay: el espejo en memoria trae la escritura más reciente
+// del proceso (PATCH /api/products); el demo sin ficha queda como hoy.
+function catalogoVivoMemoria(): ItemVivo[] {
+  const fichas = crearAlmacenProductos().comoMapaSoloLectura();
+  const umbrales = new Map<string, { minStock: number | null; reorderQty: number | null }>();
+  for (const f of fichas.values()) umbrales.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
+  return catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo(), umbrales);
 }
 
 // Sesión corta por número (30 min, sin datos de stock).
@@ -280,7 +306,14 @@ export function obtenerComercioBot(tenantId: string): ComercioBot | null {
 // Catálogo del aviso matutino como ItemStock, con DB viva o memoria.
 export async function catalogoAvisoVivo(tenantId?: string): Promise<ItemStock[]> {
   const vivos = await listarCatalogoVivo(tenantId);
-  return vivos.map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null }));
+  return vivos.map((c) => ({
+    sku: c.sku,
+    nombre: c.nombre,
+    stock: c.stock,
+    umbral: c.umbral,
+    proveedor: c.proveedor ?? null,
+    ...(c.reorderQty != null ? { reorderQty: c.reorderQty } : {}),
+  }));
 }
 
 // waEnviados has no table: las claves de idempotencia WA viven en memoria del repo.

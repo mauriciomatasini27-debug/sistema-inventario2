@@ -14,16 +14,21 @@ const NOMBRES_DEMO: Readonly<Record<string, { nombre: string; umbral: number; pr
 export function catalogo_vivo(
   stock: ReadonlyMap<string, number>,
   prices: ReadonlyMap<string, number>,
+  umbrales?: ReadonlyMap<string, { minStock: number | null; reorderQty: number | null }>,
 ): ItemVivo[] {
   return [...stock.entries()].map(([sku, qty]) => {
     const demo = NOMBRES_DEMO[sku];
+    const um = umbrales?.get(sku);
     return {
       sku,
       nombre: demo?.nombre ?? sku,
       stock: qty,
-      umbral: demo?.umbral ?? 0,
+      // ALR-S1: el mínimo persistido manda; sin él vale el demo o 0 y el
+      // job usa el fallback de rotación 7d.
+      umbral: um?.minStock ?? demo?.umbral ?? 0,
       precioCentavos: BigInt(prices.get(sku) ?? 0),
       proveedor: demo?.proveedor ?? null,
+      ...(um?.reorderQty != null ? { reorderQty: um.reorderQty } : {}),
     };
   });
 }

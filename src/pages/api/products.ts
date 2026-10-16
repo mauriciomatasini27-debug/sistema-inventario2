@@ -2,14 +2,17 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { actualizarProducto, altaProducto, buscarProductoPorCodigo, listarProductos } from "../../lib/repos/catalogo.js";
-import { estadoAltaDesdeRol } from "../../modules/inventario/escaneo.js";
+import { estadoAltaDesdeRol, puedeEditarUmbrales } from "../../modules/inventario/escaneo.js";
 
 export const prerender = false;
 
 // Por qué alias: el dominio usa locationId camel; el contrato HTTP expone
 // location_id snake (CAT-S5). Se mantiene locationId por compatibilidad.
-function conLocationId<T extends { locationId: string | null }>(ficha: T): T & { location_id: string | null } {
-  return { ...ficha, location_id: ficha.locationId };
+// ALR-S1 suma min_stock/reorder_qty snake con el mismo criterio.
+function conLocationId<T extends { locationId: string | null; minStock: number | null; reorderQty: number | null }>(
+  ficha: T,
+): T & { location_id: string | null; min_stock: number | null; reorder_qty: number | null } {
+  return { ...ficha, location_id: ficha.locationId, min_stock: ficha.minStock, reorder_qty: ficha.reorderQty };
 }
 
 const crearSchema = z.object({
@@ -22,6 +25,8 @@ const crearSchema = z.object({
   rol: z.enum(["dueno", "empleado"]).default("dueno"),
   permisos: z.array(z.string().max(64)).max(32).default([]),
   location_id: z.string().uuid().optional(),
+  min_stock: z.number().int().min(0).nullable().optional(),
+  reorder_qty: z.number().int().min(1).nullable().optional(),
   foto: z.object({ url: z.string().url(), ancho: z.number().int().max(800).default(800), alto: z.number().int().max(800).default(800), bytes: z.number().int().max(200 * 1024).default(0) }).optional(),
 });
 
@@ -67,6 +72,8 @@ export const POST: APIRoute = async ({ request }) => {
       controlaVencimiento: b.controla_vencimiento,
       estado: estadoAltaDesdeRol(b.rol, b.permisos),
       ...(b.location_id !== undefined ? { locationId: b.location_id } : {}),
+      ...(b.min_stock !== undefined ? { minStock: b.min_stock } : {}),
+      ...(b.reorder_qty !== undefined ? { reorderQty: b.reorder_qty } : {}),
       ...(b.foto !== undefined ? { foto: b.foto } : {}),
     });
   } catch (e) {
@@ -75,12 +82,16 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (!r.ok) {
     if (r.codigo === "UBICACION_DESCONOCIDA") return Response.json({ error: "ubicacion desconocida" }, { status: 422 });
+    if (r.codigo === "UMBRAL_INVALIDO") return Response.json({ error: r.error }, { status: 422 });
     return Response.json({ error: r.codigo === "SKU_DUPLICADO" ? "sku duplicado" : "codigo duplicado" }, { status: 409 });
   }
   return Response.json(conLocationId(r.ficha), { status: 201 });
 };
 
 // PATCH /api/products?sku= — actualiza nombre/precio/sector/archivado.
+// ALR-S1 suma min_stock (entero >= 0, null limpia) y reorder_qty (entero >
+// 0, null limpia): solo Dueño y encargado (403 al empleado); el resto de
+// los campos sigue sin exigir rol, como hasta ahora.
 export const PATCH: APIRoute = async ({ request, url }) => {
   const sku = (url.searchParams.get("sku") ?? "").trim().toUpperCase();
   if (!sku) return Response.json({ error: "falta sku" }, { status: 422 });
@@ -90,8 +101,12 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional() }).safeParse(body);
+  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional(), rol: z.enum(["dueno", "empleado", "encargado"]).default("dueno"), min_stock: z.number().int().min(0).nullable().optional(), reorder_qty: z.number().int().min(1).nullable().optional() }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
+  const tocaUmbrales = parsed.data.min_stock !== undefined || parsed.data.reorder_qty !== undefined;
+  if (tocaUmbrales && !puedeEditarUmbrales(parsed.data.rol)) {
+    return Response.json({ error: "solo dueno o encargado editan umbrales" }, { status: 403 });
+  }
   let r: Awaited<ReturnType<typeof actualizarProducto>>;
   try {
     r = await actualizarProducto(sku, {
@@ -100,6 +115,8 @@ export const PATCH: APIRoute = async ({ request, url }) => {
       ...(parsed.data.sector !== undefined ? { sector: parsed.data.sector } : {}),
       ...(parsed.data.location_id !== undefined ? { locationId: parsed.data.location_id } : {}),
       ...(parsed.data.archivado !== undefined ? { archivado: parsed.data.archivado } : {}),
+      ...(parsed.data.min_stock !== undefined ? { minStock: parsed.data.min_stock } : {}),
+      ...(parsed.data.reorder_qty !== undefined ? { reorderQty: parsed.data.reorder_qty } : {}),
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
@@ -107,6 +124,7 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   }
   if (!r.ok) {
     if (r.codigo === "UBICACION_DESCONOCIDA") return Response.json({ error: "ubicacion desconocida" }, { status: 422 });
+    if (r.codigo === "UMBRAL_INVALIDO") return Response.json({ error: r.error }, { status: 422 });
     return Response.json({ error: "desconocido" }, { status: 404 });
   }
   return Response.json(conLocationId(r.ficha));

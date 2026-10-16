@@ -9,6 +9,8 @@ export interface ItemStock {
   readonly proveedor: string | null;
   readonly ubicacion?: string | null | undefined;
   readonly critico?: boolean | undefined;
+  // ALR-S1: cantidad a reponer (products.reorder_qty); ausente = sin valor.
+  readonly reorderQty?: number | null | undefined;
 }
 
 export interface AlertaStock {

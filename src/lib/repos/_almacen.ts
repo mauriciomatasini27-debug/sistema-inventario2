@@ -328,6 +328,10 @@ export interface FichaCatalogo {
   archivado: boolean;
   controlaVencimiento: boolean;
   estado: "activo" | "pendiente_revision";
+  // ALR-S1: mínimo y cantidad a reponer (products.min_stock/reorder_qty).
+  // null = sin mínimo (la alerta usa la rotación 7d).
+  minStock: number | null;
+  reorderQty: number | null;
 }
 
 export interface UbicacionCatalogo {

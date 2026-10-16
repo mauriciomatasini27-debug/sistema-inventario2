@@ -54,11 +54,16 @@ function coincideToken(palabras: readonly string[], token: string): boolean {
 }
 
 // Por qué AND de tokens: "mate yerba" pide ambas palabras, en cualquier orden.
+// Por qué mismo corte que los campos: el mostrador busca "UMV-4" con guion y
+// las fichas se parten por guion; sin esto el token "UMV-4" nunca iguala.
 export function coincideDifuso(campos: readonly string[], q: string): boolean {
   const norm = normalizarBusqueda(q);
   if (!norm) return true;
   const palabras = palabrasDe(campos);
-  return norm.split(" ").every((t) => coincideToken(palabras, t));
+  return norm
+    .split(/[\s\-_]+/)
+    .filter((t) => t.length > 0)
+    .every((t) => coincideToken(palabras, t));
 }
 
 // Por qué placeholder con iniciales: sin foto el listado muestra texto, no un
