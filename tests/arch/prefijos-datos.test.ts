@@ -42,6 +42,7 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/devices/register",
   "/api/email/send",
   "/api/jobs/alertas-stock",
+  "/api/jobs/bot-quiosco",
   "/api/jobs/cierre-medianoche",
   "/api/jobs/vencimientos-caja",
   "/api/jobs/vencimientos-lotes",
@@ -66,7 +67,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(14);
+    expect(EXCEPCIONES_CONTROL.size).toBe(15);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");
