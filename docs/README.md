@@ -70,6 +70,23 @@ Lo público y el sistema de diseño.
 - Política de comentarios de código: `diseno/PRD-COM-01-poda-comentarios.md` + `adr/0064-politica-comentarios.md`; plan en `diseno/PLAN-COM-01-poda-comentarios.md`
 - Chat de landing y skills de diseño del dashboard: `diseno/PRD-LP-04-chat-flotante-landing.md` + `adr/0046-chat-landing-llm-aislado.md`; `diseno/PRD-UX-01-uso-skills-diseno-dashboard.md`
 
+## Frontmatter de docs
+
+Cada plantilla usa un registro con `id` (ej. ADR-0052, PRD-PERS-02, PLAN-COM-01, o slug para docs de módulo), `tipo` (adr|prd|plan|spec|historico), `estado` (propuesto|aceptado|hecho|reemplazado|deprecado), `modulos` (ej. [caja, inventario]), `depende_de`, `reemplaza`, `reemplazado_por` (obligatorio si estado=reemplazado) y `resumen` (máx 3 líneas, factual). El frontmatter va al inicio del archivo entre --- líneas y el cuerpo no cambia. Los archivos que empiezan con _ son plantillas ignoradas por los indexers.
+
+```yaml
+---
+id: ADR-0052
+tipo: adr
+estado: aceptado
+modulos: [caja, inventario]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: Resumen factual en un máximo de 3 líneas.
+---
+```
+
 ## Notas
 - Divergencia conocida: el `.docx` suelto del Panel incluye ventas/deudas y está prohibido; vale Partes 1-3.
 - OCR sin definir Fase 0 definitivo (PaddleOCR propio vs Vision/Textract).
