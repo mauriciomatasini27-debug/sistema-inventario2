@@ -16,7 +16,7 @@ describe("PERS2-AT5 sin fallback a memoria fuera del helper central", () => {
   it("ninguna ruta ni módulo define su propio dbViva() que trague errores de base", () => {
     const permitidos = new Set(["src/lib/server-db.ts", "src/lib/fiscal-db.ts"]);
     const mal = [...archivos("src/pages/api"), ...archivos("src/modules"), ...archivos("src/lib")]
-      .filter((f) => !permitidos.has(f))
+      .filter((f) => !permitidos.has(f.replace(/\\/g, "/")))
       .filter((f) => /function\s+dbViva\s*\(/.test(readFileSync(f, "utf8")));
     expect(mal).toEqual([]);
   });

@@ -48,7 +48,7 @@ function contar(patron: RegExp, archivos: string[]): { total: number; hits: stri
 const AS_NEVER = /\bas never\b/g;
 
 function archivosTests(): string[] {
-  return caminar(join(RAIZ, "tests"), [".ts"]).filter((f) => !rel(f).startsWith("tests/arch"));
+  return caminar(join(RAIZ, "tests"), [".ts"]).filter((f) => !rel(f).replace(/\\/g, "/").startsWith("tests/arch"));
 }
 
 describe("ARQ-S6 trinquetes de arquitectura (solo bajan)", () => {
