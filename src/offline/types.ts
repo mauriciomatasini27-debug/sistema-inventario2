@@ -29,6 +29,9 @@ export type OpKind = "venta" | "mov_caja" | "foto";
 export interface EfectoLocal {
   kind: OpKind;
   resumen: string;
+  // SYNC-S7: marca el tipo de op de outbox (`payload.tipo`). Si es sensible
+  // (OPERACIONES_SOLO_ONLINE), encolar lanza NecesitaConexionError.
+  tipo?: string | undefined;
 }
 
 export interface OpLocal {

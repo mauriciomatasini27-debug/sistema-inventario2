@@ -1,4 +1,5 @@
 import { puedeOperarOffline } from "./grants.js";
+import { esOperacionSoloOnline } from "./sensibles.js";
 import type { AlcanceGrant, Cursor, Hlc, OfflineGrant, OpKind, OpLocal } from "./types.js";
 
 // Núcleo puro sync (sin IO/fetch/db). Testeable sin SQLite ni red.
@@ -48,6 +49,9 @@ export type PushDecision = { ok: true } | { ok: false; motivo: "grant" | "dead-l
  */
 export function decidirPush(op: OpLocal, grant: OfflineGrant | null, ahora: Date = new Date()): PushDecision {
   if (op.estado === "confirmado") return { ok: false, motivo: "dead-letter" };
+  // SYNC-S7: defensa en profundidad; encolar ya rechaza lo sensible, pero una
+  // cola anterior nunca debe pushearlo.
+  if (esOperacionSoloOnline(op.efecto.tipo)) return { ok: false, motivo: "grant" };
   if (op.proximoReintentoAt != null && op.proximoReintentoAt > ahora.getTime()) {
     return { ok: false, motivo: "backoff" };
   }

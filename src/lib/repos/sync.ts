@@ -1,6 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState, offlineGrants } from "../../db/schema-sync.js";
+import {
+  CODIGO_NECESITA_CONEXION,
+  MENSAJE_NECESITA_CONEXION,
+  esOperacionSoloOnline,
+} from "../../offline/sensibles.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
@@ -85,7 +90,20 @@ async function replayDb(db: TenantDb, opId: string, payload: unknown, fila: { pa
 
 // Push idempotente por op_id con secuencia por dispositivo. Carrera entre
 // pre-check e insert responde el mismo 200/409 con relectura.
+// SYNC-S7: la op sensible (payload.tipo en OPERACIONES_SOLO_ONLINE) nunca se
+// persiste: responde necesita_conexion sin efecto lateral.
 export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
+  if (esOperacionSoloOnline((b.payload as Record<string, unknown> | null | undefined)?.["tipo"])) {
+    return {
+      status: 200,
+      cuerpo: {
+        op_id: b.opId,
+        resultado: "necesita_conexion",
+        codigo: CODIGO_NECESITA_CONEXION,
+        error: MENSAJE_NECESITA_CONEXION,
+      },
+    };
+  }
   const buzon = crearAlmacenOutbox();
   const secuencias = crearAlmacenDeviceSeq();
   const db = dbVivaTenant();

@@ -105,15 +105,22 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       };
       $("sync").onclick = async () => {
         const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
+        let sensibles = 0;
         for (const item of q) {
-          await fetch("/api/sync/push", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
-            body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
-          });
+          try {
+            const r = await fetch("/api/sync/push", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
+              body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
+            });
+            const j = await r.json().catch((error) => { console.warn("[venta] sync sin JSON", r.status, error); return {}; });
+            const unos = Array.isArray(j.resultados) ? j.resultados : [j];
+            for (const uno of unos) if (uno && uno.resultado === "necesita_conexion") sensibles += 1;
+          } catch (error) { console.warn("[venta] sync sin red", error); }
         }
         localStorage.setItem(outboxKey, "[]");
-        estado("sync intentado (" + q.length + ")");
+        // SYNC-S7: lo sensible solo va online; se avisa en vez de fallar.
+        estado(sensibles > 0 ? "Necesita conexión (" + sensibles + " sensible(s) solo online)" : "sync intentado (" + q.length + ")");
         balance();
       };
       // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.

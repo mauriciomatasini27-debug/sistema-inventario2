@@ -1,4 +1,5 @@
 import { HlcClock, newOpId } from "../lib/outbox.js";
+import { NecesitaConexionError, esOperacionSoloOnline } from "./sensibles.js";
 import { bd, bdLista, tocar, transact } from "./db.js";
 import type { DeviceSeq, EfectoLocal, Hlc, IdDef, OpId, OpLocal } from "./types.js";
 
@@ -50,6 +51,8 @@ export async function encolar(
   deviceCode: string = DEFAULT_DEVICE,
   opIdExistente?: OpId,
 ): Promise<OpLocal> {
+  // SYNC-S7 (OF9.5/OF16): lo sensible nunca sale por la vía offline.
+  if (esOperacionSoloOnline(efecto.tipo)) throw new NecesitaConexionError();
   return transact(() => {
     if (opIdExistente) {
       const prev = ops.get(opIdExistente);

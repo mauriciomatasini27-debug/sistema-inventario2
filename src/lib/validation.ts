@@ -55,7 +55,7 @@ export const cashMovementSchema = z.object({
 });
 
 // ADR-0001/0003: push idempotente por op_id == Idempotency-Key, device_seq + hlc ordenan.
-export const syncPushSchema = z.object({
+export const syncPushOpSchema = z.object({
   op_id: z.string().uuid(),
   device_code: z.string().min(4).max(32),
   device_seq: z.number().int().positive(),
@@ -63,6 +63,12 @@ export const syncPushSchema = z.object({
   modulo: z.enum(["inventory", "sales", "cash", "credit"]),
   payload: z.record(z.string(), z.unknown()),
   client_occurred_at: z.string().datetime({ offset: true }),
+});
+export const syncPushSchema = syncPushOpSchema;
+// SYNC-S7 (OF4.9): lote de hasta 50 ops; cada una responde por separado y la
+// sensible responde necesita_conexion sin frenar al resto del lote.
+export const syncPushBatchSchema = z.object({
+  ops: z.array(syncPushOpSchema).min(1).max(50),
 });
 
 export const syncPullQuerySchema = z.object({

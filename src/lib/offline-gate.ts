@@ -9,6 +9,17 @@ import { enCuarentena, horasSinSync } from "../offline/avisos.js";
 export const ALCANCES_SENSIBLES = ["topes", "retiro_dueno", "cierre", "reversion", "export"] as const;
 export type AlcanceSensible = (typeof ALCANCES_SENSIBLES)[number];
 
+// SYNC-S7: la lista canónica vive en la hoja pura src/offline/sensibles.ts
+// (sin store ni ciclos); acá se re-exporta para el gate del servidor.
+export {
+  CODIGO_NECESITA_CONEXION,
+  MENSAJE_NECESITA_CONEXION,
+  NecesitaConexionError,
+  OPERACIONES_SOLO_ONLINE,
+  esOperacionSoloOnline,
+} from "../offline/sensibles.js";
+export type { OperacionSoloOnline } from "../offline/sensibles.js";
+
 function respuesta403(mensaje: string, codigo: string, extra?: Record<string, unknown>): Response {
   return Response.json({ error: mensaje, codigo, ...extra }, { status: 403 });
 }
