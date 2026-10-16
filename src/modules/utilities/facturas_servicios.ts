@@ -317,6 +317,101 @@ export function pagar_servicio(
 }
 
 // ---------------------------------------------------------------------------
+// CS9.4 posible duplicado: misma cuenta + mismo monto + vencimiento a ±5
+// días => advertir con [Es otra factura] [Es la misma]. Período distinto
+// (misma cuenta y monto otro mes) NO duplica. Las anuladas se excluyen en
+// el adaptador (requieren migración CS11.2, fuera de este slice).
+// ---------------------------------------------------------------------------
+
+export function es_posible_duplicado(
+  candidata: Pick<FacturaServicio, "accountId" | "montoCentavos" | "vencimiento">,
+  existentes: ReadonlyArray<Pick<FacturaServicio, "accountId" | "montoCentavos" | "vencimiento">>,
+): boolean {
+  return existentes.some(
+    (e) =>
+      e.accountId === candidata.accountId &&
+      e.montoCentavos === candidata.montoCentavos &&
+      Math.abs(dias_para_vencer(e.vencimiento, candidata.vencimiento)) <= 5,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CS5.6 vínculo con egreso cargado a mano: misma categoría, monto igual o
+// parecido (tolerancia 1% de ADR-0005) en los últimos 10 días. Devuelve el
+// más reciente o null (el Dueño elige [Sí, vincular] [No, es otro]).
+// ---------------------------------------------------------------------------
+
+export interface EgresoCandidato {
+  readonly id: string;
+  readonly categoriaId: string;
+  readonly montoCentavos: bigint;
+  readonly fechaIso: string;
+}
+
+export function sugerir_vinculo_egreso(
+  factura: Pick<FacturaServicio, "montoCentavos">,
+  categoriaId: string,
+  egresos: ReadonlyArray<EgresoCandidato>,
+  hoyIso: string,
+): EgresoCandidato | null {
+  const ventana = egresos
+    .filter((e) => e.categoriaId === categoriaId)
+    .filter((e) => {
+      const d = dias_para_vencer(e.fechaIso, hoyIso);
+      return d >= 0 && d <= 10;
+    })
+    .filter((e) => suma_items_cuadra([factura.montoCentavos], e.montoCentavos))
+    .sort((a, b) => (a.fechaIso < b.fechaIso ? 1 : a.fechaIso > b.fechaIso ? -1 : 0));
+  return ventana[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// CS7 núcleo: totales del período por cuenta + variación contra el período
+// anterior. Suma en bigint al centavo; variación entera en % o null sin
+// base previa. Solo agrupa; el panel filtra confirmadas no anuladas.
+// ---------------------------------------------------------------------------
+
+export interface ResumenCuenta {
+  readonly accountId: string;
+  readonly totalCentavos: bigint;
+  readonly previoCentavos: bigint;
+  readonly variacionPct: number | null;
+}
+
+export interface ResumenConsumos {
+  readonly periodo: string;
+  readonly porCuenta: ReadonlyArray<ResumenCuenta>;
+  readonly totalPeriodoCentavos: bigint;
+}
+
+function periodo_anterior(periodo: string): string {
+  const [anio, mes] = periodo.split("-").map(Number);
+  if (mes === 1) return `${String((anio ?? 0) - 1).padStart(4, "0")}-12`;
+  return `${String(anio).padStart(4, "0")}-${String((mes ?? 2) - 1).padStart(2, "0")}`;
+}
+
+export function resumen_consumos(
+  facturas: ReadonlyArray<Pick<FacturaServicio, "accountId" | "periodo" | "montoCentavos">>,
+  periodo: string,
+): ResumenConsumos {
+  const previo = periodo_anterior(periodo);
+  const totales = new Map<string, bigint>();
+  const previos = new Map<string, bigint>();
+  for (const f of facturas) {
+    if (f.periodo === periodo) totales.set(f.accountId, (totales.get(f.accountId) ?? 0n) + f.montoCentavos);
+    else if (f.periodo === previo) previos.set(f.accountId, (previos.get(f.accountId) ?? 0n) + f.montoCentavos);
+  }
+  const porCuenta: ResumenCuenta[] = [...totales.entries()].map(([accountId, total]) => {
+    const base = previos.get(accountId) ?? 0n;
+    const variacionPct =
+      base > 0n ? Math.round(Number((total - base) * 100n / base)) : null;
+    return Object.freeze({ accountId, totalCentavos: total, previoCentavos: base, variacionPct });
+  });
+  const totalPeriodo = [...totales.values()].reduce((acc, v) => acc + v, 0n);
+  return Object.freeze({ periodo, porCuenta: Object.freeze(porCuenta), totalPeriodoCentavos: totalPeriodo });
+}
+
+// ---------------------------------------------------------------------------
 // Descriptores de eventos (el bot/email los emite; acá solo se describen,
 // igual que senalOpsSinMontos en Lane C). Sin montos hacia el panel.
 // ---------------------------------------------------------------------------
