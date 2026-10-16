@@ -220,19 +220,24 @@ function loteEnMemoria(
 
 // Pull con el mismo paginado por offset; con base viva el catálogo sale de
 // products del tenant (PERS6-S1 / ADR-0081), en memoria solo sin base.
+// SYNC-S1: el lote nunca supera 50 filas aunque pidan más (la ruta ya capa,
+// acá se cierra para llamadas directas al repo). El cursor es el offset de
+// inserción: el outbox es append-only y el orden (createdAt, opId) lo vuelve
+// estable entre páginas; cursorNuevo avanza monótono como inicio + leídos.
 export async function leerLote(start: number, limite: number): Promise<LoteSync> {
+  const tope = Math.min(Math.max(limite, 0), 50);
   const buzon = crearAlmacenOutbox();
   const promociones = crearAlmacenPromociones();
   const stock = crearAlmacenStock();
   const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
-  if (!db) return loteEnMemoria(start, limite, buzon, promociones, stock, precios);
+  if (!db) return loteEnMemoria(start, tope, buzon, promociones, stock, precios);
   try {
     const filas = await db
       .select()
       .from(outbox)
       .orderBy(outbox.createdAt, outbox.opId)
-      .limit(limite)
+      .limit(tope)
       .offset(start);
     const totalFilas = await db.select({ n: sql`count(*)` }).from(outbox);
     const total = Number(totalFilas[0]?.n ?? 0);
@@ -247,7 +252,7 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
     };
   } catch (e) {
     buzon.anteFalloPersistencia(e);
-    return loteEnMemoria(start, limite, buzon, promociones, stock, precios);
+    return loteEnMemoria(start, tope, buzon, promociones, stock, precios);
   }
 }
 
