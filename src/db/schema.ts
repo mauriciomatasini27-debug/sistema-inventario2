@@ -25,6 +25,10 @@ export const products = pgTable("products", {
   // CAT-S5: ubicación del producto (migración 0021, SET NULL al borrar).
   // Referencia perezosa: locations se declara más abajo en este módulo.
   locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),
+  // ALR-S1: mínimo y cantidad de reposición (migración 0027). NULL = sin
+  // mínimo, la alerta usa la rotación 7d (umbral_efectivo).
+  minStock: integer("min_stock"),
+  reorderQty: integer("reorder_qty"),
 });
 
 // Nivel 1: conteos por sector, append-only (inmutable runtime en migración).
