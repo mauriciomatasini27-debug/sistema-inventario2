@@ -30,3 +30,4 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 - 0021_products_location_id
 - 0022_cash_qr_receipts
 - 0023_cash_due_items
+- 0024_device_sync_avisos
