@@ -34,7 +34,7 @@ Dato base (2026-10-15): ninguna ruta de `src/pages/api` importa el objeto `store
 
 ## Pendientes priorizados (2026-10-15)
 
-Verificado contra `main` (`420ddee`); estados actualizados 2026-10-15 con `docs/roadmap/avances/`. Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `adr/0000-indice-prd-ordenado.md`.
+Verificado contra `main` (`420ddee`); estados actualizados 2026-10-15 con `docs/roadmap/avances/`. Orden: seguridad, integridad de datos, deuda de arquitectura, después PRD sin construir por nivel de `archivo/0000-indice-prd-ordenado.md`.
 
 ### P0. Seguridad y aislamiento
 1. Hecho (SEC-02, ADR-0074): rutas de datos fuera de `PREFIJOS_DATOS` (`/api/payment-orders`, `/api/counts`, `/api/stock`, `/api/payees`, `/api/service-accounts`, `/api/utility-bills`, `/api/ocr`) sumadas con arch-test.
@@ -225,7 +225,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | Doc | Estado | Dónde |
 |---|---|---|
 | `docs/README.md` | meta | índice; enlaza este archivo |
-| `docs/CHECKLIST-documentacion.md` | meta | reemplazado como fuente de estado |
+| `docs/archivo/CHECKLIST-documentacion.md` | meta | reemplazado como fuente de estado |
 | `docs/migracion-supabase.md` | cubierto | Para implementar 1.3 |
 | `diseno/PRD-SUP-01-conexion-supabase.md` | cubierto | Para implementar 1.3 |
 | `adr/0048-supabase-single-project.md` | cubierto | Para implementar 1.3 |
@@ -290,7 +290,7 @@ Cada doc de `docs/` (sin `_origen-docx`) y dónde lo cubre este roadmap. Auditor
 | `08-operacion-admin-analytics/panel-admin-parte-3.md` | cubierto | 6b.2 |
 | `08-operacion-admin-analytics/reportes-rotacion.md` | cubierto | 6b.3 |
 | `09-frontend-landing-diseno/landing-gaps-modoops.md` | cubierto | 6.3, 6c.2 |
-| `historico/panel-admin-version-anterior-DEPRECADA.md` | no aplica | deprecado |
+| `archivo/panel-admin-version-anterior-DEPRECADA.md` | no aplica | deprecado |
 | `adr/0000` | meta | meta (índice) |
 | `adr/0001` | cubierto | Ya implementado (base) |
 | `adr/0002` | cubierto | Ya implementado (stack) |
