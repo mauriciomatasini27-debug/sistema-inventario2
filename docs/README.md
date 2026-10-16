@@ -1,5 +1,7 @@
 # Índice general de documentación — Sistema de Inventario
 
+Índice generado: [INDEX.md](INDEX.md) (vía `npm run docs:index`) y [graph.json](graph.json).
+
 Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funcionalidad del código.
 Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales en `docs/_origen-docx/`).
 ADRs en `docs/adr/` y PRDs de diseño en `docs/diseno/` se referencian, no se duplican.

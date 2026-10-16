@@ -1,0 +1,243 @@
+# Índice de documentación
+
+Generado por `npm run docs:index`. No editar a mano.
+
+## ADR
+
+- [ADR-0001](adr/0001-arquitectura-base.md) · aceptado · inventario
+- [ADR-0002](adr/0002-stack-desarrollo.md) · aceptado · -
+- [ADR-0003](adr/0003-multitenancy-datos-offline.md) · aceptado · offline, tenant
+- [ADR-0004](adr/0004-caja-ventas.md) · aceptado · caja, fiado, precios, ventas
+- [ADR-0005](adr/0005-ocr.md) · aceptado · -
+- [ADR-0006](adr/0006-panel.md) · aceptado · admin
+- [ADR-0007](adr/0007-externos.md) · aceptado · -
+- [ADR-0008](adr/0008-tokens-tema-papel.md) · aceptado · -
+- [ADR-0009](adr/0009-componentes-adopcion.md) · aceptado · -
+- [ADR-0010](adr/0010-landing.md) · aceptado · inventario, landing
+- [ADR-0011](adr/0011-control-plane.md) · aceptado · admin, inventario
+- [ADR-0012](adr/0012-negocio-catalogo.md) · aceptado · inventario
+- [ADR-0013](adr/0013-adaptacion.md) · aceptado · inventario
+- [ADR-0014](adr/0014-grounding.md) · aceptado · -
+- [ADR-0015](adr/0015-architect.md) · aceptado · -
+- [ADR-0016](adr/0016-prosa-revision.md) · aceptado · -
+- [ADR-0017](adr/0017-slice-0.md) · aceptado · ventas
+- [ADR-0018](adr/0018-fiscal-arca.md) · aceptado · fiscal
+- [ADR-0019](adr/0019-slice-fiscal.md) · aceptado · fiscal, persistencia, ventas
+- [ADR-0020](adr/0020-dashboard.md) · aceptado · -
+- [ADR-0021](adr/0021-landing-iteracion.md) · aceptado · landing
+- [ADR-0022](adr/0022-landing-gaps.md) · aceptado · landing
+- [ADR-0023](adr/0023-sync-pull-grants.md) · aceptado · offline
+- [ADR-0024](adr/0024-persistencia-drizzle.md) · aceptado · offline, persistencia
+- [ADR-0025](adr/0025-pwa-sqlite-wasm.md) · aceptado · offline, persistencia
+- [ADR-0026](adr/0026-catalogo-lotes-ubicaciones.md) · aceptado · inventario, persistencia
+- [ADR-0027](adr/0027-caja-qr-vencimientos.md) · aceptado · caja, persistencia, ventas
+- [ADR-0028](adr/0028-canales-faltantes.md) · aceptado · email
+- [ADR-0029](adr/0029-panel-landing-cierre.md) · aceptado · admin, landing, tenant
+- [ADR-0030](adr/0030-accesos-landing.md) · aceptado · admin, landing, tenant
+- [ADR-0031](adr/0031-login-callback-cookies.md) · aceptado · auth
+- [ADR-0032](adr/0032-layout-pwa.md) · propuesto · offline
+- [ADR-0033](adr/0033-tipografia.md) · propuesto · -
+- [ADR-0034](adr/0034-color-contraste.md) · propuesto · -
+- [ADR-0035](adr/0035-copy-voz.md) · propuesto · -
+- [ADR-0036](adr/0036-accesibilidad.md) · aceptado · -
+- [ADR-0037](adr/0037-polish-motion.md) · propuesto · -
+- [ADR-0038](adr/0038-revision-stress.md) · propuesto · -
+- [ADR-0039](adr/0039-bot-modulos-rubro.md) · propuesto · bot
+- [ADR-0040](adr/0040-resumen-mensual-acciones.md) · propuesto · bot
+- [ADR-0041](adr/0041-proveedor-whatsapp-cloud-api.md) · aceptado · bot, compras
+- [ADR-0042](adr/0042-whatsapp-transport-intercambiable.md) · propuesto · bot
+- [ADR-0043](adr/0043-cron-alertas-pg-cron.md) · propuesto · bot, inventario
+- [ADR-0044](adr/0044-asistente-ia-catalogo-cerrado.md) · propuesto · inventario, persistencia
+- [ADR-0045](adr/0045-proveedor-llm-asistente.md) · propuesto · compras
+- [ADR-0046](adr/0046-chat-landing-llm-aislado.md) · propuesto · landing, persistencia
+- [ADR-0047](adr/0047-cobro-por-plan-mensual.md) · aceptado · -
+- [ADR-0048](adr/0048-supabase-single-project.md) · aceptado · persistencia
+- [ADR-0049](adr/0049-supabase-driver-pooler.md) · aceptado · persistencia
+- [ADR-0050](adr/0050-aislamiento-fiscal-por-tenant.md) · aceptado · fiscal, persistencia, tenant
+- [ADR-0051](adr/0051-tenant-por-request.md) · aceptado · compras, persistencia, tenant
+- [ADR-0052](adr/0052-memoria-por-tenant-y-cutover.md) · aceptado · persistencia, tenant
+- [ADR-0053](adr/0053-repos-dominio-sin-store.md) · aceptado · persistencia
+- [ADR-0054](adr/0054-repos-fiscal-sin-store.md) · aceptado · fiscal, persistencia
+- [ADR-0055](adr/0055-repos-canales-sin-store.md) · aceptado · bot, email, persistencia
+- [ADR-0056](adr/0056-repo-caja-sin-store.md) · aceptado · caja, persistencia
+- [ADR-0057](adr/0057-repos-compras-pagos-sin-store.md) · aceptado · compras, pagos, persistencia
+- [ADR-0058](adr/0058-repos-servicios-fiado-sin-store.md) · aceptado · fiado, persistencia
+- [ADR-0059](adr/0059-jobs-sin-store.md) · aceptado · persistencia
+- [ADR-0060](adr/0060-repo-ocr-sin-store.md) · aceptado · persistencia
+- [ADR-0061](adr/0061-repo-sync-sin-store.md) · aceptado · offline, persistencia
+- [ADR-0062](adr/0062-repos-catalogo-stock-sin-store.md) · aceptado · compras, inventario, persistencia
+- [ADR-0063](adr/0063-ventas-devoluciones-sin-store.md) · aceptado · persistencia, ventas
+- [ADR-0064](adr/0064-politica-comentarios.md) · propuesto · -
+- [ADR-0065](adr/0065-arquitectura-amigable-agentes.md) · aceptado · persistencia
+- [ADR-0066](adr/0066-dueno-real-y-correlativo-unico.md) · aceptado · -
+- [ADR-0067](adr/0067-dependabot-actions-y-politica.md) · aceptado · -
+- [ADR-0068](adr/0068-vitest-5.md) · aceptado · -
+- [ADR-0069](adr/0069-astro-7.md) · aceptado · -
+- [ADR-0070](adr/0070-drizzle-orm-045.md) · aceptado · persistencia
+- [ADR-0071](adr/0071-zod-4.md) · aceptado · email
+- [ADR-0072](adr/0072-typescript-7.md) · aceptado · -
+- [ADR-0073](adr/0073-errores-recurrentes-llm-guardas.md) · aceptado · persistencia
+- [ADR-0074](adr/0074-prefijos-datos-y-fiscal-settings-tenant.md) · aceptado · fiscal, persistencia, tenant
+- [ADR-0075](adr/0075-backfill-tenant-id-real.md) · aceptado · fiscal, tenant
+- [ADR-0076](adr/0076-avances-roadmap-sin-conflictos.md) · aceptado · -
+- [ADR-0077](adr/0077-fan-out-jobs-por-tenant.md) · aceptado · tenant
+- [ADR-0078](adr/0078-ubicaciones-fotos-conteos-db.md) · aceptado · inventario, persistencia
+- [ADR-0079](adr/0079-ocr-jobs-eventos-db.md) · aceptado · persistencia
+- [ADR-0080](adr/0080-correlativos-db.md) · aceptado · fiado, offline, persistencia, ventas
+- [ADR-0081](adr/0081-sync-pull-catalogo-db.md) · aceptado · inventario, offline, persistencia
+- [ADR-0082](adr/0082-errores-tragados-a-cero.md) · aceptado · bot, offline, pagos, persistencia, ventas
+- [ADR-0083](adr/0083-proceso-una-corrida-docs-livianas.md) · aceptado · -
+- [ADR-0084](adr/0084-pstack-rubrica-efectividad.md) · propuesto · -
+- [ADR-0085](adr/0085-pstack-conformance-test.md) · propuesto · -
+
+## PRD
+
+- [PRD-ADAP-01](diseno/PRD-ADAP-01-modoops-a-inventario.md) · propuesto · inventario
+- [PRD-ALR-01](diseno/PRD-ALR-01-alertas-stock-bajo.md) · propuesto · bot, email, inventario
+- [PRD-ARQ-01](diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md) · propuesto · persistencia
+- [PRD-AU-01](diseno/PRD-AU-01-login-endurecido.md) · propuesto · auth
+- [PRD-AU-02](diseno/PRD-AU-02-login-con-destino.md) · propuesto · admin, auth, tenant
+- [PRD-BOT-01](diseno/PRD-BOT-01-modulos-rubro.md) · propuesto · bot
+- [PRD-BOT-02](diseno/PRD-BOT-02-consulta-stock-whatsapp.md) · propuesto · bot, inventario
+- [PRD-CAJA-01](diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md) · propuesto · caja, ventas
+- [PRD-CAT-01](diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md) · propuesto · inventario
+- [PRD-CH-01](diseno/PRD-CH-01-canales-faltantes.md) · propuesto · email
+- [PRD-COM-01](diseno/PRD-COM-01-poda-comentarios.md) · propuesto · persistencia
+- [PRD-CP-01](diseno/PRD-CP-01-control-plane.md) · propuesto · -
+- [PRD-DASH-01](diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md) · propuesto · admin, bot, landing
+- [PRD-DEP-01](diseno/PRD-DEP-01-actualizacion-dependencias.md) · propuesto · -
+- [PRD-DS-01](diseno/PRD-DS-01-tokens-tema-papel.md) · propuesto · -
+- [PRD-DS-02](diseno/PRD-DS-02-componentes.md) · propuesto · -
+- [PRD-DS-03](diseno/PRD-DS-03-adopcion-inventario.md) · propuesto · inventario
+- [PRD-E2E-01](diseno/PRD-E2E-01-flujo-demo-dos-tenants.md) · propuesto · onboarding, tenant
+- [PRD-FE-01](diseno/PRD-FE-01-fiscal-arca.md) · propuesto · fiscal
+- [PRD-IA-01](diseno/PRD-IA-01-asistente-preguntas-negocio.md) · propuesto · persistencia
+- [PRD-ISO-01](diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md) · propuesto · compras, fiscal, persistencia, tenant
+- [PRD-ISO-02](diseno/PRD-ISO-02-aislamiento-plano-datos.md) · propuesto · caja, compras, fiscal, persistencia, tenant, ventas
+- [PRD-LANDING-01](diseno/PRD-LANDING-01-planes-en-landing.md) · propuesto · landing, precios
+- [PRD-LP-01](diseno/PRD-LP-01-landing.md) · propuesto · inventario, landing
+- [PRD-LP-02](diseno/PRD-LP-02-landing-iteracion.md) · propuesto · inventario, landing
+- [PRD-LP-03](diseno/PRD-LP-03-accesos-landing.md) · propuesto · landing
+- [PRD-LP-04](diseno/PRD-LP-04-chat-flotante-landing.md) · propuesto · landing, persistencia
+- [PRD-NEG-01](diseno/PRD-NEG-01-negocio-catalogo.md) · propuesto · inventario
+- [PRD-OP-01](diseno/PRD-OP-01-panel-cierre-landing.md) · propuesto · admin, landing
+- [PRD-PERS-01](diseno/PRD-PERS-01-persistencia-drizzle.md) · propuesto · offline, persistencia
+- [PRD-PERS-02](diseno/PRD-PERS-02-cutover-multi-tenant.md) · propuesto · bot, caja, compras, email, fiado, fiscal, inventario, offline, pagos, persistencia, precios, tenant, ventas
+- [PRD-PERS-03](diseno/PRD-PERS-03-ubicaciones-fotos-conteos-db.md) · propuesto · inventario, persistencia
+- [PRD-PERS-04](diseno/PRD-PERS-04-ocr-jobs-eventos-db.md) · propuesto · persistencia
+- [PRD-PERS-05](diseno/PRD-PERS-05-correlativos-db.md) · propuesto · fiado, offline, persistencia, ventas
+- [PRD-PERS-06](diseno/PRD-PERS-06-sync-pull-catalogo-db.md) · propuesto · inventario, offline, persistencia
+- [PRD-PERS-07](diseno/PRD-PERS-07-errores-tragados.md) · propuesto · admin, bot, offline, pagos, persistencia, ventas
+- [PRD-PLAN-01](diseno/PRD-PLAN-01-planes-suscripcion.md) · propuesto · admin
+- [PRD-PLAN-02](diseno/PRD-PLAN-02-precios-suscripcion.md) · propuesto · bot, fiscal, precios
+- [PRD-PROC-01](diseno/PRD-PROC-01-auditoria-proceso.md) · propuesto · -
+- [PRD-PS-01](diseno/PRD-PS-01-pstack-opencode.md) · propuesto · caja
+- [PRD-PWA-01](diseno/PRD-PWA-01-offline-local.md) · propuesto · offline, persistencia
+- [PRD-ROAD-01](diseno/PRD-ROAD-01-avances-sin-conflictos.md) · propuesto · -
+- [PRD-SEC-01](diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md) · propuesto · -
+- [PRD-SEC-02](diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md) · propuesto · fiscal, persistencia, tenant
+- [PRD-SEC-03](diseno/PRD-SEC-03-backfill-tenant-id.md) · propuesto · tenant
+- [PRD-SEC-04](diseno/PRD-SEC-04-fan-out-jobs-por-tenant.md) · propuesto · tenant
+- [PRD-SK-01](diseno/PRD-SK-01-grounding-how-why.md) · propuesto · -
+- [PRD-SK-02](diseno/PRD-SK-02-architect.md) · propuesto · -
+- [PRD-SK-03](diseno/PRD-SK-03-prosa-revision.md) · propuesto · -
+- [PRD-SUP-01](diseno/PRD-SUP-01-conexion-supabase.md) · propuesto · persistencia
+- [PRD-SYNC-01](diseno/PRD-SYNC-01-sync-pull-grants.md) · propuesto · offline
+- [PRD-UI-01](diseno/PRD-UI-01-layout-pwa-360.md) · propuesto · offline
+- [PRD-UI-02](diseno/PRD-UI-02-tipografia-escala.md) · propuesto · -
+- [PRD-UI-03](diseno/PRD-UI-03-color-contraste.md) · propuesto · -
+- [PRD-UI-04](diseno/PRD-UI-04-copy-voz.md) · propuesto · -
+- [PRD-UI-05](diseno/PRD-UI-05-accesibilidad.md) · propuesto · -
+- [PRD-UI-06](diseno/PRD-UI-06-polish-motion.md) · propuesto · -
+- [PRD-UI-07](diseno/PRD-UI-07-revision-stress.md) · propuesto · -
+- [PRD-UX-01](diseno/PRD-UX-01-uso-skills-diseno-dashboard.md) · propuesto · admin
+
+## Plan
+
+- [PLAN-COM-01](diseno/PLAN-COM-01-poda-comentarios.md) · propuesto · admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas
+
+## Spec
+
+- [ADR-0000](adr/0000-indice-prd-ordenado.md) · propuesto · inventario, persistencia
+- [CAJA-S1](roadmap/avances/CAJA-S1.md) · hecho · -
+- [CAJA-S2](roadmap/avances/CAJA-S2.md) · hecho · -
+- [CAJA-S3](roadmap/avances/CAJA-S3.md) · hecho · -
+- [CAJA-S4](roadmap/avances/CAJA-S4.md) · hecho · -
+- [EVIDENCIA-UI-00](diseno/EVIDENCIA-UI-00-tickets.md) · propuesto · -
+- [MOD-01-COSTOS-POR-CLIENTE](01-fundacion/costos-por-cliente.md) · propuesto · bot, inventario
+- [MOD-01-MODO-OFFLINE](01-fundacion/modo-offline.md) · propuesto · inventario, offline
+- [MOD-01-VERIFICACION-FUENTE-OFICIAL](01-fundacion/verificacion-fuente-oficial.md) · propuesto · auth, offline, persistencia
+- [MOD-02-AUTENTICACION](02-identidad-onboarding/autenticacion.md) · propuesto · auth, onboarding
+- [MOD-02-AUTENTICACION-GESTION-USUARIOS](02-identidad-onboarding/autenticacion-gestion-usuarios.md) · propuesto · auth, onboarding
+- [MOD-02-ONBOARDING-PARTE-1](02-identidad-onboarding/onboarding-parte-1.md) · propuesto · auth, onboarding
+- [MOD-02-ONBOARDING-PARTE-2](02-identidad-onboarding/onboarding-parte-2.md) · propuesto · auth, onboarding
+- [MOD-03-INVENTARIO-PARTE-1](03-inventario-precios/inventario-parte-1.md) · propuesto · inventario, precios
+- [MOD-03-INVENTARIO-PARTE-2](03-inventario-precios/inventario-parte-2.md) · propuesto · inventario, precios
+- [MOD-03-INVENTARIO-PARTE-3](03-inventario-precios/inventario-parte-3.md) · propuesto · inventario, precios
+- [MOD-03-PRECIOS-PARTE-1](03-inventario-precios/precios-parte-1.md) · propuesto · inventario, precios
+- [MOD-03-PRECIOS-PARTE-2](03-inventario-precios/precios-parte-2.md) · propuesto · inventario, precios
+- [MOD-04-CAJA-DIGITAL-PARTE-1](04-ventas-caja-fiado/caja-digital-parte-1.md) · propuesto · caja, fiado, ventas
+- [MOD-04-CAJA-DIGITAL-PARTE-2-TURNOS](04-ventas-caja-fiado/caja-digital-parte-2-turnos.md) · propuesto · caja, fiado, ventas
+- [MOD-04-CAJA-DIGITAL-PARTE-3-INTEGRACIONES](04-ventas-caja-fiado/caja-digital-parte-3-integraciones.md) · propuesto · caja, fiado, ventas
+- [MOD-04-FIADO-CUENTA-CORRIENTE](04-ventas-caja-fiado/fiado-cuenta-corriente.md) · propuesto · caja, fiado, ventas
+- [MOD-04-TICKET-VENTA-PARTE-1](04-ventas-caja-fiado/ticket-venta-parte-1.md) · propuesto · caja, fiado, ventas
+- [MOD-04-TICKET-VENTA-PARTE-2](04-ventas-caja-fiado/ticket-venta-parte-2.md) · propuesto · caja, fiado, ventas
+- [MOD-05-CONSUMOS-SERVICIOS](05-compras-servicios-pagos/consumos-servicios.md) · propuesto · compras, pagos
+- [MOD-05-FACTURAS-PROVEEDORES](05-compras-servicios-pagos/facturas-proveedores.md) · propuesto · compras, pagos
+- [MOD-05-ORDENES-PAGO](05-compras-servicios-pagos/ordenes-pago.md) · propuesto · compras, pagos
+- [MOD-06-FACTURACION-ELECTRONICA-ARCA](06-fiscal-arca/facturacion-electronica-arca.md) · propuesto · fiscal
+- [MOD-07-BOT-WHATSAPP-PARTE-1](07-canales-whatsapp-email/bot-whatsapp-parte-1.md) · propuesto · bot, email
+- [MOD-07-BOT-WHATSAPP-PARTE-2](07-canales-whatsapp-email/bot-whatsapp-parte-2.md) · propuesto · bot, email
+- [MOD-07-NOTIFICACIONES-EMAIL](07-canales-whatsapp-email/notificaciones-email.md) · propuesto · bot, email
+- [MOD-08-DASHBOARD-INDICE-NAVEGACION](08-operacion-admin-analytics/dashboard-indice-navegacion.md) · propuesto · admin
+- [MOD-08-PANEL-ADMIN-PARTE-1](08-operacion-admin-analytics/panel-admin-parte-1.md) · propuesto · admin
+- [MOD-08-PANEL-ADMIN-PARTE-2](08-operacion-admin-analytics/panel-admin-parte-2.md) · propuesto · admin
+- [MOD-08-PANEL-ADMIN-PARTE-3](08-operacion-admin-analytics/panel-admin-parte-3.md) · propuesto · admin
+- [MOD-08-REPORTES-ROTACION](08-operacion-admin-analytics/reportes-rotacion.md) · propuesto · admin
+- [MOD-09-LANDING-GAPS-MODOOPS](09-frontend-landing-diseno/landing-gaps-modoops.md) · propuesto · landing
+- [P0-1](roadmap/avances/P0-1.md) · hecho · -
+- [P0-2](roadmap/avances/P0-2.md) · hecho · -
+- [P0-3](roadmap/avances/P0-3.md) · hecho · -
+- [P0-4](roadmap/avances/P0-4.md) · hecho · -
+- [P0-5](roadmap/avances/P0-5.md) · hecho · -
+- [P1-1](roadmap/avances/P1-1.md) · hecho · -
+- [P1-2](roadmap/avances/P1-2.md) · hecho · -
+- [P1-3](roadmap/avances/P1-3.md) · hecho · -
+- [P1-4](roadmap/avances/P1-4.md) · hecho · -
+- [P1-5](roadmap/avances/P1-5.md) · hecho · -
+- [P1-6](roadmap/avances/P1-6.md) · hecho · -
+- [P1-7](roadmap/avances/P1-7.md) · hecho · -
+- [P1-8](roadmap/avances/P1-8.md) · hecho · -
+- [P2-1](roadmap/avances/P2-1.md) · hecho · -
+- [P2-2](roadmap/avances/P2-2.md) · hecho · -
+- [P2-3](roadmap/avances/P2-3.md) · hecho · -
+- [P3-1](roadmap/avances/P3-1.md) · en curso · -
+- [P9-1](roadmap/avances/P9-1.md) · bloqueado (decisión de mauri) · -
+- [P9-2](roadmap/avances/P9-2.md) · bloqueado (decisión de mauri) · -
+- [P9-3](roadmap/avances/P9-3.md) · bloqueado (decisión de mauri) · -
+- [P9-4](roadmap/avances/P9-4.md) · bloqueado (decisión de mauri) · -
+- [P9-5](roadmap/avances/P9-5.md) · bloqueado (decisión de mauri) · -
+- [P9-6](roadmap/avances/P9-6.md) · hecho · -
+- [P9-7](roadmap/avances/P9-7.md) · hecho · -
+- [P9-8](roadmap/avances/P9-8.md) · hecho · -
+- [P9-9](roadmap/avances/P9-9.md) · hecho · -
+- [PERS3-S1 a S4](roadmap/avances/0078.md) · hecho · -
+- [PERS4-S1 a S4](roadmap/avances/0079.md) · hecho · -
+- [PERS5-S1 a S3](roadmap/avances/0080.md) · hecho · -
+- [PERS6-S1](roadmap/avances/0081.md) · hecho · -
+- [PERS7-S1 a S3](roadmap/avances/0082.md) · hecho · -
+- [PROC1-S1 a S3](roadmap/avances/0083.md) · hecho · -
+- [PS-S1 a S3](roadmap/avances/0085.md) · hecho · -
+- [ROAD1-S1 a S4](roadmap/avances/0076.md) · hecho · -
+- [SEC4-S1 a S3](roadmap/avances/0077.md) · hecho · -
+- [SPEC-UI-00](diseno/SPEC-UI-00-implementacion.md) · propuesto · -
+
+## Sin frontmatter
+
+- CHECKLIST-documentacion.md
+- README.md
+- ROADMAP.md
+- historico/panel-admin-version-anterior-DEPRECADA.md
+- migracion-supabase.md
+- roadmap/avances/README.md
+- roadmap/migraciones-aplicadas.md

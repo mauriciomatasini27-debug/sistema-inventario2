@@ -17,6 +17,7 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "review:scope": "node scripts/review-scope.mjs",
     "evidencia": "node scripts/evidencia.mjs",
+    "docs:index": "node scripts/docs-index.mjs",
     "roadmap": "node scripts/roadmap.mjs"
   },
   "dependencies": {

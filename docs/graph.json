@@ -1,0 +1,4391 @@
+{
+  "nodos": [
+    {
+      "id": "ADR-0000",
+      "ruta": "docs/adr/0000-indice-prd-ordenado.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0001",
+      "ruta": "docs/adr/0001-arquitectura-base.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "ADR-0002",
+      "ruta": "docs/adr/0002-stack-desarrollo.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0003",
+      "ruta": "docs/adr/0003-multitenancy-datos-offline.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "offline",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0004",
+      "ruta": "docs/adr/0004-caja-ventas.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "caja",
+        "fiado",
+        "precios",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0005",
+      "ruta": "docs/adr/0005-ocr.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0006",
+      "ruta": "docs/adr/0006-panel.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "ADR-0007",
+      "ruta": "docs/adr/0007-externos.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0008",
+      "ruta": "docs/adr/0008-tokens-tema-papel.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0009",
+      "ruta": "docs/adr/0009-componentes-adopcion.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0010",
+      "ruta": "docs/adr/0010-landing.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario",
+        "landing"
+      ]
+    },
+    {
+      "id": "ADR-0011",
+      "ruta": "docs/adr/0011-control-plane.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "admin",
+        "inventario"
+      ]
+    },
+    {
+      "id": "ADR-0012",
+      "ruta": "docs/adr/0012-negocio-catalogo.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "ADR-0013",
+      "ruta": "docs/adr/0013-adaptacion.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "ADR-0014",
+      "ruta": "docs/adr/0014-grounding.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0015",
+      "ruta": "docs/adr/0015-architect.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0016",
+      "ruta": "docs/adr/0016-prosa-revision.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0017",
+      "ruta": "docs/adr/0017-slice-0.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0018",
+      "ruta": "docs/adr/0018-fiscal-arca.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "ADR-0019",
+      "ruta": "docs/adr/0019-slice-fiscal.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0020",
+      "ruta": "docs/adr/0020-dashboard.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0021",
+      "ruta": "docs/adr/0021-landing-iteracion.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "landing"
+      ]
+    },
+    {
+      "id": "ADR-0022",
+      "ruta": "docs/adr/0022-landing-gaps.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "landing"
+      ]
+    },
+    {
+      "id": "ADR-0023",
+      "ruta": "docs/adr/0023-sync-pull-grants.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "offline"
+      ]
+    },
+    {
+      "id": "ADR-0024",
+      "ruta": "docs/adr/0024-persistencia-drizzle.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0025",
+      "ruta": "docs/adr/0025-pwa-sqlite-wasm.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0026",
+      "ruta": "docs/adr/0026-catalogo-lotes-ubicaciones.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0027",
+      "ruta": "docs/adr/0027-caja-qr-vencimientos.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "caja",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0028",
+      "ruta": "docs/adr/0028-canales-faltantes.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "email"
+      ]
+    },
+    {
+      "id": "ADR-0029",
+      "ruta": "docs/adr/0029-panel-landing-cierre.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "admin",
+        "landing",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0030",
+      "ruta": "docs/adr/0030-accesos-landing.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "admin",
+        "landing",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0031",
+      "ruta": "docs/adr/0031-login-callback-cookies.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "auth"
+      ]
+    },
+    {
+      "id": "ADR-0032",
+      "ruta": "docs/adr/0032-layout-pwa.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "offline"
+      ]
+    },
+    {
+      "id": "ADR-0033",
+      "ruta": "docs/adr/0033-tipografia.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0034",
+      "ruta": "docs/adr/0034-color-contraste.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0035",
+      "ruta": "docs/adr/0035-copy-voz.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0036",
+      "ruta": "docs/adr/0036-accesibilidad.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0037",
+      "ruta": "docs/adr/0037-polish-motion.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0038",
+      "ruta": "docs/adr/0038-revision-stress.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0039",
+      "ruta": "docs/adr/0039-bot-modulos-rubro.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "bot"
+      ]
+    },
+    {
+      "id": "ADR-0040",
+      "ruta": "docs/adr/0040-resumen-mensual-acciones.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "bot"
+      ]
+    },
+    {
+      "id": "ADR-0041",
+      "ruta": "docs/adr/0041-proveedor-whatsapp-cloud-api.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "bot",
+        "compras"
+      ]
+    },
+    {
+      "id": "ADR-0042",
+      "ruta": "docs/adr/0042-whatsapp-transport-intercambiable.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "bot"
+      ]
+    },
+    {
+      "id": "ADR-0043",
+      "ruta": "docs/adr/0043-cron-alertas-pg-cron.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "inventario"
+      ]
+    },
+    {
+      "id": "ADR-0044",
+      "ruta": "docs/adr/0044-asistente-ia-catalogo-cerrado.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0045",
+      "ruta": "docs/adr/0045-proveedor-llm-asistente.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "compras"
+      ]
+    },
+    {
+      "id": "ADR-0046",
+      "ruta": "docs/adr/0046-chat-landing-llm-aislado.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": [
+        "landing",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0047",
+      "ruta": "docs/adr/0047-cobro-por-plan-mensual.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0048",
+      "ruta": "docs/adr/0048-supabase-single-project.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0049",
+      "ruta": "docs/adr/0049-supabase-driver-pooler.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0050",
+      "ruta": "docs/adr/0050-aislamiento-fiscal-por-tenant.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal",
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0051",
+      "ruta": "docs/adr/0051-tenant-por-request.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "compras",
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0052",
+      "ruta": "docs/adr/0052-memoria-por-tenant-y-cutover.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0053",
+      "ruta": "docs/adr/0053-repos-dominio-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0054",
+      "ruta": "docs/adr/0054-repos-fiscal-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0055",
+      "ruta": "docs/adr/0055-repos-canales-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "bot",
+        "email",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0056",
+      "ruta": "docs/adr/0056-repo-caja-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "caja",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0057",
+      "ruta": "docs/adr/0057-repos-compras-pagos-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "compras",
+        "pagos",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0058",
+      "ruta": "docs/adr/0058-repos-servicios-fiado-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiado",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0059",
+      "ruta": "docs/adr/0059-jobs-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0060",
+      "ruta": "docs/adr/0060-repo-ocr-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0061",
+      "ruta": "docs/adr/0061-repo-sync-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0062",
+      "ruta": "docs/adr/0062-repos-catalogo-stock-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "compras",
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0063",
+      "ruta": "docs/adr/0063-ventas-devoluciones-sin-store.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0064",
+      "ruta": "docs/adr/0064-politica-comentarios.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0065",
+      "ruta": "docs/adr/0065-arquitectura-amigable-agentes.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0066",
+      "ruta": "docs/adr/0066-dueno-real-y-correlativo-unico.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0067",
+      "ruta": "docs/adr/0067-dependabot-actions-y-politica.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0068",
+      "ruta": "docs/adr/0068-vitest-5.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0069",
+      "ruta": "docs/adr/0069-astro-7.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0070",
+      "ruta": "docs/adr/0070-drizzle-orm-045.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0071",
+      "ruta": "docs/adr/0071-zod-4.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "email"
+      ]
+    },
+    {
+      "id": "ADR-0072",
+      "ruta": "docs/adr/0072-typescript-7.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0073",
+      "ruta": "docs/adr/0073-errores-recurrentes-llm-guardas.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0074",
+      "ruta": "docs/adr/0074-prefijos-datos-y-fiscal-settings-tenant.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal",
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0075",
+      "ruta": "docs/adr/0075-backfill-tenant-id-real.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiscal",
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0076",
+      "ruta": "docs/adr/0076-avances-roadmap-sin-conflictos.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0077",
+      "ruta": "docs/adr/0077-fan-out-jobs-por-tenant.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "tenant"
+      ]
+    },
+    {
+      "id": "ADR-0078",
+      "ruta": "docs/adr/0078-ubicaciones-fotos-conteos-db.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0079",
+      "ruta": "docs/adr/0079-ocr-jobs-eventos-db.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0080",
+      "ruta": "docs/adr/0080-correlativos-db.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "fiado",
+        "offline",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0081",
+      "ruta": "docs/adr/0081-sync-pull-catalogo-db.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "inventario",
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "ADR-0082",
+      "ruta": "docs/adr/0082-errores-tragados-a-cero.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": [
+        "bot",
+        "offline",
+        "pagos",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "ADR-0083",
+      "ruta": "docs/adr/0083-proceso-una-corrida-docs-livianas.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0084",
+      "ruta": "docs/adr/0084-pstack-rubrica-efectividad.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "ADR-0085",
+      "ruta": "docs/adr/0085-pstack-conformance-test.md",
+      "tipo": "adr",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "CAJA-S1",
+      "ruta": "docs/roadmap/avances/CAJA-S1.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "CAJA-S2",
+      "ruta": "docs/roadmap/avances/CAJA-S2.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "CAJA-S3",
+      "ruta": "docs/roadmap/avances/CAJA-S3.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "CAJA-S4",
+      "ruta": "docs/roadmap/avances/CAJA-S4.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "EVIDENCIA-UI-00",
+      "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "MOD-01-COSTOS-POR-CLIENTE",
+      "ruta": "docs/01-fundacion/costos-por-cliente.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "inventario"
+      ]
+    },
+    {
+      "id": "MOD-01-MODO-OFFLINE",
+      "ruta": "docs/01-fundacion/modo-offline.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "offline"
+      ]
+    },
+    {
+      "id": "MOD-01-VERIFICACION-FUENTE-OFICIAL",
+      "ruta": "docs/01-fundacion/verificacion-fuente-oficial.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "auth",
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "MOD-02-AUTENTICACION",
+      "ruta": "docs/02-identidad-onboarding/autenticacion.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "auth",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "MOD-02-AUTENTICACION-GESTION-USUARIOS",
+      "ruta": "docs/02-identidad-onboarding/autenticacion-gestion-usuarios.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "auth",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "MOD-02-ONBOARDING-PARTE-1",
+      "ruta": "docs/02-identidad-onboarding/onboarding-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "auth",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "MOD-02-ONBOARDING-PARTE-2",
+      "ruta": "docs/02-identidad-onboarding/onboarding-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "auth",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "MOD-03-INVENTARIO-PARTE-1",
+      "ruta": "docs/03-inventario-precios/inventario-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "precios"
+      ]
+    },
+    {
+      "id": "MOD-03-INVENTARIO-PARTE-2",
+      "ruta": "docs/03-inventario-precios/inventario-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "precios"
+      ]
+    },
+    {
+      "id": "MOD-03-INVENTARIO-PARTE-3",
+      "ruta": "docs/03-inventario-precios/inventario-parte-3.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "precios"
+      ]
+    },
+    {
+      "id": "MOD-03-PRECIOS-PARTE-1",
+      "ruta": "docs/03-inventario-precios/precios-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "precios"
+      ]
+    },
+    {
+      "id": "MOD-03-PRECIOS-PARTE-2",
+      "ruta": "docs/03-inventario-precios/precios-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "precios"
+      ]
+    },
+    {
+      "id": "MOD-04-CAJA-DIGITAL-PARTE-1",
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-04-CAJA-DIGITAL-PARTE-2-TURNOS",
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-2-turnos.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-04-CAJA-DIGITAL-PARTE-3-INTEGRACIONES",
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-3-integraciones.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-04-FIADO-CUENTA-CORRIENTE",
+      "ruta": "docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-04-TICKET-VENTA-PARTE-1",
+      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-04-TICKET-VENTA-PARTE-2",
+      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "fiado",
+        "ventas"
+      ]
+    },
+    {
+      "id": "MOD-05-CONSUMOS-SERVICIOS",
+      "ruta": "docs/05-compras-servicios-pagos/consumos-servicios.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "compras",
+        "pagos"
+      ]
+    },
+    {
+      "id": "MOD-05-FACTURAS-PROVEEDORES",
+      "ruta": "docs/05-compras-servicios-pagos/facturas-proveedores.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "compras",
+        "pagos"
+      ]
+    },
+    {
+      "id": "MOD-05-ORDENES-PAGO",
+      "ruta": "docs/05-compras-servicios-pagos/ordenes-pago.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "compras",
+        "pagos"
+      ]
+    },
+    {
+      "id": "MOD-06-FACTURACION-ELECTRONICA-ARCA",
+      "ruta": "docs/06-fiscal-arca/facturacion-electronica-arca.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "MOD-07-BOT-WHATSAPP-PARTE-1",
+      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "email"
+      ]
+    },
+    {
+      "id": "MOD-07-BOT-WHATSAPP-PARTE-2",
+      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "email"
+      ]
+    },
+    {
+      "id": "MOD-07-NOTIFICACIONES-EMAIL",
+      "ruta": "docs/07-canales-whatsapp-email/notificaciones-email.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "email"
+      ]
+    },
+    {
+      "id": "MOD-08-DASHBOARD-INDICE-NAVEGACION",
+      "ruta": "docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "MOD-08-PANEL-ADMIN-PARTE-1",
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-1.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "MOD-08-PANEL-ADMIN-PARTE-2",
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-2.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "MOD-08-PANEL-ADMIN-PARTE-3",
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-3.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "MOD-08-REPORTES-ROTACION",
+      "ruta": "docs/08-operacion-admin-analytics/reportes-rotacion.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "MOD-09-LANDING-GAPS-MODOOPS",
+      "ruta": "docs/09-frontend-landing-diseno/landing-gaps-modoops.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": [
+        "landing"
+      ]
+    },
+    {
+      "id": "P0-1",
+      "ruta": "docs/roadmap/avances/P0-1.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P0-2",
+      "ruta": "docs/roadmap/avances/P0-2.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P0-3",
+      "ruta": "docs/roadmap/avances/P0-3.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P0-4",
+      "ruta": "docs/roadmap/avances/P0-4.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P0-5",
+      "ruta": "docs/roadmap/avances/P0-5.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-1",
+      "ruta": "docs/roadmap/avances/P1-1.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-2",
+      "ruta": "docs/roadmap/avances/P1-2.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-3",
+      "ruta": "docs/roadmap/avances/P1-3.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-4",
+      "ruta": "docs/roadmap/avances/P1-4.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-5",
+      "ruta": "docs/roadmap/avances/P1-5.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-6",
+      "ruta": "docs/roadmap/avances/P1-6.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-7",
+      "ruta": "docs/roadmap/avances/P1-7.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P1-8",
+      "ruta": "docs/roadmap/avances/P1-8.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P2-1",
+      "ruta": "docs/roadmap/avances/P2-1.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P2-2",
+      "ruta": "docs/roadmap/avances/P2-2.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P2-3",
+      "ruta": "docs/roadmap/avances/P2-3.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P3-1",
+      "ruta": "docs/roadmap/avances/P3-1.md",
+      "tipo": "spec",
+      "estado": "en curso",
+      "modulos": []
+    },
+    {
+      "id": "P9-1",
+      "ruta": "docs/roadmap/avances/P9-1.md",
+      "tipo": "spec",
+      "estado": "bloqueado (decisión de mauri)",
+      "modulos": []
+    },
+    {
+      "id": "P9-2",
+      "ruta": "docs/roadmap/avances/P9-2.md",
+      "tipo": "spec",
+      "estado": "bloqueado (decisión de mauri)",
+      "modulos": []
+    },
+    {
+      "id": "P9-3",
+      "ruta": "docs/roadmap/avances/P9-3.md",
+      "tipo": "spec",
+      "estado": "bloqueado (decisión de mauri)",
+      "modulos": []
+    },
+    {
+      "id": "P9-4",
+      "ruta": "docs/roadmap/avances/P9-4.md",
+      "tipo": "spec",
+      "estado": "bloqueado (decisión de mauri)",
+      "modulos": []
+    },
+    {
+      "id": "P9-5",
+      "ruta": "docs/roadmap/avances/P9-5.md",
+      "tipo": "spec",
+      "estado": "bloqueado (decisión de mauri)",
+      "modulos": []
+    },
+    {
+      "id": "P9-6",
+      "ruta": "docs/roadmap/avances/P9-6.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P9-7",
+      "ruta": "docs/roadmap/avances/P9-7.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P9-8",
+      "ruta": "docs/roadmap/avances/P9-8.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "P9-9",
+      "ruta": "docs/roadmap/avances/P9-9.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PERS3-S1 a S4",
+      "ruta": "docs/roadmap/avances/0078.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PERS4-S1 a S4",
+      "ruta": "docs/roadmap/avances/0079.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PERS5-S1 a S3",
+      "ruta": "docs/roadmap/avances/0080.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PERS6-S1",
+      "ruta": "docs/roadmap/avances/0081.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PERS7-S1 a S3",
+      "ruta": "docs/roadmap/avances/0082.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PLAN-COM-01",
+      "ruta": "docs/diseno/PLAN-COM-01-poda-comentarios.md",
+      "tipo": "plan",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "auth",
+        "bot",
+        "caja",
+        "compras",
+        "email",
+        "fiado",
+        "fiscal",
+        "inventario",
+        "offline",
+        "onboarding",
+        "pagos",
+        "persistencia",
+        "precios",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-ADAP-01",
+      "ruta": "docs/diseno/PRD-ADAP-01-modoops-a-inventario.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-ALR-01",
+      "ruta": "docs/diseno/PRD-ALR-01-alertas-stock-bajo.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "email",
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-ARQ-01",
+      "ruta": "docs/diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-AU-01",
+      "ruta": "docs/diseno/PRD-AU-01-login-endurecido.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "auth"
+      ]
+    },
+    {
+      "id": "PRD-AU-02",
+      "ruta": "docs/diseno/PRD-AU-02-login-con-destino.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "auth",
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-BOT-01",
+      "ruta": "docs/diseno/PRD-BOT-01-modulos-rubro.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "bot"
+      ]
+    },
+    {
+      "id": "PRD-BOT-02",
+      "ruta": "docs/diseno/PRD-BOT-02-consulta-stock-whatsapp.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-CAJA-01",
+      "ruta": "docs/diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-CAT-01",
+      "ruta": "docs/diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-CH-01",
+      "ruta": "docs/diseno/PRD-CH-01-canales-faltantes.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "email"
+      ]
+    },
+    {
+      "id": "PRD-COM-01",
+      "ruta": "docs/diseno/PRD-COM-01-poda-comentarios.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-CP-01",
+      "ruta": "docs/diseno/PRD-CP-01-control-plane.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-DASH-01",
+      "ruta": "docs/diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "bot",
+        "landing"
+      ]
+    },
+    {
+      "id": "PRD-DEP-01",
+      "ruta": "docs/diseno/PRD-DEP-01-actualizacion-dependencias.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-DS-01",
+      "ruta": "docs/diseno/PRD-DS-01-tokens-tema-papel.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-DS-02",
+      "ruta": "docs/diseno/PRD-DS-02-componentes.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-DS-03",
+      "ruta": "docs/diseno/PRD-DS-03-adopcion-inventario.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-E2E-01",
+      "ruta": "docs/diseno/PRD-E2E-01-flujo-demo-dos-tenants.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "onboarding",
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-FE-01",
+      "ruta": "docs/diseno/PRD-FE-01-fiscal-arca.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "PRD-IA-01",
+      "ruta": "docs/diseno/PRD-IA-01-asistente-preguntas-negocio.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-ISO-01",
+      "ruta": "docs/diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "compras",
+        "fiscal",
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-ISO-02",
+      "ruta": "docs/diseno/PRD-ISO-02-aislamiento-plano-datos.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "caja",
+        "compras",
+        "fiscal",
+        "persistencia",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-LANDING-01",
+      "ruta": "docs/diseno/PRD-LANDING-01-planes-en-landing.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "landing",
+        "precios"
+      ]
+    },
+    {
+      "id": "PRD-LP-01",
+      "ruta": "docs/diseno/PRD-LP-01-landing.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "landing"
+      ]
+    },
+    {
+      "id": "PRD-LP-02",
+      "ruta": "docs/diseno/PRD-LP-02-landing-iteracion.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "landing"
+      ]
+    },
+    {
+      "id": "PRD-LP-03",
+      "ruta": "docs/diseno/PRD-LP-03-accesos-landing.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "landing"
+      ]
+    },
+    {
+      "id": "PRD-LP-04",
+      "ruta": "docs/diseno/PRD-LP-04-chat-flotante-landing.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "landing",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-NEG-01",
+      "ruta": "docs/diseno/PRD-NEG-01-negocio-catalogo.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario"
+      ]
+    },
+    {
+      "id": "PRD-OP-01",
+      "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "landing"
+      ]
+    },
+    {
+      "id": "PRD-PERS-01",
+      "ruta": "docs/diseno/PRD-PERS-01-persistencia-drizzle.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-PERS-02",
+      "ruta": "docs/diseno/PRD-PERS-02-cutover-multi-tenant.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "caja",
+        "compras",
+        "email",
+        "fiado",
+        "fiscal",
+        "inventario",
+        "offline",
+        "pagos",
+        "persistencia",
+        "precios",
+        "tenant",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-PERS-03",
+      "ruta": "docs/diseno/PRD-PERS-03-ubicaciones-fotos-conteos-db.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-PERS-04",
+      "ruta": "docs/diseno/PRD-PERS-04-ocr-jobs-eventos-db.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-PERS-05",
+      "ruta": "docs/diseno/PRD-PERS-05-correlativos-db.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "fiado",
+        "offline",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-PERS-06",
+      "ruta": "docs/diseno/PRD-PERS-06-sync-pull-catalogo-db.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "inventario",
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-PERS-07",
+      "ruta": "docs/diseno/PRD-PERS-07-errores-tragados.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin",
+        "bot",
+        "offline",
+        "pagos",
+        "persistencia",
+        "ventas"
+      ]
+    },
+    {
+      "id": "PRD-PLAN-01",
+      "ruta": "docs/diseno/PRD-PLAN-01-planes-suscripcion.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "PRD-PLAN-02",
+      "ruta": "docs/diseno/PRD-PLAN-02-precios-suscripcion.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "bot",
+        "fiscal",
+        "precios"
+      ]
+    },
+    {
+      "id": "PRD-PROC-01",
+      "ruta": "docs/diseno/PRD-PROC-01-auditoria-proceso.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-PS-01",
+      "ruta": "docs/diseno/PRD-PS-01-pstack-opencode.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "caja"
+      ]
+    },
+    {
+      "id": "PRD-PWA-01",
+      "ruta": "docs/diseno/PRD-PWA-01-offline-local.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "offline",
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-ROAD-01",
+      "ruta": "docs/diseno/PRD-ROAD-01-avances-sin-conflictos.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-SEC-01",
+      "ruta": "docs/diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-SEC-02",
+      "ruta": "docs/diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "fiscal",
+        "persistencia",
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-SEC-03",
+      "ruta": "docs/diseno/PRD-SEC-03-backfill-tenant-id.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-SEC-04",
+      "ruta": "docs/diseno/PRD-SEC-04-fan-out-jobs-por-tenant.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "tenant"
+      ]
+    },
+    {
+      "id": "PRD-SK-01",
+      "ruta": "docs/diseno/PRD-SK-01-grounding-how-why.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-SK-02",
+      "ruta": "docs/diseno/PRD-SK-02-architect.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-SK-03",
+      "ruta": "docs/diseno/PRD-SK-03-prosa-revision.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-SUP-01",
+      "ruta": "docs/diseno/PRD-SUP-01-conexion-supabase.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "persistencia"
+      ]
+    },
+    {
+      "id": "PRD-SYNC-01",
+      "ruta": "docs/diseno/PRD-SYNC-01-sync-pull-grants.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "offline"
+      ]
+    },
+    {
+      "id": "PRD-UI-01",
+      "ruta": "docs/diseno/PRD-UI-01-layout-pwa-360.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "offline"
+      ]
+    },
+    {
+      "id": "PRD-UI-02",
+      "ruta": "docs/diseno/PRD-UI-02-tipografia-escala.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UI-03",
+      "ruta": "docs/diseno/PRD-UI-03-color-contraste.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UI-04",
+      "ruta": "docs/diseno/PRD-UI-04-copy-voz.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UI-05",
+      "ruta": "docs/diseno/PRD-UI-05-accesibilidad.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UI-06",
+      "ruta": "docs/diseno/PRD-UI-06-polish-motion.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UI-07",
+      "ruta": "docs/diseno/PRD-UI-07-revision-stress.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": []
+    },
+    {
+      "id": "PRD-UX-01",
+      "ruta": "docs/diseno/PRD-UX-01-uso-skills-diseno-dashboard.md",
+      "tipo": "prd",
+      "estado": "propuesto",
+      "modulos": [
+        "admin"
+      ]
+    },
+    {
+      "id": "PROC1-S1 a S3",
+      "ruta": "docs/roadmap/avances/0083.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "PS-S1 a S3",
+      "ruta": "docs/roadmap/avances/0085.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "ROAD1-S1 a S4",
+      "ruta": "docs/roadmap/avances/0076.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "SEC4-S1 a S3",
+      "ruta": "docs/roadmap/avances/0077.md",
+      "tipo": "spec",
+      "estado": "hecho",
+      "modulos": []
+    },
+    {
+      "id": "SPEC-UI-00",
+      "ruta": "docs/diseno/SPEC-UI-00-implementacion.md",
+      "tipo": "spec",
+      "estado": "propuesto",
+      "modulos": []
+    }
+  ],
+  "aristas": [
+    {
+      "de": "ADR-0000",
+      "a": "ADR-0037",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-ALR-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-ARQ-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-BOT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-DASH-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0000",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0003",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0008",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0009",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0009",
+      "a": "PRD-DS-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0010",
+      "a": "PRD-LP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0011",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0011",
+      "a": "PRD-CP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0012",
+      "a": "PRD-NEG-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0013",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0013",
+      "a": "PRD-ADAP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0014",
+      "a": "PRD-SK-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0015",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0015",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0015",
+      "a": "PRD-SK-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0016",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0016",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0016",
+      "a": "PRD-SK-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0017",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0017",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0018",
+      "a": "ADR-0007",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0018",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0019",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0019",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0019",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0020",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0020",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0021",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0021",
+      "a": "PRD-LP-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0022",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0022",
+      "a": "ADR-0021",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0023",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0023",
+      "a": "PRD-SYNC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0024",
+      "a": "PRD-PERS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0025",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0025",
+      "a": "PRD-PWA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0026",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0026",
+      "a": "PRD-CAT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0027",
+      "a": "PRD-CAJA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0028",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0028",
+      "a": "PRD-CH-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0029",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0029",
+      "a": "PRD-OP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "ADR-0031",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "PRD-AU-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0030",
+      "a": "PRD-LP-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0031",
+      "a": "PRD-AU-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0032",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0032",
+      "a": "PRD-UI-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0033",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0033",
+      "a": "PRD-UI-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0034",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0034",
+      "a": "PRD-UI-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0035",
+      "a": "PRD-UI-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0036",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0036",
+      "a": "PRD-UI-05",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0037",
+      "a": "PRD-UI-06",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0038",
+      "a": "PRD-UI-07",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0039",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0039",
+      "a": "PRD-BOT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0040",
+      "a": "PRD-BOT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0041",
+      "a": "ADR-0007",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0041",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0041",
+      "a": "ADR-0042",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0041",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0042",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0042",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0043",
+      "a": "ADR-0028",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0043",
+      "a": "PRD-ALR-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0044",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0044",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0044",
+      "a": "PRD-IA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0045",
+      "a": "ADR-0044",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0045",
+      "a": "PRD-IA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0046",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0046",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0046",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0046",
+      "a": "PRD-LP-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0046",
+      "a": "PRD-LP-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0047",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0047",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0047",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0047",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0047",
+      "a": "PRD-PLAN-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0048",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0048",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0048",
+      "a": "PRD-SUP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0049",
+      "a": "PRD-SUP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0050",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0050",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0050",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0050",
+      "a": "ADR-0049",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0050",
+      "a": "PRD-ISO-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0051",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0051",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0051",
+      "a": "PRD-ISO-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0052",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0052",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0052",
+      "a": "ADR-0077",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0052",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0052",
+      "a": "PRD-SEC-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0053",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0053",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0053",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0054",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0054",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0054",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0054",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0055",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0055",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0055",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0055",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0056",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0056",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0056",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0056",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0057",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0057",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0057",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0057",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0058",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0058",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0058",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0058",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0058",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0059",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0059",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0059",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0059",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0059",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0060",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0060",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0060",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0060",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0060",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0061",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0061",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0061",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0061",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0061",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0062",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0062",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0062",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0062",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0062",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0063",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0063",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0063",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0063",
+      "a": "ADR-0057",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0063",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0064",
+      "a": "ADR-0016",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0064",
+      "a": "PRD-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0065",
+      "a": "PRD-ARQ-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0066",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0066",
+      "a": "ADR-0031",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0066",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0066",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0066",
+      "a": "PRD-SEC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0067",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0067",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0068",
+      "a": "ADR-0069",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0068",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0069",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0070",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0071",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0072",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0073",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0073",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0073",
+      "a": "PRD-ARQ-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0073",
+      "a": "PRD-DEP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0074",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0074",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0074",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0074",
+      "a": "ADR-0066",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0074",
+      "a": "PRD-SEC-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0075",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0075",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0075",
+      "a": "ADR-0074",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0075",
+      "a": "PRD-SEC-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0076",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0076",
+      "a": "ADR-0073",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0076",
+      "a": "PRD-ROAD-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0077",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0077",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0077",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0077",
+      "a": "PRD-SEC-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0078",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0078",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0078",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0078",
+      "a": "PRD-PERS-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0079",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0079",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0079",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0079",
+      "a": "ADR-0060",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0079",
+      "a": "PRD-PERS-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "ADR-0063",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "ADR-0066",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0080",
+      "a": "PRD-PERS-05",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0081",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0081",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0081",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0081",
+      "a": "PRD-PERS-06",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0081",
+      "a": "PRD-SYNC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0082",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0082",
+      "a": "ADR-0073",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0082",
+      "a": "PRD-PERS-07",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0083",
+      "a": "ADR-0076",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0083",
+      "a": "ADR-0082",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0083",
+      "a": "PRD-PROC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0084",
+      "a": "PRD-PS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0085",
+      "a": "ADR-0084",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0085",
+      "a": "PRD-PS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "MOD-01-VERIFICACION-FUENTE-OFICIAL",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0019",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01",
+      "a": "ADR-0020",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ADAP-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ADAP-01",
+      "a": "ADR-0013",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ADAP-01",
+      "a": "PRD-CP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ADAP-01",
+      "a": "PRD-LP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ADAP-01",
+      "a": "PRD-NEG-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ALR-01",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ALR-01",
+      "a": "ADR-0028",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ALR-01",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ALR-01",
+      "a": "ADR-0043",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "ADR-0016",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "PRD-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AU-02",
+      "a": "ADR-0030",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AU-02",
+      "a": "ADR-0031",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AU-02",
+      "a": "PRD-AU-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AU-02",
+      "a": "PRD-LP-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-01",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-02",
+      "a": "ADR-0007",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-02",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-02",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-02",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-02",
+      "a": "ADR-0042",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAJA-01",
+      "a": "PRD-CAT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAJA-01",
+      "a": "PRD-SYNC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAT-01",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CH-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-COM-01",
+      "a": "ADR-0016",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-COM-01",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CP-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CP-01",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0020",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0029",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0032",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0038",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "ADR-0046",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DASH-01",
+      "a": "PRD-ALR-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DEP-01",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DEP-01",
+      "a": "ADR-0067",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DEP-01",
+      "a": "ADR-0072",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-01",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-02",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-02",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-02",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-02",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-03",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-03",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-03",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-03",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-03",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-E2E-01",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-E2E-01",
+      "a": "ADR-0030",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-E2E-01",
+      "a": "ADR-0031",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-01",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-01",
+      "a": "ADR-0007",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-01",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-01",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "ADR-0044",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-IA-01",
+      "a": "PRD-BOT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0019",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "PRD-ISO-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0021",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0029",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0030",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0032",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0038",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0046",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LANDING-01",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-01",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-01",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-01",
+      "a": "PRD-LANDING-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-02",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-02",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-02",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-02",
+      "a": "ADR-0021",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-02",
+      "a": "PRD-LANDING-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-03",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-03",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-03",
+      "a": "ADR-0030",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-03",
+      "a": "PRD-AU-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "ADR-0010",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "ADR-0036",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "ADR-0046",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "PRD-LP-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "PRD-LP-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LP-04",
+      "a": "PRD-LP-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-NEG-01",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-NEG-01",
+      "a": "PRD-LANDING-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OP-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OP-01",
+      "a": "ADR-0020",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OP-01",
+      "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0023",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0053",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0054",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0055",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-02",
+      "a": "ADR-0056",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-03",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-03",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-03",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-03",
+      "a": "ADR-0078",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-04",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-04",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-04",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-04",
+      "a": "ADR-0060",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-04",
+      "a": "ADR-0079",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0063",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0066",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-05",
+      "a": "ADR-0080",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-06",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-06",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-06",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-06",
+      "a": "ADR-0081",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-06",
+      "a": "PRD-SYNC-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-07",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-07",
+      "a": "ADR-0073",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PERS-07",
+      "a": "ADR-0082",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0039",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0046",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "PRD-ALR-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "PRD-BOT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-01",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-ALR-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-CAJA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-CAT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-DASH-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-02",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PROC-01",
+      "a": "ADR-0076",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PROC-01",
+      "a": "ADR-0083",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PS-01",
+      "a": "ADR-0084",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PWA-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ROAD-01",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ROAD-01",
+      "a": "ADR-0073",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ROAD-01",
+      "a": "ADR-0076",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-01",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-01",
+      "a": "ADR-0031",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-01",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-01",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-01",
+      "a": "ADR-0066",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-02",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-02",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-02",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-02",
+      "a": "ADR-0066",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-02",
+      "a": "ADR-0074",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-03",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-03",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-03",
+      "a": "ADR-0074",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-03",
+      "a": "ADR-0075",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-04",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-04",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-04",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-04",
+      "a": "ADR-0077",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SEC-04",
+      "a": "PRD-PERS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-01",
+      "a": "ADR-0014",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-02",
+      "a": "ADR-0001",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-02",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-02",
+      "a": "ADR-0015",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-03",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-03",
+      "a": "ADR-0016",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SK-03",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SYNC-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-SYNC-01",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-01",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-01",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-01",
+      "a": "ADR-0032",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-01",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-01",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-02",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-02",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-02",
+      "a": "ADR-0033",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-02",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-03",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-03",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-03",
+      "a": "ADR-0034",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-03",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-04",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-04",
+      "a": "ADR-0035",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "ADR-0036",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-05",
+      "a": "PRD-UI-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-06",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-06",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-06",
+      "a": "ADR-0037",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-06",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-06",
+      "a": "PRD-UI-05",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-07",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-07",
+      "a": "ADR-0038",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-07",
+      "a": "PRD-UI-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UI-07",
+      "a": "PRD-UI-06",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "ADR-0036",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "ADR-0037",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "ADR-0038",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "ADR-0044",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "ADR-0046",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "PRD-DASH-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "PRD-UI-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-UX-01",
+      "a": "PRD-UI-07",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "SPEC-UI-00",
+      "a": "PRD-UI-07",
+      "tipo": "depende_de"
+    }
+  ],
+  "faltantes": [
+    {
+      "de": "SPEC-UI-00",
+      "a": "PRD-UI-00"
+    }
+  ]
+}
