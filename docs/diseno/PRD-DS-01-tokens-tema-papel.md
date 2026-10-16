@@ -1,3 +1,13 @@
+---
+id: PRD-DS-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0008]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-DS-01 - Tokens Tema Papel (R2)
 
 Fuente: `consultoria/modoops_core/static/src/scss/modoops_tokens.scss` (166 lineas), `modoops_primary_variables.scss` (41), `modoops_backend.scss` (167). Fecha extraccion: 2026-10-10. Restringido por ADR-0008, ADR-0002.

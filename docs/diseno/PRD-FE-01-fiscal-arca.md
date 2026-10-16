@@ -1,3 +1,13 @@
+---
+id: PRD-FE-01
+tipo: prd
+estado: propuesto
+modulos: [fiscal]
+depende_de: [ADR-0003, ADR-0004, ADR-0007, ADR-0011, ADR-0017]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-FE-01 - Fiscal ARCA Nivel 3 (FE1-FE16, FiscalProvider, WSAA/WSFEv1)
 
 Fuente: `PRD - Facturación Electrónica ARCA para Sistema de Inventario.docx` (verificado 9/10/2026), `ADR-0007` (WSFEv1 verificado), manual WSFEv1 v4.7, WSAA 1.2.2, RG 1415 / 4291 / 4892 / 5616 / 5700 / 5782 / 5866. Restringido por ADR-0003 (offline), ADR-0004 (caja/ticket/fiado/precios), ADR-0011 (control plane), ADR-0017 (slice-0).

@@ -1,3 +1,13 @@
+---
+id: PRD-SYNC-01
+tipo: prd
+estado: propuesto
+modulos: [offline]
+depende_de: [ADR-0003, ADR-0017]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SYNC-01 - Sync pull, heartbeat, grants y devices
 
 Fuente: `docs/01-fundacion/modo-offline.md` (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Gap verificado 2026-10-11: solo existen `src/pages/api/sync/push.ts` + `promote.ts`; sin `pull`, `heartbeat`, `offline-grants`, `devices/register`.

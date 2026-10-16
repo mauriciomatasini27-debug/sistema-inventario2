@@ -1,3 +1,13 @@
+---
+id: PRD-ISO-01
+tipo: prd
+estado: propuesto
+modulos: [compras, fiscal, persistencia, tenant]
+depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0018, ADR-0019, ADR-0048, ADR-0050]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-ISO-01 - Aislamiento por tenant de los datos fiscales (R1)
 
 Fuente: auditoría de código 2026-10-13 sobre `src/lib/fiscal-db.ts:194-199` (`leerFiscalDocs` hace `db.select().from(fiscalDocuments)` sin filtro), `src/lib/fiscal-db.ts:10-16` (`dbViva` llama `getTenantDb()` sin argumento), `src/lib/db.ts:42-46` (`getTenantDb(tenantId?)` cae a `TENANT_DATABASE_URL` compartida), `src/lib/server-db.ts:11-27` (`intentarLeer`/`intentarPersistir` sin tenant), `src/db/schema-fiscal.ts:33` (`fiscal_documents` sin `tenant_id`), `src/middleware.ts:4-25` (rutas `/api/fiscal/*` fuera de `protegida`, sin sesión), `src/pages/api/fiscal/{documents,history,export}.ts` (devuelven la unión DB+memoria completa), `src/pages/api/fiscal/wizard.ts:22-39` (`tenant_id` elegido por el cliente). Contexto: ADR-0001 y ADR-0002 (1 base por cliente, el servidor resuelve la base), ADR-0003, ADR-0048 (dev/demo con una sola base Supabase para control y tenants), Ley 25.326. Fecha extracción: 2026-10-13. Restringido por ADR-0050, ADR-0002, ADR-0003, ADR-0018, ADR-0019, ADR-0048.

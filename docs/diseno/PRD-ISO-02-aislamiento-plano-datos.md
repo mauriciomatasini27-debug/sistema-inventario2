@@ -1,3 +1,13 @@
+---
+id: PRD-ISO-02
+tipo: prd
+estado: propuesto
+modulos: [caja, compras, fiscal, persistencia, tenant, ventas]
+depende_de: [ADR-0002, ADR-0003, ADR-0048, ADR-0050, ADR-0051, PRD-ISO-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-ISO-02 - Aislamiento por tenant del resto del plano de datos (R1)
 
 Fuente: PRD-ISO-01 (Pendientes), ADR-0050, auditoría de código 2026-10-13: 13 rutas con `dbViva()` local que llama `getTenantDb()` sin tenant (`src/pages/api/{sync/pull,sync/push,credit/payments,credit/sales-on-account,purchase-orders,purchase-orders/close,suppliers,tickets/link,prices/adjustments}.ts`, `src/modules/sales/{registro_venta,buscar_venta}.ts`, `src/modules/cash/registro_movimiento.ts`), `src/lib/compras-db.ts:22` (`dbViva` sin tenant, usado por `supplier-invoices/*`), `src/lib/server-db.ts` (`intentarLeer`/`intentarPersistir` con tenant opcional, usados por `cash`, `credit/balance`, `tickets`, `products`, `lots`, `locations`, `sync/promote`, `whatsapp/consult`, `email/close-summary`, `sales/medium-corrections`, `fiscal/settings`, `fiscal/customers`), `src/pages/api/fiscal/wizard.ts:22-39` y `delegacion-confirmada.ts:9-30` (`tenant_id` del body o query), `src/middleware.ts:18-24` (rutas de datos fuera de `protegida`). Fecha extracción: 2026-10-13. Restringido por ADR-0051, ADR-0050, ADR-0002, ADR-0003, ADR-0048.

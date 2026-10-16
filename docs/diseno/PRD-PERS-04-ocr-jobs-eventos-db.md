@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-04
+tipo: prd
+estado: propuesto
+modulos: [persistencia]
+depende_de: [ADR-0005, ADR-0024, ADR-0052, ADR-0060, ADR-0079]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-04 - Trabajos y eventos de OCR DB-first
 
 Fuente: pendientes de ADR-0060 ("los trabajos y eventos de OCR (`ocrJobs`, `ocrEventos`) no tienen tabla todavía"); `docs/ROADMAP.md`, Pendientes priorizados P1.2. Uso en este sistema: canal de ingreso de comprobantes (WA/Gmail) de cualquier comercio. Restringido por ADR-0079, ADR-0060, ADR-0052 y ADR-0024. Tipo persistencia. **No elige ni cablea proveedor de OCR** (decisión abierta del dueño, ADR-0005).

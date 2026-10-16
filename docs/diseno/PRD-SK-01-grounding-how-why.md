@@ -1,3 +1,13 @@
+---
+id: PRD-SK-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0006, ADR-0014]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SK-01 - Skills de grounding: how + why (R2)
 
 Fuente: `~/.config/opencode/skills/how/SKILL.md`, `why/SKILL.md`. Uso en este sistema: antes de diseñar o tocar subsistemas heredados de ModoOps. Restringido por ADR-0014. Tipo proceso según ADR-0014.

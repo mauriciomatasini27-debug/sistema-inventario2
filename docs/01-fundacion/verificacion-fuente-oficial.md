@@ -1,3 +1,13 @@
+---
+id: MOD-01-VERIFICACION-FUENTE-OFICIAL
+tipo: spec
+estado: propuesto
+modulos: [auth, offline, persistencia]
+depende_de: [ADR-0005]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # Verificación fuente oficial — 5 APIs (paso 4, parcial 2026-10-12)
 
 > No toca código productivo. Cruza lo asumido en código/docs contra doc oficial. Todo lo [a verificar manual] requiere consola/dispositivo real + contador para ARCA.

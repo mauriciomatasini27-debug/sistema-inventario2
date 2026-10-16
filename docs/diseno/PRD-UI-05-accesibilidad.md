@@ -1,3 +1,13 @@
+---
+id: PRD-UI-05
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0009, ADR-0036, PRD-DS-01, PRD-DS-02, PRD-UI-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UI-05 - Accesibilidad WCAG (R2)
 
 Fuente: `.agents/skills/better-accessibility/SKILL.md`, `docs/diseno/PRD-DS-02-componentes.md` (DS-S13 a DS-S17). Fecha extracción: 2026-10-12. Restringido por ADR-0036, ADR-0009, ADR-0002.

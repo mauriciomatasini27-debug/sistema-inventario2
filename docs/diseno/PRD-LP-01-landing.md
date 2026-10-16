@@ -1,3 +1,13 @@
+---
+id: PRD-LP-01
+tipo: prd
+estado: propuesto
+modulos: [inventario, landing]
+depende_de: [ADR-0002, ADR-0008, ADR-0010, PRD-LANDING-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-LP-01 - Landing Inventario (R2)
 
 Fuente: `consultoria/docs/marketing-one-pager.md`, `landing-architecture.md`, `DESIGN.md`, `web/`. Restringido por ADR-0010, ADR-0008, ADR-0002.

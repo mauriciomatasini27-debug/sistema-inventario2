@@ -1,3 +1,13 @@
+---
+id: MOD-04-TICKET-VENTA-PARTE-2
+tipo: spec
+estado: propuesto
+modulos: [caja, fiado, ventas]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Ticket de Venta para Sistema de Inventario - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/sales/ticket_*`, `src/pages/api/tickets/*`
 
 ---

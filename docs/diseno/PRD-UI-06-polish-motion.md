@@ -1,3 +1,13 @@
+---
+id: PRD-UI-06
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0008, ADR-0037, PRD-DS-01, PRD-UI-05]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UI-06 - Polish y motion (R2)
 
 Fuente: `.agents/skills/better-ui/SKILL.md`, `.agents/skills/emil-design-eng/SKILL.md`, `.agents/skills/animate/SKILL.md`, `.agents/skills/review-animations/SKILL.md`, `.agents/skills/improve-animations/SKILL.md`, `.agents/skills/find-animation-opportunities/SKILL.md`, `.agents/skills/animation-performance/SKILL.md`, `.agents/skills/pick-ui-library/SKILL.md`, `.agents/skills/mobile-native/SKILL.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0037, ADR-0008, ADR-0002.

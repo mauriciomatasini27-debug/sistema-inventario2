@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-06
+tipo: prd
+estado: propuesto
+modulos: [inventario, offline, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0081, PRD-SYNC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-06 - Catálogo del delta de sync/pull DB-first
 
 Fuente: pendiente de ADR-0061 ("el catálogo del delta de `pull` (stock y precios) sigue saliendo del espejo en memoria"); `docs/ROADMAP.md`, Pendientes priorizados P1.4. Uso en este sistema: sincronización offline de cualquier comercio. Restringido por ADR-0081, ADR-0061, ADR-0052 y ADR-0024. Tipo persistencia. No amplía el shape del catálogo (sigue `{ stock, prices }` por SKU).

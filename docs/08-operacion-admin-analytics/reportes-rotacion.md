@@ -1,3 +1,13 @@
+---
+id: MOD-08-REPORTES-ROTACION
+tipo: spec
+estado: propuesto
+modulos: [admin]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Reportes de Rotación de Productos para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/analytics`, `src/pages/api/analytics/*`, `src/db/schema-analytics.ts`
 
 ---

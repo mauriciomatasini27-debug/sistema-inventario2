@@ -1,3 +1,13 @@
+---
+id: PRD-LP-04
+tipo: prd
+estado: propuesto
+modulos: [landing, persistencia]
+depende_de: [ADR-0010, ADR-0022, ADR-0036, ADR-0046, PRD-DS-01, PRD-LP-01, PRD-LP-02, PRD-LP-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-LP-04 - Chat flotante en la landing para clientes (R2)
 
 Fuente: PRD-LP-01, PRD-LP-02, PRD-LP-03, `docs/09-frontend-landing-diseno/landing-gaps-modoops.md`, `src/data/business.ts`, `.agents/skills/better-accessibility/SKILL.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0010, ADR-0022, ADR-0036, ADR-0046. Gap: la landing solo tiene formulario Formspree y contacto; sin respuesta inmediata.

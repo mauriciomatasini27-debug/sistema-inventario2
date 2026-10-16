@@ -1,3 +1,13 @@
+---
+id: PRD-CAT-01
+tipo: prd
+estado: propuesto
+modulos: [inventario]
+depende_de: [ADR-0012]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-CAT-01 - Catálogo, lotes FEFO, ubicaciones y conteo
 
 Fuente: `docs/03-inventario-precios/inventario-parte-*.md` (F1, F2, F9, F12, F13), ADR-0012. Gap: sin `products CRUD`, sin `/api/lots|/api/locations`; `inventory_counts` sin sector; sin `locations/promotions` tablas.

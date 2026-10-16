@@ -1,3 +1,13 @@
+---
+id: PRD-E2E-01
+tipo: prd
+estado: propuesto
+modulos: [onboarding, tenant]
+depende_de: [ADR-0001, ADR-0030, ADR-0031]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-E2E-01 - Flujo demo con dos tenants: kiosco del dueño y almacén de ejemplo
 
 Fuente: auditoría e2e 2026-10-12 sobre `src/pages/api/onboarding/alta.ts:24` (alta pide sesión, plan demo, 1 comercio por usuario), `src/pages/api/tenants.ts:21-26` (alta admin pide superadmin), `src/lib/control.ts:49-55` (`esSuperadmin` por allowlist), `src/modules/tenants/aprovisionar.ts:74-75` (`decidirAlta` reusa si el dueño ya tiene comercio), `src/lib/env.ts` (fallback `import.meta.env` en dev), `tests/e2e/venta.spec.ts:6` (e2e sin login real). Restringido por ADR-0001, ADR-0030, ADR-0031, `docs/02-identidad-onboarding/autenticacion.md` (OIDC único, sin password).

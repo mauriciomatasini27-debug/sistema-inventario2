@@ -1,3 +1,13 @@
+---
+id: PRD-DEP-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0065, ADR-0067, ADR-0072]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-DEP-01 - Actualización de dependencias
 
 Fuente: PRs de Dependabot #6 a #19 (abiertos 2026-10-14), alertas de Dependabot del repositorio y `npm audit` sobre `main` (`c02e702`). Uso en este sistema: base técnica común a cualquier comercio, sin reglas por rubro. Restringido por ADR-0067 a ADR-0072 y ADR-0065 (CI obligatorio). Tipo mantenimiento y seguridad.

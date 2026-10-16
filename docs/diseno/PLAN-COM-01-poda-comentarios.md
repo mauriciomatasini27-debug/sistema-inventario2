@@ -1,3 +1,13 @@
+---
+id: PLAN-COM-01
+tipo: plan
+estado: propuesto
+modulos: [admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas]
+depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0017, ADR-0018, ADR-0019, ADR-0020]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PLAN-COM-01 - Plan de poda de comentarios de código
 
 Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md` (COM-S4), ADR-0064 (propuesto). Tipo: reference. Solo análisis: este plan no cambia código.

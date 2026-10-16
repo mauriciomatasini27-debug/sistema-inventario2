@@ -1,3 +1,13 @@
+---
+id: PRD-PS-01
+tipo: prd
+estado: propuesto
+modulos: [caja]
+depende_de: [ADR-0084]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PS-01 - Pstack efectivo en opencode
 
 Fuente: auditoria 2026-10-15 sobre `opencode.json` (agents `poteto-agent`, `comment-sicko`, `pstack-worker`, `pstack-judge`), `.opencode/pstack-models.md` (roles a agentes nombrados), `.opencode/pstack-opencode.md` y `.opencode/pstack-run.sh` en `main`. Gap: hay cableado sin spec de efectividad ni test de conformidad. El wiring ya existe medido hoy.

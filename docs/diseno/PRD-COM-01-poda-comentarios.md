@@ -1,3 +1,13 @@
+---
+id: PRD-COM-01
+tipo: prd
+estado: propuesto
+modulos: [persistencia]
+depende_de: [ADR-0016, ADR-0064]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-COM-01 - Poda de comentarios de código
 
 Fuente: skill `no-comments` de pstack (agente `comment-sicko` en `.opencode/`). Uso en este sistema: todo `src/` de cualquier comercio, sin reglas por rubro salvo las que el código ya marca como propias de un rubro (por ejemplo kiosco). Restringido por ADR-0064. Tipo proceso según ADR-0016.

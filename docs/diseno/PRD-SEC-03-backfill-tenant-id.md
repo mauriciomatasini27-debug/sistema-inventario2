@@ -1,3 +1,13 @@
+---
+id: PRD-SEC-03
+tipo: prd
+estado: propuesto
+modulos: [tenant]
+depende_de: [ADR-0050, ADR-0051, ADR-0074, ADR-0075]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SEC-03 - Backfill real de `tenant_id` en filas fiscales previas
 
 Fuente: `docs/ROADMAP.md`, Pendientes priorizados P0.3 (2026-10-14), pendientes de ADR-0050, ADR-0051 y ADR-0074. Uso en este sistema: bases de cualquier comercio, sin reglas por rubro. Restringido por ADR-0075, ADR-0074, ADR-0051 y ADR-0050. Tipo seguridad.

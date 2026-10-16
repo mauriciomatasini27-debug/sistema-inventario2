@@ -1,3 +1,13 @@
+---
+id: PRD-PWA-01
+tipo: prd
+estado: propuesto
+modulos: [offline, persistencia]
+depende_de: [ADR-0003]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PWA-01 - PWA instalable + SQLite local + OPFS
 
 Fuente: `docs/01-fundacion/modo-offline.md` (OF1, OF3, OF11, OF14), ADR-0003. Gap: `src/offline/db.ts:2-3` stub en memoria; `public/` sin manifest/SW/iconos; 0 hits `manifest|serviceWorker` en `src/`.

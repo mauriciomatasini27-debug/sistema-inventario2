@@ -1,3 +1,13 @@
+---
+id: MOD-02-AUTENTICACION-GESTION-USUARIOS
+tipo: spec
+estado: propuesto
+modulos: [auth, onboarding]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Autenticación y Gestión de Usuarios para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/auth`, `src/pages/api/auth/*`, `src/db/schema.ts`
 
 ---

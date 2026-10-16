@@ -1,3 +1,13 @@
+---
+id: PRD-CP-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0006, ADR-0011]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-CP-01 - Control Plane ModoOps reutilizable (R2)
 
 Fuente: `consultoria/docs/modoops-control-plane-spec.md`, `modoops_admin/` (manifest, tenant model, views), ADR 0006/0007. Restringido por ADR-0011, ADR-0006.

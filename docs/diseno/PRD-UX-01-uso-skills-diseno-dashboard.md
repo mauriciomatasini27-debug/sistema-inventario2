@@ -1,3 +1,13 @@
+---
+id: PRD-UX-01
+tipo: prd
+estado: propuesto
+modulos: [admin]
+depende_de: [ADR-0036, ADR-0037, ADR-0038, ADR-0044, ADR-0046, PRD-DASH-01, PRD-DS-01, PRD-DS-02, PRD-UI-01, PRD-UI-07]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UX-01 - Uso de skills de diseño en el dashboard: PRD-DASH-01 y pulido del panel actual (R2)
 
 Fuente: PRD-DASH-01, PRD-UI-01 a PRD-UI-07, PRD-DS-01, PRD-DS-02, `package.json` (sin `sonner`, sin `react`, sin `@astrojs/react`), `src/pages/panel.astro` (HTML propio sin layout, tarjetas `.card` con `id` `caja`, `movimientos`, `reportes`, `ventas`, `medios`, `consumos`, `pagar-servicio`, `stock`, `precios`, `proveedores`, `fiado`, `ajustes`; colores sueltos `#ddd6c4`, `#e3ddcd`, `#fff`), `src/pages/index.astro`, `src/layouts/BaseLayout.astro`, `src/components/ui/FloatingWhatsApp.astro`, `src/components/sections/Faq.astro`. Skills: `.agents/skills/emil-design-eng`, `animate`, `animation-performance`, `review-animations`, `improve-animations`, `find-animation-opportunities`, `apple-design`, `mobile-native`, `pick-ui-library`, `break-ui`, `ask-sonner` (Emil Kowalski); `better-accessibility`, `better-colors`, `better-layout`, `better-typography`, `better-ui`, `better-writing`, `better-interface`, `interface-review`, `break`, `state-machine`, `variant` (Jakub Krehel); `web-design-guidelines`, `writing-guidelines` (Vercel). Fecha extracción: 2026-10-12. Restringido por ADR-0037, ADR-0038, ADR-0036, ADR-0044, ADR-0046.

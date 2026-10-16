@@ -1,3 +1,13 @@
+---
+id: MOD-01-MODO-OFFLINE
+tipo: spec
+estado: propuesto
+modulos: [inventario, offline]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Modo Offline para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/offline/`, `src/pages/api/sync/*`, `src/lib/outbox.ts`
 
 ---

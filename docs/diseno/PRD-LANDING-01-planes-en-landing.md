@@ -1,3 +1,13 @@
+---
+id: PRD-LANDING-01
+tipo: prd
+estado: propuesto
+modulos: [landing, precios]
+depende_de: [ADR-0010, ADR-0012, ADR-0021, ADR-0022, ADR-0029, ADR-0030, ADR-0032, ADR-0038, ADR-0046, ADR-0047]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-LANDING-01 - Planes y precios en la landing (R2)
 
 Fuente: PRD-PLAN-01 (tabla de planes, PLAN-E6 embudo, PLAN-S15 prueba 14 días, PLAN-S16 chat como captación), PRD-PLAN-02 (rangos y PLAN2-S4 condiciones de publicación), ADR-0047, `docs/01-fundacion/costos-por-cliente.md` (referencia 15/35/59 USD), PRD-LP-01 (LP-S2 fuente única `business.ts`, LP-S5 un solo precio público), PRD-LP-02 (LP2-S1 features por plan, LP2-S2 nota de cotización, AT3), PRD-LP-03, PRD-LP-04, PRD-NEG-01 (NEG-S8 Descubrimiento como único precio), PRD-OP-01 (OP-S4 landing E13), PRD-DASH-01 (DASH-S10 `ChatLanding.astro`), PRD-UI-01 a PRD-UI-07, `docs/diseno/SPEC-UI-00-implementacion.md`, `docs/09-frontend-landing-diseno/landing-gaps-modoops.md` (E1-E13), `docs/README.md` sección 09, ADR-0010, ADR-0021, ADR-0022, ADR-0029, ADR-0030, ADR-0046, `src/pages/index.astro`, `src/layouts/BaseLayout.astro`, `src/components/sections/*.astro`, `src/components/sections/Planes.astro`, `src/components/ui/FloatingWhatsApp.astro`, `src/data/business.ts:44-75,168-171`. Fecha extracción: 2026-10-12. Restringido por ADR-0047, ADR-0010, ADR-0012, ADR-0032 a ADR-0038, ADR-0046.

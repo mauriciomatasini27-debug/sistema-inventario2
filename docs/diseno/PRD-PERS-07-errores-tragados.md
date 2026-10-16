@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-07
+tipo: prd
+estado: propuesto
+modulos: [admin, bot, offline, pagos, persistencia, ventas]
+depende_de: [ADR-0065, ADR-0073, ADR-0082]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-07 - Errores tragados de E7 a cero
 
 Fuente: E7 de ADR-0073 ("Errores tragados: 9 en `src` hoy"); `docs/ROADMAP.md`, Pendientes priorizados P1.5. Uso en este sistema: diagnóstico de fallas en caja, alta, pagos, WhatsApp y cola offline de cualquier comercio. Restringido por ADR-0082, ADR-0073 y ADR-0065. Tipo calidad. No cambia shapes HTTP, status codes ni comportamiento visible de la UI.

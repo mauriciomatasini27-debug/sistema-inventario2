@@ -1,3 +1,13 @@
+---
+id: PRD-SK-02
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0001, ADR-0005, ADR-0015]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SK-02 - Skill de diseño: architect (R2)
 
 Fuente: `~/.config/opencode/skills/architect/SKILL.md` más `references/design-red-flags.md` y `rationale-template.md`. Uso en este sistema: toda decisión one-way-door (multitenancy, auth, offline, panel). Restringido por ADR-0015. Tipo proceso según ADR-0015.

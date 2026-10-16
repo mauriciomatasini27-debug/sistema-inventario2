@@ -1,3 +1,13 @@
+---
+id: PRD-ROAD-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0065, ADR-0073, ADR-0076]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-ROAD-01 - Avances del roadmap sin conflictos entre PRs
 
 Fuente: conflictos repetidos en `docs/ROADMAP.md` entre PRs concurrentes (merge `f93c70d`, "conflicto ROADMAP" entre #31 y #32). Uso en este sistema: proceso de desarrollo, sin código de producto. Restringido por ADR-0076, ADR-0065 y ADR-0073. Tipo proceso.

@@ -1,3 +1,13 @@
+---
+id: MOD-05-ORDENES-PAGO
+tipo: spec
+estado: propuesto
+modulos: [compras, pagos]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Órdenes de Pago para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/payments`, `src/pages/api/payment-orders/*`, `src/db/schema-pagos.ts`
 
 ---

@@ -1,3 +1,13 @@
+---
+id: EVIDENCIA-UI-00
+tipo: spec
+estado: propuesto
+modulos: []
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # EVIDENCIA-UI-00 - Tickets T-UI-04, T-UI-05, T-UI-07
 
 Fuente: corridas del 2026-10-12 con `check-contrast.mjs`, `review-scope.mjs` y grep sobre `src/pages`.

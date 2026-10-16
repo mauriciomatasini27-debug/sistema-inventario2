@@ -1,3 +1,13 @@
+---
+id: PRD-UI-07
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0038, PRD-UI-01, PRD-UI-06]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UI-07 - Revisión y stress automatizado (R2)
 
 Fuente: `.agents/skills/better-interface/SKILL.md`, `.agents/skills/interface-review/SKILL.md`, `.agents/skills/break/SKILL.md`, `.agents/skills/break-ui/SKILL.md`, `.agents/skills/state-machine/SKILL.md`, `.agents/skills/variant/SKILL.md`, `.agents/skills/build-design/SKILL.md`, `.agents/skills/explain-interface/SKILL.md`, `.agents/skills/web-design-guidelines/SKILL.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0038, ADR-0002.

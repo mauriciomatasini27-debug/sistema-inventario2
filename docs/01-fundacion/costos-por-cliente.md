@@ -1,3 +1,13 @@
+---
+id: MOD-01-COSTOS-POR-CLIENTE
+tipo: spec
+estado: propuesto
+modulos: [bot, inventario]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `Costos estimados por cliente - Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/payments`, `src/modules/whatsapp`, `src/modules/ocr`
 
 ---

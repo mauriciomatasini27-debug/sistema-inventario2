@@ -1,3 +1,13 @@
+---
+id: MOD-04-CAJA-DIGITAL-PARTE-1
+tipo: spec
+estado: propuesto
+modulos: [caja, fiado, ventas]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Caja Digital para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/cash/caja.ts`, `src/pages/api/cash/*`, `src/db/schema-caja.ts`
 
 ---

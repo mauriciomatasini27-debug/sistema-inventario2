@@ -1,3 +1,13 @@
+---
+id: MOD-08-DASHBOARD-INDICE-NAVEGACION
+tipo: spec
+estado: propuesto
+modulos: [admin]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Indice y Navegacion Dashboard Principal para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/`
 
 ---

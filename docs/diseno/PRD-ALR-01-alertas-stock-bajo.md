@@ -1,3 +1,13 @@
+---
+id: PRD-ALR-01
+tipo: prd
+estado: propuesto
+modulos: [bot, email, inventario]
+depende_de: [ADR-0024, ADR-0028, ADR-0039, ADR-0043]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-ALR-01 - Alertas automáticas de stock bajo (R2)
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` (B4 alertas por umbral, B5 aviso matutino), `docs/07-canales-whatsapp-email/notificaciones-email.md` (NE2 matutino), `src/modules/email/stock-matutino.ts`, `src/modules/whatsapp/alertas.ts`, `src/jobs/whatsapp-aviso-matutino.ts`, `docs/migracion-supabase.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0024, ADR-0028, ADR-0039, ADR-0043. Gap: núcleo puro y tests existen; sin scheduler real ni mínimo editable persistido.

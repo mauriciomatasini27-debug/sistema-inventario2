@@ -1,3 +1,13 @@
+---
+id: PRD-PROC-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0076, ADR-0083]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PROC-01 - Mejoras de proceso de la auditoría
 
 Fuente: auditoría de proceso (2026-10-14). Uso en este sistema: tiempo de CI, evidencia de PRs y costo de documentación de cada ítem. Restringido por ADR-0083 y ADR-0076. Tipo proceso. No cambia código de `src`.

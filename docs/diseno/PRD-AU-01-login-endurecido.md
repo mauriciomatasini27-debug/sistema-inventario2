@@ -1,3 +1,13 @@
+---
+id: PRD-AU-01
+tipo: prd
+estado: propuesto
+modulos: [auth]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-AU-01 - Login OAuth: cookies perdidas y pendingAuth sin expiración
 
 Fuente: auditoría pstack 3 workers sobre `src/pages/api/auth/login.ts`,

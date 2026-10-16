@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-05
+tipo: prd
+estado: propuesto
+modulos: [fiado, offline, persistencia, ventas]
+depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, ADR-0080]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-05 - Correlativos de devoluciones y tickets DB-first
 
 Fuente: pendientes de ADR-0063 ("`nextReturn` no tiene tabla: el correlativo vive en memoria del repo") y ADR-0061 / ADR-0066 (correlativo `T-*` de `promote`); `docs/ROADMAP.md`, Pendientes priorizados P1.3. Uso en este sistema: numeración interna `D-*` de devoluciones y `T-*` de tickets de mostrador de cualquier comercio. Restringido por ADR-0080, ADR-0066, ADR-0063, ADR-0061, ADR-0052 y ADR-0024. Tipo persistencia. No toca numeración fiscal (`fiscal_sequences`, ARCA).

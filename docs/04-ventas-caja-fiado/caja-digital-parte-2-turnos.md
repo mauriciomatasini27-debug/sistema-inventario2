@@ -1,3 +1,13 @@
+---
+id: MOD-04-CAJA-DIGITAL-PARTE-2-TURNOS
+tipo: spec
+estado: propuesto
+modulos: [caja, fiado, ventas]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Caja Digital (Parte 2_ Turnos, Retiros, Sueldos y Fiado).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/cash/turnos.ts`, `src/pages/api/cash/shifts*`
 
 ---

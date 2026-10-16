@@ -1,3 +1,13 @@
+---
+id: MOD-02-ONBOARDING-PARTE-2
+tipo: spec
+estado: propuesto
+modulos: [auth, onboarding]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Onboarding de Nuevos Clientes para Sistema de Inventario - Parte 2.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/onboarding`, `src/modules/tenants`, `src/pages/api/onboarding/*`
 
 ---

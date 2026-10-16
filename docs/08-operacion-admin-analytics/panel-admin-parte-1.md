@@ -1,3 +1,13 @@
+---
+id: MOD-08-PANEL-ADMIN-PARTE-1
+tipo: spec
+estado: propuesto
+modulos: [admin]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Panel de Administración Multi-Kiosco para Sistema de Inventario (Parte 1 de 3).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/admin`, `src/pages/api/admin/*`, `src/db/schema-admin.ts`
 
 ---

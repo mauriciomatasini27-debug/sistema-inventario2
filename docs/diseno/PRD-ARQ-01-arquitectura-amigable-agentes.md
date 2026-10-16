@@ -1,3 +1,13 @@
+---
+id: PRD-ARQ-01
+tipo: prd
+estado: propuesto
+modulos: [persistencia]
+depende_de: [ADR-0016, ADR-0062, ADR-0064, ADR-0065, PRD-COM-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-ARQ-01 - Arquitectura amigable para agentes
 
 Fuente: skills `correct` y `architect` de pstack en `/poteto-mode` (OpenCode, `.opencode/pstack-opencode.md`), sobre el historial de `main` (49 commits hasta `0cec0f0`), los mensajes de commit, los "Pendientes" y la "Evidencia" de los ADR 0050 a 0063 y los arreglos a mano de la rama `chore/github-setup` (`dec03df`, `dfdf79e`). Uso en este sistema: todo el código de cualquier comercio, sin reglas por rubro. Restringido por ADR-0065. Tipo arquitectura según ADR-0016.

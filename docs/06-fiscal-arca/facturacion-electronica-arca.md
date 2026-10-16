@@ -1,3 +1,13 @@
+---
+id: MOD-06-FACTURACION-ELECTRONICA-ARCA
+tipo: spec
+estado: propuesto
+modulos: [fiscal]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Facturación Electrónica ARCA para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/fiscal`, `src/pages/api/fiscal/*`, `src/db/schema-fiscal.ts`
 
 ---

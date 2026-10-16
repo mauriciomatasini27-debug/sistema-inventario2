@@ -1,3 +1,13 @@
+---
+id: MOD-07-BOT-WHATSAPP-PARTE-1
+tipo: spec
+estado: propuesto
+modulos: [bot, email]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Bot de WhatsApp para Sistema de Inventario.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/whatsapp`, `src/pages/api/whatsapp/*`, `src/db/schema-whatsapp.ts`
 
 ---

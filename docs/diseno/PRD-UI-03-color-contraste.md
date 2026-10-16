@@ -1,3 +1,13 @@
+---
+id: PRD-UI-03
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0008, ADR-0034, PRD-DS-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UI-03 - Color semántico y contraste (R2)
 
 Fuente: `.agents/skills/better-colors/SKILL.md`, `docs/diseno/PRD-DS-01-tokens-tema-papel.md` (DS-S1 a DS-S5). Fecha extracción: 2026-10-12. Restringido por ADR-0034, ADR-0008, ADR-0002.

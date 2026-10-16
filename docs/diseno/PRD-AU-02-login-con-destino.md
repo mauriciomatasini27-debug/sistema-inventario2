@@ -1,3 +1,13 @@
+---
+id: PRD-AU-02
+tipo: prd
+estado: propuesto
+modulos: [admin, auth, tenant]
+depende_de: [ADR-0030, ADR-0031, PRD-AU-01, PRD-LP-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-AU-02 - Login con destino: `next` y bifurcación admin/tenant (R2)
 
 Fuente: auditoría panel 3 workers sobre `src/pages/api/auth/login.ts` (sin `next`, solo `invitation_token` + `prompt`), `src/pages/api/auth/callback.ts:177` (redirect hardcodeado `tenantId ? "/" : "/?alta=pendiente"`), `src/lib/store.ts:361` (`pendingAuth` sin destino), `src/modules/admin/guard.ts` + `_guard.ts` (allowlist `ADMIN_ALLOWLIST_SUBS` sin presencia en `.env`/`.env.example`), `src/pages/api/tenants.ts:24` y `admin/onboarding/embudo.ts:13` (usan `SUPERADMIN_SUBS` en vez de `exigirAdmin`). Patrón a copiar: `continuar` de reauth (`reauth.ts:27,37`, `store.ts:363`, `reauth/callback.ts:133`). Restringido por ADR-0030, ADR-0031, PRD-AU-01 (fix login, no solapar), `docs/02-identidad-onboarding/autenticacion.md` (OIDC único, sin password).

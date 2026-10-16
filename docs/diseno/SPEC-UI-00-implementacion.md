@@ -1,3 +1,13 @@
+---
+id: SPEC-UI-00
+tipo: spec
+estado: propuesto
+modulos: []
+depende_de: [PRD-UI-00, PRD-UI-07]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # SPEC-UI-00 - Implementación ADRs 0032 a 0038
 
 Fuente: `diseno/PRD-UI-0*.md`, `adr/0032..0038`, hallazgos repo 2026-10-12: sin `--mo-*`, Tailwind v4 `@theme` en `src/styles/global.css`, sin lint, sin harness, `panel/venta/admin` con `<style>` inline.

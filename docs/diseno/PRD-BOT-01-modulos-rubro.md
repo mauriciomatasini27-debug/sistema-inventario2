@@ -1,3 +1,13 @@
+---
+id: PRD-BOT-01
+tipo: prd
+estado: propuesto
+modulos: [bot]
+depende_de: [ADR-0012]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-BOT-01 - Bot único con módulos por rubro + resumen mensual
 
 Fuente: `07-canales-whatsapp-email/bot-whatsapp-parte-*.md` (B1-B15), ADR-0012, `src/modules/whatsapp/*`. Gap: el bot asume rubro quiosco; sin resumen mensual; sin acciones propuestas por rubro.

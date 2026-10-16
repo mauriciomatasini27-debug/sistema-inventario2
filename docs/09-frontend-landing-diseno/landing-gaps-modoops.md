@@ -1,3 +1,13 @@
+---
+id: MOD-09-LANDING-GAPS-MODOOPS
+tipo: spec
+estado: propuesto
+modulos: [landing]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Landing Page - Gaps vs ModoOps.docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/pages/index.astro`, `src/components/sections/`, `docs/adr/0022-landing-gaps.md`
 
 ---

@@ -1,3 +1,13 @@
+---
+id: PRD-PLAN-02
+tipo: prd
+estado: propuesto
+modulos: [bot, fiscal, precios]
+depende_de: [ADR-0018, ADR-0041, ADR-0045, ADR-0047, PRD-ALR-01, PRD-BOT-02, PRD-CAJA-01, PRD-CAT-01, PRD-DASH-01, PRD-FE-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PLAN-02 - Precios de la suscripción: rango por plan, costos y mercado (R2)
 
 Fuente: PRD-PLAN-01, ADR-0047 (no fija montos; cita 15/35/59 USD solo como referencia de `costos-por-cliente.md`), `docs/01-fundacion/costos-por-cliente.md`, `docs/02-identidad-onboarding/onboarding-parte-2.md` (cupo Básico 100 mensajes), PRD-NEG-01 (único precio público hoy: Descubrimiento), PRD-DASH-01, PRD-UX-01, PRD-BOT-02, PRD-ALR-01, PRD-IA-01, PRD-LP-04, PRD-CAJA-01, PRD-CAT-01, PRD-FE-01, relevamiento de `src/` (`src/lib/store.ts` en memoria, `src/modules/whatsapp/cliente-cloud.ts`, `src/pages/api/billing/webhooks/mercadopago.ts`, `src/modules/fiscal/*`). Fuentes externas consultadas el 2026-10-12 (URLs en cada tabla). Fecha extracción: 2026-10-12. Restringido por ADR-0047, ADR-0041, ADR-0045, ADR-0018.

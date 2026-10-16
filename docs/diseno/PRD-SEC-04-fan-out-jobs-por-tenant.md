@@ -1,3 +1,13 @@
+---
+id: PRD-SEC-04
+tipo: prd
+estado: propuesto
+modulos: [tenant]
+depende_de: [ADR-0050, ADR-0051, ADR-0052, ADR-0077, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SEC-04 - Fan-out de jobs por tenant
 
 Fuente: pendientes de ADR-0052 ("Fan-out de jobs por tenant") y de PRD-PERS-02 ("Jobs que recorren todos los comercios necesitan un fan-out por tenant desde control"); `docs/ROADMAP.md`, Pendientes priorizados P0.4. Uso en este sistema: jobs de cualquier comercio, sin reglas por rubro. Restringido por ADR-0077, ADR-0052, ADR-0051 y ADR-0050. Tipo seguridad.

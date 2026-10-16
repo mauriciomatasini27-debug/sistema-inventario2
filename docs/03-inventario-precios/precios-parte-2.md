@@ -1,3 +1,13 @@
+---
+id: MOD-03-PRECIOS-PARTE-2
+tipo: spec
+estado: propuesto
+modulos: [inventario, precios]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Gestión de Precios para Sistema de Inventario (Parte 2).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/pricing`, `src/pages/api/prices/*`
 
 ---

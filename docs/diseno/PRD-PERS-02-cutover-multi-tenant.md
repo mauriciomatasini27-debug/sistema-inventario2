@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-02
+tipo: prd
+estado: propuesto
+modulos: [bot, caja, compras, email, fiado, fiscal, inventario, offline, pagos, persistencia, precios, tenant, ventas]
+depende_de: [ADR-0002, ADR-0023, ADR-0024, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-02 - Cutover a Postgres por tenant: memoria aislada, sin fallback silencioso en multi y jobs con tenant (R1)
 
 Fuente: PRD-PERS-01 (PERS-S4 y PERS-S5 pendientes), ADR-0024, ADR-0050, ADR-0051, PRD-ISO-02 (Pendientes), `node scripts/cutover-scope.mjs` (110 archivos de `src/pages/api` importan `src/lib/store.ts`, medido 2026-10-13), `src/lib/store.ts:97` (`store` único por proceso), `src/lib/server-db.ts` (`intentarLeer`/`intentarPersistir` devuelven `null`/`false` y el caller cae a memoria), `dbViva()` local en 13 rutas y en `src/lib/compras-db.ts`, `src/middleware.ts` (`X-Job-Secret` pasa sin tenant), `src/pages/api/jobs/*`. Fecha extracción: 2026-10-13. Restringido por ADR-0052, ADR-0024, ADR-0051, ADR-0002.

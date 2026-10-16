@@ -1,3 +1,13 @@
+---
+id: PRD-DS-02
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0002, ADR-0008, ADR-0009, PRD-DS-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-DS-02 - Componentes Tema Papel (R2)
 
 Fuente: `consultoria/modoops_core/static/src/scss/` launcher 414, rail 397, hub 294, pos 737, login 195, list 65, onboarding 234. Fecha: 2026-10-10. Restringido por ADR-0009, ADR-0008, ADR-0002.

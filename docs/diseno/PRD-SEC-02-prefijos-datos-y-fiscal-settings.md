@@ -1,3 +1,13 @@
+---
+id: PRD-SEC-02
+tipo: prd
+estado: propuesto
+modulos: [fiscal, persistencia, tenant]
+depende_de: [ADR-0024, ADR-0050, ADR-0051, ADR-0066, ADR-0074]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SEC-02 - Rutas de datos completas en el middleware y configuración fiscal por tenant
 
 Fuente: pendientes de ADR-0066 y relevamiento de `src/pages/api` del 2026-10-14 (`docs/ROADMAP.md`, Pendientes priorizados P0.1 y P0.2). Uso en este sistema: rutas de cualquier comercio, sin reglas por rubro. Restringido por ADR-0074, ADR-0066, ADR-0051, ADR-0050 y ADR-0024. Tipo seguridad.

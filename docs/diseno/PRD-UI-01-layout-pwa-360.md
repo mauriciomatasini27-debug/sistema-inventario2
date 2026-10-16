@@ -1,3 +1,13 @@
+---
+id: PRD-UI-01
+tipo: prd
+estado: propuesto
+modulos: [offline]
+depende_de: [ADR-0002, ADR-0009, ADR-0032, PRD-DS-01, PRD-DS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-UI-01 - Layout y base PWA 360px (R2)
 
 Fuente: `.agents/skills/better-layout/SKILL.md`, `.agents/skills/mobile-native/SKILL.md`, `docs/diseno/PRD-DS-02-componentes.md` (DS-S10 a DS-S12). Fecha extracción: 2026-10-12. Restringido por ADR-0032, ADR-0009, ADR-0002.

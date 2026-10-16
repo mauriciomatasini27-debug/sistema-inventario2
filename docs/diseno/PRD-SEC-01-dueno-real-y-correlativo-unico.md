@@ -1,3 +1,13 @@
+---
+id: PRD-SEC-01
+tipo: prd
+estado: propuesto
+modulos: []
+depende_de: [ADR-0024, ADR-0031, ADR-0051, ADR-0064, ADR-0066]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-SEC-01 - Dueño real, online real y correlativo único de tickets
 
 Fuente: hallazgos de `diseno/PLAN-COM-01-poda-comentarios.md` (comentarios falsos frente al código). Uso en este sistema: rutas de cualquier comercio, sin reglas por rubro. Restringido por ADR-0066, ADR-0064, ADR-0051, ADR-0031 (AU10) y ADR-0024. Tipo seguridad.

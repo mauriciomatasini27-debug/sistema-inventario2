@@ -1,3 +1,13 @@
+---
+id: MOD-03-INVENTARIO-PARTE-1
+tipo: spec
+estado: propuesto
+modulos: [inventario, precios]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 > Origen: `PRD - Sistema de Inventario para Kioscos y Comercios (Parte 1).docx` | Convertido a Markdown el 2026-10-11. Original archivado en `docs/_origen-docx/`. Código: `src/modules/inventario`, `src/pages/api/stock/*`, `src/db/schema.ts`
 
 ---

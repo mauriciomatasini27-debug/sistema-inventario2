@@ -1,3 +1,13 @@
+---
+id: MOD-02-AUTENTICACION
+tipo: spec
+estado: propuesto
+modulos: [auth, onboarding]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # Autenticación y Gestión de Usuarios — referencia técnica
 
 > Generado por auditoría de panel sobre el código (commits `0c920ec`, `d6d16eb`).

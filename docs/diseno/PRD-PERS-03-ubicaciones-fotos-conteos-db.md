@@ -1,3 +1,13 @@
+---
+id: PRD-PERS-03
+tipo: prd
+estado: propuesto
+modulos: [inventario, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0062, ADR-0078]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-PERS-03 - Ubicaciones, fotos de producto y conteos DB-first
 
 Fuente: pendientes de ADR-0062 ("ubicaciones, fotos de producto y conteos siguen en la memoria... aunque existen las tablas `locations`, `product_photos` y `stock_counts`/`stock_count_lines`"); `docs/ROADMAP.md`, Pendientes priorizados P1.1. Uso en este sistema: catálogo y stock de cualquier comercio. Restringido por ADR-0078, ADR-0062, ADR-0052 y ADR-0024. Tipo persistencia.

@@ -1,3 +1,13 @@
+---
+id: PRD-CAJA-01
+tipo: prd
+estado: propuesto
+modulos: [caja, ventas]
+depende_de: [PRD-CAT-01, PRD-SYNC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # PRD-CAJA-01 - QR, vencimientos y ticket_payments
 
 Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Gap: sin tabla `cash_qr_receipts|cash_due_items|ticket_payments`; sin `/api/cash/qr`.
