@@ -41,7 +41,11 @@ export const GET: APIRoute = async ({ request, url }) => {
         score: !busqueda || p.sku.toLowerCase() === busqueda || p.nombre.toLowerCase() === busqueda ? 1 : 0.5,
       }));
     const d = decidir_respuesta(candidatos);
-    if (d.kind === "sin_resultados") return Response.json({ intencion, decision: "sin_resultados", fuente: "db" });
+    if (d.kind === "sin_resultados")
+      return Response.json({ intencion, decision: "sin_resultados", fuente: "db", ...(d.sugerencia ? { sugerencia: d.sugerencia.sku } : {}) });
+    if (d.kind === "precisar") {
+      return Response.json({ intencion, decision: "precisar", total: d.total, fuente: "db" });
+    }
     if (d.kind === "desambiguar") {
       return Response.json({ intencion, decision: "desambiguar", opciones: d.opciones.map((o) => o.sku), fuente: "db" });
     }
@@ -63,7 +67,11 @@ export const GET: APIRoute = async ({ request, url }) => {
       score: !busqueda || p.sku.toLowerCase() === busqueda ? 1 : 0.5,
     }));
   const d = decidir_respuesta(candidatos);
-  if (d.kind === "sin_resultados") return Response.json({ intencion, decision: "sin_resultados", fuente: "memoria" });
+  if (d.kind === "sin_resultados")
+    return Response.json({ intencion, decision: "sin_resultados", fuente: "memoria", ...(d.sugerencia ? { sugerencia: d.sugerencia.sku } : {}) });
+  if (d.kind === "precisar") {
+    return Response.json({ intencion, decision: "precisar", total: d.total, fuente: "memoria" });
+  }
   if (d.kind === "desambiguar") {
     return Response.json({ intencion, decision: "desambiguar", opciones: d.opciones.map((o) => o.sku), fuente: "memoria" });
   }

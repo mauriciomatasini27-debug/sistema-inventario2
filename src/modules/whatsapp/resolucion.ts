@@ -35,7 +35,7 @@ export type Resolucion =
   | { readonly ok: false; readonly motivo: "no_vinculado" | "revocado" | "sin_membership" | "tenant_inactivo" };
 
 export const RESPUESTA_NO_VINCULADO =
-  "Este numero no esta vinculado a ningun comercio. Vinculalo desde la web." as const;
+  "Este numero no esta vinculado a ningun comercio. Pedí tu código de 6 dígitos en la web y escribí VINCULAR 123456." as const;
 
 export function resolver_comercio(opts: {
   remitenteE164: string;

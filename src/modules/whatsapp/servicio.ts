@@ -75,14 +75,21 @@ const SIN_TILDES = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0
 
 // Búsqueda en memoria con la misma forma que la futura `buscar_pg_trgm`
 // (pg_trgm + unaccent + product_aliases, documentada y fuera del slice).
+// El sku exacto (código de barras) resuelve directo con puntaje máximo.
 export function buscar_en_catalogo(catalogo: ReadonlyArray<ItemVivo>, termino: string, limite = 10): Candidato[] {
   const t = SIN_TILDES(termino).trim();
   if (!t) return [];
   const out: Candidato[] = [];
   for (const item of catalogo) {
+    const sku = SIN_TILDES(item.sku);
+    if (sku === t) {
+      out.push({ sku: item.sku, nombre: item.nombre, score: 1 });
+      continue;
+    }
     const nombre = SIN_TILDES(item.nombre);
     let score = 0;
-    if (nombre === t) score = 1;
+    if (sku.includes(t)) score = 0.9;
+    else if (nombre === t) score = 1;
     else if (nombre.startsWith(t)) score = 0.9;
     else if (nombre.includes(t)) score = 0.7;
     else {
@@ -101,9 +108,61 @@ export function buscar_en_catalogo(catalogo: ReadonlyArray<ItemVivo>, termino: s
   return out.sort((a, b) => b.score - a.score).slice(0, limite);
 }
 
+// BOT2-S2: ante cero candidatos, la sugerencia más cercana por prefijo de
+// palabra (tolerante a un typo al final del término).
+export function buscar_sugerencia(catalogo: ReadonlyArray<ItemVivo>, termino: string): ItemVivo | null {
+  const palabras = SIN_TILDES(termino)
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+  if (palabras.length === 0) return null;
+  for (const item of catalogo) {
+    const nom = SIN_TILDES(item.nombre).split(/\s+/);
+    if (palabras.some((p) => nom.some((n) => n.startsWith(p.slice(0, 3)) || p.startsWith(n.slice(0, 3))))) return item;
+  }
+  return null;
+}
+
 export type Atencion =
   | { readonly kind: "respuesta"; readonly texto: string }
   | { readonly kind: "desambiguar"; readonly opciones: Candidato[]; readonly texto: string };
+
+// BOT2-S2: la respuesta a "2" elige el segundo de la última lista numerada.
+export function resolver_seleccion(texto: string, opciones: ReadonlyArray<string>): string | null {
+  if (!/^\d+$/.test(texto.trim())) return null;
+  const n = Number(texto.trim());
+  if (n < 1 || n > Math.min(opciones.length, 5)) return null;
+  return opciones[n - 1] ?? null;
+}
+
+function responder_item(item: ItemVivo, ctx: ContextoBot, comercio: string, permisos: ReadonlyArray<string>): string {
+  const veCosto = autorizar_operacion(ctx, "ver_costos", permisos).ok && item.costoCentavos != null;
+  const base = formatear_stock({
+    nombre: item.nombre,
+    stock: item.stock,
+    umbral: item.umbral,
+    precioCentavos: item.precioCentavos,
+    comercio,
+  });
+  const extra = [
+    item.proveedor ? ` Proveedor: ${item.proveedor}.` : "",
+    veCosto ? ` Costo $${Number(item.costoCentavos) / 100}.` : "",
+  ].join("");
+  return `${base}${extra}`;
+}
+
+// BOT2-S2: atiende el número elegido sobre la lista numerada previa. Con sku
+// desconocido no filtra datos del catálogo.
+export function atender_seleccion(opts: {
+  ctx: ContextoBot;
+  sku: string;
+  catalogo: ReadonlyArray<ItemVivo>;
+  comercio: string;
+  permisos?: ReadonlyArray<string> | undefined;
+}): { readonly texto: string } {
+  const item = opts.catalogo.find((i) => i.sku === opts.sku);
+  if (!item) return { texto: `No encontré esa opción en ${opts.comercio}.` };
+  return { texto: responder_item(item, opts.ctx, opts.comercio, opts.permisos ?? []) };
+}
 
 export function atender_consulta(opts: {
   ctx: ContextoBot;
@@ -121,35 +180,30 @@ export function atender_consulta(opts: {
   const candidatos = buscar_en_catalogo(opts.catalogo, termino);
   const d = decidir_respuesta(candidatos);
   if (d.kind === "sin_resultados") {
-    return { kind: "respuesta", texto: `No encontré "${termino}" en ${opts.comercio}.` };
+    const sugerido = d.sugerencia
+      ? opts.catalogo.find((i) => i.sku === d.sugerencia!.sku)
+      : buscar_sugerencia(opts.catalogo, termino);
+    const pista = sugerido ? ` ¿Quisiste decir "${sugerido.nombre}"?` : "";
+    return { kind: "respuesta", texto: `No encontré "${termino}" en ${opts.comercio}.${pista}` };
+  }
+  if (d.kind === "precisar") {
+    return { kind: "respuesta", texto: `Encontré ${d.total} productos para "${termino}" en ${opts.comercio}. Precisá un poco más (marca o tamaño).` };
   }
   if (d.kind === "desambiguar") {
-    const lineas = d.opciones.map((o) => {
-      const item = opts.catalogo.find((i) => i.sku === o.sku);
+    const lineas = d.opciones.map((o, i) => {
+      const item = opts.catalogo.find((x) => x.sku === o.sku);
       const stock = item ? ` — ${item.stock} u.` : "";
-      return `${o.nombre}${stock}`;
+      return `${i + 1}) ${o.nombre}${stock}`;
     });
     return {
       kind: "desambiguar",
       opciones: d.opciones,
-      texto: `Encontré ${d.opciones.length} productos. ¿Cuál querés ver?\n${lineas.join("\n")}\n[${opts.comercio}]`,
+      texto: `Encontré ${d.opciones.length} productos. ¿Cuál querés ver?\n${lineas.join("\n")}\nRespondé con el número (1-${d.opciones.length}).\n[${opts.comercio}]`,
     };
   }
   const item = opts.catalogo.find((i) => i.sku === d.sku);
   if (!item) return { kind: "respuesta", texto: `No encontré "${termino}" en ${opts.comercio}.` };
-  const veCosto = autorizar_operacion(opts.ctx, "ver_costos", opts.permisos).ok && item.costoCentavos != null;
-  const base = formatear_stock({
-    nombre: item.nombre,
-    stock: item.stock,
-    umbral: item.umbral,
-    precioCentavos: item.precioCentavos,
-    comercio: opts.comercio,
-  });
-  const extra = [
-    item.proveedor ? ` Proveedor: ${item.proveedor}.` : "",
-    veCosto ? ` Costo $${Number(item.costoCentavos) / 100}.` : "",
-  ].join("");
-  return { kind: "respuesta", texto: `${base}${extra}` };
+  return { kind: "respuesta", texto: responder_item(item, opts.ctx, opts.comercio, opts.permisos ?? []) };
 }
 
 function atender_alertas(catalogo: ReadonlyArray<ItemVivo>, comercio: string): Atencion {

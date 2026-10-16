@@ -18,7 +18,8 @@ export function detectar_intencion(texto: string): Intencion {
 
 export function extraer_termino(texto: string): string {
   return SIN_TILDES(texto)
-    .replace(/cuantos|cuantas|me quedan|me queda|hay|a cuanto|precio|del|de|la|el|tengo|tienen|queda|quedan|hay|consultar|buscar/gi, " ")
+    .replace(/cuantos|cuantas|me quedan|me queda|hay|a cuanto|precio|del|de|la|el|tengo|tienen|tenes|stock|queda|quedan|consultar|buscar/gi, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -30,16 +31,31 @@ export interface Candidato {
 }
 
 // Margen entre 1° y 2° candidato: si es chico se desambigua (Flujo 2).
-export function decidir_respuesta(candidatos: ReadonlyArray<Candidato>, umbral = 0.3, margen = 0.08): { kind: "directo"; sku: string } | { kind: "desambiguar"; opciones: Candidato[] } | { kind: "sin_resultados" } {
+// BOT2-S2: 2 a 5 candidatos van a lista numerada; más de 5 piden precisar;
+// sin candidatos sobre el umbral se devuelve la sugerencia más cercana.
+export const MAX_OPCIONES_DESAMBIGUAR = 5 as const;
+
+export function decidir_respuesta(
+  candidatos: ReadonlyArray<Candidato>,
+  umbral = 0.3,
+  margen = 0.08,
+):
+  | { kind: "directo"; sku: string }
+  | { kind: "desambiguar"; opciones: Candidato[] }
+  | { kind: "precisar"; total: number }
+  | { kind: "sin_resultados"; sugerencia?: Candidato | undefined } {
   const top = [...candidatos].sort((a, b) => b.score - a.score).slice(0, 10);
   if (top.length === 0) return { kind: "sin_resultados" };
-  const primero = top[0]!;
-  if (primero.score < umbral) return { kind: "sin_resultados" };
-  const segundo = top[1];
-  if (top.length === 1 || !segundo || primero.score - segundo.score >= margen) {
+  const sobre = top.filter((c) => c.score >= umbral);
+  if (sobre.length === 0) return { kind: "sin_resultados", sugerencia: top[0] };
+  if (sobre.length > MAX_OPCIONES_DESAMBIGUAR) return { kind: "precisar", total: sobre.length };
+  const primero = sobre[0]!;
+  if (sobre.length === 1) return { kind: "directo", sku: primero.sku };
+  const segundo = sobre[1]!;
+  if (primero.score - segundo.score >= margen) {
     return { kind: "directo", sku: primero.sku };
   }
-  return { kind: "desambiguar", opciones: top };
+  return { kind: "desambiguar", opciones: sobre.slice(0, MAX_OPCIONES_DESAMBIGUAR) };
 }
 
 export function formatear_stock(opts: {

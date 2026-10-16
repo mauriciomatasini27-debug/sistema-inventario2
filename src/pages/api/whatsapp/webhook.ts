@@ -18,10 +18,9 @@ import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
-import { atender_consulta, emitir_contexto } from "../../../modules/whatsapp/servicio.js";
-import { construir_texto } from "../../../modules/whatsapp/envio.js";
+import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
+import { crearTransporteCloud, marcarLeidoCloud, normalizarEntrada } from "../../../modules/whatsapp/transport.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
-import { enviar_whatsapp, marcar_leido } from "../../../modules/whatsapp/cliente-cloud.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import {
   agregarListaViernes,
@@ -76,8 +75,8 @@ function credenciales_envio(env: NodeJS.ProcessEnv = process.env): CredencialesE
   return { phoneNumberId, token };
 }
 
-// Envía el texto por Cloud API + marca leído. Sin credenciales omite el
-// envío (enviado:false) pero igual responde 200 con la respuesta calculada.
+// Envía el texto por WhatsAppTransport (adaptador cloud) + marca leído. Sin
+// credenciales omite el envío (enviado:false) pero igual responde 200.
 async function responder(opts: {
   toE164: string;
   wamidEntrante: string;
@@ -85,9 +84,9 @@ async function responder(opts: {
   cred: CredencialesEnvio | null;
 }): Promise<boolean> {
   if (!opts.cred) return false;
-  const base = { phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token };
-  await marcar_leido({ ...base, wamidEntrante: opts.wamidEntrante });
-  const r = await enviar_whatsapp({ ...base, toE164: opts.toE164, payload: construir_texto(opts.texto) });
+  await marcarLeidoCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token, wamidEntrante: opts.wamidEntrante });
+  const t = crearTransporteCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token });
+  const r = await t.enviar(opts.toE164, opts.texto);
   return r.ok;
 }
 
@@ -260,6 +259,7 @@ export const POST: APIRoute = async ({ request }) => {
   const tenantPrevio = resolver_tenant_de(msg.remitente);
   const tenantId = tenantPrevio?.id ?? "";
   const catalogo = await listarCatalogoVivo(tenantId || undefined);
+  const sesion = await leerSesion(msg.remitente, ahoraMs, tenantId || undefined);
   const ruta = enrutar({
     texto: msg.texto,
     catalogo: catalogo.map((c) => ({ sku: c.sku, nombre: c.nombre, stock: c.stock, umbral: c.umbral, proveedor: c.proveedor ?? null })),
@@ -267,7 +267,7 @@ export const POST: APIRoute = async ({ request }) => {
     pedidos: await listarPedidosDia(tenantId || undefined),
     movs: await listarMovimientosVista(ahoraMs, tenantId || undefined),
     friday: leerListaViernes(tenantId, catalogo, ahoraMs),
-    sesion: await leerSesion(msg.remitente, ahoraMs, tenantId || undefined),
+    sesion,
     ahoraMs,
   });
   if (ruta.accion === "viernes_guardado") {
@@ -279,6 +279,24 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: true, accion: ruta.accion, respuesta: ruta.texto, enviado });
   }
   const intencion = detectar_intencion(msg.texto);
+  // BOT2-S2: "2" elige el segundo de la última lista numerada del bot.
+  if (intencion !== "stock" && intencion !== "precio" && intencion !== "alertas" && sesion?.paso === "desambiguar") {
+    const raw = sesion.contexto["opciones"];
+    const opciones = Array.isArray(raw) ? raw.filter((o): o is string => typeof o === "string") : [];
+    const sku = resolver_seleccion(msg.texto, opciones);
+    if (sku) {
+      const membSel = membershipActiva(r.tenantId, r.googleSub);
+      const sel = atender_seleccion({
+        ctx: emitir_contexto(r, ahoraMs),
+        sku,
+        catalogo: await listarCatalogoVivo(r.tenantId),
+        comercio: control.tenants.get(r.tenantId)?.nombreComercio ?? "tu comercio",
+        permisos: membSel?.permisos ?? [],
+      });
+      const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: sel.texto, cred });
+      return Response.json({ ok: true, accion: "consulta", respuesta: sel.texto, enviado });
+    }
+  }
   if (!sensible && !posibleCosto && intencion !== "stock" && intencion !== "precio" && intencion !== "alertas") {
     return Response.json({ ok: true, accion: "consulta", intencion });
   }
@@ -300,6 +318,10 @@ export const POST: APIRoute = async ({ request }) => {
   });
   // B4: la lista de alertas deja sesión para el "ver más" paginado.
   if (intencion === "alertas") await guardarSesion(msg.remitente, "alertas", { pagina: 1 }, ahoraMs, r.tenantId);
+  // BOT2-S2: la lista numerada deja sus skus para la selección con 1-5.
+  if (atencion.kind === "desambiguar") {
+    await guardarSesion(msg.remitente, "desambiguar", { opciones: atencion.opciones.map((o) => o.sku) }, ahoraMs, r.tenantId);
+  }
   const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: atencion.texto, cred });
   return Response.json({ ok: true, accion: "consulta", intencion, respuesta: atencion.texto, enviado });
 };
@@ -314,33 +336,8 @@ function resolver_tenant_de(remitente: string): { id: string; nombreComercio: st
   return { id: link.tenantId, nombreComercio: (t as { nombreComercio?: string }).nombreComercio ?? "tu comercio" };
 }
 
-interface TextoMsg {
-  readonly id?: string;
-  readonly from?: string;
-  readonly timestamp?: string;
-  readonly text?: { readonly body?: string };
-}
-interface ValueMsg {
-  readonly messages?: readonly TextoMsg[];
-}
-interface ChangeMsg {
-  readonly value?: ValueMsg;
-}
-interface EntryMsg {
-  readonly changes?: readonly ChangeMsg[];
-}
 function extraer_mensaje(body: unknown): { wamid: string; remitente: string; texto: string; timestampMs: number } | null {
-  try {
-    const b = body as { readonly entry?: readonly EntryMsg[] };
-    const msg = b.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!msg?.text?.body || !msg.from || !msg.id) return null;
-    return {
-      wamid: msg.id,
-      remitente: msg.from.startsWith("+") ? msg.from : `+${msg.from}`,
-      texto: msg.text.body,
-      timestampMs: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
-    };
-  } catch {
-    return null;
-  }
+  const m = normalizarEntrada(body);
+  if (!m) return null;
+  return { wamid: m.wamid, remitente: m.remitenteE164, texto: m.texto, timestampMs: m.timestampMs };
 }
