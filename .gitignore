@@ -9,4 +9,6 @@ test-results/
 playwright-report/
 *.log
 .pgdata/
+.verify-receipt.json
+vitest-report.json
 .pstack-tmp/

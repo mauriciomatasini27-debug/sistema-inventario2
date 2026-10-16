@@ -44,7 +44,7 @@ Run one at a time, or start one server and attach: `.opencode/pstack-run.sh` (se
 
 ## Roadmap
 
-Nunca editar `docs/ROADMAP.md` en un PR de implementación; el workflow `roadmap.yml` lo regenera en `main`. Agregar el avance en `docs/roadmap/avances/<número-ADR>.md` (formato en `docs/roadmap/avances/README.md`) y correr `npm run roadmap -- --validate` antes de abrir el PR.
+Nunca editar `docs/ROADMAP.md` a mano; se regenera con `npm run verify` (o `npm run roadmap`) y viaja en el PR. Agregar el avance en `docs/roadmap/avances/<número-ADR>.md` (formato en `docs/roadmap/avances/README.md`) y correr `npm run roadmap -- --validate` antes de abrir el PR.
 
 Ítems chicos (sin decisión de arquitectura nueva) llevan solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR completos solo para decisiones reales de arquitectura o producto.
 
@@ -64,7 +64,7 @@ Procedimiento obligatorio de cada corrida (no hay otro mecanismo de lock; nunca 
 
 1. Al inicio, creá un PID que viva toda la corrida: `setsid nohup sleep infinity >/dev/null 2>&1 &` y guardá su PID en H; después `node scripts/cadena/lock.mjs acquire --pid $H`. Exit 3 = otro dueño vivo tras 20 min: loguear `skip` en `/workspace/cadena-log.tsv`, matar H (`kill $H`) y terminar sin tocar nada. Un dueño muerto (stale) lo libera `acquire` solo y queda logueado. Nunca el `$$` de una shell de herramienta: cada llamada puede ser una shell nueva que muere y el lock queda stale.
 2. Inmediatamente registrar la liberación: `trap 'node scripts/cadena/lock.mjs release --pid $H; kill $H' EXIT` (o `finally` equivalente). Para un comando suelto, `scripts/cadena/con-lock.sh <cmd>` ya está bien: su propio `$$` vive mientras corre el comando, toma y libera al salir (`tests/cadena-con-lock.test.ts`).
-3. Antes de cualquier squash-merge: `node scripts/cadena/puede-mergear.mjs <PR>`. Exit ≠ 0 => no mergear, dejar el PR abierto, loguear y avisar a Mauri. Exit 0 y checks ci/analyze/guard verdes => `gh pr merge <PR> --squash --delete-branch`.
+3. Antes de cualquier squash-merge: `node scripts/cadena/puede-mergear.mjs <PR>`. Exit ≠ 0 => no mergear, dejar el PR abierto, loguear y avisar a Mauri. Exit 0 y `npm run verify` verde => `gh pr merge <PR> --squash --delete-branch`.
 4. Al final: loguear en `/workspace/cadena-log.tsv` y `node scripts/cadena/lock.mjs release --pid $H` y `kill $H` (el trap lo cubre si la corrida corta antes).
 
 Antes de cualquier squash-merge, correr `node scripts/cadena/puede-mergear.mjs <PR>`; si falla, no mergear y avisar a Mauri (título/cuerpo con "No mergear"/"DO NOT MERGE", o `drizzle/*.sql` cuyo tag no está en `docs/roadmap/migraciones-aplicadas.md` de `main`). El lock `/workspace/.cadena.lock` (solo PID) se toma/libera con `node scripts/cadena/lock.mjs acquire|release --pid <pid>`; solo se libera el propio o uno stale (PID muerto), lo que queda logueado en `/workspace/cadena-log.tsv`. Tests: `tests/cadena-puede-mergear.test.ts`, `tests/cadena-lock.test.ts`.

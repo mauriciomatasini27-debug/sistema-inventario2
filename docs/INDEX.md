@@ -89,6 +89,7 @@ Generado por `npm run docs:index`. No editar a mano.
 - [ADR-0083](adr/0083-proceso-una-corrida-docs-livianas.md) · aceptado · - · npm test excluye tests/arch/ y tests/pers2-arch.test.ts; esos archivos corren solo en npm run check:arch, que
 - [ADR-0084](adr/0084-pstack-rubrica-efectividad.md) · propuesto · - · Pstack es efectivo en opencode solo si pasa esta rubrica de 5 criterios. Cada criterio se mide sobre receipts
 - [ADR-0085](adr/0085-pstack-conformance-test.md) · propuesto · - · tests/pstack-wiring.test.ts fija el contrato entre opencode.json y el sheet. Exige el puntero en instructions,
+- [ADR-0086](adr/0086-verificacion-local-sin-github-actions.md) · aceptado · - · GitHub Actions deja de ser el gate de merge. La verificación pasa a `npm run verify` en la caja, que corre los pasos de ci.yml y regenera ROADMAP/INDEX.
 
 ## PRD
 

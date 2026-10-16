@@ -20,7 +20,8 @@
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:context": "node scripts/docs-context.mjs",
-    "roadmap": "node scripts/roadmap.mjs"
+    "roadmap": "node scripts/roadmap.mjs",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.7",

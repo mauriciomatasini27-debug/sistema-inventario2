@@ -774,6 +774,13 @@
       "modulos": []
     },
     {
+      "id": "ADR-0086",
+      "ruta": "docs/adr/0086-verificacion-local-sin-github-actions.md",
+      "tipo": "adr",
+      "estado": "aceptado",
+      "modulos": []
+    },
+    {
       "id": "EVIDENCIA-UI-00",
       "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md",
       "tipo": "spec",
@@ -2921,6 +2928,11 @@
     {
       "de": "ADR-0085",
       "a": "PRD-PS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0086",
+      "a": "ADR-0065",
       "tipo": "depende_de"
     },
     {
