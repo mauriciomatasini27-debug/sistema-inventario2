@@ -1,7 +1,7 @@
 # pstack model configuration (OpenCode adaptation of setup-pstack)
 # budget: small (free tier). OpenCode's Task tool selects a subagent by `subagent_type`, not by model slug.
 # Wherever a pstack skill says "pass model X to a Task subagent", dispatch the OpenCode subagent named below instead.
-# pstack-worker, poteto-agent, comment-sicko: opencode/muse-spark-1.3-contributor-free. pstack-judge: opencode/big-pickle (different family for cross-judging).
+# pstack-worker, poteto-agent, comment-sicko: opencode/deepseek-v4.1-flash-free (fallback opencode/muse-spark-1.3-contributor-free). pstack-judge: opencode/big-pickle (different family for cross-judging).
 feature, refactoring: pstack-worker
 bug-fix: pstack-worker
 perf-issue: pstack-worker

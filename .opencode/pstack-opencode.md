@@ -4,7 +4,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 
 ## Tools
 - `Task` / `generalPurpose` subagent -> OpenCode `task` tool with `subagent_type`. Use `general` for generalPurpose, `explore` for read-only search, or a pstack role agent (see "Models").
-- Task `model` parameter -> not supported. Pick the role agent instead: `pstack-worker` (muse-spark-1.3-contributor-free) or `pstack-judge` (big-pickle). Different models = cross-family judging for arena/architect/interrogate/show-me-your-work.
+- Task `model` parameter -> not supported. Pick the role agent instead: `pstack-worker` (deepseek-v4.1-flash-free) or `pstack-judge` (big-pickle). Different models = cross-family judging for arena/architect/interrogate/show-me-your-work.
 - `AskQuestion` -> OpenCode `question` tool when it is present (interactive TUI). In `opencode run` (headless) it is absent: state the default you chose and proceed (principle-never-block-on-the-human), or ask in plain text and stop.
 - `create-skill` -> write `.agents/skills/<name>/SKILL.md` with frontmatter `name: <name>` (must equal the folder name, lowercase-hyphen) and `description:`. Verify with `~/.local/bin/opencode debug skill`.
 - Worktrees -> the project is a git repo; use `git worktree add ../si-wt-<slug> -b wt/<slug>` and remove it when done.
@@ -29,7 +29,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
   Always pass `</dev/null` to these CLI calls.
 
 ## setup-pstack on OpenCode
-1. Detect models: `~/.local/bin/opencode models opencode` (Zen catalog); free ones: `opencode/muse-spark-1.3-contributor-free`, `opencode/big-pickle`.
+1. Detect models: `~/.local/bin/opencode models opencode` (Zen catalog); free ones: `opencode/deepseek-v4.1-flash-free` (primary), `opencode/muse-spark-1.3-contributor-free`, `opencode/big-pickle`.
 2. Roles are subagents in `opencode.json` `agent` (`pstack-worker`, `pstack-judge`, `poteto-agent`, `comment-sicko`), each with a `model`.
 3. Write the role table to `.opencode/pstack-models.md` (not `~/.cursor/rules`). Budget maps to `--variant` / agent `reasoningEffort` where the provider supports it.
 4. Changes apply to new sessions. Check with `~/.local/bin/opencode debug config`.
@@ -40,7 +40,7 @@ Run one at a time, or start one server and attach: `.opencode/pstack-run.sh` (se
 
 ## Session limits and model fallback
 - Every model in use has `limit.context = 250000` in `opencode.json` and `compaction.auto` is on, so no session exceeds 250k context tokens; split large tasks into several sessions by area.
-- `.opencode/pstack-run.sh` retries a failed, stalled (`PSTACK_SESSION_TIMEOUT`, default 700 s) or quota/rate-limited session with the next free Zen model: `big-pickle`, `space-bunny-free`, `longcat-2.5-preview-free` (override with `PSTACK_FALLBACK_MODELS`). It logs `pstack-run: model=...` on stderr. Ask for `opencode/muse-spark-1.3-contributor-free` again on the next session.
+- `.opencode/pstack-run.sh` retries a failed, stalled (`PSTACK_SESSION_TIMEOUT`, default 700 s) or quota/rate-limited session with the next free Zen model: `muse-spark-1.3-contributor-free`, `big-pickle`, `space-bunny-free`, `longcat-2.5-preview-free` (override with `PSTACK_FALLBACK_MODELS`). It logs `pstack-run: model=...` on stderr. Ask for `opencode/muse-spark-1.3-contributor-free` again on the next session.
 
 ## Roadmap
 
