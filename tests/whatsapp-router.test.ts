@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enrutar, type EntradaRouter } from "../src/modules/whatsapp/router.js";
+import { MODULOS_BOT } from "../src/modules/bot/modulos-rubro.js";
 
 const catalogo = [
   { sku: "j1", nombre: "Alfajor Jorgito", stock: 4, umbral: 10, proveedor: "Golosinas Sur" },
@@ -17,6 +18,7 @@ function base(sobre: Partial<EntradaRouter> = {}): EntradaRouter {
     friday: new Map(),
     sesion: null,
     ahoraMs: 1_000_000,
+    modulos: MODULOS_BOT,
     ...sobre,
   };
 }

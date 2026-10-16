@@ -20,6 +20,7 @@ import {
   type MovimientoVista,
   type PedidoDia,
 } from "./dia-a-dia.js";
+import { MENSAJE_MODULO_APAGADO, type ModuloBot } from "../bot/modulos-rubro.js";
 
 export interface SesionRouter {
   readonly paso: string;
@@ -35,6 +36,9 @@ export interface EntradaRouter {
   readonly friday: ListaViernes;
   readonly sesion: SesionRouter | null;
   readonly ahoraMs: number;
+  // BOT-S2: módulos del bot activos para el tenant (ADR-0039). Una intención
+  // de un módulo apagado no se ejecuta: responde que no está disponible.
+  readonly modulos: ReadonlyArray<ModuloBot>;
 }
 
 export type SalidaRouter =
@@ -43,7 +47,12 @@ export type SalidaRouter =
   | { readonly accion: "viernes_ver"; readonly texto: string }
   | { readonly accion: "viernes_guardado"; readonly texto: string; readonly friday: ListaViernes }
   | { readonly accion: "alertas"; readonly texto: string; readonly pagina: number }
+  | { readonly accion: "modulo_apagado"; readonly texto: string; readonly modulo: ModuloBot }
   | { readonly accion: "nada" };
+
+function modulo_apagado(modulo: ModuloBot): SalidaRouter {
+  return { accion: "modulo_apagado", texto: MENSAJE_MODULO_APAGADO, modulo };
+}
 
 const SIN_TILDES = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -63,13 +72,16 @@ function buscar_en_catalogo(catalogo: ReadonlyArray<ItemAlertaEntrada>, resto: s
 }
 
 export function enrutar(e: EntradaRouter): SalidaRouter {
+  const activo = (modulo: ModuloBot): boolean => e.modulos.includes(modulo);
   // B10: "qué pedí" / "últimos movimientos de X" (solo lectura).
   const dia = parsear_dia_a_dia(e.texto);
   if (dia.kind === "que_pedi") {
+    if (!activo("rotacion")) return modulo_apagado("rotacion");
     const r = listar_pedidos_14d(e.pedidos, e.ahoraMs, dia.proveedor ?? undefined);
     return { accion: "dia_pedidos", texto: r.texto };
   }
   if (dia.kind === "movimientos") {
+    if (!activo("flujo_caja")) return modulo_apagado("flujo_caja");
     const r = ultimos_movimientos(e.movs, dia.termino);
     return { accion: "dia_movimientos", texto: r.texto };
   }
@@ -77,9 +89,11 @@ export function enrutar(e: EntradaRouter): SalidaRouter {
   // B6: lista del viernes.
   const cmd = parsear_comando_viernes(e.texto);
   if (cmd.kind === "ver_lista" || cmd.kind === "que_guarde") {
+    if (!activo("rotacion")) return modulo_apagado("rotacion");
     return { accion: "viernes_ver", texto: armar_texto_viernes(e.friday, e.comercio) };
   }
   if (cmd.kind === "guardar_viernes" || cmd.kind === "pedir_ahora") {
+    if (!activo("rotacion")) return modulo_apagado("rotacion");
     const resto = cmd.resto.trim();
     // Sin resto: se guardan todas las alertas vigentes (del aviso matutino).
     if (!resto) {
@@ -120,6 +134,7 @@ export function enrutar(e: EntradaRouter): SalidaRouter {
 
   // B4: paginado "ver más" sobre la última lista de alertas.
   if (es_ver_mas(e.texto) && e.sesion?.paso === "alertas") {
+    if (!activo("rotacion")) return modulo_apagado("rotacion");
     const pagina = Number(e.sesion.contexto["pagina"] ?? 1) + 1;
     const r = responder_que_falta(e.catalogo, e.comercio, pagina);
     return { accion: "alertas", texto: r.texto, pagina };

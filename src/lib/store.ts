@@ -338,6 +338,7 @@ export function resetStore() {
   control.jobs.clear();
   control.opsOutbox = [];
   control.botLinks.clear();
+  control.botModules.clear();
   control.offlineGrants.clear();
   control.devices.clear();
   control.deviceNames.clear();
@@ -377,6 +378,9 @@ export interface ControlTenant {
   moneda: string;
   ownerGoogleSub: string;
   esDemo: boolean;
+  // ON1: rubro elegido en el alta. En producción es una columna de tenants;
+  // en memoria alcanza para derivar los módulos del bot (BOT-S1).
+  rubro?: string | undefined;
   requestKey?: string | undefined;
   trialHasta?: string | undefined;
 }
@@ -432,6 +436,9 @@ export const control = {
   jobs: new Map<string, { id: string; tenantId: string; estado: string; pasoActual?: string | null | undefined; intentos: number; error?: string | undefined }>(),
   opsOutbox: [] as Array<{ tipo: string; payload: unknown }>,
   botLinks: new Map<string, { tenantId: string; googleSub: string; estado: string; revocadoAt?: string }>(),
+  // BOT-S1 (ADR-0039): módulos del bot activos por tenant. Espejo en memoria;
+  // la tabla tenant_bot_modules queda pendiente de migración.
+  botModules: new Map<string, { tenantId: string; activos: string[] }>(),
   // SYNC-S5/S6 (OF9): grants offline + registro de devices (copia en memoria;
   // la tabla durable vive en C2 con PERS-S1). Token plano solo se muestra al
   // crear; acá queda el hash. Revocado => cuarentena post-revocación.

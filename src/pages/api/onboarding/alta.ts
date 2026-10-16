@@ -10,6 +10,7 @@ import {
   slugDeNombre,
 } from "../../../modules/tenants/aprovisionar.js";
 import { generar_codigo_vincular, normalizar_ar, VINCULAR_TTL_MIN } from "../../../modules/whatsapp/vincular.js";
+import { aplicarDefaultsModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 
 export const prerender = false;
@@ -84,6 +85,7 @@ export const POST: APIRoute = async ({ request }) => {
     moneda: "ARS",
     ownerGoogleSub: ctx.googleSub,
     esDemo: true,
+    rubro: b.rubro,
     requestKey,
   });
   control.databases.set(id, { tenantId: id, database, estado: "pendiente" });
@@ -103,6 +105,8 @@ export const POST: APIRoute = async ({ request }) => {
   });
 
   const corrido = await ejecutarAprovisionamiento(jobId);
+  // BOT-S1: al terminar el alta se activan los módulos del bot del rubro.
+  aplicarDefaultsModulosBot(id, b.rubro);
   control.events.push({
     tenantId: id,
     tipo: "alta_formulario_completo",

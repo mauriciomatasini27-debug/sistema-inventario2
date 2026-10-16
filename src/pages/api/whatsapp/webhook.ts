@@ -22,6 +22,7 @@ import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccio
 import { crearTransporteCloud, marcarLeidoCloud, normalizarEntrada } from "../../../modules/whatsapp/transport.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
+import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -269,6 +270,7 @@ export const POST: APIRoute = async ({ request }) => {
     friday: leerListaViernes(tenantId, catalogo, ahoraMs),
     sesion,
     ahoraMs,
+    modulos: leerModulosBot(tenantId),
   });
   if (ruta.accion === "viernes_guardado") {
     agregarListaViernes(tenantId, ruta.friday, ahoraMs);

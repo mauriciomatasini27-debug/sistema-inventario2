@@ -581,6 +581,19 @@ export function crearAlmacenWaFriday(): AlmacenVivo<Array<ItemViernesWa>> {
   return crearAlmacenVivo(store.waFriday);
 }
 
+// BOT-S1 (ADR-0039): módulos del bot por tenant. Espejo en memoria del plano
+// control (global, no particionado por la base del comercio); con base viva la
+// fuente sería tenant_bot_modules. Misma politica que caja: el almacen decide
+// si propaga el fallo de DB o sigue con memoria.
+export interface ModulosBotTenant {
+  tenantId: string;
+  activos: string[];
+}
+
+export function crearAlmacenBotModulos(): AlmacenVivo<ModulosBotTenant> {
+  return crearAlmacenVivo(control.botModules);
+}
+
 // Corte 17: email (outbox de envíos por idempotency_key y eventos de
 // resumen por dedupe_key). Misma politica que caja: en multi el fallo de DB
 // se propaga como BaseNoDisponible; en single la llamada sigue hacia
