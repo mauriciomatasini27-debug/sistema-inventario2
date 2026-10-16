@@ -1,3 +1,13 @@
+---
+id: ADR-0064
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [ADR-0016, PRD-COM-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0064 - Política de comentarios de código: solo por qué no obvio
 
 Estado: propuesto. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md`, ADR-0016, skill `no-comments` de pstack.

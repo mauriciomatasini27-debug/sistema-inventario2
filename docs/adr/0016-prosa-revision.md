@@ -1,3 +1,13 @@
+---
+id: ADR-0016
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0008, PRD-DS-01, PRD-SK-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0016 - Prosa y revisión con technical-writing + unslop + interrogate
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-SK-03.

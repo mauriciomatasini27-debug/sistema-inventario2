@@ -1,3 +1,13 @@
+---
+id: ADR-0042
+tipo: adr
+estado: propuesto
+modulos: [bot]
+depende_de: [ADR-0041, PRD-BOT-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0042 - Interfaz WhatsAppTransport intercambiable
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-02 (BOT2-S5), `src/modules/whatsapp/router.ts`, `src/modules/whatsapp/consulta.ts`, `src/modules/whatsapp/envio.ts`, ADR-0041.

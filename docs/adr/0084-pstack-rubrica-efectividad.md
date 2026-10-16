@@ -1,3 +1,13 @@
+---
+id: ADR-0084
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [PRD-PS-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0084 - Rubrica de efectividad pstack en opencode
 
 Estado: propuesto. Fecha: 2026-10-15. Fuentes: `playbooks/eval.md`, `references/provider-dispatch.md` seccion Completion, `.opencode/pstack-models.md`, PRD `diseno/PRD-PS-01-pstack-opencode.md`.

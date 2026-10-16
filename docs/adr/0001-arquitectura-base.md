@@ -1,3 +1,13 @@
+---
+id: ADR-0001
+tipo: adr
+estado: aceptado
+modulos: [inventario]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0001 - Arquitectura base Sistema de Inventario
 
 Estado: aceptado. Fecha: 2026-10-10.

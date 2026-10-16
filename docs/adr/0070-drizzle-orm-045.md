@@ -1,3 +1,13 @@
+---
+id: ADR-0070
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [PRD-DEP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0070 - Drizzle ORM 0.36 a 0.45
 
 Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #14, alerta Dependabot #15 (GHSA-gpj5-g38j-94v9), notas de versión de `drizzle-orm` 0.37 a 0.45.

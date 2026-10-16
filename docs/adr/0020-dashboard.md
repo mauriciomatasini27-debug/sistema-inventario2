@@ -1,3 +1,13 @@
+---
+id: ADR-0020
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0008, ADR-0009]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0020 - Dashboard principal índice/nav estilo Crextio en Astro
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: `PRD - Indice y Navegacion Dashboard Principal para Sistema de Inventario.docx`. Cierra el hueco "solo se ve Venta mostrador": `/` pasa a ser índice visual, la venta actual se conserva.

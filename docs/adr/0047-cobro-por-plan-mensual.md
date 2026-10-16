@@ -1,3 +1,13 @@
+---
+id: ADR-0047
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0045, PRD-PLAN-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0047 - Cobro por plan mensual, no por módulo
 
 Estado: aceptado (2026-10-12, decisión del dueño). Fecha: 2026-10-12. Fuentes: PRD-PLAN-01, `docs/01-fundacion/costos-por-cliente.md` (Básico 15 / Plus 35 / Pro 59 USD, WhatsApp dentro del precio del plan), `docs/03-inventario-precios/inventario-parte-1.md:49` (suscripción mensual ARS o USD por Mercado Pago o transferencia), `docs/03-inventario-precios/inventario-parte-2.md` (F8.4 mora 14 días), ADR-0006 (PA6, PA12 flags por tenant/plan), ADR-0039, ADR-0045.

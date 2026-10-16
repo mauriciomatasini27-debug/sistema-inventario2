@@ -1,3 +1,13 @@
+---
+id: ADR-0002
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0002 - Stack desarrollo y despliegue
 
 Estado: aceptado. Fecha: 2026-10-10.

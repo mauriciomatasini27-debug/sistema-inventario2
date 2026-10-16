@@ -1,3 +1,13 @@
+---
+id: ADR-0059
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0059 - Jobs programados sin `store`: rutas `jobs/*` por repositorios de dominio
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E10), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

@@ -1,3 +1,13 @@
+---
+id: ADR-0085
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [ADR-0084, PRD-PS-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0085 - Test de conformidad del cableado pstack
 
 Estado: propuesto. Fecha: 2026-10-15. Fuentes: `tests/pstack-wiring.test.ts`, `opencode.json`, `.opencode/pstack-models.md`, PRD `diseno/PRD-PS-01-pstack-opencode.md`.

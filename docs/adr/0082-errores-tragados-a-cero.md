@@ -1,3 +1,13 @@
+---
+id: ADR-0082
+tipo: adr
+estado: aceptado
+modulos: [bot, offline, pagos, persistencia, ventas]
+depende_de: [ADR-0065, ADR-0073, PRD-PERS-07]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0082 - Errores tragados de E7 a cero
 
 Estado: aceptado (2026-10-14, evidencia: `tests/pers7-errores-tragados.test.ts` y `tests/arch/sin-errores-tragados.test.ts` con `PERMITIDOS` vacío). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PERS-07-errores-tragados.md`, ADR-0073 (E7), ADR-0065, `tests/arch/sin-errores-tragados.test.ts`, `src/lib/repos/ordenes-pago.ts`, `src/offline/db.ts`, `src/modules/sales/ticket_template.ts`, `src/modules/whatsapp/cliente-cloud.ts`.

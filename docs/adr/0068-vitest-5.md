@@ -1,3 +1,13 @@
+---
+id: ADR-0068
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0069, PRD-DEP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0068 - Vitest 2 a 5
 
 Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #8, #10, #11 y #15, alertas Dependabot #19, #30, #31, #38 y #39.

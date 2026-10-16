@@ -1,3 +1,13 @@
+---
+id: ADR-0003
+tipo: adr
+estado: aceptado
+modulos: [offline, tenant]
+depende_de: [ADR-0004]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0003 - Multitenancy, datos y offline
 
 Estado: aceptado. Fecha: 2026-10-10.

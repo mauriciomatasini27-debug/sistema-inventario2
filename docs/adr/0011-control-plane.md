@@ -1,3 +1,13 @@
+---
+id: ADR-0011
+tipo: adr
+estado: aceptado
+modulos: [admin, inventario]
+depende_de: [ADR-0006, PRD-CP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0011 - Control plane a Panel Inventario
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-CP-01. Respeta ADR-0006.

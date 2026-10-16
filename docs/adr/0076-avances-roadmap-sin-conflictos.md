@@ -1,3 +1,13 @@
+---
+id: ADR-0076
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0065, ADR-0073, PRD-ROAD-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0076 - Avances del roadmap por archivo y sección generada
 
 Estado: aceptado (2026-10-14, evidencia: `tests/roadmap.test.ts` 18/18, commit `3b640f3`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-ROAD-01-avances-sin-conflictos.md`, merge `f93c70d` (conflicto ROADMAP entre #31 y #32), ADR-0065, ADR-0073.

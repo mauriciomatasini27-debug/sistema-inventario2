@@ -1,3 +1,13 @@
+---
+id: ADR-0018
+tipo: adr
+estado: aceptado
+modulos: [fiscal]
+depende_de: [ADR-0007, PRD-FE-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0018 - Fiscal ARCA Nivel 3: FiscalProvider, WSAA/WSFEv1, cola y seguridad
 
 Estado: aceptado. Fecha: 2026-10-10. Fuentes: PRD-FE-01 (FE1-FE16), ADR-0007 (WSFEv1 verificado), manual WSFEv1 v4.7, WSAA 1.2.2, RG 4291/4892/5616/5700/5782/5866, pyafipws, odoo-argentina-ce.

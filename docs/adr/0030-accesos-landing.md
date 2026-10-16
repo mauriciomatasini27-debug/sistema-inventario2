@@ -1,3 +1,13 @@
+---
+id: ADR-0030
+tipo: adr
+estado: aceptado
+modulos: [admin, landing, tenant]
+depende_de: [ADR-0010, ADR-0011, ADR-0022, ADR-0031, PRD-AU-02, PRD-LP-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0030 - Accesos desde la landing al control plane y a la app tenant
 
 Estado: aceptado (2026-10-12, evidencia: `src/data/business.ts:299`). Fecha: 2026-10-11. Fuente: auditoría panel 3 workers vs `consultoria/web`, `consultoria/modoops_admin`, `consultoria/docs/modoops-control-plane-spec.md`; PRD-LP-03, PRD-AU-02. Restringido por ADR-0010, ADR-0011, ADR-0022, ADR-0031, `docs/02-identidad-onboarding/autenticacion.md`.

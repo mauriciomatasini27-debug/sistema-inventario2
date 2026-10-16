@@ -1,3 +1,13 @@
+---
+id: ADR-0022
+tipo: adr
+estado: aceptado
+modulos: [landing]
+depende_de: [ADR-0010, ADR-0021]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0022 - Landing cierre gaps vs ModoOps (PRD Gaps E1-E13)
 
 Estado: aceptado. Fecha: 2026-10-11. Fuente: PRD - Landing Page - Gaps vs ModoOps v1.0 (E1-E13), ADR-0010, ADR-0021, auditoría pstack 3 workers. Implementado: B0, B1, E1-E3, E11-E12, E4+E5+E7, E6 (37 tests landing en verde, `astro build` OK).

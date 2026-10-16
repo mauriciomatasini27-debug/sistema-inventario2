@@ -1,3 +1,13 @@
+---
+id: ADR-0052
+tipo: adr
+estado: aceptado
+modulos: [persistencia, tenant]
+depende_de: [ADR-0024, ADR-0051, ADR-0077, PRD-PERS-02, PRD-SEC-04]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0052 - Memoria por tenant, sin fallback silencioso en multi y jobs con tenant
 
 Estado: aceptado (2026-10-13, evidencia: `tests/pers2-memoria.test.ts`, `pers2-jobs`, `pers2-arch` y `pers2-pg` contra Postgres local 17/17, `npm test` 756/759 con solo los 2 de `caja-c11` y 1 salteado sin `PG_TEST_URL`, commit `2b926a1`). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md`, ADR-0024, ADR-0051, `src/lib/store.ts`, `src/lib/server-db.ts`, `src/middleware.ts`.

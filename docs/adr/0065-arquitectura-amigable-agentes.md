@@ -1,3 +1,13 @@
+---
+id: ADR-0065
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [PRD-ARQ-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0065 - Errores recurrentes de agentes se eliminan por estructura y trinquetes de CI
 
 Estado: aceptado (fases 1 y 2 implementadas). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md`, ADR 0050 a 0064, skills `correct` y `architect` de pstack.

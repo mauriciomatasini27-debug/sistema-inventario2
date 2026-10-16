@@ -1,3 +1,13 @@
+---
+id: ADR-0015
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0001, ADR-0005, PRD-SK-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0015 - Diseño con architect
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-SK-02.

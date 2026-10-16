@@ -1,3 +1,13 @@
+---
+id: ADR-0004
+tipo: adr
+estado: aceptado
+modulos: [caja, fiado, precios, ventas]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0004 - Caja, Ventas, Fiado y Precios
 
 Estado: aceptado. Fecha: 2026-10-10. Fuentes: Caja Parte 1/2/3, Ticket Parte 1/2, Fiado, Precios Parte 1/2.

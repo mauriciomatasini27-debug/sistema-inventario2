@@ -1,3 +1,13 @@
+---
+id: ADR-0037
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [PRD-UI-06]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0037 - Polish y motion
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-ui/SKILL.md`, `.agents/skills/emil-design-eng/SKILL.md`, `.agents/skills/animation-performance/SKILL.md`, `.agents/skills/pick-ui-library/SKILL.md`.

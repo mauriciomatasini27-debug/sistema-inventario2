@@ -1,3 +1,13 @@
+---
+id: ADR-0006
+tipo: adr
+estado: aceptado
+modulos: [admin]
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0006 - Panel Multi-Kiosco
 
 Estado: aceptado. Fecha: 2026-10-10. Rigen Partes 1-3. Doc suelto descartado.

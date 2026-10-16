@@ -1,3 +1,13 @@
+---
+id: ADR-0073
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [ADR-0064, ADR-0065, PRD-ARQ-01, PRD-DEP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0073 - Guardas estructurales para errores recurrentes de agentes LLM
 
 Estado: aceptado. Fecha: 2026-10-14. Fuentes: ADR-0065 y PRD `diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md`, sesiones de OpenCode del proyecto (136 sesiones en `/workspace/si*`), commits `cdf849c`, `dec03df`, `dfdf79e` y `475c82c`, "Evidencia de aceptación" de ADR 0053 a 0066, `decisions.tsv`, sesión de zod 4 de PRD-DEP-01 (PR #26), skill `correct` de pstack.

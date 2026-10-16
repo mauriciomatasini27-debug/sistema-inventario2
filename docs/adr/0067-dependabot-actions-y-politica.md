@@ -1,3 +1,13 @@
+---
+id: ADR-0067
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0065, PRD-DEP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0067 - GitHub Actions a la última mayor y política de PRs de Dependabot
 
 Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PRs #6, #16, #17 y #18, ADR-0065.

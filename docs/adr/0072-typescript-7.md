@@ -1,3 +1,13 @@
+---
+id: ADR-0072
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [PRD-DEP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0072 - TypeScript 5.9 a 7
 
 Estado: aceptado. Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-DEP-01-actualizacion-dependencias.md`, PR #7, notas de versión de TypeScript 6.0 y 7.0.

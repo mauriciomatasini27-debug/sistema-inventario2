@@ -1,3 +1,13 @@
+---
+id: ADR-0019
+tipo: adr
+estado: aceptado
+modulos: [fiscal, persistencia, ventas]
+depende_de: [ADR-0017, ADR-0018, PRD-FE-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0019 - Slice fiscal mínimo: 1 Factura C online en homo
 
 Estado: aceptado. Fecha: 2026-10-10. Fuentes: ADR-0017 (slice-0), ADR-0018 (D1-D5), PRD-FE-01 FE-S1/S7/S8/S10/S11/S13/S17-S19, `src/modules/sales/vender_mostrador.ts:120`, `src/modules/fiscal/fiscal.ts`, `src/db/schema-fiscal.ts`, `tests/fiscal.test.ts` (7 verdes).

@@ -1,3 +1,13 @@
+---
+id: ADR-0007
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: []
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0007 - Verificación externos en fuentes oficiales
 
 Estado: aceptado. Fecha: 2026-10-10.

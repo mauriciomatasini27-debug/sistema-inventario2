@@ -1,3 +1,13 @@
+---
+id: ADR-0081
+tipo: adr
+estado: aceptado
+modulos: [inventario, offline, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0061, PRD-PERS-06, PRD-SYNC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0081 - Catálogo del delta de sync/pull DB-first
 
 Estado: aceptado (2026-10-14, evidencia: `tests/pers6-sync-pull-catalogo.test.ts` con Postgres local). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PERS-06-sync-pull-catalogo-db.md`, ADR-0061 (Pendientes), ADR-0052, ADR-0024, `src/lib/repos/sync.ts`, `src/db/schema.ts` (`products`).

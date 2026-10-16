@@ -1,3 +1,13 @@
+---
+id: ADR-0077
+tipo: adr
+estado: aceptado
+modulos: [tenant]
+depende_de: [ADR-0051, ADR-0052, PRD-PERS-02, PRD-SEC-04]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0077 - Fan-out de jobs por tenant
 
 Estado: aceptado (2026-10-14, evidencia: `tests/sec04-fan-out-jobs.test.ts` y `tests/pers2-jobs.test.ts` con Postgres local, commit `6621f3a`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-SEC-04-fan-out-jobs-por-tenant.md`, ADR-0052 (Pendientes), PRD-PERS-02, ADR-0051, `src/lib/tenant-context.ts`, `src/middleware.ts`, `src/pages/api/jobs/*`.

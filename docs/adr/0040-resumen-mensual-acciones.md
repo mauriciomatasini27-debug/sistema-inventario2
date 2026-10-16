@@ -1,3 +1,13 @@
+---
+id: ADR-0040
+tipo: adr
+estado: propuesto
+modulos: [bot]
+depende_de: [PRD-BOT-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0040 - Resumen mensual y acciones propuestas
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S7/S8), `src/jobs/whatsapp-resumen.ts`, NE1-NE17, OP1-OP13.

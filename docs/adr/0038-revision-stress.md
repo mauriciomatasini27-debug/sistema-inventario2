@@ -1,3 +1,13 @@
+---
+id: ADR-0038
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [PRD-UI-07]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0038 - Revisión y stress automatizado
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-interface/SKILL.md`, `.agents/skills/interface-review/SKILL.md`, `.agents/skills/break-ui/SKILL.md`, `.agents/skills/state-machine/SKILL.md`, `.agents/skills/variant/SKILL.md`.

@@ -1,3 +1,13 @@
+---
+id: ADR-0041
+tipo: adr
+estado: aceptado
+modulos: [bot, compras]
+depende_de: [ADR-0007, ADR-0039, ADR-0042, PRD-BOT-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0041 - Proveedor WhatsApp: Cloud API oficial, Baileys descartado
 
 Estado: aceptado (2026-10-12, evidencia: `src/modules/whatsapp/cliente-cloud.ts`). Fecha: 2026-10-12. Fuentes: PRD-BOT-02 (BOT2-S6), `docs/01-fundacion/costos-por-cliente.md` (número central, Cloud API directa), ADR-0007, ADR-0039, `src/modules/whatsapp/cliente-cloud.ts`.

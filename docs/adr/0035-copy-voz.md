@@ -1,3 +1,13 @@
+---
+id: ADR-0035
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [PRD-UI-04]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0035 - Copy y voz
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-writing/SKILL.md`, `.agents/skills/writing-guidelines/SKILL.md`, `.agents/skills/ask-sonner/SKILL.md`.

@@ -1,3 +1,13 @@
+---
+id: ADR-0045
+tipo: adr
+estado: propuesto
+modulos: [compras]
+depende_de: [ADR-0044, PRD-IA-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0045 - Proveedor LLM del asistente y cupo por plan
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S5), ADR-0044, `docs/01-fundacion/costos-por-cliente.md`.

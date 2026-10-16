@@ -1,3 +1,13 @@
+---
+id: ADR-0043
+tipo: adr
+estado: propuesto
+modulos: [bot, inventario]
+depende_de: [ADR-0028, PRD-ALR-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0043 - Cron de alertas de stock con pg_cron + pg_net en Supabase
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-ALR-01 (ALR-S2, ALR-S4), `docs/migracion-supabase.md`, `src/jobs/whatsapp-aviso-matutino.ts`, `src/pages/api/jobs/*`, ADR-0028.

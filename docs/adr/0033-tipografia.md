@@ -1,3 +1,13 @@
+---
+id: ADR-0033
+tipo: adr
+estado: propuesto
+modulos: []
+depende_de: [PRD-DS-01, PRD-UI-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0033 - Tipografía y escala
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-typography/SKILL.md`, PRD-DS-01 DS-S6.

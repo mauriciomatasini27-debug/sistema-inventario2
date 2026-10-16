@@ -1,3 +1,13 @@
+---
+id: ADR-0031
+tipo: adr
+estado: aceptado
+modulos: [auth]
+depende_de: [PRD-AU-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0031 - Login: cookies en el redirect y expiración de pendingAuth
 
 Estado: aceptado (2026-10-12, evidencia: `src/pages/api/auth/login.ts:47`). Fecha: 2026-10-11. Fuente: PRD-AU-01, auditoría pstack 3 workers (worker A: `login.ts:33-56`).

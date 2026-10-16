@@ -1,3 +1,13 @@
+---
+id: ADR-0021
+tipo: adr
+estado: aceptado
+modulos: [landing]
+depende_de: [ADR-0010, PRD-LP-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0021 - Landing iteración contenido (PRD-LP-02)
 
 Estado: aceptado. Fecha: 2026-10-11. Fuente: PRD-LP-02, auditoría LP-S1/S7 vs `consultoria/web`.

@@ -1,3 +1,13 @@
+---
+id: ADR-0008
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [PRD-DS-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0008 - Tokens Tema Papel
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-DS-01 (extraído de `consultoria/modoops_core` tokens, primary variables, backend).

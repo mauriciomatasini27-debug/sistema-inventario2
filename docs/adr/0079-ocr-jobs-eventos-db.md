@@ -1,3 +1,13 @@
+---
+id: ADR-0079
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [ADR-0005, ADR-0024, ADR-0052, ADR-0060, PRD-PERS-04]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0079 - Trabajos y eventos de OCR DB-first
 
 Estado: aceptado (2026-10-14, evidencia: `tests/pers4-ocr-jobs-eventos.test.ts` con Postgres local). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PERS-04-ocr-jobs-eventos-db.md`, ADR-0060 (Pendientes), ADR-0052, ADR-0024, `src/lib/repos/ocr.ts`, `src/jobs/vencer-ocr.ts`, `src/modules/ocr/jobs.ts`.

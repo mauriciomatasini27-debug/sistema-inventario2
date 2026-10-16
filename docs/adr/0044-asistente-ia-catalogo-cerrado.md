@@ -1,3 +1,13 @@
+---
+id: ADR-0044
+tipo: adr
+estado: propuesto
+modulos: [inventario, persistencia]
+depende_de: [ADR-0003, ADR-0006, PRD-IA-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0044 - Asistente IA: catálogo cerrado + function calling de solo lectura
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S1, IA-S2, IA-S3), ADR-0003, ADR-0006, `src/db/schema*.ts`.

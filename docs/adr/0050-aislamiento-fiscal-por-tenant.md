@@ -1,3 +1,13 @@
+---
+id: ADR-0050
+tipo: adr
+estado: aceptado
+modulos: [fiscal, persistencia, tenant]
+depende_de: [ADR-0002, ADR-0003, ADR-0048, ADR-0049, PRD-ISO-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0050 - Aislamiento fiscal por tenant: contexto en servidor, `tenant_id` y fail-closed
 
 Estado: aceptado (2026-10-13, evidencia: `tests/iso-fiscal-tenant.test.ts` 7/7, commit `dfdc3de`). Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`, `src/lib/db.ts:42-46`, `src/lib/fiscal-db.ts:194-199`, `src/middleware.ts:18-24`, ADR-0002, ADR-0003, ADR-0048, Ley 25.326.

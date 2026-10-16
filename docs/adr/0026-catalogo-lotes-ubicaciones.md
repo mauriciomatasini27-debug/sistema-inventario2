@@ -1,3 +1,13 @@
+---
+id: ADR-0026
+tipo: adr
+estado: aceptado
+modulos: [inventario, persistencia]
+depende_de: [ADR-0012, PRD-CAT-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0026 - Catálogo, lotes FEFO, ubicaciones y conteo
 
 Estado: aceptado (parcial) (2026-10-14, evidencia: `src/db/schema.ts` tablas `products`, `product_codes`, `product_photos`, `stock_lots`, `locations`, `stock_counts`/`stock_count_lines`; `src/pages/api/products.ts`, `src/pages/api/lots.ts`, `src/pages/api/locations.ts`, `src/pages/api/counts.ts`, `src/lib/repos/lotes.ts`; `tests/pers3-ubicaciones-fotos-conteos.test.ts`; parcial: sin `/api/stock/ingreso` y CAT-S1→S6 sin cerrar). Fecha: 2026-10-11. Fuentes: F1/F2/F9/F12/F13, ADR-0012, grep `pgTable` (sin `locations/promotions`), `src/pages/api/stock/conteo.ts`.

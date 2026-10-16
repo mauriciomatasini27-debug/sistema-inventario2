@@ -1,3 +1,13 @@
+---
+id: ADR-0032
+tipo: adr
+estado: propuesto
+modulos: [offline]
+depende_de: [PRD-DS-02, PRD-UI-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0032 - Layout y base PWA 360px
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-layout/SKILL.md`, `.agents/skills/mobile-native/SKILL.md`, PRD-DS-02.

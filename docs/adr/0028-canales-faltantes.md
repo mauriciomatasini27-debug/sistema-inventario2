@@ -1,3 +1,13 @@
+---
+id: ADR-0028
+tipo: adr
+estado: aceptado
+modulos: [email]
+depende_de: [ADR-0002, PRD-CH-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0028 - Canales faltantes: email/send, media, jobs, billing
 
 Estado: aceptado (2026-10-12, evidencia: `src/pages/api/email/send.ts`). Fecha: 2026-10-11. Fuentes: ADR-0002, NE1-NE17, OP1-OP13, grep `email/send|media/upload|jobs/enqueue|billing/webhook` = 0 en `src/pages/api`.

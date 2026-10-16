@@ -1,3 +1,13 @@
+---
+id: ADR-0036
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [PRD-DS-02, PRD-UI-05]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0036 - Accesibilidad WCAG
 
 Estado: aceptado (2026-10-12, evidencia: `src/styles/global.css:72`). Fecha: 2026-10-12. Fuentes: `.agents/skills/better-accessibility/SKILL.md`, PRD-DS-02 DS-S13 a DS-S17.

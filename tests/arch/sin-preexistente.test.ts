@@ -48,6 +48,23 @@ describe("ARQ-S8 evidencia sin preexistente", () => {
     expect(evidenciaAceptable("## Decisión\n- un fallo preexistente documentado\n")).toBe(true);
   });
 
+  it("ignora un bloque frontmatter inicial al extraer Evidencia", () => {
+    const fm =
+      "---\n" +
+      "id: ADR-0001\n" +
+      "tipo: adr\n" +
+      "estado: aceptado\n" +
+      "modulos: []\n" +
+      "depende_de: []\n" +
+      "reemplaza: []\n" +
+      'reemplazado_por: ""\n' +
+      'resumen: ""\n' +
+      "---\n";
+    expect(extraerEvidencia(`${fm}## Evidencia de aceptación\n- todo en verde\n`)).toContain("todo en verde");
+    expect(evidenciaAceptable(`${fm}## Evidencia de aceptación\n- 2 failed (caja-c11 preexistentes)\n`)).toBe(false);
+    expect(evidenciaAceptable(`${fm}## Evidencia de aceptación\n- 2 failed, ver #12\n`)).toBe(true);
+  });
+
   it("ningún ADR nuevo usa preexistente sin issue en Evidencia", () => {
     const mal: string[] = [];
     for (const f of readdirSync(join("docs", "adr"))) {

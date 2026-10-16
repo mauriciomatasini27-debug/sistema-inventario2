@@ -1,3 +1,13 @@
+---
+id: ADR-0083
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0076, ADR-0082, PRD-PROC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0083 - Una sola corrida de tests y docs livianas para ítems chicos
 
 Estado: aceptado (2026-10-14, evidencia: `tests/roadmap.test.ts`, `tests/evidencia.test.ts`, `vitest.arch.config.ts`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PROC-01-auditoria-proceso.md`, ADR-0076 (avances del roadmap), ADR-0082, `.github/workflows/ci.yml`, `vitest.config.ts`, `scripts/evidencia.mjs`, `scripts/roadmap-lib.mjs`, `AGENTS.md`, `.opencode/pstack-opencode.md`.

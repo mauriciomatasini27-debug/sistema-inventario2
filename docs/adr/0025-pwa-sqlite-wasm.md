@@ -1,3 +1,13 @@
+---
+id: ADR-0025
+tipo: adr
+estado: aceptado
+modulos: [offline, persistencia]
+depende_de: [ADR-0003, PRD-PWA-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0025 - PWA instalable + SQLite-WASM/OPFS
 
 Estado: aceptado (2026-10-12, evidencia: `src/offline/db.ts`). Fecha: 2026-10-11. Fuentes: OF1/OF3/OF11/OF14, ADR-0003, `src/offline/db.ts:2-3`, `public/` (solo favicon+og), `astro.config.mjs`.

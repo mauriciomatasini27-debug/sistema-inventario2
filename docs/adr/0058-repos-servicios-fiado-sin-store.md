@@ -1,3 +1,13 @@
+---
+id: ADR-0058
+tipo: adr
+estado: aceptado
+modulos: [fiado, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0058 - Repositorios de consumos de servicios y fiado: rutas `utility-bills*` y `credit/*` sin `store`
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E9), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

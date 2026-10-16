@@ -1,3 +1,13 @@
+---
+id: ADR-0012
+tipo: adr
+estado: aceptado
+modulos: [inventario]
+depende_de: [PRD-NEG-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0012 - Negocio y catálogo a Inventario
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-NEG-01.

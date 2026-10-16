@@ -1,3 +1,13 @@
+---
+id: ADR-0080
+tipo: adr
+estado: aceptado
+modulos: [fiado, offline, persistencia, ventas]
+depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, PRD-PERS-05]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0080 - Correlativos de devoluciones y tickets DB-first
 
 Estado: aceptado (2026-10-14, evidencia: `tests/pers5-correlativos.test.ts` con Postgres local). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PERS-05-correlativos-db.md`, ADR-0063 (Pendientes), ADR-0061, ADR-0066, ADR-0052, ADR-0024, `src/lib/repos/ventas.ts`, `src/lib/repos/sync.ts`, `src/lib/repos/fiado.ts`, `src/modules/sales/registro_venta.ts`.

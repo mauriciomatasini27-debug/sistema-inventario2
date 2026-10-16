@@ -1,3 +1,13 @@
+---
+id: ADR-0000
+tipo: spec
+estado: propuesto
+modulos: [inventario, persistencia]
+depende_de: [ADR-0037, ADR-0039, PRD-ALR-01, PRD-ARQ-01, PRD-BOT-01, PRD-BOT-02, PRD-COM-01, PRD-DASH-01, PRD-DEP-01, PRD-FE-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # 0000 - Índice PRD ordenado - Sistema de Inventario
 
 Fecha: 2026-10-10. Fuente: 28 docx en `Sistema de Inventario/`. Extracción con `python-docx` + 3 workers en paralelo (principio `guard-the-context-window`).

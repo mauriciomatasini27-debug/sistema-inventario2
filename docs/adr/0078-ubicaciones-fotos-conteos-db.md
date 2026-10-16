@@ -1,3 +1,13 @@
+---
+id: ADR-0078
+tipo: adr
+estado: aceptado
+modulos: [inventario, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0062, PRD-PERS-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0078 - Ubicaciones, fotos de producto y conteos DB-first
 
 Estado: aceptado (2026-10-14, evidencia: `tests/pers3-ubicaciones-fotos-conteos.test.ts` con Postgres local, commit b998527). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-PERS-03-ubicaciones-fotos-conteos-db.md`, ADR-0062 (Pendientes), ADR-0052, ADR-0024, `src/lib/repos/catalogo.ts`, `src/lib/repos/stock.ts`, `src/db/schema.ts` (`locations`, `product_photos`, `stock_counts`, `stock_count_lines`).

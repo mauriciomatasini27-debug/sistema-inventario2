@@ -1,3 +1,13 @@
+---
+id: ADR-0029
+tipo: adr
+estado: aceptado
+modulos: [admin, landing, tenant]
+depende_de: [ADR-0006, PRD-OP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0029 - Cierre paneles y landing
 
 Estado: aceptado (2026-10-12, evidencia: `src/pages/api/admin/tenants.ts`). Fecha: 2026-10-11. Fuentes: ADR-0006/0020/0022, `src/pages/admin.astro:4-6`, `src/pages/panel.astro:204-230`, `src/data/business.ts:36-39`.

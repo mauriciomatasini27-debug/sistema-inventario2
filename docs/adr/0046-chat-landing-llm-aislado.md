@@ -1,3 +1,13 @@
+---
+id: ADR-0046
+tipo: adr
+estado: propuesto
+modulos: [landing, persistencia]
+depende_de: [ADR-0010, ADR-0022, ADR-0045, PRD-LP-02, PRD-LP-04]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0046 - Chat de landing: LLM barato, solo FAQ, aislado del sistema
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-LP-04 (LP4-S2, LP4-S4, LP4-S5), ADR-0010, ADR-0022, ADR-0045.

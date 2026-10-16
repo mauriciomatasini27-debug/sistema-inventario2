@@ -1,3 +1,13 @@
+---
+id: ADR-0010
+tipo: adr
+estado: aceptado
+modulos: [inventario, landing]
+depende_de: [PRD-LP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0010 - Landing ModoOps a Inventario
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-LP-01.

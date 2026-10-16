@@ -1,3 +1,13 @@
+---
+id: ADR-0013
+tipo: adr
+estado: aceptado
+modulos: [inventario]
+depende_de: [ADR-0006, PRD-ADAP-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0013 - Adaptación ModoOps a Inventario
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-ADAP-01. Cierra 0010/0011/0012.

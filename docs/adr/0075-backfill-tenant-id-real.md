@@ -1,3 +1,13 @@
+---
+id: ADR-0075
+tipo: adr
+estado: aceptado
+modulos: [fiscal, tenant]
+depende_de: [ADR-0050, ADR-0051, ADR-0074, PRD-SEC-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0075 - Backfill real de `tenant_id` en `fiscal_documents` y `fiscal_settings`
 
 Estado: aceptado (2026-10-14, evidencia: `tests/sec03-backfill-tenant-id.test.ts` 13/13 con Postgres local, commit `bf24de1`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-SEC-03-backfill-tenant-id.md`, ADR-0074 (Pendientes), ADR-0051, ADR-0050, `scripts/backfill-tenant-id.mjs`, `scripts/backfill-tenant-id-lib.mjs`, `drizzle/0015_fiscal_tenant_id.sql`, `drizzle/0016_fiscal_settings_tenant.sql`.

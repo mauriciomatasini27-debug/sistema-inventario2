@@ -1,3 +1,13 @@
+---
+id: ADR-0060
+tipo: adr
+estado: aceptado
+modulos: [persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0060 - Repositorio de OCR en `src/lib/repos/ocr.ts`: rutas `ocr/*` sin `store`
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E11), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

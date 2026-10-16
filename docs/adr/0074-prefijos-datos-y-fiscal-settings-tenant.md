@@ -1,3 +1,13 @@
+---
+id: ADR-0074
+tipo: adr
+estado: aceptado
+modulos: [fiscal, persistencia, tenant]
+depende_de: [ADR-0048, ADR-0050, ADR-0051, ADR-0066, PRD-SEC-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0074 - Rutas de datos completas en el middleware y `fiscal_settings` por tenant
 
 Estado: aceptado (2026-10-14, evidencia: `tests/sec02-prefijos-fiscal-settings.test.ts` 6/6 y `tests/arch/prefijos-datos.test.ts` 2/2 con Postgres local, commit `81b8b54`). Fecha: 2026-10-14. Fuentes: PRD `diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md`, ADR-0066 (Pendientes), ADR-0051, ADR-0050, `src/lib/tenant-context.ts`, `src/db/schema-fiscal.ts`, `src/pages/api/fiscal/settings.ts`, `src/lib/repos/fiscal.ts`.

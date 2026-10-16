@@ -1,3 +1,13 @@
+---
+id: ADR-0054
+tipo: adr
+estado: aceptado
+modulos: [fiscal, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0054 - Repositorio fiscal en `src/lib/repos/fiscal.ts`: rutas `fiscal/*` sin `store`
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E5), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

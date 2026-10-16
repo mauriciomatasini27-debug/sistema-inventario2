@@ -1,3 +1,13 @@
+---
+id: ADR-0062
+tipo: adr
+estado: aceptado
+modulos: [compras, inventario, persistencia]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0062 - Repositorios de catálogo, stock y compras: productos, ubicaciones, lotes, conteos, órdenes de compra, beneficiarios y cuentas de servicio sin `store`
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E13), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

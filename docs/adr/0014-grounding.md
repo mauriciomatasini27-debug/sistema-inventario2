@@ -1,3 +1,13 @@
+---
+id: ADR-0014
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [PRD-SK-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0014 - Grounding con how + why
 
 Estado: aceptado. Fecha: 2026-10-10. Fuente: PRD-SK-01.

@@ -1,3 +1,13 @@
+---
+id: ADR-0039
+tipo: adr
+estado: propuesto
+modulos: [bot]
+depende_de: [ADR-0012, PRD-BOT-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0039 - Bot único con módulos activables por rubro
 
 Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S1/S2/S3-S6), ADR-0012, B1-B15, `src/modules/whatsapp/router.ts`.

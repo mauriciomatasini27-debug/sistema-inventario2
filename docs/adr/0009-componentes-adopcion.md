@@ -1,3 +1,13 @@
+---
+id: ADR-0009
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [PRD-DS-02, PRD-DS-03]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0009 - Componentes y adopción Tema Papel
 
 Estado: aceptado. Fecha: 2026-10-10. Fuentes: PRD-DS-02 y PRD-DS-03.

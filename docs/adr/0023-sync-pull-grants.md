@@ -1,3 +1,13 @@
+---
+id: ADR-0023
+tipo: adr
+estado: aceptado
+modulos: [offline]
+depende_de: [ADR-0003, PRD-SYNC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0023 - Sync pull, heartbeat, grants y devices
 
 Estado: aceptado (2026-10-12, evidencia: `src/pages/api/sync/pull.ts`). Fecha: 2026-10-11. Fuentes: OF3/OF4/OF5/OF9, ADR-0003, `src/pages/api/sync/push.ts`, `src/offline/grants.ts`, `src/offline/sync-worker.ts:7`.

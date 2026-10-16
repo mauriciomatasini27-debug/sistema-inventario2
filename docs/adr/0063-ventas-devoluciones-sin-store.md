@@ -1,3 +1,13 @@
+---
+id: ADR-0063
+tipo: adr
+estado: aceptado
+modulos: [persistencia, ventas]
+depende_de: [ADR-0024, ADR-0052, ADR-0053, ADR-0057, PRD-PERS-02]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0063 - Ventas, devoluciones y correcciones de medio sin `store`: cierre de PERS-S5 en `src/pages/api`
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-PERS-02-cutover-multi-tenant.md` (PERS2-E14), ADR-0053, ADR-0052, ADR-0024 (PERS-S4, PERS-S5).

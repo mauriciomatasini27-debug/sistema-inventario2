@@ -1,3 +1,13 @@
+---
+id: ADR-0066
+tipo: adr
+estado: aceptado
+modulos: []
+depende_de: [ADR-0024, ADR-0031, ADR-0051, ADR-0064, PRD-SEC-01]
+reemplaza: []
+reemplazado_por: ""
+resumen: ""
+---
 # ADR-0066 - Dueño real en rutas sensibles y correlativo único de tickets
 
 Estado: aceptado. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md`, `diseno/PLAN-COM-01-poda-comentarios.md`, ADR-0064, ADR-0051, ADR-0031 (AU10), ADR-0024.
