@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
-import { esSuperadmin, jsonError, resolverSesion } from "../../../lib/control.js";
+import { jsonError, resolverSesion } from "../../../lib/control.js";
 import { persistirAuthEvent, asegurarAltaPendiente, buscarAltasPorDueno } from "../../../lib/control-db.js";
 import { altaAutoservicioSchema } from "../../../lib/validation.js";
 import { ejecutarAprovisionamiento } from "../../../jobs/aprovisionar.js";
@@ -110,7 +110,6 @@ export const POST: APIRoute = async ({ request }) => {
     detalle: { rubro: b.rubro },
   });
   void persistirAuthEvent({ tenantId: id, tipo: "alta_comercio", actor: ctx.googleSub });
-  void esSuperadmin;
 
   let vincular: { codigo: string; expira_en_min: number } | null = null;
   if (numero) {

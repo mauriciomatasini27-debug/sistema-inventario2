@@ -84,7 +84,7 @@ function tenantEnStore(id: string, dueno: string, plan = "base") {
 
 beforeEach(() => {
   resetStore();
-  process.env.SUPERADMIN_SUBS = "admin-sub";
+  process.env.ADMIN_ALLOWLIST_SUBS = "admin-sub";
 });
 
 describe("oidc login", () => {

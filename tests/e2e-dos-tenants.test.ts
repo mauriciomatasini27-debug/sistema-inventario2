@@ -120,15 +120,15 @@ describe.skipIf(!hayPG)("P3-2d PRD-E2E-01: flujo demo de dos tenants aislados co
     resetStore();
     planoA = sesionEnStore(subA);
     planoB = sesionEnStore(subB);
-    superPrevio = process.env.SUPERADMIN_SUBS;
-    process.env.SUPERADMIN_SUBS = subSuper;
+    superPrevio = process.env.ADMIN_ALLOWLIST_SUBS;
+    process.env.ADMIN_ALLOWLIST_SUBS = subSuper;
   });
 
   afterAll(async () => {
     fijarMulti();
     await borrarRastro();
-    if (superPrevio === undefined) delete process.env.SUPERADMIN_SUBS;
-    else process.env.SUPERADMIN_SUBS = superPrevio;
+    if (superPrevio === undefined) delete process.env.ADMIN_ALLOWLIST_SUBS;
+    else process.env.ADMIN_ALLOWLIST_SUBS = superPrevio;
     delete process.env.TENANT_MODE;
     delete process.env["TENANT_DATABASE_URL_tenant-a"];
     delete process.env["TENANT_DATABASE_URL_tenant-b"];

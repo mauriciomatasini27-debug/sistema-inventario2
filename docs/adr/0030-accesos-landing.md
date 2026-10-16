@@ -33,6 +33,7 @@ De `modoops_core/views/login_templates.xml:79-80`: preservar el destino en el lo
 - ADR-0022 E10 (nav sin `/panel`/`/venta`) se acota, no se rompe: el `nav` de anclas sigue intacto (SEO, solo `/` indexable); los accesos son CTAs a `/api/auth/login` (ruta API, no indexable), así E10 y E4 (`noindex` en `/panel`, `/venta`, `/admin`) siguen vigentes.
 - `login.ts` acepta `next` con allowlist de paths locales (`startsWith("/")`, sin `//` ni `http`), espejando el guard de `continuar` de `reauth.ts:37`. `pendingAuth` suma campo `destino` (`store.ts:361`); `callback.ts:177` deja de ser hardcodeado.
 - `ADMIN_ALLOWLIST_SUBS` pasa a `.env.example` con formato y nota de rotación separada de `SUPERADMIN_SUBS` (intención ya declarada en `guard.ts:3-4`). `SUPERADMIN_SUBS` queda para el legacy (`tenants.ts:24`, `admin/onboarding/embudo.ts:13`) hasta su migración a `exigirAdmin` (PRD-AU-02).
+- Lista única (P9-12): `leerAllowlist` devuelve la unión de `ADMIN_ALLOWLIST_SUBS` y el fallback deprecado `SUPERADMIN_SUBS` (recorta, ignora vacíos, dedupa, avisa una vez sin loguear subs); `esSuperadmin` delega en esa misma lista, así `POST /api/tenants` y `exigirAdmin` comparten el corte y vacía niega todo.
 - `alta/estado.astro:46` (`Entrar a mi comercio` con `href="/"`) apunta a `/panel`.
 
 ## Alternativas descartadas

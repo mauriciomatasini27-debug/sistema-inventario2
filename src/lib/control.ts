@@ -5,7 +5,7 @@ import {
   sha256Hex,
 } from "../modules/auth/sesiones.js";
 import { necesitaReauth } from "../modules/auth/reautenticacion.js";
-import { leerVarEntorno } from "./env.js";
+import { leerAllowlist } from "../modules/admin/guard.js";
 
 // Adaptador control en memoria (ver store.ts): resuelve sesión + membership por
 // request. En producción lee Drizzle; la forma de la decisión es la misma.
@@ -47,12 +47,9 @@ export function resolverSesion(request: Request, ahora = new Date()): ContextoAu
   return resolverSesionPorPlano(idPlano, ahora);
 }
 
+/** Alias deprecado: la lista única vive en leerAllowlist (P9-12). */
 export function esSuperadmin(googleSub: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  const allow = leerVarEntorno("SUPERADMIN_SUBS", env)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return allow.includes(googleSub);
+  return leerAllowlist(env).includes(googleSub);
 }
 
 export function membershipActiva(tenantId: string, googleSub: string) {

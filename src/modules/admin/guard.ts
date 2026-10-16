@@ -1,11 +1,23 @@
+import { leerVarEntorno } from "../../lib/env.js";
+
 // LANE admin — Guard PA1 (allowlist + reauth para mutantes).
 //
-// Núcleo puro: sin IO. La allowlist es ADMIN_ALLOWLIST_SUBS (env propia, no
-// reutilizar SUPERADMIN_SUBS para poder rotar por separado). Decide por
-// google_sub, nunca por email (PA1). Reauth: los POST mutantes exigen
-// lastReauthEn dentro de la ventana (PA1.8: 5min).
+// Núcleo: la allowlist única es ADMIN_ALLOWLIST_SUBS; SUPERADMIN_SUBS queda
+// como fallback deprecado (se une, nunca se loguea) para no dejar sin acceso
+// a un deploy que solo la tenga. Decide por google_sub, nunca por email
+// (PA1). Reauth: los POST mutantes exigen lastReauthEn dentro de la ventana
+// (PA1.8: 5min).
 
 export const VENTANA_REAUTH_MIN = 5;
+
+let avisoSuperadminEmitido = false;
+
+function parsearLista(crudo: string): string[] {
+  return crudo
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export function esAdminAllowlist(googleSub: string, allowlist: readonly string[]): boolean {
   if (!googleSub) return false;
@@ -13,11 +25,13 @@ export function esAdminAllowlist(googleSub: string, allowlist: readonly string[]
 }
 
 export function leerAllowlist(env: NodeJS.ProcessEnv = process.env): string[] {
-  const crudo = env["ADMIN_ALLOWLIST_SUBS"] ?? "";
-  return crudo
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const admin = parsearLista(leerVarEntorno("ADMIN_ALLOWLIST_SUBS", env));
+  const legacy = parsearLista(leerVarEntorno("SUPERADMIN_SUBS", env));
+  if (legacy.length > 0 && !avisoSuperadminEmitido) {
+    avisoSuperadminEmitido = true;
+    console.warn("SUPERADMIN_SUBS está deprecada; mové los subs a ADMIN_ALLOWLIST_SUBS");
+  }
+  return [...new Set([...admin, ...legacy])];
 }
 
 export type ReauthDecision = { readonly ok: true } | { readonly ok: false; readonly error: string };

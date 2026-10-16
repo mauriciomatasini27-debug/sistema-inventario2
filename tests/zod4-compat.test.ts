@@ -44,7 +44,7 @@ const PLAN_MSG = "El plan es inválido. Usá demo, base o plus.";
 
 beforeEach(() => {
   resetStore();
-  process.env.SUPERADMIN_SUBS = "admin-sub";
+  process.env.ADMIN_ALLOWLIST_SUBS = "admin-sub";
   delete process.env.TENANT_MODE;
   delete process.env.TENANT_DATABASE_URL;
   delete process.env["TENANT_DATABASE_URL_tenant-a"];

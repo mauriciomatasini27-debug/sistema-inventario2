@@ -53,7 +53,7 @@ check(
   (alta2.status === 201 || alta2.status === 409) && typeof t2 === "string",
   `status=${alta2.status}`,
 );
-if (alta2.status === 403) console.error("HINT falta SUPERADMIN_SUBS con tu googleSub en .env + reiniciar dev");
+if (alta2.status === 403) console.error("HINT falta ADMIN_ALLOWLIST_SUBS con tu googleSub en .env + reiniciar dev");
 if (t1) {
   const est = await get(`/api/onboarding/estado?tenant_id=${t1}`);
   check("estado tenant kiosco", est.status === 200, `status=${est.status}`);
