@@ -54,4 +54,11 @@ Cada error tiene un guard estructural; la doc es el último recurso. E1: nunca e
 
 ## Cadena: merge guard y lock
 
+Procedimiento obligatorio de cada corrida (no hay otro mecanismo de lock; nunca un holder ad-hoc `bash -c` que escriba `/workspace/.cadena.lock` a mano):
+
+1. Al inicio, en la shell persistente de la corrida: `node scripts/cadena/lock.mjs acquire --pid $$`. Exit 3 = otro dueño vivo tras 20 min: loguear `skip` en `/workspace/cadena-log.tsv` y terminar sin tocar nada. Un dueño muerto (stale) lo libera `acquire` solo y queda logueado.
+2. Inmediatamente registrar la liberación: `trap 'node scripts/cadena/lock.mjs release --pid $$' EXIT` (o `finally` equivalente). Para un comando suelto, `scripts/cadena/con-lock.sh <cmd>` toma, corre y libera al salir (`tests/cadena-con-lock.test.ts`).
+3. Antes de cualquier squash-merge: `node scripts/cadena/puede-mergear.mjs <PR>`. Exit ≠ 0 => no mergear, dejar el PR abierto, loguear y avisar a Mauri. Exit 0 y checks ci/analyze/guard verdes => `gh pr merge <PR> --squash --delete-branch`.
+4. Al final: loguear en `/workspace/cadena-log.tsv` y `node scripts/cadena/lock.mjs release --pid $$` (el trap lo cubre si la corrida corta antes).
+
 Antes de cualquier squash-merge, correr `node scripts/cadena/puede-mergear.mjs <PR>`; si falla, no mergear y avisar a Mauri (título/cuerpo con "No mergear"/"DO NOT MERGE", o `drizzle/*.sql` cuyo tag no está en `docs/roadmap/migraciones-aplicadas.md` de `main`). El lock `/workspace/.cadena.lock` (solo PID) se toma/libera con `node scripts/cadena/lock.mjs acquire|release --pid <pid>`; solo se libera el propio o uno stale (PID muerto), lo que queda logueado en `/workspace/cadena-log.tsv`. Tests: `tests/cadena-puede-mergear.test.ts`, `tests/cadena-lock.test.ts`.
