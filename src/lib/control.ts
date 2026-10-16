@@ -1,4 +1,5 @@
 import { control, type ControlSession } from "./store.js";
+import { tenantActual } from "./tenant-mode.js";
 import {
   validarSesion,
   extraerSesionDeCookie,
@@ -62,6 +63,25 @@ export function membershipActiva(tenantId: string, googleSub: string) {
 export function esDueno(tenantId: string, googleSub: string): boolean {
   const m = membershipActiva(tenantId, googleSub);
   return m?.rol === "dueno";
+}
+
+// P9-13: rol efectivo para autorizar desde sesión + membership activa, nunca
+// del body (el body `rol` se ignora). Sin sesión o sin tenant determinable
+// vale el default legado slice-0 (dueño); con sesión y tenant pero sin
+// membership activa se niega (fail-closed, como el resto de rutas).
+export type RolEfectivo =
+  | { estado: "sesion"; rol: "dueno" | "empleado"; permisos: string[] }
+  | { estado: "legado" }
+  | { estado: "sin_permiso" };
+
+export function resolverRolEfectivo(request: Request): RolEfectivo {
+  const ses = resolverSesion(request);
+  if (!ses) return { estado: "legado" };
+  const tenantId = tenantActual() ?? ses.tenantId;
+  if (!tenantId) return { estado: "legado" };
+  const m = membershipActiva(tenantId, ses.googleSub);
+  if (!m) return { estado: "sin_permiso" };
+  return { estado: "sesion", rol: m.rol, permisos: [...m.permisos] };
 }
 
 export function contarMiembrosActivos(tenantId: string): number {

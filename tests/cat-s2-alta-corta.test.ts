@@ -1,7 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
-import { resetStore } from "../src/lib/store.js";
+import { control, resetStore } from "../src/lib/store.js";
+import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { productCodes, products } from "../src/db/schema.js";
@@ -12,6 +13,41 @@ function modoSingleSinDb(): void {
   delete process.env.TENANT_DATABASE_URL;
   delete process.env["TENANT_DATABASE_URL_tenant-a"];
   delete process.env["TENANT_DATABASE_URL_tenant-b"];
+}
+
+// P9-13: el estado de alta sale de sesión + membership, nunca del body.
+function tenantConMiembro(tenantId: string, sub: string, rol: "dueno" | "empleado", permisos: string[] = []) {
+  control.tenants.set(tenantId, {
+    id: tenantId,
+    nombreComercio: "Kiosco Alta",
+    slug: "kiosco-alta",
+    estado: "activo",
+    plan: "base",
+    moneda: "ARS",
+    ownerGoogleSub: "dueno-s2",
+    esDemo: false,
+  });
+  const mid = `m-${tenantId}-${sub}`;
+  control.memberships.set(mid, { id: mid, tenantId, googleSub: sub, rol, permisos, estado: "activo" });
+}
+
+function sesionDe(sub: string, tenantId: string | null): string {
+  const ahora = new Date();
+  const c = crearSesion({ googleSub: sub, tenantId, ahora });
+  control.sessions.set(c.registro.idHash, {
+    idHash: c.registro.idHash,
+    googleSub: sub,
+    tenantId,
+    expiraAt: c.registro.expiraAt,
+    expiraAbsoluta: c.registro.expiraAbsoluta,
+    lastSeenAt: ahora.toISOString(),
+    reauthAt: ahora.toISOString(),
+  });
+  return c.idPlano;
+}
+
+function conSesion(url: string, plano: string, body: Record<string, unknown>) {
+  return ctx(url, { body, headers: { cookie: `__Host-sesion=${plano}` } });
 }
 
 beforeEach(() => {
@@ -40,11 +76,16 @@ describe("P3-1 CAT-S2 alta corta precargada + pendiente revision", () => {
     expect(altaDueno.status).toBe(201);
     expect(((await altaDueno.json()) as { estado: string }).estado).toBe("activo");
 
-    const altaPend = await postAlta({ sku: "ALTA-2", nombre: "Pend", precio_centavos: 100, codigo: "779998", rol: "empleado", permisos: [] });
+    // P9-13: el body `rol` se ignora; manda la membership de la sesión.
+    tenantConMiembro("t-alta", "emp-1", "empleado");
+    const planoEmp = sesionDe("emp-1", "t-alta");
+    const altaPend = (await POSTProducts(conSesion("http://x/api/products", planoEmp, { sku: "ALTA-2", nombre: "Pend", precio_centavos: 100, codigo: "779998", rol: "dueno", permisos: ["crear_productos"] }))) as Response;
     expect(altaPend.status).toBe(201);
     expect(((await altaPend.json()) as { estado: string }).estado).toBe("pendiente_revision");
 
-    const altaPermiso = await postAlta({ sku: "ALTA-3", nombre: "Perm", precio_centavos: 100, codigo: "779997", rol: "empleado", permisos: ["crear_productos"] });
+    tenantConMiembro("t-alta", "emp-2", "empleado", ["crear_productos"]);
+    const planoPermiso = sesionDe("emp-2", "t-alta");
+    const altaPermiso = (await POSTProducts(conSesion("http://x/api/products", planoPermiso, { sku: "ALTA-3", nombre: "Perm", precio_centavos: 100, codigo: "779997", rol: "empleado" }))) as Response;
     expect(altaPermiso.status).toBe(201);
     expect(((await altaPermiso.json()) as { estado: string }).estado).toBe("activo");
 
@@ -83,8 +124,10 @@ describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: estado pendiente_revisi
 
   it("alta de empleado sin permiso queda pendiente_revision tambien leida desde la DB", async () => {
     fijarMulti();
+    tenantConMiembro("tenant-a", "emp-s2", "empleado");
+    const plano = sesionDe("emp-s2", "tenant-a");
     const alta = (await conTenant("tenant-a", () =>
-      POSTProducts(ctx("http://x/api/products", { body: { sku: skuPG, nombre: "Pend DB", precio_centavos: 100, codigo: codPG, rol: "empleado" } })),
+      POSTProducts(conSesion("http://x/api/products", plano, { sku: skuPG, nombre: "Pend DB", precio_centavos: 100, codigo: codPG, rol: "dueno", permisos: ["crear_productos"] })),
     )) as Response;
     expect(alta.status).toBe(201);
     expect(((await alta.json()) as { estado: string }).estado).toBe("pendiente_revision");

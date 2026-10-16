@@ -167,7 +167,6 @@ export const conciliateShiftSchema = z.object({
 export const resolveShiftSchema = z.object({
   turno_id: z.string().uuid(),
   nota: z.string().min(1).max(280),
-  rol: rolSchema,
   resuelto_por: z.string().min(1).max(128),
 });
 export const dropSchema = z.object({

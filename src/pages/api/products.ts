@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
+import { resolverRolEfectivo } from "../../lib/control.js";
 import { actualizarProducto, altaProducto, buscarProductoPorCodigo, listarProductos } from "../../lib/repos/catalogo.js";
 import { estadoAltaDesdeRol, puedeEditarUmbrales } from "../../modules/inventario/escaneo.js";
 
@@ -22,7 +23,6 @@ const crearSchema = z.object({
   sector: z.string().max(64).default("general"),
   codigo: z.string().max(64).optional(),
   controla_vencimiento: z.boolean().default(false),
-  rol: z.enum(["dueno", "empleado"]).default("dueno"),
   permisos: z.array(z.string().max(64)).max(32).default([]),
   location_id: z.string().uuid().optional(),
   min_stock: z.number().int().min(0).nullable().optional(),
@@ -51,6 +51,8 @@ export const GET: APIRoute = async ({ url }) => {
 };
 
 // POST /api/products — CAT-S1 alta. 409 sku o código duplicado.
+// P9-13: el estado de alta sale del rol de sesión + membership; el body
+// `rol` se ignora (zod lo recorta). Sin sesión vale el default dueño.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -61,6 +63,12 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = crearSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
+  const rolEfectivo = resolverRolEfectivo(request);
+  if (rolEfectivo.estado === "sin_permiso") {
+    return Response.json({ error: "No tenés permiso en este comercio." }, { status: 403 });
+  }
+  const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
+  const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : b.permisos;
   let r: Awaited<ReturnType<typeof altaProducto>>;
   try {
     r = await altaProducto({
@@ -70,7 +78,7 @@ export const POST: APIRoute = async ({ request }) => {
       sector: b.sector,
       ...(b.codigo !== undefined ? { codigo: b.codigo } : {}),
       controlaVencimiento: b.controla_vencimiento,
-      estado: estadoAltaDesdeRol(b.rol, b.permisos),
+      estado: estadoAltaDesdeRol(rol, permisos),
       ...(b.location_id !== undefined ? { locationId: b.location_id } : {}),
       ...(b.min_stock !== undefined ? { minStock: b.min_stock } : {}),
       ...(b.reorder_qty !== undefined ? { reorderQty: b.reorder_qty } : {}),
@@ -92,6 +100,7 @@ export const POST: APIRoute = async ({ request }) => {
 // ALR-S1 suma min_stock (entero >= 0, null limpia) y reorder_qty (entero >
 // 0, null limpia): solo Dueño y encargado (403 al empleado); el resto de
 // los campos sigue sin exigir rol, como hasta ahora.
+// P9-13: el rol sale de sesión + membership; el body `rol` se ignora.
 export const PATCH: APIRoute = async ({ request, url }) => {
   const sku = (url.searchParams.get("sku") ?? "").trim().toUpperCase();
   if (!sku) return Response.json({ error: "falta sku" }, { status: 422 });
@@ -101,10 +110,15 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional(), rol: z.enum(["dueno", "empleado", "encargado"]).default("dueno"), min_stock: z.number().int().min(0).nullable().optional(), reorder_qty: z.number().int().min(1).nullable().optional() }).safeParse(body);
+  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional(), min_stock: z.number().int().min(0).nullable().optional(), reorder_qty: z.number().int().min(1).nullable().optional() }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
+  const rolEfectivo = resolverRolEfectivo(request);
+  if (rolEfectivo.estado === "sin_permiso") {
+    return Response.json({ error: "No tenés permiso en este comercio." }, { status: 403 });
+  }
+  const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
   const tocaUmbrales = parsed.data.min_stock !== undefined || parsed.data.reorder_qty !== undefined;
-  if (tocaUmbrales && !puedeEditarUmbrales(parsed.data.rol)) {
+  if (tocaUmbrales && !puedeEditarUmbrales(rol)) {
     return Response.json({ error: "solo dueno o encargado editan umbrales" }, { status: 403 });
   }
   let r: Awaited<ReturnType<typeof actualizarProducto>>;

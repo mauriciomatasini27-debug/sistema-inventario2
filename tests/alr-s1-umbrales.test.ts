@@ -4,6 +4,7 @@ import { resetStore, store, control } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { products } from "../src/db/schema.js";
+import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as getProducts, POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
 import { POST as postAlertas } from "../src/pages/api/jobs/alertas-stock.js";
 import { ejecutar_alertas_stock, limpiar_claves_alertas } from "../src/jobs/alertas-stock.js";
@@ -22,6 +23,41 @@ function post(url: string, body: unknown) {
 
 function patch(url: string, body: unknown) {
   return ctx(url, { method: "PATCH", body: body as Record<string, unknown> });
+}
+
+// P9-13: el rol para umbrales sale de sesión + membership, nunca del body.
+function tenantConMiembro(tenantId: string, sub: string, rol: "dueno" | "empleado") {
+  control.tenants.set(tenantId, {
+    id: tenantId,
+    nombreComercio: "Kiosco Umbrales",
+    slug: "kiosco-umbrales",
+    estado: "activo",
+    plan: "basico",
+    moneda: "ARS",
+    ownerGoogleSub: "dueno-s1",
+    esDemo: false,
+  });
+  const mid = `m-${tenantId}-${sub}`;
+  control.memberships.set(mid, { id: mid, tenantId, googleSub: sub, rol, permisos: [], estado: "activo" });
+}
+
+function sesionDe(sub: string, tenantId: string | null): string {
+  const ahora = new Date();
+  const c = crearSesion({ googleSub: sub, tenantId, ahora });
+  control.sessions.set(c.registro.idHash, {
+    idHash: c.registro.idHash,
+    googleSub: sub,
+    tenantId,
+    expiraAt: c.registro.expiraAt,
+    expiraAbsoluta: c.registro.expiraAbsoluta,
+    lastSeenAt: ahora.toISOString(),
+    reauthAt: ahora.toISOString(),
+  });
+  return c.idPlano;
+}
+
+function patchSesion(url: string, plano: string, body: unknown) {
+  return ctx(url, { method: "PATCH", body: body as Record<string, unknown>, headers: { cookie: `__Host-sesion=${plano}` } });
 }
 
 async function crearProducto(sku: string, extra: Record<string, unknown> = {}) {
@@ -83,31 +119,39 @@ describe("ALR-S1 solo Dueño y encargado editan umbrales", () => {
     resetStore();
   });
 
-  it("empleado recibe 403 al editar min_stock", async () => {
+  it("empleado recibe 403 al editar min_stock aunque forje rol dueno", async () => {
+    tenantConMiembro("t-umbrales", "emp-1", "empleado");
+    const plano = sesionDe("emp-1", "t-umbrales");
     await crearProducto("UMR-1");
-    const r = (await patchProducts(patch("http://x/api/products?sku=UMR-1", { rol: "empleado", min_stock: 5 }))) as Response;
+    const r = (await patchProducts(patchSesion("http://x/api/products?sku=UMR-1", plano, { rol: "dueno", min_stock: 5 }))) as Response;
     expect(r.status).toBe(403);
   });
 
   it("empleado recibe 403 al editar reorder_qty", async () => {
+    tenantConMiembro("t-umbrales", "emp-1", "empleado");
+    const plano = sesionDe("emp-1", "t-umbrales");
     await crearProducto("UMR-2");
-    const r = (await patchProducts(patch("http://x/api/products?sku=UMR-2", { rol: "empleado", reorder_qty: 4 }))) as Response;
+    const r = (await patchProducts(patchSesion("http://x/api/products?sku=UMR-2", plano, { reorder_qty: 4 }))) as Response;
     expect(r.status).toBe(403);
   });
 
-  it("dueno y encargado editan umbrales", async () => {
+  it("dueno edita umbrales aunque el body forje rol empleado", async () => {
+    tenantConMiembro("t-umbrales", "dueno-1", "dueno");
+    const plano = sesionDe("dueno-1", "t-umbrales");
     await crearProducto("UMR-3");
-    const rD = (await patchProducts(patch("http://x/api/products?sku=UMR-3", { rol: "dueno", min_stock: 3 }))) as Response;
+    const rD = (await patchProducts(patchSesion("http://x/api/products?sku=UMR-3", plano, { rol: "empleado", min_stock: 3 }))) as Response;
     expect(rD.status).toBe(200);
-    const rE = (await patchProducts(patch("http://x/api/products?sku=UMR-3", { rol: "encargado", reorder_qty: 7 }))) as Response;
+    const rE = (await patchProducts(patchSesion("http://x/api/products?sku=UMR-3", plano, { reorder_qty: 7 }))) as Response;
     expect(rE.status).toBe(200);
     const j = (await rE.json()) as { min_stock: number | null; reorder_qty: number | null };
     expect(j).toMatchObject({ min_stock: 3, reorder_qty: 7 });
   });
 
   it("empleado sigue editando nombre sin umbrales", async () => {
+    tenantConMiembro("t-umbrales", "emp-1", "empleado");
+    const plano = sesionDe("emp-1", "t-umbrales");
     await crearProducto("UMR-4");
-    const r = (await patchProducts(patch("http://x/api/products?sku=UMR-4", { rol: "empleado", nombre: "Nuevo nombre" }))) as Response;
+    const r = (await patchProducts(patchSesion("http://x/api/products?sku=UMR-4", plano, { nombre: "Nuevo nombre" }))) as Response;
     expect(r.status).toBe(200);
   });
 });
@@ -205,12 +249,14 @@ describe.skipIf(!hayPG)("ALR-S1 PG A/B: min_stock y reorder_qty persisten y el j
 
   it("PATCH persiste en DB y GET lo lee", async () => {
     fijarMulti();
+    tenantConMiembro("tenant-a", "dueno-a", "dueno");
+    const plano = sesionDe("dueno-a", "tenant-a");
     const c = (await conTenant("tenant-a", () =>
       postProducts(post("http://x/api/products", { sku: skuPGA, nombre: "PG S1", precio_centavos: 500 })),
     )) as Response;
     expect(c.status).toBe(201);
     const p = (await conTenant("tenant-a", () =>
-      patchProducts(patch(`http://x/api/products?sku=${skuPGA}`, { rol: "encargado", min_stock: 8, reorder_qty: 20 })),
+      patchProducts(patchSesion(`http://x/api/products?sku=${skuPGA}`, plano, { min_stock: 8, reorder_qty: 20 })),
     )) as Response;
     expect(p.status).toBe(200);
     const filas = await conTenant("tenant-a", async () =>
@@ -222,10 +268,12 @@ describe.skipIf(!hayPG)("ALR-S1 PG A/B: min_stock y reorder_qty persisten y el j
     expect(fichas.find((f) => f.sku === skuPGA)).toMatchObject({ min_stock: 8, reorder_qty: 20 });
   });
 
-  it("empleado no edita umbrales en PG", async () => {
+  it("empleado no edita umbrales en PG aunque forje rol dueno", async () => {
     fijarMulti();
+    tenantConMiembro("tenant-a", "emp-a", "empleado");
+    const plano = sesionDe("emp-a", "tenant-a");
     const p = (await conTenant("tenant-a", () =>
-      patchProducts(patch(`http://x/api/products?sku=${skuPGA}`, { rol: "empleado", min_stock: 99 })),
+      patchProducts(patchSesion(`http://x/api/products?sku=${skuPGA}`, plano, { rol: "dueno", min_stock: 99 })),
     )) as Response;
     expect(p.status).toBe(403);
   });
@@ -246,13 +294,15 @@ describe.skipIf(!hayPG)("ALR-S1 PG A/B: min_stock y reorder_qty persisten y el j
     });
     control.botLinks.set("+5491100009201", { tenantId: "tenant-a", googleSub: "dueno-a", estado: "verificado" });
     control.waPrefs.set("tenant-a:dueno-a", { optIn: false, avisoHora: "08:00", pausadoHastaMs: null });
+    tenantConMiembro("tenant-a", "dueno-a", "dueno");
+    const planoPg = sesionDe("dueno-a", "tenant-a");
     try {
       const c = (await conTenant("tenant-a", () =>
         postProducts(post("http://x/api/products", { sku: skuPGB, nombre: "PG S1 B", precio_centavos: 500 })),
       )) as Response;
       expect(c.status).toBe(201);
       const p = (await conTenant("tenant-a", () =>
-        patchProducts(patch(`http://x/api/products?sku=${skuPGB}`, { rol: "dueno", min_stock: 9, reorder_qty: 3 })),
+        patchProducts(patchSesion(`http://x/api/products?sku=${skuPGB}`, planoPg, { min_stock: 9, reorder_qty: 3 })),
       )) as Response;
       expect(p.status).toBe(200);
       const r = (await postAlertas(
