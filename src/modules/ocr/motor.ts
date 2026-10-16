@@ -147,6 +147,22 @@ export interface MotorOcr {
   extraer(bytesRef: string): Promise<{ texto: string; confianza: number } | null>;
 }
 
+// Alias en mayúsculas para el núcleo IA (PRD-IA-01): misma interfaz,
+// sin romper el nombre existente.
+export type MotorOCR = MotorOcr;
+
+// Fake determinista y reutilizable: devuelve el texto fijo sin red.
+// Para tests del asistente y de OCR.
+export function crear_motor_fake(opts?: { texto?: string; confianza?: number }): MotorOcr {
+  const texto = opts?.texto ?? "CUIT 20-12345678-6 Total $ 1.000,00 15/10/2026";
+  const confianza = opts?.confianza ?? 0.9;
+  return {
+    async extraer(_bytesRef: string) {
+      return { texto, confianza };
+    },
+  };
+}
+
 export function crear_paddle_cliente(opts: {
   endpoint: string;
   timeoutMs?: number;
