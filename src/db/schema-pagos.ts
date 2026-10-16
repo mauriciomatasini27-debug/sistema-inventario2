@@ -11,7 +11,7 @@ import type { DetalleEventoOrden, InstruccionSnapshot } from "../modules/payment
 // CHECK(estado) + UNIQUE parcial (una orden activa por respaldo) se aplica en
 // migración, no en este schema tipado (mismo criterio que schema.ts).
 // OP1: acá NO hay —ni habrá— columnas para credenciales de Mercado Pago,
-// homebanking o ARCA (verificado por test: tests/pagos.test.ts).
+// homebanking o ARCA (verificado por test: tests/pagos-op1-sin-credenciales.test.ts).
 
 // OP6: beneficiarios con datos públicos de cobro (alias/CBU/CUIT/link).
 export const payees = pgTable("payees", {
