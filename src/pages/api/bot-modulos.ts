@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ request }) => {
   return Response.json({
     tenant_id: tenantId,
     modulos: MODULOS_BOT,
-    activos: leerModulosBot(tenantId),
+    activos: await leerModulosBot(tenantId),
     puede_editar: m.rol === "dueno",
     rubros_avanzados: rubrosAvanzadosHabilitados(),
   });
@@ -55,7 +55,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Datos inválidos.", 422);
-  const activos = cambiarModuloBot(tenantId, parsed.data.modulo, parsed.data.activo);
+  const activos = await cambiarModuloBot(tenantId, parsed.data.modulo, parsed.data.activo);
   control.events.push({
     tenantId,
     tipo: parsed.data.activo ? "bot_modulo_activado" : "bot_modulo_desactivado",

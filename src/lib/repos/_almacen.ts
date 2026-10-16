@@ -583,7 +583,7 @@ export function crearAlmacenWaFriday(): AlmacenVivo<Array<ItemViernesWa>> {
 
 // BOT-S1 (ADR-0039): módulos del bot por tenant. Espejo en memoria del plano
 // control (global, no particionado por la base del comercio); con base viva la
-// fuente sería tenant_bot_modules. Misma politica que caja: el almacen decide
+// fuente es tenant_bot_modules. Misma politica que caja: el almacen decide
 // si propaga el fallo de DB o sigue con memoria.
 export interface ModulosBotTenant {
   tenantId: string;

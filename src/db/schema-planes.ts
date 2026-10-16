@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -98,4 +99,21 @@ export const aiUsage = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("ai_usage_tenant_mes_idx").on(t.tenantId, t.mes)],
+);
+
+// BOT-S1/S2 (ADR-0039): interruptor por (tenant, módulo), migración 0028.
+// Tenant sin filas = todos los módulos prendidos. CHECK y RLS en la migración.
+export const tenantBotModules = pgTable(
+  "tenant_bot_modules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    modulo: text("modulo").notNull(),
+    activo: boolean("activo").notNull().default(true),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("tenant_bot_modules_tenant_modulo_unique").on(t.tenantId, t.modulo)],
 );

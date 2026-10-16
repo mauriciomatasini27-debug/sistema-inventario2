@@ -1,4 +1,6 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
+import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -9,7 +11,16 @@ import {
   resolverRubroBot,
   rubrosAvanzadosHabilitados,
 } from "../src/modules/bot/modulos-rubro.js";
-import { aplicarDefaultsModulosBot, leerModulosBot } from "../src/lib/repos/bot-modulos.js";
+import {
+  aplicarDefaultsModulosBot,
+  cambiarModuloBot,
+  guardarModulosBot,
+  leerModulosBot,
+} from "../src/lib/repos/bot-modulos.js";
+import { conTenant } from "../src/lib/tenant-mode.js";
+import { getTenantDb } from "../src/lib/db.js";
+import { tenants } from "../src/db/schema.js";
+import { tenantBotModules } from "../src/db/schema-planes.js";
 import { enrutar, type EntradaRouter } from "../src/modules/whatsapp/router.js";
 import { POST as postAlta } from "../src/pages/api/onboarding/alta.js";
 import { PATCH as patchBotModulos } from "../src/pages/api/bot-modulos.js";
@@ -85,13 +96,13 @@ describe("BOT-S1 activación al terminar el onboarding", () => {
     );
     expect(r.status).toBe(201);
     const j = (await r.json()) as { tenant_id: string };
-    expect(leerModulosBot(j.tenant_id)).toEqual(["rotacion", "vencimientos"]);
+    expect(await leerModulosBot(j.tenant_id)).toEqual(["rotacion", "vencimientos"]);
   });
 });
 
 describe("BOT-S1 tenant previo sin registro", () => {
-  it("conserva todos los módulos prendidos como antes de BOT-S1", () => {
-    expect(leerModulosBot("t-legado")).toEqual([
+  it("conserva todos los módulos prendidos como antes de BOT-S1", async () => {
+    expect(await leerModulosBot("t-legado")).toEqual([
       "rotacion",
       "vencimientos",
       "flujo_caja",
@@ -105,7 +116,7 @@ describe("BOT-S1 tenant previo sin registro", () => {
 describe("BOT-S1 toggle solo dueño", () => {
   it("empleado recibe 403 y dueño apaga el módulo", async () => {
     tenantConMiembros("t-1", "dueno-1");
-    aplicarDefaultsModulosBot("t-1", "kiosco");
+    await aplicarDefaultsModulosBot("t-1", "kiosco");
     const empleado = sesionEnStore("juan", "t-1");
     const dueno = sesionEnStore("dueno-1", "t-1");
 
@@ -117,7 +128,7 @@ describe("BOT-S1 toggle solo dueño", () => {
       }),
     );
     expect(rEmp.status).toBe(403);
-    expect(leerModulosBot("t-1")).toEqual(["rotacion", "vencimientos"]);
+    expect(await leerModulosBot("t-1")).toEqual(["rotacion", "vencimientos"]);
 
     const rDueno = await patchBotModulos(
       ctx("http://x/api/bot-modulos", {
@@ -129,7 +140,7 @@ describe("BOT-S1 toggle solo dueño", () => {
     expect(rDueno.status).toBe(200);
     const j = (await rDueno.json()) as { activos: string[] };
     expect(j.activos).toEqual(["vencimientos"]);
-    expect(leerModulosBot("t-1")).toEqual(["vencimientos"]);
+    expect(await leerModulosBot("t-1")).toEqual(["vencimientos"]);
   });
 });
 
@@ -167,5 +178,106 @@ describe("BOT-S2 router filtra intenciones por módulo", () => {
     expect(enrutar(base({ texto: "últimos movimientos de Milka", movs, modulos: ["flujo_caja"] })).accion).toBe(
       "dia_movimientos",
     );
+  });
+});
+
+const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
+const sufijoPG = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
+const uuidA = randomUUID();
+const uuidB = randomUUID();
+const tenantsPG = [uuidA, uuidB] as const;
+
+function fijarMulti() {
+  process.env.TENANT_MODE = "multi";
+  process.env[`TENANT_DATABASE_URL_${uuidA}`] = process.env.PG_TEST_URL_A ?? "";
+  process.env[`TENANT_DATABASE_URL_${uuidB}`] = process.env.PG_TEST_URL_B ?? "";
+}
+
+async function asegurarTenantDb(id: string, marca: string) {
+  await conTenant(id, async () => {
+    await getTenantDb()
+      .insert(tenants)
+      .values({ id, nombreComercio: `Bot ${sufijoPG}`, slug: `bot-${sufijoPG}-${marca}` })
+      .onConflictDoNothing();
+  });
+}
+
+async function borrarRastroPG() {
+  for (const id of tenantsPG) {
+    await conTenant(id, async () => {
+      const db = getTenantDb();
+      await db.delete(tenantBotModules).where(eq(tenantBotModules.tenantId, id));
+      await db.delete(tenants).where(eq(tenants.id, id));
+    });
+  }
+}
+
+describe.skipIf(!hayPG)("BOT-S1/S2 PG: tenant_bot_modules persiste los interruptores aislados A/B", () => {
+  beforeAll(async () => {
+    fijarMulti();
+    await asegurarTenantDb(uuidA, "a");
+    await asegurarTenantDb(uuidB, "b");
+  });
+
+  beforeEach(async () => {
+    fijarMulti();
+    for (const id of tenantsPG) {
+      await conTenant(id, async () => {
+        await getTenantDb().delete(tenantBotModules).where(eq(tenantBotModules.tenantId, id));
+      });
+    }
+  });
+
+  afterAll(async () => {
+    fijarMulti();
+    await borrarRastroPG();
+    delete process.env.TENANT_MODE;
+    delete process.env[`TENANT_DATABASE_URL_${uuidA}`];
+    delete process.env[`TENANT_DATABASE_URL_${uuidB}`];
+  });
+
+  it("un tenant sin filas conserva todos los módulos prendidos", async () => {
+    fijarMulti();
+    expect(await conTenant(uuidA, () => leerModulosBot(uuidA))).toEqual([...MODULOS_BOT]);
+  });
+
+  it("guardar escribe las 6 filas con su interruptor y leer las devuelve en orden", async () => {
+    fijarMulti();
+    await guardarModulosBot(uuidA, ["vencimientos", "rotacion"]);
+    const filas = await conTenant(uuidA, () =>
+      getTenantDb().select().from(tenantBotModules).where(eq(tenantBotModules.tenantId, uuidA)),
+    );
+    expect(filas).toHaveLength(6);
+    expect(new Set(filas.filter((f) => f.activo).map((f) => f.modulo))).toEqual(new Set(["rotacion", "vencimientos"]));
+    expect(await leerModulosBot(uuidA)).toEqual(["rotacion", "vencimientos"]);
+  });
+
+  it("todo apagado persiste como 6 filas con activo=false y lee []", async () => {
+    fijarMulti();
+    await guardarModulosBot(uuidB, []);
+    const filas = await conTenant(uuidB, () =>
+      getTenantDb().select().from(tenantBotModules).where(eq(tenantBotModules.tenantId, uuidB)),
+    );
+    expect(filas).toHaveLength(6);
+    expect(filas.every((f) => f.activo === false)).toBe(true);
+    expect(await leerModulosBot(uuidB)).toEqual([]);
+  });
+
+  it("los defaults por rubro son idempotentes y no pisan un módulo apagado", async () => {
+    fijarMulti();
+    expect(await aplicarDefaultsModulosBot(uuidA, "kiosco")).toEqual(["rotacion", "vencimientos"]);
+    await cambiarModuloBot(uuidA, "rotacion", false);
+    expect(await aplicarDefaultsModulosBot(uuidA, "kiosco")).toEqual(["vencimientos"]);
+    const filas = await conTenant(uuidA, () =>
+      getTenantDb().select().from(tenantBotModules).where(eq(tenantBotModules.tenantId, uuidA)),
+    );
+    expect(filas).toHaveLength(6);
+  });
+
+  it("aísla tenants: lo guardado en A no lo ve B", async () => {
+    fijarMulti();
+    await guardarModulosBot(uuidA, ["cobranza"]);
+    expect(await leerModulosBot(uuidA)).toEqual(["cobranza"]);
+    expect(await leerModulosBot(uuidB)).toEqual([...MODULOS_BOT]);
   });
 });

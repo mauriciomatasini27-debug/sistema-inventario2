@@ -1,7 +1,6 @@
 // BOT-S1/S2 (ADR-0039): un solo bot con módulos activables por tenant según
 // rubro. Núcleo puro: sin IO, sin Drizzle, sin reloj. La persistencia vive en
-// el repo (memoria vía el puerto Almacen; la tabla tenant_bot_modules queda
-// pendiente de migración).
+// el repo (DB primero en tenant_bot_modules; memoria vía el puerto Almacen).
 import { leerVarEntorno } from "../../lib/env.js";
 
 export const MODULOS_BOT = [

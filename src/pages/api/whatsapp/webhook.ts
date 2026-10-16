@@ -270,7 +270,7 @@ export const POST: APIRoute = async ({ request }) => {
     friday: leerListaViernes(tenantId, catalogo, ahoraMs),
     sesion,
     ahoraMs,
-    modulos: leerModulosBot(tenantId),
+    modulos: await leerModulosBot(tenantId),
   });
   if (ruta.accion === "viernes_guardado") {
     agregarListaViernes(tenantId, ruta.friday, ahoraMs);

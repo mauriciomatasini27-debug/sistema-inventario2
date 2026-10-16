@@ -106,7 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const corrido = await ejecutarAprovisionamiento(jobId);
   // BOT-S1: al terminar el alta se activan los módulos del bot del rubro.
-  aplicarDefaultsModulosBot(id, b.rubro);
+  await aplicarDefaultsModulosBot(id, b.rubro);
   control.events.push({
     tenantId: id,
     tipo: "alta_formulario_completo",
