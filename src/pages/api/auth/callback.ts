@@ -6,6 +6,7 @@ import {
   verificarIdToken,
 } from "../../../modules/auth/oidc.js";
 import { crearSesion } from "../../../modules/auth/sesiones.js";
+import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
@@ -175,6 +176,10 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     maxAge: 30 * 24 * 3600,
   });
   const next = (pendiente as { next?: string }).next;
-  const destino = next && ["/panel", "/admin", "/"].includes(next) ? next : tenantId ? "/" : "/?alta=pendiente";
+  // AU2-S3: next validado gana; sin next, la allowlist admin termina en
+  // /admin; el defecto para el resto queda intacto. El corte de permisos lo
+  // hace exigirAdmin en cada API, no este redirect.
+  const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
+  const destino = nextOk ?? (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente");
   return redirect(destino, 302);
 }

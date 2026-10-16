@@ -143,6 +143,59 @@ describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:17
       expect(destino ?? "").not.toContain("evil");
     }
   });
+
+  it("vectores hostiles extra se ignoran: /\\evil, esquema sin barras, path con escape", async () => {
+    for (const malo of ["/\\evil", "https:evil.example", "HTTP://evil.example/x", "/admin/../evil", "/panel?x=//evil"]) {
+      resetStore();
+      const { destino, pendienteNext } = await flujoConNext(malo);
+      expect(pendienteNext).toBeUndefined();
+      expect(destino).toBe("/?alta=pendiente");
+      expect(destino ?? "").not.toContain("evil");
+    }
+  });
+});
+
+describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => {
+  async function callbackSinNext(): Promise<string | null> {
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+        headers: { cookie: setCookies(rLogin).join("; ") },
+      }),
+    );
+    return rCb.headers.get("Location");
+  }
+
+  it("sub en ADMIN_ALLOWLIST_SUBS sin next termina en /admin", async () => {
+    process.env.ADMIN_ALLOWLIST_SUBS = "juan";
+    expect(await callbackSinNext()).toBe("/admin");
+  });
+
+  it("tenant común sin next mantiene el defecto con tenant (/)", async () => {
+    delete process.env.ADMIN_ALLOWLIST_SUBS;
+    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "juan", esDemo: false });
+    control.memberships.set("m1", { id: "m1", tenantId: "t1", googleSub: "juan", rol: "dueno", permisos: [], estado: "activo" });
+    expect(await callbackSinNext()).toBe("/");
+  });
+
+  it("sin next, sin allowlist y sin tenant mantiene /?alta=pendiente", async () => {
+    delete process.env.ADMIN_ALLOWLIST_SUBS;
+    expect(await callbackSinNext()).toBe("/?alta=pendiente");
+  });
+
+  it("next validado gana sobre la allowlist admin", async () => {
+    process.env.ADMIN_ALLOWLIST_SUBS = "juan";
+    const rLogin = await getLogin(ctx("http://x/api/auth/login?next=/panel"));
+    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+        headers: { cookie: setCookies(rLogin).join("; ") },
+      }),
+    );
+    expect(rCb.headers.get("Location")).toBe("/panel");
+    delete process.env.ADMIN_ALLOWLIST_SUBS;
+  });
 });
 describe("AU-FIX-S6 regresión: redirects siempre con Set-Cookie", () => {
   it("login adjunta state+pkce; reauth adjunta reauth-state+pkce", async () => {

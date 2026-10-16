@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
-import { esSuperadmin, jsonError, resolverSesion } from "../../../../lib/control.js";
+import { jsonError } from "../../../../lib/control.js";
+import { exigirAdmin } from "../_guard.js";
 import { embudoQuerySchema } from "../../../../lib/validation.js";
 import { embudo_por_etapa, EVENTOS_ONBOARDING } from "../../../../modules/onboarding/metricas.js";
 
@@ -8,9 +9,8 @@ export const prerender = false;
 
 // GET /api/admin/onboarding/embudo — panel básico ON12. Solo contadores.
 export const GET: APIRoute = async ({ request }) => {
-  const ctx = resolverSesion(request);
-  if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
-  if (!esSuperadmin(ctx.googleSub)) return jsonError("No tenés permiso.", 403);
+  const admin = exigirAdmin(request);
+  if (admin instanceof Response) return admin;
   const url = new URL(request.url);
   const parsed = embudoQuerySchema.safeParse({
     desde: url.searchParams.get("desde") ?? undefined,

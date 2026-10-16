@@ -46,4 +46,15 @@ describe("N5 admin OP-S1/S2", () => {
     const ro = (await POSTRollout(req("http://x/api/admin/rollouts/reintentar", plano, { rollout_id: "r1" }))) as Response;
     expect(ro.status).toBe(202);
   });
+  it("AU2-S7 exigirAdmin: sub fuera de la allowlist recibe 403 auditado", async () => {
+    const planoFuera = adminSesion("visitante");
+    const g = (await GETTenants(req("http://x/api/admin/tenants", planoFuera))) as Response;
+    expect(g.status).toBe(403);
+    expect(await g.json()).toMatchObject({ error: expect.stringContaining("permiso") });
+    process.env.ADMIN_ALLOWLIST_SUBS = "";
+    const planoVacio = adminSesion("nadie");
+    const g2 = (await GETTenants(req("http://x/api/admin/tenants", planoVacio))) as Response;
+    expect(g2.status).toBe(403);
+    process.env.ADMIN_ALLOWLIST_SUBS = "admin-1";
+  });
 });
