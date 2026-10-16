@@ -108,6 +108,7 @@ describe("PERS2-S3 gateJob", () => {
 });
 
 const RUTAS_JOBS_SIN_STORE = [
+  "src/pages/api/jobs/alertas-stock.ts",
   "src/pages/api/jobs/whatsapp-aviso.ts",
   "src/pages/api/jobs/vencimientos-lotes.ts",
   "src/pages/api/jobs/cierre-medianoche.ts",
@@ -127,7 +128,7 @@ function importaStoreRuntimeJobs(ruta: string): boolean {
 }
 
 describe("PERS2-S18/S19 AT13: jobs sin store (ADR-0059)", () => {
-  it("ninguno de los 6 jobs importa el binding store en runtime (import type y control se permiten)", () => {
+  it("ninguno de los 7 jobs importa el binding store en runtime (import type y control se permiten)", () => {
     const mal = RUTAS_JOBS_SIN_STORE.filter(importaStoreRuntimeJobs);
     expect(mal).toEqual([]);
   });
