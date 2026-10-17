@@ -1,0 +1,188 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Catálogo</h2>
+      <div class="kpi">
+        <div><b id="stock-productos">…</b><small>Productos</small></div>
+        <div><b id="stock-umbral">…</b><small>Con stock mínimo</small></div>
+      </div>
+      <table>
+        <thead><tr><th>SKU</th><th>Nombre</th><th>Precio</th><th>Mínimo</th><th>A reponer</th></tr></thead>
+        <tbody id="stock-body"></tbody>
+      </table>
+      <div class="estado" id="estado-stock" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Lotes FEFO</h2>
+      <div class="fila">
+        <label>SKU
+          <input id="lote-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
+        </label>
+        <button id="lote-buscar" type="button">Buscar</button>
+      </div>
+      <ul class="lista" id="lote-lista"></ul>
+      <div class="estado" id="estado-lotes" role="status">Cargando…</div>
+    </section>
+  </div>
+
+  <div class="grid dos">
+    <section class="card">
+      <h2>Ingreso de mercadería</h2>
+      <form id="ingreso-form">
+        <div class="fila">
+          <label>SKU
+            <input id="ingreso-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
+          </label>
+          <label>Cantidad
+            <input id="ingreso-cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Costo en centavos
+            <input id="ingreso-costo" type="number" min="0" step="1" inputmode="numeric" value="0" />
+          </label>
+          <label>Vence el
+            <input id="ingreso-vence" type="datetime-local" />
+          </label>
+        </div>
+        <button id="ingreso-enviar" type="submit">Ingresar</button>
+        <div class="estado" id="estado-ingreso" role="status">Completá el SKU y la cantidad.</div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Conteo ciego</h2>
+      <p class="estado">El conteo por sector suma su propia pantalla en la próxima iteración.</p>
+      <p><a href="/api/stock/conteo">/api/stock/conteo</a> ya está disponible para el conteo por sector.</p>
+    </section>
+  </div>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+  const celdas = (textos) => {
+    const tr = document.createElement("tr");
+    textos.forEach((t) => {
+      const td = document.createElement("td");
+      td.textContent = t;
+      tr.appendChild(td);
+    });
+    return tr;
+  };
+
+  const cargarCatalogo = () =>
+    fetch("/api/products")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.productos || [];
+        const tb = $("stock-body");
+        tb.textContent = "";
+        let conUmbral = 0;
+        items.forEach((p) => {
+          if (p.min_stock !== null && p.min_stock !== undefined) conUmbral += 1;
+          tb.appendChild(
+            celdas([
+              p.sku,
+              p.nombre,
+              formatearCentavos(p.precioCentavos),
+              p.min_stock ?? "—",
+              p.reorder_qty ?? "—",
+            ]),
+          );
+        });
+        $("stock-productos").textContent = String(items.length);
+        $("stock-umbral").textContent = String(conUmbral);
+        $("estado-stock").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Todavía no hay productos cargados.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/stock] catálogo", error);
+        $("stock-productos").textContent = "—";
+        $("stock-umbral").textContent = "—";
+        $("estado-stock").textContent = mensaje("error", "");
+      });
+
+  const buscarLotes = () => {
+    const sku = $("lote-sku").value.trim().toUpperCase();
+    return fetch("/api/lots?sku=" + encodeURIComponent(sku))
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.lotes || [];
+        const ul = $("lote-lista");
+        ul.textContent = "";
+        items.forEach((l) => {
+          const li = document.createElement("li");
+          li.textContent =
+            l.sku + " · restante " + l.cantidadRestante + " de " + l.cantidad + " · " + (l.venceEl ? l.venceEl.slice(0, 10) : "sin vencimiento");
+          ul.appendChild(li);
+        });
+        $("estado-lotes").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          sku ? "Sin lotes para " + sku + "." : "Sin lotes cargados.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/stock] lotes", error);
+        $("estado-lotes").textContent = mensaje("error", "");
+      });
+  };
+  $("lote-buscar").addEventListener("click", buscarLotes);
+
+  $("ingreso-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-ingreso");
+    const sku = $("ingreso-sku").value.trim();
+    if (!sku) {
+      estado.textContent = "Escribí el SKU del producto.";
+      return;
+    }
+    const vence = $("ingreso-vence").value;
+    estado.textContent = "Ingresando…";
+    try {
+      const r = await fetch("/api/stock/ingreso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          sku,
+          cantidad: Number($("ingreso-cantidad").value),
+          costo_centavos: Number($("ingreso-costo").value),
+          controla_vencimiento: vence !== "",
+          vence_el: vence === "" ? null : new Date(vence).toISOString(),
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/stock] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se ingresó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Lote ingresado: " + (j.id || sku) + ".";
+      cargarCatalogo();
+      if ($("lote-sku").value.trim()) buscarLotes();
+    } catch (error) {
+      console.warn("[panel/stock] ingreso", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  cargarCatalogo();
+  buscarLotes();
+</script>

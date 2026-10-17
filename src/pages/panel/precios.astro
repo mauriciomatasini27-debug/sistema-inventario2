@@ -1,0 +1,121 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Precios" subtitulo="Precios vigentes y previsualización de ajustes." activo="precios">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Precios vigentes</h2>
+      <table>
+        <thead><tr><th>SKU</th><th>Nombre</th><th>Precio</th></tr></thead>
+        <tbody id="precio-body"></tbody>
+      </table>
+      <div class="estado" id="estado-precios" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Previsualizar ajuste</h2>
+      <form id="preview-form">
+        <label>Producto
+          <select id="preview-sku"></select>
+        </label>
+        <div class="fila">
+          <label>Dirección
+            <select id="preview-direccion"><option value="suba">Suba</option><option value="baja">Baja</option></select>
+          </label>
+          <label>Porcentaje
+            <input id="preview-porcentaje" type="number" min="0.01" max="3000" step="0.01" inputmode="decimal" value="10" />
+          </label>
+        </div>
+        <button id="preview-enviar" type="submit">Previsualizar</button>
+        <div class="estado" id="estado-preview" role="status">Elegí un producto y previsualizá el ajuste.</div>
+      </form>
+    </section>
+  </div>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+  const celdas = (textos) => {
+    const tr = document.createElement("tr");
+    textos.forEach((t) => {
+      const td = document.createElement("td");
+      td.textContent = t;
+      tr.appendChild(td);
+    });
+    return tr;
+  };
+  let vigentes = [];
+
+  const cargarPrecios = () =>
+    fetch("/api/products")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        vigentes = j.productos || [];
+        const tb = $("precio-body");
+        tb.textContent = "";
+        const select = $("preview-sku");
+        select.textContent = "";
+        vigentes.forEach((p) => {
+          tb.appendChild(celdas([p.sku, p.nombre, formatearCentavos(p.precioCentavos)]));
+          const option = document.createElement("option");
+          option.value = p.sku;
+          option.textContent = p.sku + " · " + p.nombre;
+          select.appendChild(option);
+        });
+        $("estado-precios").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: vigentes.length }),
+          "Todavía no hay productos cargados.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/precios] catálogo", error);
+        $("estado-precios").textContent = mensaje("error", "");
+      });
+
+  $("preview-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-preview");
+    const sku = $("preview-sku").value;
+    const producto = vigentes.find((p) => p.sku === sku);
+    if (!producto) {
+      estado.textContent = "Elegí un producto de la lista.";
+      return;
+    }
+    estado.textContent = "Calculando…";
+    try {
+      const r = await fetch("/api/prices/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          direccion: $("preview-direccion").value,
+          porcentaje: Number($("preview-porcentaje").value),
+          items: [{ sku: producto.sku, vigente_centavos: Number(producto.precioCentavos) }],
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/precios] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se pudo previsualizar: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      const linea = (j.lineas || [])[0];
+      estado.textContent = linea
+        ? producto.sku + ": " + formatearCentavos(producto.precioCentavos) + " → " + formatearCentavos(linea.nuevo_centavos) + "."
+        : "Sin líneas para previsualizar.";
+    } catch (error) {
+      console.warn("[panel/precios] preview", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  cargarPrecios();
+</script>

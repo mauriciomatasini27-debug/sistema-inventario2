@@ -1,0 +1,188 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+---
+<PanelShell titulo="Caja" subtitulo="Saldos, movimientos y vencimientos del comercio." activo="caja">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Saldo de caja</h2>
+      <div class="kpi">
+        <div><b id="caja-total">…</b><small>Total en caja</small></div>
+      </div>
+      <div class="estado" id="caja-medios">Cargando…</div>
+      <div class="estado" id="estado-balance" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Últimos movimientos</h2>
+      <table>
+        <thead><tr><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th></tr></thead>
+        <tbody id="mov-body"></tbody>
+      </table>
+      <div class="estado" id="estado-movs" role="status">Cargando…</div>
+    </section>
+  </div>
+
+  <div class="grid dos">
+    <section class="card">
+      <h2>Vencimientos de caja</h2>
+      <ul class="lista" id="venc-lista"></ul>
+      <div class="estado" id="estado-venc" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Registrar movimiento</h2>
+      <form id="mov-form">
+        <div class="fila">
+          <label>Tipo
+            <select id="mov-tipo"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select>
+          </label>
+          <label>Medio
+            <select id="mov-metodo">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+          </label>
+        </div>
+        <div class="fila">
+          <label>Origen
+            <select id="mov-origen">
+              <option value="retiro">Retiro</option>
+              <option value="sueldo">Sueldo</option>
+              <option value="devolucion">Devolución</option>
+              <option value="cobro_fiado">Cobro fiado</option>
+            </select>
+          </label>
+          <label>Monto en centavos
+            <input id="mov-monto" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+          </label>
+        </div>
+        <button id="mov-enviar" type="submit">Registrar</button>
+        <div class="estado" id="estado-form" role="status">Completá el monto y registrá.</div>
+      </form>
+    </section>
+  </div>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+  const celdas = (textos) => {
+    const tr = document.createElement("tr");
+    textos.forEach((t) => {
+      const td = document.createElement("td");
+      td.textContent = t;
+      tr.appendChild(td);
+    });
+    return tr;
+  };
+
+  const cargarBalance = () =>
+    fetch("/api/cash/balance")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((b) => {
+        const entradas = Object.entries(b.por_medio || {}).map(([m, c]) => [m, Number(c)]);
+        const total = entradas.reduce((a, par) => a + par[1], 0);
+        $("caja-total").textContent = formatearCentavos(total);
+        $("caja-medios").textContent =
+          entradas.length > 0 ? entradas.map(([m, c]) => m + " " + formatearCentavos(c)).join(" · ") : "Sin movimientos por medio.";
+        $("estado-balance").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: entradas.length }),
+          "Todavía no hay movimientos de caja.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/caja] balance", error);
+        $("caja-total").textContent = "—";
+        $("estado-balance").textContent = mensaje("error", "");
+      });
+
+  const cargarMovimientos = () =>
+    fetch("/api/cash/history?limit=10")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items || [];
+        const tb = $("mov-body");
+        tb.textContent = "";
+        items.forEach((m) => tb.appendChild(celdas([m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])));
+        $("estado-movs").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Sin movimientos registrados.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/caja] movimientos", error);
+        $("estado-movs").textContent = mensaje("error", "");
+      });
+
+  const cargarVencimientos = () =>
+    fetch("/api/cash/due-items")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.vencimientos || [];
+        const ul = $("venc-lista");
+        ul.textContent = "";
+        items.forEach((v) => {
+          const li = document.createElement("li");
+          li.textContent = v.concepto + " · " + formatearCentavos(v.montoCentavos) + " · " + v.estado + (v.avisa ? " · avisa" : "");
+          ul.appendChild(li);
+        });
+        $("estado-venc").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Sin vencimientos de caja.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/caja] vencimientos", error);
+        $("estado-venc").textContent = mensaje("error", "");
+      });
+
+  $("mov-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-form");
+    estado.textContent = "Registrando…";
+    try {
+      const r = await fetch("/api/cash/movements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          tipo: $("mov-tipo").value,
+          metodo: $("mov-metodo").value,
+          categoria_id: "manual",
+          origen: $("mov-origen").value,
+          monto_centavos: Number($("mov-monto").value),
+          device_code: "panel-web",
+          seq_local: Date.now(),
+          client_occurred_at: new Date().toISOString(),
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/caja] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se registró: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Movimiento registrado.";
+      cargarMovimientos();
+      cargarBalance();
+    } catch (error) {
+      console.warn("[panel/caja] registrar", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  cargarBalance();
+  cargarMovimientos();
+  cargarVencimientos();
+</script>

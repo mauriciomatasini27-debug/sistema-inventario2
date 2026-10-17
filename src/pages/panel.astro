@@ -1,16 +1,7 @@
 ---
 import { Toaster } from "../components/ui/Toaster";
-const pills = [
-  { label: "Dashboard", href: "/panel", active: true },
-  { label: "Ventas", href: "/venta", active: false },
-  { label: "Caja", href: "#caja", active: false },
-  { label: "Stock", href: "#stock", active: false },
-  { label: "Precios", href: "#precios", active: false },
-  { label: "Proveedores", href: "#proveedores", active: false },
-  { label: "Consumos", href: "#consumos", active: false },
-  { label: "Fiado", href: "#fiado", active: false },
-  { label: "Reportes", href: "#reportes", active: false },
-];
+import { pillsPanel } from "../lib/panel-modulos.js";
+const pills = pillsPanel("dashboard");
 ---
 <!doctype html>
 <html lang="es">
@@ -89,7 +80,7 @@ const pills = [
       <div class="topbar">
         <a class="logo" href="/" style="text-decoration:none;color:inherit">Inventario</a>
         <nav class="pills" aria-label="Módulos">
-          {pills.map((p) => <a href={p.href} class={p.active ? "active" : ""}>{p.label}</a>)}
+          {pills.map((p) => <a href={p.href} class={p.activo ? "active" : ""} aria-current={p.activo ? "page" : undefined}>{p.label}</a>)}
         </nav>
         <span class="top-right">
           <input id="q" type="search" placeholder="Buscar" aria-label="Buscar en movimientos" />

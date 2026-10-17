@@ -1,0 +1,18 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import { esModuloPanel, etiquetaModulo } from "../../lib/panel-modulos.js";
+
+const pedido = Astro.url.searchParams.get("m");
+const modulo = esModuloPanel(pedido) ? pedido : null;
+---
+<PanelShell
+  titulo={modulo ? etiquetaModulo(modulo) : "Pantalla en construcción"}
+  subtitulo="Pantalla en construcción."
+  activo={modulo ?? undefined}
+>
+  <section class="card">
+    <h2>{modulo ? etiquetaModulo(modulo) : "Módulo"}</h2>
+    <p class="estado" role="status">Pantalla en construcción. Todavía no está disponible.</p>
+    <p><a href="/panel">Volver al panel</a></p>
+  </section>
+</PanelShell>
