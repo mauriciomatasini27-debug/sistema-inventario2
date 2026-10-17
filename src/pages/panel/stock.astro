@@ -1,18 +1,19 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
+import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
+
+const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
   <div class="grid dos">
-    <section class="card">
+    <section class="card" data-harness={harness}>
       <h2>Catálogo</h2>
       <div class="kpi">
         <div><b id="stock-productos">…</b><small>Productos</small></div>
         <div><b id="stock-umbral">…</b><small>Con stock mínimo</small></div>
       </div>
-      <table>
-        <thead><tr><th>SKU</th><th>Nombre</th><th>Precio</th><th>Mínimo</th><th>A reponer</th></tr></thead>
-        <tbody id="stock-body"></tbody>
-      </table>
+      <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
       <p class="estado"><a href="/panel/alertas/umbrales">Editar umbrales por producto</a></p>
       <div class="estado" id="estado-stock" role="status">Cargando…</div>
     </section>
@@ -64,59 +65,45 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 </PanelShell>
 
 <script>
-  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+  import { catalogoMil, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
-  const celdas = (textos) => {
-    const tr = document.createElement("tr");
-    textos.forEach((t) => {
-      const td = document.createElement("td");
-      td.textContent = t;
-      tr.appendChild(td);
-    });
-    return tr;
+
+  const pintarCatalogo = (items) => {
+    publicarCatalogo(items);
+    const conUmbral = items.filter((p) => p.min_stock !== null && p.min_stock !== undefined).length;
+    $("stock-productos").textContent = String(items.length);
+    $("stock-umbral").textContent = String(conUmbral);
+    $("estado-stock").textContent = mensaje(
+      derivarEstado({ cargando: false, error: false, items: items.length }),
+      "Todavía no hay productos cargados.",
+    );
   };
 
-  const cargarCatalogo = () =>
+  const cargarCatalogo = () => {
+    const harness = document.querySelector<HTMLElement>("[data-harness]")?.dataset.harness;
+    if (harness === "mil") {
+      pintarCatalogo(catalogoMil());
+      return;
+    }
     fetch("/api/products")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
       })
-      .then((j) => {
-        const items = j.productos || [];
-        const tb = $("stock-body");
-        tb.textContent = "";
-        let conUmbral = 0;
-        items.forEach((p) => {
-          if (p.min_stock !== null && p.min_stock !== undefined) conUmbral += 1;
-          tb.appendChild(
-            celdas([
-              p.sku,
-              p.nombre,
-              formatearCentavos(p.precioCentavos),
-              p.min_stock ?? "—",
-              p.reorder_qty ?? "—",
-            ]),
-          );
-        });
-        $("stock-productos").textContent = String(items.length);
-        $("stock-umbral").textContent = String(conUmbral);
-        $("estado-stock").textContent = mensaje(
-          derivarEstado({ cargando: false, error: false, items: items.length }),
-          "Todavía no hay productos cargados.",
-        );
-      })
+      .then((j) => pintarCatalogo(j.productos || []))
       .catch((error) => {
         console.warn("[panel/stock] catálogo", error);
         $("stock-productos").textContent = "—";
         $("stock-umbral").textContent = "—";
         $("estado-stock").textContent = mensaje("error", "");
       });
+  };
 
   const buscarLotes = () => {
     const sku = $("lote-sku").value.trim().toUpperCase();

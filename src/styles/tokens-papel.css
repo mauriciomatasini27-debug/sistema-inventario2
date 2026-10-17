@@ -26,3 +26,7 @@
   --color-ash-gray: #6e695d;
   --color-trust-slate: #255c7a;
 }
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}

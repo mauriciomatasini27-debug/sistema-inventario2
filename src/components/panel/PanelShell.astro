@@ -48,9 +48,11 @@ const { titulo, subtitulo = "", activo } = Astro.props;
       .panel-shell ul.lista { list-style: none; margin: 0; padding: 0; font-size: 13px; }
       .panel-shell ul.lista li { padding: 8px 0; border-bottom: 1px solid var(--color-linen); }
       .panel-shell form { display: grid; gap: 8px; }
-      .panel-shell label { display: grid; gap: 4px; font-size: 13px; color: var(--color-ash); }
+      .panel-shell label { display: grid; gap: 4px; min-width: 0; font-size: 13px; color: var(--color-ash); }
       .panel-shell input, .panel-shell select, .panel-shell button { min-height: 44px; font-size: 16px; border-radius: 8px; padding: 8px 10px; font-family: inherit; }
       .panel-shell input, .panel-shell select { border: 1px solid var(--color-linen); background: var(--color-star-white); color: var(--color-void); }
+      .panel-shell label > input, .panel-shell label > select { box-sizing: border-box; width: 100%; min-width: 0; }
+      .panel-shell select { text-overflow: ellipsis; }
       .panel-shell button { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; cursor: pointer; }
       .panel-shell button:hover { background: var(--color-void); }
       .panel-shell button:disabled { opacity: 0.6; cursor: progress; }

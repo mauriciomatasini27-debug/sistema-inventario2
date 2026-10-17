@@ -1,14 +1,15 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
+import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
+
+const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 ---
 <PanelShell titulo="Precios" subtitulo="Precios vigentes y previsualización de ajustes." activo="precios">
   <div class="grid dos">
-    <section class="card">
+    <section class="card" data-harness={harness}>
       <h2>Precios vigentes</h2>
-      <table>
-        <thead><tr><th>SKU</th><th>Nombre</th><th>Precio</th></tr></thead>
-        <tbody id="precio-body"></tbody>
-      </table>
+      <TablaCatalogo client:visible columnas="precios" etiqueta="Precios vigentes" />
       <div class="estado" id="estado-precios" role="status">Cargando…</div>
     </section>
 
@@ -35,51 +36,49 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { catalogoMil, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { PORCENTAJE, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
-  const celdas = (textos) => {
-    const tr = document.createElement("tr");
-    textos.forEach((t) => {
-      const td = document.createElement("td");
-      td.textContent = t;
-      tr.appendChild(td);
-    });
-    return tr;
-  };
   let vigentes = [];
 
-  const cargarPrecios = () =>
+  const pintarCatalogo = (items) => {
+    vigentes = items;
+    publicarCatalogo(items);
+    const select = $("preview-sku");
+    select.textContent = "";
+    items.forEach((p) => {
+      const option = document.createElement("option");
+      option.value = p.sku;
+      option.textContent = p.sku + " · " + p.nombre;
+      select.appendChild(option);
+    });
+    $("estado-precios").textContent = mensaje(
+      derivarEstado({ cargando: false, error: false, items: items.length }),
+      "Todavía no hay productos cargados.",
+    );
+  };
+
+  const cargarPrecios = () => {
+    const harness = document.querySelector<HTMLElement>("[data-harness]")?.dataset.harness;
+    if (harness === "mil") {
+      pintarCatalogo(catalogoMil());
+      return;
+    }
     fetch("/api/products")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
       })
-      .then((j) => {
-        vigentes = j.productos || [];
-        const tb = $("precio-body");
-        tb.textContent = "";
-        const select = $("preview-sku");
-        select.textContent = "";
-        vigentes.forEach((p) => {
-          tb.appendChild(celdas([p.sku, p.nombre, formatearCentavos(p.precioCentavos)]));
-          const option = document.createElement("option");
-          option.value = p.sku;
-          option.textContent = p.sku + " · " + p.nombre;
-          select.appendChild(option);
-        });
-        $("estado-precios").textContent = mensaje(
-          derivarEstado({ cargando: false, error: false, items: vigentes.length }),
-          "Todavía no hay productos cargados.",
-        );
-      })
+      .then((j) => pintarCatalogo(j.productos || []))
       .catch((error) => {
         console.warn("[panel/precios] catálogo", error);
         $("estado-precios").textContent = mensaje("error", "");
       });
+  };
 
   $("preview-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();

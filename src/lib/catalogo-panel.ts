@@ -1,0 +1,78 @@
+export interface ProductoCatalogo {
+  sku: string;
+  nombre: string;
+  precioCentavos: number | string;
+  min_stock?: number | null;
+  reorder_qty?: number | null;
+}
+
+export const LOCALE_PRECIO = "en-US";
+
+// Moneda con símbolo "$" en en-US y sin agrupar: reproduce formatearCentavos
+// ("$1234.56", "-$5.00") con el signo antes del símbolo, sin prefijo a mano.
+export const FORMATO_PRECIO = {
+  style: "currency",
+  currency: "USD",
+  currencyDisplay: "narrowSymbol",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: false,
+} as const;
+
+export function pesosDesdeCentavos(centavos: number | string): number {
+  const numero = Number(centavos);
+  return Number.isFinite(numero) ? numero / 100 : 0;
+}
+
+const NOMBRE_LARGO_SIN_ESPACIOS = "Producto" + "X".repeat(80);
+
+export function catalogoMil(n = 1000): ProductoCatalogo[] {
+  return Array.from({ length: n }, (_, i) => {
+    const numero = i + 1;
+    const digitos = (i % 9) + 1;
+    return {
+      sku: `MIL-${String(numero).padStart(4, "0")}`,
+      nombre: i % 7 === 0 ? `${NOMBRE_LARGO_SIN_ESPACIOS}-${numero}` : `Producto ${numero}`,
+      precioCentavos: Number(String(digitos).repeat(digitos)),
+      min_stock: i % 3 === 0 ? null : (i % 50) + 1,
+      reorder_qty: i % 3 === 0 ? null : (i % 20) + 1,
+    };
+  });
+}
+
+export function modoHarnessCatalogo(url: URL, dev: boolean): "mil" | null {
+  if (!dev) return null;
+  return url.searchParams.get("data") === "mil" ? "mil" : null;
+}
+
+interface AlmacenCatalogo {
+  items: ProductoCatalogo[];
+  oyentes: Set<(items: ProductoCatalogo[]) => void>;
+}
+
+type GlobalConCatalogo = typeof globalThis & { __catalogoPanel?: AlmacenCatalogo };
+
+function almacen(): AlmacenCatalogo {
+  const g = globalThis as GlobalConCatalogo;
+  if (!g.__catalogoPanel) g.__catalogoPanel = { items: [], oyentes: new Set() };
+  return g.__catalogoPanel;
+}
+
+export function publicarCatalogo(items: ProductoCatalogo[]): void {
+  const s = almacen();
+  s.items = items;
+  for (const oyente of [...s.oyentes]) oyente(items);
+}
+
+export function suscribirCatalogo(oyente: (items: ProductoCatalogo[]) => void): () => void {
+  const s = almacen();
+  s.oyentes.add(oyente);
+  oyente(s.items);
+  return () => {
+    s.oyentes.delete(oyente);
+  };
+}
+
+export function leerCatalogo(): ProductoCatalogo[] {
+  return almacen().items;
+}
