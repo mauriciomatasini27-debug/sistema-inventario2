@@ -45,8 +45,22 @@ Restos sin installs: `prompt()` en estado línea 81 pide campo inline con diseñ
 
 ## T-UI-07 Gate por PR
 
-Procedimiento: correr `npm run review:scope [base]`, sale target más base más head más archivos visuales con importadores.
+Un archivo es visual si está bajo `src/` y termina en `.astro`, `.css`, `.tsx` o `.jsx` (`esArchivoVisual` en `scripts/cadena/interface-review-lib.mjs`). Un PR con al menos un archivo visual con status distinto de `removed` tiene que traer en el cuerpo una sección cuyo encabezado markdown contenga `interface-review` (cualquier nivel, case-insensitive) con la tabla y el veredicto de los skills `interface-review`/`better-interface`.
 
-Límite conocido: importadores matchean por nombre y pueden traer hits de palabra, el revisor confirma cada uno.
+Bloquea el merge: falta la sección, falta el veredicto (`Approve`/`Block`), el veredicto es `Block`, o queda una fila `HIGH` abierta. No cuentan las filas con Status `Pre-existing`, las de la tabla bajo un subencabezado `Pre-existing`, ni las cerradas: Status con `Resuelto`, `Corregido` o `Fixed` (p. ej. `Regression · Resuelto`), o la severidad tachada `~~HIGH~~`. La palabra suelta en `Why` no cierra nada.
 
-Regla: PR visual no mergea con `HIGH` abierto en la tabla única de `better-interface`.
+`npm run review:scope [base]` lista target, base, head y los archivos visuales con sus importadores (el match por nombre puede traer hits de palabra, el revisor confirma cada uno).
+
+`npm run review:gate -- --body-file <cuerpo.md> [--base origin/main]` corre el gate local antes de abrir el PR: imprime `no aplica` / `OK` / `BLOQUEADO` más motivos y sale 0/1. Antes de mergear, `node scripts/cadena/puede-mergear.mjs <PR>` agrega estos motivos a los de `No mergear` y migraciones.
+
+Ejemplo mínimo de sección en el cuerpo del PR:
+
+```markdown
+## interface-review
+
+| Severity | Domain | Status | Location | Before | After | Why |
+| --- | --- | --- | --- | --- | --- | --- |
+| LOW | Writing | Introduced | `src/pages/venta.astro:12` | `Entrar` | `Ingresar` | copy |
+
+**Verdict:** Approve
+```

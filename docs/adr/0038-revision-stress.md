@@ -18,6 +18,8 @@ Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-interface/
 
 Automatizar pipeline `build → variant → states → worst-case → gate` en harness `_internal` dev-only según PRD-UI-07. PRD: `diseno/PRD-UI-07-revision-stress.md`.
 
+Nota 2026-10-17: con GitHub Actions manual-only (ADR-0086), el gate `interface-review` por PR vive en el guard local `scripts/cadena/puede-mergear.mjs`.
+
 ## Por qué
 
 Sin harness el peor dato real rompe en producción y cada PR discute gusto en vez de evidencia.

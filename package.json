@@ -16,6 +16,7 @@
     "check:ui": "node scripts/check-ui.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "review:scope": "node scripts/review-scope.mjs",
+    "review:gate": "node scripts/cadena/interface-review-gate.mjs",
     "evidencia": "node scripts/evidencia.mjs",
     "docs:estado": "node scripts/docs-estado.mjs",
     "docs:index": "node scripts/docs-index.mjs",

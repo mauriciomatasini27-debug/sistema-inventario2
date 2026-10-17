@@ -1,4 +1,5 @@
 // Lógica pura del guard de merge (testeada en tests/cadena-puede-mergear.test.ts).
+import { evaluarRevision } from "./interface-review-lib.mjs";
 
 const PATRON_NO_MERGEAR = /\b(no\s+mergear|do\s+not\s+merge)\b/i;
 
@@ -39,5 +40,6 @@ export function evaluar({ titulo, cuerpo, files, registroMd }) {
       motivos.push(`migración drizzle/${tag}.sql no figura en docs/roadmap/migraciones-aplicadas.md de la rama base (no aplicada en la base real)`);
     }
   }
+  motivos.push(...evaluarRevision({ cuerpo, files }).motivos);
   return { ok: motivos.length === 0, motivos };
 }

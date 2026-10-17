@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { esArchivoVisual } from './cadena/interface-review-lib.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (cmd) => {
@@ -26,7 +27,7 @@ for (const line of diff.split('\n')) {
 }
 for (const f of untracked.split('\n')) if (f) files.add(f);
 
-const visual = [...files].filter((f) => f.startsWith('src/') && /\.(astro|css)$/.test(f));
+const visual = [...files].filter(esArchivoVisual);
 process.stdout.write(`Target: worktree\nBase: ${base}\nHead: ${head}\nArchivos visuales en scope: ${visual.length}\n`);
 for (const f of visual) {
   process.stdout.write(`- ${f}\n`);

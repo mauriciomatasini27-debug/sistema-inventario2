@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Guard de la cadena: correr antes de cualquier squash-merge.
+// Incluye el gate `interface-review` por PR (un PR visual no mergea con HIGH abierto ni sin veredicto).
 // Uso: node scripts/cadena/puede-mergear.mjs <número-PR> [--repo owner/name]
 // Exit 0 = se puede mergear; 1 = bloqueado (no mergear, avisar a Mauri); 2 = error de uso/API.
 // Usa `gh api` con GH_TOKEN del entorno; nunca lo imprime.

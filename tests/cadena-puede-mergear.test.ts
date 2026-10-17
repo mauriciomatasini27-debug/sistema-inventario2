@@ -38,3 +38,25 @@ describe("puede-mergear: migraciones", () => {
     expect(r.motivos).toHaveLength(2);
   });
 });
+
+describe("puede-mergear: gate interface-review", () => {
+  const visual = [{ filename: "src/pages/venta.astro", status: "modified" }];
+  const aprobado =
+    "## interface-review\n\n" +
+    "| Severity | Domain | Status | Location | Before | After | Why |\n" +
+    "| --- | --- | --- | --- | --- | --- | --- |\n" +
+    "| LOW | Writing | Introduced | `src/pages/venta.astro:1` | a | b | copy |\n" +
+    "\n**Verdict:** Approve\n";
+
+  it("bloquea un PR visual sin sección", () => {
+    const r = evaluar({ titulo: "feat", cuerpo: "sin seccion", registroMd: "", files: visual });
+    expect(r.ok).toBe(false);
+    expect(r.motivos.join(" ")).toContain("interface-review");
+  });
+  it("deja pasar un PR visual con Approve sin HIGH", () => {
+    expect(evaluar({ titulo: "feat", cuerpo: aprobado, registroMd: "", files: visual }).ok).toBe(true);
+  });
+  it("no aplica sin archivos visuales", () => {
+    expect(evaluar({ titulo: "feat", cuerpo: "", registroMd: "", files: [{ filename: "src/a.ts", status: "modified" }] }).ok).toBe(true);
+  });
+});
