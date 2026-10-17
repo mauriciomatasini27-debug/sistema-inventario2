@@ -4,7 +4,8 @@ import { listarDocs, parseFrontmatter } from "./docs-lib.mjs";
 
 const ORDEN_TIPOS = ["adr", "prd", "plan", "spec", "historico"];
 const TITULOS = { adr: "ADR", prd: "PRD", plan: "Plan", spec: "Spec", historico: "Histórico" };
-const GENERADOS = new Set(["INDEX.md", "graph.json"]);
+const GENERADOS = new Set(["INDEX.md", "graph.json", "ESTADO.md"]);
+const ANCHO_RESUMEN = 90;
 
 function comoArreglo(v) {
   if (Array.isArray(v)) return v.map((x) => String(x ?? "").trim()).filter((x) => x !== "");
@@ -73,10 +74,18 @@ export function colectarDocs(raiz = "docs") {
   return { docs, sinFm };
 }
 
+function recortar(texto, ancho) {
+  const t = String(texto ?? "").trim();
+  if (t.length <= ancho) return t;
+  const corte = t.slice(0, ancho);
+  const espacio = corte.lastIndexOf(" ");
+  return `${(espacio > ancho * 0.6 ? corte.slice(0, espacio) : corte).trimEnd()}…`;
+}
+
 function lineaDoc(doc) {
   const mods = doc.modulos.length > 0 ? doc.modulos.join(", ") : "-";
   const flecha = doc.reemplazado_por !== "" ? ` → ${doc.reemplazado_por}` : "";
-  const resumen = primeraLinea(doc.resumen);
+  const resumen = recortar(primeraLinea(doc.resumen), ANCHO_RESUMEN);
   const cola = resumen === "" ? "" : ` · ${resumen}`;
   const modif = doc.modificado_por.length > 0 ? ` · modificado por ${doc.modificado_por.join(", ")}` : "";
   return `- [${doc.id}](${doc.rel}) · ${doc.estado}${flecha} · ${mods}${cola}${modif}`;
@@ -114,7 +123,7 @@ export function renderIndice(docs, sinFm) {
 
 export function renderGrafo(docs) {
   const ids = new Set(docs.map((d) => d.id));
-  const nodos = docs.map((d) => ({ id: d.id, ruta: d.ruta, tipo: d.tipo, estado: d.estado, modulos: d.modulos }));
+  const nodos = docs.map((d) => ({ id: d.id, ruta: d.ruta }));
   const aristas = [];
   const faltantes = [];
   const enlazar = (de, a, tipo) => {

@@ -157,6 +157,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 
 | Fecha | Item | Estado | Avance | PRD / ADR |
 |---|---|---|---|---|
+| 2026-10-17 | P9-4 | hecho | P9-4 hecho: migraciones 0016 a 0019 (y hasta 0028) aplicadas en la base real, registradas en `docs/roadmap/migraciones-aplicadas.md`; el backfill de `tenant_id` corre con `scripts/backfill-tenant-id.mjs` (P0-3, `--apply`). | — / — |
 | 2026-10-16 | P3-1 | hecho | P3-1 hecho: PRD-CAT-01 (CAT-S1..S6), PRD-CAJA-01 (CAJA-S1..S4, #76 #78 #81 #82), PWA P1.8 (#51) y SYNC-S1..S7 (#103 #104 #105 #102) mergeados en `main`, cada uno con su avance. | PRD-CAT-01 / — |
 | 2026-10-16 | P9-10 | hecho | P9-10: pago de vencimiento atómico con claim-first (M2): un 200 y un 409 ante doble pago concurrente. | — / — |
 | 2026-10-16 | P9-11 | hecho | P9-11: tests de aviso-sync y heartbeat aislados con DB-first (sec04 y pers2-sync en bases privadas). | — / — |
@@ -216,8 +217,7 @@ No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avance
 | 2026-10-14 | P9-1 | bloqueado (decisión de Mauri) | P9-1 bloqueado por decisiones de Mauri: Proveedor de OCR definitivo (ADR-0005: PaddleOCR propio vs Vision/Textract). | — / — |
 | 2026-10-14 | P9-2 | bloqueado (decisión de Mauri) | P9-2 bloqueado por decisiones de Mauri: Consulta legal/fiscal con contador y abogado y certificados ARCA (fecha límite 1/12/2026 para `CondicionIVAReceptorId`). | — / — |
 | 2026-10-14 | P9-3 | bloqueado (decisión de Mauri) | P9-3 bloqueado por decisiones de Mauri: Número central de WhatsApp en Meta (alta, verificación del negocio y plantillas). | — / — |
-| 2026-10-14 | P9-4 | bloqueado (decisión de Mauri) | P9-4 bloqueado por decisiones de Mauri: Aplicar migraciones 0016 a 0019 y el backfill de `tenant_id` a la base real. | — / — |
-| 2026-10-14 | P9-5 | bloqueado (decisión de Mauri) | P9-5 bloqueado por decisiones de Mauri: Proveedor de cobro y precios a publicar (PLAN2-S4). | — / — |
+| 2026-10-14 | P9-5 | bloqueado (decisión de Mauri) | P9-5 sigue bloqueado por decisiones de Mauri: proveedor de cobro y precios a publicar (PLAN2-S4); la persistencia de planes y suscripciones ya avanzó con PLAN-S1 (ADR-0047). | — / — |
 | 2026-10-14 | P9-6 | hecho | P9-6: estado de ADRs al 2026-10-14 (reemplaza el párrafo del 2026-10-12). | — / — |
 | 2026-10-14 | ROAD1-S1 a S4 | hecho | ROAD1-S1 a S4 hechos: avances por archivo y sección generada sin conflictos entre PRs. | PRD-ROAD-01 / ADR-0076 |
 | 2026-10-14 | SEC4-S1 a S3 | hecho | SEC4-S1 a S3 hechos: jobs con `X-Job-Secret` sin `X-Tenant-Id` en multi recorren todos los comercios activos o suspendidos, con resumen por tenant. | PRD-SEC-04 / ADR-0077 |

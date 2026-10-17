@@ -114,6 +114,17 @@ describe("docs:index INDEX.md", () => {
     expect(index).toContain("- [ADR-0002](b.md) · propuesto · -");
   });
 
+  it("recorta el resumen de la línea a ~90 caracteres", () => {
+    const raiz = mkRaiz({
+      "largo.md": `${fm({ id: "ADR-0009", resumen: `"${"palabra ".repeat(30)}fin."` })}\n# Largo\n`,
+    });
+    const { index } = generarContenidos(raiz);
+    const linea = index.split("\n").find((l) => l.includes("ADR-0009")) ?? "";
+    expect(linea).toContain("…");
+    expect(linea.endsWith("…")).toBe(true);
+    expect(linea.length).toBeLessThanOrEqual("- [ADR-0009](largo.md) · propuesto · - · ".length + 91);
+  });
+
   it("mueve reemplazados y deprecados a la sección final con flecha al sucesor", () => {
     const { index } = generarContenidos(raizBase());
     const iPlan = index.indexOf("## Plan");
@@ -156,7 +167,7 @@ describe("docs:index graph.json", () => {
   it("emite nodos ordenados y aristas solo a ids existentes", () => {
     const { grafo } = generarContenidos(raizBase());
     const g = JSON.parse(grafo) as {
-      nodos: { id: string; ruta: string; tipo: string; estado: string; modulos: string[] }[];
+      nodos: { id: string; ruta: string }[];
       aristas: { de: string; a: string; tipo: string }[];
       faltantes: { de: string; a: string }[];
     };
@@ -172,13 +183,9 @@ describe("docs:index graph.json", () => {
       "SPEC-1",
       "SPEC-2",
     ]);
-    expect(g.nodos[0]).toMatchObject({
-      id: "ADR-0001",
-      tipo: "adr",
-      estado: "aceptado",
-      modulos: ["caja", "inventario"],
-    });
+    expect(g.nodos[0]).toMatchObject({ id: "ADR-0001" });
     expect(g.nodos[0]?.ruta.endsWith("a.md")).toBe(true);
+    expect(Object.keys(g.nodos[0] ?? {}).sort()).toEqual(["id", "ruta"]);
     expect(g.aristas).toEqual([
       { de: "ADR-0001", a: "ADR-0002", tipo: "depende_de" },
       { de: "PLAN-X-01", a: "ADR-0001", tipo: "reemplaza" },

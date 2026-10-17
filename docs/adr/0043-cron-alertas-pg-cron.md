@@ -1,19 +1,19 @@
 ---
 id: ADR-0043
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [bot, inventario]
 depende_de: [ADR-0028, PRD-ALR-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
   Supabase pgcron dispara cada 2 h (y 08:00 por TZ de tenant) un pgnet.httppost a POST /api/jobs/alertas-stock
-  con header JOBSSECRET. La lógica vive en la app (TypeScript), no en SQL. Idempotencia por clave
-  tenant+producto+día registrada antes de enviar; mensaje agrupado de hasta 10 ítems por canal.
+  con header JOBSSECRET. Lógica en la app, idempotencia por clave tenant+producto+día y mensaje de hasta 10
+  ítems por canal. Endpoint implementado 2026-10-16; el pg_cron real se configura fuera del repo (Mauri).
 ---
 # ADR-0043 - Cron de alertas de stock con pg_cron + pg_net en Supabase
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-ALR-01 (ALR-S2, ALR-S4), `docs/migracion-supabase.md`, `src/jobs/whatsapp-aviso-matutino.ts`, `src/pages/api/jobs/*`, ADR-0028.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-ALR-01 (ALR-S2, ALR-S4), `docs/migracion-supabase.md`, `src/jobs/whatsapp-aviso-matutino.ts`, `src/pages/api/jobs/*`, ADR-0028.
 
 ## Decisión
 

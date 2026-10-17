@@ -1,11 +1,12 @@
 ---
 id: PRD-ARQ-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [persistencia]
 depende_de: [ADR-0016, ADR-0062, ADR-0064, ADR-0065, PRD-COM-01]
 reemplaza: []
 reemplazado_por: ""
+modificado_por: [ADR-0086]
 resumen: |
   Los agentes repiten los mismos errores en cada grupo de trabajo y los ADR los arrastran como "preexistentes".
   Once ADR seguidos (0053 a 0063) aceptaron con "tsc --noEmit: 1 error preexistente" y "2 failed (caja-c11
@@ -14,6 +15,8 @@ resumen: |
 # PRD-ARQ-01 - Arquitectura amigable para agentes
 
 Fuente: skills `correct` y `architect` de pstack en `/poteto-mode` (OpenCode, `.opencode/pstack-opencode.md`), sobre el historial de `main` (49 commits hasta `0cec0f0`), los mensajes de commit, los "Pendientes" y la "Evidencia" de los ADR 0050 a 0063 y los arreglos a mano de la rama `chore/github-setup` (`dec03df`, `dfdf79e`). Uso en este sistema: todo el código de cualquier comercio, sin reglas por rubro. Restringido por ADR-0065. Tipo arquitectura según ADR-0016.
+
+> Estado al 2026-10-16: hecho. Fases 1 a 5 cerradas (ARQ-S1 a S9). ARQ-S5 queda modificada por ADR-0086: el gate pasó de GitHub Actions a `npm run verify` local, que corre los mismos pasos.
 
 ## Problema
 

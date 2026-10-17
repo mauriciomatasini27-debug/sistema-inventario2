@@ -1,19 +1,19 @@
 ---
 id: ADR-0045
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [compras]
 depende_de: [ADR-0044, PRD-IA-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Interfaz LlmProvider con dos adaptadores: Claude (Anthropic) por defecto con modelo chico, GPT (OpenAI) como
-  alternativa. Ambos con function calling. Cupo mensual de consultas por plan y registro aiusage(tenantid,
-  tokensin, tokensout, costocentavos); cupo agotado = no se llama.
+  Interfaz LlmProvider con adaptadores Claude y GPT con function calling; cupo mensual por plan y registro
+  ai_usage(tenant_id, tokens_in, tokens_out, costo_centavos). Núcleo y persistencia hechos 2026-10-16 (IA-S5);
+  el proveedor real (Anthropic/OpenAI) y las tarifas quedan bloqueados por decisión de Mauri.
 ---
 # ADR-0045 - Proveedor LLM del asistente y cupo por plan
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S5), ADR-0044, `docs/01-fundacion/costos-por-cliente.md`.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S5), ADR-0044, `docs/01-fundacion/costos-por-cliente.md`.
 
 ## Decisión
 

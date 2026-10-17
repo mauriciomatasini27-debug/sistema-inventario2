@@ -1,18 +1,19 @@
 ---
 id: ADR-0044
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [inventario, persistencia]
 depende_de: [ADR-0003, ADR-0006, PRD-IA-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
   El asistente solo responde un catálogo fijo de 8-12 preguntas. Cada una es una función tipada con zod, de solo
-  lectura sobre Drizzle. El LLM elige función y parámetros y redacta; nunca escribe SQL ni produce números.
+  lectura sobre Drizzle; el LLM elige función y parámetros y redacta, nunca escribe SQL ni produce números.
+  Núcleo implementado 2026-10-16 (IA-S1 a IA-S3); faltan la UI en /panel y el canal WhatsApp (IA-S4).
 ---
 # ADR-0044 - Asistente IA: catálogo cerrado + function calling de solo lectura
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S1, IA-S2, IA-S3), ADR-0003, ADR-0006, `src/db/schema*.ts`.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-IA-01 (IA-S1, IA-S2, IA-S3), ADR-0003, ADR-0006, `src/db/schema*.ts`.
 
 ## Decisión
 

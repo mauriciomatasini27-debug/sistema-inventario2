@@ -1,7 +1,7 @@
 ---
 id: ADR-0042
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [bot]
 depende_de: [ADR-0041, PRD-BOT-02]
 reemplaza: []
@@ -9,11 +9,11 @@ reemplazado_por: ""
 resumen: |
   Toda salida y entrada de WhatsApp pasa por una interfaz WhatsAppTransport (enviar, recibir, estado). El núcleo
   puro (router.ts, consulta.ts, envio.ts) no importa adaptadores. Adaptadores: cloud (productivo, ADR-0041) y
-  fake (tests y dev).
+  fake (tests y dev). Implementado 2026-10-16 (BOT2-S5); el envío real espera el alta Meta de ADR-0041.
 ---
 # ADR-0042 - Interfaz WhatsAppTransport intercambiable
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-02 (BOT2-S5), `src/modules/whatsapp/router.ts`, `src/modules/whatsapp/consulta.ts`, `src/modules/whatsapp/envio.ts`, ADR-0041.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-BOT-02 (BOT2-S5), `src/modules/whatsapp/router.ts`, `src/modules/whatsapp/consulta.ts`, `src/modules/whatsapp/envio.ts`, ADR-0041.
 
 ## Decisión
 

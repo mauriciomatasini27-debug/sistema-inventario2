@@ -1,18 +1,19 @@
 ---
 id: ADR-0039
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [bot]
 depende_de: [ADR-0012, PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Un solo bot (número central WABA) con módulos activables por tenant según rubro (quiosco, pyme, fabrica,
-  logistica). Tabla tenantbotmodules; el router filtra intenciones por módulo activo.
+  Un solo bot (número central WABA) con módulos activables por tenant según rubro. Tabla tenant_bot_modules;
+  el router filtra intenciones por módulo activo. Implementado 2026-10-16 (BOT-S1 a S4: quiosco y pyme);
+  fábrica y logística quedan detrás del flag BOT_RUBROS_AVANZADOS, apagado.
 ---
 # ADR-0039 - Bot único con módulos activables por rubro
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S1/S2/S3-S6), ADR-0012, B1-B15, `src/modules/whatsapp/router.ts`.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S1/S2/S3-S6), ADR-0012, B1-B15, `src/modules/whatsapp/router.ts`.
 
 ## Decisión
 

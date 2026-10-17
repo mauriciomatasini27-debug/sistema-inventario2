@@ -1,18 +1,19 @@
 ---
 id: ADR-0046
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [landing, persistencia]
 depende_de: [ADR-0010, ADR-0022, ADR-0045, PRD-LP-02, PRD-LP-04]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
   El chat usa el modelo más barato disponible del proveedor elegido en ADR-0045, sin tools, con contexto fijo de
-  FAQ, planes públicos y rubros.
+  FAQ, planes públicos y rubros. Implementado 2026-10-16 (LP4-S1 a LP4-S5); corre con ProveedorLLM fake hasta
+  que se defina la clave real del proveedor.
 ---
 # ADR-0046 - Chat de landing: LLM barato, solo FAQ, aislado del sistema
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-LP-04 (LP4-S2, LP4-S4, LP4-S5), ADR-0010, ADR-0022, ADR-0045.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-LP-04 (LP4-S2, LP4-S4, LP4-S5), ADR-0010, ADR-0022, ADR-0045.
 
 ## Decisión
 

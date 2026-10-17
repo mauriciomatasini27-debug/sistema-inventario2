@@ -1,5 +1,7 @@
 # Índice general de documentación — Sistema de Inventario
 
+Estado rápido: [ESTADO.md](ESTADO.md) (vía `npm run docs:estado`, no editar a mano).
+
 Índice generado: [INDEX.md](INDEX.md) (vía `npm run docs:index`) y [graph.json](graph.json).
 
 Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funcionalidad del código.

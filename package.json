@@ -17,6 +17,7 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "review:scope": "node scripts/review-scope.mjs",
     "evidencia": "node scripts/evidencia.mjs",
+    "docs:estado": "node scripts/docs-estado.mjs",
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:context": "node scripts/docs-context.mjs",

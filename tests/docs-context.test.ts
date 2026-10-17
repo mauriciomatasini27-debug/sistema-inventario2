@@ -150,7 +150,7 @@ describe("docs:context modifica/modificado_por", () => {
     expect(texto).toContain("    - L16-L19 ## Decisión");
   });
 
-  it("los modificadores cuentan dentro del tope de 10", () => {
+  it("los modificadores cuentan dentro del tope de 8", () => {
     const archivos: Record<string, string> = {};
     const ids = Array.from({ length: 11 }, (_, i) => `ADR-${String(80 + i).padStart(4, "0")}`);
     archivos["old.md"] =
@@ -164,7 +164,7 @@ describe("docs:context modifica/modificado_por", () => {
     }
     const docs = cargarCandidatos(mkRaiz(archivos));
     const r = buscarContexto("ADR-0066", docs);
-    expect(r.docs.length).toBe(10);
+    expect(r.docs.length).toBe(8);
     expect(r.docs[0]?.id).toBe("ADR-0066");
     expect(r.docs[0]?.modificado_por?.length).toBe(11);
   });
@@ -211,7 +211,7 @@ describe("docs:context por tema", () => {
   });
 });
 
-describe("docs:context tope 5-10 y determinismo", () => {
+describe("docs:context tope 5-8 y determinismo", () => {
   function raizMuchos(): string {
     const archivos: Record<string, string> = {};
     for (let i = 1; i <= 12; i += 1) {
@@ -222,17 +222,27 @@ describe("docs:context tope 5-10 y determinismo", () => {
     return mkRaiz(archivos);
   }
 
-  it("corta en 10 aunque haya 12 candidatos", () => {
+  it("corta en 8 aunque haya 12 candidatos", () => {
     const docs = cargarCandidatos(raizMuchos());
     const r = buscarContexto("caja", docs);
-    expect(r.docs.length).toBe(10);
+    expect(r.docs.length).toBe(8);
     for (const d of r.docs) expect(d.secciones.length).toBeLessThanOrEqual(4);
+  });
+
+  it("descarta matches débiles por debajo del 20% del mejor puntaje", () => {
+    const raiz = mkRaiz({
+      "fuerte.md": `${fm({ id: "ADR-0100", estado: "aceptado", modulos: "[caja]", resumen: '"Caja fuerte."' })}\n# Fuerte\n\n## Decisión\n\nCaja caja caja.\n`,
+      "debil.md": `${fm({ id: "ADR-0101", estado: "propuesto" })}\n# Débil\n\n## Otra\n\nUna vez caja.\n`,
+    });
+    const docs = cargarCandidatos(raiz);
+    const r = buscarContexto("caja", docs);
+    expect(r.docs.map((d) => d.id)).toEqual(["ADR-0100"]);
   });
 
   it("devuelve menos de 5 solo si hay menos matches", () => {
     const docs = cargarCandidatos(raizBase());
     const r = buscarContexto("devoluciones", docs);
-    expect(r.docs.length).toBeLessThanOrEqual(10);
+    expect(r.docs.length).toBeLessThanOrEqual(8);
     expect(r.docs.length).toBeGreaterThanOrEqual(1);
   });
 

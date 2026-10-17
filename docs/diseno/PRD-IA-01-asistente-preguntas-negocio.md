@@ -1,19 +1,21 @@
 ---
 id: PRD-IA-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [persistencia]
 depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0044, ADR-0045, PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: docs/08-operacion-admin-analytics/reportes-rotacion.md (RT1-RT11),
-  docs/04-ventas-caja-fiado/caja-digital-parte-1.md, docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md,
-  src/db/schema.ts, PRD-BOT-01. Fecha extracción: 2026-10-12.
+  Asistente de preguntas del negocio con catálogo cerrado y function calling de solo lectura. Núcleo, aislamiento
+  y cupo con registro ai_usage hechos 2026-10-16 (IA-S1 a IA-S3, IA-S5); pendientes la UI en /panel, el canal
+  WhatsApp (IA-S4) y el proveedor LLM real (decisión de Mauri).
 ---
 # PRD-IA-01 - Asistente de IA para preguntas del negocio (R2)
 
 Fuente: `docs/08-operacion-admin-analytics/reportes-rotacion.md` (RT1-RT11), `docs/04-ventas-caja-fiado/caja-digital-parte-1.md`, `docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md`, `src/db/schema*.ts`, PRD-BOT-01. Fecha extracción: 2026-10-12. Restringido por ADR-0003 (aislamiento tenant), ADR-0006 (Ley 25.326), ADR-0039, ADR-0044, ADR-0045. Gap: reportes fijos; sin consulta en lenguaje natural.
+
+> Estado al 2026-10-16: en curso. IA-S1 a IA-S3 (núcleo con `ProveedorLLM` y catálogo cerrado) e IA-S5 (`ai_usage` persistido) hechos; faltan IA-S4 (UI en `/panel` y canal WhatsApp) y el proveedor LLM real.
 
 ## Épica IA-E1. Catálogo cerrado de preguntas
 

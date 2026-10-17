@@ -1,5 +1,5 @@
 export const PASOS_CI = ["typecheck", "arch", "test", "skips", "build"];
-export const PASOS_DOCS = ["roadmap", "docs:index", "docs:check"];
+export const PASOS_DOCS = ["roadmap", "docs:estado", "docs:index", "docs:check"];
 
 const DEFS = {
   typecheck: { script: "typecheck" },
@@ -11,6 +11,7 @@ const DEFS = {
   skips: { node: "scripts/check-skips.mjs", extra: ["vitest-report.json"] },
   build: { script: "build" },
   roadmap: { node: "scripts/roadmap.mjs" },
+  "docs:estado": { node: "scripts/docs-estado.mjs" },
   "docs:index": { node: "scripts/docs-index.mjs" },
   "docs:check": { node: "scripts/docs-check.mjs" },
 };

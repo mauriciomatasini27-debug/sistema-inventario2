@@ -1,19 +1,20 @@
 ---
 id: PRD-BOT-02
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [bot, inventario]
 depende_de: [ADR-0007, ADR-0024, ADR-0039, ADR-0041, ADR-0042]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md y bot-whatsapp-parte-2.md (B1 vinculación, B3
-  consulta texto libre), src/modules/whatsapp/consulta.ts, src/modules/whatsapp/router.ts,
-  src/pages/api/whatsapp/consult.ts (lee products con fallback a memoria, fuente: db|memoria),
+  Consulta de stock por WhatsApp en tiempo real leída de Postgres. BOT2-S2, S3, S5 y S6 hechos 2026-10-16; S1
+  parcial (faltan pg_trgm real y product_aliases) y S4 pendiente. El envío real espera el alta Meta (ADR-0041).
 ---
 # PRD-BOT-02 - Consulta de stock por WhatsApp en tiempo real (R2)
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` y `bot-whatsapp-parte-2.md` (B1 vinculación, B3 consulta texto libre), `src/modules/whatsapp/consulta.ts`, `src/modules/whatsapp/router.ts`, `src/pages/api/whatsapp/consult.ts` (lee `products` con fallback a memoria, `fuente: db|memoria`), `src/modules/whatsapp/cliente-cloud.ts`, `docs/01-fundacion/costos-por-cliente.md` (número central). Fecha extracción: 2026-10-12. Restringido por ADR-0007, ADR-0024, ADR-0039, ADR-0041, ADR-0042.
+
+> Estado al 2026-10-16: en curso. BOT2-S2, S3, S5 y S6 hechos; S1 parcial (faltan `pg_trgm` real y `product_aliases`) y S4 pendiente; el envío real espera el alta Meta de ADR-0041.
 
 ## Épica BOT2-E1. Consulta con saldo real
 

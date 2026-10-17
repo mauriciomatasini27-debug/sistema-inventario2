@@ -2,69 +2,56 @@
 
 pstack skills were written for Cursor. When a skill names a Cursor-only thing, use the OpenCode equivalent below.
 
+## Modelos
+
+- Primario: `opencode/deepseek-v4.1-flash-free`. Respaldo (en orden): `opencode/muse-spark-1.3-contributor-free`, `opencode/big-pickle`, `opencode/space-bunny-free`, `opencode/longcat-2.5-preview-free`.
+- Los roles son subagentes en `opencode.json` `agent` (`pstack-worker`, `pstack-judge`, `poteto-agent`, `comment-sicko`), cada uno con su `model`; la tabla rol→agente vive en `.opencode/pstack-models.md`.
+- `pstack-worker`/`poteto-agent`/`comment-sicko` usan deepseek-v4.1-flash-free; `pstack-judge` usa big-pickle (otra familia = cross-family judging).
+- Cada modelo tiene `limit.context = 250000` y `compaction.auto` on: partí tareas grandes por área. `.opencode/pstack-run.sh` reintenta una sesión fallida, trabada (`PSTACK_SESSION_TIMEOUT`, default 700 s) o con cuota con el siguiente modelo free; reinicia `opencode serve` si le falta el token de GitHub.
+
 ## Tools
-- `Task` / `generalPurpose` subagent -> OpenCode `task` tool with `subagent_type`. Use `general` for generalPurpose, `explore` for read-only search, or a pstack role agent (see "Models").
-- Task `model` parameter -> not supported. Pick the role agent instead: `pstack-worker` (deepseek-v4.1-flash-free) or `pstack-judge` (big-pickle). Different models = cross-family judging for arena/architect/interrogate/show-me-your-work.
-- `AskQuestion` -> OpenCode `question` tool when it is present (interactive TUI). In `opencode run` (headless) it is absent: state the default you chose and proceed (principle-never-block-on-the-human), or ask in plain text and stop.
-- `create-skill` -> write `.agents/skills/<name>/SKILL.md` with frontmatter `name: <name>` (must equal the folder name, lowercase-hyphen) and `description:`. Verify with `~/.local/bin/opencode debug skill`.
-- Worktrees -> the project is a git repo; use `git worktree add ../si-wt-<slug> -b wt/<slug>` and remove it when done.
+
+- `Task` / `generalPurpose` -> `task` con `subagent_type`: `general`, `explore`, o un rol pstack.
+- Task `model` -> no soportado: elegí el rol (`pstack-worker` o `pstack-judge`); modelos distintos = cross-family judging.
+- `AskQuestion` -> `question` en la TUI interactiva; en `opencode run` (headless) no existe: elegí el default y seguí (principle-never-block-on-the-human).
+- `create-skill` -> `.agents/skills/<name>/SKILL.md` con frontmatter `name` = nombre de carpeta (lowercase-hyphen) y `description`. Verificá con `~/.local/bin/opencode debug skill`.
+- Worktrees -> `git worktree add ../si-wt-<slug> -b wt/<slug>` y borralo al terminar.
 
 ## GitHub
-- Remote: `origin` = `mauriciosoyastor/sistema-inventario` (private). `gh` authenticates via `GH_TOKEN` in the environment; never print it. `.opencode/pstack-run.sh` restarts `opencode serve` when it lacks the token.
-- `gh pr view/diff/checks`, `gh api` work for why, blast-radius and correct. Code scanning is not enabled on the repo (CodeQL keeps SARIF as an artifact), so `gh api .../code-scanning` returns 403: skip it.
-- Plain `gh pr view N` fails here (its default query needs `read:org`/project scopes the token lacks). Always pass `--json <fields>` (e.g. `title,body,commits,files,reviews,comments`) or use `gh pr diff N`.
-- MCP discovery (why step 3): OpenCode has no `mcps/` folder; list MCPs with `~/.local/bin/opencode mcp list </dev/null`. Do NOT call Supabase MCP tools from any pstack skill (why, blast-radius, correct, arena): it is live project data, not a history source. Record it as "not used by policy".
-- Arena/why/architect "spawn N subagents in one message in background": OpenCode runs `task` calls in the same message concurrently; there is no `run_in_background`. Headless `opencode run` auto-rejects `external_directory` access (e.g. `/tmp`), so arena/swarm candidates, grounding and judge notes go under `.pstack-tmp/<slug>/` inside the project (gitignored); delete it when done.
+
+- `origin` = `mauriciosoyastor/sistema-inventario` (privado); `gh` autentica con `GH_TOKEN` del entorno (nunca imprimirlo).
+- `gh pr view/diff/checks` y `gh api` sirven para why, blast-radius y correct. Code scanning no está habilitado (CodeQL deja SARIF como artefacto): `gh api .../code-scanning` da 403, saltealo.
+- `gh pr view N` pelado falla (necesita scopes que el token no tiene): pasá `--json <fields>` o usá `gh pr diff N`.
+- MCP: `~/.local/bin/opencode mcp list </dev/null` (no hay carpeta `mcps/`). No llames MCP de Supabase desde skills pstack: es data viva, no historial. Registralo como "not used by policy".
+- Arena/why/architect: los `task` del mismo mensaje corren concurrentes (no hay `run_in_background`). `opencode run` headless rechaza `external_directory` (p.ej. `/tmp`): candidatos y notas van en `.pstack-tmp/<slug>/` (gitignored); borralo al terminar.
 
 ## Paths
-- `~/.cursor/rules/*.mdc` (always-applied rules) -> `.opencode/*.md` listed in `opencode.json` `instructions`, or `AGENTS.md` at the project root.
+
+- `~/.cursor/rules/*.mdc` -> `.opencode/*.md` en `opencode.json` `instructions`, o `AGENTS.md`.
 - `~/.cursor/rules/pstack-models.mdc` -> `.opencode/pstack-models.md`.
-- `~/.cursor/skills/`, `~/.cursor/plugins/` -> `.agents/skills/` (project) or `~/.config/opencode/skills/` (user).
-- `~/.cursor/projects/*/agent-transcripts/` (used by reflect, recall, automate-me, show-me-your-work) -> OpenCode sessions:
-  - list: `~/.local/bin/opencode session list --format json -n 20` (fields: id, title, created, updated, directory)
-  - read one: `~/.local/bin/opencode export <sessionID>` -> JSON `{info, messages}`; each message has `parts` (text, tool calls with input/output)
-  - search: `for id in $(~/.local/bin/opencode session list --format json -n 50 | jq -r '.[].id'); do ~/.local/bin/opencode export $id | jq -r '.messages[].parts[]?.text // empty' | grep -il "<term>" >/dev/null && echo $id; done`
-  - raw store (only if sqlite3 is installed): SQLite `~/.local/share/opencode/opencode.db` (read-only; never write). Logs: `~/.local/share/opencode/log/`.
-  - usage/cost: `~/.local/bin/opencode stats`.
-  Always pass `</dev/null` to these CLI calls.
+- `~/.cursor/skills/`, `~/.cursor/plugins/` -> `.agents/skills/` (proyecto) o `~/.config/opencode/skills/` (usuario).
+- Transcripts (`~/.cursor/projects/*/agent-transcripts/`, usados por reflect/recall/automate-me/show-me-your-work) -> sesiones OpenCode:
+  - listar: `~/.local/bin/opencode session list --format json -n 20`
+  - leer: `~/.local/bin/opencode export <id>` -> `{info, messages}` (cada mensaje con `parts`)
+  - buscar: `for id in $(~/.local/bin/opencode session list --format json -n 50 | jq -r '.[].id'); do ~/.local/bin/opencode export $id | jq -r '.messages[].parts[]?.text // empty' | grep -il "<term>" >/dev/null && echo $id; done`
+  - store crudo (solo si hay `sqlite3`): `~/.local/share/opencode/opencode.db` (read-only, nunca escribir). Logs: `~/.local/share/opencode/log/`. Costos: `~/.local/bin/opencode stats`.
+  - Siempre pasá `</dev/null`.
+- setup-pstack: detectá modelos con `~/.local/bin/opencode models opencode`; la tabla rol→agente se escribe en `.opencode/pstack-models.md` (no en `~/.cursor/rules`). Los cambios aplican a sesiones nuevas; chequeá con `~/.local/bin/opencode debug config`.
+- OpenCode guarda el estado en un SQLite: corré una sesión `opencode run` a la vez o attachá al server con `.opencode/pstack-run.sh` (paralelas fallan con "database is locked").
 
-## setup-pstack on OpenCode
-1. Detect models: `~/.local/bin/opencode models opencode` (Zen catalog); free ones: `opencode/deepseek-v4.1-flash-free` (primary), `opencode/muse-spark-1.3-contributor-free`, `opencode/big-pickle`.
-2. Roles are subagents in `opencode.json` `agent` (`pstack-worker`, `pstack-judge`, `poteto-agent`, `comment-sicko`), each with a `model`.
-3. Write the role table to `.opencode/pstack-models.md` (not `~/.cursor/rules`). Budget maps to `--variant` / agent `reasoningEffort` where the provider supports it.
-4. Changes apply to new sessions. Check with `~/.local/bin/opencode debug config`.
+## Estado y docs
 
-## Running sessions
-OpenCode keeps state in one SQLite DB; parallel `opencode run` processes can fail with "database is locked".
-Run one at a time, or start one server and attach: `.opencode/pstack-run.sh` (see its header).
-
-## Session limits and model fallback
-- Every model in use has `limit.context = 250000` in `opencode.json` and `compaction.auto` is on, so no session exceeds 250k context tokens; split large tasks into several sessions by area.
-- `.opencode/pstack-run.sh` retries a failed, stalled (`PSTACK_SESSION_TIMEOUT`, default 700 s) or quota/rate-limited session with the next free Zen model: `muse-spark-1.3-contributor-free`, `big-pickle`, `space-bunny-free`, `longcat-2.5-preview-free` (override with `PSTACK_FALLBACK_MODELS`). It logs `pstack-run: model=...` on stderr. Ask for `opencode/muse-spark-1.3-contributor-free` again on the next session.
-
-## Roadmap
-
-Nunca editar `docs/ROADMAP.md` a mano; se regenera con `npm run verify` (o `npm run roadmap`) y viaja en el PR. Agregar el avance en `docs/roadmap/avances/<número-ADR>.md` (formato en `docs/roadmap/avances/README.md`) y correr `npm run roadmap -- --validate` antes de abrir el PR.
-
-Ítems chicos (sin decisión de arquitectura nueva) llevan solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR completos solo para decisiones reales de arquitectura o producto.
-
-## Lectura de docs
-
-Para trabajar un PRD/ADR o un módulo, primero corré `npm run docs:context <tema|modulo|id>`; leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` si hace falta ubicar algo). No leas docs completos "por las dudas".
-Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
-Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`), luego `npm run docs:index` y `npm run docs:check` antes del PR.
+- Estado rápido: `docs/ESTADO.md` (autogenerado; no editar a mano).
+- Para trabajar un PRD/ADR o un módulo: `npm run docs:context <tema|modulo|id>` primero y leé solo los rangos que cita. Nunca leas `docs/archivo/` (histórico deprecado).
+- No edites `docs/ROADMAP.md` a mano: lo regenera `npm run verify` (o `npm run roadmap`). Agregá el avance en `docs/roadmap/avances/<id>.md` y validá con `npm run roadmap -- --validate`. Detalle y formato en `AGENTS.md` y `docs/roadmap/avances/README.md`.
 
 ## Errores recurrentes (ADR de errores LLM)
 
 Cada error tiene un guard estructural; la doc es el último recurso. E1: nunca escribir en `/tmp` (pstack-run.sh exporta `TMPDIR="$PWD/.pstack-tmp"`, cubierto por `tests/arch/pstack-run.test.ts`). E2: citar salida real verbatim con `npm run evidencia` (`scripts/evidencia.mjs`, `tests/evidencia.test.ts`), nunca parafrasear conteos. E3: comentarios que dicen "no existe/sin tabla" los verifica `tests/arch/sin-comentario-falso.test.ts`. E4: día de Argentina vía `FechaAR` (fase 1, AT1). E5: nunca renormalizar finales de línea de un archivo entero (`.gitattributes` + AT3, fase 1). E6: tests con base viva solo vía Postgres de servicio (fase 3). E7: errores tragados (`catch {}` vacío o `.catch(() => null)`) solo en la allowlist de `tests/arch/sin-errores-tragados.test.ts`: loguear o relanzar. E8: `online` nunca como literal en repos/rutas, solo desde `src/lib/offline-gate.ts` (`tests/arch/sin-online-literal.test.ts`). E9: los imports terminan en `.js` pero las fuentes son `.ts`, así que un "File not found" para `x.js` significa leer `x.ts`; antes de afirmar que un archivo o tabla falta, correr `glob`/`rg` y citar la salida del comando; los nombres de skill son nombres de carpeta (`poteto-mode`). E10: sin casts para callar tipos en tests, usar el helper `ctx()` (fase 1, AT2). E11: nunca `not.toContain(<PIN>)` sobre hash/sal/uuid ni sobre `JSON.stringify` (flake ~1/1000 por sal aleatoria); comparar campos exactos (`tests/auth-pin.test.ts`), guard en `tests/arch/sin-substring-sobre-hash.test.ts`.
 
-## Cadena: merge guard y lock
+## Cadena: lock y merge
 
-Procedimiento obligatorio de cada corrida (no hay otro mecanismo de lock; nunca un holder ad-hoc `bash -c` que escriba `/workspace/.cadena.lock` a mano):
-
-1. Al inicio, creá un PID que viva toda la corrida: `setsid nohup sleep infinity >/dev/null 2>&1 &` y guardá su PID en H; después `node scripts/cadena/lock.mjs acquire --pid $H`. Exit 3 = otro dueño vivo tras 20 min: loguear `skip` en `/workspace/cadena-log.tsv`, matar H (`kill $H`) y terminar sin tocar nada. Un dueño muerto (stale) lo libera `acquire` solo y queda logueado. Nunca el `$$` de una shell de herramienta: cada llamada puede ser una shell nueva que muere y el lock queda stale.
-2. Inmediatamente registrar la liberación: `trap 'node scripts/cadena/lock.mjs release --pid $H; kill $H' EXIT` (o `finally` equivalente). Para un comando suelto, `scripts/cadena/con-lock.sh <cmd>` ya está bien: su propio `$$` vive mientras corre el comando, toma y libera al salir (`tests/cadena-con-lock.test.ts`).
-3. Antes de cualquier squash-merge: `node scripts/cadena/puede-mergear.mjs <PR>`. Exit ≠ 0 => no mergear, dejar el PR abierto, loguear y avisar a Mauri. Exit 0 y `npm run verify` verde => `gh pr merge <PR> --squash --delete-branch`.
-4. Al final: loguear en `/workspace/cadena-log.tsv` y `node scripts/cadena/lock.mjs release --pid $H` y `kill $H` (el trap lo cubre si la corrida corta antes).
-
-Antes de cualquier squash-merge, correr `node scripts/cadena/puede-mergear.mjs <PR>`; si falla, no mergear y avisar a Mauri (título/cuerpo con "No mergear"/"DO NOT MERGE", o `drizzle/*.sql` cuyo tag no está en `docs/roadmap/migraciones-aplicadas.md` de `main`). El lock `/workspace/.cadena.lock` (solo PID) se toma/libera con `node scripts/cadena/lock.mjs acquire|release --pid <pid>`; solo se libera el propio o uno stale (PID muerto), lo que queda logueado en `/workspace/cadena-log.tsv`. Tests: `tests/cadena-puede-mergear.test.ts`, `tests/cadena-lock.test.ts`.
+- El lock es `/workspace/.cadena.lock` (solo el PID dueño), administrado con `node scripts/cadena/lock.mjs acquire|release --pid <pid>`; nunca lo escribas a mano. Para un comando suelto, `scripts/cadena/con-lock.sh <cmd>`.
+- Dentro de la cadena el ORQUESTADOR ya tomó el lock: la sesión de OpenCode NO lo adquiere ni lo libera, y no hace push ni merge.
+- Gate de merge (lo corre el orquestador): `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0. GitHub Actions quedó manual-only (`workflow_dispatch`, ADR-0086); el gate real es `npm run verify`.
+- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones-aplicadas.md` antes del merge. Tests: `tests/cadena-lock.test.ts`, `tests/cadena-puede-mergear.test.ts`, `tests/cadena-con-lock.test.ts`.

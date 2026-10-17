@@ -1,19 +1,21 @@
 ---
 id: PRD-ALR-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [bot, email, inventario]
 depende_de: [ADR-0024, ADR-0028, ADR-0039, ADR-0043]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md (B4 alertas por umbral, B5 aviso matutino),
-  docs/07-canales-whatsapp-email/notificaciones-email.md (NE2 matutino), src/modules/email/stock-matutino.ts,
-  src/modules/whatsapp/alertas.ts, src/jobs/whatsapp-aviso-matutino.ts, docs/migracion-supabase.md.
+  Alertas automáticas de stock bajo con mínimo por producto, destinatarios con opt-in y armar pedido. ALR-S1
+  persistido y editable hecho 2026-10-16; el endpoint del job corre con JOBSSECRET. Pendientes: pg_cron real,
+  canal por encargado en DB y la migración de notification_events.
 ---
 # PRD-ALR-01 - Alertas automáticas de stock bajo (R2)
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` (B4 alertas por umbral, B5 aviso matutino), `docs/07-canales-whatsapp-email/notificaciones-email.md` (NE2 matutino), `src/modules/email/stock-matutino.ts`, `src/modules/whatsapp/alertas.ts`, `src/jobs/whatsapp-aviso-matutino.ts`, `docs/migracion-supabase.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0024, ADR-0028, ADR-0039, ADR-0043. Gap: núcleo puro y tests existen; sin scheduler real ni mínimo editable persistido.
+
+> Estado al 2026-10-16: en curso. ALR-S1 (`min_stock`/`reorder_qty` persistidos y editables en el panel) y ALR-S2 (endpoint con `JOBSSECRET`) hechos; faltan el `pg_cron` real, el canal por encargado en DB y `notification_events` durable.
 
 ## Épica ALR-E1. Detección bajo mínimo
 

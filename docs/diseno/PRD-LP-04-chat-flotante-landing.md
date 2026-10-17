@@ -1,19 +1,20 @@
 ---
 id: PRD-LP-04
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [landing, persistencia]
 depende_de: [ADR-0010, ADR-0022, ADR-0036, ADR-0046, PRD-DS-01, PRD-LP-01, PRD-LP-02, PRD-LP-03]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: PRD-LP-01, PRD-LP-02, PRD-LP-03, docs/09-frontend-landing-diseno/landing-gaps-modoops.md,
-  src/data/business.ts, .agents/skills/better-accessibility/SKILL.md. Fecha extracción: 2026-10-12. Restringido
-  por ADR-0010, ADR-0022, ADR-0036, ADR-0046.
+  Chat flotante de la landing que responde desde FAQ, planes públicos y rubros y deriva a WhatsApp. LP4-S1 a S5
+  hechos 2026-10-16 con ProveedorLLM fake y límite de 20 mensajes por día; falta la clave real del proveedor.
 ---
 # PRD-LP-04 - Chat flotante en la landing para clientes (R2)
 
 Fuente: PRD-LP-01, PRD-LP-02, PRD-LP-03, `docs/09-frontend-landing-diseno/landing-gaps-modoops.md`, `src/data/business.ts`, `.agents/skills/better-accessibility/SKILL.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0010, ADR-0022, ADR-0036, ADR-0046. Gap: la landing solo tiene formulario Formspree y contacto; sin respuesta inmediata.
+
+> Estado al 2026-10-16: hecho. LP4-S1 a LP4-S5 implementados con `ProveedorLLM` fake y límite de 20 mensajes por día; falta la clave real del proveedor.
 
 ## Épica LP4-E1. Widget que responde y deriva
 

@@ -6,7 +6,7 @@ modulos: []
 depende_de: [ADR-0065]
 reemplaza: []
 reemplazado_por: ""
-modifica: []
+modifica: [PRD-ARQ-01]
 modificado_por: []
 resumen: GitHub Actions deja de ser el gate de merge. La verificación pasa a `npm run verify` en la caja, que corre los pasos de ci.yml y regenera ROADMAP/INDEX.
 ---

@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { listarDocs, parseFrontmatter } from "./docs-lib.mjs";
 
 const EXCLUIR_ESTADO = new Set(["reemplazado", "deprecado"]);
+const TOPE = 8;
+const FACTOR_MIN = 0.2;
 
 function comoArreglo(v) {
   if (Array.isArray(v)) return v.map((x) => String(x ?? "").trim()).filter((x) => x !== "");
@@ -245,7 +247,8 @@ export function buscarContexto(query, docs) {
     if (a.doc.id > b.doc.id) return 1;
     return a.doc.rel < b.doc.rel ? -1 : 1;
   });
-  const top = scored.slice(0, 10);
+  const piso = (scored[0]?.score ?? 0) * FACTOR_MIN;
+  const top = scored.filter((s) => s.score >= piso).slice(0, TOPE);
   const items = top.map(({ doc: d, score }) => ({
     id: d.id,
     ruta: d.ruta,

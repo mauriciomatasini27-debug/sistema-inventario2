@@ -1,19 +1,21 @@
 ---
 id: PRD-DASH-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [admin, bot, landing]
 depende_de: [ADR-0006, ADR-0020, ADR-0029, ADR-0032, ADR-0038, ADR-0039, ADR-0041, ADR-0045, ADR-0046, PRD-ALR-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: PRD-BOT-02, PRD-ALR-01, PRD-IA-01, PRD-LP-04, PRD-BOT-01, PRD-OP-01, PRD-DS-02, PRD-UI-01 a PRD-UI-07,
-  docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md, docs/07-canales-whatsapp-email/,
-  src/pages/panel.astro, src/pages/index.astro, src/components/ui/FloatingWhatsApp.astro,
+  Implementación en el dashboard de bot, alertas, asistente IA y chat de landing. Solo DASH-S10/S11 (chat de
+  landing) hechos 2026-10-16; pendientes las pantallas de /panel (bot, alertas, asistente, plan) y la navegación
+  sin hardcode (DASH-S12).
 ---
 # PRD-DASH-01 - Implementación en dashboard: bot, alertas, asistente IA y chat de landing (R2)
 
 Fuente: PRD-BOT-02, PRD-ALR-01, PRD-IA-01, PRD-LP-04, PRD-BOT-01, PRD-OP-01, PRD-DS-02, PRD-UI-01 a PRD-UI-07, `docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md`, `docs/07-canales-whatsapp-email/*`, `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/ui/FloatingWhatsApp.astro`, `src/components/sections/Faq.astro`. Skills UI/UX: `.agents/skills/better-layout`, `better-typography`, `better-colors`, `better-writing`, `better-accessibility`, `better-ui`, `ask-sonner`, `state-machine`, `interface-review`, `break-ui`, `mobile-native`. Fecha extracción: 2026-10-12. Restringido por ADR-0006, ADR-0020, ADR-0029, ADR-0032 a ADR-0038, ADR-0039, ADR-0041 a ADR-0046.
+
+> Estado al 2026-10-16: en curso. Solo DASH-S10 y DASH-S11 (chat de landing, vía PRD-LP-04) hechos; las pantallas de `/panel` (bot, alertas, asistente, plan) y DASH-S12 siguen pendientes.
 
 ## Épica DASH-E1. Bot de WhatsApp en el panel de tenant
 

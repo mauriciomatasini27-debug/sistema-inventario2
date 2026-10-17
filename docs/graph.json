@@ -2,1776 +2,747 @@
   "nodos": [
     {
       "id": "ADR-0000",
-      "ruta": "docs/archivo/0000-indice-prd-ordenado.md",
-      "tipo": "historico",
-      "estado": "deprecado",
-      "modulos": [
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/archivo/0000-indice-prd-ordenado.md"
     },
     {
       "id": "ADR-0001",
-      "ruta": "docs/adr/0001-arquitectura-base.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/adr/0001-arquitectura-base.md"
     },
     {
       "id": "ADR-0002",
-      "ruta": "docs/adr/0002-stack-desarrollo.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0002-stack-desarrollo.md"
     },
     {
       "id": "ADR-0003",
-      "ruta": "docs/adr/0003-multitenancy-datos-offline.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "offline",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0003-multitenancy-datos-offline.md"
     },
     {
       "id": "ADR-0004",
-      "ruta": "docs/adr/0004-caja-ventas.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "caja",
-        "fiado",
-        "precios",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0004-caja-ventas.md"
     },
     {
       "id": "ADR-0005",
-      "ruta": "docs/adr/0005-ocr.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0005-ocr.md"
     },
     {
       "id": "ADR-0006",
-      "ruta": "docs/adr/0006-panel.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/adr/0006-panel.md"
     },
     {
       "id": "ADR-0007",
-      "ruta": "docs/adr/0007-externos.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0007-externos.md"
     },
     {
       "id": "ADR-0008",
-      "ruta": "docs/adr/0008-tokens-tema-papel.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0008-tokens-tema-papel.md"
     },
     {
       "id": "ADR-0009",
-      "ruta": "docs/adr/0009-componentes-adopcion.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0009-componentes-adopcion.md"
     },
     {
       "id": "ADR-0010",
-      "ruta": "docs/adr/0010-landing.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario",
-        "landing"
-      ]
+      "ruta": "docs/adr/0010-landing.md"
     },
     {
       "id": "ADR-0011",
-      "ruta": "docs/adr/0011-control-plane.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "admin",
-        "inventario"
-      ]
+      "ruta": "docs/adr/0011-control-plane.md"
     },
     {
       "id": "ADR-0012",
-      "ruta": "docs/adr/0012-negocio-catalogo.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/adr/0012-negocio-catalogo.md"
     },
     {
       "id": "ADR-0013",
-      "ruta": "docs/adr/0013-adaptacion.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/adr/0013-adaptacion.md"
     },
     {
       "id": "ADR-0014",
-      "ruta": "docs/adr/0014-grounding.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0014-grounding.md"
     },
     {
       "id": "ADR-0015",
-      "ruta": "docs/adr/0015-architect.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0015-architect.md"
     },
     {
       "id": "ADR-0016",
-      "ruta": "docs/adr/0016-prosa-revision.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0016-prosa-revision.md"
     },
     {
       "id": "ADR-0017",
-      "ruta": "docs/adr/0017-slice-0.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "ventas"
-      ]
+      "ruta": "docs/adr/0017-slice-0.md"
     },
     {
       "id": "ADR-0018",
-      "ruta": "docs/adr/0018-fiscal-arca.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal"
-      ]
+      "ruta": "docs/adr/0018-fiscal-arca.md"
     },
     {
       "id": "ADR-0019",
-      "ruta": "docs/adr/0019-slice-fiscal.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0019-slice-fiscal.md"
     },
     {
       "id": "ADR-0020",
-      "ruta": "docs/adr/0020-dashboard.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0020-dashboard.md"
     },
     {
       "id": "ADR-0021",
-      "ruta": "docs/adr/0021-landing-iteracion.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "landing"
-      ]
+      "ruta": "docs/adr/0021-landing-iteracion.md"
     },
     {
       "id": "ADR-0022",
-      "ruta": "docs/adr/0022-landing-gaps.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "landing"
-      ]
+      "ruta": "docs/adr/0022-landing-gaps.md"
     },
     {
       "id": "ADR-0023",
-      "ruta": "docs/adr/0023-sync-pull-grants.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "offline"
-      ]
+      "ruta": "docs/adr/0023-sync-pull-grants.md"
     },
     {
       "id": "ADR-0024",
-      "ruta": "docs/adr/0024-persistencia-drizzle.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0024-persistencia-drizzle.md"
     },
     {
       "id": "ADR-0025",
-      "ruta": "docs/adr/0025-pwa-sqlite-wasm.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0025-pwa-sqlite-wasm.md"
     },
     {
       "id": "ADR-0026",
-      "ruta": "docs/adr/0026-catalogo-lotes-ubicaciones.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0026-catalogo-lotes-ubicaciones.md"
     },
     {
       "id": "ADR-0027",
-      "ruta": "docs/adr/0027-caja-qr-vencimientos.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "caja",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0027-caja-qr-vencimientos.md"
     },
     {
       "id": "ADR-0028",
-      "ruta": "docs/adr/0028-canales-faltantes.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "email"
-      ]
+      "ruta": "docs/adr/0028-canales-faltantes.md"
     },
     {
       "id": "ADR-0029",
-      "ruta": "docs/adr/0029-panel-landing-cierre.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "admin",
-        "landing",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0029-panel-landing-cierre.md"
     },
     {
       "id": "ADR-0030",
-      "ruta": "docs/adr/0030-accesos-landing.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "admin",
-        "landing",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0030-accesos-landing.md"
     },
     {
       "id": "ADR-0031",
-      "ruta": "docs/adr/0031-login-callback-cookies.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "auth"
-      ]
+      "ruta": "docs/adr/0031-login-callback-cookies.md"
     },
     {
       "id": "ADR-0032",
-      "ruta": "docs/adr/0032-layout-pwa.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "offline"
-      ]
+      "ruta": "docs/adr/0032-layout-pwa.md"
     },
     {
       "id": "ADR-0033",
-      "ruta": "docs/adr/0033-tipografia.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0033-tipografia.md"
     },
     {
       "id": "ADR-0034",
-      "ruta": "docs/adr/0034-color-contraste.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0034-color-contraste.md"
     },
     {
       "id": "ADR-0035",
-      "ruta": "docs/adr/0035-copy-voz.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0035-copy-voz.md"
     },
     {
       "id": "ADR-0036",
-      "ruta": "docs/adr/0036-accesibilidad.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0036-accesibilidad.md"
     },
     {
       "id": "ADR-0037",
-      "ruta": "docs/adr/0037-polish-motion.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0037-polish-motion.md"
     },
     {
       "id": "ADR-0038",
-      "ruta": "docs/adr/0038-revision-stress.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0038-revision-stress.md"
     },
     {
       "id": "ADR-0039",
-      "ruta": "docs/adr/0039-bot-modulos-rubro.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "bot"
-      ]
+      "ruta": "docs/adr/0039-bot-modulos-rubro.md"
     },
     {
       "id": "ADR-0040",
-      "ruta": "docs/adr/0040-resumen-mensual-acciones.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "bot"
-      ]
+      "ruta": "docs/adr/0040-resumen-mensual-acciones.md"
     },
     {
       "id": "ADR-0041",
-      "ruta": "docs/adr/0041-proveedor-whatsapp-cloud-api.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "bot",
-        "compras"
-      ]
+      "ruta": "docs/adr/0041-proveedor-whatsapp-cloud-api.md"
     },
     {
       "id": "ADR-0042",
-      "ruta": "docs/adr/0042-whatsapp-transport-intercambiable.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "bot"
-      ]
+      "ruta": "docs/adr/0042-whatsapp-transport-intercambiable.md"
     },
     {
       "id": "ADR-0043",
-      "ruta": "docs/adr/0043-cron-alertas-pg-cron.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "inventario"
-      ]
+      "ruta": "docs/adr/0043-cron-alertas-pg-cron.md"
     },
     {
       "id": "ADR-0044",
-      "ruta": "docs/adr/0044-asistente-ia-catalogo-cerrado.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0044-asistente-ia-catalogo-cerrado.md"
     },
     {
       "id": "ADR-0045",
-      "ruta": "docs/adr/0045-proveedor-llm-asistente.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "compras"
-      ]
+      "ruta": "docs/adr/0045-proveedor-llm-asistente.md"
     },
     {
       "id": "ADR-0046",
-      "ruta": "docs/adr/0046-chat-landing-llm-aislado.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": [
-        "landing",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0046-chat-landing-llm-aislado.md"
     },
     {
       "id": "ADR-0047",
-      "ruta": "docs/adr/0047-cobro-por-plan-mensual.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0047-cobro-por-plan-mensual.md"
     },
     {
       "id": "ADR-0048",
-      "ruta": "docs/adr/0048-supabase-single-project.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0048-supabase-single-project.md"
     },
     {
       "id": "ADR-0049",
-      "ruta": "docs/adr/0049-supabase-driver-pooler.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0049-supabase-driver-pooler.md"
     },
     {
       "id": "ADR-0050",
-      "ruta": "docs/adr/0050-aislamiento-fiscal-por-tenant.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal",
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0050-aislamiento-fiscal-por-tenant.md"
     },
     {
       "id": "ADR-0051",
-      "ruta": "docs/adr/0051-tenant-por-request.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "compras",
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0051-tenant-por-request.md"
     },
     {
       "id": "ADR-0052",
-      "ruta": "docs/adr/0052-memoria-por-tenant-y-cutover.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0052-memoria-por-tenant-y-cutover.md"
     },
     {
       "id": "ADR-0053",
-      "ruta": "docs/adr/0053-repos-dominio-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0053-repos-dominio-sin-store.md"
     },
     {
       "id": "ADR-0054",
-      "ruta": "docs/adr/0054-repos-fiscal-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0054-repos-fiscal-sin-store.md"
     },
     {
       "id": "ADR-0055",
-      "ruta": "docs/adr/0055-repos-canales-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "bot",
-        "email",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0055-repos-canales-sin-store.md"
     },
     {
       "id": "ADR-0056",
-      "ruta": "docs/adr/0056-repo-caja-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "caja",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0056-repo-caja-sin-store.md"
     },
     {
       "id": "ADR-0057",
-      "ruta": "docs/adr/0057-repos-compras-pagos-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "compras",
-        "pagos",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0057-repos-compras-pagos-sin-store.md"
     },
     {
       "id": "ADR-0058",
-      "ruta": "docs/adr/0058-repos-servicios-fiado-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiado",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0058-repos-servicios-fiado-sin-store.md"
     },
     {
       "id": "ADR-0059",
-      "ruta": "docs/adr/0059-jobs-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0059-jobs-sin-store.md"
     },
     {
       "id": "ADR-0060",
-      "ruta": "docs/adr/0060-repo-ocr-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0060-repo-ocr-sin-store.md"
     },
     {
       "id": "ADR-0061",
-      "ruta": "docs/adr/0061-repo-sync-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0061-repo-sync-sin-store.md"
     },
     {
       "id": "ADR-0062",
-      "ruta": "docs/adr/0062-repos-catalogo-stock-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "compras",
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0062-repos-catalogo-stock-sin-store.md"
     },
     {
       "id": "ADR-0063",
-      "ruta": "docs/adr/0063-ventas-devoluciones-sin-store.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0063-ventas-devoluciones-sin-store.md"
     },
     {
       "id": "ADR-0064",
-      "ruta": "docs/adr/0064-politica-comentarios.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0064-politica-comentarios.md"
     },
     {
       "id": "ADR-0065",
-      "ruta": "docs/adr/0065-arquitectura-amigable-agentes.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0065-arquitectura-amigable-agentes.md"
     },
     {
       "id": "ADR-0066",
-      "ruta": "docs/adr/0066-dueno-real-y-correlativo-unico.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0066-dueno-real-y-correlativo-unico.md"
     },
     {
       "id": "ADR-0067",
-      "ruta": "docs/adr/0067-dependabot-actions-y-politica.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0067-dependabot-actions-y-politica.md"
     },
     {
       "id": "ADR-0068",
-      "ruta": "docs/adr/0068-vitest-5.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0068-vitest-5.md"
     },
     {
       "id": "ADR-0069",
-      "ruta": "docs/adr/0069-astro-7.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0069-astro-7.md"
     },
     {
       "id": "ADR-0070",
-      "ruta": "docs/adr/0070-drizzle-orm-045.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0070-drizzle-orm-045.md"
     },
     {
       "id": "ADR-0071",
-      "ruta": "docs/adr/0071-zod-4.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "email"
-      ]
+      "ruta": "docs/adr/0071-zod-4.md"
     },
     {
       "id": "ADR-0072",
-      "ruta": "docs/adr/0072-typescript-7.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0072-typescript-7.md"
     },
     {
       "id": "ADR-0073",
-      "ruta": "docs/adr/0073-errores-recurrentes-llm-guardas.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0073-errores-recurrentes-llm-guardas.md"
     },
     {
       "id": "ADR-0074",
-      "ruta": "docs/adr/0074-prefijos-datos-y-fiscal-settings-tenant.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal",
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0074-prefijos-datos-y-fiscal-settings-tenant.md"
     },
     {
       "id": "ADR-0075",
-      "ruta": "docs/adr/0075-backfill-tenant-id-real.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiscal",
-        "tenant"
-      ]
+      "ruta": "docs/adr/0075-backfill-tenant-id-real.md"
     },
     {
       "id": "ADR-0076",
-      "ruta": "docs/adr/0076-avances-roadmap-sin-conflictos.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0076-avances-roadmap-sin-conflictos.md"
     },
     {
       "id": "ADR-0077",
-      "ruta": "docs/adr/0077-fan-out-jobs-por-tenant.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "tenant"
-      ]
+      "ruta": "docs/adr/0077-fan-out-jobs-por-tenant.md"
     },
     {
       "id": "ADR-0078",
-      "ruta": "docs/adr/0078-ubicaciones-fotos-conteos-db.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0078-ubicaciones-fotos-conteos-db.md"
     },
     {
       "id": "ADR-0079",
-      "ruta": "docs/adr/0079-ocr-jobs-eventos-db.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0079-ocr-jobs-eventos-db.md"
     },
     {
       "id": "ADR-0080",
-      "ruta": "docs/adr/0080-correlativos-db.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "fiado",
-        "offline",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0080-correlativos-db.md"
     },
     {
       "id": "ADR-0081",
-      "ruta": "docs/adr/0081-sync-pull-catalogo-db.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "inventario",
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/adr/0081-sync-pull-catalogo-db.md"
     },
     {
       "id": "ADR-0082",
-      "ruta": "docs/adr/0082-errores-tragados-a-cero.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": [
-        "bot",
-        "offline",
-        "pagos",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/adr/0082-errores-tragados-a-cero.md"
     },
     {
       "id": "ADR-0083",
-      "ruta": "docs/adr/0083-proceso-una-corrida-docs-livianas.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0083-proceso-una-corrida-docs-livianas.md"
     },
     {
       "id": "ADR-0084",
-      "ruta": "docs/adr/0084-pstack-rubrica-efectividad.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0084-pstack-rubrica-efectividad.md"
     },
     {
       "id": "ADR-0085",
-      "ruta": "docs/adr/0085-pstack-conformance-test.md",
-      "tipo": "adr",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/adr/0085-pstack-conformance-test.md"
     },
     {
       "id": "ADR-0086",
-      "ruta": "docs/adr/0086-verificacion-local-sin-github-actions.md",
-      "tipo": "adr",
-      "estado": "aceptado",
-      "modulos": []
+      "ruta": "docs/adr/0086-verificacion-local-sin-github-actions.md"
     },
     {
       "id": "EVIDENCIA-UI-00",
-      "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md"
     },
     {
       "id": "HIST-ARCHIVO",
-      "ruta": "docs/archivo/README.md",
-      "tipo": "historico",
-      "estado": "deprecado",
-      "modulos": []
+      "ruta": "docs/archivo/README.md"
     },
     {
       "id": "HIST-CHECKLIST-DOCUMENTACION",
-      "ruta": "docs/archivo/CHECKLIST-documentacion.md",
-      "tipo": "historico",
-      "estado": "deprecado",
-      "modulos": []
+      "ruta": "docs/archivo/CHECKLIST-documentacion.md"
     },
     {
       "id": "HIST-PANEL-ADMIN-ANTERIOR",
-      "ruta": "docs/archivo/panel-admin-version-anterior-DEPRECADA.md",
-      "tipo": "historico",
-      "estado": "deprecado",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/archivo/panel-admin-version-anterior-DEPRECADA.md"
     },
     {
       "id": "MOD-01-COSTOS-POR-CLIENTE",
-      "ruta": "docs/01-fundacion/costos-por-cliente.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "inventario"
-      ]
+      "ruta": "docs/01-fundacion/costos-por-cliente.md"
     },
     {
       "id": "MOD-01-MODO-OFFLINE",
-      "ruta": "docs/01-fundacion/modo-offline.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "offline"
-      ]
+      "ruta": "docs/01-fundacion/modo-offline.md"
     },
     {
       "id": "MOD-01-VERIFICACION-FUENTE-OFICIAL",
-      "ruta": "docs/01-fundacion/verificacion-fuente-oficial.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "auth",
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/01-fundacion/verificacion-fuente-oficial.md"
     },
     {
       "id": "MOD-02-AUTENTICACION",
-      "ruta": "docs/02-identidad-onboarding/autenticacion.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "auth",
-        "onboarding"
-      ]
+      "ruta": "docs/02-identidad-onboarding/autenticacion.md"
     },
     {
       "id": "MOD-02-AUTENTICACION-GESTION-USUARIOS",
-      "ruta": "docs/02-identidad-onboarding/autenticacion-gestion-usuarios.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "auth",
-        "onboarding"
-      ]
+      "ruta": "docs/02-identidad-onboarding/autenticacion-gestion-usuarios.md"
     },
     {
       "id": "MOD-02-ONBOARDING-PARTE-1",
-      "ruta": "docs/02-identidad-onboarding/onboarding-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "auth",
-        "onboarding"
-      ]
+      "ruta": "docs/02-identidad-onboarding/onboarding-parte-1.md"
     },
     {
       "id": "MOD-02-ONBOARDING-PARTE-2",
-      "ruta": "docs/02-identidad-onboarding/onboarding-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "auth",
-        "onboarding"
-      ]
+      "ruta": "docs/02-identidad-onboarding/onboarding-parte-2.md"
     },
     {
       "id": "MOD-03-INVENTARIO-PARTE-1",
-      "ruta": "docs/03-inventario-precios/inventario-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "precios"
-      ]
+      "ruta": "docs/03-inventario-precios/inventario-parte-1.md"
     },
     {
       "id": "MOD-03-INVENTARIO-PARTE-2",
-      "ruta": "docs/03-inventario-precios/inventario-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "precios"
-      ]
+      "ruta": "docs/03-inventario-precios/inventario-parte-2.md"
     },
     {
       "id": "MOD-03-INVENTARIO-PARTE-3",
-      "ruta": "docs/03-inventario-precios/inventario-parte-3.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "precios"
-      ]
+      "ruta": "docs/03-inventario-precios/inventario-parte-3.md"
     },
     {
       "id": "MOD-03-PRECIOS-PARTE-1",
-      "ruta": "docs/03-inventario-precios/precios-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "precios"
-      ]
+      "ruta": "docs/03-inventario-precios/precios-parte-1.md"
     },
     {
       "id": "MOD-03-PRECIOS-PARTE-2",
-      "ruta": "docs/03-inventario-precios/precios-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "precios"
-      ]
+      "ruta": "docs/03-inventario-precios/precios-parte-2.md"
     },
     {
       "id": "MOD-04-CAJA-DIGITAL-PARTE-1",
-      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-1.md"
     },
     {
       "id": "MOD-04-CAJA-DIGITAL-PARTE-2-TURNOS",
-      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-2-turnos.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-2-turnos.md"
     },
     {
       "id": "MOD-04-CAJA-DIGITAL-PARTE-3-INTEGRACIONES",
-      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-3-integraciones.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/caja-digital-parte-3-integraciones.md"
     },
     {
       "id": "MOD-04-FIADO-CUENTA-CORRIENTE",
-      "ruta": "docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md"
     },
     {
       "id": "MOD-04-TICKET-VENTA-PARTE-1",
-      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-1.md"
     },
     {
       "id": "MOD-04-TICKET-VENTA-PARTE-2",
-      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "fiado",
-        "ventas"
-      ]
+      "ruta": "docs/04-ventas-caja-fiado/ticket-venta-parte-2.md"
     },
     {
       "id": "MOD-05-CONSUMOS-SERVICIOS",
-      "ruta": "docs/05-compras-servicios-pagos/consumos-servicios.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "compras",
-        "pagos"
-      ]
+      "ruta": "docs/05-compras-servicios-pagos/consumos-servicios.md"
     },
     {
       "id": "MOD-05-FACTURAS-PROVEEDORES",
-      "ruta": "docs/05-compras-servicios-pagos/facturas-proveedores.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "compras",
-        "pagos"
-      ]
+      "ruta": "docs/05-compras-servicios-pagos/facturas-proveedores.md"
     },
     {
       "id": "MOD-05-ORDENES-PAGO",
-      "ruta": "docs/05-compras-servicios-pagos/ordenes-pago.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "compras",
-        "pagos"
-      ]
+      "ruta": "docs/05-compras-servicios-pagos/ordenes-pago.md"
     },
     {
       "id": "MOD-06-FACTURACION-ELECTRONICA-ARCA",
-      "ruta": "docs/06-fiscal-arca/facturacion-electronica-arca.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "fiscal"
-      ]
+      "ruta": "docs/06-fiscal-arca/facturacion-electronica-arca.md"
     },
     {
       "id": "MOD-07-BOT-WHATSAPP-PARTE-1",
-      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "email"
-      ]
+      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md"
     },
     {
       "id": "MOD-07-BOT-WHATSAPP-PARTE-2",
-      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "email"
-      ]
+      "ruta": "docs/07-canales-whatsapp-email/bot-whatsapp-parte-2.md"
     },
     {
       "id": "MOD-07-NOTIFICACIONES-EMAIL",
-      "ruta": "docs/07-canales-whatsapp-email/notificaciones-email.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "email"
-      ]
+      "ruta": "docs/07-canales-whatsapp-email/notificaciones-email.md"
     },
     {
       "id": "MOD-08-DASHBOARD-INDICE-NAVEGACION",
-      "ruta": "docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md"
     },
     {
       "id": "MOD-08-PANEL-ADMIN-PARTE-1",
-      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-1.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-1.md"
     },
     {
       "id": "MOD-08-PANEL-ADMIN-PARTE-2",
-      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-2.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-2.md"
     },
     {
       "id": "MOD-08-PANEL-ADMIN-PARTE-3",
-      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-3.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/08-operacion-admin-analytics/panel-admin-parte-3.md"
     },
     {
       "id": "MOD-08-REPORTES-ROTACION",
-      "ruta": "docs/08-operacion-admin-analytics/reportes-rotacion.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/08-operacion-admin-analytics/reportes-rotacion.md"
     },
     {
       "id": "MOD-09-LANDING-GAPS-MODOOPS",
-      "ruta": "docs/09-frontend-landing-diseno/landing-gaps-modoops.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": [
-        "landing"
-      ]
+      "ruta": "docs/09-frontend-landing-diseno/landing-gaps-modoops.md"
     },
     {
       "id": "PLAN-COM-01",
-      "ruta": "docs/diseno/PLAN-COM-01-poda-comentarios.md",
-      "tipo": "plan",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "auth",
-        "bot",
-        "caja",
-        "compras",
-        "email",
-        "fiado",
-        "fiscal",
-        "inventario",
-        "offline",
-        "onboarding",
-        "pagos",
-        "persistencia",
-        "precios",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PLAN-COM-01-poda-comentarios.md"
     },
     {
       "id": "PLAN-COM-01-A",
-      "ruta": "docs/diseno/PLAN-COM-01/a-borrar.md",
-      "tipo": "plan",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "auth",
-        "bot",
-        "caja",
-        "compras",
-        "email",
-        "fiado",
-        "fiscal",
-        "inventario",
-        "offline",
-        "onboarding",
-        "pagos",
-        "persistencia",
-        "precios",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PLAN-COM-01/a-borrar.md"
     },
     {
       "id": "PLAN-COM-01-B",
-      "ruta": "docs/diseno/PLAN-COM-01/b-refactor.md",
-      "tipo": "plan",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "auth",
-        "bot",
-        "caja",
-        "compras",
-        "email",
-        "fiado",
-        "fiscal",
-        "inventario",
-        "offline",
-        "onboarding",
-        "pagos",
-        "persistencia",
-        "precios",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PLAN-COM-01/b-refactor.md"
     },
     {
       "id": "PLAN-COM-01-C",
-      "ruta": "docs/diseno/PLAN-COM-01/c-conservar.md",
-      "tipo": "plan",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "auth",
-        "bot",
-        "caja",
-        "compras",
-        "email",
-        "fiado",
-        "fiscal",
-        "inventario",
-        "offline",
-        "onboarding",
-        "pagos",
-        "persistencia",
-        "precios",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PLAN-COM-01/c-conservar.md"
     },
     {
       "id": "PRD-ADAP-01",
-      "ruta": "docs/diseno/PRD-ADAP-01-modoops-a-inventario.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-ADAP-01-modoops-a-inventario.md"
     },
     {
       "id": "PRD-ALR-01",
-      "ruta": "docs/diseno/PRD-ALR-01-alertas-stock-bajo.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "email",
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-ALR-01-alertas-stock-bajo.md"
     },
     {
       "id": "PRD-ARQ-01",
-      "ruta": "docs/diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-ARQ-01-arquitectura-amigable-agentes.md"
     },
     {
       "id": "PRD-AU-01",
-      "ruta": "docs/diseno/PRD-AU-01-login-endurecido.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "auth"
-      ]
+      "ruta": "docs/diseno/PRD-AU-01-login-endurecido.md"
     },
     {
       "id": "PRD-AU-02",
-      "ruta": "docs/diseno/PRD-AU-02-login-con-destino.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "auth",
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-AU-02-login-con-destino.md"
     },
     {
       "id": "PRD-BOT-01",
-      "ruta": "docs/diseno/PRD-BOT-01-modulos-rubro.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "bot"
-      ]
+      "ruta": "docs/diseno/PRD-BOT-01-modulos-rubro.md"
     },
     {
       "id": "PRD-BOT-02",
-      "ruta": "docs/diseno/PRD-BOT-02-consulta-stock-whatsapp.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-BOT-02-consulta-stock-whatsapp.md"
     },
     {
       "id": "PRD-CAJA-01",
-      "ruta": "docs/diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md"
     },
     {
       "id": "PRD-CAT-01",
-      "ruta": "docs/diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md"
     },
     {
       "id": "PRD-CH-01",
-      "ruta": "docs/diseno/PRD-CH-01-canales-faltantes.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "email"
-      ]
+      "ruta": "docs/diseno/PRD-CH-01-canales-faltantes.md"
     },
     {
       "id": "PRD-COM-01",
-      "ruta": "docs/diseno/PRD-COM-01-poda-comentarios.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-COM-01-poda-comentarios.md"
     },
     {
       "id": "PRD-CP-01",
-      "ruta": "docs/diseno/PRD-CP-01-control-plane.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-CP-01-control-plane.md"
     },
     {
       "id": "PRD-DASH-01",
-      "ruta": "docs/diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "bot",
-        "landing"
-      ]
+      "ruta": "docs/diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md"
     },
     {
       "id": "PRD-DEP-01",
-      "ruta": "docs/diseno/PRD-DEP-01-actualizacion-dependencias.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-DEP-01-actualizacion-dependencias.md"
     },
     {
       "id": "PRD-DS-01",
-      "ruta": "docs/diseno/PRD-DS-01-tokens-tema-papel.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-DS-01-tokens-tema-papel.md"
     },
     {
       "id": "PRD-DS-02",
-      "ruta": "docs/diseno/PRD-DS-02-componentes.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-DS-02-componentes.md"
     },
     {
       "id": "PRD-DS-03",
-      "ruta": "docs/diseno/PRD-DS-03-adopcion-inventario.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-DS-03-adopcion-inventario.md"
     },
     {
       "id": "PRD-E2E-01",
-      "ruta": "docs/diseno/PRD-E2E-01-flujo-demo-dos-tenants.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "onboarding",
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-E2E-01-flujo-demo-dos-tenants.md"
     },
     {
       "id": "PRD-FE-01",
-      "ruta": "docs/diseno/PRD-FE-01-fiscal-arca.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "fiscal"
-      ]
+      "ruta": "docs/diseno/PRD-FE-01-fiscal-arca.md"
     },
     {
       "id": "PRD-IA-01",
-      "ruta": "docs/diseno/PRD-IA-01-asistente-preguntas-negocio.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-IA-01-asistente-preguntas-negocio.md"
     },
     {
       "id": "PRD-ISO-01",
-      "ruta": "docs/diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "compras",
-        "fiscal",
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md"
     },
     {
       "id": "PRD-ISO-02",
-      "ruta": "docs/diseno/PRD-ISO-02-aislamiento-plano-datos.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "caja",
-        "compras",
-        "fiscal",
-        "persistencia",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PRD-ISO-02-aislamiento-plano-datos.md"
     },
     {
       "id": "PRD-LANDING-01",
-      "ruta": "docs/diseno/PRD-LANDING-01-planes-en-landing.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "landing",
-        "precios"
-      ]
+      "ruta": "docs/diseno/PRD-LANDING-01-planes-en-landing.md"
     },
     {
       "id": "PRD-LP-01",
-      "ruta": "docs/diseno/PRD-LP-01-landing.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "landing"
-      ]
+      "ruta": "docs/diseno/PRD-LP-01-landing.md"
     },
     {
       "id": "PRD-LP-02",
-      "ruta": "docs/diseno/PRD-LP-02-landing-iteracion.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "landing"
-      ]
+      "ruta": "docs/diseno/PRD-LP-02-landing-iteracion.md"
     },
     {
       "id": "PRD-LP-03",
-      "ruta": "docs/diseno/PRD-LP-03-accesos-landing.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "landing"
-      ]
+      "ruta": "docs/diseno/PRD-LP-03-accesos-landing.md"
     },
     {
       "id": "PRD-LP-04",
-      "ruta": "docs/diseno/PRD-LP-04-chat-flotante-landing.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "landing",
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-LP-04-chat-flotante-landing.md"
     },
     {
       "id": "PRD-NEG-01",
-      "ruta": "docs/diseno/PRD-NEG-01-negocio-catalogo.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario"
-      ]
+      "ruta": "docs/diseno/PRD-NEG-01-negocio-catalogo.md"
     },
     {
       "id": "PRD-OP-01",
-      "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "landing"
-      ]
+      "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md"
     },
     {
       "id": "PRD-PERS-01",
-      "ruta": "docs/diseno/PRD-PERS-01-persistencia-drizzle.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-01-persistencia-drizzle.md"
     },
     {
       "id": "PRD-PERS-02",
-      "ruta": "docs/diseno/PRD-PERS-02-cutover-multi-tenant.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "caja",
-        "compras",
-        "email",
-        "fiado",
-        "fiscal",
-        "inventario",
-        "offline",
-        "pagos",
-        "persistencia",
-        "precios",
-        "tenant",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-02-cutover-multi-tenant.md"
     },
     {
       "id": "PRD-PERS-03",
-      "ruta": "docs/diseno/PRD-PERS-03-ubicaciones-fotos-conteos-db.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-03-ubicaciones-fotos-conteos-db.md"
     },
     {
       "id": "PRD-PERS-04",
-      "ruta": "docs/diseno/PRD-PERS-04-ocr-jobs-eventos-db.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-04-ocr-jobs-eventos-db.md"
     },
     {
       "id": "PRD-PERS-05",
-      "ruta": "docs/diseno/PRD-PERS-05-correlativos-db.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "fiado",
-        "offline",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-05-correlativos-db.md"
     },
     {
       "id": "PRD-PERS-06",
-      "ruta": "docs/diseno/PRD-PERS-06-sync-pull-catalogo-db.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "inventario",
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-06-sync-pull-catalogo-db.md"
     },
     {
       "id": "PRD-PERS-07",
-      "ruta": "docs/diseno/PRD-PERS-07-errores-tragados.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin",
-        "bot",
-        "offline",
-        "pagos",
-        "persistencia",
-        "ventas"
-      ]
+      "ruta": "docs/diseno/PRD-PERS-07-errores-tragados.md"
     },
     {
       "id": "PRD-PLAN-01",
-      "ruta": "docs/diseno/PRD-PLAN-01-planes-suscripcion.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/diseno/PRD-PLAN-01-planes-suscripcion.md"
     },
     {
       "id": "PRD-PLAN-02",
-      "ruta": "docs/diseno/PRD-PLAN-02-precios-suscripcion.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "bot",
-        "fiscal",
-        "precios"
-      ]
+      "ruta": "docs/diseno/PRD-PLAN-02-precios-suscripcion.md"
     },
     {
       "id": "PRD-PROC-01",
-      "ruta": "docs/diseno/PRD-PROC-01-auditoria-proceso.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-PROC-01-auditoria-proceso.md"
     },
     {
       "id": "PRD-PS-01",
-      "ruta": "docs/diseno/PRD-PS-01-pstack-opencode.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "caja"
-      ]
+      "ruta": "docs/diseno/PRD-PS-01-pstack-opencode.md"
     },
     {
       "id": "PRD-PWA-01",
-      "ruta": "docs/diseno/PRD-PWA-01-offline-local.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "offline",
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-PWA-01-offline-local.md"
     },
     {
       "id": "PRD-ROAD-01",
-      "ruta": "docs/diseno/PRD-ROAD-01-avances-sin-conflictos.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-ROAD-01-avances-sin-conflictos.md"
     },
     {
       "id": "PRD-SEC-01",
-      "ruta": "docs/diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-SEC-01-dueno-real-y-correlativo-unico.md"
     },
     {
       "id": "PRD-SEC-02",
-      "ruta": "docs/diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "fiscal",
-        "persistencia",
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-SEC-02-prefijos-datos-y-fiscal-settings.md"
     },
     {
       "id": "PRD-SEC-03",
-      "ruta": "docs/diseno/PRD-SEC-03-backfill-tenant-id.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-SEC-03-backfill-tenant-id.md"
     },
     {
       "id": "PRD-SEC-04",
-      "ruta": "docs/diseno/PRD-SEC-04-fan-out-jobs-por-tenant.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "tenant"
-      ]
+      "ruta": "docs/diseno/PRD-SEC-04-fan-out-jobs-por-tenant.md"
     },
     {
       "id": "PRD-SK-01",
-      "ruta": "docs/diseno/PRD-SK-01-grounding-how-why.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-SK-01-grounding-how-why.md"
     },
     {
       "id": "PRD-SK-02",
-      "ruta": "docs/diseno/PRD-SK-02-architect.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-SK-02-architect.md"
     },
     {
       "id": "PRD-SK-03",
-      "ruta": "docs/diseno/PRD-SK-03-prosa-revision.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-SK-03-prosa-revision.md"
     },
     {
       "id": "PRD-SUP-01",
-      "ruta": "docs/diseno/PRD-SUP-01-conexion-supabase.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "persistencia"
-      ]
+      "ruta": "docs/diseno/PRD-SUP-01-conexion-supabase.md"
     },
     {
       "id": "PRD-SYNC-01",
-      "ruta": "docs/diseno/PRD-SYNC-01-sync-pull-grants.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "offline"
-      ]
+      "ruta": "docs/diseno/PRD-SYNC-01-sync-pull-grants.md"
     },
     {
       "id": "PRD-UI-01",
-      "ruta": "docs/diseno/PRD-UI-01-layout-pwa-360.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "offline"
-      ]
+      "ruta": "docs/diseno/PRD-UI-01-layout-pwa-360.md"
     },
     {
       "id": "PRD-UI-02",
-      "ruta": "docs/diseno/PRD-UI-02-tipografia-escala.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-02-tipografia-escala.md"
     },
     {
       "id": "PRD-UI-03",
-      "ruta": "docs/diseno/PRD-UI-03-color-contraste.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-03-color-contraste.md"
     },
     {
       "id": "PRD-UI-04",
-      "ruta": "docs/diseno/PRD-UI-04-copy-voz.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-04-copy-voz.md"
     },
     {
       "id": "PRD-UI-05",
-      "ruta": "docs/diseno/PRD-UI-05-accesibilidad.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-05-accesibilidad.md"
     },
     {
       "id": "PRD-UI-06",
-      "ruta": "docs/diseno/PRD-UI-06-polish-motion.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-06-polish-motion.md"
     },
     {
       "id": "PRD-UI-07",
-      "ruta": "docs/diseno/PRD-UI-07-revision-stress.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/PRD-UI-07-revision-stress.md"
     },
     {
       "id": "PRD-UX-01",
-      "ruta": "docs/diseno/PRD-UX-01-uso-skills-diseno-dashboard.md",
-      "tipo": "prd",
-      "estado": "propuesto",
-      "modulos": [
-        "admin"
-      ]
+      "ruta": "docs/diseno/PRD-UX-01-uso-skills-diseno-dashboard.md"
     },
     {
       "id": "SPEC-UI-00",
-      "ruta": "docs/diseno/SPEC-UI-00-implementacion.md",
-      "tipo": "spec",
-      "estado": "propuesto",
-      "modulos": []
+      "ruta": "docs/diseno/SPEC-UI-00-implementacion.md"
     }
   ],
   "aristas": [
@@ -2936,6 +1907,11 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0086",
+      "a": "PRD-ARQ-01",
+      "tipo": "modifica"
+    },
+    {
       "de": "MOD-01-VERIFICACION-FUENTE-OFICIAL",
       "a": "ADR-0005",
       "tipo": "depende_de"
@@ -3069,6 +2045,11 @@
       "de": "PRD-ARQ-01",
       "a": "ADR-0065",
       "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ARQ-01",
+      "a": "ADR-0086",
+      "tipo": "modificado_por"
     },
     {
       "de": "PRD-ARQ-01",
