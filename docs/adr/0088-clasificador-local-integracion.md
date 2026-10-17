@@ -1,7 +1,7 @@
 ---
 id: ADR-0088
 tipo: adr
-estado: propuesto
+estado: deprecado
 modulos: [bot, ia]
 depende_de: [ADR-0087, ADR-0042, ADR-0045]
 reemplaza: []
@@ -9,16 +9,16 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Si se adopta un clasificador local: sidecar Ollama en 127.0.0.1 detrás de una interfaz ClasificadorLocal con fake para tests,
-  preguntas versionadas, cascada reglas → modelo → humano, umbrales por tarea y eval set en el repo. Condicional a ADR-0087.
+  Rechazado con ADR-0087 (2026-10-17, Mauri): no se integra clasificador local Laya. El patrón sidecar/ClasificadorLocal
+  queda documentado por si se retoma con otro modelo liviano que gane a TF-IDF sin ~2,4 GB de servicio aparte.
 ---
 # ADR-0088 - Integración de un clasificador local (condicional)
 
-Estado: propuesto. Fecha: 2026-10-17. Fuentes: ADR-0087, ADR-0042 (patrón transport intercambiable), ADR-0045 (`LlmProvider` + fake), https://ollama.com/library/laya.
+Estado: rechazado (deprecado). Fecha: 2026-10-17. Nota 2026-10-17, decisión de Mauri: no se usa Laya (ver ADR-0087); no hay integración. Motivo: no sirve tal cual en español, ajustada no le gana claramente a TF-IDF, requiere servicio aparte de ~2,4 GB en servidores sin GPU. Fuentes: ADR-0087, ADR-0042, ADR-0045, https://ollama.com/library/laya.
 
 ## Decisión
 
-Aplica solo si ADR-0087 pasa a aceptado para alguna tarea. Hasta entonces no se escribe código.
+Rechazado con ADR-0087 (2026-10-17). No se escribe código ni se despliega sidecar. El diseño abajo queda como referencia si se retoma con otro modelo.
 
 - Forma: un sidecar en el mismo host, escuchando solo en `127.0.0.1`. Para el checkpoint ajustado (ADR-0087) se usa `laya-serve` del paquete Python: `LAYA_HOST=127.0.0.1` y `LAYA_API_KEY` siempre, porque por defecto escucha en 0.0.0.0 sin auth. Pico de RSS ~2,4 GB. Los checkpoints oficiales también se pueden servir con Ollama ≥ 0.40.0 (~0,8 GB), pineados por digest (`laya:322m-multilingual-bf16` = `sha256:4d8ab9c0…`). Importar el ajustado a Ollama no está verificado.
 - Ajuste: `laya.train.finetune` (soft-CE, 4 épocas) sobre el set de train versionado, fuera de `verify` y fuera del repo de la app. El checkpoint resultante se guarda con hash y fecha y se reajusta la temperatura en un held-out.
@@ -35,8 +35,8 @@ Es el mismo patrón que `WhatsAppTransport` y `LlmProvider`: se puede cambiar de
 
 ## Qué cambia
 
-Nada hasta la aceptación. Después: `src/modules/clasificador/` (interfaz, adaptador HTTP, fake), fixtures, script de eval y un servicio sidecar en el deploy de Hetzner (+0,8–2,4 GB de RAM según runtime).
+Nada. Con el rechazo no se agrega módulo, fixtures, script ni sidecar.
 
 ## Pendientes
 
-Que Mauri apruebe el sidecar en el server de producción y su tamaño (CX33 vs CX43).
+Ninguno. Cerrado con el rechazo de ADR-0087 (2026-10-17).

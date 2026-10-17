@@ -1,7 +1,7 @@
 ---
 id: PRD-LAYA-02
 tipo: prd
-estado: propuesto
+estado: deprecado
 modulos: []
 depende_de: [ADR-0087, ADR-0088, ADR-0086]
 reemplaza: []
@@ -9,10 +9,12 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Piloto en sombra de Laya en el box para las automatizaciones del asistente: clasificar fallas de verify/CI, enrutar eventos
-  de la cadena y filtrar spam del inbox del bot. Solo registra sugerencias; no actúa ni toca el repo de producción.
+  Descartado/rechazado (2026-10-17, Mauri): no hay piloto Laya en el box. Misma decisión que ADR-0087 (español, TF-IDF,
+  sidecar ~2,4 GB). Laya fue desinstalado del box.
 ---
 # PRD-LAYA-02 - Clasificador local en las automatizaciones del box
+
+Estado: descartado/rechazado (deprecado). 2026-10-17, decisión de Mauri: no se usa Laya; motivo: no sirve tal cual en español, ajustada no le gana claramente a TF-IDF, requiere servicio aparte de ~2,4 GB en servidores sin GPU. Laya desinstalado del box. Revisar solo con clasificador liviano que gane a TF-IDF en español real.
 
 Fuente: ADR-0087 (CI/verify 83–92%, p50 110–300 ms en el box), ADR-0086 (`verify` como gate), `scripts/cadena/*`, `/workspace/cadena-log.tsv`. Restringido por ADR-0087 y ADR-0088.
 
@@ -40,7 +42,7 @@ Coincidencia con la acción real ≥ 90%, menos tokens por corrida fallida, p95 
 
 ## Dependencias externas
 
-Aprobación de Mauri para el piloto. Lo hosteamos nosotros: el box tiene RAM de sobra (~0,9 GB por checkpoint), pero `ollama pull` falla por la red y hay que bajar los blobs a mano verificando el sha256 (ver ADR-0087).
+Cerrado: decisión de Mauri 2026-10-17 (ADR-0087 rechazado). Laya desinstalado del box; sin piloto.
 
 ## Estrategia prueba
 

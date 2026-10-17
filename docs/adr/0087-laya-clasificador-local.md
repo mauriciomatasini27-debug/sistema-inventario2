@@ -1,7 +1,7 @@
 ---
 id: ADR-0087
 tipo: adr
-estado: propuesto
+estado: deprecado
 modulos: [bot, ia]
 depende_de: [ADR-0002, ADR-0041, ADR-0044, ADR-0045, PRD-BOT-02]
 reemplaza: []
@@ -9,19 +9,19 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Laya (Convai, Apache-2.0) es un clasificador local, no un LLM. Tal cual no sirve en español (34–54% en el box); con fine-tune
-  en CPU (4 min, 190 ejemplos) llega a 96% en intención del bot. Se propone medir con datos reales antes de producción.
+  Rechazado (2026-10-17, Mauri): no se usa Laya. No sirve tal cual en español; ajustada no le gana claramente a TF-IDF;
+  sidecar ~2,4 GB en servers sin GPU. Revisar solo con clasificador liviano que gane a TF-IDF en español real.
 ---
 # ADR-0087 - Evaluación de Laya como clasificador local
 
-Estado: propuesto. Fecha: 2026-10-17. Fuentes: ver "Fuentes verificadas"; prueba en el box (`/workspace/laya-eval/`); `src/modules/whatsapp/consulta.ts`; ADR-0002, ADR-0045, `docs/01-fundacion/costos-por-cliente.md`.
+Estado: rechazado (deprecado). Fecha: 2026-10-17. Nota 2026-10-17, decisión de Mauri: no se usa Laya; motivo: no sirve tal cual en español, ajustada no le gana claramente a TF-IDF, requiere servicio aparte de ~2,4 GB en servidores sin GPU. Revisar si un clasificador local liviano (<500 MB) logra ≥90% en español real y le gana a TF-IDF sin sidecar pesado. Fuentes: ver "Fuentes verificadas"; prueba en el box (`/workspace/laya-eval/`); `src/modules/whatsapp/consulta.ts`; ADR-0002, ADR-0045, `docs/01-fundacion/costos-por-cliente.md`.
 
 ## Decisión
 
-1. Laya tal cual (zero-shot) no sirve para el Sistema de Inventario. Con ajuste sirve para la intención del bot, pero falta confirmarlo con mensajes reales (PRD-LAYA-01, LAYA-S1/S2) antes de producción. Para categorías de producto no sirve ni ajustado (62%).
-2. Lo generativo sigue esperando el proveedor LLM de ADR-0045: Laya no genera texto y no lo reemplaza.
-3. Automatizaciones del box (Grok Bot, cadena, verificador): piloto en modo sombra (PRD-LAYA-02), sin que Laya decida nada solo.
-4. La forma de integración es la de ADR-0088.
+1. No se usa Laya (rechazado 2026-10-17, Mauri). Tal cual no sirve en español; ajustada no le gana claramente a TF-IDF; el sidecar (~2,4 GB) no justifica el costo en servers sin GPU.
+2. Lo generativo sigue en el proveedor LLM de ADR-0045. Intención del bot: reglas actuales; alternativas livianas (p. ej. TF-IDF) si hace falta capa 2.
+3. Sin piloto en el box (PRD-LAYA-02 descartado). Laya desinstalado del box.
+4. ADR-0088 queda deprecado: no hay integración.
 
 ## Contexto
 
@@ -102,9 +102,7 @@ Split sin fuga: 190 ejemplos nuevos para entrenar (120 WhatsApp, 20 por intenci�
 
 ## Recomendación
 
-Tal cual: no. Ajustado: sí para la capa 2 de intención del bot, una vez que pase con datos reales. Piloto en sombra en el box para fallas de CI/verify y para spam con corte alto. ModoOps: aplican las mismas conclusiones (español, CPU), pero no se probó con sus datos.
-
-Para pasar a aceptado: un eval set real de ≥ 200 mensajes donde Laya ajustado logre ≥ 90% de precisión con ≥ 60% de cobertura al umbral, p95 ≤ 300 ms en la CPU del server y le gane a TF-IDF + regresión logística (si no le gana, conviene TF-IDF, que no necesita sidecar).
+Rechazado 2026-10-17 (Mauri): no se usa Laya. Tal cual no sirve en español; ajustada no le gana claramente a TF-IDF y exige un servicio aparte de ~2,4 GB en servers sin GPU. Queda TF-IDF / reglas / LLM (ADR-0045) según el caso. Revisar solo si aparece un clasificador local liviano (<500 MB) con ≥90% en español real que le gane a TF-IDF sin sidecar pesado.
 
 ## Evaluación de la documentación de Laya
 
@@ -126,4 +124,4 @@ Para pasar a aceptado: un eval set real de ≥ 200 mensajes donde Laya ajustado 
 
 ## Pendientes
 
-Que Mauri decida: (a) aprobar el piloto del box (PRD-LAYA-02); (b) armar el eval set real del bot (LAYA-S1, necesita mensajes reales anonimizados); (c) si el server de producción banca un sidecar de ~2,4 GB (Python) o se invierte en exportarlo a Ollama; (d) Jev queda descartado salvo que el ajuste falle con datos reales.
+Ninguno. Decisión cerrada 2026-10-17 (Mauri): no se usa Laya. PRD-LAYA-01/02 y ADR-0088 quedan deprecados con esta misma nota.

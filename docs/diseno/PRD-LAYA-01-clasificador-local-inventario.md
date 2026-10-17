@@ -1,7 +1,7 @@
 ---
 id: PRD-LAYA-01
 tipo: prd
-estado: propuesto
+estado: deprecado
 modulos: [bot, ia]
 depende_de: [ADR-0087, ADR-0088, PRD-BOT-02, ADR-0006]
 reemplaza: []
@@ -9,10 +9,12 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Usos posibles de un clasificador local (Laya) en Sistema de Inventario: capa 2 de intención del bot, filtro de spam/estafa,
-  sugerencia de categoría y triage de tickets. Tal cual no sirve; ajustado da 96% en intención (prueba chica). Falta eval set real.
+  Descartado/rechazado (2026-10-17, Mauri): no se usa Laya en Inventario. Motivo: no sirve tal cual en español; ajustada no
+  le gana claramente a TF-IDF; sidecar ~2,4 GB. Revisar solo con clasificador liviano que gane a TF-IDF en español real.
 ---
 # PRD-LAYA-01 - Clasificador local en Sistema de Inventario
+
+Estado: descartado/rechazado (deprecado). 2026-10-17, decisión de Mauri: no se usa Laya; motivo: no sirve tal cual en español, ajustada no le gana claramente a TF-IDF, requiere servicio aparte de ~2,4 GB en servidores sin GPU. Revisar si un clasificador local liviano (<500 MB) logra ≥90% en español real y le gana a TF-IDF sin sidecar pesado.
 
 Fuente: ADR-0087 (prueba 2026-10-17), `src/modules/whatsapp/consulta.ts`, PRD-BOT-02. Restringido por ADR-0087, ADR-0088, ADR-0006 (Ley 25.326), ADR-0045.
 
@@ -46,7 +48,7 @@ El texto no sale del server (sidecar en 127.0.0.1). No se guarda el texto del cl
 
 ## Dependencias externas
 
-Decisión de Mauri (ADR-0087). Mensajes reales del número central (P9-3, BOT2-S1). Server con RAM para el sidecar (ADR-0088).
+Cerrado: decisión de Mauri 2026-10-17 (ADR-0087 rechazado). Sin dependencias abiertas.
 
 ## Estrategia prueba
 

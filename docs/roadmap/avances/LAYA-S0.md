@@ -1,8 +1,8 @@
 ---
 item: LAYA-S0
-estado: propuesto (decisión de Mauri)
+estado: hecho (rechazado)
 adr: ADR-0087
 prd: PRD-LAYA-01
 fecha: 2026-10-17
 ---
-LAYA-S0: Laya evaluado en el box: tal cual da 34–54% en español; ajustado en CPU llega a 96% en intención del bot (prueba chica). Falta eval set real (PRD-LAYA-01) y está propuesto un piloto en el box (PRD-LAYA-02).
+LAYA-S0: Laya rechazado (Mauri 2026-10-17): no se usa; no sirve tal cual en español, ajustada no le gana claramente a TF-IDF, sidecar ~2,4 GB sin GPU. Desinstalado del box.
