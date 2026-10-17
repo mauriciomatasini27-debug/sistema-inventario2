@@ -1,29 +1,64 @@
 ---
 ---
-<div class="kpis">
+<div class="kpis" id="kpi-strip" aria-busy="true" data-pendientes="resumen caja">
   <div class="segbar" id="segbar" title="Ventas del mes por medio">
-    <span class="vacio">Sin datos</span>
+    <i class="skel skel-barra" aria-hidden="true"></i>
   </div>
   <div class="bignums">
-    <div class="bignum"><b id="n-tickets">…</b><small>Tickets hoy</small></div>
-    <div class="bignum"><b id="n-stock">…</b><small>Stock bajo</small></div>
-    <div class="bignum"><b id="n-caja">—</b><small>Caja total <span class="live">en vivo</span></small></div>
+    <div class="bignum" style="--i: 0"><b id="n-tickets"><i class="skel" aria-hidden="true"></i></b><small>Tickets hoy</small></div>
+    <div class="bignum" style="--i: 1"><b id="n-stock"><i class="skel" aria-hidden="true"></i></b><small>Stock bajo</small></div>
+    <div class="bignum" style="--i: 2"><b id="n-caja"><i class="skel" aria-hidden="true"></i></b><small>Caja total <span class="live">en vivo</span></small></div>
   </div>
 </div>
 <div class="estado" id="kpi-estado">Resumen: cargando…</div>
 
+<style is:global>
+  /* DS-S12: skeleton con shimmer mientras cargan los KPI y entrada escalonada
+     al llegar cada valor. Solo tokens de rol (claro y oscuro); `<i>` y no
+     `<span>` para que no lo pinten las reglas `.segbar span:nth-child(n)`. */
+  .skel {
+    display: inline-block;
+    width: 2.5em;
+    height: 0.8em;
+    border-radius: 8px;
+    vertical-align: middle;
+    background: linear-gradient(90deg, var(--tema-linea) 0%, var(--tema-superficie) 50%, var(--tema-linea) 100%);
+    background-size: 200% 100%;
+    animation: kpi-shimmer 1.4s linear infinite;
+  }
+  .skel.skel-barra { display: block; flex: 1; width: auto; height: 100%; border-radius: 999px; }
+  #n-caja .skel { width: 4em; }
+  .bignum.listo {
+    animation: kpi-entra 240ms ease-out both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  @keyframes kpi-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+  @keyframes kpi-entra {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  /* Con movimiento reducido: skeleton estático y valores sin entrada. */
+  @media (prefers-reduced-motion: reduce) {
+    .skel, .bignum.listo { animation: none !important; }
+  }
+</style>
+
 <script>
   import { formatearCentavos, setTexto } from "../../lib/panel-modulos.js";
+  import { kpiListo, pintarKpi } from "../../lib/panel-dashboard.js";
 
   fetch("/api/cash/balance").then(async (r) => {
     if (!r.ok) throw new Error("http " + r.status);
     const b = await r.json();
     const medios = b.por_medio || {};
     const total = Object.values(medios).map(Number).reduce((a, v) => a + v, 0);
-    setTexto("n-caja", formatearCentavos(total));
+    pintarKpi("n-caja", formatearCentavos(total));
     setTexto("balance-estado", "Balance en vivo: total " + formatearCentavos(total) + ".");
   }).catch(() => {
-    setTexto("n-caja", "—");
+    pintarKpi("n-caja", "—");
     setTexto("balance-estado", "Sin conexión con el servidor: caja no disponible.");
-  });
+  }).finally(() => kpiListo("caja"));
 </script>

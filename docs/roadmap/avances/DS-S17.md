@@ -1,8 +1,8 @@
 ---
 item: DS-S17
-estado: parcial
+estado: hecho
 adr: ADR-0008
 prd: PRD-DS-02
 fecha: 2026-10-17
 ---
-DS-S17 parcial: `/venta` con `viewport-fit=cover` y padding `env(safe-area-inset-*)` (0 fuera de equipos con notch), touch 44px y 360px sin desborde ya cubiertos por los specs e2e; faltan skeleton y shimmer de KPI (ver `docs/diseno/AUDITORIA-DS-tema-papel.md`).
+DS-S17 hecho: `/venta` con `viewport-fit=cover` y padding `env(safe-area-inset-*)`, touch 44px y 360px sin desborde cubiertos por los specs e2e, y el skeleton con shimmer de los KPI de `/panel` cerrado en DS-S12 (`docs/roadmap/avances/DS-S12.md`).

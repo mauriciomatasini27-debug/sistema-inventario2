@@ -189,6 +189,25 @@ export function pintarDona(porMedio: MedioVenta[]): void {
   setTexto("medios-estado", "En vivo: este mes " + formatearCentavos(total) + " en " + porMedio.length + " medio(s).");
 }
 
+export type FuenteKpi = "resumen" | "caja";
+
+/** Pinta un KPI (reemplaza su skeleton) y marca su `.bignum` para la entrada escalonada. */
+export function pintarKpi(id: string, texto: string): void {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = texto;
+  el.closest(".bignum")?.classList.add("listo");
+}
+
+/** Marca una fuente de la franja KPI como resuelta (éxito o error); con todas resueltas, `aria-busy="false"`. */
+export function kpiListo(fuente: FuenteKpi): void {
+  const strip = document.getElementById("kpi-strip");
+  if (!strip) return;
+  const pendientes = (strip.getAttribute("data-pendientes") ?? "").split(" ").filter((f) => f && f !== fuente);
+  strip.setAttribute("data-pendientes", pendientes.join(" "));
+  if (!pendientes.length) strip.setAttribute("aria-busy", "false");
+}
+
 export function pintarSegbar(porMedio: MedioVenta[]): void {
   const bar = document.getElementById("segbar");
   if (!bar) return;
@@ -210,8 +229,8 @@ export function pintarSegbar(porMedio: MedioVenta[]): void {
 }
 
 export function renderResumen(j: ResumenPanel): void {
-  setTexto("n-tickets", String(j.tickets_hoy ?? 0));
-  setTexto("n-stock", String(j.stock_bajo ?? 0));
+  pintarKpi("n-tickets", String(j.tickets_hoy ?? 0));
+  pintarKpi("n-stock", String(j.stock_bajo ?? 0));
   setTexto("heat-ventas", String(j.tickets_hoy ?? 0));
   setTexto("heat-dev", String(j.devoluciones_hoy ?? 0));
   pintarSegbar(j.por_medio ?? []);
@@ -220,11 +239,20 @@ export function renderResumen(j: ResumenPanel): void {
   pintarDona(j.por_medio ?? []);
   pintarHeat(j.heatmap ?? []);
   pintarTurnos(j.turnos ?? []);
+  kpiListo("resumen");
 }
 
 export function renderResumenError(): void {
-  setTexto("n-tickets", "—");
-  setTexto("n-stock", "—");
+  const bar = document.getElementById("segbar");
+  if (bar) {
+    // Sin esto la barra quedaría en skeleton para siempre.
+    const vacio = document.createElement("span");
+    vacio.className = "vacio";
+    vacio.textContent = "Sin datos";
+    bar.replaceChildren(vacio);
+  }
+  pintarKpi("n-tickets", "—");
+  pintarKpi("n-stock", "—");
   setTexto("heat-ventas", "—");
   setTexto("heat-dev", "—");
   setTexto("kpi-estado", "Sin conexión con el servidor: resumen no disponible.");
@@ -232,4 +260,5 @@ export function renderResumenError(): void {
   setTexto("medios-estado", "Sin conexión: composición por medio no disponible.");
   setTexto("heatmap-estado", "Sin conexión: heatmap no disponible.");
   setTexto("turnos-estado", "Sin conexión: turnos no disponibles.");
+  kpiListo("resumen");
 }

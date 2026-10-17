@@ -32,12 +32,12 @@ Estados: **hecho** (hay evidencia), **parcial**, **falta** (sin decisión pendie
 | DS-S9 Adaptación a Inventario | parcial | Tokens propios con papel conservado; botones de 44px en mostrador (`venta.astro`, `PanelShell.astro`); emails a una columna de 600px en papel (`src/modules/email/*.ts`). | Nombres `--mo-*` descartados por SPEC-UI-00. CTA de email en `#e8590c` con blanco (3.6:1, no pasa AA en texto de 14px): ver decisiones. |
 | DS-S10 Launcher | no aplica | Inventario no tiene launcher; el índice `/panel` con pills cumple el rol. | — |
 | DS-S11 Rail fijo | no aplica | Sin rail; navegación por pills (`TopPills.astro`, `PanelShell.astro`). | — |
-| DS-S12 Hub papel | parcial | `/panel` en papel con KPI (`KpiStrip.astro`), `main` con `min-width: 0`. | Sin shimmer/stagger en KPI (`rg shimmer src` vacío). |
+| DS-S12 Hub papel | hecho | `/panel` en papel con KPI (`KpiStrip.astro`), `main` con `min-width: 0`. Skeleton con shimmer en tokens `--tema-*`, `aria-busy` y entrada escalonada de los KPI; estático con `prefers-reduced-motion: reduce` (`tests/ds-s12-kpi-skeleton.test.ts`, `tests/e2e/kpi-skeleton.spec.ts`). | Nada. |
 | DS-S13 POS oscuro + ticket papel | parcial | Ticket claro en `/t/[token]` y `ticket_render.ts` con `@media print` 58mm. | POS oscuro: ver DS-S4. |
 | DS-S14 Login | no aplica | No hay página de login propia (acceso por links y sesión); `/alta` es el alta. | — |
 | DS-S15 Listas alto volumen | parcial | `TablaCatalogo.tsx`: header sticky, filas sin glass, 1000 filas virtualizadas (T-UI-03). | Sin hover `rgba(orange,.06)` ni selected; tipografía 13px contra `.875rem`. |
 | DS-S16 Onboarding smoke | no aplica | Sin overlay de onboarding. | — |
-| DS-S17 Constraints táctiles | parcial (avanza en este PR) | Touch 44px en `venta`, `PanelShell`, `ConfirmDialog`; 360px sin desborde (`tests/e2e/venta-worst.spec.ts`, `catalogo-mil.spec.ts`). Este PR suma `viewport-fit=cover` y padding `env(safe-area-inset-*)` en `/venta`. | Skeleton/shimmer de KPI (DS-S12). |
+| DS-S17 Constraints táctiles | hecho | Touch 44px en `venta`, `PanelShell`, `ConfirmDialog`; 360px sin desborde (`tests/e2e/venta-worst.spec.ts`, `catalogo-mil.spec.ts`); `viewport-fit=cover` y padding `env(safe-area-inset-*)` en `/venta`; skeleton/shimmer de KPI cerrado en DS-S12. | Nada. |
 | DS-S18 Qué se reutiliza | parcial | Tokens y contratos de papel sí; `--mo-*` no (SPEC-UI-00). | — |
 | DS-S19 Qué no se trae | hecho (cerrado en este PR) | Sin Odoo ni morado en código; `mencionaOdoo` en `src/modules/negocio/catalogo.ts` es el detector que lo impide. Este PR saca el remitente por defecto `ModoOps <avisos@modoops.local>` de `src/lib/alertas-seguridad.ts`. | — |
 | DS-S20 Stack Inventario | hecho | Astro 7 + TS + islas React, SSR `@astrojs/node`, PWA (`public/manifest.webmanifest`, `public/sw.js`), papel `#f7f5f2`, cards de 12px en mostrador. | Blur 16px: ver DS-S5. |
