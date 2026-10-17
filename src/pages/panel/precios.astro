@@ -16,14 +16,14 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <h2>Previsualizar ajuste</h2>
       <form id="preview-form">
         <label>Producto
-          <select id="preview-sku"></select>
+          <select id="preview-sku" data-campo="sku"></select>
         </label>
         <div class="fila">
           <label>Dirección
-            <select id="preview-direccion"><option value="suba">Suba</option><option value="baja">Baja</option></select>
+            <select id="preview-direccion" data-campo="direccion"><option value="suba">Suba</option><option value="baja">Baja</option></select>
           </label>
           <label>Porcentaje
-            <input id="preview-porcentaje" type="number" min="0.01" max="3000" step="0.01" inputmode="decimal" value="10" />
+            <input id="preview-porcentaje" data-campo="porcentaje" type="number" min="0.01" max="3000" step="0.01" inputmode="decimal" value="10" />
           </label>
         </div>
         <button id="preview-enviar" type="submit">Previsualizar</button>
@@ -35,6 +35,8 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { PORCENTAJE, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -81,11 +83,18 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
   $("preview-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-preview");
+    const form = $("preview-form");
     const sku = $("preview-sku").value;
     const producto = vigentes.find((p) => p.sku === sku);
-    if (!producto) {
-      estado.textContent = "Elegí un producto de la lista.";
+    const porcentaje = Number($("preview-porcentaje").value);
+    const errores = {};
+    if (!producto) errores.sku = mensajeCampo("sku", REQUERIDO);
+    if (!Number.isFinite(porcentaje) || porcentaje <= 0) errores.porcentaje = mensajeCampo("porcentaje", PORCENTAJE);
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
       return;
     }
     estado.textContent = "Calculando…";
@@ -104,6 +113,10 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se pudo previsualizar: " + textoError(j.error, r.status) + ".";
         return;
       }

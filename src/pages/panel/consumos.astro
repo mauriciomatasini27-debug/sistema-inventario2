@@ -25,10 +25,10 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     <form id="pago-form">
       <div class="fila">
         <label>Factura
-          <select id="pago-bill"></select>
+          <select id="pago-bill" data-campo="bill_id"></select>
         </label>
         <label>Medio
-          <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+          <select id="pago-medio" data-campo="medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
         </label>
       </div>
       <button id="pago-enviar" type="submit">Pagar</button>
@@ -39,6 +39,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -119,11 +121,14 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
   $("pago-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-pago");
+    const form = $("pago-form");
     const billId = $("pago-bill").value;
     const factura = facturasPorId.get(billId);
     const cuenta = factura ? cuentasPorId.get(factura.account_id) : undefined;
     if (!factura || !cuenta) {
+      mostrarErrores(form, { bill_id: mensajeCampo("bill_id", REQUERIDO) });
       estado.textContent = "Elegí una factura de la lista.";
       return;
     }
@@ -144,6 +149,10 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se pagó: " + textoError(j.error, r.status) + ".";
         return;
       }

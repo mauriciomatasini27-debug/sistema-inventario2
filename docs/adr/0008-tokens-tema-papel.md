@@ -41,3 +41,5 @@ Crear tokens nuevos desde cero. Se descarta porque rompe el porte directo de com
 ## Consecuencias
 
 Rebrand cambia llama, conserva papel/radios/blur. Alto contraste obligatorio. Email NE12 hereda papel a 600px con logo único.
+
+Decisión de Mauri (2026-10-17): los CTA de la landing usan el naranja oscuro `--color-star-glow` (#bf360c, 5.60:1 con blanco) para pasar AA en texto normal; `--color-star-warm` queda para fondos/acentos sin texto chico encima (T-UI-05, `docs/diseno/contraste-aa.md`).

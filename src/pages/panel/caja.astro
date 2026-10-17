@@ -51,7 +51,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
             </select>
           </label>
           <label>Monto en centavos
-            <input id="mov-monto" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+            <input id="mov-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" value="1000" />
           </label>
         </div>
         <button id="mov-enviar" type="submit">Registrar</button>
@@ -63,6 +63,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { MONTO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -148,7 +150,15 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
   $("mov-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-form");
+    const form = $("mov-form");
+    const monto = Number($("mov-monto").value);
+    if (!Number.isInteger(monto) || monto <= 0) {
+      mostrarErrores(form, { monto_centavos: mensajeCampo("monto_centavos", MONTO) });
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
     estado.textContent = "Registrando…";
     try {
       const r = await fetch("/api/cash/movements", {
@@ -170,6 +180,10 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se registró: " + textoError(j.error, r.status) + ".";
         return;
       }

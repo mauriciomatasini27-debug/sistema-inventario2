@@ -14,6 +14,6 @@
 | muted sobre linen | light | #6e695d | #efecea | texto | 4.65:1 | 4.5 | PASS |
 | muted sobre star-white | light | #6e695d | #ffffff | texto | 5.47:1 | 4.5 | PASS |
 | botón panel | light | #ffffff | #bf360c | texto | 5.60:1 | 4.5 | PASS |
-| CTA llama | light | #ffffff | #e64a19 | grande | 3.92:1 | 3 | PASS |
+| CTA landing | light | #ffffff | #bf360c | texto | 5.60:1 | 4.5 | PASS |
 | CTA llama dark | dark | #1a1a1a | #e64a19 | grande | 4.44:1 | 3 | PASS |
 | CTA hover dark | dark | #1a1a1a | #bf360c | grande | 3.11:1 | 3 | PASS |

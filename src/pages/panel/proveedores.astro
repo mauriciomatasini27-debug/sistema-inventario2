@@ -8,18 +8,18 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <form id="prov-form">
         <div class="fila">
           <label>CUIT
-            <input id="prov-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
+            <input id="prov-cuit" data-campo="cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
           </label>
           <label>Nombre
-            <input id="prov-nombre" type="text" placeholder="Distribuidora Sur" autocomplete="off" />
+            <input id="prov-nombre" data-campo="nombre" type="text" placeholder="Distribuidora Sur" autocomplete="off" />
           </label>
         </div>
         <div class="fila">
           <label>Email
-            <input id="prov-email" type="email" inputmode="email" placeholder="ventas@proveedor.com" autocomplete="off" />
+            <input id="prov-email" data-campo="email" type="email" inputmode="email" placeholder="ventas@proveedor.com" autocomplete="off" />
           </label>
           <label>Teléfono
-            <input id="prov-telefono" type="tel" inputmode="tel" placeholder="1145551234" autocomplete="off" />
+            <input id="prov-telefono" data-campo="telefono" type="tel" inputmode="tel" placeholder="1145551234" autocomplete="off" />
           </label>
         </div>
         <button id="prov-enviar" type="submit">Dar de alta</button>
@@ -51,21 +51,21 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <form id="oc-form">
         <div class="fila">
           <label>CUIT proveedor
-            <input id="oc-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
+            <input id="oc-cuit" data-campo="supplier_cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
           </label>
           <label>Creada por
-            <input id="oc-creado-por" type="text" value="panel-web" autocomplete="off" />
+            <input id="oc-creado-por" data-campo="creado_por" type="text" value="panel-web" autocomplete="off" />
           </label>
         </div>
         <div class="fila">
           <label>SKU
-            <input id="oc-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
+            <input id="oc-sku" data-campo="sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
           </label>
           <label>Cantidad
-            <input id="oc-cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
+            <input id="oc-cantidad" data-campo="qty" type="number" min="1" step="1" inputmode="numeric" value="1" />
           </label>
           <label>Costo en centavos
-            <input id="oc-costo" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            <input id="oc-costo" data-campo="costo_centavos" type="number" min="0" step="1" inputmode="numeric" value="0" />
           </label>
         </div>
         <button id="oc-enviar" type="submit">Crear orden</button>
@@ -88,6 +88,8 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { CUIT, EMAIL, REQUERIDO, TELEFONO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -189,15 +191,24 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
   $("prov-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-prov");
+    const form = $("prov-form");
     const cuit = $("prov-cuit").value.trim();
     const nombre = $("prov-nombre").value.trim();
-    if (!cuit || !nombre) {
-      estado.textContent = "Completá CUIT y nombre.";
-      return;
-    }
     const email = $("prov-email").value.trim();
     const telefono = $("prov-telefono").value.trim();
+    const errores = {};
+    if (!cuit) errores.cuit = mensajeCampo("cuit", REQUERIDO);
+    else if (cuit.replace(/\D/g, "").length !== 11) errores.cuit = mensajeCampo("cuit", CUIT);
+    if (!nombre) errores.nombre = mensajeCampo("nombre", REQUERIDO);
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errores.email = mensajeCampo("email", EMAIL);
+    if (telefono && telefono.replace(/\D/g, "").length < 6) errores.telefono = mensajeCampo("telefono", TELEFONO);
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
     estado.textContent = "Dando de alta…";
     try {
       const r = await fetch("/api/suppliers", {
@@ -215,6 +226,10 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se dio de alta: " + textoError(j.error, r.status) + ".";
         return;
       }
@@ -228,11 +243,22 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
   $("oc-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-oc");
+    const form = $("oc-form");
     const cuit = $("oc-cuit").value.trim();
     const sku = $("oc-sku").value.trim();
-    if (!cuit || !sku) {
-      estado.textContent = "Completá CUIT, SKU y cantidad.";
+    const cantidad = Number($("oc-cantidad").value);
+    const costo = Number($("oc-costo").value);
+    const errores = {};
+    if (!cuit) errores.supplier_cuit = mensajeCampo("supplier_cuit", REQUERIDO);
+    else if (cuit.replace(/\D/g, "").length !== 11) errores.supplier_cuit = mensajeCampo("supplier_cuit", CUIT);
+    if (!sku) errores.sku = mensajeCampo("sku", REQUERIDO);
+    if (!Number.isInteger(cantidad) || cantidad < 1) errores.qty = mensajeCampo("qty", enteroMin(1));
+    if (!Number.isInteger(costo) || costo < 0) errores.costo_centavos = mensajeCampo("costo_centavos", enteroMin(0));
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
       return;
     }
     estado.textContent = "Creando orden…";
@@ -257,6 +283,10 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se creó: " + textoError(j.error, r.status) + ".";
         return;
       }

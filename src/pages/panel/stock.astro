@@ -36,18 +36,18 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <form id="ingreso-form">
         <div class="fila">
           <label>SKU
-            <input id="ingreso-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
+            <input id="ingreso-sku" data-campo="sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
           </label>
           <label>Cantidad
-            <input id="ingreso-cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
+            <input id="ingreso-cantidad" data-campo="cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
           </label>
         </div>
         <div class="fila">
           <label>Costo en centavos
-            <input id="ingreso-costo" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            <input id="ingreso-costo" data-campo="costo_centavos" type="number" min="0" step="1" inputmode="numeric" value="0" />
           </label>
           <label>Vence el
-            <input id="ingreso-vence" type="datetime-local" />
+            <input id="ingreso-vence" data-campo="vence_el" type="datetime-local" />
           </label>
         </div>
         <button id="ingreso-enviar" type="submit">Ingresar</button>
@@ -65,6 +65,8 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -147,10 +149,19 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
   $("ingreso-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-ingreso");
+    const form = $("ingreso-form");
     const sku = $("ingreso-sku").value.trim();
-    if (!sku) {
-      estado.textContent = "Escribí el SKU del producto.";
+    const cantidad = Number($("ingreso-cantidad").value);
+    const costo = Number($("ingreso-costo").value);
+    const errores = {};
+    if (!sku) errores.sku = mensajeCampo("sku", REQUERIDO);
+    if (!Number.isInteger(cantidad) || cantidad < 1) errores.cantidad = mensajeCampo("cantidad", enteroMin(1));
+    if (!Number.isInteger(costo) || costo < 0) errores.costo_centavos = mensajeCampo("costo_centavos", enteroMin(0));
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
       return;
     }
     const vence = $("ingreso-vence").value;
@@ -172,6 +183,10 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se ingresó: " + textoError(j.error, r.status) + ".";
         return;
       }

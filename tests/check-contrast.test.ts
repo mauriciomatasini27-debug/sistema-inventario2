@@ -34,3 +34,23 @@ describe("contraste AA por par (SPEC-UI-00 T-UI-05)", () => {
     expect(archivo).toBe(salida);
   });
 });
+
+describe("CTA de la landing en naranja oscuro (decisión Mauri 2026-10-17, ADR-0008)", () => {
+  it("ningún botón con texto blanco usa star-warm de fondo", async () => {
+    const { readdirSync, readFileSync: leer } = await import("node:fs");
+    const { join: unir } = await import("node:path");
+    const archivos: string[] = [];
+    const walk = (d: string) => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = unir(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(astro|tsx?)$/.test(e.name)) archivos.push(p);
+      }
+    };
+    walk(unir(process.cwd(), "src"));
+    for (const f of archivos) {
+      const s = leer(f, "utf8");
+      expect(/bg-star-warm[^"]*text-star-white|text-star-white[^"]*bg-star-warm/.test(s), f).toBe(false);
+    }
+  });
+});

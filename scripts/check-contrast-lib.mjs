@@ -11,7 +11,7 @@ export const PAREJAS = [
   { nombre: "muted sobre linen", fg: "ash", bg: "linen", uso: "texto", modo: "light" },
   { nombre: "muted sobre star-white", fg: "ash", bg: "star-white", uso: "texto", modo: "light" },
   { nombre: "botón panel", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
-  { nombre: "CTA llama", fg: "star-white", bg: "star-warm", uso: "grande", modo: "light" },
+  { nombre: "CTA landing", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
   { nombre: "CTA llama dark", fg: "void", bg: "star-warm", uso: "grande", modo: "dark" },
   { nombre: "CTA hover dark", fg: "void", bg: "star-glow", uso: "grande", modo: "dark" },
 ];

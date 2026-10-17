@@ -15,7 +15,7 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
 
     <form id="vinc-form" hidden>
       <label>Celular
-        <input id="vinc-numero" type="tel" inputmode="tel" autocomplete="tel" placeholder="11 5555-1234" aria-describedby="vinc-error" />
+        <input id="vinc-numero" data-campo="numero" type="tel" inputmode="tel" autocomplete="tel" placeholder="11 5555-1234" aria-describedby="vinc-error" />
       </label>
       <button id="vinc-generar" type="submit">Generar código</button>
       <small id="vinc-error" class="vinc-error" aria-live="polite"></small>
@@ -42,13 +42,15 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
   .vinc-codigo { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 4px; }
   #vinc-cuenta { font-variant-numeric: tabular-nums; }
   .vinc-vencido { color: var(--color-ash); text-decoration: line-through; }
-  .vinc-error { display: block; min-height: 14px; color: var(--color-star-warm); font-size: 12px; }
+  .vinc-error { display: block; min-height: 14px; color: var(--color-star-glow); font-size: 12px; }
   .vinc-optin { color: var(--color-ash); font-size: 12px; }
 </style>
 
 <script>
   import { toast } from "sonner";
   import { textoError } from "../../../lib/panel-modulos.js";
+  import { REQUERIDO, TELEFONO, erroresDesdeZod, mensajeCampo } from "../../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../../lib/errores-campo-dom.js";
   import {
     codigoVencido,
     contarVinculados,
@@ -177,6 +179,11 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
       cuerpo = {};
     }
     if (!r.ok || !cuerpo.codigo) {
+      if (mostrarErrores($("vinc-form"), erroresDesdeZod(cuerpo.error))) {
+        error.textContent = "";
+        boton.disabled = false;
+        return;
+      }
       const mensaje = textoError(cuerpo.error, r.status);
       error.textContent = mensaje;
       toast.error(mensaje);
@@ -205,9 +212,15 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
 
   $("vinc-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
+    limpiarErrores(ev.currentTarget as HTMLElement);
+    const form = $("vinc-form");
     const numero = ($("vinc-numero") as HTMLInputElement).value.trim();
-    if (!numero) {
-      $("vinc-error").textContent = "Poné tu número de celular.";
+    const errores = {};
+    if (!numero) errores.numero = mensajeCampo("numero", REQUERIDO);
+    else if (numero.replace(/\D/g, "").length < 10) errores.numero = mensajeCampo("numero", TELEFONO);
+    if (Object.keys(errores).length > 0) {
+      $("vinc-error").textContent = "";
+      mostrarErrores(form, errores);
       return;
     }
     void generar(numero);

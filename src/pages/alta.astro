@@ -7,7 +7,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crear mi comercio</title>
-    <style>
+    <style is:global>
+      :root { --color-star-glow: #bf360c; }
       body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
       main { max-width: 360px; margin: 0 auto; padding: 12px; }
       input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; box-sizing: border-box; }
@@ -18,17 +19,20 @@
       .check input { width: auto; min-height: 24px; }
       #error { color: #a00; font-size: 14px; white-space: pre-wrap; }
       .hint { font-size: 13px; color: #555; }
+      .error-campo { margin: 4px 0 0; color: var(--color-star-glow); font-size: 14px; font-weight: 600; }
+      .error-campo::before { content: "⚠ "; }
+      input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--color-star-glow); }
     </style>
   </head>
   <body>
     <main>
       <h1>Crear mi comercio</h1>
-      <div class="card">
+      <form class="card" id="alta-form">
         <label>Nombre del kiosco / comercio
-          <input id="nombre" placeholder="Kiosco La Esquina" autocomplete="organization" maxlength="60" />
+          <input id="nombre" data-campo="nombre_comercio" placeholder="Kiosco La Esquina" autocomplete="organization" maxlength="60" />
         </label>
         <label>Rubro
-          <select id="rubro">
+          <select id="rubro" data-campo="rubro">
             <option value="kiosco">Kiosco</option>
             <option value="almacen">Almacén</option>
             <option value="despensa">Despensa</option>
@@ -37,24 +41,26 @@
           </select>
         </label>
         <label id="detalle-wrap" hidden>¿Qué vendés?
-          <input id="detalle" placeholder="Dietética" maxlength="80" />
+          <input id="detalle" data-campo="rubro_detalle" placeholder="Dietética" maxlength="80" />
         </label>
         <label>Número de WhatsApp
-          <input id="numero" type="tel" inputmode="numeric" placeholder="11 5555-1234" autocomplete="tel" />
+          <input id="numero" data-campo="numero" type="tel" inputmode="numeric" placeholder="11 5555-1234" autocomplete="tel" />
         </label>
         <p class="hint">Lo normalizamos a +54 9 con el mismo criterio del sistema.</p>
         <label class="check">
           <input id="optin" type="checkbox" />
           <span>Quiero recibir por WhatsApp avisos de stock y resúmenes.</span>
         </label>
-        <button id="crear">Crear mi comercio</button>
+        <button id="crear" type="submit">Crear mi comercio</button>
         <div id="error" role="alert"></div>
-      </div>
+      </form>
       <div class="card">
         <p class="hint">Sin contraseña, sin CUIT ni tarjeta. Si abandonás y volvés a entrar, retomás donde quedaste.</p>
       </div>
     </main>
     <script>
+      import { REQUERIDO, TELEFONO, erroresDesdeZod, mensajeCampo } from "../lib/errores-campo.js";
+      import { limpiarErrores, mostrarErrores } from "../lib/errores-campo-dom.js";
       const $ = (id) => document.getElementById(id);
       const KEY = "alta-form";
       try {
@@ -75,15 +81,29 @@
           }));
         });
       }
-      $("crear").onclick = async () => {
+      const form = $("alta-form");
+      form.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+        limpiarErrores(evento.currentTarget as HTMLElement);
+        const nombre = $("nombre").value.trim();
+        const numero = $("numero").value.trim();
+        const errores = {};
+        if (nombre.length < 3) errores.nombre_comercio = mensajeCampo("nombre_comercio", REQUERIDO);
+        if (!numero) errores.numero = mensajeCampo("numero", REQUERIDO);
+        else if (numero.replace(/\D/g, "").length < 10) errores.numero = mensajeCampo("numero", TELEFONO);
+        if (Object.keys(errores).length > 0) {
+          mostrarErrores(form, errores);
+          $("error").textContent = "Revisá los campos marcados.";
+          return;
+        }
         $("error").textContent = "";
         $("crear").disabled = true;
         $("crear").textContent = "Creando…";
         const payload = {
-          nombre_comercio: $("nombre").value,
+          nombre_comercio: nombre,
           rubro: $("rubro").value,
           rubro_detalle: $("detalle").value,
-          numero: $("numero").value,
+          numero,
           opt_in: $("optin").checked,
         };
         try {
@@ -101,13 +121,17 @@
             location.href = "/alta/estado?tenant_id=" + encodeURIComponent(j.tenant_id);
             return;
           }
-          $("error").textContent = j.error ?? ("Error " + r.status);
+          if (mostrarErrores(form, erroresDesdeZod(j))) {
+            $("error").textContent = "";
+          } else {
+            $("error").textContent = typeof j.error === "string" && j.error ? j.error : "Error " + r.status;
+          }
         } catch {
           $("error").textContent = "Sin conexión. Revisá tu red e intentá de nuevo — tus datos se conservan.";
         }
         $("crear").disabled = false;
         $("crear").textContent = "Crear mi comercio";
-      };
+      });
     </script>
   </body>
 </html>

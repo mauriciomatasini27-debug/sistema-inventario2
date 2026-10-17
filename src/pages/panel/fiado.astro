@@ -26,14 +26,14 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       <form id="pago-form">
         <div class="fila">
           <label>Cliente
-            <input id="pago-cliente" type="text" placeholder="cliente-1" autocomplete="off" />
+            <input id="pago-cliente" data-campo="customer_id" type="text" placeholder="cliente-1" autocomplete="off" />
           </label>
           <label>Medio
             <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
           </label>
         </div>
         <label>Monto en centavos
-          <input id="pago-monto" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+          <input id="pago-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" value="1000" />
         </label>
         <button id="pago-enviar" type="submit">Cobrar</button>
         <div class="estado" id="estado-pago" role="status">Cargá el monto y cobrá.</div>
@@ -50,6 +50,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { MONTO, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -150,10 +152,17 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
   $("pago-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-pago");
+    const form = $("pago-form");
     const cliente = $("pago-cliente").value.trim();
-    if (!cliente) {
-      estado.textContent = "Escribí el cliente.";
+    const monto = Number($("pago-monto").value);
+    const errores = {};
+    if (!cliente) errores.customer_id = mensajeCampo("customer_id", REQUERIDO);
+    if (!Number.isInteger(monto) || monto <= 0) errores.monto_centavos = mensajeCampo("monto_centavos", MONTO);
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
       return;
     }
     estado.textContent = "Registrando cobro…";
@@ -172,6 +181,10 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         return {};
       });
       if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
         estado.textContent = "No se cobró: " + textoError(j.error, r.status) + ".";
         return;
       }
