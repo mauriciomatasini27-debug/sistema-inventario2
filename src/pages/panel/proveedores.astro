@@ -1,0 +1,205 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Proveedores" subtitulo="Alta, órdenes de compra y cuenta corriente." activo="proveedores">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Alta de proveedor</h2>
+      <form id="prov-form">
+        <div class="fila">
+          <label>CUIT
+            <input id="prov-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
+          </label>
+          <label>Nombre
+            <input id="prov-nombre" type="text" placeholder="Distribuidora Sur" autocomplete="off" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Email
+            <input id="prov-email" type="email" inputmode="email" placeholder="ventas@proveedor.com" autocomplete="off" />
+          </label>
+          <label>Teléfono
+            <input id="prov-telefono" type="tel" inputmode="tel" placeholder="1145551234" autocomplete="off" />
+          </label>
+        </div>
+        <button id="prov-enviar" type="submit">Dar de alta</button>
+        <div class="estado" id="estado-prov" role="status">Completá CUIT y nombre.</div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Cuenta corriente</h2>
+      <div class="fila">
+        <label>CUIT
+          <input id="cta-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
+        </label>
+        <button id="cta-buscar" type="button">Consultar</button>
+      </div>
+      <ul class="lista" id="cta-lista"></ul>
+      <div class="estado" id="estado-cta" role="status">Cargá un CUIT para ver el saldo.</div>
+    </section>
+  </div>
+
+  <div class="grid dos">
+    <section class="card">
+      <h2>Nueva orden de compra</h2>
+      <form id="oc-form">
+        <div class="fila">
+          <label>CUIT proveedor
+            <input id="oc-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
+          </label>
+          <label>Creada por
+            <input id="oc-creado-por" type="text" value="panel-web" autocomplete="off" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>SKU
+            <input id="oc-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
+          </label>
+          <label>Cantidad
+            <input id="oc-cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
+          </label>
+          <label>Costo en centavos
+            <input id="oc-costo" type="number" min="0" step="1" inputmode="numeric" value="0" />
+          </label>
+        </div>
+        <button id="oc-enviar" type="submit">Crear orden</button>
+        <div class="estado" id="estado-oc" role="status">Cargá CUIT, SKU y cantidad.</div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Órdenes de compra</h2>
+      <p class="estado">Una orden nace abierta y se cierra al matchear la factura del proveedor. El cierre lo hace <span style="font-family:monospace">POST /api/purchase-orders/close</span>.</p>
+    </section>
+  </div>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+
+  const cargarCuenta = (cuit) => {
+    $("estado-cta").textContent = "Cargando…";
+    return fetch("/api/supplier-invoices/account?cuit=" + encodeURIComponent(cuit))
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const filas = [
+          ["Facturado", formatearCentavos(j.totalFacturadoCentavos)],
+          ["Pagado", formatearCentavos(j.totalPagadoCentavos)],
+          ["Saldo", formatearCentavos(j.saldoCentavos)],
+        ];
+        const ul = $("cta-lista");
+        ul.textContent = "";
+        filas.forEach(([etiqueta, valor]) => {
+          const li = document.createElement("li");
+          li.textContent = etiqueta + " · " + valor;
+          ul.appendChild(li);
+        });
+        const debe = Number(j.saldoCentavos) > 0;
+        $("estado-cta").textContent =
+          mensaje(derivarEstado({ cargando: false, error: false, items: filas.length }), "Sin movimientos con el proveedor.") ||
+          (debe ? "Saldo pendiente con el proveedor." : "Cuenta al día.");
+      })
+      .catch((error) => {
+        console.warn("[panel/proveedores] cuenta", error);
+        $("cta-lista").textContent = "";
+        $("estado-cta").textContent = mensaje("error", "");
+      });
+  };
+
+  $("cta-buscar").addEventListener("click", () => {
+    const cuit = $("cta-cuit").value.trim();
+    if (!cuit) {
+      $("estado-cta").textContent = "Escribí el CUIT del proveedor.";
+      return;
+    }
+    cargarCuenta(cuit);
+  });
+
+  $("prov-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-prov");
+    const cuit = $("prov-cuit").value.trim();
+    const nombre = $("prov-nombre").value.trim();
+    if (!cuit || !nombre) {
+      estado.textContent = "Completá CUIT y nombre.";
+      return;
+    }
+    const email = $("prov-email").value.trim();
+    const telefono = $("prov-telefono").value.trim();
+    estado.textContent = "Dando de alta…";
+    try {
+      const r = await fetch("/api/suppliers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cuit,
+          nombre,
+          ...(email ? { email } : {}),
+          ...(telefono ? { telefono } : {}),
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/proveedores] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se dio de alta: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Proveedor " + (j.cuit || cuit) + " creado.";
+      $("prov-form").reset();
+    } catch (error) {
+      console.warn("[panel/proveedores] alta", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  $("oc-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-oc");
+    const cuit = $("oc-cuit").value.trim();
+    const sku = $("oc-sku").value.trim();
+    if (!cuit || !sku) {
+      estado.textContent = "Completá CUIT, SKU y cantidad.";
+      return;
+    }
+    estado.textContent = "Creando orden…";
+    try {
+      const r = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          supplier_cuit: cuit,
+          lineas: [
+            {
+              sku,
+              qty: Number($("oc-cantidad").value),
+              costo_centavos: Number($("oc-costo").value),
+            },
+          ],
+          creado_por: $("oc-creado-por").value.trim() || "panel-web",
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/proveedores] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se creó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Orden " + j.order_id + " creada por " + formatearCentavos(j.total_centavos) + ".";
+    } catch (error) {
+      console.warn("[panel/proveedores] orden", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+</script>

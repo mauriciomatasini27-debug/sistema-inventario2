@@ -1,0 +1,131 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Reportes" subtitulo="Rotación, snapshots e historial de caja." activo="reportes">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Rotación de productos</h2>
+      <table>
+        <thead><tr><th>SKU</th><th>Nombre</th><th>Neto</th><th>Rotación</th></tr></thead>
+        <tbody id="tablero-body"></tbody>
+      </table>
+      <div class="estado" id="estado-tablero" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Snapshot de rotación</h2>
+      <ul class="lista" id="snapshot-lista"></ul>
+      <div class="estado" id="estado-snapshot" role="status">Cargando…</div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Historial de caja</h2>
+    <table>
+      <thead><tr><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th></tr></thead>
+      <tbody id="historial-body"></tbody>
+    </table>
+    <div class="estado" id="estado-historial" role="status">Cargando…</div>
+  </section>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { fechaAR } from "../../lib/fecha-ar.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+  const celdas = (textos) => {
+    const tr = document.createElement("tr");
+    textos.forEach((t) => {
+      const td = document.createElement("td");
+      td.textContent = t;
+      tr.appendChild(td);
+    });
+    return tr;
+  };
+
+  // Día de Buenos Aires (ARQ-S2), no el día UTC: rango de 28 días.
+  const ahora = Date.now();
+  const hasta = fechaAR(ahora);
+  const desde = fechaAR(ahora - 27 * 24 * 60 * 60 * 1000);
+
+  const cargarTablero = () =>
+    fetch("/api/analytics/tablero?desde=" + desde + "&hasta=" + hasta)
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items || [];
+        const tb = $("tablero-body");
+        tb.textContent = "";
+        items.forEach((f) => {
+          const rot = f.rotacion === null || f.rotacion === undefined ? "—" : Number(f.rotacion).toFixed(2);
+          tb.appendChild(celdas([f.sku, f.nombre, String(f.neto), rot]));
+        });
+        $("estado-tablero").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Sin movimientos en el rango.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/reportes] tablero", error);
+        $("tablero-body").textContent = "";
+        $("estado-tablero").textContent = mensaje("error", "");
+      });
+
+  const cargarSnapshot = () =>
+    fetch("/api/analytics/snapshots?desde=" + desde + "&hasta=" + hasta + "&origen=manual")
+      .then((r) => (r.status === 404 ? null : r.ok ? r.json() : Promise.reject(new Error("http " + r.status))))
+      .then((j) => {
+        const filas = j ? [
+          ["Snapshot", j.snapshot_id],
+          ["Creado", j.creado_en],
+          ["Filas", String(j.filas)],
+        ] : [];
+        const ul = $("snapshot-lista");
+        ul.textContent = "";
+        filas.forEach(([etiqueta, valor]) => {
+          const li = document.createElement("li");
+          li.textContent = etiqueta + " · " + valor;
+          ul.appendChild(li);
+        });
+        $("estado-snapshot").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: filas.length }),
+          "Sin snapshot para el rango.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/reportes] snapshot", error);
+        $("snapshot-lista").textContent = "";
+        $("estado-snapshot").textContent = mensaje("error", "");
+      });
+
+  const cargarHistorial = () =>
+    fetch("/api/cash/history?limit=10")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items || [];
+        const tb = $("historial-body");
+        tb.textContent = "";
+        items.forEach((m) => tb.appendChild(celdas([m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])));
+        $("estado-historial").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Sin movimientos de caja.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/reportes] historial", error);
+        $("historial-body").textContent = "";
+        $("estado-historial").textContent = mensaje("error", "");
+      });
+
+  cargarTablero();
+  cargarSnapshot();
+  cargarHistorial();
+</script>

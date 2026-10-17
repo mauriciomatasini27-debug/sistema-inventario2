@@ -10,9 +10,14 @@ const PANTALLAS = [
   "src/pages/panel/caja.astro",
   "src/pages/panel/stock.astro",
   "src/pages/panel/precios.astro",
+  "src/pages/panel/proveedores.astro",
+  "src/pages/panel/fiado.astro",
+  "src/pages/panel/consumos.astro",
+  "src/pages/panel/reportes.astro",
 ] as const;
 
-const API_PERMITIDA = /^\/api\/(cash\/|products|lots|stock\/|prices\/)/;
+const API_PERMITIDA =
+  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/)/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";
@@ -53,6 +58,15 @@ describe("panel: cada pill resuelve a una página real", () => {
   it("existen las pantallas nuevas y el placeholder", () => {
     for (const f of [...PANTALLAS, "src/pages/panel/pronto.astro"]) {
       expect(existsSync(join(RAIZ, f)), f).toBe(true);
+    }
+  });
+
+  it("los enlaces ↗ de los módulos apuntan a /panel/<modulo>, no a anclas", () => {
+    const panel = leer("src/pages/panel.astro");
+    const modulos = ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "reportes"] as const;
+    for (const m of modulos) {
+      expect(panel, m).toContain(`href={hrefModulo("${m}")}`);
+      expect(panel, m).not.toContain(`href="#${m}"`);
     }
   });
 });

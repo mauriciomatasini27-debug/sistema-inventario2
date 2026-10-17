@@ -1,0 +1,160 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+---
+<PanelShell titulo="Consumos" subtitulo="Cuentas de servicio, vencimientos y pagos." activo="consumos">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Cuentas de servicio</h2>
+      <ul class="lista" id="consumos-cuentas"></ul>
+      <div class="estado" id="estado-cuentas" role="status">Cargando…</div>
+    </section>
+
+    <section class="card">
+      <h2>Próximas a vencer</h2>
+      <ul class="lista" id="consumos-proximas"></ul>
+      <h2>Vencidas</h2>
+      <ul class="lista" id="consumos-vencidas"></ul>
+      <div class="estado" id="estado-vencimientos" role="status">Cargando…</div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Pagar factura</h2>
+    <p class="estado">El pago registra el egreso en caja en el mismo paso.</p>
+    <form id="pago-form">
+      <div class="fila">
+        <label>Factura
+          <select id="pago-bill"></select>
+        </label>
+        <label>Medio
+          <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+        </label>
+      </div>
+      <button id="pago-enviar" type="submit">Pagar</button>
+      <div class="estado" id="estado-pago" role="status">Elegí una factura de la lista.</div>
+    </form>
+  </section>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+
+  const cuentasPorId = new Map();
+  const facturasPorId = new Map();
+  const nombreCuenta = (id) => {
+    const c = cuentasPorId.get(id);
+    return c ? (c.alias || c.proveedor) + " · " + c.servicio : "cuenta";
+  };
+
+  const pintarLista = (id, filas, vacio) => {
+    const ul = $(id);
+    ul.textContent = "";
+    filas.forEach((f) => {
+      const li = document.createElement("li");
+      li.textContent = f;
+      ul.appendChild(li);
+    });
+    return filas.length;
+  };
+
+  const cargarCuentas = () =>
+    fetch("/api/service-accounts")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items || [];
+        items.forEach((c) => cuentasPorId.set(c.account_id, c));
+        const filas = items.map((c) => (c.alias || c.proveedor) + " · " + c.servicio + " · " + (c.activa ? c.titular : "inactiva"));
+        pintarLista("consumos-cuentas", filas, "");
+        $("estado-cuentas").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Todavía no hay cuentas cargadas.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/consumos] cuentas", error);
+        pintarLista("consumos-cuentas", [], "");
+        $("estado-cuentas").textContent = mensaje("error", "");
+      });
+
+  const cargarVencimientos = () =>
+    fetch("/api/utility-bills/due?dentro_dias=7")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const proximas = j.proximas || [];
+        const vencidas = j.vencidas || [];
+        const texto = (f) => nombreCuenta(f.account_id) + " · " + f.periodo + " · " + formatearCentavos(f.monto_centavos) + " · vence " + f.vencimiento;
+        pintarLista("consumos-proximas", proximas.map(texto), "");
+        pintarLista("consumos-vencidas", vencidas.map(texto), "");
+        const select = $("pago-bill");
+        select.textContent = "";
+        [...proximas, ...vencidas].forEach((f) => {
+          facturasPorId.set(f.bill_id, f);
+          const option = document.createElement("option");
+          option.value = f.bill_id;
+          option.textContent = nombreCuenta(f.account_id) + " · " + formatearCentavos(f.monto_centavos);
+          select.appendChild(option);
+        });
+        $("estado-vencimientos").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: proximas.length + vencidas.length }),
+          "Sin facturas por vencer ni vencidas.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/consumos] vencimientos", error);
+        pintarLista("consumos-proximas", [], "");
+        pintarLista("consumos-vencidas", [], "");
+        $("estado-vencimientos").textContent = mensaje("error", "");
+      });
+
+  $("pago-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-pago");
+    const billId = $("pago-bill").value;
+    const factura = facturasPorId.get(billId);
+    const cuenta = factura ? cuentasPorId.get(factura.account_id) : undefined;
+    if (!factura || !cuenta) {
+      estado.textContent = "Elegí una factura de la lista.";
+      return;
+    }
+    estado.textContent = "Pagando…";
+    try {
+      const r = await fetch("/api/utility-bills/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bill_id: factura.bill_id,
+          servicio: cuenta.servicio,
+          proveedor: cuenta.proveedor,
+          medio: $("pago-medio").value,
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/consumos] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se pagó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Factura " + j.bill_id + " · " + j.estado + ".";
+      cargarVencimientos();
+    } catch (error) {
+      console.warn("[panel/consumos] pago", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  cargarCuentas();
+  cargarVencimientos();
+</script>

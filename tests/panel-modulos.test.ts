@@ -10,17 +10,24 @@ import {
 } from "../src/lib/panel-modulos.js";
 
 describe("panel-modulos: navegación de pills", () => {
-  it("resuelve pantallas reales y placeholder sin anclas muertas", () => {
+  it("los 7 módulos resuelven a una pantalla real, sin anclas muertas", () => {
     expect(hrefModulo("caja")).toBe("/panel/caja");
     expect(hrefModulo("stock")).toBe("/panel/stock");
     expect(hrefModulo("precios")).toBe("/panel/precios");
-    expect(hrefModulo("proveedores")).toBe("/panel/pronto?m=proveedores");
-    expect(hrefModulo("consumos")).toBe("/panel/pronto?m=consumos");
-    expect(hrefModulo("fiado")).toBe("/panel/pronto?m=fiado");
-    expect(hrefModulo("reportes")).toBe("/panel/pronto?m=reportes");
+    expect(hrefModulo("proveedores")).toBe("/panel/proveedores");
+    expect(hrefModulo("consumos")).toBe("/panel/consumos");
+    expect(hrefModulo("fiado")).toBe("/panel/fiado");
+    expect(hrefModulo("reportes")).toBe("/panel/reportes");
     expect(tienePantalla("caja")).toBe(true);
     expect(tienePantalla("precios")).toBe(true);
-    expect(tienePantalla("fiado")).toBe(false);
+    expect(tienePantalla("fiado")).toBe(true);
+  });
+
+  it("todos los módulos conocidos tienen pantalla", () => {
+    for (const m of ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "reportes"] as const) {
+      expect(tienePantalla(m), m).toBe(true);
+      expect(hrefModulo(m), m).toBe(`/panel/${m}`);
+    }
   });
 
   it("pillsPanel marca un solo activo y ningún href es un ancla #", () => {

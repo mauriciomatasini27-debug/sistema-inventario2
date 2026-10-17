@@ -1,6 +1,6 @@
 ---
 import { Toaster } from "../components/ui/Toaster";
-import { pillsPanel } from "../lib/panel-modulos.js";
+import { hrefModulo, pillsPanel } from "../lib/panel-modulos.js";
 const pills = pillsPanel("dashboard");
 ---
 <!doctype html>
@@ -113,7 +113,7 @@ const pills = pillsPanel("dashboard");
 
       <div class="grid r1">
         <section class="card" id="caja">
-          <h2>Turnos <a href="#caja" aria-label="Ir a caja">↗</a></h2>
+          <h2>Turnos <a href={hrefModulo("caja")} aria-label="Ir a caja">↗</a></h2>
           <ul class="tl">
             <li><span class="hora">09:00</span><b>Apertura caja</b> <span class="demo">demo</span><br />09:00–10:00 · caja-01</li>
             <li><span class="hora">11:00</span><b>Arqueo parcial</b><br />10:30–11:30</li>
@@ -123,7 +123,7 @@ const pills = pillsPanel("dashboard");
         </section>
 
         <section class="card" id="movimientos">
-          <h2>Últimos movimientos <a href="#reportes" aria-label="Ir a reportes">↗</a></h2>
+          <h2>Últimos movimientos <a href={hrefModulo("reportes")} aria-label="Ir a reportes">↗</a></h2>
           <table class="mov">
             <thead><tr><th></th><th>Detalle</th><th>Medio</th><th>Importe</th><th>Estado</th></tr></thead>
             <tbody id="mov-body">
@@ -175,7 +175,7 @@ const pills = pillsPanel("dashboard");
 
       <div class="grid r2">
         <section class="card" id="consumos">
-          <h2>Consumos de servicios <a href="#consumos" aria-label="Ir a consumos">↗</a></h2>
+          <h2>Consumos de servicios <a href={hrefModulo("consumos")} aria-label="Ir a consumos">↗</a></h2>
           <div class="mini">Cuentas · próximas a vencer (7 días) · vencidas <span class="live">en vivo</span></div>
           <ul class="tl" id="consumos-cuentas"></ul>
           <h3 style="font-size:13px;margin:12px 0 4px">Próximas a vencer</h3>
@@ -193,7 +193,7 @@ const pills = pillsPanel("dashboard");
       </div>
 
       <div class="grid r3">
-        <section class="card" id="stock"><h2>Stock <a href="#stock">↗</a></h2><div class="mini"><span class="live">en vivo</span> <a href="/api/products">/api/products</a> · <a href="/api/lots">/api/lots</a> · conteo <a href="/api/stock/conteo">/api/stock/conteo</a></div><div class="estado" id="stock-estado">Stock: cargando…</div>
+        <section class="card" id="stock"><h2>Stock <a href={hrefModulo("stock")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <a href="/api/products">/api/products</a> · <a href="/api/lots">/api/lots</a> · conteo <a href="/api/stock/conteo">/api/stock/conteo</a></div><div class="estado" id="stock-estado">Stock: cargando…</div>
           <h3 style="font-size:13px;margin:12px 0 4px">Umbrales de alerta (ALR-S1)</h3>
           <div class="mini">SKU + <label for="umb-min">Stock mínimo</label> y <label for="umb-re">Cantidad a reponer</label>. Vacío = sin valor (la alerta usa la rotación 7d).</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
@@ -207,9 +207,9 @@ const pills = pillsPanel("dashboard");
           </div>
           <div class="estado" id="umb-estado">Umbrales: cargá un SKU para ver sus valores.</div>
         </section>
-        <section class="card" id="precios"><h2>Precios <a href="#precios">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/prices/preview</span> · ajustes <span style="font-family:monospace">/api/prices/adjustments</span></div></section>
-        <section class="card" id="proveedores"><h2>Proveedores <a href="#proveedores">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/suppliers</span> · OC <span style="font-family:monospace">/api/purchase-orders</span></div></section>
-        <section class="card" id="fiado"><h2>Fiado <a href="#fiado">↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">GET /api/credit/balance?customer_id=</span></div><div class="estado" id="fiado-estado">Fiado: sin cliente seleccionado.</div></section>
+        <section class="card" id="precios"><h2>Precios <a href={hrefModulo("precios")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/prices/preview</span> · ajustes <span style="font-family:monospace">/api/prices/adjustments</span></div></section>
+        <section class="card" id="proveedores"><h2>Proveedores <a href={hrefModulo("proveedores")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">POST /api/suppliers</span> · OC <span style="font-family:monospace">/api/purchase-orders</span></div></section>
+        <section class="card" id="fiado"><h2>Fiado <a href={hrefModulo("fiado")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <span style="font-family:monospace">GET /api/credit/balance?customer_id=</span></div><div class="estado" id="fiado-estado">Fiado: sin cliente seleccionado.</div></section>
         <section class="card" id="bot-modulos">
           <h2>Módulos del bot <a href="#bot-modulos">↗</a></h2>
           <div class="mini">Lo que el bot de WhatsApp puede hacer en tu comercio (BOT-S1). Solo el Dueño edita.</div>

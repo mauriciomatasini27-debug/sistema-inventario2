@@ -17,7 +17,15 @@ export interface PillPanel {
 
 export type EstadoWidget = "cargando" | "error" | "vacio" | "listo";
 
-const CON_PANTALLA: ReadonlySet<ModuloPanel> = new Set(["caja", "stock", "precios"]);
+const CON_PANTALLA: ReadonlySet<ModuloPanel> = new Set([
+  "caja",
+  "stock",
+  "precios",
+  "proveedores",
+  "consumos",
+  "fiado",
+  "reportes",
+]);
 
 const ETIQUETAS: Record<ModuloPanel, string> = {
   caja: "Caja",

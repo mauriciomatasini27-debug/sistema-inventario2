@@ -1,0 +1,122 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+---
+<PanelShell titulo="Fiado" subtitulo="Saldo por cliente y registro de cobros." activo="fiado">
+  <div class="grid dos">
+    <section class="card">
+      <h2>Saldo del cliente</h2>
+      <div class="fila">
+        <label>Cliente
+          <input id="fiado-cliente" type="text" placeholder="cliente-1" autocomplete="off" />
+        </label>
+        <button id="fiado-buscar" type="button">Consultar</button>
+      </div>
+      <ul class="lista" id="fiado-lista"></ul>
+      <div class="estado" id="estado-fiado" role="status">Cargá un cliente para ver su saldo.</div>
+    </section>
+
+    <section class="card">
+      <h2>Registrar cobro</h2>
+      <form id="pago-form">
+        <div class="fila">
+          <label>Cliente
+            <input id="pago-cliente" type="text" placeholder="cliente-1" autocomplete="off" />
+          </label>
+          <label>Medio
+            <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+          </label>
+        </div>
+        <label>Monto en centavos
+          <input id="pago-monto" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+        </label>
+        <button id="pago-enviar" type="submit">Cobrar</button>
+        <div class="estado" id="estado-pago" role="status">Cargá el monto y cobrá.</div>
+      </form>
+    </section>
+  </div>
+</PanelShell>
+
+<script>
+  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const mensaje = (estado, vacio) =>
+    estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+
+  const cargarSaldo = (cliente) => {
+    $("estado-fiado").textContent = "Cargando…";
+    return fetch("/api/credit/balance?customer_id=" + encodeURIComponent(cliente))
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const filas = [
+          ["Saldo", formatearCentavos(j.saldo_centavos)],
+          ["Estado", j.estado === "en_mora" ? "en mora" : "al día"],
+          ["Días de atraso", String(j.dias_max) + " (umbral " + j.umbral_mora_dias + ")"],
+        ];
+        const ul = $("fiado-lista");
+        ul.textContent = "";
+        filas.forEach(([etiqueta, valor]) => {
+          const li = document.createElement("li");
+          li.textContent = etiqueta + " · " + valor;
+          ul.appendChild(li);
+        });
+        $("estado-fiado").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: filas.length }),
+          "Sin movimientos del cliente.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/fiado] saldo", error);
+        $("fiado-lista").textContent = "";
+        $("estado-fiado").textContent = mensaje("error", "");
+      });
+  };
+
+  $("fiado-buscar").addEventListener("click", () => {
+    const cliente = $("fiado-cliente").value.trim();
+    if (!cliente) {
+      $("estado-fiado").textContent = "Escribí el cliente.";
+      return;
+    }
+    cargarSaldo(cliente);
+  });
+
+  $("pago-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const estado = $("estado-pago");
+    const cliente = $("pago-cliente").value.trim();
+    if (!cliente) {
+      estado.textContent = "Escribí el cliente.";
+      return;
+    }
+    estado.textContent = "Registrando cobro…";
+    try {
+      const r = await fetch("/api/credit/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          customer_id: cliente,
+          monto_centavos: Number($("pago-monto").value),
+          medio: $("pago-medio").value,
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/fiado] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se cobró: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Cobro registrado: " + formatearCentavos(j.haber_centavos) + ".";
+      $("pago-form").reset();
+    } catch (error) {
+      console.warn("[panel/fiado] cobro", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+</script>
