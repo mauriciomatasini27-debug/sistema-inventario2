@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { customerMovements } from "../../db/schema-credito.js";
+import { customerMovements, customers } from "../../db/schema-credito.js";
 import { SERIE_MOSTRADOR, ticketCounters } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
 import {
@@ -273,6 +273,110 @@ function saldoMemoria(customerId: string, hoyMs: number): SaldoCliente {
     if (d > diasMax) diasMax = d;
   }
   return { saldoCentavos: saldo.toString(), diasMax, fuente: "memoria" };
+}
+
+// BOT-S4 (PRD-BOT-01): clientes con saldo para la cobranza del bot pyme.
+// Mismo cálculo que saldoCliente (SUM debe-haber; diasMax sobre los
+// movimientos deudores) para todos los clientes del tenant de la base viva.
+// La ficha (nombre, teléfono, tope) sale de customers; un movimiento sin
+// ficha usa el id como nombre, sin teléfono y sin tope. Sin DB: memoria.
+export interface ClienteConSaldo {
+  readonly id: string;
+  readonly nombre: string;
+  readonly telefono: string | null;
+  readonly saldoCentavos: bigint;
+  readonly topeCentavos: bigint;
+  readonly diasMax: number;
+}
+
+interface MovSaldo {
+  readonly customerId: string;
+  readonly debe: bigint;
+  readonly haber: bigint;
+  readonly fechaMs: number | null;
+}
+
+interface FichaSaldo {
+  readonly nombre: string;
+  readonly telefono: string | null;
+  readonly topeCentavos: bigint;
+}
+
+function agruparSaldos(movs: ReadonlyArray<MovSaldo>, fichas: ReadonlyMap<string, FichaSaldo>, hoyMs: number): ClienteConSaldo[] {
+  const porCliente = new Map<string, MovSaldo[]>();
+  for (const m of movs) {
+    const lista = porCliente.get(m.customerId);
+    if (lista) lista.push(m);
+    else porCliente.set(m.customerId, [m]);
+  }
+  const out: ClienteConSaldo[] = [];
+  for (const [id, lista] of porCliente) {
+    const saldo = derivar_saldo(lista.map((m) => ({ debeCentavos: m.debe, haberCentavos: m.haber })));
+    let diasMax = 0;
+    for (const m of lista) {
+      if (m.debe <= 0n || m.fechaMs === null) continue;
+      const d = dias_atraso(m.fechaMs, hoyMs);
+      if (d > diasMax) diasMax = d;
+    }
+    const ficha = fichas.get(id);
+    out.push({
+      id,
+      nombre: ficha?.nombre ?? id,
+      telefono: ficha?.telefono ?? null,
+      saldoCentavos: saldo,
+      topeCentavos: ficha?.topeCentavos ?? 0n,
+      diasMax,
+    });
+  }
+  return out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+export async function listarClientesConSaldo(hoyMs: number): Promise<{ clientes: ClienteConSaldo[]; fuente: "db" | "memoria" }> {
+  const creditoVistos = crearAlmacenCreditoVistos();
+  const db = dbVivaTenant();
+  if (!db) return clientesConSaldoMemoria(hoyMs);
+  try {
+    const movs = await db
+      .select({
+        customerId: customerMovements.customerId,
+        debe: customerMovements.debeCentavos,
+        haber: customerMovements.haberCentavos,
+        ocurridoEn: customerMovements.clientOccurredAt,
+      })
+      .from(customerMovements);
+    const fichas = await db
+      .select({ id: customers.id, nombre: customers.nombre, telefono: customers.telefono, tope: customers.topeCentavos })
+      .from(customers);
+    const mapa = new Map<string, FichaSaldo>(
+      fichas.map((f) => [String(f.id), { nombre: f.nombre, telefono: f.telefono, topeCentavos: BigInt(f.tope) }]),
+    );
+    const clientes = agruparSaldos(
+      movs.map((m) => ({
+        customerId: m.customerId,
+        debe: BigInt(m.debe),
+        haber: BigInt(m.haber),
+        fechaMs: new Date(m.ocurridoEn).getTime(),
+      })),
+      mapa,
+      hoyMs,
+    );
+    return { clientes, fuente: "db" };
+  } catch (e) {
+    creditoVistos.anteFalloPersistencia(e);
+    return clientesConSaldoMemoria(hoyMs);
+  }
+}
+
+function clientesConSaldoMemoria(hoyMs: number): { clientes: ClienteConSaldo[]; fuente: "memoria" } {
+  const movs = crearListaMovimientosCredito()
+    .listar()
+    .map((m) => ({
+      customerId: m.customer_id,
+      debe: BigInt(m.debe),
+      haber: BigInt(m.haber),
+      fechaMs: typeof m.fecha_ms === "number" ? m.fecha_ms : null,
+    }));
+  return { clientes: agruparSaldos(movs, new Map(), hoyMs), fuente: "memoria" };
 }
 
 export { UMBRAL_MORA_DIAS };
