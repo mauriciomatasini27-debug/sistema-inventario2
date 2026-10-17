@@ -339,6 +339,7 @@ export function resetStore() {
   control.opsOutbox = [];
   control.botLinks.clear();
   control.botModules.clear();
+  control.botConsultas.clear();
   control.offlineGrants.clear();
   control.devices.clear();
   control.deviceNames.clear();
@@ -439,6 +440,10 @@ export const control = {
   // BOT-S1 (ADR-0039): módulos del bot activos por tenant. Espejo en memoria;
   // la tabla tenant_bot_modules queda pendiente de migración.
   botModules: new Map<string, { tenantId: string; activos: string[] }>(),
+  // DASH-S3 (ADR-0034): consultas del bot por wamid para la tarjeta `Bot` del
+  // panel. Clave wamid: Meta reintenta y no debe duplicar. Con base viva la
+  // fuente es whatsapp_usage de la base del comercio.
+  botConsultas: new Map<string, { tenantId: string; creadoEnMs: number }>(),
   // SYNC-S5/S6 (OF9): grants offline + registro de devices (copia en memoria;
   // la tabla durable vive en C2 con PERS-S1). Token plano solo se muestra al
   // crear; acá queda el hash. Revocado => cuarentena post-revocación.

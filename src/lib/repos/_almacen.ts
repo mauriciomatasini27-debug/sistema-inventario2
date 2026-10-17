@@ -594,6 +594,19 @@ export function crearAlmacenBotModulos(): AlmacenVivo<ModulosBotTenant> {
   return crearAlmacenVivo(control.botModules);
 }
 
+// DASH-S3 (ADR-0034): consultas del bot registradas por wamid (dedupe de los
+// reintentos de Meta) para la tarjeta `Bot` del panel. Espejo en memoria; con
+// base viva la fuente es whatsapp_usage de la base del comercio. Misma
+// politica que caja: el almacen decide si propaga el fallo de DB o sigue.
+export interface ConsultaBotMemoria {
+  tenantId: string;
+  creadoEnMs: number;
+}
+
+export function crearAlmacenBotConsultas(): AlmacenVivo<ConsultaBotMemoria> {
+  return crearAlmacenVivo(control.botConsultas);
+}
+
 // Corte 17: email (outbox de envíos por idempotency_key y eventos de
 // resumen por dedupe_key). Misma politica que caja: en multi el fallo de DB
 // se propaga como BaseNoDisponible; en single la llamada sigue hacia

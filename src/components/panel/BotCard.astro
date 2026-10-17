@@ -1,0 +1,33 @@
+---
+---
+<section class="card" id="bot">
+  <h2>Bot <a href="/panel/bot/config">↗</a></h2>
+  <div class="mini">Consultas de hoy, última consulta y estado del número central.</div>
+  <div class="bignums" style="margin-top:8px">
+    <div class="bignum">
+      <b id="bot-card-consultas" style="font-variant-numeric: tabular-nums">—</b>
+      <small>Consultas de hoy</small>
+    </div>
+  </div>
+  <div class="mini" id="bot-card-ultima">Última consulta: cargando…</div>
+  <div class="estado" id="bot-card-estado" aria-live="polite">Cargando…</div>
+</section>
+
+<script>
+  import { formatearUltimaConsulta } from "../../lib/bot-card-panel.js";
+  const consultas = document.getElementById("bot-card-consultas");
+  const ultima = document.getElementById("bot-card-ultima");
+  const estado = document.getElementById("bot-card-estado");
+  fetch("/api/whatsapp/resumen").then(async (r) => {
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    consultas.textContent = String(j.consultas_hoy ?? 0);
+    const ms = j.ultima_consulta_en ? Date.parse(j.ultima_consulta_en) : null;
+    ultima.textContent = "Última consulta: " + formatearUltimaConsulta(ms);
+    estado.textContent = j.numero_central?.texto ?? "";
+  }).catch(() => {
+    consultas.textContent = "—";
+    ultima.textContent = "Última consulta: no disponible";
+    estado.textContent = "No pudimos leer el estado del bot. Reintentá en un rato.";
+  });
+</script>

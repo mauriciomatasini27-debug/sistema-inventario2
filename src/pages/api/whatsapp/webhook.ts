@@ -23,6 +23,8 @@ import { crearTransporteCloud, marcarLeidoCloud, normalizarEntrada } from "../..
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
+import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
+import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -88,6 +90,7 @@ async function responder(opts: {
   await marcarLeidoCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token, wamidEntrante: opts.wamidEntrante });
   const t = crearTransporteCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token });
   const r = await t.enviar(opts.toE164, opts.texto);
+  registrarEnvioCloud(r.ok, Date.now());
   return r.ok;
 }
 
@@ -251,6 +254,12 @@ export const POST: APIRoute = async ({ request }) => {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_NO_VINCULADO, cred });
     return Response.json({ ok: true, accion: "consulta", respuesta: RESPUESTA_NO_VINCULADO, enviado });
   }
+  // DASH-S3 (ADR-0034): consulta del bot registrada best-effort. Un fallo de
+  // DB nunca rompe el 200 ni cambia la respuesta; VINCULAR/BAJA/ALTA y los no
+  // vinculados ya salieron antes por otros caminos.
+  void registrarConsultaBot({ tenantId: r.tenantId, numeroE164: msg.remitente, wamid: msg.wamid, ahoraMs }).catch(
+    (e: unknown) => console.error("[whatsapp] no se pudo registrar la consulta", e),
+  );
   if (sensible) {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_SENSIBLE_BOT, cred });
     return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_SENSIBLE_BOT, enviado });

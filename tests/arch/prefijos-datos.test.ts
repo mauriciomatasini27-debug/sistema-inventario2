@@ -36,9 +36,12 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // activa sus módulos de bot (BOT-S1, ADR-0039); no toca la base del tenant.
 // /api/bot-modulos: módulos del bot por tenant en control, solo Dueño, a partir
 // de la sesión + membership (BOT-S1, ADR-0039).
+// /api/whatsapp/resumen: resumen read-only de la tarjeta `Bot` del panel, con
+// el tenant de la sesión + membership y base explícita (DASH-S3, ADR-0034).
 const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/billing/webhooks/mercadopago",
   "/api/bot-modulos",
+  "/api/whatsapp/resumen",
   "/api/devices/register",
   "/api/email/send",
   "/api/jobs/alertas-stock",
@@ -69,7 +72,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(17);
+    expect(EXCEPCIONES_CONTROL.size).toBe(18);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");
