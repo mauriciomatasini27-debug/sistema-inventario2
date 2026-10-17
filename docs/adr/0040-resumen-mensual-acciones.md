@@ -1,7 +1,7 @@
 ---
 id: ADR-0040
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [bot]
 depende_de: [PRD-BOT-01]
 reemplaza: []
@@ -12,7 +12,7 @@ resumen: |
 ---
 # ADR-0040 - Resumen mensual y acciones propuestas
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S7/S8), `src/jobs/whatsapp-resumen.ts`, NE1-NE17, OP1-OP13.
+Estado: aceptado (2026-10-16). Fecha: 2026-10-12. Fuentes: PRD-BOT-01 (BOT-S7/S8), `src/jobs/whatsapp-resumen.ts`, NE1-NE17, OP1-OP13.
 
 ## Decisión
 
@@ -32,4 +32,4 @@ Acciones automáticas sin confirmar: se descarta por riesgo sobre caja/pagos y L
 
 ## Pendientes
 
-BOT-S7/S8 + test idempotencia + aprobación plantilla Meta.
+BOT-S7 hecho 2026-10-16 (`src/jobs/resumen-mensual.ts`, `POST /api/jobs/resumen-mensual`, test de idempotencia por canal; sin migración). Pendientes: BOT-S8, aprobación de la plantilla Meta `resumen_mensual`, cron que llame al job el día 1 desde las 09:00 y zona horaria por tenant (hoy America/Argentina/Buenos_Aires).

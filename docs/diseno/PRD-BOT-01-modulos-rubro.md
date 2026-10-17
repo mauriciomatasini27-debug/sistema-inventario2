@@ -7,15 +7,15 @@ depende_de: [ADR-0012]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Bot único con módulos por rubro, resumen mensual y acciones propuestas. BOT-S1 a S4 hechos 2026-10-16 (quiosco
-  y pyme); fábrica y logística detrás del flag BOT_RUBROS_AVANZADOS. Pendientes BOT-S7 (resumen mensual) y
-  BOT-S8 (acciones).
+  Bot único con módulos por rubro, resumen mensual y acciones propuestas. BOT-S1 a S4 y S7 (resumen mensual WA +
+  email) hechos 2026-10-16; fábrica y logística detrás del flag BOT_RUBROS_AVANZADOS. Pendiente BOT-S8
+  (acciones).
 ---
 # PRD-BOT-01 - Bot único con módulos por rubro + resumen mensual
 
 Fuente: `07-canales-whatsapp-email/bot-whatsapp-parte-*.md` (B1-B15), ADR-0012, `src/modules/whatsapp/*`. Gap: el bot asume rubro quiosco; sin resumen mensual; sin acciones propuestas por rubro.
 
-> Estado al 2026-10-16: en curso. BOT-S1 a BOT-S4 hechos (módulos por rubro DB-first, router por módulo, quiosco y pyme); fábrica y logística detrás de `BOT_RUBROS_AVANZADOS`; pendientes BOT-S7 y BOT-S8.
+> Estado al 2026-10-16: en curso. BOT-S1 a BOT-S4 hechos (módulos por rubro DB-first, router por módulo, quiosco y pyme) y BOT-S7 hecho (resumen mensual WA + email, `POST /api/jobs/resumen-mensual`); fábrica y logística detrás de `BOT_RUBROS_AVANZADOS`; pendiente BOT-S8.
 
 ## Épica BOT-E1. Rubro y módulos (reusa B1 vinculación)
 

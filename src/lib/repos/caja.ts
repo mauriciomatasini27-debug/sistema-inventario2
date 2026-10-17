@@ -138,6 +138,46 @@ export async function listarMovimientos(): Promise<StoredMovement[]> {
   }
 }
 
+export interface MovimientoConFecha {
+  readonly tipo: "ingreso" | "egreso";
+  readonly montoCentavos: bigint;
+  readonly origen: string;
+  readonly ocurridoEn: string | null;
+}
+
+// BOT-S7: movimientos de caja con su instante para el resumen mensual. Con DB
+// viva usa createdAt; en memoria el ocurrido_en del espejo (null si falta).
+// Mismo patrón y fallback que listarMovimientos.
+export async function listarMovimientosConFecha(): Promise<MovimientoConFecha[]> {
+  const movimientos = crearListaMovimientos();
+  const db = dbVivaTenant();
+  if (!db) return movimientosConFechaMemoria(movimientos.listar());
+  try {
+    const filas = await db
+      .select({ tipo: cashMovements.tipo, monto: cashMovements.montoCentavos, origen: cashMovements.origen, creado: cashMovements.createdAt })
+      .from(cashMovements)
+      .orderBy(asc(cashMovements.createdAt), asc(cashMovements.id));
+    return filas.map((f) => ({
+      tipo: f.tipo as "ingreso" | "egreso",
+      montoCentavos: f.monto,
+      origen: f.origen,
+      ocurridoEn: f.creado.toISOString(),
+    }));
+  } catch (e) {
+    movimientos.anteFalloPersistencia(e);
+    return movimientosConFechaMemoria(movimientos.listar());
+  }
+}
+
+function movimientosConFechaMemoria(movs: StoredMovement[]): MovimientoConFecha[] {
+  return movs.map((m) => ({
+    tipo: m.tipo,
+    montoCentavos: BigInt(m.monto_centavos),
+    origen: m.origen,
+    ocurridoEn: m.ocurrido_en ?? null,
+  }));
+}
+
 function movimientosCierreMemoria(movsVivos: StoredMovement[], turnosVivos: ReadonlyMap<string, Turno>): { movs: Movimiento[]; ultimoId: string | null; enDisputa: number } {
   return {
     movs: movsVivos.map((m) => ({
