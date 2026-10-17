@@ -3,7 +3,7 @@ import { hrefModulo } from "../../lib/panel-modulos.js";
 ---
 <section class="card" id="stock"><h2>Stock <a href={hrefModulo("stock")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <a href="/api/products">/api/products</a> · <a href="/api/lots">/api/lots</a> · conteo <a href="/api/stock/conteo">/api/stock/conteo</a></div><div class="estado" id="stock-estado">Stock: cargando…</div>
   <h3 style="font-size:13px;margin:12px 0 4px">Umbrales de alerta (ALR-S1)</h3>
-  <div class="mini">SKU + <label for="umb-min">Stock mínimo</label> y <label for="umb-re">Cantidad a reponer</label>. Vacío = sin valor (la alerta usa la rotación 7d).</div>
+  <div class="mini">SKU + <label for="umb-min">Stock mínimo</label> y <label for="umb-re">Cantidad a reponer</label>. Vacío = sin valor (la alerta usa la rotación 7d). <a href="/panel/alertas/umbrales">Ver todos los umbrales</a></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
     <input id="umb-sku" placeholder="SKU" aria-label="SKU del producto" style="flex:1;min-width:110px;border:1px solid #ddd6c4;border-radius:8px;padding:8px;min-height:36px" />
     <input id="umb-min" type="number" min="0" step="1" placeholder="Stock mínimo" aria-label="Stock mínimo" style="width:110px;border:1px solid #ddd6c4;border-radius:8px;padding:8px;min-height:36px" />

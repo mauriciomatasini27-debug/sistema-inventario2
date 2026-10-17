@@ -19,6 +19,7 @@ const PANTALLAS = [
   "src/pages/panel/fiado.astro",
   "src/pages/panel/consumos.astro",
   "src/pages/panel/reportes.astro",
+  "src/pages/panel/alertas/umbrales.astro",
 ] as const;
 
 const API_PERMITIDA =
@@ -106,5 +107,12 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     const src = leer("src/pages/panel/pronto.astro");
     expect(src).toContain('searchParams.get("m")');
     expect(urlsFetch(src)).toEqual([]);
+  });
+
+  it("umbrales de alerta se enlaza desde stock y desde la tarjeta de stock", () => {
+    const destino = "/panel/alertas/umbrales";
+    expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
+    expect(leer("src/pages/panel/stock.astro")).toContain(`href="${destino}"`);
+    expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 });

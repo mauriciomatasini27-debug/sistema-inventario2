@@ -1,0 +1,378 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Umbrales de alerta" subtitulo="Stock mínimo y cantidad a reponer por producto." activo="stock">
+  <section class="card">
+    <h2>Edición masiva por categoría</h2>
+    <div class="fila">
+      <label>Categoría
+        <select id="umb-sector" disabled></select>
+      </label>
+      <label>Stock mínimo
+        <input id="umb-sector-min" type="number" min="0" step="1" inputmode="numeric" placeholder="sin valor" disabled />
+      </label>
+      <label>Cantidad a reponer
+        <input id="umb-sector-reorder" type="number" min="1" step="1" inputmode="numeric" placeholder="sin valor" disabled />
+      </label>
+      <button id="umb-aplicar" type="button" disabled>Aplicar al sector</button>
+    </div>
+    <div class="estado" id="umb-masivo" role="status">Cargando…</div>
+  </section>
+
+  <section class="card">
+    <h2>Productos</h2>
+    <div class="umb-scroll">
+      <table>
+        <thead><tr><th>SKU</th><th>Producto</th><th>Stock mínimo</th><th>A reponer</th></tr></thead>
+        <tbody id="umb-body"></tbody>
+      </table>
+    </div>
+    <div class="umb-acciones">
+      <button id="umb-guardar" type="button">Guardar cambios</button>
+    </div>
+    <div class="estado" id="umb-estado" role="status">Cargando…</div>
+  </section>
+
+  <style is:global>
+    .umb-scroll { overflow-x: auto; }
+    .umb-nombre { font-weight: 600; }
+    .umb-sector { display: block; color: var(--color-ash); font-size: 12px; }
+    .umb-input { width: 100%; max-width: 110px; }
+    .umb-error { display: block; min-height: 14px; color: var(--color-star-warm); font-size: 12px; }
+    .umb-sugerido { display: block; color: var(--color-ash); font-size: 12px; }
+    .umb-acciones { margin-top: 12px; }
+  </style>
+</PanelShell>
+
+<script>
+  import { toast } from "sonner";
+  import { fechaAR, sumarDiasAR } from "../../../lib/fecha-ar.js";
+  import {
+    analizarGuardado,
+    borradoresDeSector,
+    borradoresIniciales,
+    parsearCampo,
+    payloadDeshacer,
+    sectoresDe,
+    sugeridoMinimo,
+    type BorradorUmbral,
+    type CambioUmbral,
+    type ErrorFila,
+  } from "../../../lib/umbrales-panel.js";
+
+  interface FilaUmbral {
+    sku: string;
+    nombre: string;
+    sector: string;
+    minStock: number | null;
+    reorderQty: number | null;
+  }
+
+  let productos: FilaUmbral[] = [];
+  let borradores = new Map<string, BorradorUmbral>();
+  let sugerencias = new Map<string, number | null>();
+  let deshacerPendiente: CambioUmbral[] | null = null;
+
+  const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
+  const filaDe = (sku: string): HTMLElement | null =>
+    document.querySelector('tr[data-sku="' + CSS.escape(sku) + '"]');
+
+  const setEstado = (texto: string): void => {
+    $("umb-estado").textContent = texto;
+  };
+  const setMasivo = (texto: string): void => {
+    $("umb-masivo").textContent = texto;
+  };
+  const bloquearMasivo = (bloqueado: boolean): void => {
+    for (const id of ["umb-sector", "umb-sector-min", "umb-sector-reorder", "umb-aplicar"]) {
+      ($(id) as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = bloqueado;
+    }
+  };
+
+  const poblarSectores = (): void => {
+    const sel = $("umb-sector") as HTMLSelectElement;
+    sel.textContent = "";
+    const vacio = document.createElement("option");
+    vacio.value = "";
+    vacio.textContent = "Elegí una categoría";
+    sel.appendChild(vacio);
+    for (const s of sectoresDe(productos)) {
+      const o = document.createElement("option");
+      o.value = s;
+      o.textContent = s;
+      sel.appendChild(o);
+    }
+  };
+
+  const pintarSugerencia = (tr: HTMLElement, venta: number | null): void => {
+    const el = tr.querySelector(".umb-sugerido");
+    const n = sugeridoMinimo(venta);
+    if (el) el.textContent = n === null ? "" : "sugerido " + n;
+  };
+
+  const pintarSugerencias = (): void => {
+    for (const [sku, venta] of sugerencias) {
+      const tr = filaDe(sku);
+      if (tr) pintarSugerencia(tr, venta);
+    }
+  };
+
+  const limpiarError = (td: HTMLElement): void => {
+    const err = td.querySelector(".umb-error");
+    const input = td.querySelector("input");
+    if (err) err.textContent = "";
+    if (input) input.removeAttribute("aria-invalid");
+  };
+
+  const celdaCampo = (p: FilaUmbral, campo: "min_stock" | "reorder_qty"): HTMLTableCellElement => {
+    const td = document.createElement("td");
+    td.dataset.campo = campo;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.className = "umb-input";
+    input.min = campo === "min_stock" ? "0" : "1";
+    input.step = "1";
+    input.inputMode = "numeric";
+    const b = borradores.get(p.sku);
+    input.value = b ? (campo === "min_stock" ? b.min : b.reorder) : "";
+    input.setAttribute("aria-label", (campo === "min_stock" ? "Stock mínimo de " : "Cantidad a reponer de ") + p.nombre);
+    input.addEventListener("input", () => {
+      const draft = borradores.get(p.sku);
+      if (draft) {
+        if (campo === "min_stock") draft.min = input.value;
+        else draft.reorder = input.value;
+      }
+      limpiarError(td);
+    });
+    const err = document.createElement("small");
+    err.className = "umb-error";
+    td.append(input, err);
+    if (campo === "min_stock") {
+      const sug = document.createElement("small");
+      sug.className = "umb-sugerido";
+      td.appendChild(sug);
+    }
+    return td;
+  };
+
+  const renderTabla = (): void => {
+    const tb = $("umb-body");
+    tb.textContent = "";
+    for (const p of productos) {
+      const tr = document.createElement("tr");
+      tr.dataset.sku = p.sku;
+      const tdSku = document.createElement("td");
+      tdSku.textContent = p.sku;
+      const tdProd = document.createElement("td");
+      const nombre = document.createElement("div");
+      nombre.className = "umb-nombre";
+      nombre.textContent = p.nombre;
+      const sector = document.createElement("small");
+      sector.className = "umb-sector";
+      sector.textContent = p.sector;
+      tdProd.append(nombre, sector);
+      tr.append(tdSku, tdProd, celdaCampo(p, "min_stock"), celdaCampo(p, "reorder_qty"));
+      tb.appendChild(tr);
+    }
+  };
+
+  const marcarError = (tr: HTMLElement, campo: "min_stock" | "reorder_qty", mensaje: string): void => {
+    const td = tr.querySelector('td[data-campo="' + campo + '"]');
+    if (!td) return;
+    const err = td.querySelector(".umb-error");
+    const input = td.querySelector("input");
+    if (err) err.textContent = mensaje;
+    if (input) {
+      input.setAttribute("aria-invalid", "true");
+      input.focus();
+    }
+  };
+
+  const limpiarErrores = (): void => {
+    for (const td of Array.from(document.querySelectorAll(".umb-input"))) {
+      const padre = td.parentElement;
+      if (padre) limpiarError(padre);
+    }
+  };
+
+  const mostrarErrores = (errores: ReadonlyMap<string, ErrorFila>): void => {
+    for (const [sku, e] of errores) {
+      const tr = filaDe(sku);
+      if (!tr) continue;
+      if (e.min_stock) marcarError(tr, "min_stock", e.min_stock);
+      if (e.reorder_qty) marcarError(tr, "reorder_qty", e.reorder_qty);
+    }
+  };
+
+  const setInput = (sku: string, campo: "min_stock" | "reorder_qty", valor: string): void => {
+    const tr = filaDe(sku);
+    const input = tr?.querySelector('td[data-campo="' + campo + '"] input') as HTMLInputElement | null;
+    if (input) input.value = valor;
+  };
+
+  const aplicarCambios = (cambios: ReadonlyArray<CambioUmbral>): void => {
+    for (const c of cambios) {
+      const p = productos.find((x) => x.sku === c.sku);
+      if (p) {
+        p.minStock = c.min_stock;
+        p.reorderQty = c.reorder_qty;
+      }
+      const min = c.min_stock === null ? "" : String(c.min_stock);
+      const re = c.reorder_qty === null ? "" : String(c.reorder_qty);
+      borradores.set(c.sku, { min, reorder: re });
+      setInput(c.sku, "min_stock", min);
+      setInput(c.sku, "reorder_qty", re);
+    }
+  };
+
+  const enviar = async (cambios: ReadonlyArray<CambioUmbral>): Promise<boolean> => {
+    for (const c of cambios) {
+      let r: Response;
+      try {
+        r = await fetch("/api/products?sku=" + encodeURIComponent(c.sku), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ min_stock: c.min_stock, reorder_qty: c.reorder_qty }),
+        });
+      } catch (error) {
+        console.warn("[panel/umbrales] guardar", error);
+        return false;
+      }
+      if (!r.ok) return false;
+    }
+    return true;
+  };
+
+  const deshacer = async (): Promise<void> => {
+    if (!deshacerPendiente) return;
+    const previos = deshacerPendiente;
+    deshacerPendiente = null;
+    const ok = await enviar(previos);
+    if (!ok) {
+      toast.error("No se pudo deshacer");
+      await cargar();
+      return;
+    }
+    aplicarCambios(previos);
+    toast("Umbrales restaurados");
+  };
+
+  const guardar = async (): Promise<void> => {
+    limpiarErrores();
+    const { errores, cambios } = analizarGuardado(productos, borradores);
+    if (errores.size > 0) {
+      mostrarErrores(errores);
+      setEstado("Revisá los valores marcados.");
+      return;
+    }
+    if (cambios.length === 0) {
+      setEstado("No hay cambios para guardar.");
+      return;
+    }
+    setEstado("Guardando " + cambios.length + "…");
+    const ok = await enviar(cambios);
+    if (!ok) {
+      setEstado("No se pudo guardar. Recargá e intentá de nuevo.");
+      await cargar();
+      return;
+    }
+    deshacerPendiente = payloadDeshacer(productos, cambios);
+    aplicarCambios(cambios);
+    setEstado("Guardado: " + cambios.length + " productos.");
+    toast.success("Umbrales guardados", {
+      action: { label: "Deshacer", onClick: () => void deshacer() },
+    });
+  };
+
+  const aplicarSector = (): void => {
+    const sector = ($("umb-sector") as HTMLSelectElement).value;
+    if (!sector) {
+      setMasivo("Elegí una categoría.");
+      return;
+    }
+    const min = parsearCampo(($("umb-sector-min") as HTMLInputElement).value, "min_stock");
+    const re = parsearCampo(($("umb-sector-reorder") as HTMLInputElement).value, "reorder_qty");
+    if (!min.ok || !re.ok) {
+      setMasivo(min.ok ? re.error : min.error);
+      return;
+    }
+    const normalizado: BorradorUmbral = {
+      min: min.valor === null ? "" : String(min.valor),
+      reorder: re.valor === null ? "" : String(re.valor),
+    };
+    borradores = borradoresDeSector(productos, borradores, sector, normalizado);
+    renderTabla();
+    pintarSugerencias();
+    setMasivo("Aplicado a " + sector + ". Guardá cambios para confirmar.");
+  };
+
+  const cargarRotacion = async (): Promise<void> => {
+    const hasta = fechaAR();
+    const desde = sumarDiasAR(hasta, -6);
+    const idx = new Map<string, number | null>();
+    let cursor: string | null = null;
+    for (let pagina = 0; pagina < 6; pagina += 1) {
+      const qs = new URLSearchParams({ desde, hasta, orden: "rotacion", dir: "desc", limite: "50" });
+      if (cursor) qs.set("cursor", cursor);
+      let r: Response;
+      try {
+        r = await fetch("/api/analytics/tablero?" + qs.toString());
+      } catch (error) {
+        console.warn("[panel/umbrales] rotación", error);
+        return;
+      }
+      if (!r.ok) return;
+      const j = await r.json();
+      for (const it of j.items || []) idx.set(it.sku, it.ventaSemanal ?? null);
+      cursor = j.next_cursor ?? null;
+      if (!cursor) break;
+    }
+    sugerencias = idx;
+    pintarSugerencias();
+  };
+
+  const cargar = async (): Promise<void> => {
+    setEstado("Cargando…");
+    setMasivo("Cargando…");
+    bloquearMasivo(true);
+    let r: Response;
+    try {
+      r = await fetch("/api/products");
+    } catch (error) {
+      console.warn("[panel/umbrales] catálogo", error);
+      setEstado("Sin conexión con el servidor.");
+      setMasivo("Sin conexión con el servidor.");
+      return;
+    }
+    if (!r.ok) {
+      setEstado("Sin conexión con el servidor.");
+      setMasivo("Sin conexión con el servidor.");
+      return;
+    }
+    const j = await r.json();
+    productos = (j.productos || []).map((p: Partial<FilaUmbral> & { min_stock?: number | null; reorder_qty?: number | null }) => ({
+      sku: String(p.sku ?? ""),
+      nombre: String(p.nombre ?? ""),
+      sector: String(p.sector ?? "general"),
+      minStock: p.min_stock ?? null,
+      reorderQty: p.reorder_qty ?? null,
+    }));
+    borradores = borradoresIniciales(productos);
+    poblarSectores();
+    renderTabla();
+    pintarSugerencias();
+    if (productos.length === 0) {
+      setEstado("Todavía no hay productos cargados.");
+      setMasivo("Cargá productos para editar en masa.");
+      return;
+    }
+    setEstado(productos.length + " productos. Editá y guardá.");
+    setMasivo("Elegí una categoría y valores, después Aplicar.");
+    bloquearMasivo(false);
+    void cargarRotacion();
+  };
+
+  $("umb-guardar").addEventListener("click", () => void guardar());
+  $("umb-aplicar").addEventListener("click", aplicarSector);
+  void cargar();
+</script>
