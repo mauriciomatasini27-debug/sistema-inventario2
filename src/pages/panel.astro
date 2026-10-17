@@ -56,7 +56,7 @@ const pills = pillsPanel("dashboard");
       .ok { background: #ece7f8; color: #5b4fa6; } .warn { background: #eef0f1; color: #6b6f73; } .pend { background: #e8f7d9; color: #4c7a1f; }
       .dark { background: var(--tinta); color: #fff; }
       .dark h2 a { color: #fff; border-color: #444; }
-      .heat { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 12px; }
+      .heat { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; margin-top: 12px; }
       .heat i { aspect-ratio: 1; border-radius: 50%; background: #3a3a3a; }
       .heat i.on { background: var(--llama); }
       .bign { font-size: 30px; }
@@ -99,11 +99,12 @@ const pills = pillsPanel("dashboard");
           <span style="width:5%;border:1px solid #ddd6c4;border-radius:0 999px 999px 0">5%</span>
         </div>
         <div class="bignums">
-          <div class="bignum"><b id="n-tickets">—</b><small>Tickets hoy <span class="demo">demo</span></small></div>
-          <div class="bignum"><b id="n-stock">—</b><small>Stock bajo <span class="demo">demo</span></small></div>
+          <div class="bignum"><b id="n-tickets">…</b><small>Tickets hoy</small></div>
+          <div class="bignum"><b id="n-stock">…</b><small>Stock bajo</small></div>
           <div class="bignum"><b id="n-caja">—</b><small>Caja total <span class="live">en vivo</span></small></div>
         </div>
       </div>
+      <div class="estado" id="kpi-estado">Resumen: cargando…</div>
 
       <div class="banner">
         <div><b>Venta mostrador</b><br /><span class="mini" style="color:#cfc9b8">Cobrar, sync offline y balance — como siempre.</span></div>
@@ -114,11 +115,8 @@ const pills = pillsPanel("dashboard");
       <div class="grid r1">
         <section class="card" id="caja">
           <h2>Turnos <a href={hrefModulo("caja")} aria-label="Ir a caja">↗</a></h2>
-          <ul class="tl">
-            <li><span class="hora">09:00</span><b>Apertura caja</b> <span class="demo">demo</span><br />09:00–10:00 · caja-01</li>
-            <li><span class="hora">11:00</span><b>Arqueo parcial</b><br />10:30–11:30</li>
-            <li><span class="hora">13:00</span><b>Cierre turno</b><br />12:00–13:00 · conteo a ciegas</li>
-          </ul>
+          <ul class="tl" id="turnos-lista"></ul>
+          <div class="estado" id="turnos-estado">Turnos: cargando…</div>
           <div class="mini"><a href="/api/cash/balance">Ver balance JSON</a> · turnos full en P1</div>
         </section>
 
@@ -127,49 +125,49 @@ const pills = pillsPanel("dashboard");
           <table class="mov">
             <thead><tr><th></th><th>Detalle</th><th>Medio</th><th>Importe</th><th>Estado</th></tr></thead>
             <tbody id="mov-body">
-              <tr><td>◉</td><td>Venta T-000001</td><td>Efectivo</td><td>$150,00</td><td><span class="pill ok">Pagado</span></td></tr>
-              <tr><td>◉</td><td>Retiro proveedor</td><td>Transferencia</td><td>$30,00</td><td><span class="pill warn">Pendiente</span></td></tr>
-              <tr><td>◉</td><td>Sueldo parcial</td><td>Efectivo</td><td>$15,00</td><td><span class="pill pend">A revisar</span></td></tr>
+              <tr><td colspan="5">Cargando…</td></tr>
             </tbody>
           </table>
-          <div class="mini">Filas de ejemplo <span class="demo">demo</span> — el historial real vive en <span style="font-family:monospace">GET /api/tickets?numero=</span></div>
+          <div class="estado" id="movimientos-estado">Movimientos: cargando…</div>
+          <div class="mini">Historial real en <span style="font-family:monospace">GET /api/cash/history</span> · tickets en <span style="font-family:monospace">GET /api/tickets?numero=</span></div>
           <div class="estado" id="balance-estado">Balance: cargando…</div>
         </section>
 
         <section class="card dark" id="reportes">
           <h2>Reporte del día <a href="#ventas" aria-label="Ir a ventas">↗</a></h2>
-          <div><span class="bign"><span id="heat-ventas">63</span> ↗</span> &nbsp; <span class="bign" style="color:#cfc9b8"><span id="heat-dev">12</span> ↘</span></div>
+          <div><span class="bign"><span id="heat-ventas">…</span> ↗</span> &nbsp; <span class="bign" style="color:#cfc9b8"><span id="heat-dev">—</span> ↘</span></div>
           <div class="mini" style="color:#cfc9b8">ventas · devoluciones/pendientes <span class="demo">demo</span></div>
           <div class="heat" id="heat" aria-hidden="true"></div>
+          <div class="estado" id="heatmap-estado" style="color:#cfc9b8">Heatmap: cargando…</div>
         </section>
       </div>
 
       <div class="grid r2">
         <section class="card" id="ventas">
           <h2>Ventas por mes <a href="#ventas" aria-label="Ir a ventas">↗</a></h2>
-          <div class="mini">— Efectivo &nbsp; ┄ Digital · <span class="demo">demo</span> · 2024 ▾</div>
-          <svg class="chart" viewBox="0 0 600 170" role="img" aria-label="Ventas por mes (demo)">
+          <div class="mini">— Efectivo &nbsp; ┄ Digital · <span id="ventas-periodo">…</span></div>
+          <svg class="chart" id="ventas-chart" viewBox="0 0 600 170" role="img" aria-label="Ventas por mes">
             <line x1="30" y1="10" x2="30" y2="150" stroke="#e3ddcd" />
             <line x1="30" y1="150" x2="590" y2="150" stroke="#e3ddcd" />
-            <polyline points="30,120 90,60 150,70 210,90 270,60 330,80 390,70 450,95 510,60 570,75" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-dasharray="5 4" />
-            <polyline points="30,130 90,110 150,115 210,100 270,105 330,90 390,100 450,85 510,70 570,60" fill="none" stroke="#ffd600" stroke-width="2" />
-            <line x1="270" y1="10" x2="270" y2="150" stroke="#1a1a1a" stroke-width="1" />
-            <g font-size="10" fill="#8a8578"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
+            <polyline id="serie-efectivo" fill="none" stroke="#1a1a1a" stroke-width="2" />
+            <polyline id="serie-digital" fill="none" stroke="#ffd600" stroke-width="2" stroke-dasharray="5 4" />
+            <g id="ventas-meses" font-size="10" fill="#8a8578"></g>
           </svg>
+          <div class="estado" id="ventas-estado">Ventas por mes: cargando…</div>
         </section>
 
         <section class="card" id="medios">
           <h2>Composición por medio <a href="#medios" aria-label="Ir a medios">↗</a></h2>
           <div class="dona">
-            <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="70% efectivo, 30% digital">
+            <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="Composición por medio">
               <circle cx="75" cy="75" r="60" fill="none" stroke="#efecea" stroke-width="16" />
-              <circle cx="75" cy="75" r="60" fill="none" stroke="#ffd600" stroke-width="16" stroke-dasharray="264 377" stroke-linecap="round" transform="rotate(-90 75 75)" />
-              <text x="75" y="72" text-anchor="middle" font-size="26" font-weight="600">70%</text>
+              <circle id="dona-arco" cx="75" cy="75" r="60" fill="none" stroke="#ffd600" stroke-width="16" stroke-dasharray="0 377" stroke-linecap="round" transform="rotate(-90 75 75)" />
+              <text id="dona-pct" x="75" y="72" text-anchor="middle" font-size="26" font-weight="600">—</text>
               <text x="75" y="90" text-anchor="middle" font-size="11" fill="#8a8578">Efectivo</text>
             </svg>
           </div>
-          <div class="legend"><span>◉ 70% Efectivo</span><span>● 30% Digital</span></div>
-          <div class="estado" id="medios-estado"><span class="demo">demo</span> — en vivo cuando haya agregados por medio.</div>
+          <div class="legend" id="medios-legend"><span>—</span></div>
+          <div class="estado" id="medios-estado">Composición por medio: cargando…</div>
         </section>
       </div>
 
@@ -221,24 +219,18 @@ const pills = pillsPanel("dashboard");
     </div>
     <script>
       const fmt = (c) => "$" + (Number(c) / 100).toFixed(2);
+      const setTexto = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
       fetch("/api/cash/balance").then(async (r) => {
         if (!r.ok) throw new Error("http " + r.status);
         const b = await r.json();
         const medios = b.por_medio || {};
-        const vals = Object.values(medios).map(Number);
-        const total = vals.reduce((a, v) => a + v, 0);
-        document.getElementById("n-caja").textContent = fmt(total);
-        const top = Object.entries(medios).sort((a, z) => z[1] - a[1])[0];
-        document.getElementById("medios-estado").textContent =
-          top ? ("En vivo: " + top[0] + " " + fmt(top[1]) + " de " + fmt(total)) : "En vivo: sin movimientos todavía.";
-        document.getElementById("balance-estado").textContent = "Balance en vivo: total " + fmt(total) + ".";
+        const total = Object.values(medios).map(Number).reduce((a, v) => a + v, 0);
+        setTexto("n-caja", fmt(total));
+        setTexto("balance-estado", "Balance en vivo: total " + fmt(total) + ".");
       }).catch(() => {
-        document.getElementById("n-caja").textContent = "—";
-        document.getElementById("balance-estado").textContent = "Sin conexión con el servidor: mostrando demo.";
-        document.getElementById("medios-estado").textContent = "Sin conexión: mostrando demo.";
+        setTexto("n-caja", "—");
+        setTexto("balance-estado", "Sin conexión con el servidor: caja no disponible.");
       });
-      document.getElementById("n-tickets").textContent = "…";
-      document.getElementById("n-stock").textContent = "…";
       // ALR-S1: carga y guarda min_stock/reorder_qty por SKU (Dueño).
       const umbEstado = (t) => { document.getElementById("umb-estado").textContent = t; };
       const umbNum = (id) => {
@@ -294,26 +286,155 @@ const pills = pillsPanel("dashboard");
           umbEstado("Sin conexión: no se pudo guardar.");
         }
       };
-      // OP-S3: tickets + stock en vivo, sin hardcode. Sin conexión => —.
-      fetch("/api/tickets").then(async (r) => {
+      // P3-7c: un solo GET /api/sales/resumen alimenta KPIs, turnos, heatmap,
+      // ventas por mes y composición por medio. Sin conexión => — + mensaje.
+      const MESES_AR = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+      const nombreMes = (mes) => MESES_AR[Number(mes.slice(5, 7)) - 1] || mes;
+      const pintarTurnos = (turnos) => {
+        const ul = document.getElementById("turnos-lista");
+        ul.innerHTML = "";
+        if (!turnos.length) {
+          ul.innerHTML = "<li>Sin turnos hoy.</li>";
+          setTexto("turnos-estado", "Sin turnos registrados hoy.");
+          return;
+        }
+        turnos.forEach((t) => {
+          const li = document.createElement("li");
+          const hora = document.createElement("span"); hora.className = "hora"; hora.textContent = t.hora;
+          const b = document.createElement("b"); b.textContent = t.turno;
+          const mini = document.createElement("span"); mini.className = "mini";
+          mini.textContent = (t.entregado_por || "—") + " · " + t.estado;
+          li.append(hora, b, document.createElement("br"), mini);
+          ul.appendChild(li);
+        });
+        setTexto("turnos-estado", turnos.length + " turno(s) hoy.");
+      };
+      const pintarHeat = (buckets) => {
+        const cont = document.getElementById("heat");
+        cont.innerHTML = "";
+        const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+        const mapa = new Map(buckets.map((b) => [b.dia_semana + ":" + b.hora, b.tickets]));
+        let total = 0;
+        for (let d = 0; d < 7; d++) {
+          for (let h = 0; h < 24; h++) {
+            const i = document.createElement("i");
+            const t = mapa.get(d + ":" + h) || 0;
+            total += t;
+            if (t > 0) { i.className = "on"; i.title = dias[d] + " " + h + ":00 · " + t + " ticket(s)"; }
+            cont.appendChild(i);
+          }
+        }
+        setTexto("heatmap-estado", total ? total + " tickets en los últimos 28 días." : "Sin ventas en los últimos 28 días.");
+      };
+      const pintarVentas = (meses) => {
+        if (!meses.length) { setTexto("ventas-estado", "Sin ventas registradas."); return; }
+        const X0 = 30, X1 = 590, Y0 = 150, Y1 = 10;
+        const max = Math.max(1, ...meses.map((m) => Math.max(Number(m.efectivo_centavos), Number(m.digital_centavos))));
+        const paso = meses.length > 1 ? (X1 - X0) / (meses.length - 1) : 0;
+        const puntos = (clave) => meses.map((m, i) => {
+          const x = X0 + i * paso;
+          const y = Y0 - (Number(m[clave]) / max) * (Y0 - Y1);
+          return x.toFixed(1) + "," + y.toFixed(1);
+        }).join(" ");
+        document.getElementById("serie-efectivo").setAttribute("points", puntos("efectivo_centavos"));
+        document.getElementById("serie-digital").setAttribute("points", puntos("digital_centavos"));
+        const g = document.getElementById("ventas-meses");
+        g.innerHTML = "";
+        meses.forEach((m, i) => {
+          if (i % 2 !== 0 && i !== meses.length - 1) return;
+          const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          t.setAttribute("x", String(X0 + i * paso));
+          t.setAttribute("y", "165");
+          t.setAttribute("text-anchor", "middle");
+          t.textContent = nombreMes(m.mes);
+          g.appendChild(t);
+        });
+        setTexto("ventas-periodo", meses[0].mes + " a " + meses[meses.length - 1].mes);
+        const ultimo = meses[meses.length - 1];
+        setTexto("ventas-estado", "En vivo: " + ultimo.mes + " " + fmt(ultimo.efectivo_centavos) + " efectivo · " + fmt(ultimo.digital_centavos) + " digital.");
+      };
+      const pintarDona = (porMedio) => {
+        const arco = document.getElementById("dona-arco");
+        const legend = document.getElementById("medios-legend");
+        const total = porMedio.reduce((a, m) => a + Number(m.centavos), 0);
+        if (!total) {
+          arco.setAttribute("stroke-dasharray", "0 377");
+          setTexto("dona-pct", "—");
+          legend.innerHTML = "<span>Sin ventas este mes.</span>";
+          setTexto("medios-estado", "Sin movimientos este mes.");
+          return;
+        }
+        const efectivo = porMedio.filter((m) => m.medio === "Efectivo").reduce((a, m) => a + Number(m.centavos), 0);
+        const pct = Math.round((efectivo / total) * 100);
+        const C = 2 * Math.PI * 60;
+        arco.setAttribute("stroke-dasharray", ((C * pct) / 100).toFixed(1) + " " + C.toFixed(1));
+        setTexto("dona-pct", pct + "%");
+        legend.innerHTML = "";
+        porMedio.slice(0, 4).forEach((m) => {
+          const s = document.createElement("span");
+          s.textContent = Math.round((Number(m.centavos) / total) * 100) + "% " + m.medio;
+          legend.appendChild(s);
+        });
+        setTexto("medios-estado", "En vivo: este mes " + fmt(total) + " en " + porMedio.length + " medio(s).");
+      };
+      fetch("/api/sales/resumen").then(async (r) => {
         if (!r.ok) throw new Error("http " + r.status);
         const j = await r.json();
-        const n = (j.tickets || j.items || []).length;
-        document.getElementById("n-tickets").textContent = String(n);
-      }).catch(() => { document.getElementById("n-tickets").textContent = "—"; });
+        setTexto("n-tickets", String(j.tickets_hoy ?? 0));
+        setTexto("n-stock", String(j.stock_bajo ?? 0));
+        setTexto("heat-ventas", String(j.tickets_hoy ?? 0));
+        setTexto("kpi-estado", "En vivo: " + (j.tickets_hoy ?? 0) + " tickets hoy · " + (j.stock_bajo ?? 0) + " con stock bajo.");
+        pintarVentas(j.ventas_por_mes || []);
+        pintarDona(j.por_medio || []);
+        pintarHeat(j.heatmap || []);
+        pintarTurnos(j.turnos || []);
+      }).catch(() => {
+        setTexto("n-tickets", "—");
+        setTexto("n-stock", "—");
+        setTexto("heat-ventas", "—");
+        setTexto("kpi-estado", "Sin conexión con el servidor: resumen no disponible.");
+        setTexto("ventas-estado", "Sin conexión: ventas por mes no disponibles.");
+        setTexto("medios-estado", "Sin conexión: composición por medio no disponible.");
+        setTexto("heatmap-estado", "Sin conexión: heatmap no disponible.");
+        setTexto("turnos-estado", "Sin conexión: turnos no disponibles.");
+      });
       fetch("/api/products").then(async (r) => {
         if (!r.ok) throw new Error("http " + r.status);
         const j = await r.json();
         const n = (j.productos || []).length;
-        document.getElementById("n-stock").textContent = String(n);
         document.getElementById("stock-estado").textContent = "En vivo: " + n + " productos en catálogo.";
       }).catch(() => {
-        document.getElementById("n-stock").textContent = "—";
-        document.getElementById("stock-estado").textContent = "Sin conexión: stock no disponible.";
+        setTexto("stock-estado", "Sin conexión: stock no disponible.");
       });
-      const heat = document.getElementById("heat");
-      const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
-      seed.forEach((v) => { const i = document.createElement("i"); if (v) i.className = "on"; heat.appendChild(i); });
+      document.getElementById("mov-body").innerHTML = "<tr><td colspan='5'>Cargando…</td></tr>";
+      fetch("/api/cash/history?limit=5").then(async (r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        const j = await r.json();
+        const filas = (j.items || []).slice(0, 5);
+        const tbody = document.getElementById("mov-body");
+        tbody.innerHTML = "";
+        if (!filas.length) {
+          tbody.innerHTML = "<tr><td colspan='5'>Sin movimientos todavía.</td></tr>";
+          setTexto("movimientos-estado", "Sin movimientos.");
+          return;
+        }
+        filas.forEach((m) => {
+          const detalle = m.origen === "venta" ? "Venta"
+            : m.origen.startsWith("vencimiento:") ? "Pago de servicio"
+            : m.origen === "reversion" ? "Reversión" : m.origen;
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td>◉</td><td></td><td></td><td></td><td>" + (m.tipo === "ingreso" ? "<span class='pill ok'>Ingreso</span>" : "<span class='pill warn'>Egreso</span>") + "</td>";
+          tr.children[1].textContent = detalle;
+          tr.children[2].textContent = m.metodo;
+          tr.children[3].textContent = fmt(m.monto_centavos);
+          tbody.appendChild(tr);
+        });
+        setTexto("movimientos-estado", "En vivo: " + filas.length + " movimiento(s) reciente(s).");
+      }).catch(() => {
+        const tbody = document.getElementById("mov-body");
+        tbody.innerHTML = "<tr><td colspan='5'>—</td></tr>";
+        setTexto("movimientos-estado", "Sin conexión: movimientos no disponibles.");
+      });
       document.getElementById("q").addEventListener("input", (e) => {
         const q = e.target.value.toLowerCase();
         document.querySelectorAll("#mov-body tr").forEach((tr) => {

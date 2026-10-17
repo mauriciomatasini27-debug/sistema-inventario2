@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaUTC, fechaAR, parseFechaAR, sumarDiasAR, type FechaAR } from "../src/lib/fecha-ar.js";
+import { diaUTC, fechaAR, horaAR, horaMinutoAR, parseFechaAR, sumarDiasAR, type FechaAR } from "../src/lib/fecha-ar.js";
 
 function f(s: string): FechaAR {
   const v = parseFechaAR(s);
@@ -64,6 +64,19 @@ describe("sumarDiasAR: aritmética pura de calendario", () => {
     const r = sumarDiasAR(base, 5);
     expect(base).toBe("2026-10-10");
     expect(r).toBe("2026-10-15");
+  });
+});
+
+describe("horaAR: hora civil en America/Argentina/Buenos_Aires", () => {
+  it("deriva la hora del reloj AR, no la UTC", () => {
+    expect(horaAR(new Date("2026-10-17T02:00:00Z"))).toBe(23);
+    expect(horaAR(new Date("2026-10-17T13:00:00Z"))).toBe(10);
+    expect(horaAR(Date.parse("2026-10-17T23:30:00Z"))).toBe(20);
+  });
+
+  it("formatea HH:MM con reloj de 24 horas", () => {
+    expect(horaMinutoAR(new Date("2026-10-17T02:00:00Z"))).toBe("23:00");
+    expect(horaMinutoAR(new Date("2026-10-17T12:05:00Z"))).toBe("09:05");
   });
 });
 

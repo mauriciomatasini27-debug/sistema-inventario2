@@ -25,7 +25,7 @@ Réplica fiel del layout de referencia, contenido de kiosco: barra superior con 
 
 ## Capacidades
 
-El dashboard solo ordena y resume: saludo por sesión, KPIs (tickets hoy, stock bajo, ventas mes), turnos de caja, últimos 3–5 movimientos con pill de estado, heatmap de ventas por hora, ventas por mes (Efectivo vs Digital, selector año visual), dona de composición por medio 70/30, y accesos a Stock, Precios, Proveedores, Fiado y Reportes. Sin agregados server en P0: se calculan en cliente y se marcan `demo` hasta tener endpoint. Carga en paralelo, ningún widget bloquea a otro, primer paint <2s en dev.
+El dashboard solo ordena y resume: saludo por sesión, KPIs (tickets hoy, stock bajo, ventas mes), turnos de caja, últimos 3–5 movimientos con pill de estado, heatmap de ventas por hora, ventas por mes (Efectivo vs Digital, selector año visual), dona de composición por medio 70/30, y accesos a Stock, Precios, Proveedores, Fiado y Reportes. Sin agregados server en P0: se calculan en cliente y se marcan `demo` hasta tener endpoint; P3-7c agrega `GET /api/sales/resumen` y esos widgets dejan de ser demo. Carga en paralelo, ningún widget bloquea a otro, primer paint <2s en dev.
 
 ## Componentes (Astro, tema papel)
 

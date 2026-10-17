@@ -9,6 +9,19 @@ const formatoAR = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+const formatoHoraAR = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+
+const formatoHoraMinutoAR = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 const formatoUTC = new Intl.DateTimeFormat("en-CA", {
   timeZone: "UTC",
   year: "numeric",
@@ -41,6 +54,20 @@ export function sumarDiasAR(fecha: FechaAR, dias: number): FechaAR {
   const d = new Date(base + dias * DIA_MS);
   const p2 = (n: number): string => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}` as FechaAR;
+}
+
+function aDate(ahora: Date | number): Date {
+  return typeof ahora === "number" ? new Date(ahora) : ahora;
+}
+
+/** Hora civil 0-23 en Buenos Aires. No usar getHours() sobre el instante UTC. */
+export function horaAR(ahora: Date | number = new Date()): number {
+  return Number(formatoHoraAR.format(aDate(ahora)));
+}
+
+/** Reloj HH:MM (24 h) en Buenos Aires, para etiquetas del panel. */
+export function horaMinutoAR(ahora: Date | number = new Date()): string {
+  return formatoHoraMinutoAR.format(aDate(ahora));
 }
 
 // Día calendario UTC de un instante. No es FechaAR: conserva el corte UTC de los sitios que
