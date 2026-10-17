@@ -1,0 +1,32 @@
+---
+---
+<div class="kpis">
+  <div class="segbar" title="Distribución de la operatoria">
+    <span style="background:#1a1a1a;color:#fff;width:70%">Ventas 70%</span>
+    <span style="background:#ffd600;width:10%">10%</span>
+    <span style="width:15%;background:repeating-linear-gradient(45deg,#efecea,#efecea 4px,#fff 4px,#fff 8px)">15%</span>
+    <span style="width:5%;border:1px solid #ddd6c4;border-radius:0 999px 999px 0">5%</span>
+  </div>
+  <div class="bignums">
+    <div class="bignum"><b id="n-tickets">…</b><small>Tickets hoy</small></div>
+    <div class="bignum"><b id="n-stock">…</b><small>Stock bajo</small></div>
+    <div class="bignum"><b id="n-caja">—</b><small>Caja total <span class="live">en vivo</span></small></div>
+  </div>
+</div>
+<div class="estado" id="kpi-estado">Resumen: cargando…</div>
+
+<script>
+  import { formatearCentavos, setTexto } from "../../lib/panel-modulos.js";
+
+  fetch("/api/cash/balance").then(async (r) => {
+    if (!r.ok) throw new Error("http " + r.status);
+    const b = await r.json();
+    const medios = b.por_medio || {};
+    const total = Object.values(medios).map(Number).reduce((a, v) => a + v, 0);
+    setTexto("n-caja", formatearCentavos(total));
+    setTexto("balance-estado", "Balance en vivo: total " + formatearCentavos(total) + ".");
+  }).catch(() => {
+    setTexto("n-caja", "—");
+    setTexto("balance-estado", "Sin conexión con el servidor: caja no disponible.");
+  });
+</script>

@@ -136,6 +136,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
   const elegirProveedor = (item) => {
     $("cta-cuit").value = item.cuit;
+    $("oc-cuit").value = item.cuit;
     $("cta-cuit").focus();
     $("estado-cta-q").textContent = "Elegido: " + item.nombre + ".";
   };

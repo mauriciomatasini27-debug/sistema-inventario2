@@ -83,6 +83,11 @@ export function pillsPanel(activo?: DestinoPanel): PillPanel[] {
   return DESTINOS.map((id) => ({ label: etiquetaDestino(id), href: hrefDestino(id), activo: id === activo }));
 }
 
+export function setTexto(id: string, texto: string): void {
+  const el = document.getElementById(id);
+  if (el) el.textContent = texto;
+}
+
 export function formatearCentavos(centavos: number | bigint | string): string {
   const numero = Number(centavos);
   const valor = Number.isFinite(numero) ? numero : 0;

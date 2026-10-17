@@ -1,0 +1,84 @@
+---
+import { hrefModulo } from "../../lib/panel-modulos.js";
+---
+<section class="card" id="stock"><h2>Stock <a href={hrefModulo("stock")}>↗</a></h2><div class="mini"><span class="live">en vivo</span> <a href="/api/products">/api/products</a> · <a href="/api/lots">/api/lots</a> · conteo <a href="/api/stock/conteo">/api/stock/conteo</a></div><div class="estado" id="stock-estado">Stock: cargando…</div>
+  <h3 style="font-size:13px;margin:12px 0 4px">Umbrales de alerta (ALR-S1)</h3>
+  <div class="mini">SKU + <label for="umb-min">Stock mínimo</label> y <label for="umb-re">Cantidad a reponer</label>. Vacío = sin valor (la alerta usa la rotación 7d).</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <input id="umb-sku" placeholder="SKU" aria-label="SKU del producto" style="flex:1;min-width:110px;border:1px solid #ddd6c4;border-radius:8px;padding:8px;min-height:36px" />
+    <input id="umb-min" type="number" min="0" step="1" placeholder="Stock mínimo" aria-label="Stock mínimo" style="width:110px;border:1px solid #ddd6c4;border-radius:8px;padding:8px;min-height:36px" />
+    <input id="umb-re" type="number" min="1" step="1" placeholder="A reponer" aria-label="Cantidad a reponer" style="width:110px;border:1px solid #ddd6c4;border-radius:8px;padding:8px;min-height:36px" />
+  </div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button id="umb-cargar" type="button" style="border:1px solid #ddd6c4;background:#fff;border-radius:999px;padding:8px 16px;min-height:36px">Cargar</button>
+    <button id="umb-guardar" type="button" style="border:0;background:#1a1a1a;color:#fff;border-radius:999px;padding:8px 16px;min-height:36px">Guardar</button>
+  </div>
+  <div class="estado" id="umb-estado">Umbrales: cargá un SKU para ver sus valores.</div>
+</section>
+
+<script>
+  import { setTexto } from "../../lib/panel-modulos.js";
+
+  const umbEstado = (t) => { document.getElementById("umb-estado").textContent = t; };
+  const umbNum = (id) => {
+    const v = document.getElementById(id).value.trim();
+    if (v === "") return { ok: true, valor: null };
+    const n = Number(v);
+    if (!Number.isInteger(n)) return { ok: false, error: "tiene que ser un número entero o quedar vacío" };
+    return { ok: true, valor: n };
+  };
+  document.getElementById("umb-cargar").onclick = async () => {
+    const sku = document.getElementById("umb-sku").value.trim().toUpperCase();
+    if (!sku) { umbEstado("Escribí el SKU del producto."); return; }
+    umbEstado("Cargando…");
+    try {
+      const r = await fetch("/api/products?q=" + encodeURIComponent(sku));
+      if (!r.ok) throw new Error("http " + r.status);
+      const j = await r.json();
+      const f = (j.productos || []).find((p) => p.sku === sku);
+      if (!f) { umbEstado("No hay un producto con ese SKU."); return; }
+      document.getElementById("umb-min").value = f.min_stock ?? "";
+      document.getElementById("umb-re").value = f.reorder_qty ?? "";
+      umbEstado(f.nombre + ": mínimo " + (f.min_stock ?? "sin valor") + " · a reponer " + (f.reorder_qty ?? "sin valor") + ".");
+    } catch {
+      umbEstado("Sin conexión: no se pudo cargar.");
+    }
+  };
+  document.getElementById("umb-guardar").onclick = async () => {
+    const sku = document.getElementById("umb-sku").value.trim().toUpperCase();
+    if (!sku) { umbEstado("Escribí el SKU del producto."); return; }
+    const min = umbNum("umb-min");
+    if (!min.ok) { umbEstado("Stock mínimo " + min.error + "."); return; }
+    if (min.valor !== null && min.valor < 0) { umbEstado("Stock mínimo tiene que ser 0 o más, o quedar vacío."); return; }
+    const re = umbNum("umb-re");
+    if (!re.ok) { umbEstado("Cantidad a reponer " + re.error + "."); return; }
+    if (re.valor !== null && re.valor <= 0) { umbEstado("Cantidad a reponer tiene que ser 1 o más, o quedar vacío."); return; }
+    umbEstado("Guardando…");
+    try {
+      const r = await fetch("/api/products?sku=" + encodeURIComponent(sku), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rol: "dueno", min_stock: min.valor, reorder_qty: re.valor }),
+      });
+      let j = {};
+      try {
+        j = await r.json();
+      } catch {
+        j = { error: "respuesta no json (error " + r.status + ")" };
+      }
+      if (r.status === 403) { umbEstado("Solo Dueño o encargado editan umbrales."); return; }
+      if (!r.ok) { umbEstado("No se guardó: " + (j.error ?? ("error " + r.status)) + "."); return; }
+      umbEstado("Guardado: mínimo " + (j.min_stock ?? "sin valor") + " · a reponer " + (j.reorder_qty ?? "sin valor") + ".");
+    } catch {
+      umbEstado("Sin conexión: no se pudo guardar.");
+    }
+  };
+  fetch("/api/products").then(async (r) => {
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    const n = (j.productos || []).length;
+    document.getElementById("stock-estado").textContent = "En vivo: " + n + " productos en catálogo.";
+  }).catch(() => {
+    setTexto("stock-estado", "Sin conexión: stock no disponible.");
+  });
+</script>

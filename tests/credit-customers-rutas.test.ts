@@ -19,9 +19,14 @@ describe("GET /api/credit/customers — listado tenant-scoped con q/limit/cursor
     sembrarCliente("cli-dos", "k2");
     const r = (await GETCustomers(ctx("http://x/api/credit/customers"))) as Response;
     expect(r.status).toBe(200);
-    const j = (await r.json()) as { items: Array<{ customer_id: string; nombre: string }>; next_cursor: string | null; fuente: string };
-    expect(j.items.map((i) => i.customer_id).sort()).toEqual(["cli-dos", "cli-uno"]);
-    expect(j.items[0]?.nombre).toBe("cli-dos");
+    const j = (await r.json()) as { items: Array<Record<string, unknown>>; next_cursor: string | null; fuente: string };
+    expect(j.items.map((i) => i["customer_id"]).sort()).toEqual(["cli-dos", "cli-uno"]);
+    expect(j.items[0]?.["nombre"]).toBe("cli-dos");
+    expect(j.items[0]).not.toHaveProperty("telefono");
+    expect(j.items[0]).not.toHaveProperty("dni");
+    expect(j.items[0]).not.toHaveProperty("tope_centavos");
+    expect(j.items[0]).not.toHaveProperty("plazo_dias");
+    expect(Object.keys(j.items[0] ?? {}).sort()).toEqual(["customer_id", "nombre"]);
     expect(j.next_cursor).toBeNull();
     expect(j.fuente).toBe("memoria");
   });

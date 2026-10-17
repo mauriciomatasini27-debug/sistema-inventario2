@@ -1,0 +1,53 @@
+---
+import { hrefModulo } from "../../lib/panel-modulos.js";
+---
+<section class="card" id="consumos">
+  <h2>Consumos de servicios <a href={hrefModulo("consumos")} aria-label="Ir a consumos">↗</a></h2>
+  <div class="mini">Cuentas · próximas a vencer (7 días) · vencidas <span class="live">en vivo</span></div>
+  <ul class="tl" id="consumos-cuentas"></ul>
+  <h3 style="font-size:13px;margin:12px 0 4px">Próximas a vencer</h3>
+  <ul class="tl" id="consumos-proximas"></ul>
+  <h3 style="font-size:13px;margin:12px 0 4px">Vencidas</h3>
+  <ul class="tl" id="consumos-vencidas"></ul>
+  <div class="estado" id="consumos-estado">Consumos: cargando…</div>
+</section>
+
+<script>
+  import { formatearCentavos } from "../../lib/panel-modulos.js";
+
+  Promise.all([
+    fetch("/api/service-accounts").then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); }),
+    fetch("/api/utility-bills/due?dentro_dias=7").then((r) => { if (!r.ok) throw new Error("http " + r.status); return r.json(); }),
+  ]).then(([cuentas, due]) => {
+    const nombres = {};
+    (cuentas.items || []).forEach((c) => { nombres[c.account_id] = (c.alias || c.proveedor) + " · " + c.servicio; });
+    const ulCuentas = document.getElementById("consumos-cuentas");
+    (cuentas.items || []).forEach((c) => {
+      const li = document.createElement("li");
+      li.innerHTML = "<b></b> <span class='mini'></span>";
+      li.querySelector("b").textContent = (c.alias || c.proveedor) + " · " + c.servicio;
+      li.querySelector(".mini").textContent = c.activa ? c.titular : "inactiva";
+      ulCuentas.appendChild(li);
+    });
+    if ((cuentas.items || []).length === 0) ulCuentas.innerHTML = "<li>Sin cuentas cargadas todavía.</li>";
+    const pintar = (id, filas, vacio) => {
+      const ul = document.getElementById(id);
+      filas.forEach((f) => {
+        const li = document.createElement("li");
+        li.innerHTML = "<span class='hora'></span><b></b> <span class='mini'></span>";
+        li.querySelector(".hora").textContent = f.vencimiento.slice(5);
+        li.querySelector("b").textContent = formatearCentavos(f.monto_centavos);
+        li.querySelector(".mini").textContent = (nombres[f.account_id] || "cuenta") + " · " + f.periodo;
+        ul.appendChild(li);
+      });
+      if (filas.length === 0) ul.innerHTML = "<li>" + vacio + "</li>";
+    };
+    pintar("consumos-proximas", due.proximas || [], "Nada por vencer en 7 días.");
+    pintar("consumos-vencidas", due.vencidas || [], "Sin facturas vencidas.");
+    document.getElementById("consumos-estado").textContent =
+      "En vivo: " + (cuentas.items || []).length + " cuentas · " +
+      (due.proximas || []).length + " próximas · " + (due.vencidas || []).length + " vencidas.";
+  }).catch(() => {
+    document.getElementById("consumos-estado").textContent = "Sin conexión con el servidor: consumos no disponibles.";
+  });
+</script>

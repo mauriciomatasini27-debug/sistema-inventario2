@@ -1,0 +1,56 @@
+---
+import { hrefModulo } from "../../lib/panel-modulos.js";
+---
+<section class="card" id="movimientos">
+  <h2>Últimos movimientos <a href={hrefModulo("reportes")} aria-label="Ir a reportes">↗</a></h2>
+  <table class="mov">
+    <thead><tr><th></th><th>Detalle</th><th>Medio</th><th>Importe</th><th>Estado</th></tr></thead>
+    <tbody id="mov-body">
+      <tr><td colspan="5">Cargando…</td></tr>
+    </tbody>
+  </table>
+  <div class="estado" id="movimientos-estado">Movimientos: cargando…</div>
+  <div class="mini">Historial real en <span style="font-family:monospace">GET /api/cash/history</span> · tickets en <span style="font-family:monospace">GET /api/tickets?numero=</span></div>
+  <div class="estado" id="balance-estado">Balance: cargando…</div>
+</section>
+
+<script>
+  import { formatearCentavos, setTexto } from "../../lib/panel-modulos.js";
+
+  document.getElementById("mov-body").innerHTML = "<tr><td colspan='5'>Cargando…</td></tr>";
+  fetch("/api/cash/history?limit=5").then(async (r) => {
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    const filas = (j.items || []).slice(0, 5);
+    const tbody = document.getElementById("mov-body");
+    tbody.innerHTML = "";
+    if (!filas.length) {
+      tbody.innerHTML = "<tr><td colspan='5'>Sin movimientos todavía.</td></tr>";
+      setTexto("movimientos-estado", "Sin movimientos.");
+      return;
+    }
+    filas.forEach((m) => {
+      const detalle = m.origen === "venta" ? "Venta"
+        : m.origen.startsWith("vencimiento:") ? "Pago de servicio"
+        : m.origen === "reversion" ? "Reversión" : m.origen;
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>◉</td><td></td><td></td><td></td><td>" + (m.tipo === "ingreso" ? "<span class='pill ok'>Ingreso</span>" : "<span class='pill warn'>Egreso</span>") + "</td>";
+      tr.children[1].textContent = detalle;
+      tr.children[2].textContent = m.metodo;
+      tr.children[3].textContent = formatearCentavos(m.monto_centavos);
+      tbody.appendChild(tr);
+    });
+    setTexto("movimientos-estado", "En vivo: " + filas.length + " movimiento(s) reciente(s).");
+  }).catch(() => {
+    const tbody = document.getElementById("mov-body");
+    tbody.innerHTML = "<tr><td colspan='5'>—</td></tr>";
+    setTexto("movimientos-estado", "Sin conexión: movimientos no disponibles.");
+  });
+
+  document.getElementById("q").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll("#mov-body tr").forEach((tr) => {
+      tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+</script>

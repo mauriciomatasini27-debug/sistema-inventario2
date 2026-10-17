@@ -6,7 +6,8 @@ import { listarClientes } from "../../../lib/repos/fiado.js";
 export const prerender = false;
 
 // GET /api/credit/customers — listado read-only tenant-scoped (P3-7d,
-// ADR-0020) para el picker de fiado. ?q= matchea nombre, id, teléfono o DNI;
+// ADR-0020) para el picker de fiado. ?q= matchea nombre, id, teléfono o DNI a
+// nivel servidor; el item devuelve solo customer_id y nombre.
 // ?limit= (default 20, tope 50) y ?cursor= offset. DB primero (customers); en
 // single sin base cae a memoria; en multi sin base BaseNoDisponible -> 503.
 export const GET: APIRoute = async ({ url }) => {
@@ -29,10 +30,6 @@ export const GET: APIRoute = async ({ url }) => {
     items: items.map((c) => ({
       customer_id: c.customerId,
       nombre: c.nombre,
-      telefono: c.telefono,
-      dni: c.dni,
-      tope_centavos: c.topeCentavos,
-      plazo_dias: c.plazoDias,
     })),
     next_cursor,
     fuente: leidos.fuente,

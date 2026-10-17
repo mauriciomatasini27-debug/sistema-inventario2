@@ -1,10 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { pillsPanel } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
+
+const COMPONENTES_PANEL = readdirSync(join(RAIZ, "src/components/panel"))
+  .filter((f) => f.endsWith(".astro"))
+  .map((f) => `src/components/panel/${f}`);
+const fuentePanel = (): string => [leer("src/pages/panel.astro"), ...COMPONENTES_PANEL.map(leer)].join("\n");
 
 const PANTALLAS = [
   "src/pages/panel/caja.astro",
@@ -34,10 +39,10 @@ function urlsFetch(src: string): string[] {
 }
 
 describe("panel: cada pill resuelve a una página real", () => {
-  it("panel.astro arma los pills desde el módulo compartido, sin anclas #", () => {
-    const panel = leer("src/pages/panel.astro");
-    expect(panel).toContain("pillsPanel");
-    expect(panel).not.toMatch(/href:\s*"#/);
+  it("TopPills arma los pills desde el módulo compartido, sin anclas #", () => {
+    const top = leer("src/components/panel/TopPills.astro");
+    expect(top).toContain("pillsPanel");
+    expect(fuentePanel()).not.toMatch(/href:\s*"#/);
   });
 
   it("todo href de pillsPanel existe como archivo de página", () => {
@@ -47,8 +52,8 @@ describe("panel: cada pill resuelve a una página real", () => {
     expect(faltantes).toEqual([]);
   });
 
-  it("cada ancla interna de panel.astro tiene su id en la página", () => {
-    const panel = leer("src/pages/panel.astro");
+  it("cada ancla interna del panel tiene su id en la composición", () => {
+    const panel = fuentePanel();
     const anclas = [...panel.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
     const ids = new Set([...panel.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
     const muertas = anclas.filter((a): a is string => a !== undefined && !ids.has(a));
@@ -62,7 +67,7 @@ describe("panel: cada pill resuelve a una página real", () => {
   });
 
   it("los enlaces ↗ de los módulos apuntan a /panel/<modulo>, no a anclas", () => {
-    const panel = leer("src/pages/panel.astro");
+    const panel = fuentePanel();
     const modulos = ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "reportes"] as const;
     for (const m of modulos) {
       expect(panel, m).toContain(`href={hrefModulo("${m}")}`);

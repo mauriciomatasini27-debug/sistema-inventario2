@@ -1,0 +1,9 @@
+---
+import { hrefModulo } from "../../lib/panel-modulos.js";
+---
+<section class="card" id="caja">
+  <h2>Turnos <a href={hrefModulo("caja")} aria-label="Ir a caja">↗</a></h2>
+  <ul class="tl" id="turnos-lista"></ul>
+  <div class="estado" id="turnos-estado">Turnos: cargando…</div>
+  <div class="mini"><a href="/api/cash/balance">Ver balance JSON</a> · turnos full en P1</div>
+</section>

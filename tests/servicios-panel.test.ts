@@ -62,7 +62,7 @@ describe("CS7 panel de consumos (APIs)", () => {
 });
 
 describe("CS7 panel de consumos (vista)", () => {
-  const panel = readFileSync(join(process.cwd(), "src", "pages", "panel.astro"), "utf8");
+  const panel = readFileSync(join(process.cwd(), "src", "components", "panel", "ConsumosCard.astro"), "utf8");
 
   it("tiene seccion consumos que consume ambas APIs", () => {
     expect(panel).toContain('id="consumos"');

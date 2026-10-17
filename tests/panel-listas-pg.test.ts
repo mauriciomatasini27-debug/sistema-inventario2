@@ -26,10 +26,10 @@ async function listarProveedoresDe(tenant: string): Promise<{ items: Array<{ nom
   return (await res.json()) as { items: Array<{ nombre: string }>; fuente: string };
 }
 
-async function listarClientesDe(tenant: string): Promise<{ items: Array<{ nombre: string }>; fuente: string }> {
+async function listarClientesDe(tenant: string): Promise<{ items: Array<{ nombre: string } & Record<string, unknown>>; fuente: string }> {
   const res = (await conTenant(tenant, () => GETCustomers(ctx("http://test/api/credit/customers")))) as Response;
   expect(res.status).toBe(200);
-  return (await res.json()) as { items: Array<{ nombre: string }>; fuente: string };
+  return (await res.json()) as { items: Array<{ nombre: string } & Record<string, unknown>>; fuente: string };
 }
 
 describe.skipIf(!hayPG)("P3-7d listados del panel: aislamiento por tenant en Postgres", () => {
@@ -74,7 +74,10 @@ describe.skipIf(!hayPG)("P3-7d listados del panel: aislamiento por tenant en Pos
 
     const a = await listarClientesDe("tenant-a");
     expect(a.fuente).toBe("db");
-    expect(a.items.some((i) => i.nombre === clienteA)).toBe(true);
+    const encontrado = a.items.find((i) => i.nombre === clienteA);
+    expect(encontrado).toBeDefined();
+    expect(encontrado).not.toHaveProperty("telefono");
+    expect(encontrado).not.toHaveProperty("dni");
 
     const b = await listarClientesDe("tenant-b");
     expect(b.items.some((i) => i.nombre === clienteA)).toBe(false);

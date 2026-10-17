@@ -1,0 +1,14 @@
+---
+import { pillsPanel, type DestinoPanel } from "../../lib/panel-modulos.js";
+
+interface Props {
+  activo?: DestinoPanel;
+}
+const { activo } = Astro.props;
+const pills = pillsPanel(activo);
+---
+<nav class="pills" aria-label="Módulos">
+  {pills.map((p) => (
+    <a href={p.href} class={p.activo ? "active" : ""} aria-current={p.activo ? "page" : undefined}>{p.label}</a>
+  ))}
+</nav>

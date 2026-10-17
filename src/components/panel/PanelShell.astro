@@ -1,7 +1,8 @@
 ---
 import "../../styles/global.css";
 import { Toaster } from "../ui/Toaster";
-import { pillsPanel, type DestinoPanel } from "../../lib/panel-modulos.js";
+import TopPills from "./TopPills.astro";
+import type { DestinoPanel } from "../../lib/panel-modulos.js";
 
 interface Props {
   titulo: string;
@@ -9,7 +10,6 @@ interface Props {
   activo?: DestinoPanel;
 }
 const { titulo, subtitulo = "", activo } = Astro.props;
-const pills = pillsPanel(activo);
 ---
 <!doctype html>
 <html lang="es">
@@ -62,11 +62,7 @@ const pills = pillsPanel(activo);
     <div class="panel-shell">
       <header class="topbar">
         <a class="logo" href="/panel">Inventario</a>
-        <nav class="pills" aria-label="Módulos">
-          {pills.map((p) => (
-            <a href={p.href} class={p.activo ? "active" : ""} aria-current={p.activo ? "page" : undefined}>{p.label}</a>
-          ))}
-        </nav>
+        <TopPills activo={activo} />
       </header>
       <main>
         <h1>{titulo}</h1>
