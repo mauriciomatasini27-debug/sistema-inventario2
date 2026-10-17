@@ -115,7 +115,9 @@ export function pintarHeat(buckets: BucketHeat[]): void {
       cont.appendChild(i);
     }
   }
-  setTexto("heatmap-estado", total ? total + " tickets en los últimos 28 días." : "Sin ventas en los últimos 28 días.");
+  const resumen = total ? total + " tickets en los últimos 28 días." : "Sin ventas en los últimos 28 días.";
+  cont.setAttribute("aria-label", "Heatmap de tickets por día y hora: " + resumen);
+  setTexto("heatmap-estado", resumen);
 }
 
 export function pintarVentas(meses: MesVenta[]): void {

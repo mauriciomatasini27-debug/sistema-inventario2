@@ -207,4 +207,5 @@ Generado por `npm run docs:index`. No editar a mano.
 
 - README.md
 - ROADMAP.md
+- diseno/contraste-aa.md
 - migracion-supabase.md

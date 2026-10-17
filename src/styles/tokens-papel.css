@@ -1,0 +1,28 @@
+/* Tokens de color Tema Papel (ADR-0008/0009) para páginas que no cargan global.css
+   (Tailwind/preflight), p. ej. /panel. Espejo exacto del @theme de global.css:
+   tests/panel-tokens.test.ts falla si divergen. */
+:root {
+  --color-void: #1a1a1a;
+  --color-canvas: #f7f5f2;
+  --color-linen: #efecea;
+  --color-ash: #6e695d;
+  --color-trust: #255c7a;
+  --color-space-void: #1a1a1a;
+  --color-space-mist: #efecea;
+  --color-galaxy-deep: #ffffff;
+  --color-galaxy-blue: #255c7a;
+  --color-nebula-cyan: #255c7a;
+  --color-dust-gray: #6e695d;
+  --color-lavender-dust: #6e695d;
+  --color-core-cream: #1a1a1a;
+  --color-star-white: #ffffff;
+  --color-star-warm: #e64a19;
+  --color-star-glow: #bf360c;
+  --color-llama: #ffd600;
+  --color-muted-dark: #cfc9b8;
+  --color-midnight-void: #1a1a1a;
+  --color-canvas-white: #f7f5f2;
+  --color-soft-linen: #efecea;
+  --color-ash-gray: #6e695d;
+  --color-trust-slate: #255c7a;
+}

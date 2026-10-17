@@ -1,4 +1,5 @@
 ---
+import "../styles/tokens-papel.css";
 import { Toaster } from "../components/ui/Toaster";
 import TopPills from "../components/panel/TopPills.astro";
 import KpiStrip from "../components/panel/KpiStrip.astro";
@@ -26,30 +27,37 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
     <title>Panel del comercio</title>
     <style is:global>
       :root {
-        --papel: #f7f5f2; --canvas: #efecea; --tinta: #1a1a1a;
-        --llama: #ffd600; --llama-hover: #ffe033; --muted: #8a8578;
-        --card: #ffffff; --radio: 16px;
+        --papel: var(--color-canvas); --canvas: var(--color-linen); --tinta: var(--color-void);
+        --llama: var(--color-llama); --llama-hover: #ffe033; --muted: var(--color-ash);
+        --card: var(--color-star-white); --radio: 16px;
+        --borde: #ddd6c4; --linea: #e3ddcd; --texto-suave: #55524a; --blanco: var(--color-star-white);
+        --tenue-oscuro: #cfc9b8; --borde-oscuro: #444; --heat-off: #3a3a3a;
+        --vivo-bg: #d9f2e2; --vivo-fg: #1c6b3a;
+        --ok-bg: #ece7f8; --ok-fg: #5b4fa6;
+        --warn-bg: #eef0f1; --warn-fg: #6b6f73;
+        --pend-bg: #e8f7d9; --pend-fg: #4c7a1f;
+        --sombra: rgba(0,0,0,.06);
       }
       * { box-sizing: border-box; }
       body { margin: 0; font-family: system-ui, sans-serif; background: var(--papel); color: var(--tinta); }
       .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
       .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .logo { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
+      .logo { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
       nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
-      nav.pills a { white-space: nowrap; text-decoration: none; color: #55524a; font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 36px; display: inline-flex; align-items: center; }
-      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: #fff; }
+      nav.pills a { white-space: nowrap; text-decoration: none; color: var(--texto-suave); font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center; }
+      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--blanco); }
       .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-      .top-right input { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 36px; }
-      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+      .top-right input { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 44px; }
+      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--blanco); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
       h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; }
       .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
       .kpis { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
       .segbar { display: flex; height: 34px; border-radius: 999px; overflow: hidden; background: var(--canvas); min-width: min(420px, 100%); font-size: 12px; font-weight: 700; }
       .segbar span { display: inline-flex; align-items: center; padding: 0 12px; min-width: 0; overflow: hidden; white-space: nowrap; }
-      .segbar span:nth-child(1) { background: var(--tinta); color: #fff; }
+      .segbar span:nth-child(1) { background: var(--tinta); color: var(--blanco); }
       .segbar span:nth-child(2) { background: var(--llama); }
-      .segbar span:nth-child(3) { background: repeating-linear-gradient(45deg,#efecea,#efecea 4px,#fff 4px,#fff 8px); }
-      .segbar span:nth-child(4) { border: 1px solid #ddd6c4; border-radius: 0 999px 999px 0; }
+      .segbar span:nth-child(3) { background: repeating-linear-gradient(45deg,var(--canvas),var(--canvas) 4px,var(--blanco) 4px,var(--blanco) 8px); }
+      .segbar span:nth-child(4) { border: 1px solid var(--borde); border-radius: 0 999px 999px 0; }
       .segbar span.vacio { background: none; color: var(--muted); font-weight: 500; }
       .bignums { display: flex; gap: 28px; }
       .bignum { text-align: left; }
@@ -59,31 +67,31 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
       .grid.r1 { grid-template-columns: 240px 1fr 300px; }
       .grid.r2 { grid-template-columns: 1fr 300px; margin-top: 16px; }
       .grid.r3 { grid-template-columns: repeat(5, 1fr); margin-top: 16px; }
-      .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); min-width: 0; }
+      .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px var(--sombra); min-width: 0; }
       .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
-      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid #e3ddcd; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-      .live { font-size: 11px; background: #d9f2e2; color: #1c6b3a; border-radius: 999px; padding: 2px 8px; font-weight: 700; }
+      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid var(--linea); border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+      .live { font-size: 11px; background: var(--vivo-bg); color: var(--vivo-fg); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
       .tl { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-      .tl li { border-left: 2px solid #e3ddcd; margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
+      .tl li { border-left: 2px solid var(--linea); margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
       .tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--llama); position: absolute; left: -5px; top: 10px; }
-      .hora { display: inline-block; border: 1px solid #e3ddcd; border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
+      .hora { display: inline-block; border: 1px solid var(--linea); border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
       table.mov { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mov th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px; border-bottom: 1px solid var(--canvas); }
       table.mov td { padding: 8px 6px; border-bottom: 1px solid var(--canvas); }
       .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; }
-      .ok { background: #ece7f8; color: #5b4fa6; } .warn { background: #eef0f1; color: #6b6f73; } .pend { background: #e8f7d9; color: #4c7a1f; }
-      .dark { background: var(--tinta); color: #fff; }
-      .dark h2 a { color: #fff; border-color: #444; }
+      .ok { background: var(--ok-bg); color: var(--ok-fg); } .warn { background: var(--warn-bg); color: var(--warn-fg); } .pend { background: var(--pend-bg); color: var(--pend-fg); }
+      .dark { background: var(--tinta); color: var(--blanco); }
+      .dark h2 a { color: var(--blanco); border-color: var(--borde-oscuro); }
       .heat { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; margin-top: 12px; }
-      .heat i { aspect-ratio: 1; border-radius: 50%; background: #3a3a3a; }
+      .heat i { aspect-ratio: 1; border-radius: 50%; background: var(--heat-off); }
       .heat i.on { background: var(--llama); }
       .bign { font-size: 30px; }
       svg.chart { width: 100%; height: 170px; }
       .dona { display: flex; align-items: center; justify-content: center; }
       .legend { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-top: 8px; }
-      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: #fff; border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
+      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--blanco); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
       .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
-      .mini { font-size: 13px; color: #55524a; }
+      .mini { font-size: 13px; color: var(--texto-suave); }
       .mini a { color: var(--tinta); font-weight: 600; }
       .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
       :target { outline: 2px solid var(--llama); outline-offset: 4px; }
@@ -113,7 +121,7 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
       <KpiStrip />
 
       <div class="banner">
-        <div><b>Venta mostrador</b><br /><span class="mini" style="color:#cfc9b8">Cobrar, sync offline y balance — como siempre.</span></div>
+        <div><b>Venta mostrador</b><br /><span class="mini" style="color:var(--tenue-oscuro)">Cobrar, sync offline y balance — como siempre.</span></div>
         <span style="margin-left:auto"></span>
         <a href="/venta">Vender →</a>
       </div>
