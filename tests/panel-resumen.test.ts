@@ -208,4 +208,35 @@ describe("panel-resumen: devoluciones y correcciones netean los agregados del me
     expect(r.tickets_hoy).toBe(1);
     expect(r.heatmap.reduce((a, b) => a + b.tickets, 0)).toBe(1);
   });
+
+  it("cuenta solo las devoluciones de hoy con el corte AR, cruzando la medianoche", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [],
+      devoluciones: [
+        { montoCentavos: 1_000n, medio: "Efectivo", ocurridoEn: new Date("2026-10-17T03:00:00Z") },
+        { montoCentavos: 1_000n, medio: "Efectivo", ocurridoEn: new Date("2026-10-17T13:00:00Z") },
+        { montoCentavos: 1_000n, medio: "Efectivo", ocurridoEn: new Date("2026-10-17T02:59:00Z") },
+        { montoCentavos: 1_000n, medio: "Efectivo", ocurridoEn: OCT(16) },
+      ],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    // 03:00Z es 00:00 AR de hoy; 02:59Z es 23:59 AR de ayer.
+    expect(r.devoluciones_hoy).toBe(2);
+    expect(r.tickets_hoy).toBe(0);
+  });
+
+  it("devoluciones_hoy no cambia tickets_hoy ni el heatmap", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: new Date("2026-10-17T13:00:00Z") }],
+      devoluciones: [{ montoCentavos: 3_000n, medio: "Efectivo", ocurridoEn: new Date("2026-10-17T14:00:00Z") }],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.devoluciones_hoy).toBe(1);
+    expect(r.tickets_hoy).toBe(1);
+    expect(r.heatmap.reduce((a, b) => a + b.tickets, 0)).toBe(1);
+  });
 });

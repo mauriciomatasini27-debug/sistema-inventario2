@@ -116,3 +116,19 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 });
+
+describe("panel: sin números demo ni porcentajes inventados", () => {
+  it("HeatCard y KpiStrip ya no marcan widgets como demo", () => {
+    expect(leer("src/components/panel/HeatCard.astro")).not.toMatch(/demo/i);
+    expect(leer("src/components/panel/KpiStrip.astro")).not.toMatch(/demo/i);
+  });
+
+  it("la segbar arranca sin porcentajes hardcodeados", () => {
+    const kpi = leer("src/components/panel/KpiStrip.astro");
+    const inicio = kpi.indexOf('class="segbar"');
+    const fin = kpi.indexOf('class="bignums"');
+    expect(inicio).toBeGreaterThan(-1);
+    expect(fin).toBeGreaterThan(inicio);
+    expect(kpi.slice(inicio, fin)).not.toMatch(/\d+%/);
+  });
+});

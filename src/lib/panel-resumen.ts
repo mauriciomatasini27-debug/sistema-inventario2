@@ -71,6 +71,7 @@ export interface TurnoPanel {
 
 export interface ResumenPanel {
   readonly tickets_hoy: number;
+  readonly devoluciones_hoy: number;
   readonly stock_bajo: number;
   readonly ventas_mes_centavos: string;
   readonly ventas_por_mes: MesResumen[];
@@ -136,6 +137,7 @@ export function construirResumen(ahora: Date, datos: DatosResumen): ResumenPanel
   const desdeHeat = sumarDiasAR(hoy, -27);
 
   let ticketsHoy = 0;
+  let devolucionesHoy = 0;
   let ventasMes = 0n;
   const meses = new Map(ultimos12Meses(ahora).map((m) => [m, { efectivo: 0n, digital: 0n }]));
   const porMedioMes = new Map<string, bigint>();
@@ -165,6 +167,7 @@ export function construirResumen(ahora: Date, datos: DatosResumen): ResumenPanel
   for (const devolucion of datos.devoluciones) {
     const fecha = fechaAR(devolucion.ocurridoEn);
     const mes = mesDeFecha(fecha);
+    if (fecha === hoy) devolucionesHoy += 1;
     if (mes === mesActual) {
       ventasMes = restar(ventasMes, devolucion.montoCentavos);
       porMedioMes.set(devolucion.medio, restar(porMedioMes.get(devolucion.medio) ?? 0n, devolucion.montoCentavos));
@@ -201,6 +204,7 @@ export function construirResumen(ahora: Date, datos: DatosResumen): ResumenPanel
 
   return {
     tickets_hoy: ticketsHoy,
+    devoluciones_hoy: devolucionesHoy,
     stock_bajo: stockBajo,
     ventas_mes_centavos: ventasMes.toString(),
     ventas_por_mes: [...meses.entries()].map(([mes, b]) => ({

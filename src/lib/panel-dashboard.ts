@@ -11,6 +11,37 @@ export interface MedioVenta {
   centavos: string | number;
 }
 
+export interface SegmentoMedio {
+  medio: string;
+  pct: number;
+}
+
+const MAX_SEGMENTOS = 3;
+
+export function segmentosPorMedio(porMedio: MedioVenta[]): SegmentoMedio[] {
+  const positivos = porMedio
+    .map((m) => ({ medio: m.medio, valor: Number(m.centavos) }))
+    .filter((m) => Number.isFinite(m.valor) && m.valor > 0)
+    .sort((a, b) => b.valor - a.valor);
+  const total = positivos.reduce((a, m) => a + m.valor, 0);
+  if (total <= 0) return [];
+  const base =
+    positivos.length > MAX_SEGMENTOS
+      ? [...positivos.slice(0, MAX_SEGMENTOS), { medio: "Otros", valor: positivos.slice(MAX_SEGMENTOS).reduce((a, m) => a + m.valor, 0) }]
+      : positivos;
+  const exactos = base.map((m) => (m.valor / total) * 100);
+  const pisos = exactos.map((e) => Math.floor(e));
+  const resto = 100 - pisos.reduce((a, p) => a + p, 0);
+  const orden = exactos
+    .map((e, i) => ({ i, rem: e - Math.floor(e) }))
+    .sort((a, b) => b.rem - a.rem || a.i - b.i);
+  for (let k = 0; k < resto; k++) {
+    const o = orden[k];
+    if (o) pisos[o.i] = (pisos[o.i] ?? 0) + 1;
+  }
+  return base.map((m, i) => ({ medio: m.medio, pct: pisos[i] ?? 0 }));
+}
+
 export interface BucketHeat {
   dia_semana: number;
   hora: number;
@@ -26,6 +57,7 @@ export interface TurnoResumen {
 
 export interface ResumenPanel {
   tickets_hoy?: number;
+  devoluciones_hoy?: number;
   stock_bajo?: number;
   ventas_por_mes?: MesVenta[];
   por_medio?: MedioVenta[];
@@ -155,10 +187,32 @@ export function pintarDona(porMedio: MedioVenta[]): void {
   setTexto("medios-estado", "En vivo: este mes " + formatearCentavos(total) + " en " + porMedio.length + " medio(s).");
 }
 
+export function pintarSegbar(porMedio: MedioVenta[]): void {
+  const bar = document.getElementById("segbar");
+  if (!bar) return;
+  bar.textContent = "";
+  const segs = segmentosPorMedio(porMedio);
+  if (!segs.length) {
+    const vacio = document.createElement("span");
+    vacio.className = "vacio";
+    vacio.textContent = "Sin ventas este mes";
+    bar.appendChild(vacio);
+    return;
+  }
+  segs.forEach((seg) => {
+    const span = document.createElement("span");
+    span.style.width = seg.pct + "%";
+    span.textContent = seg.pct + "% " + seg.medio;
+    bar.appendChild(span);
+  });
+}
+
 export function renderResumen(j: ResumenPanel): void {
   setTexto("n-tickets", String(j.tickets_hoy ?? 0));
   setTexto("n-stock", String(j.stock_bajo ?? 0));
   setTexto("heat-ventas", String(j.tickets_hoy ?? 0));
+  setTexto("heat-dev", String(j.devoluciones_hoy ?? 0));
+  pintarSegbar(j.por_medio ?? []);
   setTexto("kpi-estado", "En vivo: " + (j.tickets_hoy ?? 0) + " tickets hoy · " + (j.stock_bajo ?? 0) + " con stock bajo.");
   pintarVentas(j.ventas_por_mes ?? []);
   pintarDona(j.por_medio ?? []);
@@ -170,6 +224,7 @@ export function renderResumenError(): void {
   setTexto("n-tickets", "—");
   setTexto("n-stock", "—");
   setTexto("heat-ventas", "—");
+  setTexto("heat-dev", "—");
   setTexto("kpi-estado", "Sin conexión con el servidor: resumen no disponible.");
   setTexto("ventas-estado", "Sin conexión: ventas por mes no disponibles.");
   setTexto("medios-estado", "Sin conexión: composición por medio no disponible.");
