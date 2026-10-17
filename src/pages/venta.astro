@@ -11,16 +11,23 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
 <html lang="es" dir={harness.dir}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Venta mostrador</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      body {
+        margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas);
+        /* DS-S17: con viewport-fit=cover, solo suma el inset del notch/barra (0 en el resto).
+           Insets físicos, por eso padding-left/right y no padding-inline. */
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
       input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin-block: 6px; }
-      button { background: #1a1a1a; color: #fff; border: 0; border-radius: 8px; }
-      .card { background: #fff; border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
+      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
       .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }

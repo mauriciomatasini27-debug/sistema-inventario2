@@ -105,7 +105,7 @@ export async function notificarAlertaSeguridad(opts: {
 async function enviarEmailResend(para: string, asunto: string, texto: string): Promise<void> {
   const key = process.env.RESEND_API_KEY ?? "";
   if (!key) return;
-  const from = process.env.EMAIL_FROM ?? "ModoOps <avisos@modoops.local>";
+  const from = process.env.EMAIL_FROM ?? "Inventario <seguridad@local>";
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 5000);
   try {

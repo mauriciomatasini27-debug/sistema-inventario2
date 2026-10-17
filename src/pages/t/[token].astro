@@ -1,5 +1,6 @@
 ---
 export const prerender = false;
+import "../../styles/tokens-papel.css";
 import { createHash } from "node:crypto";
 import { store } from "../../lib/store.js";
 import { esTokenPlanoValido, resolver_link } from "../../modules/sales/ticket_link.js";
@@ -39,10 +40,10 @@ if (esTokenPlanoValido(token)) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ticket</title>
     <style>
-      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); }
       main { max-width: 360px; margin: 0 auto; padding: 12px; }
-      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
-      .ley { border: 1px solid #111; padding: 6px; text-align: center; font-weight: bold; }
+      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin: 8px 0; }
+      .ley { border: 1px solid var(--color-void); padding: 6px; text-align: center; font-weight: bold; }
     </style>
   </head>
   <body>

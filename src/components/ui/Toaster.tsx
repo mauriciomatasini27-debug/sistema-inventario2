@@ -22,8 +22,8 @@ export function Toaster() {
         gap={8}
         toastOptions={{
           style: {
-            background: "var(--papel,#f7f5f2)",
-            color: "var(--tinta,#1a1a1a)",
+            background: "var(--color-canvas,#f7f5f2)",
+            color: "var(--color-void,#1a1a1a)",
             border: "1px solid var(--linen,#e3ddcd)",
             borderRadius: "16px",
             fontSize: "14px",

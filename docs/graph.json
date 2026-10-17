@@ -349,6 +349,10 @@
       "ruta": "docs/adr/0086-verificacion-local-sin-github-actions.md"
     },
     {
+      "id": "AUDITORIA-DS-01",
+      "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
+    },
+    {
       "id": "EVIDENCIA-UI-00",
       "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md"
     },
@@ -1914,6 +1918,31 @@
       "de": "ADR-0086",
       "a": "PRD-ARQ-01",
       "tipo": "modifica"
+    },
+    {
+      "de": "AUDITORIA-DS-01",
+      "a": "ADR-0008",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUDITORIA-DS-01",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUDITORIA-DS-01",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUDITORIA-DS-01",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUDITORIA-DS-01",
+      "a": "PRD-DS-03",
+      "tipo": "depende_de"
     },
     {
       "de": "MOD-01-VERIFICACION-FUENTE-OFICIAL",

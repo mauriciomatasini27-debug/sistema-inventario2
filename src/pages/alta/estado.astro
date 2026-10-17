@@ -1,6 +1,7 @@
 ---
 // Pantalla de estado ON3: avance, verificación WA y video mientras se crea.
 // Polling cada 2 s con reconexión al volver a la pestaña.
+import "../../styles/tokens-papel.css";
 const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\D/g, "");
 ---
 <!doctype html>
@@ -10,16 +11,16 @@ const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Preparando tu comercio</title>
     <style>
-      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); }
       main { max-width: 360px; margin: 0 auto; padding: 12px; }
       button, a.btn { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; box-sizing: border-box; display: block; text-align: center; }
-      button { background: #1a1a1a; color: #fff; border: 0; border-radius: 8px; }
-      a.btn { background: #25d366; color: #fff; border-radius: 8px; text-decoration: none; line-height: 44px; }
-      a.ghost { background: #fff; color: #1a1a1a; border: 1px solid #999; }
-      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
+      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      a.btn { background: #25d366; color: var(--color-star-white); border-radius: 8px; text-decoration: none; line-height: 44px; }
+      a.ghost { background: var(--color-star-white); color: var(--color-void); border: 1px solid var(--color-ash); }
+      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin: 8px 0; }
       .ok { color: #0a0; font-weight: bold; }
-      #error { color: #a00; font-size: 14px; }
-      .hint { font-size: 13px; color: #555; }
+      #error { color: var(--color-star-glow); font-size: 14px; }
+      .hint { font-size: 13px; color: var(--color-ash); }
       ul { padding-left: 20px; font-size: 14px; }
     </style>
   </head>

@@ -1,5 +1,6 @@
 ---
 // Alta autoservicio ON1: nombre, rubro y WhatsApp. Celular primero, 360px.
+import "../styles/tokens-papel.css";
 ---
 <!doctype html>
 <html lang="es">
@@ -8,17 +9,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crear mi comercio</title>
     <style is:global>
-      :root { --color-star-glow: #bf360c; }
-      body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas); }
       main { max-width: 360px; margin: 0 auto; padding: 12px; }
       input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; box-sizing: border-box; }
-      button { background: #1a1a1a; color: #fff; border: 0; border-radius: 8px; }
+      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       button:disabled { opacity: 0.6; }
-      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
+      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin: 8px 0; }
       .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
       .check input { width: auto; min-height: 24px; }
-      #error { color: #a00; font-size: 14px; white-space: pre-wrap; }
-      .hint { font-size: 13px; color: #555; }
+      #error { color: var(--color-star-glow); font-size: 14px; white-space: pre-wrap; }
+      .hint { font-size: 13px; color: var(--color-ash); }
       .error-campo { margin: 4px 0 0; color: var(--color-star-glow); font-size: 14px; font-weight: 600; }
       .error-campo::before { content: "⚠ "; }
       input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--color-star-glow); }
