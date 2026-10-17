@@ -59,6 +59,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     type CambioUmbral,
     type ErrorFila,
   } from "../../../lib/umbrales-panel.js";
+  import { confirmar } from "../../../lib/confirmar-dom.js";
 
   interface FilaUmbral {
     sku: string;
@@ -284,7 +285,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     });
   };
 
-  const aplicarSector = (): void => {
+  const aplicarSector = async (): Promise<void> => {
     const sector = ($("umb-sector") as HTMLSelectElement).value;
     if (!sector) {
       setMasivo("Elegí una categoría.");
@@ -296,6 +297,13 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
       setMasivo(min.ok ? re.error : min.error);
       return;
     }
+    const confirmado = await confirmar({
+      titulo: "Aplicar al sector",
+      mensaje: "Vas a aplicar stock mínimo y reposición a todos los productos de “" + sector + "”.",
+      accion: "Aplicar al sector",
+      nombreRequerido: sector,
+    });
+    if (!confirmado) return;
     const normalizado: BorradorUmbral = {
       min: min.valor === null ? "" : String(min.valor),
       reorder: re.valor === null ? "" : String(re.valor),
@@ -373,6 +381,6 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
   };
 
   $("umb-guardar").addEventListener("click", () => void guardar());
-  $("umb-aplicar").addEventListener("click", aplicarSector);
+  $("umb-aplicar").addEventListener("click", () => void aplicarSector());
   void cargar();
 </script>

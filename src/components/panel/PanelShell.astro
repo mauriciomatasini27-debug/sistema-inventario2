@@ -1,6 +1,7 @@
 ---
 import "../../styles/global.css";
 import { Toaster } from "../ui/Toaster";
+import ConfirmDialog from "../ui/ConfirmDialog.astro";
 import TopPills from "./TopPills.astro";
 import type { DestinoPanel } from "../../lib/panel-modulos.js";
 
@@ -74,5 +75,6 @@ const { titulo, subtitulo = "", activo } = Astro.props;
       </main>
     </div>
     <Toaster client:idle />
+    <ConfirmDialog />
   </body>
 </html>

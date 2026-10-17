@@ -41,6 +41,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
   import { REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -132,6 +133,19 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       estado.textContent = "Elegí una factura de la lista.";
       return;
     }
+    const confirmado = await confirmar({
+      titulo: "Pagar factura",
+      mensaje:
+        "Vas a pagar " +
+        formatearCentavos(factura.monto_centavos) +
+        " de " +
+        nombreCuenta(factura.account_id) +
+        " con " +
+        $("pago-medio").value +
+        ".",
+      accion: "Pagar",
+    });
+    if (!confirmado) return;
     estado.textContent = "Pagando…";
     try {
       const r = await fetch("/api/utility-bills/pay", {

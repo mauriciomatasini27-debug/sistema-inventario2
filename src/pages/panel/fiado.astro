@@ -52,6 +52,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
   import { MONTO, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -165,6 +166,12 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       estado.textContent = "Revisá los campos marcados.";
       return;
     }
+    const confirmado = await confirmar({
+      titulo: "Registrar cobro",
+      mensaje: "Vas a registrar un cobro de " + formatearCentavos(monto) + " para " + cliente + ".",
+      accion: "Cobrar",
+    });
+    if (!confirmado) return;
     estado.textContent = "Registrando cobro…";
     try {
       const r = await fetch("/api/credit/payments", {

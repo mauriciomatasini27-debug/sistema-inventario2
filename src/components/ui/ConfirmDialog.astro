@@ -1,0 +1,119 @@
+---
+---
+<dialog
+  id="confirmar-dialogo"
+  class="confirmar-dialogo"
+  aria-labelledby="confirmar-titulo"
+  aria-describedby="confirmar-mensaje"
+>
+  <form method="dialog" class="confirmar-caja">
+    <h2 id="confirmar-titulo" class="confirmar-titulo"></h2>
+    <p id="confirmar-mensaje" class="confirmar-mensaje"></p>
+    <label id="confirmar-nombre-campo" class="confirmar-nombre" hidden>
+      Escribí <b id="confirmar-nombre-esperado" class="confirmar-esperado"></b> para confirmar
+      <input id="confirmar-nombre" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    </label>
+    <div class="confirmar-acciones">
+      <button id="confirmar-cancelar" type="button" class="confirmar-boton confirmar-cancelar">Cancelar</button>
+      <button id="confirmar-aceptar" type="submit" class="confirmar-boton confirmar-aceptar" value="aceptar">
+        Confirmar
+      </button>
+    </div>
+  </form>
+</dialog>
+
+<style>
+  .confirmar-dialogo {
+    width: min(440px, calc(100vw - 32px));
+    padding: 0;
+    border: 1px solid var(--color-linen);
+    border-radius: 16px;
+    background: var(--color-star-white);
+    color: var(--color-void);
+    transition: opacity 0.15s ease;
+  }
+  .confirmar-dialogo::backdrop {
+    background: color-mix(in srgb, var(--color-void) 45%, transparent);
+  }
+  .confirmar-caja {
+    display: grid;
+    gap: 12px;
+    padding: 20px;
+    margin: 0;
+  }
+  .confirmar-titulo {
+    margin: 0;
+    font-size: 20px;
+  }
+  .confirmar-mensaje {
+    margin: 0;
+    color: var(--color-ash);
+    font-size: 14px;
+  }
+  .confirmar-nombre {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-ash);
+  }
+  .confirmar-nombre[hidden] {
+    display: none;
+  }
+  .confirmar-esperado {
+    color: var(--color-void);
+  }
+  .confirmar-nombre input {
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-linen);
+    border-radius: 8px;
+    background: var(--color-star-white);
+    color: var(--color-void);
+    font: inherit;
+    font-size: 16px;
+  }
+  .confirmar-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .confirmar-boton {
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .confirmar-cancelar {
+    background: var(--color-linen);
+    color: var(--color-void);
+  }
+  .confirmar-cancelar:hover {
+    background: var(--color-canvas);
+  }
+  .confirmar-aceptar {
+    background: var(--color-star-glow);
+    color: var(--color-star-white);
+  }
+  .confirmar-aceptar:hover {
+    background: var(--color-void);
+  }
+  .confirmar-aceptar:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .confirmar-cancelar:focus-visible,
+  .confirmar-aceptar:focus-visible,
+  .confirmar-nombre input:focus-visible {
+    outline: 2px solid var(--color-trust);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .confirmar-dialogo {
+      transition: none;
+    }
+  }
+</style>

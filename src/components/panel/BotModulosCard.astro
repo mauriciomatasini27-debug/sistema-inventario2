@@ -8,6 +8,8 @@
 </section>
 
 <script>
+  import { confirmar } from "../../lib/confirmar-dom.js";
+
   const botEtiquetas = { rotacion: "Rotación y reposición", vencimientos: "Vencimientos", flujo_caja: "Flujo de caja", cobranza: "Cobranza", ordenes_produccion: "Órdenes de producción", entregas: "Entregas" };
   fetch("/api/bot-modulos").then(async (r) => {
     if (!r.ok) throw new Error("http " + r.status);
@@ -23,7 +25,20 @@
       cb.checked = activos.has(m);
       cb.disabled = !j.puede_editar;
       cb.dataset.modulo = m;
+      const etiqueta = botEtiquetas[m] || m;
       cb.onchange = async () => {
+        if (!cb.checked) {
+          const confirmado = await confirmar({
+            titulo: "Desactivar módulo del bot",
+            mensaje: "Vas a desactivar “" + etiqueta + "” en el bot de WhatsApp.",
+            accion: "Desactivar",
+            nombreRequerido: etiqueta,
+          });
+          if (!confirmado) {
+            cb.checked = true;
+            return;
+          }
+        }
         cb.disabled = true;
         try {
           const r2 = await fetch("/api/bot-modulos", {
@@ -44,7 +59,7 @@
         }
       };
       label.appendChild(cb);
-      label.appendChild(document.createTextNode(botEtiquetas[m] || m));
+      label.appendChild(document.createTextNode(etiqueta));
       cont.appendChild(label);
     });
     estado.textContent = (j.activos || []).length + " módulos activos" + (j.puede_editar ? "" : " · solo el Dueño edita");

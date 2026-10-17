@@ -34,6 +34,11 @@ FALLBACK=${PSTACK_FALLBACK_MODELS:-"opencode/muse-spark-1.3-contributor-free ope
 modelos=("${pedido:-opencode/deepseek-v4.1-flash-free}")
 for m in $FALLBACK; do [ "$m" = "${modelos[0]}" ] || modelos+=("$m"); done
 out=$(mktemp); trap 'rm -f "$out"' EXIT
+# Por qué: un intento que falla (timeout, cuota) puede dejar el árbol a medio
+# editar; relanzar otro modelo encima mezcla dos sesiones. Si el árbol cambió
+# respecto del inicio, se corta con exit 4 y decide el orquestador.
+estado_arbol() { git -C "$PWD" status --porcelain --untracked-files=all -- . ':(exclude).pstack-tmp' 2>/dev/null || true; }
+inicial=$(estado_arbol)
 for m in "${modelos[@]}"; do
   echo "pstack-run: model=$m" >&2
   set +e
@@ -44,6 +49,9 @@ for m in "${modelos[@]}"; do
   # contener "quota" o "429" y no es un fallo del modelo.
   if [ $rc -eq 0 ] && ! grep -E '^\{"type":"error"' "$out" | grep -qiE 'rate.?limit|quota|insufficient|too many requests|429|exhausted' && ! { grep -q '"type":"error"' "$out" && ! grep -q '"type":"text"' "$out"; }; then
     cat "$out"; echo "pstack-run: done model=$m" >&2; exit 0
+  fi
+  if [ "$(estado_arbol)" != "$inicial" ]; then
+    cat "$out"; echo "pstack-run: model=$m failed (rc=$rc) y el árbol tiene cambios: no relanzo con otro modelo (exit 4, decide el orquestador)" >&2; exit 4
   fi
   echo "pstack-run: model=$m failed (rc=$rc), trying next" >&2
 done

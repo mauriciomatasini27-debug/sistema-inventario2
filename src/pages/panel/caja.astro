@@ -65,6 +65,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
   import { MONTO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -158,6 +159,14 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       mostrarErrores(form, { monto_centavos: mensajeCampo("monto_centavos", MONTO) });
       estado.textContent = "Revisá los campos marcados.";
       return;
+    }
+    if ($("mov-tipo").value === "egreso") {
+      const confirmado = await confirmar({
+        titulo: "Registrar egreso",
+        mensaje: "Vas a sacar " + formatearCentavos(monto) + " de caja por " + $("mov-metodo").value + ".",
+        accion: "Registrar egreso",
+      });
+      if (!confirmado) return;
     }
     estado.textContent = "Registrando…";
     try {
