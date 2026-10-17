@@ -743,6 +743,10 @@
     {
       "id": "SPEC-UI-00",
       "ruta": "docs/diseno/SPEC-UI-00-implementacion.md"
+    },
+    {
+      "id": "harness-venta",
+      "ruta": "docs/diseno/harness-venta.md"
     }
   ],
   "aristas": [
@@ -3228,6 +3232,16 @@
     },
     {
       "de": "SPEC-UI-00",
+      "a": "PRD-UI-07",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "harness-venta",
+      "a": "ADR-0038",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "harness-venta",
       "a": "PRD-UI-07",
       "tipo": "depende_de"
     }

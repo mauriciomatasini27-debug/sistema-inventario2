@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: "tests/e2e",
   fullyParallel: false,
   retries: 0,
-  use: { baseURL: "http://localhost:4321", trace: "on-first-retry" },
+  use: { baseURL: "http://localhost:4321", trace: "on-first-retry", channel: process.env.PW_CHANNEL },
   projects: [{ name: "mobile-360", use: { ...devices["Pixel 5"], viewport: { width: 360, height: 800 } } }],
   webServer: undefined,
 });

@@ -1,34 +1,51 @@
 ---
 // UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos/fiados/devoluciones.
 // (Movida desde / a /venta por ADR-0020: el home pasa a ser el dashboard índice.)
+import "../styles/tokens-papel.css";
+import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
+
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+const harness = modoHarness(Astro.url, import.meta.env.DEV);
 ---
 <!doctype html>
-<html lang="es">
+<html lang="es" dir={harness.dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Venta mostrador</title>
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
       body { margin: 0; font-family: system-ui, sans-serif; background: #f5f1e8; }
-      main { max-width: 360px; margin: 0 auto; padding: 12px; }
-      input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; }
+      main { max-width: 360px; margin-inline: auto; padding: 12px; }
+      input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin-block: 6px; }
       button { background: #1a1a1a; color: #fff; border: 0; border-radius: 8px; }
-      .card { background: #fff; border-radius: 12px; padding: 12px; margin: 8px 0; }
-      #estado { font-size: 14px; white-space: pre-wrap; }
+      .card { background: #fff; border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
+      #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
+      #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
+      .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }
+      .producto .nombre { min-width: 0; flex: 1 1 auto; }
+      .producto .monto { font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; }
+      ul { list-style: none; margin: 0; padding-inline: 0; }
+      li { padding-block: 4px; }
+      @media (prefers-color-scheme: dark) {
+        body { background: var(--color-void); color: var(--color-star-white); }
+        .card { background: color-mix(in srgb, var(--color-star-white) 8%, var(--color-void)); }
+        input, select { background: color-mix(in srgb, var(--color-star-white) 8%, var(--color-void)); color: var(--color-star-white); border: 1px solid var(--color-ash); }
+        button { background: var(--color-star-white); color: var(--color-void); }
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>Venta mostrador</h1>
       <div class="card">
-        <label>Código / SKU <input id="sku" value="demo-sku-1" /></label>
-        <label>Cantidad <input id="qty" type="number" value="1" min="1" /></label>
-        <label>Precio centavos <input id="precio" type="number" value="15000" min="0" /></label>
+        <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
+        <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
+        <label>Precio centavos <input id="precio" type="number" value={harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000} min="0" /></label>
         <label>Medio
           <select id="medio">
-            {medios.map((m) => <option value={m}>{m}</option>)}
+            {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
           </select>
         </label>
         <button id="cobrar">Cobrar</button>
@@ -37,8 +54,25 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         <button id="imprimir" type="button">Imprimir ticket</button>
         <button id="imprimir-bt" type="button">Imprimir BT</button>
       </div>
-      <div class="card"><div id="estado" role="status">Lista.</div></div>
-      <div class="card"><div id="balance" role="status">Balance: —</div></div>
+      <div class="card"><div id="estado" role="status">{harness.data === "worst" ? VENTA_WORST.errorApi : "Lista."}</div></div>
+      <div class="card"><div id="balance" role="status">{harness.data === "worst" ? VENTA_WORST.balanceTexto : "Balance: —"}</div></div>
+      {harness.data === "worst" && (
+        <div class="card">
+          <ul id="lineas-worst">
+            {VENTA_WORST.lineas.map((l) => (
+              <li class="producto">
+                <span class="nombre">{l.nombre} ({l.sku})</span>
+                <span class="monto">{l.precioCentavos}</span>
+              </li>
+            ))}
+          </ul>
+          <ul id="cola-worst">
+            {VENTA_WORST.cola.map((op) => (
+              <li class="provisorio">{op.device_code}-{op.device_seq} {op.op_id}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
     <script>
       const $ = (id) => document.getElementById(id);
@@ -192,7 +226,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
           else estado("BT falló; usá Imprimir");
         }
       };
-      balance();
+      if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) balance();
     </script>
   </body>
 </html>
