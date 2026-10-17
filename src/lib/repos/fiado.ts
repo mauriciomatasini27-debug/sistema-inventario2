@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { customerMovements, customers } from "../../db/schema-credito.js";
 import { SERIE_MOSTRADOR, ticketCounters } from "../../db/schema.js";
-import { dbVivaTenant } from "../server-db.js";
+import { dbVivaTenant, intentarLeer } from "../server-db.js";
 import {
   crearAlmacenCreditoVistos,
   crearAlmacenStock,
@@ -13,6 +13,7 @@ import { lotesDesdeStock, type Sku } from "../../modules/inventario/inventario.j
 import { cobro_fiado, venta_a_cuenta } from "../../modules/credit/fiado.js";
 import { siguiente_numero } from "../../modules/sales/vender_mostrador.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
+import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
 import { registrarIngresoCobro } from "./caja.js";
 
 // PERS2-S17 (ADR-0058): fiado (venta a cuenta, cobros, saldo por cliente).
@@ -377,6 +378,63 @@ function clientesConSaldoMemoria(hoyMs: number): { clientes: ClienteConSaldo[]; 
       fechaMs: typeof m.fecha_ms === "number" ? m.fecha_ms : null,
     }));
   return { clientes: agruparSaldos(movs, new Map(), hoyMs), fuente: "memoria" };
+}
+
+export interface ClienteLista {
+  readonly customerId: string;
+  readonly nombre: string;
+  readonly telefono: string | null;
+  readonly dni: string | null;
+  readonly topeCentavos: string;
+  readonly plazoDias: number;
+}
+
+// P3-7d (ADR-0020): listado read-only para el picker de fiado. DB primero con
+// intentarLeer (ficha de customers); en single sin base cae a la memoria
+// particionada, donde solo hay id de cliente en los movimientos, igual que
+// listarClientesConSaldo. En multi sin base propaga BaseNoDisponible (503).
+export async function listarClientes(): Promise<{ clientes: ClienteLista[]; fuente: "db" | "memoria" }> {
+  const enDb = await intentarLeer(async (db) => {
+    const filas = await db
+      .select({
+        id: customers.id,
+        nombre: customers.nombre,
+        telefono: customers.telefono,
+        dni: customers.dni,
+        tope: customers.topeCentavos,
+        plazo: customers.plazoDias,
+      })
+      .from(customers)
+      .orderBy(asc(customers.nombre));
+    return filas.map((f) => ({
+      customerId: String(f.id),
+      nombre: f.nombre,
+      telefono: f.telefono,
+      dni: f.dni,
+      topeCentavos: BigInt(f.tope).toString(),
+      plazoDias: f.plazo,
+    }));
+  });
+  if (enDb !== null) return { clientes: enDb, fuente: "db" };
+  return { clientes: clientesListaMemoria(), fuente: "memoria" };
+}
+
+function clientesListaMemoria(): ClienteLista[] {
+  const vistos = new Set<string>();
+  const clientes: ClienteLista[] = [];
+  for (const m of crearListaMovimientosCredito().listar()) {
+    if (vistos.has(m.customer_id)) continue;
+    vistos.add(m.customer_id);
+    clientes.push({
+      customerId: m.customer_id,
+      nombre: m.customer_id,
+      telefono: null,
+      dni: null,
+      topeCentavos: "0",
+      plazoDias: PLAZO_DEFECTO_DIAS,
+    });
+  }
+  return clientes.sort((a, b) => (a.customerId < b.customerId ? -1 : a.customerId > b.customerId ? 1 : 0));
 }
 
 export { UMBRAL_MORA_DIAS };

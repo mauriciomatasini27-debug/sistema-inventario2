@@ -1,9 +1,33 @@
 import type { APIRoute } from "astro";
 import { supplierInputSchema } from "../../modules/purchases/proveedores.js";
 import { BaseNoDisponible } from "../../lib/server-db.js";
-import { altaProveedor } from "../../lib/repos/proveedores.js";
+import { altaProveedor, listarProveedores } from "../../lib/repos/proveedores.js";
+import { filtrarTexto, listaQuerySchema, paginar } from "../../lib/lista-paginada.js";
 
 export const prerender = false;
+
+// GET /api/suppliers — listado read-only tenant-scoped (P3-7d, ADR-0020) para
+// el picker del panel. ?q= matchea nombre o CUIT sin distinguir mayúsculas,
+// ?limit= (default 20, tope 50) y ?cursor= offset. DB primero; en single sin
+// base cae a memoria; en multi sin base el repo propaga BaseNoDisponible -> 503.
+export const GET: APIRoute = async ({ url }) => {
+  const parsed = listaQuerySchema.safeParse({
+    q: url.searchParams.get("q") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
+    cursor: url.searchParams.get("cursor") ?? undefined,
+  });
+  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
+  let leidos: Awaited<ReturnType<typeof listarProveedores>>;
+  try {
+    leidos = await listarProveedores();
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
+  const filtrados = filtrarTexto(leidos.proveedores, parsed.data.q, (p) => [p.nombre, p.cuit]);
+  const { items, next_cursor } = paginar(filtrados, parsed.data);
+  return Response.json({ items, next_cursor, fuente: leidos.fuente });
+};
 
 // POST /api/suppliers — alta de proveedor (FP). 409 si el CUIT ya existe.
 // PERS2-S7: DB-first en el repo de proveedores (pre-check por CUIT +

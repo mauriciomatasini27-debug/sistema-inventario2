@@ -6,6 +6,11 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   <div class="grid dos">
     <section class="card">
       <h2>Saldo del cliente</h2>
+      <label>Buscar cliente
+        <input id="fiado-q" type="search" placeholder="Nombre o ID" autocomplete="off" />
+      </label>
+      <ul class="opciones" id="fiado-opciones" aria-label="Clientes encontrados"></ul>
+      <div class="estado" id="estado-fiado-q" role="status"></div>
       <div class="fila">
         <label>Cliente
           <input id="fiado-cliente" type="text" placeholder="cliente-1" autocomplete="off" />
@@ -36,6 +41,12 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     </section>
   </div>
 </PanelShell>
+
+<style is:global>
+  .panel-shell .opciones { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+  .panel-shell .opciones button { width: 100%; min-height: 44px; text-align: left; background: var(--color-linen); color: var(--color-void); border: 1px solid var(--color-linen); border-radius: 12px; font-weight: 500; }
+  .panel-shell .opciones button:hover { border-color: var(--color-ash); }
+</style>
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
@@ -83,6 +94,58 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       return;
     }
     cargarSaldo(cliente);
+  });
+
+  const elegirCliente = (item) => {
+    $("fiado-cliente").value = item.customer_id;
+    $("fiado-cliente").focus();
+    $("estado-fiado-q").textContent = "Elegido: " + item.nombre + ".";
+  };
+
+  let temporizador = null;
+  const buscarClientes = (texto) => {
+    const lista = $("fiado-opciones");
+    const estado = $("estado-fiado-q");
+    lista.textContent = "";
+    if (!texto) {
+      estado.textContent = "";
+      return;
+    }
+    estado.textContent = "Buscando…";
+    fetch("/api/credit/customers?q=" + encodeURIComponent(texto) + "&limit=8")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items ?? [];
+        lista.textContent = "";
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.textContent = item.nombre + " · " + item.customer_id;
+          boton.addEventListener("click", () => {
+            elegirCliente(item);
+            lista.textContent = "";
+            estado.textContent = "";
+          });
+          li.appendChild(boton);
+          lista.appendChild(li);
+        });
+        estado.textContent = items.length > 0 ? "" : "Sin resultados.";
+      })
+      .catch((error) => {
+        console.warn("[panel/fiado] buscador", error);
+        lista.textContent = "";
+        estado.textContent = mensaje("error", "");
+      });
+  };
+
+  $("fiado-q").addEventListener("input", () => {
+    clearTimeout(temporizador);
+    const texto = $("fiado-q").value.trim();
+    temporizador = setTimeout(() => buscarClientes(texto), 250);
   });
 
   $("pago-form").addEventListener("submit", async (evento) => {

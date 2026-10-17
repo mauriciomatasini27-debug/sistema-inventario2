@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { purchaseOrderLines, purchaseOrders, suppliers } from "../../db/schema-proveedores.js";
-import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenOrderVistos,
   crearAlmacenPurchaseOrders,
@@ -76,6 +76,37 @@ async function altaProveedorEnDb(db: TenantDb, cuit: string, supplier: Supplier)
   if (!filas[0]) return { ok: false, codigo: "CUIT_EXISTE", error: "proveedor ya existe" };
   crearAlmacenSuppliers().guardar(cuit, supplier);
   return { ok: true, supplierId: supplier.id, cuit: supplier.cuit, fuente: "db" };
+}
+
+export interface ProveedorLista {
+  readonly cuit: string;
+  readonly nombre: string;
+  readonly email: string | null;
+  readonly telefono: string | null;
+  readonly activo: boolean;
+}
+
+// P3-7d (ADR-0020): listado read-only para el picker del panel. DB primero con
+// intentarLeer; en single sin base cae a la memoria particionada. En multi sin
+// base lanza BaseNoDisponible y la ruta responde 503.
+export async function listarProveedores(): Promise<{ proveedores: ProveedorLista[]; fuente: "db" | "memoria" }> {
+  const enDb = await intentarLeer((db) =>
+    db
+      .select({
+        cuit: suppliers.cuit,
+        nombre: suppliers.nombre,
+        email: suppliers.email,
+        telefono: suppliers.telefono,
+        activo: suppliers.activo,
+      })
+      .from(suppliers)
+      .orderBy(asc(suppliers.cuit)),
+  );
+  if (enDb !== null) return { proveedores: enDb, fuente: "db" };
+  const proveedores = [...crearAlmacenSuppliers().comoMapaSoloLectura().values()]
+    .map((s) => ({ cuit: s.cuit, nombre: s.nombre, email: s.email, telefono: s.telefono, activo: s.activo }))
+    .sort((a, b) => (a.cuit < b.cuit ? -1 : a.cuit > b.cuit ? 1 : 0));
+  return { proveedores, fuente: "memoria" };
 }
 
 export interface CrearOrdenRepoInput {

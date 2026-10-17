@@ -29,6 +29,11 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
     <section class="card">
       <h2>Cuenta corriente</h2>
+      <label>Buscar proveedor
+        <input id="cta-q" type="search" placeholder="Nombre o CUIT" autocomplete="off" />
+      </label>
+      <ul class="opciones" id="cta-opciones" aria-label="Proveedores encontrados"></ul>
+      <div class="estado" id="estado-cta-q" role="status"></div>
       <div class="fila">
         <label>CUIT
           <input id="cta-cuit" type="text" inputmode="numeric" placeholder="20123456789" autocomplete="off" />
@@ -74,6 +79,12 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     </section>
   </div>
 </PanelShell>
+
+<style is:global>
+  .panel-shell .opciones { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+  .panel-shell .opciones button { width: 100%; min-height: 44px; text-align: left; background: var(--color-linen); color: var(--color-void); border: 1px solid var(--color-linen); border-radius: 12px; font-weight: 500; }
+  .panel-shell .opciones button:hover { border-color: var(--color-ash); }
+</style>
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
@@ -121,6 +132,58 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       return;
     }
     cargarCuenta(cuit);
+  });
+
+  const elegirProveedor = (item) => {
+    $("cta-cuit").value = item.cuit;
+    $("cta-cuit").focus();
+    $("estado-cta-q").textContent = "Elegido: " + item.nombre + ".";
+  };
+
+  let temporizador = null;
+  const buscarProveedores = (texto) => {
+    const lista = $("cta-opciones");
+    const estado = $("estado-cta-q");
+    lista.textContent = "";
+    if (!texto) {
+      estado.textContent = "";
+      return;
+    }
+    estado.textContent = "Buscando…";
+    fetch("/api/suppliers?q=" + encodeURIComponent(texto) + "&limit=8")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items ?? [];
+        lista.textContent = "";
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.textContent = item.nombre + " · " + item.cuit;
+          boton.addEventListener("click", () => {
+            elegirProveedor(item);
+            lista.textContent = "";
+            estado.textContent = "";
+          });
+          li.appendChild(boton);
+          lista.appendChild(li);
+        });
+        estado.textContent = items.length > 0 ? "" : "Sin resultados.";
+      })
+      .catch((error) => {
+        console.warn("[panel/proveedores] buscador", error);
+        lista.textContent = "";
+        estado.textContent = mensaje("error", "");
+      });
+  };
+
+  $("cta-q").addEventListener("input", () => {
+    clearTimeout(temporizador);
+    const texto = $("cta-q").value.trim();
+    temporizador = setTimeout(() => buscarProveedores(texto), 250);
   });
 
   $("prov-form").addEventListener("submit", async (evento) => {
