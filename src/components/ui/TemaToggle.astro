@@ -1,0 +1,11 @@
+---
+import { SCRIPT_TEMA_TOGGLE } from "../../lib/tema.js";
+---
+<button
+  type="button"
+  class="tema-toggle"
+  data-tema-toggle
+  aria-pressed="false"
+  aria-label="Tema oscuro"
+><span aria-hidden="true">☾</span><span>Oscuro</span></button>
+<script is:inline set:html={SCRIPT_TEMA_TOGGLE} />

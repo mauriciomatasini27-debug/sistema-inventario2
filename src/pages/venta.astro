@@ -2,6 +2,9 @@
 // UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos/fiados/devoluciones.
 // (Movida desde / a /venta por ADR-0020: el home pasa a ser el dashboard índice.)
 import "../styles/tokens-papel.css";
+import "../styles/tema.css";
+import TemaInicial from "../components/ui/TemaInicial.astro";
+import TemaToggle from "../components/ui/TemaToggle.astro";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
@@ -14,20 +17,23 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Venta mostrador</title>
+    <TemaInicial />
     <style>
       *, *::before, *::after { box-sizing: border-box; }
       body {
-        margin: 0; font-family: system-ui, sans-serif; background: var(--color-canvas);
+        margin: 0; font-family: var(--font-sans); background: var(--tema-fondo); color: var(--tema-texto);
         /* DS-S17: con viewport-fit=cover, solo suma el inset del notch/barra (0 en el resto).
            Insets físicos, por eso padding-left/right y no padding-inline. */
         padding-left: env(safe-area-inset-left, 0px);
         padding-right: env(safe-area-inset-right, 0px);
         padding-bottom: env(safe-area-inset-bottom, 0px);
       }
+      .barra { display: flex; align-items: center; gap: 8px; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+      .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
-      input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin-block: 6px; }
-      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
-      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
+      input, select, button:not(.tema-toggle) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
+      button:not(.tema-toggle) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
       .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }
@@ -35,18 +41,17 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
       .producto .monto { font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; }
       ul { list-style: none; margin: 0; padding-inline: 0; }
       li { padding-block: 4px; }
-      @media (prefers-color-scheme: dark) {
-        body { background: var(--color-void); color: var(--color-star-white); }
-        .card { background: color-mix(in srgb, var(--color-star-white) 8%, var(--color-void)); }
-        input, select { background: color-mix(in srgb, var(--color-star-white) 8%, var(--color-void)); color: var(--color-star-white); border: 1px solid var(--color-ash); }
-        button { background: var(--color-star-white); color: var(--color-void); }
-      }
+      :root[data-tema="oscuro"] input, :root[data-tema="oscuro"] select { background: var(--color-charcoal); color: var(--color-star-white); border: 1px solid var(--color-ash); }
+      :root[data-tema="oscuro"] button:not(.tema-toggle) { background: var(--color-star-white); color: var(--color-void); }
     </style>
   </head>
   <body>
-    <main>
+    <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
-      <div class="card">
+      <TemaToggle />
+    </header>
+    <main>
+      <div class="card vidrio-card">
         <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
         <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
         <label>Precio centavos <input id="precio" type="number" value={harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000} min="0" /></label>
@@ -61,10 +66,10 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         <button id="imprimir" type="button">Imprimir ticket</button>
         <button id="imprimir-bt" type="button">Imprimir BT</button>
       </div>
-      <div class="card"><div id="estado" role="status">{harness.data === "worst" ? VENTA_WORST.errorApi : "Lista."}</div></div>
-      <div class="card"><div id="balance" role="status">{harness.data === "worst" ? VENTA_WORST.balanceTexto : "Balance: —"}</div></div>
+      <div class="card vidrio-card"><div id="estado" role="status">{harness.data === "worst" ? VENTA_WORST.errorApi : "Lista."}</div></div>
+      <div class="card vidrio-card"><div id="balance" role="status">{harness.data === "worst" ? VENTA_WORST.balanceTexto : "Balance: —"}</div></div>
       {harness.data === "worst" && (
-        <div class="card">
+        <div class="card vidrio-card">
           <ul id="lineas-worst">
             {VENTA_WORST.lineas.map((l) => (
               <li class="producto">

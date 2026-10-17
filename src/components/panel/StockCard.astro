@@ -5,12 +5,12 @@ import { hrefModulo } from "../../lib/panel-modulos.js";
   <h3 style="font-size:13px;margin:12px 0 4px">Umbrales de alerta (ALR-S1)</h3>
   <div class="mini">SKU + <label for="umb-min">Stock mínimo</label> y <label for="umb-re">Cantidad a reponer</label>. Vacío = sin valor (la alerta usa la rotación 7d). <a href="/panel/alertas/umbrales">Ver todos los umbrales</a></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-    <input id="umb-sku" placeholder="SKU" aria-label="SKU del producto" style="flex:1;min-width:110px;border:1px solid var(--color-linen);border-radius:8px;padding:8px;min-height:44px" />
-    <input id="umb-min" type="number" min="0" step="1" placeholder="Stock mínimo" aria-label="Stock mínimo" style="width:110px;border:1px solid var(--color-linen);border-radius:8px;padding:8px;min-height:44px" />
-    <input id="umb-re" type="number" min="1" step="1" placeholder="A reponer" aria-label="Cantidad a reponer" style="width:110px;border:1px solid var(--color-linen);border-radius:8px;padding:8px;min-height:44px" />
+    <input id="umb-sku" placeholder="SKU" aria-label="SKU del producto" style="flex:1;min-width:110px;border:1px solid var(--tema-linea);border-radius:8px;padding:8px;min-height:44px" />
+    <input id="umb-min" type="number" min="0" step="1" placeholder="Stock mínimo" aria-label="Stock mínimo" style="width:110px;border:1px solid var(--tema-linea);border-radius:8px;padding:8px;min-height:44px" />
+    <input id="umb-re" type="number" min="1" step="1" placeholder="A reponer" aria-label="Cantidad a reponer" style="width:110px;border:1px solid var(--tema-linea);border-radius:8px;padding:8px;min-height:44px" />
   </div>
   <div style="display:flex;gap:8px;margin-top:8px">
-    <button id="umb-cargar" type="button" style="border:1px solid var(--color-linen);background:var(--color-star-white);border-radius:999px;padding:8px 16px;min-height:44px">Cargar</button>
+    <button id="umb-cargar" type="button" style="border:1px solid var(--tema-linea);background:var(--tema-superficie);color:var(--tema-texto);border-radius:999px;padding:8px 16px;min-height:44px">Cargar</button>
     <button id="umb-guardar" type="button" style="border:0;background:var(--color-void);color:var(--color-star-white);border-radius:999px;padding:8px 16px;min-height:44px">Guardar</button>
   </div>
   <div class="estado" id="umb-estado">Umbrales: cargá un SKU para ver sus valores.</div>

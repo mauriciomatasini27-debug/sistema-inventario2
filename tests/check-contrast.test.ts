@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PAREJAS, UMBRALES, evaluar, tokensDeCss } from "../scripts/check-contrast-lib.mjs";
+import { PAREJAS, UMBRALES, evaluar, mezclar, tokensDeCss } from "../scripts/check-contrast-lib.mjs";
 
 const RAIZ = process.cwd();
 const css = readFileSync(join(RAIZ, "src/styles/global.css"), "utf8");
@@ -32,6 +32,26 @@ describe("contraste AA por par (SPEC-UI-00 T-UI-05)", () => {
     const salida = execFileSync("node", ["scripts/check-contrast.mjs", "--md"], { encoding: "utf8" });
     const archivo = readFileSync(join(RAIZ, "docs/diseno/contraste-aa.md"), "utf8");
     expect(archivo).toBe(salida);
+  });
+});
+
+describe("mezclar() para el peor caso de vidrio (DS-S5)", () => {
+  it("mezcla lineal por canal con redondeo a entero", () => {
+    expect(mezclar("#ffffff", 0.8, "#f7f5f2")).toBe("#fdfdfc");
+    expect(mezclar("#2b2b2b", 0.8, "#1a1a1a")).toBe("#282828");
+  });
+
+  it("los extremos devuelven el color puro", () => {
+    expect(mezclar("#ffffff", 1, "#000000")).toBe("#ffffff");
+    expect(mezclar("#ffffff", 0, "#000000")).toBe("#000000");
+  });
+
+  it("un par con alfa usa el hex mezclado como BG", () => {
+    const filas = evaluar(
+      [{ nombre: "vidrio", fg: "void", bg: "canvas", alfa: 0.85, debajo: "void", uso: "texto", modo: "light" }],
+      tokens,
+    );
+    expect(filas[0]?.bgHex).toBe(mezclar("#f7f5f2", 0.85, "#1a1a1a"));
   });
 });
 

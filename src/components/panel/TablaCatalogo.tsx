@@ -104,8 +104,8 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
       />
       <style>{`
         .tabla-catalogo { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
-        .tabla-catalogo th, .tabla-catalogo td { padding: 8px 6px; border-bottom: 1px solid var(--color-linen); overflow-wrap: anywhere; }
-        .tabla-catalogo thead th { position: sticky; top: 0; z-index: 1; background: var(--color-star-white); text-align: start; color: var(--color-ash); font-weight: 500; }
+        .tabla-catalogo th, .tabla-catalogo td { padding: 8px 6px; border-bottom: 1px solid var(--tema-linea); overflow-wrap: anywhere; }
+        .tabla-catalogo thead th { position: sticky; top: 0; z-index: 1; background: var(--tema-superficie); text-align: start; color: var(--tema-texto-suave); font-weight: 500; }
         .tabla-catalogo td.nombre { min-width: 0; overflow-wrap: anywhere; }
         .tabla-catalogo td.precio { min-width: 5rem; }
         .tabla-catalogo .tnum { font-variant-numeric: tabular-nums; }

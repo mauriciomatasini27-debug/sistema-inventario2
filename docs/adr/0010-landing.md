@@ -101,3 +101,7 @@ Sección presente con aclaración: `lead_enviado` existe solo en Formspree, sin 
 ## Fuera de corte
 
 `site` astro.config, favicon, OG image, PDF espejo, dominio más Pages, conciliación `Discovery` contra `PathNebula/SupportModel/Faq`, planes SaaS con highlight fuera de Descubrimiento, backend propio de leads.
+
+## Nota 2026-10-17
+
+El vidrio (backdrop-filter con fallback y `prefers-reduced-transparency`) se adopta solo en panel/POS; la landing sigue sin glass ni neón, como fija esta decisión.

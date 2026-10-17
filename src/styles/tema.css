@@ -1,0 +1,132 @@
+/* Capa de tema claro/oscuro por dispositivo (DS-S4). El claro es el default;
+   el oscuro se activa con `data-tema="oscuro"`, que setea el script inline
+   `TemaInicial` en el <head> antes de pintar (sin flash). Se importa después de
+   los tokens, en las páginas que tienen tema (panel y POS), no en la landing. */
+:root {
+  color-scheme: light;
+  --tema-fondo: var(--color-canvas);
+  --tema-superficie: var(--color-star-white);
+  --tema-linea: var(--color-linen);
+  --tema-texto: var(--color-void);
+  --tema-texto-suave: var(--color-ash);
+  --tema-acento: var(--color-trust);
+  --tema-barra: color-mix(in srgb, var(--color-canvas) 85%, transparent);
+  --tema-vidrio: color-mix(in srgb, var(--color-star-white) 80%, transparent);
+  --estado-ok: var(--color-ok);
+  --estado-ok-tint: var(--color-ok-tint);
+  --estado-aviso: var(--color-aviso);
+  --estado-aviso-tint: var(--color-aviso-tint);
+  --estado-vivo: var(--color-vivo);
+  --estado-vivo-tint: var(--color-vivo-tint);
+  --estado-pendiente: var(--color-pendiente);
+  --estado-pendiente-tint: var(--color-pendiente-tint);
+  --estado-peligro: var(--color-peligro);
+  --estado-peligro-tint: var(--color-peligro-tint);
+}
+
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --tema-fondo: var(--color-void);
+  --tema-superficie: var(--color-charcoal);
+  --tema-linea: var(--color-mid);
+  --tema-texto: var(--color-star-white);
+  --tema-texto-suave: var(--color-muted-dark);
+  --tema-acento: var(--color-pendiente-oscuro);
+  --tema-barra: color-mix(in srgb, var(--color-void) 85%, transparent);
+  --tema-vidrio: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
+  --estado-ok: var(--color-ok-oscuro);
+  --estado-ok-tint: var(--color-ok-tint-oscuro);
+  --estado-aviso: var(--color-aviso-oscuro);
+  --estado-aviso-tint: var(--color-aviso-tint-oscuro);
+  --estado-vivo: var(--color-vivo-oscuro);
+  --estado-vivo-tint: var(--color-vivo-tint-oscuro);
+  --estado-pendiente: var(--color-pendiente-oscuro);
+  --estado-pendiente-tint: var(--color-pendiente-tint-oscuro);
+  --estado-peligro: var(--color-peligro-oscuro);
+  --estado-peligro-tint: var(--color-peligro-tint-oscuro);
+}
+
+.estado-ok { background: var(--estado-ok-tint); color: var(--estado-ok); }
+.estado-aviso { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
+.estado-vivo { background: var(--estado-vivo-tint); color: var(--estado-vivo); }
+.estado-pendiente { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
+.estado-peligro { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
+
+.ember-ambar { background: var(--color-ember-ambar); color: var(--color-void); }
+.ember-coral { background: var(--color-ember-coral); color: var(--color-void); }
+.ember-rojo { background: var(--color-ember-rojo); color: var(--color-void); }
+.ember-vino { background: var(--color-ember-vino); color: var(--color-star-white); }
+
+/* Borde fino pedido por Mauri para las tiles ámbar y coral sobre claro; inset
+   para no mover el layout. */
+:root:not([data-tema="oscuro"]) .ember-ambar,
+:root:not([data-tema="oscuro"]) .ember-coral {
+  box-shadow: inset 0 0 0 1px var(--color-ash);
+}
+
+.vidrio-barra {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--tema-fondo);
+}
+
+.vidrio-card {
+  background: var(--tema-superficie);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vidrio-barra {
+    background: var(--tema-barra);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+  }
+  .vidrio-card {
+    background: var(--tema-vidrio);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .vidrio-barra {
+    background: var(--tema-fondo);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .vidrio-card {
+    background: var(--tema-superficie);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.tema-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--tema-linea);
+  background: var(--tema-superficie);
+  color: var(--tema-texto);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tema-toggle[aria-pressed="true"] {
+  background: var(--tema-texto);
+  color: var(--tema-fondo);
+  border-color: var(--tema-texto);
+}
+
+.tema-toggle:focus-visible {
+  outline: 2px solid var(--tema-acento);
+  outline-offset: 2px;
+}

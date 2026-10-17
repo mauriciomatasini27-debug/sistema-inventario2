@@ -52,6 +52,6 @@ describe("panel: los tokens --color-* existen donde se usan", () => {
   it("/panel (sin global.css) importa tokens-papel.css y su paleta local apunta a los tokens", () => {
     const panel = leer("src/pages/panel.astro");
     expect(panel).toContain('import "../styles/tokens-papel.css"');
-    expect(panel).toContain("--muted: var(--color-ash)");
+    expect(panel).toContain("--muted: var(--tema-texto-suave)");
   });
 });

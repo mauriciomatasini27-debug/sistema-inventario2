@@ -22,9 +22,9 @@ export function Toaster() {
         gap={8}
         toastOptions={{
           style: {
-            background: "var(--color-canvas,#f7f5f2)",
-            color: "var(--color-void,#1a1a1a)",
-            border: "1px solid var(--linen,#e3ddcd)",
+            background: "var(--tema-superficie, var(--color-star-white))",
+            color: "var(--tema-texto, var(--color-void))",
+            border: "1px solid var(--tema-linea, var(--color-linen))",
             borderRadius: "16px",
             fontSize: "14px",
           } as React.CSSProperties,

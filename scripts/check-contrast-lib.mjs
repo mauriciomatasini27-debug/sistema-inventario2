@@ -17,6 +17,47 @@ export const PAREJAS = [
   { nombre: "CTA email", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
   { nombre: "CTA llama dark", fg: "void", bg: "star-warm", uso: "grande", modo: "dark" },
   { nombre: "CTA hover dark", fg: "void", bg: "star-glow", uso: "grande", modo: "dark" },
+  // Estados claros (texto 4.5 sobre su tint y sobre canvas).
+  { nombre: "ok sobre ok-tint", fg: "ok", bg: "ok-tint", uso: "texto", modo: "light" },
+  { nombre: "ok sobre canvas", fg: "ok", bg: "canvas", uso: "texto", modo: "light" },
+  { nombre: "aviso sobre aviso-tint", fg: "aviso", bg: "aviso-tint", uso: "texto", modo: "light" },
+  { nombre: "aviso sobre canvas", fg: "aviso", bg: "canvas", uso: "texto", modo: "light" },
+  { nombre: "vivo sobre vivo-tint", fg: "vivo", bg: "vivo-tint", uso: "texto", modo: "light" },
+  { nombre: "vivo sobre canvas", fg: "vivo", bg: "canvas", uso: "texto", modo: "light" },
+  { nombre: "pendiente sobre pendiente-tint", fg: "pendiente", bg: "pendiente-tint", uso: "texto", modo: "light" },
+  { nombre: "pendiente sobre canvas", fg: "pendiente", bg: "canvas", uso: "texto", modo: "light" },
+  { nombre: "peligro sobre peligro-tint", fg: "peligro", bg: "peligro-tint", uso: "texto", modo: "light" },
+  { nombre: "peligro sobre canvas", fg: "peligro", bg: "canvas", uso: "texto", modo: "light" },
+  // Estados oscuros (texto 4.5 sobre su tint-oscuro, void y charcoal).
+  { nombre: "ok-oscuro sobre ok-tint-oscuro", fg: "ok-oscuro", bg: "ok-tint-oscuro", uso: "texto", modo: "dark" },
+  { nombre: "ok-oscuro sobre void", fg: "ok-oscuro", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "ok-oscuro sobre charcoal", fg: "ok-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "aviso-oscuro sobre aviso-tint-oscuro", fg: "aviso-oscuro", bg: "aviso-tint-oscuro", uso: "texto", modo: "dark" },
+  { nombre: "aviso-oscuro sobre void", fg: "aviso-oscuro", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "aviso-oscuro sobre charcoal", fg: "aviso-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "vivo-oscuro sobre vivo-tint-oscuro", fg: "vivo-oscuro", bg: "vivo-tint-oscuro", uso: "texto", modo: "dark" },
+  { nombre: "vivo-oscuro sobre void", fg: "vivo-oscuro", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "vivo-oscuro sobre charcoal", fg: "vivo-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "pendiente-oscuro sobre pendiente-tint-oscuro", fg: "pendiente-oscuro", bg: "pendiente-tint-oscuro", uso: "texto", modo: "dark" },
+  { nombre: "pendiente-oscuro sobre void", fg: "pendiente-oscuro", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "pendiente-oscuro sobre charcoal", fg: "pendiente-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "peligro-oscuro sobre peligro-tint-oscuro", fg: "peligro-oscuro", bg: "peligro-tint-oscuro", uso: "texto", modo: "dark" },
+  { nombre: "peligro-oscuro sobre void", fg: "peligro-oscuro", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "peligro-oscuro sobre charcoal", fg: "peligro-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  // Tiles ember (secundarias, nunca CTA primario).
+  { nombre: "texto sobre ember-ambar", fg: "void", bg: "ember-ambar", uso: "texto", modo: "light" },
+  { nombre: "texto sobre ember-coral", fg: "void", bg: "ember-coral", uso: "texto", modo: "light" },
+  { nombre: "texto sobre ember-rojo", fg: "void", bg: "ember-rojo", uso: "texto", modo: "light" },
+  { nombre: "texto sobre ember-vino", fg: "star-white", bg: "ember-vino", uso: "texto", modo: "dark" },
+  // Tema oscuro.
+  { nombre: "texto sobre charcoal", fg: "star-white", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "muted-dark sobre charcoal", fg: "muted-dark", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "acento oscuro sobre charcoal", fg: "pendiente-oscuro", bg: "charcoal", uso: "texto", modo: "dark" },
+  // Vidrio (DS-S5): peor caso con la opacidad y el contenido de atrás.
+  { nombre: "barra clara: texto sobre canvas 85%", fg: "void", bg: "canvas", alfa: 0.85, debajo: "void", uso: "texto", modo: "light" },
+  { nombre: "barra oscura: texto sobre void 85%", fg: "star-white", bg: "void", alfa: 0.85, debajo: "star-white", uso: "texto", modo: "dark" },
+  { nombre: "card clara: muted sobre star-white 80%", fg: "ash", bg: "star-white", alfa: 0.8, debajo: "canvas", uso: "texto", modo: "light" },
+  { nombre: "card oscura: muted sobre charcoal 80%", fg: "muted-dark", bg: "charcoal", alfa: 0.8, debajo: "void", uso: "texto", modo: "dark" },
 ];
 
 export function tokensDeCss(css) {
@@ -41,10 +82,28 @@ export function ratio(fgHex, bgHex) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
+// Mezcla lineal por canal en sRGB con redondeo a entero, como hace el navegador
+// con color-mix: fondo `fgHex` con opacidad `alfa` sobre `debajoHex`.
+export function mezclar(fgHex, alfa, debajoHex) {
+  const f = parseInt(fgHex.slice(1), 16);
+  const d = parseInt(debajoHex.slice(1), 16);
+  const canales = [16, 8, 0].map((shift) =>
+    Math.round(((f >> shift) & 255) * alfa + ((d >> shift) & 255) * (1 - alfa)),
+  );
+  return "#" + canales.map((c) => c.toString(16).padStart(2, "0")).join("");
+}
+
 export function evaluar(pairs, tokens) {
   return pairs.map((p) => {
     const fgHex = tokens[p.fg] ?? null;
-    const bgHex = tokens[p.bg] ?? null;
+    const bgBase = tokens[p.bg] ?? null;
+    const debajoHex = p.debajo === undefined ? null : (tokens[p.debajo] ?? null);
+    const bgHex =
+      bgBase && p.alfa !== undefined
+        ? debajoHex
+          ? mezclar(bgBase, p.alfa, debajoHex)
+          : null
+        : bgBase;
     const umbral = UMBRALES[p.uso];
     if (!fgHex || !bgHex) return { ...p, fgHex, bgHex, valor: null, umbral, resultado: "FAIL" };
     const valor = ratio(fgHex, bgHex);

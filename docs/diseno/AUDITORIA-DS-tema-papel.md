@@ -22,12 +22,12 @@ Estados: **hecho** (hay evidencia), **parcial**, **falta** (sin decisión pendie
 | Slice | Estado | Evidencia | Qué falta |
 |---|---|---|---|
 | DS-S1 Paleta llama y CTA | parcial | `--color-llama #ffd600`, `--color-star-warm #e64a19` (deep), `--color-star-glow #bf360c` (rust) en `global.css` y `tokens-papel.css`. CTA de la landing en `bg-star-glow` (decisión de Mauri 2026-10-17, ADR-0008). | Sin `orange #f57c00`, sin gradiente `135deg` ni sombra/`scale(0.98)` del CTA; `#ffe033` solo como variable local en `panel.astro`/`admin.astro`. Decisión: el gradiente amarillo→naranja con texto blanco no pasa AA. |
-| DS-S2 Ember en secundarias | decisión | `rg "#ffb300\|#ff7043\|#ef5350\|#c62828" src` sin resultados. | No hay tiles secundarias de launcher; definir si las pills/tiles del panel usan ember. |
+| DS-S2 Ember en secundarias | hecho | Este PR suma `--color-ember-ambar/coral/rojo/vino` a `global.css` y `tokens-papel.css` y pinta el segbar del panel (`panel.astro`) con ámbar/coral/vino. | Nada: ember queda solo en secundarias, nunca CTA. |
 | DS-S3 Papel y canvas claros | hecho (cerrado en este PR) | `--color-canvas #f7f5f2`, `--color-linen #efecea`, `--color-void #1a1a1a`; sin `#71639e`. Este PR pasa `/venta`, `/alta`, `/alta/estado` y `/t/[token]` de `#f5f1e8` a `var(--color-canvas)` y el `manifest.webmanifest` de `#f7faf7` a `#f7f5f2`. | Ver hallazgo HIGH de la landing abajo. |
-| DS-S4 Dark ambiente POS | parcial | `/venta` tiene bloque `prefers-color-scheme: dark` con `var(--color-void)` (T-UI-06, `docs/diseno/harness-venta.md`). | Sin `charcoal #2b2b2b`, `mid #333`, `muted rgba(255,255,255,.72)` ni el ambiente radial. Decisión: ¿POS oscuro siempre o solo con el modo del sistema? |
-| DS-S5 Glass, radios, blur | decisión | `rg backdrop-filter src` vacío. Cards a 12px en `/venta`, `/alta`; landing `--radius-card 1.25rem` (20px, ADR-0010). Listas sin glass por fila (`TablaCatalogo.tsx`). | ADR-0010 descarta glass en la landing; falta decidir si el panel/POS lo usa. |
-| DS-S6 Tipografía | decisión | `--font-sans: 'Inter', ui-sans-serif, system-ui` en `global.css`; panel y POS en `system-ui`. | El PRD pide Montserrat; es cambio de marca. |
-| DS-S7 Variables CSS `:root`/`.pos` | no aplica (decidido) | SPEC-UI-00: tokens `--color-*`, sin port `--mo-*`. Este PR suma `tokens-papel.css` a `/alta`, `/alta/estado`, `/t/[token]` y `/admin` (antes solo `/panel/*` y `/venta`). | Rail y `.pos` no existen. Quedan colores de estado sin token en `panel.astro`/`admin.astro` (vivo/ok/warn/pend) y verdes `#0a0`/`#25d366`. |
+| DS-S4 Dark ambiente POS | hecho | `src/styles/tema.css` (roles claro/oscuro), `src/lib/tema.ts`, `TemaInicial.astro`/`TemaToggle.astro`: claro/oscuro con toggle por dispositivo, sistema por defecto y sin flash; `--color-charcoal`/`--color-mid` como tokens. | Nada: sin ambiente radial (decisión de Mauri). |
+| DS-S5 Glass, radios, blur | hecho (panel/POS) | `tema.css` con `.vidrio-barra`/`.vidrio-card`, `@supports` con fallback y `prefers-reduced-transparency`; cards de 12px en `/venta` y 16px en panel. | Nada: la landing sigue sin glass (ADR-0010). |
+| DS-S6 Tipografía | hecho | `--font-sans` con la pila del sistema en `global.css` y `tokens-papel.css`; `BaseLayout.astro` sin `<link>` de Google Fonts. | Nada: Montserrat descartado. |
+| DS-S7 Variables CSS `:root`/`.pos` | no aplica (decidido) | SPEC-UI-00: tokens `--color-*`, sin port `--mo-*`. Las páginas standalone cargan `tokens-papel.css`; los colores de estado de `panel.astro`/`admin.astro` ahora usan tokens `--estado-*` (y `--color-whatsapp` para el verde). | Rail y `.pos` no existen. |
 | DS-S8 Motion reducido | hecho | Kill global con `reduce` en `global.css`; `panel.astro`, `ConfirmDialog.astro`, `Toaster.tsx`, `ChatLanding.astro`; NumberFlow con `respectMotionPreference` y spec `tests/e2e/catalogo-mil.spec.ts` con `reducedMotion: reduce`. Las páginas standalone no tienen transiciones (`rg transition` vacío en venta/alta/admin/PanelShell). | Nada. |
 | DS-S9 Adaptación a Inventario | parcial | Tokens propios con papel conservado; botones de 44px en mostrador (`venta.astro`, `PanelShell.astro`); emails a una columna de 600px en papel (`src/modules/email/*.ts`). | Nombres `--mo-*` descartados por SPEC-UI-00. CTA de email en `#e8590c` con blanco (3.6:1, no pasa AA en texto de 14px): ver decisiones. |
 | DS-S10 Launcher | no aplica | Inventario no tiene launcher; el índice `/panel` con pills cumple el rol. | — |
@@ -49,6 +49,10 @@ Estados: **hecho** (hay evidencia), **parcial**, **falta** (sin decisión pendie
 
 Mauri decidió header claro. Los tres hallazgos de abajo quedaron corregidos: la landing pasa a texto `void` en secciones claras y `star-white` en las oscuras (`Section.astro`, `SiteHeader.astro`, `Hero.astro`, `Button.astro` `ghost-light`, `SectionHeading.astro`, `Contraste.astro`, `Contacto.astro`), con un spec que mide el contraste real de cada texto a 360px y 1280px (`tests/e2e/landing-legible.spec.ts`) y un trinquete estático (`tests/landing-legibilidad.test.ts`). El botón de WhatsApp usa el token nuevo `--color-whatsapp` con texto `void`, el CTA de los emails pasa a `#bf360c` y `/admin` ya no desborda a 360px. Pares nuevos en `docs/diseno/contraste-aa.md`.
 
+## Resuelto el 2026-10-17 (marca: tipografía, tema oscuro, vidrio y estados)
+
+Mauri cerró las decisiones 3 a 6. Tipografía: la pila del sistema (`--font-sans` en `global.css` y `tokens-papel.css`), se borró el `<link>` de Inter y Google Fonts de `BaseLayout.astro`; Montserrat queda descartado. Tema claro/oscuro por dispositivo: `src/styles/tema.css` con roles (`--tema-fondo/superficie/linea/texto/texto-suave/acento/barra/vidrio`) y `src/lib/tema.ts` con `TemaInicial.astro` (script inline sin flash) y `TemaToggle.astro` (botón de 44px con `aria-pressed`); sistema por defecto y sin ambiente radial. Vidrio en panel/POS (`.vidrio-barra`/`.vidrio-card` con `@supports` y `prefers-reduced-transparency`), la landing sigue sin glass (ADR-0010). Estados: tokens `--color-ok/aviso/vivo/pendiente/peligro` con tint claros y oscuros, clases `.estado-*` y segbar con ember; el verde WhatsApp ya tenía token. Pares nuevos en `docs/diseno/contraste-aa.md`, trinquete en `tests/tema.test.ts` y spec e2e `tests/e2e/tema.spec.ts`.
+
 ## Hallazgos HIGH previos (no se tocaron en este PR)
 
 ### Landing
@@ -67,7 +71,7 @@ El documento mide 401px a 360px (la barra `segbar` corta "Prueba"). Ya pasaba en
 
 1. ~~Landing: header oscuro o claro~~ (decidido: claro, resuelto).
 2. ~~CTA de email a `star-glow`~~ (decidido y resuelto).
-3. Montserrat (PRD) o Inter (hoy).
-4. POS oscuro: siempre o solo con el modo del sistema; ambiente radial sí o no.
-5. Glass y blur en panel/POS (ADR-0010 lo descarta en la landing).
-6. Tokens de estado (ok/aviso/vivo/pendiente). El verde WhatsApp ya tiene token (`--color-whatsapp`, texto `void`).
+3. ~~Montserrat (PRD) o Inter (hoy)~~ (decidido 2026-10-17: pila del sistema en todos lados, sin Inter ni Google Fonts; Montserrat descartado).
+4. ~~POS oscuro: siempre o solo con el modo del sistema; ambiente radial sí o no~~ (decidido 2026-10-17: claro/oscuro con toggle por dispositivo, sistema por defecto, sin ambiente radial).
+5. ~~Glass y blur en panel/POS (ADR-0010 lo descarta en la landing)~~ (decidido 2026-10-17: vidrio con fallback y `prefers-reduced-transparency` en panel/POS; la landing sigue sin glass).
+6. ~~Tokens de estado (ok/aviso/vivo/pendiente)~~ (decidido 2026-10-17: tokens `--color-ok/aviso/vivo/pendiente/peligro` con tint claros y oscuros, más clases `.estado-*`). El verde WhatsApp ya tiene token (`--color-whatsapp`, texto `void`).

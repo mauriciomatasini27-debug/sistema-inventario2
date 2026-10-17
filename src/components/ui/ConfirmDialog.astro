@@ -26,10 +26,10 @@
   .confirmar-dialogo {
     width: min(440px, calc(100vw - 32px));
     padding: 0;
-    border: 1px solid var(--color-linen);
+    border: 1px solid var(--tema-linea, var(--color-linen));
     border-radius: 16px;
-    background: var(--color-star-white);
-    color: var(--color-void);
+    background: var(--tema-superficie, var(--color-star-white));
+    color: var(--tema-texto, var(--color-void));
     transition: opacity 0.15s ease;
   }
   .confirmar-dialogo::backdrop {
@@ -47,28 +47,28 @@
   }
   .confirmar-mensaje {
     margin: 0;
-    color: var(--color-ash);
+    color: var(--tema-texto-suave, var(--color-ash));
     font-size: 14px;
   }
   .confirmar-nombre {
     display: grid;
     gap: 6px;
     font-size: 13px;
-    color: var(--color-ash);
+    color: var(--tema-texto-suave, var(--color-ash));
   }
   .confirmar-nombre[hidden] {
     display: none;
   }
   .confirmar-esperado {
-    color: var(--color-void);
+    color: var(--tema-texto, var(--color-void));
   }
   .confirmar-nombre input {
     min-height: 44px;
     padding: 8px 10px;
-    border: 1px solid var(--color-linen);
+    border: 1px solid var(--tema-linea, var(--color-linen));
     border-radius: 8px;
-    background: var(--color-star-white);
-    color: var(--color-void);
+    background: var(--tema-superficie, var(--color-star-white));
+    color: var(--tema-texto, var(--color-void));
     font: inherit;
     font-size: 16px;
   }
@@ -88,11 +88,11 @@
     cursor: pointer;
   }
   .confirmar-cancelar {
-    background: var(--color-linen);
-    color: var(--color-void);
+    background: var(--tema-linea, var(--color-linen));
+    color: var(--tema-texto, var(--color-void));
   }
   .confirmar-cancelar:hover {
-    background: var(--color-canvas);
+    background: var(--tema-fondo, var(--color-canvas));
   }
   .confirmar-aceptar {
     background: var(--color-star-glow);
@@ -108,7 +108,7 @@
   .confirmar-cancelar:focus-visible,
   .confirmar-aceptar:focus-visible,
   .confirmar-nombre input:focus-visible {
-    outline: 2px solid var(--color-trust);
+    outline: 2px solid var(--tema-acento, var(--color-trust));
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
