@@ -18,12 +18,14 @@ function fecha(s: string): FechaAR {
 
 const DATOS: DatosResumen = {
   ventas: [
-    { medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: new Date("2026-10-17T13:00:00Z") },
-    { medio: "Debito", totalCentavos: 5_000n, ocurridoEn: new Date("2026-10-16T20:00:00Z") },
-    { medio: "Efectivo", totalCentavos: 2_000n, ocurridoEn: new Date("2026-09-05T12:00:00Z") },
-    { medio: "Efectivo", totalCentavos: 9_999n, ocurridoEn: new Date("2025-09-05T12:00:00Z") },
-    { medio: "Efectivo", totalCentavos: 777n, ocurridoEn: new Date("2026-10-17T02:00:00Z") },
+    { saleId: "v1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: new Date("2026-10-17T13:00:00Z") },
+    { saleId: "v2", medio: "Debito", totalCentavos: 5_000n, ocurridoEn: new Date("2026-10-16T20:00:00Z") },
+    { saleId: "v3", medio: "Efectivo", totalCentavos: 2_000n, ocurridoEn: new Date("2026-09-05T12:00:00Z") },
+    { saleId: "v4", medio: "Efectivo", totalCentavos: 9_999n, ocurridoEn: new Date("2025-09-05T12:00:00Z") },
+    { saleId: "v5", medio: "Efectivo", totalCentavos: 777n, ocurridoEn: new Date("2026-10-17T02:00:00Z") },
   ],
+  devoluciones: [],
+  correcciones: [],
   productos: [
     { stockActual: 1, minStock: 5 },
     { stockActual: 10, minStock: 5 },
@@ -103,5 +105,107 @@ describe("panel-resumen: agregados del panel en hora de Buenos Aires", () => {
     expect(r.turnos.every((t) => t.turno !== "noche")).toBe(true);
     expect(r.turnos[0]).toEqual({ hora: "12:00", turno: "tarde", entregado_por: "ana", estado: "pendiente" });
     expect(r.turnos.find((t) => t.turno === "extra")?.hora).toBe("—");
+  });
+});
+
+const OCT = (dia: number): Date => new Date(`2026-10-${String(dia).padStart(2, "0")}T12:00:00Z`);
+
+describe("panel-resumen: devoluciones y correcciones netean los agregados del mes", () => {
+  it("resta la devolución del mismo mes en ventas y por medio", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: OCT(10) }],
+      devoluciones: [{ montoCentavos: 3_000n, medio: "Efectivo", ocurridoEn: OCT(12) }],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.ventas_mes_centavos).toBe("7000");
+    expect(r.ventas_por_mes.find((m) => m.mes === "2026-10")).toEqual({
+      mes: "2026-10",
+      efectivo_centavos: "7000",
+      digital_centavos: "0",
+    });
+    expect(r.por_medio).toEqual([{ medio: "Efectivo", centavos: "7000" }]);
+  });
+
+  it("una devolución con otro medio mueve el bucket efectivo/digital", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [
+        { saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: OCT(10) },
+        { saleId: "s2", medio: "Debito", totalCentavos: 5_000n, ocurridoEn: OCT(11) },
+      ],
+      devoluciones: [{ montoCentavos: 3_000n, medio: "Debito", ocurridoEn: OCT(12) }],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.ventas_por_mes.find((m) => m.mes === "2026-10")).toEqual({
+      mes: "2026-10",
+      efectivo_centavos: "10000",
+      digital_centavos: "2000",
+    });
+  });
+
+  it("clampea en 0 y nunca deja un bucket negativo", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Debito", totalCentavos: 1_000n, ocurridoEn: OCT(10) }],
+      devoluciones: [{ montoCentavos: 5_000n, medio: "Efectivo", ocurridoEn: OCT(12) }],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.ventas_mes_centavos).toBe("0");
+    expect(r.ventas_por_mes.find((m) => m.mes === "2026-10")).toEqual({
+      mes: "2026-10",
+      efectivo_centavos: "0",
+      digital_centavos: "1000",
+    });
+    expect(r.por_medio).toEqual([
+      { medio: "Debito", centavos: "1000" },
+      { medio: "Efectivo", centavos: "0" },
+    ]);
+  });
+
+  it("una corrección Efectivo -> Mercado Pago mueve el bucket sin cambiar el total", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: OCT(10) }],
+      devoluciones: [],
+      correcciones: [{ saleId: "s1", medioNuevo: "Mercado Pago", ocurridoEn: OCT(11) }],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.ventas_mes_centavos).toBe("10000");
+    expect(r.ventas_por_mes.find((m) => m.mes === "2026-10")).toEqual({
+      mes: "2026-10",
+      efectivo_centavos: "0",
+      digital_centavos: "10000",
+    });
+    expect(r.por_medio).toEqual([{ medio: "Mercado Pago", centavos: "10000" }]);
+  });
+
+  it("con dos correcciones gana la última por created_at", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: OCT(10) }],
+      devoluciones: [],
+      correcciones: [
+        { saleId: "s1", medioNuevo: "Mercado Pago", ocurridoEn: OCT(12) },
+        { saleId: "s1", medioNuevo: "Debito", ocurridoEn: OCT(11) },
+      ],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.por_medio).toEqual([{ medio: "Mercado Pago", centavos: "10000" }]);
+  });
+
+  it("las devoluciones no tocan tickets_hoy ni el heatmap", () => {
+    const r = construirResumen(AHORA, {
+      ventas: [{ saleId: "s1", medio: "Efectivo", totalCentavos: 10_000n, ocurridoEn: new Date("2026-10-17T13:00:00Z") }],
+      devoluciones: [{ montoCentavos: 3_000n, medio: "Efectivo", ocurridoEn: new Date("2026-10-17T14:00:00Z") }],
+      correcciones: [],
+      productos: [],
+      turnos: [],
+    });
+    expect(r.tickets_hoy).toBe(1);
+    expect(r.heatmap.reduce((a, b) => a + b.tickets, 0)).toBe(1);
   });
 });

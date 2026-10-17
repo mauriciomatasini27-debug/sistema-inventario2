@@ -6,8 +6,21 @@ import { fechaAR, horaAR, horaMinutoAR, sumarDiasAR, type FechaAR } from "./fech
 // no UPDATE). El día/hora salen de Buenos Aires vía fecha-ar (ARQ-S2).
 
 export interface VentaResumenRow {
+  readonly saleId: string;
   readonly medio: string;
   readonly totalCentavos: bigint;
+  readonly ocurridoEn: Date;
+}
+
+export interface DevolucionResumenRow {
+  readonly montoCentavos: bigint;
+  readonly medio: string;
+  readonly ocurridoEn: Date;
+}
+
+export interface CorreccionResumenRow {
+  readonly saleId: string;
+  readonly medioNuevo: string;
   readonly ocurridoEn: Date;
 }
 
@@ -26,6 +39,8 @@ export interface TurnoResumenRow {
 
 export interface DatosResumen {
   readonly ventas: readonly VentaResumenRow[];
+  readonly devoluciones: readonly DevolucionResumenRow[];
+  readonly correcciones: readonly CorreccionResumenRow[];
   readonly productos: readonly ProductoResumenRow[];
   readonly turnos: readonly TurnoResumenRow[];
 }
@@ -94,6 +109,27 @@ function compararCentavos(a: string, b: string): number {
   return 0;
 }
 
+function restar(a: bigint, b: bigint): bigint {
+  const r = a - b;
+  return r < 0n ? 0n : r;
+}
+
+function medioEfectivoPorVenta(
+  ventas: readonly VentaResumenRow[],
+  correcciones: readonly CorreccionResumenRow[],
+): Map<string, string> {
+  const ultima = new Map<string, { medio: string; cuando: number }>();
+  for (const c of correcciones) {
+    const cuando = c.ocurridoEn.getTime();
+    const previa = ultima.get(c.saleId);
+    if (!previa || cuando >= previa.cuando) ultima.set(c.saleId, { medio: c.medioNuevo, cuando });
+  }
+  const ventasIds = new Set(ventas.map((v) => v.saleId));
+  const efectivo = new Map<string, string>();
+  for (const [saleId, v] of ultima) if (ventasIds.has(saleId)) efectivo.set(saleId, v.medio);
+  return efectivo;
+}
+
 export function construirResumen(ahora: Date, datos: DatosResumen): ResumenPanel {
   const hoy = fechaAR(ahora);
   const mesActual = mesDeFecha(hoy);
@@ -104,23 +140,39 @@ export function construirResumen(ahora: Date, datos: DatosResumen): ResumenPanel
   const meses = new Map(ultimos12Meses(ahora).map((m) => [m, { efectivo: 0n, digital: 0n }]));
   const porMedioMes = new Map<string, bigint>();
   const heat = new Map<string, number>();
+  const medioEfectivo = medioEfectivoPorVenta(datos.ventas, datos.correcciones);
 
   for (const venta of datos.ventas) {
     const fecha = fechaAR(venta.ocurridoEn);
     const mes = mesDeFecha(fecha);
+    const medio = medioEfectivo.get(venta.saleId) ?? venta.medio;
     if (fecha === hoy) ticketsHoy += 1;
     if (mes === mesActual) {
       ventasMes += venta.totalCentavos;
-      porMedioMes.set(venta.medio, (porMedioMes.get(venta.medio) ?? 0n) + venta.totalCentavos);
+      porMedioMes.set(medio, (porMedioMes.get(medio) ?? 0n) + venta.totalCentavos);
     }
     const bucket = meses.get(mes);
     if (bucket) {
-      if (venta.medio === "Efectivo") bucket.efectivo += venta.totalCentavos;
+      if (medio === "Efectivo") bucket.efectivo += venta.totalCentavos;
       else bucket.digital += venta.totalCentavos;
     }
     if (fecha >= desdeHeat && fecha <= hoy) {
       const clave = `${diaSemanaDeFecha(fecha)}:${horaAR(venta.ocurridoEn)}`;
       heat.set(clave, (heat.get(clave) ?? 0) + 1);
+    }
+  }
+
+  for (const devolucion of datos.devoluciones) {
+    const fecha = fechaAR(devolucion.ocurridoEn);
+    const mes = mesDeFecha(fecha);
+    if (mes === mesActual) {
+      ventasMes = restar(ventasMes, devolucion.montoCentavos);
+      porMedioMes.set(devolucion.medio, restar(porMedioMes.get(devolucion.medio) ?? 0n, devolucion.montoCentavos));
+    }
+    const bucket = meses.get(mes);
+    if (bucket) {
+      if (devolucion.medio === "Efectivo") bucket.efectivo = restar(bucket.efectivo, devolucion.montoCentavos);
+      else bucket.digital = restar(bucket.digital, devolucion.montoCentavos);
     }
   }
 
