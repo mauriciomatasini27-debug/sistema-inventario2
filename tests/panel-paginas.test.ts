@@ -20,10 +20,11 @@ const PANTALLAS = [
   "src/pages/panel/consumos.astro",
   "src/pages/panel/reportes.astro",
   "src/pages/panel/alertas/umbrales.astro",
+  "src/pages/panel/bot/config.astro",
 ] as const;
 
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/)/;
+  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/|bot-modulos|whatsapp\/(vinculos|vincular-code|desvincular))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";
@@ -114,6 +115,15 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     expect(leer("src/pages/panel/stock.astro")).toContain(`href="${destino}"`);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
+  });
+
+  it("la tarjeta de bot enlaza a /panel/bot/config y la pantalla ofrece vincular", () => {
+    const destino = "/panel/bot/config";
+    expect(archivoDeHref(destino)).toBe("src/pages/panel/bot/config.astro");
+    expect(leer("src/components/panel/BotModulosCard.astro")).toContain(`href="${destino}"`);
+    const pantalla = leer("src/pages/panel/bot/config.astro");
+    expect(pantalla).toContain("Vincular WhatsApp");
+    expect(pantalla).toContain("Generar código");
   });
 });
 

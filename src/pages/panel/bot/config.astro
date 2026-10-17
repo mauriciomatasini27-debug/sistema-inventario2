@@ -1,0 +1,246 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
+---
+<PanelShell titulo="Bot de WhatsApp" subtitulo="Vinculá el WhatsApp del comercio y elegí qué puede hacer el bot.">
+  <section class="card">
+    <h2>Teléfonos vinculados</h2>
+    <div id="vinc-lista" class="vinc-lista"></div>
+    <div class="estado" id="vinc-estado" role="status">Cargando…</div>
+
+    <div id="vinc-vacio" hidden>
+      <p>Todavía no hay teléfonos vinculados al bot.</p>
+      <button id="vinc-vincular" type="button">Vincular WhatsApp</button>
+    </div>
+
+    <form id="vinc-form" hidden>
+      <label>Celular
+        <input id="vinc-numero" type="tel" inputmode="tel" autocomplete="tel" placeholder="11 5555-1234" aria-describedby="vinc-error" />
+      </label>
+      <button id="vinc-generar" type="submit">Generar código</button>
+      <small id="vinc-error" class="vinc-error" aria-live="polite"></small>
+    </form>
+
+    <div id="vinc-codigo" hidden>
+      <p>Mandá <b>VINCULAR <span id="vinc-codigo-valor" class="vinc-codigo"></span></b> al número del bot.</p>
+      <p id="vinc-cuenta-texto">El código vence en <span id="vinc-cuenta" aria-live="polite">10:00</span></p>
+    </div>
+    <p class="vinc-optin">El opt-in lo da cada persona escribiendo ALTA al bot; el Dueño no lo cambia por otro.</p>
+  </section>
+
+  <BotModulosCard />
+</PanelShell>
+
+<style is:global>
+  .vinc-lista { display: grid; gap: 8px; }
+  .vinc-persona { padding: 8px 0; border-bottom: 1px solid var(--color-linen); }
+  .vinc-rol { margin-left: 8px; color: var(--color-ash); font-size: 12px; }
+  .vinc-opt { margin: 4px 0; color: var(--color-ash); font-size: 13px; }
+  .vinc-fila { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .vinc-num { font-variant-numeric: tabular-nums; }
+  .vinc-estado { color: var(--color-ash); }
+  .vinc-codigo { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 4px; }
+  #vinc-cuenta { font-variant-numeric: tabular-nums; }
+  .vinc-vencido { color: var(--color-ash); text-decoration: line-through; }
+  .vinc-error { display: block; min-height: 14px; color: var(--color-star-warm); font-size: 12px; }
+  .vinc-optin { color: var(--color-ash); font-size: 12px; }
+</style>
+
+<script>
+  import { toast } from "sonner";
+  import { textoError } from "../../../lib/panel-modulos.js";
+  import {
+    codigoVencido,
+    contarVinculados,
+    etiquetaEstado,
+    formatearCuentaRegresiva,
+    hayVinculados,
+    textoOptIn,
+  } from "../../../lib/bot-config-panel.js";
+  import type { PersonaVinculos, TelefonoVinculo } from "../../../modules/whatsapp/vinculos-panel.js";
+
+  const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
+  // Referencia fija: marcarVencido reemplaza el texto del párrafo que lo contiene.
+  const cuentaEl = $("vinc-cuenta");
+
+  let tenantIdActual = "";
+  let temporizador = 0;
+  let expiraEnMs = 0;
+  let formAbierto = false;
+  let vinculadosAntes = 0;
+  let sondeo = 0;
+  const SONDEO_MS = 5000;
+
+  function pintarTelefonos(bloque: HTMLElement, telefonos: ReadonlyArray<TelefonoVinculo>): void {
+    for (const t of telefonos) {
+      const fila = document.createElement("div");
+      fila.className = "vinc-fila";
+      const numero = document.createElement("span");
+      numero.className = "vinc-num";
+      numero.textContent = t.numero_enmascarado;
+      const estado = document.createElement("span");
+      estado.className = "vinc-estado";
+      estado.textContent = etiquetaEstado(t);
+      fila.append(numero, estado);
+      bloque.appendChild(fila);
+    }
+  }
+
+  function pintar(personas: ReadonlyArray<PersonaVinculos>): void {
+    const lista = $("vinc-lista");
+    const vacio = $("vinc-vacio");
+    const form = $("vinc-form");
+    lista.textContent = "";
+    const hay = hayVinculados(personas);
+    // Con el form abierto (o un código vivo) nunca se vuelve al vacío: el
+    // botón tiene que poder regenerar sin recargar cuando el código vence.
+    lista.hidden = !hay;
+    vacio.hidden = hay || formAbierto;
+    form.hidden = !(hay || formAbierto);
+    if (!hay) return;
+    for (const p of personas) {
+      if (p.telefonos.length === 0) continue;
+      const bloque = document.createElement("div");
+      bloque.className = "vinc-persona";
+      const nombre = document.createElement("strong");
+      nombre.textContent = p.nombre;
+      const rol = document.createElement("span");
+      rol.className = "vinc-rol";
+      rol.textContent = p.rol === "dueno" ? "Dueño" : "Empleado";
+      const opt = document.createElement("p");
+      opt.className = "vinc-opt";
+      opt.textContent = textoOptIn(p.opt_in);
+      bloque.append(nombre, rol, opt);
+      pintarTelefonos(bloque, p.telefonos);
+      lista.appendChild(bloque);
+    }
+  }
+
+  function detenerCuenta(): void {
+    if (temporizador) {
+      window.clearInterval(temporizador);
+      temporizador = 0;
+    }
+    if (sondeo) {
+      window.clearInterval(sondeo);
+      sondeo = 0;
+    }
+  }
+
+  function marcarVencido(): void {
+    $("vinc-codigo-valor").classList.add("vinc-vencido");
+    $("vinc-cuenta-texto").textContent = "El código venció. Generá uno nuevo.";
+    ($("vinc-generar") as HTMLButtonElement).textContent = "Generar código nuevo";
+  }
+
+  function arrancarCuenta(): void {
+    detenerCuenta();
+    const cuenta = cuentaEl;
+    const actualizar = (): void => {
+      const ahora = Date.now();
+      cuenta.textContent = formatearCuentaRegresiva(expiraEnMs - ahora);
+      if (codigoVencido(expiraEnMs, ahora)) {
+        detenerCuenta();
+        marcarVencido();
+        void cargar();
+      }
+    };
+    actualizar();
+    temporizador = window.setInterval(actualizar, 1000);
+    // Mientras el código vive, se relee el estado para mostrar el paso a
+    // vinculado sin recargar (el webhook marca el vínculo del lado servidor).
+    sondeo = window.setInterval(() => void cargar(), SONDEO_MS);
+  }
+
+  async function generar(numero: string): Promise<void> {
+    const boton = $("vinc-generar") as HTMLButtonElement;
+    const error = $("vinc-error");
+    error.textContent = "";
+    boton.disabled = true;
+    let r: Response;
+    try {
+      r = await fetch("/api/whatsapp/vincular-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantIdActual, numero }),
+      });
+    } catch (e) {
+      console.warn("[panel/bot/config] vincular", e);
+      error.textContent = "Sin conexión con el servidor.";
+      boton.disabled = false;
+      return;
+    }
+    let cuerpo: { error?: unknown; codigo?: string; expira_en_min?: number };
+    try {
+      cuerpo = (await r.json()) as { error?: unknown; codigo?: string; expira_en_min?: number };
+    } catch {
+      cuerpo = {};
+    }
+    if (!r.ok || !cuerpo.codigo) {
+      const mensaje = textoError(cuerpo.error, r.status);
+      error.textContent = mensaje;
+      toast.error(mensaje);
+      boton.disabled = false;
+      return;
+    }
+    $("vinc-codigo-valor").textContent = cuerpo.codigo;
+    $("vinc-codigo-valor").classList.remove("vinc-vencido");
+    $("vinc-cuenta-texto").textContent = "El código vence en ";
+    $("vinc-cuenta-texto").appendChild(cuentaEl);
+    $("vinc-codigo").hidden = false;
+    expiraEnMs = Date.now() + (cuerpo.expira_en_min ?? 10) * 60_000;
+    boton.textContent = "Generar código";
+    boton.disabled = false;
+    arrancarCuenta();
+    toast.success("Código generado");
+    void cargar();
+  }
+
+  $("vinc-vincular").addEventListener("click", () => {
+    formAbierto = true;
+    $("vinc-vacio").hidden = true;
+    $("vinc-form").hidden = false;
+    ($("vinc-numero") as HTMLInputElement).focus();
+  });
+
+  $("vinc-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const numero = ($("vinc-numero") as HTMLInputElement).value.trim();
+    if (!numero) {
+      $("vinc-error").textContent = "Poné tu número de celular.";
+      return;
+    }
+    void generar(numero);
+  });
+
+  async function cargar(): Promise<void> {
+    const estado = $("vinc-estado");
+    estado.textContent = "Cargando…";
+    let r: Response;
+    try {
+      r = await fetch("/api/whatsapp/vinculos");
+    } catch (e) {
+      console.warn("[panel/bot/config] vinculos", e);
+      estado.textContent = "Sin conexión con el servidor.";
+      return;
+    }
+    if (!r.ok) {
+      estado.textContent = "No se pudieron cargar los vínculos. Recargá la página.";
+      return;
+    }
+    const j = (await r.json()) as { tenant_id: string; personas?: PersonaVinculos[] };
+    tenantIdActual = j.tenant_id;
+    const personas = j.personas ?? [];
+    const vinculados = contarVinculados(personas);
+    if (sondeo && vinculados > vinculadosAntes) {
+      detenerCuenta();
+      $("vinc-codigo").hidden = true;
+      toast.success("WhatsApp vinculado");
+    }
+    vinculadosAntes = vinculados;
+    pintar(personas);
+    estado.textContent = hayVinculados(personas) ? "Estado del bot por persona." : "";
+  }
+
+  void cargar();
+</script>
