@@ -26,6 +26,7 @@ Generado por `npm run docs:estado`. No editar a mano.
 
 ## Pendientes y bloqueados
 
+- 2026-10-17 · [LAYA-S0](roadmap/avances/LAYA-S0.md) · LAYA-S0: Laya evaluado en el box: tal cual da 34–54% en español; ajustado en CPU llega a 96% en intención del bot (prueba chica).…
 - 2026-10-14 · [P9-1](roadmap/avances/P9-1.md) · P9-1 bloqueado por decisiones de Mauri: Proveedor de OCR definitivo (ADR-0005: PaddleOCR propio vs Vision/Textract).
 - 2026-10-14 · [P9-2](roadmap/avances/P9-2.md) · P9-2 bloqueado por decisiones de Mauri: Consulta legal/fiscal con contador y abogado y certificados ARCA (fecha límite 1/12/2026…
 - 2026-10-14 · [P9-3](roadmap/avances/P9-3.md) · P9-3 bloqueado por decisiones de Mauri: Número central de WhatsApp en Meta (alta, verificación del negocio y plantillas).

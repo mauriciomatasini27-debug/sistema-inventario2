@@ -61,6 +61,7 @@ Operar la plataforma, no los comercios.
 - `dashboard-indice-navegacion.md` → `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/`
 - ADRs: `adr/0006-panel.md`, `adr/0020-dashboard.md`, `archivo/0000-indice-prd-ordenado.md` (orden de dependencias Nivel 0-5)
 - Dashboard, asistente y planes: `diseno/PRD-DASH-01-implementacion-bot-alertas-ia-chat.md`, `diseno/PRD-IA-01-asistente-preguntas-negocio.md` + `adr/0044-asistente-ia-catalogo-cerrado.md`, `adr/0045-proveedor-llm-asistente.md`; `diseno/PRD-PLAN-01-planes-suscripcion.md`, `diseno/PRD-PLAN-02-precios-suscripcion.md` + `adr/0047-cobro-por-plan-mensual.md`
+- Clasificador local (Laya): `adr/0087-laya-clasificador-local.md`, `adr/0088-clasificador-local-integracion.md` + `diseno/PRD-LAYA-01-clasificador-local-inventario.md`, `diseno/PRD-LAYA-02-clasificador-automatizaciones-box.md`
 
 ## 09-frontend-landing-diseno/ — Landing, tema papel y skills
 Lo público y el sistema de diseño.

@@ -349,6 +349,14 @@
       "ruta": "docs/adr/0086-verificacion-local-sin-github-actions.md"
     },
     {
+      "id": "ADR-0087",
+      "ruta": "docs/adr/0087-laya-clasificador-local.md"
+    },
+    {
+      "id": "ADR-0088",
+      "ruta": "docs/adr/0088-clasificador-local-integracion.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -599,6 +607,14 @@
     {
       "id": "PRD-LANDING-01",
       "ruta": "docs/diseno/PRD-LANDING-01-planes-en-landing.md"
+    },
+    {
+      "id": "PRD-LAYA-01",
+      "ruta": "docs/diseno/PRD-LAYA-01-clasificador-local-inventario.md"
+    },
+    {
+      "id": "PRD-LAYA-02",
+      "ruta": "docs/diseno/PRD-LAYA-02-clasificador-automatizaciones-box.md"
     },
     {
       "id": "PRD-LP-01",
@@ -1920,6 +1936,46 @@
       "tipo": "modifica"
     },
     {
+      "de": "ADR-0087",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0087",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0087",
+      "a": "ADR-0044",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0087",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0087",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0088",
+      "a": "ADR-0042",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0088",
+      "a": "ADR-0045",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0088",
+      "a": "ADR-0087",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -2482,6 +2538,41 @@
     {
       "de": "PRD-LANDING-01",
       "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-01",
+      "a": "ADR-0006",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-01",
+      "a": "ADR-0087",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-01",
+      "a": "ADR-0088",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-01",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-02",
+      "a": "ADR-0086",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-02",
+      "a": "ADR-0087",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-LAYA-02",
+      "a": "ADR-0088",
       "tipo": "depende_de"
     },
     {
