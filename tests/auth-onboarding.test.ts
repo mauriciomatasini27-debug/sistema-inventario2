@@ -310,9 +310,12 @@ describe("rutas", () => {
   });
 
   it("accept: acepta, mismatch 403 sin datos, vencida/cancelada/usada 410, revocar invalida sesión", async () => {
+    // La ruta mide el vencimiento (7 días) con el reloj real: invitar con AHORA
+    // fijo hacía fallar el test desde el 2026-10-17T12:00Z.
+    const ahoraRuta = new Date();
     tenantEnStore("t-1", "dueno-1");
     control.users.set("emp-1", { googleSub: "emp-1", email: "juan@gmail.com", emailVerificado: true });
-    const { tokenPlano, registro } = crearInvitacion({ tenantId: "t-1", email: "juan@gmail.com", rol: "empleado", ahora: AHORA });
+    const { tokenPlano, registro } = crearInvitacion({ tenantId: "t-1", email: "juan@gmail.com", rol: "empleado", ahora: ahoraRuta });
     control.invitations.set(registro.tokenHash, { ...registro, estado: "pendiente" });
     const plano = sesionEnStore("emp-1");
     const setCookies: Array<[string, string]> = [];
@@ -332,7 +335,7 @@ describe("rutas", () => {
     expect(resolverSesionPorPlano(plano)).toBeNull();
 
     control.users.set("otro", { googleSub: "otro", email: "otro@gmail.com", emailVerificado: true });
-    const inv2 = crearInvitacion({ tenantId: "t-1", email: "juan@gmail.com", rol: "empleado", ahora: AHORA });
+    const inv2 = crearInvitacion({ tenantId: "t-1", email: "juan@gmail.com", rol: "empleado", ahora: ahoraRuta });
     control.invitations.set(inv2.registro.tokenHash, { ...inv2.registro, estado: "pendiente" });
     const planoOtro = sesionEnStore("otro");
     const rMismatch = await postAccept(
@@ -346,7 +349,7 @@ describe("rutas", () => {
     expect(JSON.stringify(await rMismatch.json())).not.toContain("Kiosco");
 
     for (const estado of ["vencida", "cancelada", "aceptada"] as const) {
-      const inv = crearInvitacion({ tenantId: "t-1", email: "nuevo@gmail.com", rol: "empleado", ahora: AHORA });
+      const inv = crearInvitacion({ tenantId: "t-1", email: "nuevo@gmail.com", rol: "empleado", ahora: ahoraRuta });
       control.invitations.set(inv.registro.tokenHash, {
         ...inv.registro,
         estado: estado === "vencida" ? "pendiente" : estado,

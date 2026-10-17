@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaUTC, fechaAR, horaAR, horaMinutoAR, parseFechaAR, sumarDiasAR, type FechaAR } from "../src/lib/fecha-ar.js";
+import { diaUTC, fechaAR, horaAR, horaMinutoAR, mesAR, parseFechaAR, sumarDiasAR, type FechaAR } from "../src/lib/fecha-ar.js";
 
 function f(s: string): FechaAR {
   const v = parseFechaAR(s);
@@ -77,6 +77,19 @@ describe("horaAR: hora civil en America/Argentina/Buenos_Aires", () => {
   it("formatea HH:MM con reloj de 24 horas", () => {
     expect(horaMinutoAR(new Date("2026-10-17T02:00:00Z"))).toBe("23:00");
     expect(horaMinutoAR(new Date("2026-10-17T12:05:00Z"))).toBe("09:05");
+  });
+});
+
+describe("mesAR: mes AAAA-MM en America/Argentina/Buenos_Aires", () => {
+  it("toma el mes del día AR, no el mes UTC", () => {
+    // 31/10 22:00 AR es 01/11 01:00 UTC: el mes del cupo sigue siendo octubre.
+    expect(mesAR(new Date("2026-11-01T01:00:00Z"))).toBe("2026-10");
+    expect(mesAR(new Date("2026-11-01T04:00:00Z"))).toBe("2026-11");
+  });
+
+  it("acepta milisegundos y por defecto usa ahora", () => {
+    expect(mesAR(Date.parse("2026-03-15T12:00:00Z"))).toBe("2026-03");
+    expect(mesAR()).toMatch(/^\d{4}-\d{2}$/);
   });
 });
 

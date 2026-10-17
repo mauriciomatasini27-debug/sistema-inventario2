@@ -1,0 +1,118 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Plan" subtitulo="Tu plan, lo que incluye y el cupo del asistente IA del mes.">
+  <section class="card" id="plan-card">
+    <h2 id="plan-nombre">Cargando…</h2>
+    <p class="nota" id="plan-ejemplo" hidden>Datos de ejemplo del catálogo de planes.</p>
+    <div class="estado" id="plan-estado" role="status">Cargando…</div>
+
+    <div id="plan-contenido" hidden>
+      <h3>Cupo del asistente IA</h3>
+      <div
+        id="asistente"
+        class="medidor"
+        role="meter"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        aria-label="Cupo del asistente IA del mes"
+      >
+        <div class="medidor-barra"><span id="asistente-relleno"></span></div>
+        <p class="medidor-texto" id="asistente-texto"></p>
+      </div>
+      <p class="medidor-explicacion" id="asistente-explicacion" aria-live="polite"></p>
+
+      <h3>Qué incluye tu plan</h3>
+      <ul class="lista" id="plan-features"></ul>
+    </div>
+  </section>
+</PanelShell>
+
+<style>
+  .nota { color: var(--color-ash); font-size: 12px; }
+  .medidor-barra { height: 14px; border-radius: 999px; background: var(--color-linen); overflow: hidden; }
+  .medidor-barra span { display: block; height: 100%; width: 0; background: var(--color-trust); }
+  .medidor-texto, .medidor-explicacion { font-variant-numeric: tabular-nums; font-size: 14px; }
+  .medidor-explicacion { color: var(--color-star-warm); }
+  .feature-no { color: var(--color-ash); }
+</style>
+
+<script>
+  import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+
+  const $ = (id) => document.getElementById(id);
+  const texto = (id, valor) => {
+    const el = $(id);
+    if (el) el.textContent = valor;
+  };
+
+  function pintarAsistente(a) {
+    const meter = $("asistente");
+    if (!a.incluido) {
+      meter.hidden = true;
+      texto("asistente-explicacion", a.explicacion);
+      return;
+    }
+    meter.hidden = false;
+    meter.setAttribute("aria-valuenow", String(a.porcentaje));
+    meter.setAttribute(
+      "aria-valuetext",
+      "Usaste " + a.usado + " de " + a.cupo + " consultas este mes, quedan " + a.restante,
+    );
+    $("asistente-relleno").style.width = a.porcentaje + "%";
+    texto("asistente-texto", "Usaste " + a.usado + " de " + a.cupo + " consultas este mes · quedan " + a.restante);
+    texto("asistente-explicacion", a.explicacion);
+  }
+
+  function pintarFeatures(features) {
+    const ul = $("plan-features");
+    ul.textContent = "";
+    features.forEach((f) => {
+      const li = document.createElement("li");
+      if (!f.incluida) li.className = "feature-no";
+      const marca = document.createElement("b");
+      marca.textContent = f.incluida ? "Incluido" : "No incluido";
+      const nombre = document.createElement("span");
+      nombre.textContent = " · " + f.etiqueta;
+      li.append(marca, nombre);
+      ul.appendChild(li);
+    });
+  }
+
+  function mostrarError(mensaje) {
+    $("plan-contenido").hidden = true;
+    texto("plan-nombre", "Plan");
+    $("plan-estado").textContent =
+      derivarEstado({ cargando: false, error: true, items: 0 }) === "error" ? mensaje : "";
+  }
+
+  async function cargar() {
+    $("plan-estado").textContent = "Cargando…";
+    let r;
+    try {
+      r = await fetch("/api/plan/resumen");
+    } catch (error) {
+      console.warn("[panel/plan] resumen", error);
+      mostrarError("Sin conexión con el servidor.");
+      return;
+    }
+    const v = await r.json().catch((error) => {
+      console.warn("[panel/plan] respuesta no JSON", error);
+      return {};
+    });
+    if (!r.ok) {
+      if (r.status === 503) mostrarError("La base de datos no responde. Probá de nuevo en un rato.");
+      else mostrarError(textoError(v.error, r.status));
+      return;
+    }
+    texto("plan-nombre", v.nombre);
+    $("plan-ejemplo").hidden = !v.es_catalogo_ejemplo;
+    pintarAsistente(v.asistente);
+    pintarFeatures(v.features);
+    $("plan-contenido").hidden = false;
+    $("plan-estado").textContent = "";
+  }
+
+  cargar();
+</script>

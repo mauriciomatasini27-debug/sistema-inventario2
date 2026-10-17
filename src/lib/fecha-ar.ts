@@ -34,6 +34,11 @@ export function fechaAR(ahora: Date | number = new Date()): FechaAR {
   return formatoAR.format(d) as FechaAR;
 }
 
+/** Mes AAAA-MM del día civil en Buenos Aires; no usar el mes UTC del instante. */
+export function mesAR(ahora: Date | number = new Date()): string {
+  return fechaAR(ahora).slice(0, 7);
+}
+
 export function parseFechaAR(s: string): FechaAR | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   if (m?.[1] === undefined || m?.[2] === undefined || m?.[3] === undefined) return null;

@@ -1,6 +1,12 @@
 import { z } from "zod";
+import { mesAR } from "../../lib/fecha-ar.js";
 import type { ProveedorLLM } from "./proveedor.js";
 import type { RegistroUsoIA } from "./registro.js";
+
+// Tope por defecto del asistente cuando el plan lo incluye sin cupo numérico.
+// Fuente única: el medidor de /panel/plan (plan-panel.ts) lo importa para que
+// el bloqueo y la vista nunca discrepen.
+export const CUPO_ASISTENTE_POR_DEFECTO = 100;
 
 export const NOMBRES_HERRAMIENTAS = [
   "top_productos",
@@ -149,8 +155,8 @@ export function crearAsistente(opts: {
   modeloNombre?: string;
 }): { catalogo: HerramientaIA[]; preguntar(sesion: SesionIA, pregunta: string): Promise<RespuestaAsistente> } {
   const catalogo = crear_catalogo(opts.lecturas ?? {});
-  const cupo = opts.cupoConsultasPorMes ?? 100;
-  const mesActual = opts.mesActual ?? (() => new Date().toISOString().slice(0, 7));
+  const cupo = opts.cupoConsultasPorMes ?? CUPO_ASISTENTE_POR_DEFECTO;
+  const mesActual = opts.mesActual ?? (() => mesAR());
 
   async function preguntar(sesion: SesionIA, pregunta: string): Promise<RespuestaAsistente> {
     const herramienta = detectar_intencion(pregunta, catalogo);

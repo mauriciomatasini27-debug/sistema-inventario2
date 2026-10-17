@@ -21,10 +21,11 @@ const PANTALLAS = [
   "src/pages/panel/reportes.astro",
   "src/pages/panel/alertas/umbrales.astro",
   "src/pages/panel/bot/config.astro",
+  "src/pages/panel/plan.astro",
 ] as const;
 
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/|bot-modulos|whatsapp\/(vinculos|vincular-code|desvincular))/;
+  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/|bot-modulos|plan\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";
@@ -115,6 +116,17 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     expect(leer("src/pages/panel/stock.astro")).toContain(`href="${destino}"`);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
+  });
+
+  it("ajustes enlaza a /panel/plan y la pantalla muestra el medidor en texto", () => {
+    const destino = "/panel/plan";
+    expect(archivoDeHref(destino)).toBe("src/pages/panel/plan.astro");
+    expect(leer("src/components/panel/AjustesCard.astro")).toContain(`href="${destino}"`);
+    const pantalla = leer("src/pages/panel/plan.astro");
+    expect(pantalla).toContain('role="meter"');
+    expect(pantalla).toContain("aria-valuenow");
+    expect(pantalla).toContain("tabular-nums");
+    expect(pantalla).toContain("fetch(\"/api/plan/resumen\")");
   });
 
   it("la tarjeta de bot enlaza a /panel/bot/config y la pantalla ofrece vincular", () => {
