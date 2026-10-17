@@ -3,6 +3,7 @@
 // por defecto (NE1.5) o como email aparte a hora fija.
 
 import { formatear_pesos } from "./plantilla-cierre.js";
+import { documento_papel, pie_links, tabla } from "./papel.js";
 
 export type OrigenVenta = "lector" | "camara" | "busqueda" | "bot";
 
@@ -96,7 +97,7 @@ export function seccion_ventas(c: CalculoVentas): { html: string; texto: string 
       `<h2 style="font-size:16px;">Ventas del día</h2>` +
       `<p>Total ${formatear_pesos(c.totalCentavos)} · ${c.tickets} tickets · ticket ${formatear_pesos(c.ticketPromedioCentavos)} · ${c.unidades} u.` +
       (c.gananciaCentavos != null ? ` · ganancia ${formatear_pesos(c.gananciaCentavos)}` : "") +
-      `</p><table width="100%">${filas}</table>`,
+      `</p>` + tabla(filas),
     texto:
       `Ventas del día\nTotal ${formatear_pesos(c.totalCentavos)} · ${c.tickets} tickets · ${c.unidades} u.\n` +
       c.topUnidades.map((v) => `- ${v.nombre}: ${v.cantidad} u. ${formatear_pesos(v.importeCentavos)}`).join("\n"),
@@ -109,12 +110,10 @@ export function armar_email_ventas(args: { nombreComercio: string; fecha: string
   texto: string;
 } {
   const s = seccion_ventas(args.calculo);
+  const asunto = `${args.nombreComercio}: ventas ${args.fecha} — ${formatear_pesos(args.calculo.totalCentavos)}`;
   return {
-    asunto: `${args.nombreComercio}: ventas ${args.fecha} — ${formatear_pesos(args.calculo.totalCentavos)}`,
-    html:
-      `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
-      `<div style="padding:24px 20px;">${s.html}` +
-      `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p></div></div>`,
+    asunto,
+    html: documento_papel(asunto, s.html + pie_links()),
     texto: `${s.texto}\nBaja: {{baja_url}}`,
   };
 }

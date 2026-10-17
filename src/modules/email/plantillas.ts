@@ -1,5 +1,7 @@
 // Núcleo puro NE12: base de plantillas, copy y links. Sin IO.
 
+import { documento_papel, pie_links } from "./papel.js";
+
 const RUTAS = ["/caja", "/pedidos", "/alertas", "/pagos", "/turnos", "/conteo", "/fiado", "/resumen"] as const;
 
 // Deep links a la PWA: solo rutas internas allowlist; lo demás va al inicio.
@@ -18,10 +20,7 @@ export function tiene_tracking(html: string): boolean {
 }
 
 export function layout(titulo: string, cuerpoHtml: string): string {
-  return (
-    `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
-    `<div style="padding:24px 20px;"><h1 style="font-size:22px;">${titulo}</h1>${cuerpoHtml}</div></div>`
-  );
+  return documento_papel(titulo, `<h1 style="font-size:22px;">${titulo}</h1>${cuerpoHtml}`);
 }
 
 export const REMITENTES = {
@@ -41,7 +40,9 @@ export function reply_para(enNombreComercio: boolean, emailComercio?: string): s
 export function pie(comercio: string, conBaja: boolean): { html: string; texto: string } {
   const base = `Recibís este email porque sos dueño de ${comercio}.`;
   return {
-    html: `<p style="font-size:12px;color:#6b6259;">${base} <a href="{{preferencias_url}}">Preferencias</a>${conBaja ? ` · <a href="{{baja_url}}">Dejar de recibir estos emails</a>` : ""}</p>`,
+    html: pie_links(
+      `${base} <a href="{{preferencias_url}}">Preferencias</a>${conBaja ? ` · <a href="{{baja_url}}">Dejar de recibir estos emails</a>` : ""}`,
+    ),
     texto: `${base}\nPreferencias: {{preferencias_url}}${conBaja ? "\nBaja: {{baja_url}}" : ""}`,
   };
 }

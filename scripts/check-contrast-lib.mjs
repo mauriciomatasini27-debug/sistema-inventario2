@@ -67,6 +67,10 @@ export const PAREJAS = [
   { nombre: "admin demo: void sobre llama", fg: "void", bg: "llama", uso: "texto", modo: "light" },
   { nombre: "serie ok claro: ok sobre star-white", fg: "ok", bg: "star-white", uso: "grande", modo: "light" },
   { nombre: "texto sobre ember-coral (mora admin)", fg: "void", bg: "ember-coral", uso: "texto", modo: "dark" },
+  // Email papel (DS-S21): el papel del email pasa a void en oscuro con texto
+  // canvas, y el CTA queda star-glow con blanco en los dos modos.
+  { nombre: "email papel oscuro: texto sobre void", fg: "canvas", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "email CTA dark", fg: "star-white", bg: "star-glow", uso: "texto", modo: "dark" },
   // Listas (DS-S15): énfasis de SKU y cantidades, también sobre hover y fila seleccionada.
   { nombre: "énfasis lista claro: star-glow sobre star-white", fg: "star-glow", bg: "star-white", uso: "texto", modo: "light" },
   { nombre: "énfasis lista claro sobre hover naranja 6%", fg: "star-glow", bg: "naranja", alfa: 0.06, debajo: "star-white", uso: "texto", modo: "light" },

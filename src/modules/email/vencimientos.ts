@@ -2,6 +2,7 @@
 // Nunca ejecuta un pago desde el email (NE8.1): solo [Revisar y pagar].
 
 import { formatear_pesos } from "./plantilla-cierre.js";
+import { cta, documento_papel, pie_links, tabla } from "./papel.js";
 import type { TipoEmail } from "./catalogo.js";
 
 export interface Vencimiento {
@@ -51,6 +52,7 @@ export function describir_vencimientos(args: {
   }
   const total = unicos.reduce((acc, i) => acc + i.montoCentavos, 0n);
   const titulo = args.modo === "semanal" ? "Pagos de la semana" : `Vencimientos ${args.fecha}`;
+  const asunto = `${titulo}: ${unicos.length} pagos · ${formatear_pesos(total)}`;
   const filasHtml = unicos
     .map(
       (i) =>
@@ -62,13 +64,14 @@ export function describir_vencimientos(args: {
     tipo: "vencimientos",
     dedupeKey: `vencimientos:${args.fecha}:${args.modo}`,
     idempotencyKey: `vencimientos:${args.fecha}:${args.modo}:email`,
-    asunto: `${titulo}: ${unicos.length} pagos · ${formatear_pesos(total)}`,
-    html:
-      `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
-      `<div style="padding:24px 20px;"><h1 style="font-size:20px;">${escapar(titulo)} — ${formatear_pesos(total)}</h1>` +
-      `<table width="100%">${filasHtml}</table>` +
-      `<a href="{{pagos_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar y pagar</a>` +
-      `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p></div></div>`,
+    asunto,
+    html: documento_papel(
+      asunto,
+      `<h1 style="font-size:20px;">${escapar(titulo)} — ${formatear_pesos(total)}</h1>` +
+        tabla(filasHtml) +
+        cta("{{pagos_url}}", "Revisar y pagar") +
+        pie_links(),
+    ),
     texto:
       `${titulo} — ${formatear_pesos(total)}\n` +
       unicos.map((i) => `- ${i.concepto} — ${i.beneficiario} · vence ${i.vence}: ${formatear_pesos(i.montoCentavos)}`).join("\n") +

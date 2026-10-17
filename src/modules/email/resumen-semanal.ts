@@ -2,6 +2,7 @@
 // Mismo cálculo para WA+email (NE3.1); email agrega detalle y pedido.
 
 import { formatear_pesos } from "./plantilla-cierre.js";
+import { cta, documento_papel, pie_links, tabla } from "./papel.js";
 
 export interface VentaSemana {
   readonly sku: string;
@@ -103,16 +104,16 @@ export function armar_semanal(args: {
     .map((p) => `<h2 style="font-size:16px;">${escapar(p.proveedor)} — ${p.unidades} u. sugeridas</h2>` + p.items.map((i) => `<p style="margin:4px 0;font-size:14px;">${escapar(i.nombre)}: ${i.sugerido}</p>`).join(""))
     .join("");
   const cuerpoHtml = conVentas
-    ? `<p>Vendiste ${c.unidades} unidades por ${formatear_pesos(c.ventasCentavos)}${c.gananciaCentavos != null ? ` (ganancia ${formatear_pesos(c.gananciaCentavos)})` : ""}.</p><table width="100%">${topHtml}</table>`
+    ? `<p>Vendiste ${c.unidades} unidades por ${formatear_pesos(c.ventasCentavos)}${c.gananciaCentavos != null ? ` (ganancia ${formatear_pesos(c.gananciaCentavos)})` : ""}.</p>` + tabla(topHtml)
     : `<p>No hay ventas registradas esta semana.</p>`;
-  const html =
-    `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
-    `<div style="padding:24px 20px;">${cuerpoHtml}` +
-    `<p>Faltantes: ${c.faltantes} (${c.sinStock} sin stock).</p>${pedidoHtml}` +
-    `<a href="{{pedidos_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar pedido sugerido</a>` +
-    `<p><a href="{{programar_url}}">Programar para el lunes</a> · <a href="{{resumen_url}}">Ver resumen completo</a></p>` +
-    `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p>` +
-    `</div></div>`;
+  const html = documento_papel(
+    asunto,
+    `${cuerpoHtml}` +
+      `<p>Faltantes: ${c.faltantes} (${c.sinStock} sin stock).</p>${pedidoHtml}` +
+      cta("{{pedidos_url}}", "Revisar pedido sugerido") +
+      `<p><a href="{{programar_url}}">Programar para el lunes</a> · <a href="{{resumen_url}}">Ver resumen completo</a></p>` +
+      pie_links(),
+  );
   const texto =
     (conVentas ? `Vendiste ${c.unidades} unidades por ${formatear_pesos(c.ventasCentavos)}.\n` : `No hay ventas registradas esta semana.\n`) +
     `Top: ${c.top10.map((v) => `${v.nombre} x${v.unidades}`).join(", ") || "—"}\n` +

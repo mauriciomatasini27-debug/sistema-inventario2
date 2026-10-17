@@ -1,6 +1,8 @@
 // Núcleo puro NE2: aviso matutino de stock bajo. Sin IO.
 // Un solo cálculo vivo para WA+email (NE2.5); sin novedades no sale nada.
 
+import { cta, documento_papel, pie_links, tabla } from "./papel.js";
+
 export interface ItemStock {
   readonly sku: string;
   readonly nombre: string;
@@ -99,17 +101,17 @@ export function armar_matutino(args: {
     bloquesHtml.push(
       `<h2 style="font-size:16px;margin:16px 0 8px;">${escapar(prov)} (${items.length}) — ` +
         `<a href="${pedidoUrl}">Armar pedido</a></h2>` +
-        `<table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;"><tbody>` +
-        items
-          .map(
-            (a) =>
-              `<tr><td style="padding:6px 0;border-bottom:1px solid #e7e2d9;">${escapar(a.nombre)} — quedan ${a.stock} (umbral ${a.umbral}) — sugerido: ${a.sugerido}` +
-              (a.ubicacion ? ` — ${escapar(a.ubicacion)}` : "") +
-              (a.urgente ? ` <strong>URGENTE</strong>` : "") +
-              `</td></tr>`,
-          )
-          .join("") +
-        `</tbody></table>`,
+        tabla(
+          items
+            .map(
+              (a) =>
+                `<tr><td style="padding:6px 0;border-bottom:1px solid #e7e2d9;">${escapar(a.nombre)} — quedan ${a.stock} (umbral ${a.umbral}) — sugerido: ${a.sugerido}` +
+                (a.ubicacion ? ` — ${escapar(a.ubicacion)}` : "") +
+                (a.urgente ? ` <strong>URGENTE</strong>` : "") +
+                `</td></tr>`,
+            )
+            .join(""),
+        ),
     );
     bloquesTexto.push(
       `${prov} (${items.length}) — [Armar pedido]\n` +
@@ -119,15 +121,14 @@ export function armar_matutino(args: {
   const guardados = args.guardadosViernes ?? 0;
   const guardHtml = guardados > 0 ? `<p>Guardados para el viernes: ${guardados} productos — <a href="{{viernes_url}}">Ver lista del viernes</a></p>` : "";
   const guardTxt = guardados > 0 ? `\nGuardados para el viernes: ${guardados} productos — [Ver lista del viernes]` : "";
-  const html =
-    `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
-    `<div style="padding:24px 20px;">` +
-    `<p style="margin:0 0 8px;font-size:14px;color:#6b6259;">Buen día — esto es lo que se está acabando (${escapar(args.fecha)})</p>` +
-    bloquesHtml.join("") +
-    guardHtml +
-    `<a href="{{alertas_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver todas las alertas en la app</a>` +
-    `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p>` +
-    `</div></div>`;
+  const html = documento_papel(
+    asunto,
+    `<p class="ne-mute" style="margin:0 0 8px;font-size:14px;color:#6b6259;">Buen día — esto es lo que se está acabando (${escapar(args.fecha)})</p>` +
+      bloquesHtml.join("") +
+      guardHtml +
+      cta("{{alertas_url}}", "Ver todas las alertas en la app") +
+      pie_links(),
+  );
   const texto =
     `Buen día. Esto es lo que se está acabando (${args.fecha}):\n\n` +
     bloquesTexto.join("\n\n") +
