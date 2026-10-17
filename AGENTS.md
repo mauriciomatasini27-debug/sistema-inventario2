@@ -34,3 +34,7 @@ Reglas cortas para agentes en este repo.
 
 - Windows: WSL2 Ubuntu con Node 22 y Postgres 17; guía en `docs/guias/desarrollo-windows-opencode.md`. Windows nativo no corre `npm run verify` completo (scripts bash).
 - Fuera del box no hay `/workspace/.cadena.lock`: no tomes el lock; rama propia (`mauri/<tema>`), nunca push a `main`, PR + `npm run verify` + `puede-mergear.mjs`. La Cadena del box saltea los PRs que no abrió.
+
+## OpenCode (modelos)
+
+- Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/space-bunny-free` (cross-family). Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
