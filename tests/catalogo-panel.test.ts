@@ -4,10 +4,13 @@ import {
   LOCALE_PRECIO,
   catalogoMil,
   leerCatalogo,
+  leerSkuSeleccionado,
+  marcarSkuSeleccionado,
   modoHarnessCatalogo,
   pesosDesdeCentavos,
   publicarCatalogo,
   suscribirCatalogo,
+  suscribirSkuSeleccionado,
   type ProductoCatalogo,
 } from "../src/lib/catalogo-panel.js";
 import { formatearCentavos } from "../src/lib/panel-modulos.js";
@@ -75,6 +78,7 @@ describe("modoHarnessCatalogo", () => {
 describe("store de catalogo", () => {
   beforeEach(() => {
     publicarCatalogo([]);
+    marcarSkuSeleccionado(null);
   });
 
   it("publicar y leer el ultimo valor", () => {
@@ -109,5 +113,37 @@ describe("store de catalogo", () => {
     desuscribir();
     publicarCatalogo([{ sku: "D", nombre: "Cuatro", precioCentavos: 400 }]);
     expect(llamados).toBe(trasSuscribir);
+  });
+});
+
+describe("store de sku seleccionado", () => {
+  beforeEach(() => {
+    marcarSkuSeleccionado(null);
+  });
+
+  it("normaliza sku a mayusculas y trim", () => {
+    marcarSkuSeleccionado("  mil-0001  ");
+    expect(leerSkuSeleccionado()).toBe("MIL-0001");
+  });
+
+  it("null con vacío", () => {
+    marcarSkuSeleccionado("  ");
+    expect(leerSkuSeleccionado()).toBe(null);
+    marcarSkuSeleccionado("");
+    expect(leerSkuSeleccionado()).toBe(null);
+    marcarSkuSeleccionado(null);
+    expect(leerSkuSeleccionado()).toBe(null);
+  });
+
+  it("notifica a oyentes y desuscribe", () => {
+    const vistos: (string | null)[] = [];
+    const desuscribir = suscribirSkuSeleccionado((v) => vistos.push(v));
+    expect(vistos[0]).toBe(null);
+    marcarSkuSeleccionado("A");
+    expect(vistos[vistos.length - 1]).toBe("A");
+    desuscribir();
+    const antes = vistos.length;
+    marcarSkuSeleccionado("B");
+    expect(vistos.length).toBe(antes);
   });
 });

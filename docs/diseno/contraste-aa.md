@@ -64,3 +64,10 @@
 | admin demo: void sobre llama | light | #1a1a1a | #ffd600 | texto | 12.32:1 | 4.5 | PASS |
 | serie ok claro: ok sobre star-white | light | #2e6b1f | #ffffff | grande | 6.48:1 | 3 | PASS |
 | texto sobre ember-coral (mora admin) | dark | #1a1a1a | #ff7043 | texto | 6.34:1 | 4.5 | PASS |
+| énfasis lista claro: star-glow sobre star-white | light | #bf360c | #ffffff | texto | 5.60:1 | 4.5 | PASS |
+| énfasis lista claro sobre hover naranja 6% | light | #bf360c | #fef7f0 | texto | 5.28:1 | 4.5 | PASS |
+| énfasis lista claro sobre seleccionada star-warm 10% | light | #bf360c | #fdede8 | texto | 4.92:1 | 4.5 | PASS |
+| texto lista claro sobre seleccionada star-warm 10% | light | #1a1a1a | #fdede8 | texto | 15.30:1 | 4.5 | PASS |
+| énfasis lista oscuro: ambar sobre charcoal | dark | #ffb300 | #2b2b2b | texto | 7.89:1 | 4.5 | PASS |
+| énfasis lista oscuro sobre seleccionada star-warm 10% | dark | #ffb300 | #3e2e29 | texto | 7.19:1 | 4.5 | PASS |
+| texto lista oscuro sobre seleccionada star-warm 10% | dark | #ffffff | #3e2e29 | texto | 12.90:1 | 4.5 | PASS |

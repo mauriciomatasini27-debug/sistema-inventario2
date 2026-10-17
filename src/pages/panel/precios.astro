@@ -36,7 +36,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
-  import { catalogoMil, publicarCatalogo } from "../../lib/catalogo-panel.js";
+  import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { PORCENTAJE, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
@@ -60,6 +60,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       derivarEstado({ cargando: false, error: false, items: items.length }),
       "Todavía no hay productos cargados.",
     );
+    marcarSkuSeleccionado(select.value);
   };
 
   const cargarPrecios = () => {
@@ -79,6 +80,8 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         $("estado-precios").textContent = mensaje("error", "");
       });
   };
+
+  $("preview-sku").addEventListener("change", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLSelectElement).value));
 
   $("preview-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();

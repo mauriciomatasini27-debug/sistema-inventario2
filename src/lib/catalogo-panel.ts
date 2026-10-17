@@ -76,3 +76,44 @@ export function suscribirCatalogo(oyente: (items: ProductoCatalogo[]) => void): 
 export function leerCatalogo(): ProductoCatalogo[] {
   return almacen().items;
 }
+
+interface AlmacenSkuSeleccionado {
+  sku: string | null;
+  oyentes: Set<(sku: string | null) => void>;
+}
+
+type GlobalConSku = typeof globalThis & { __catalogoSkuSeleccionado?: AlmacenSkuSeleccionado };
+
+function almacenSkuSeleccionado(): AlmacenSkuSeleccionado {
+  const g = globalThis as GlobalConSku;
+  if (!g.__catalogoSkuSeleccionado) g.__catalogoSkuSeleccionado = { sku: null, oyentes: new Set() };
+  return g.__catalogoSkuSeleccionado;
+}
+
+// La fila seleccionada de TablaCatalogo es la del SKU elegido en el formulario
+// de la página; se compara sin espacios ni mayúsculas porque el input es libre.
+export function skuNormalizado(sku: string | null | undefined): string | null {
+  const t = (sku ?? "").trim().toUpperCase();
+  return t === "" ? null : t;
+}
+
+export function marcarSkuSeleccionado(sku: string | null): void {
+  const s = almacenSkuSeleccionado();
+  const n = skuNormalizado(sku);
+  if (s.sku === n) return;
+  s.sku = n;
+  for (const oyente of [...s.oyentes]) oyente(n);
+}
+
+export function leerSkuSeleccionado(): string | null {
+  return almacenSkuSeleccionado().sku;
+}
+
+export function suscribirSkuSeleccionado(oyente: (sku: string | null) => void): () => void {
+  const s = almacenSkuSeleccionado();
+  s.oyentes.add(oyente);
+  oyente(s.sku);
+  return () => {
+    s.oyentes.delete(oyente);
+  };
+}

@@ -67,6 +67,14 @@ export const PAREJAS = [
   { nombre: "admin demo: void sobre llama", fg: "void", bg: "llama", uso: "texto", modo: "light" },
   { nombre: "serie ok claro: ok sobre star-white", fg: "ok", bg: "star-white", uso: "grande", modo: "light" },
   { nombre: "texto sobre ember-coral (mora admin)", fg: "void", bg: "ember-coral", uso: "texto", modo: "dark" },
+  // Listas (DS-S15): énfasis de SKU y cantidades, también sobre hover y fila seleccionada.
+  { nombre: "énfasis lista claro: star-glow sobre star-white", fg: "star-glow", bg: "star-white", uso: "texto", modo: "light" },
+  { nombre: "énfasis lista claro sobre hover naranja 6%", fg: "star-glow", bg: "naranja", alfa: 0.06, debajo: "star-white", uso: "texto", modo: "light" },
+  { nombre: "énfasis lista claro sobre seleccionada star-warm 10%", fg: "star-glow", bg: "star-warm", alfa: 0.1, debajo: "star-white", uso: "texto", modo: "light" },
+  { nombre: "texto lista claro sobre seleccionada star-warm 10%", fg: "void", bg: "star-warm", alfa: 0.1, debajo: "star-white", uso: "texto", modo: "light" },
+  { nombre: "énfasis lista oscuro: ambar sobre charcoal", fg: "ember-ambar", bg: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "énfasis lista oscuro sobre seleccionada star-warm 10%", fg: "ember-ambar", bg: "star-warm", alfa: 0.1, debajo: "charcoal", uso: "texto", modo: "dark" },
+  { nombre: "texto lista oscuro sobre seleccionada star-warm 10%", fg: "star-white", bg: "star-warm", alfa: 0.1, debajo: "charcoal", uso: "texto", modo: "dark" },
 ];
 
 export function tokensDeCss(css) {

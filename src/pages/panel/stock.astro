@@ -66,7 +66,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 
 <script>
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
-  import { catalogoMil, publicarCatalogo } from "../../lib/catalogo-panel.js";
+  import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
 
@@ -132,6 +132,9 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         $("estado-lotes").textContent = mensaje("error", "");
       });
   };
+  ["lote-sku", "ingreso-sku"].forEach((id) =>
+    $(id).addEventListener("input", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLInputElement).value)),
+  );
   $("lote-buscar").addEventListener("click", buscarLotes);
 
   $("ingreso-form").addEventListener("submit", async (evento) => {

@@ -23,6 +23,10 @@
   --estado-pendiente-tint: var(--color-pendiente-tint);
   --estado-peligro: var(--color-peligro);
   --estado-peligro-tint: var(--color-peligro-tint);
+  --tema-fila-hover: color-mix(in srgb, var(--color-naranja) 6%, transparent);
+  --tema-fila-seleccionada: color-mix(in srgb, var(--color-star-warm) 10%, transparent);
+  --tema-enfasis: var(--color-star-glow);
+  --tema-borde-encabezado: color-mix(in srgb, var(--color-star-warm) 15%, transparent);
 }
 
 :root[data-tema="oscuro"] {
@@ -46,6 +50,10 @@
   --estado-pendiente-tint: var(--color-pendiente-tint-oscuro);
   --estado-peligro: var(--color-peligro-oscuro);
   --estado-peligro-tint: var(--color-peligro-tint-oscuro);
+  --tema-fila-hover: color-mix(in srgb, var(--color-naranja) 6%, transparent);
+  --tema-fila-seleccionada: color-mix(in srgb, var(--color-star-warm) 10%, transparent);
+  --tema-enfasis: var(--color-ember-ambar);
+  --tema-borde-encabezado: color-mix(in srgb, var(--color-star-warm) 15%, transparent);
 }
 
 .estado-ok { background: var(--estado-ok-tint); color: var(--estado-ok); }
