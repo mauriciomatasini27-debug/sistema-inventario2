@@ -56,3 +56,11 @@
 | barra oscura: texto sobre void 85% | dark | #ffffff | #3c3c3c | texto | 11.03:1 | 4.5 | PASS |
 | card clara: muted sobre star-white 80% | light | #6e695d | #fdfdfc | texto | 5.37:1 | 4.5 | PASS |
 | card oscura: muted sobre charcoal 80% | dark | #cfc9b8 | #282828 | texto | 8.92:1 | 4.5 | PASS |
+| muted-dark sobre void | dark | #cfc9b8 | #1a1a1a | texto | 10.53:1 | 4.5 | PASS |
+| muted-dark sobre mid | dark | #cfc9b8 | #3a3a3a | texto | 6.88:1 | 4.5 | PASS |
+| texto sobre mid | dark | #ffffff | #3a3a3a | texto | 11.37:1 | 4.5 | PASS |
+| serie ember claro: vino sobre star-white | light | #c62828 | #ffffff | grande | 5.62:1 | 3 | PASS |
+| serie ember oscuro: ambar sobre charcoal | dark | #ffb300 | #2b2b2b | grande | 7.89:1 | 3 | PASS |
+| admin demo: void sobre llama | light | #1a1a1a | #ffd600 | texto | 12.32:1 | 4.5 | PASS |
+| serie ok claro: ok sobre star-white | light | #2e6b1f | #ffffff | grande | 6.48:1 | 3 | PASS |
+| texto sobre ember-coral (mora admin) | dark | #1a1a1a | #ff7043 | texto | 6.34:1 | 4.5 | PASS |

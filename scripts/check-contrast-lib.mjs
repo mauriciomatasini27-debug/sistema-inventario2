@@ -58,6 +58,15 @@ export const PAREJAS = [
   { nombre: "barra oscura: texto sobre void 85%", fg: "star-white", bg: "void", alfa: 0.85, debajo: "star-white", uso: "texto", modo: "dark" },
   { nombre: "card clara: muted sobre star-white 80%", fg: "ash", bg: "star-white", alfa: 0.8, debajo: "canvas", uso: "texto", modo: "light" },
   { nombre: "card oscura: muted sobre charcoal 80%", fg: "muted-dark", bg: "charcoal", alfa: 0.8, debajo: "void", uso: "texto", modo: "dark" },
+  // Marca 2 (DS-S2/S4): pills oscuras, muted sobre void/mid, serie ember y demo admin.
+  { nombre: "muted-dark sobre void", fg: "muted-dark", bg: "void", uso: "texto", modo: "dark" },
+  { nombre: "muted-dark sobre mid", fg: "muted-dark", bg: "mid", uso: "texto", modo: "dark" },
+  { nombre: "texto sobre mid", fg: "star-white", bg: "mid", uso: "texto", modo: "dark" },
+  { nombre: "serie ember claro: vino sobre star-white", fg: "ember-vino", bg: "star-white", uso: "grande", modo: "light" },
+  { nombre: "serie ember oscuro: ambar sobre charcoal", fg: "ember-ambar", bg: "charcoal", uso: "grande", modo: "dark" },
+  { nombre: "admin demo: void sobre llama", fg: "void", bg: "llama", uso: "texto", modo: "light" },
+  { nombre: "serie ok claro: ok sobre star-white", fg: "ok", bg: "star-white", uso: "grande", modo: "light" },
+  { nombre: "texto sobre ember-coral (mora admin)", fg: "void", bg: "ember-coral", uso: "texto", modo: "dark" },
 ];
 
 export function tokensDeCss(css) {

@@ -7,7 +7,7 @@ declare global {
 }
 
 // DS-S4/S6: tema claro/oscuro por dispositivo con toggle y sin flash.
-const RUTAS = ["/venta", "/panel", "/panel/stock"];
+const RUTAS = ["/venta", "/panel", "/panel/stock", "/admin"];
 
 for (const ruta of RUTAS) {
   test.describe(`tema guardado sin flash en ${ruta}`, () => {
@@ -75,6 +75,16 @@ for (const ruta of RUTAS) {
       const caja = await page.locator("button[data-tema-toggle]").first().boundingBox();
       expect(caja?.width ?? 0).toBeGreaterThanOrEqual(44);
       expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44);
+    });
+
+    test("la etiqueta visible anuncia el tema destino", async ({ page }) => {
+      await page.goto(ruta);
+      const toggle = page.locator("button[data-tema-toggle]").first();
+      await expect(page.locator("html")).toHaveAttribute("data-tema", "oscuro");
+      await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Claro");
+      await toggle.click();
+      await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
+      await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Oscuro");
     });
 
   });

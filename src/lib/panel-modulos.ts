@@ -9,10 +9,24 @@ export type ModuloPanel =
 
 export type DestinoPanel = "dashboard" | "ventas" | ModuloPanel;
 
+// Acento ember de cada módulo (DS-S2): solo secundarias, nunca CTA primario.
+export type Ember = "ambar" | "coral" | "rojo" | "vino";
+
+export const EMBER_MODULO: Record<ModuloPanel, Ember> = {
+  caja: "ambar",
+  stock: "coral",
+  precios: "rojo",
+  proveedores: "vino",
+  consumos: "ambar",
+  fiado: "coral",
+  reportes: "vino",
+};
+
 export interface PillPanel {
   label: string;
   href: string;
   activo: boolean;
+  ember?: Ember;
 }
 
 export type EstadoWidget = "cargando" | "error" | "vacio" | "listo";
@@ -67,6 +81,10 @@ export function etiquetaModulo(id: ModuloPanel): string {
   return ETIQUETAS[id];
 }
 
+export function emberModulo(id: ModuloPanel): Ember {
+  return EMBER_MODULO[id];
+}
+
 function etiquetaDestino(id: DestinoPanel): string {
   if (id === "dashboard") return "Dashboard";
   if (id === "ventas") return "Ventas";
@@ -80,7 +98,11 @@ function hrefDestino(id: DestinoPanel): string {
 }
 
 export function pillsPanel(activo?: DestinoPanel): PillPanel[] {
-  return DESTINOS.map((id) => ({ label: etiquetaDestino(id), href: hrefDestino(id), activo: id === activo }));
+  return DESTINOS.map((id) => {
+    const pill: PillPanel = { label: etiquetaDestino(id), href: hrefDestino(id), activo: id === activo };
+    if (esModuloPanel(id)) pill.ember = emberModulo(id);
+    return pill;
+  });
 }
 
 export function setTexto(id: string, texto: string): void {

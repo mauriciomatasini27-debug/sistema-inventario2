@@ -1,6 +1,8 @@
 ---
 import "../styles/tokens-papel.css";
 import "../styles/tema.css";
+import TemaInicial from "../components/ui/TemaInicial.astro";
+import TemaToggle from "../components/ui/TemaToggle.astro";
 // Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
 // craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
 // pills, segbar, bignums, cards, heatmap dark y SVG propios. Solo consume GET
@@ -20,30 +22,31 @@ const pills = [
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Panel admin · Plataforma</title>
+    <TemaInicial />
     <style>
       :root {
-        --papel: var(--color-canvas); --canvas: var(--color-linen); --tinta: var(--color-void);
-        --llama: var(--color-llama); --llama-hover: #ffe033; --muted: var(--color-ash);
-        --card: var(--color-star-white); --radio: 16px;
+        --papel: var(--tema-fondo); --canvas: var(--tema-linea); --tinta: var(--color-void);
+        --llama: var(--color-llama); --llama-hover: #ffe033; --muted: var(--tema-texto-suave);
+        --card: var(--tema-superficie); --radio: 16px;
       }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--tinta); }
+      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--tema-texto); }
       .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
       /* Barra superior */
       .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .logo { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
+      .logo { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
       nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
-      nav.pills a { white-space: nowrap; text-decoration: none; color: #55524a; font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 36px; display: inline-flex; align-items: center; }
+      nav.pills a { white-space: nowrap; text-decoration: none; color: var(--tema-texto-suave); font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center; }
       nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--color-star-white); }
       .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-      .top-right input { border: 1px solid #ddd6c4; border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 36px; }
+      .top-right input { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 44px; }
       .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--color-star-white); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
       /* Saludo + KPIs */
       h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; }
       .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
       .kpis { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
       .segbar { display: flex; height: 34px; border-radius: 999px; overflow: hidden; background: var(--canvas); min-width: min(420px, 100%); font-size: 12px; font-weight: 700; }
-      .segbar span { display: inline-flex; align-items: center; padding: 0 12px; }
+      .segbar span { display: inline-flex; align-items: center; padding: 0 12px; min-width: 0; overflow: hidden; white-space: nowrap; }
       .bignums { display: flex; gap: 28px; }
       .bignum { text-align: left; }
       .bignum b { font-size: clamp(28px, 4vw, 44px); font-weight: 600; display: block; }
@@ -55,15 +58,15 @@ const pills = [
       .grid.r3 { grid-template-columns: repeat(5, 1fr); margin-top: 16px; }
       .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); min-width: 0; }
       .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
-      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid #e3ddcd; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-      .demo { font-size: 11px; background: var(--llama); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
+      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid var(--tema-linea); border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+      .demo { font-size: 11px; background: var(--llama); color: var(--color-void); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
       .live { font-size: 11px; background: var(--estado-vivo-tint); color: var(--estado-vivo); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
       .denied { font-size: 11px; background: var(--estado-peligro-tint); color: var(--estado-peligro); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
       /* Timeline rollouts */
       .tl { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-      .tl li { border-left: 2px solid #e3ddcd; margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
+      .tl li { border-left: 2px solid var(--tema-linea); margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
       .tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--llama); position: absolute; left: -5px; top: 10px; }
-      .hora { display: inline-block; border: 1px solid #e3ddcd; border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
+      .hora { display: inline-block; border: 1px solid var(--tema-linea); border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
       /* Tabla */
       table.mov { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mov th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px; border-bottom: 1px solid var(--canvas); }
@@ -72,9 +75,9 @@ const pills = [
       .ok { background: var(--estado-ok-tint); color: var(--estado-ok); } .warn { background: var(--estado-aviso-tint); color: var(--estado-aviso); } .pend { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
       /* Tarjeta oscura */
       .dark { background: var(--tinta); color: var(--color-star-white); }
-      .dark h2 a { color: var(--color-star-white); border-color: #444; }
+      .dark h2 a { color: var(--color-star-white); border-color: var(--color-mid); }
       .heat { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 12px; }
-      .heat i { aspect-ratio: 1; border-radius: 50%; background: #3a3a3a; }
+      .heat i { aspect-ratio: 1; border-radius: 50%; background: var(--color-mid); }
       .heat i.on { background: var(--llama); }
       .bign { font-size: 30px; }
       /* Gráfico + dona */
@@ -83,11 +86,22 @@ const pills = [
       .legend { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-top: 8px; }
       /* Banner plataforma + placeholders */
       .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--color-star-white); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
-      .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
-      .mini { font-size: 13px; color: #55524a; }
-      .mini a { color: var(--tinta); font-weight: 600; }
+      .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
+      .mini { font-size: 13px; color: var(--tema-texto-suave); }
+      .mini a { color: var(--tema-texto); font-weight: 600; }
       .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
       :target { outline: 2px solid var(--llama); outline-offset: 4px; }
+      /* En oscuro, .dark y .banner quedan void sobre void: un borde los separa.
+         El primer segmento y el avatar invierten como en el panel. */
+      :global(:root[data-tema="oscuro"]) .dark,
+      :global(:root[data-tema="oscuro"]) .banner { border: 1px solid var(--color-mid); }
+      :global(:root[data-tema="oscuro"]) #seg-ok { background: var(--color-star-white); color: var(--color-void); }
+      :global(:root[data-tema="oscuro"]) .avatar { background: var(--color-star-white); color: var(--color-void); }
+      :global(:root[data-tema="oscuro"]) nav.pills a.active,
+      :global(:root[data-tema="oscuro"]) nav.pills a:hover { background: var(--color-star-white); color: var(--color-void); }
+      /* Primer segmento del segbar: void por defecto, invertido en oscuro. */
+      #seg-ok { background: var(--color-void); color: var(--color-star-white); }
+      #seg-prueba { color: var(--tema-texto); }
       @media (max-width: 900px) {
         .grid.r1, .grid.r2, .grid.r3 { grid-template-columns: 1fr; }
         .top-right input { display: none; }
@@ -104,6 +118,7 @@ const pills = [
         <span class="top-right">
           <input id="q" type="search" placeholder="Buscar tenant o acto" aria-label="Buscar en auditoría" />
           <span class="avatar" title="Operador plataforma">A</span>
+          <TemaToggle />
         </span>
       </div>
 
@@ -112,9 +127,9 @@ const pills = [
 
       <div class="kpis">
         <div class="segbar" title="Estado de la flota">
-          <span id="seg-ok" style="background:var(--color-void);color:var(--color-star-white);width:70%">Al día 70%</span>
-          <span id="seg-mora" style="background:var(--color-llama);width:20%">Mora 20%</span>
-          <span id="seg-prueba" style="width:10%;background:repeating-linear-gradient(45deg,var(--color-linen),var(--color-linen) 4px,var(--color-star-white) 4px,var(--color-star-white) 8px)">Prueba</span>
+          <span id="seg-ok" style="width:70%">Al día 70%</span>
+          <span id="seg-mora" class="ember-coral" style="width:20%">Mora 20%</span>
+          <span id="seg-prueba" style="width:10%;background:repeating-linear-gradient(45deg,var(--tema-linea),var(--tema-linea) 4px,var(--tema-superficie) 4px,var(--tema-superficie) 8px)">Prueba</span>
         </div>
         <div class="bignums">
           <div class="bignum"><b id="n-activos">—</b><small>Tenants activos <span class="demo" id="b-activos">demo</span></small></div>
@@ -124,7 +139,7 @@ const pills = [
       </div>
 
       <div class="banner">
-        <div><b>Mora 14 días · suspensión día 15</b><br /><span class="mini" style="color:#cfc9b8">Suspender/reactivar piden motivo + ID escrito. Todo acto queda auditado.</span></div>
+        <div><b>Mora 14 días · suspensión día 15</b><br /><span class="mini" style="color:var(--color-muted-dark)">Suspender/reactivar piden motivo + ID escrito. Todo acto queda auditado.</span></div>
         <span style="margin-left:auto"></span>
         <a href="#mora">Ver mora →</a>
       </div>
@@ -156,8 +171,8 @@ const pills = [
 
         <section class="card dark" id="senales">
           <h2>Señales por hora <a href="#senales" aria-label="Ir a señales">↗</a></h2>
-          <div><span class="bign"><span id="heat-ok">0</span> ↗</span> &nbsp; <span class="bign" style="color:#cfc9b8"><span id="heat-pend">0</span> ↘</span></div>
-          <div class="mini" style="color:#cfc9b8">consumidas · pendientes <span class="demo">demo</span></div>
+          <div><span class="bign"><span id="heat-ok">0</span> ↗</span> &nbsp; <span class="bign" style="color:var(--color-muted-dark)"><span id="heat-pend">0</span> ↘</span></div>
+          <div class="mini" style="color:var(--color-muted-dark)">consumidas · pendientes <span class="demo">demo</span></div>
           <div class="heat" id="heat" aria-hidden="true"></div>
         </section>
       </div>
@@ -167,12 +182,12 @@ const pills = [
           <h2>Cobranza por mes <a href="#mora" aria-label="Ir a mora">↗</a></h2>
           <div class="mini">— Cobrado &nbsp; ┄ En mora · <span class="demo">demo</span></div>
           <svg class="chart" viewBox="0 0 600 170" role="img" aria-label="Cobranza por mes (demo)">
-            <line x1="30" y1="10" x2="30" y2="150" stroke="#e3ddcd" />
-            <line x1="30" y1="150" x2="590" y2="150" stroke="#e3ddcd" />
-            <polyline points="30,120 90,60 150,70 210,90 270,60 330,80 390,70 450,95 510,60 570,75" fill="none" stroke="var(--color-void)" stroke-width="2" stroke-dasharray="5 4" />
-            <polyline points="30,130 90,110 150,115 210,100 270,105 330,90 390,100 450,85 510,70 570,60" fill="none" stroke="var(--color-llama)" stroke-width="2" />
-            <line x1="270" y1="10" x2="270" y2="150" stroke="var(--color-void)" stroke-width="1" />
-            <g font-size="10" fill="var(--color-ash)"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
+            <line x1="30" y1="10" x2="30" y2="150" stroke="var(--tema-linea)" />
+            <line x1="30" y1="150" x2="590" y2="150" stroke="var(--tema-linea)" />
+            <polyline points="30,120 90,60 150,70 210,90 270,60 330,80 390,70 450,95 510,60 570,75" fill="none" stroke="var(--tema-texto)" stroke-width="2" stroke-dasharray="5 4" />
+            <polyline points="30,130 90,110 150,115 210,100 270,105 330,90 390,100 450,85 510,70 570,60" fill="none" stroke="var(--estado-ok)" stroke-width="2" />
+            <line x1="270" y1="10" x2="270" y2="150" stroke="var(--tema-texto)" stroke-width="1" />
+            <g font-size="10" fill="var(--tema-texto-suave)"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
           </svg>
           <div class="mini">Suspender/reactivar: <span style="font-family:monospace">POST /api/admin/mora/suspender</span> y <span style="font-family:monospace">.../regularizar</span> (motivo + ID escrito).</div>
         </section>
@@ -181,10 +196,10 @@ const pills = [
           <h2>Composición mora <a href="#composicion" aria-label="Ir a composición">↗</a></h2>
           <div class="dona">
             <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="Composición de mora (demo)">
-              <circle cx="75" cy="75" r="60" fill="none" stroke="var(--color-linen)" stroke-width="16" />
-              <circle id="dona-arco" cx="75" cy="75" r="60" fill="none" stroke="var(--color-llama)" stroke-width="16" stroke-dasharray="264 377" stroke-linecap="round" transform="rotate(-90 75 75)" />
-              <text id="dona-pct" x="75" y="72" text-anchor="middle" font-size="26" font-weight="600">70%</text>
-              <text x="75" y="90" text-anchor="middle" font-size="11" fill="var(--color-ash)">Al día</text>
+              <circle cx="75" cy="75" r="60" fill="none" stroke="var(--tema-linea)" stroke-width="16" />
+              <circle id="dona-arco" cx="75" cy="75" r="60" fill="none" stroke="var(--estado-ok)" stroke-width="16" stroke-dasharray="264 377" stroke-linecap="round" transform="rotate(-90 75 75)" />
+              <text id="dona-pct" x="75" y="72" text-anchor="middle" font-size="26" font-weight="600" fill="currentColor">70%</text>
+              <text x="75" y="90" text-anchor="middle" font-size="11" fill="var(--tema-texto-suave)">Al día</text>
             </svg>
           </div>
           <div class="legend"><span>◉ <span id="leg-ok">70%</span> Al día</span><span>● <span id="leg-mora">30%</span> Mora</span></div>
@@ -276,7 +291,7 @@ const pills = [
       const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
       seed.forEach((v) => {
         const i = document.createElement("i");
-        i.style.cssText = "aspect-ratio:1;border-radius:50%;background:" + (v ? "var(--color-llama)" : "#3a3a3a");
+        i.style.cssText = "aspect-ratio:1;border-radius:50%;background:" + (v ? "var(--color-llama)" : "var(--color-mid)");
         heat.appendChild(i);
       });
       document.getElementById("heat-ok").textContent = "0";

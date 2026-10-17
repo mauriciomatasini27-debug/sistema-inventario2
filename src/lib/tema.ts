@@ -39,10 +39,21 @@ export const SCRIPT_TEMA_TOGGLE = `(function(){
   var w=typeof window!=="undefined"?window:{};
   if(w.__temaPintar)return;
   function temaActual(){return document.documentElement.dataset.tema==="oscuro"?"oscuro":"claro";}
+  // El botón dice a qué tema lleva: en claro "Oscuro" (☾), en oscuro "Claro" (☀).
   function pintar(){
     var oscuro=temaActual()==="oscuro";
     var botones=document.querySelectorAll("button[data-tema-toggle]");
-    for(var i=0;i<botones.length;i++){botones[i].setAttribute("aria-pressed",oscuro?"true":"false");}
+    for(var i=0;i<botones.length;i++){
+      var b=botones[i];
+      b.setAttribute("aria-pressed",oscuro?"true":"false");
+      b.setAttribute("aria-label",oscuro?"Tema oscuro, cambiar a claro":"Tema oscuro");
+      if(b.querySelector){
+        var icono=b.querySelector("[data-tema-icono]");
+        var etiqueta=b.querySelector("[data-tema-etiqueta]");
+        if(icono)icono.textContent=oscuro?"☀":"☾";
+        if(etiqueta)etiqueta.textContent=oscuro?"Claro":"Oscuro";
+      }
+    }
   }
   function alternar(){
     var t=temaActual()==="oscuro"?"claro":"oscuro";
@@ -51,6 +62,9 @@ export const SCRIPT_TEMA_TOGGLE = `(function(){
     pintar();
   }
   w.__temaPintar=pintar;
+  // Pintar ya: el script va después del botón, así no parpadea la etiqueta entre
+  // el HTML servido y el DOMContentLoaded.
+  pintar();
   function iniciar(){
     var botones=document.querySelectorAll("button[data-tema-toggle]");
     for(var i=0;i<botones.length;i++){botones[i].addEventListener("click",alternar);}

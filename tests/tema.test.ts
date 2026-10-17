@@ -132,6 +132,57 @@ describe("tema: script inicial sin flash", () => {
   });
 });
 
+interface FalsoTexto {
+  textContent: string;
+}
+
+interface FalsoBotonSpans {
+  attrs: Record<string, string>;
+  listeners: Record<string, Array<() => void>>;
+  icono: FalsoTexto;
+  etiqueta: FalsoTexto;
+  setAttribute: (k: string, v: string) => void;
+  addEventListener: (t: string, cb: () => void) => void;
+  querySelector: (sel: string) => FalsoTexto | null;
+}
+
+function fakeBotonConSpans(): FalsoBotonSpans {
+  const attrs: Record<string, string> = {};
+  const listeners: Record<string, Array<() => void>> = {};
+  const icono: FalsoTexto = { textContent: "☾" };
+  const etiqueta: FalsoTexto = { textContent: "Oscuro" };
+  return {
+    attrs,
+    listeners,
+    icono,
+    etiqueta,
+    setAttribute(k, v) {
+      attrs[k] = v;
+    },
+    addEventListener(t, cb) {
+      (listeners[t] ??= []).push(cb);
+    },
+    querySelector(sel) {
+      if (sel === "[data-tema-icono]") return icono;
+      if (sel === "[data-tema-etiqueta]") return etiqueta;
+      return null;
+    },
+  };
+}
+
+function correrToggle(boton: FalsoBotonSpans, tema: "claro" | "oscuro") {
+  const doc = {
+    documentElement: { dataset: { tema } as Record<string, string> },
+    readyState: "complete",
+    querySelectorAll: () => [boton],
+    addEventListener: () => {},
+  };
+  const localStorage = { setItem: () => {} };
+  const fn = new Function("document", "localStorage", SCRIPT_TEMA_TOGGLE);
+  fn(doc, localStorage);
+  return doc.documentElement;
+}
+
 describe("tema: script del toggle", () => {
   it("alterna, persiste y setea aria-pressed", () => {
     const boton = fakeBoton();
@@ -158,6 +209,30 @@ describe("tema: script del toggle", () => {
     expect(doc.documentElement.dataset.tema).toBe("claro");
     expect(boton.attrs["aria-pressed"]).toBe("false");
     expect(store[CLAVE_TEMA]).toBe("claro");
+  });
+
+  it("la etiqueta, el icono y el aria-label siguen al tema", () => {
+    const boton = fakeBotonConSpans();
+    const raiz = correrToggle(boton, "claro");
+
+    expect(boton.etiqueta.textContent).toBe("Oscuro");
+    expect(boton.icono.textContent).toBe("☾");
+    expect(boton.attrs["aria-label"]).toBe("Tema oscuro");
+    expect(boton.attrs["aria-pressed"]).toBe("false");
+
+    boton.listeners.click?.[0]?.();
+
+    expect(raiz.dataset.tema).toBe("oscuro");
+    expect(boton.etiqueta.textContent).toBe("Claro");
+    expect(boton.icono.textContent).toBe("☀");
+    expect(boton.attrs["aria-pressed"]).toBe("true");
+    expect(boton.attrs["aria-label"]).toContain("claro");
+
+    boton.listeners.click?.[0]?.();
+
+    expect(raiz.dataset.tema).toBe("claro");
+    expect(boton.etiqueta.textContent).toBe("Oscuro");
+    expect(boton.icono.textContent).toBe("☾");
   });
 });
 
