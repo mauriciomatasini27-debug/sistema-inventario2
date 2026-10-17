@@ -4,7 +4,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 
 ## Modelos
 
-- Primario: `opencode/deepseek-v4.1-flash-free`. Respaldo (en orden): `opencode/muse-spark-1.3-contributor-free`, `opencode/big-pickle`, `opencode/space-bunny-free`, `opencode/longcat-2.5-preview-free`.
+- Primario: `opencode/deepseek-v4.1-flash-free`. Respaldo (en orden): `opencode/space-bunny-free`, `opencode/longcat-2.5-preview-free`, `opencode/big-pickle` (inestable, último). `muse-spark-1.3-contributor-free` ya no existe en Zen (2026-10-17).
 - Los roles son subagentes en `opencode.json` `agent` (`pstack-worker`, `pstack-judge`, `poteto-agent`, `comment-sicko`), cada uno con su `model`; la tabla rol→agente vive en `.opencode/pstack-models.md`.
 - `pstack-worker`/`poteto-agent`/`comment-sicko` usan deepseek-v4.1-flash-free; `pstack-judge` usa big-pickle (otra familia = cross-family judging).
 - Cada modelo tiene `limit.context = 250000` y `compaction.auto` on: partí tareas grandes por área. `.opencode/pstack-run.sh` reintenta una sesión fallida, trabada (`PSTACK_SESSION_TIMEOUT`, default 700 s) o con cuota con el siguiente modelo free; reinicia `opencode serve` si le falta el token de GitHub.

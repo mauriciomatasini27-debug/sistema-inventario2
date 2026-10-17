@@ -30,7 +30,7 @@ pedido=""; args=()
 while [ $# -gt 0 ]; do
   case "$1" in -m|--model) pedido=$2; shift 2 ;; *) args+=("$1"); shift ;; esac
 done
-FALLBACK=${PSTACK_FALLBACK_MODELS:-"opencode/muse-spark-1.3-contributor-free opencode/big-pickle opencode/space-bunny-free opencode/longcat-2.5-preview-free"}
+FALLBACK=${PSTACK_FALLBACK_MODELS:-"opencode/space-bunny-free opencode/longcat-2.5-preview-free opencode/big-pickle"}
 modelos=("${pedido:-opencode/deepseek-v4.1-flash-free}")
 for m in $FALLBACK; do [ "$m" = "${modelos[0]}" ] || modelos+=("$m"); done
 out=$(mktemp); trap 'rm -f "$out"' EXIT

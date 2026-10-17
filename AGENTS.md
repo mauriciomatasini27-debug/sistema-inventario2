@@ -29,3 +29,8 @@ Reglas cortas para agentes en este repo.
 - Orquestador: keeper que viva toda la corrida (`setsid nohup sleep infinity >/dev/null 2>&1 &`, PID en H), `acquire --pid $H` (espera hasta 20 min; exit 3 = otro dueño vivo: loguear `skip` en `/workspace/cadena-log.tsv`, `kill $H` y terminar), `trap 'node scripts/cadena/lock.mjs release --pid $H; kill $H' EXIT`. Nunca el `$$` de una shell de herramienta. Un dueño muerto (stale) lo libera `acquire`/`check` y queda logueado.
 - Dentro de la cadena, el ORQUESTADOR ya tomó el lock: la sesión de OpenCode NO lo adquiere ni lo libera, y no hace push ni merge.
 - Para un comando suelto: `scripts/cadena/con-lock.sh <cmd>` (toma y libera al salir). Tests: `tests/cadena-lock.test.ts`, `tests/cadena-puede-mergear.test.ts`, `tests/cadena-con-lock.test.ts`.
+
+## Desarrollo local (fuera del box)
+
+- Windows: WSL2 Ubuntu con Node 22 y Postgres 17; guía en `docs/guias/desarrollo-windows-opencode.md`. Windows nativo no corre `npm run verify` completo (scripts bash).
+- Fuera del box no hay `/workspace/.cadena.lock`: no tomes el lock; rama propia (`mauri/<tema>`), nunca push a `main`, PR + `npm run verify` + `puede-mergear.mjs`. La Cadena del box saltea los PRs que no abrió.

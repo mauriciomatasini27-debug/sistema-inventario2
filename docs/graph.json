@@ -365,6 +365,10 @@
       "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md"
     },
     {
+      "id": "GUIA-DEV-01",
+      "ruta": "docs/guias/desarrollo-windows-opencode.md"
+    },
+    {
       "id": "HIST-ARCHIVO",
       "ruta": "docs/archivo/README.md"
     },
@@ -1998,6 +2002,11 @@
     {
       "de": "AUDITORIA-DS-01",
       "a": "PRD-DS-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEV-01",
+      "a": "ADR-0086",
       "tipo": "depende_de"
     },
     {

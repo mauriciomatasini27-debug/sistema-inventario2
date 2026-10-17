@@ -4,6 +4,8 @@ Estado rápido: [ESTADO.md](ESTADO.md) (vía `npm run docs:estado`, no editar a 
 
 Índice generado: [INDEX.md](INDEX.md) (vía `npm run docs:index`) y [graph.json](graph.json).
 
+Desarrollo local en Windows con OpenCode (WSL2, `npm run verify`, PRs y convivencia con la Cadena): [guias/desarrollo-windows-opencode.md](guias/desarrollo-windows-opencode.md). Gate de merge: `npm run verify` + `node scripts/cadena/puede-mergear.mjs <PR>` (ADR-0086, Actions manual-only).
+
 Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funcionalidad del código.
 Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales en `docs/_origen-docx/`).
 ADRs en `docs/adr/` y PRDs de diseño en `docs/diseno/` se referencian, no se duplican.

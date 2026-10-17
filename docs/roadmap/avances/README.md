@@ -1,6 +1,6 @@
 # Avances del roadmap
 
-Cada PR de implementación agrega un archivo `docs/roadmap/avances/<número-ADR>.md`. Nunca se edita `docs/ROADMAP.md` a mano: el workflow lo regenera en `main` con `npm run roadmap`.
+Cada PR de implementación agrega un archivo `docs/roadmap/avances/<número-ADR>.md`. Nunca se edita `docs/ROADMAP.md` a mano: lo regenera `npm run verify` (o `npm run roadmap`) y viaja en el mismo PR (ADR-0086).
 
 ## Formato
 
