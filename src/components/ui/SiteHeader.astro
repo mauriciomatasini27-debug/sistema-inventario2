@@ -3,16 +3,16 @@ import { nav, brand, accesos } from '../../data/business';
 ---
 
 <header
-  class="sticky top-0 z-20 border-b border-nebula-cyan/20 bg-space-void/55 backdrop-blur-lg"
+  class="sticky top-0 z-20 border-b border-linen bg-canvas-white/95"
 >
   <div
     class="mx-auto flex max-w-[var(--width-content)] flex-wrap items-center justify-between gap-4 px-6 py-4 md:px-10"
   >
-    <a href="/" class="text-sm font-semibold tracking-wide text-core-cream">{brand.name}</a>
+    <a href="/" class="text-sm font-semibold tracking-wide text-void">{brand.name}</a>
     <nav aria-label="Secciones" class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
       {
         nav.map((item) => (
-          <a href={item.href} class="text-ash-gray transition-colors hover:text-nebula-cyan">
+          <a href={item.href} class="text-ash-gray transition-colors hover:text-trust">
             {item.label}
           </a>
         ))
@@ -21,7 +21,7 @@ import { nav, brand, accesos } from '../../data/business';
     <div class="flex flex-wrap items-center gap-3">
       <a
         href={accesos.comercio.href}
-        class="rounded-[var(--radius-button)] border border-nebula-cyan/40 px-4 py-2 text-sm font-medium text-core-cream transition-colors hover:border-nebula-cyan"
+        class="rounded-[var(--radius-button)] border border-trust/40 px-4 py-2 text-sm font-medium text-void transition-colors hover:border-trust"
       >
         {accesos.comercio.label}
       </a>
@@ -33,7 +33,7 @@ import { nav, brand, accesos } from '../../data/business';
       </a>
       <a
         href={accesos.admin.href}
-        class="text-xs text-ash-gray/70 transition-colors hover:text-nebula-cyan"
+        class="text-xs text-ash-gray transition-colors hover:text-trust"
       >
         {accesos.admin.label}
       </a>

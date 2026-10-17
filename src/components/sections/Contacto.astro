@@ -22,7 +22,7 @@ const sent = Astro.url.searchParams.get('enviado') === '1';
 const newsletterSent = Astro.url.searchParams.get('newsletter') === '1';
 
 const inputClass =
-  'w-full rounded-[var(--radius-card)] border border-nebula-cyan/35 bg-space-mist px-4 py-3 text-canvas-white placeholder:text-ash-gray';
+  'w-full rounded-[var(--radius-card)] border border-nebula-cyan/35 bg-space-mist px-4 py-3 text-void placeholder:text-ash-gray';
 ---
 
 <Section variant="dark" id="contacto">
@@ -51,8 +51,8 @@ const inputClass =
 
   <footer>
     <div class="grid gap-8 md:grid-cols-2 md:gap-10">
-      <div class="galaxy-card rounded-[var(--radius-card)] p-6 md:p-8">
-        <h3 class="text-[length:var(--text-subheading)] font-medium text-core-cream">Escribinos</h3>
+      <div class="galaxy-card rounded-[var(--radius-card)] bg-star-white p-6 text-void md:p-8">
+        <h3 class="text-[length:var(--text-subheading)] font-medium">Escribinos</h3>
         <p class="mt-2 text-sm text-ash-gray">Contanos tu rubro y qué necesitás para tu mostrador.</p>
         {
           formConfigured ? (
@@ -80,7 +80,7 @@ const inputClass =
                 contactConfigured ? (
                   <>
                     Formulario en configuración. Usá WhatsApp o{' '}
-                    <a href={`mailto:${contact.email}`} class="underline text-canvas-white">
+                    <a href={`mailto:${contact.email}`} class="text-trust underline">
                       {contact.email}
                     </a>{' '}
                     mientras tanto.
@@ -93,7 +93,7 @@ const inputClass =
           )}
 
         <div class="mt-8 border-t border-nebula-cyan/15 pt-6">
-          <p class="text-sm font-medium text-core-cream">WhatsApp y email</p>
+          <p class="text-sm font-medium">WhatsApp y email</p>
           {
             contactConfigured ? (
               <>
@@ -103,7 +103,7 @@ const inputClass =
                     target="_blank"
                     rel="noopener noreferrer"
                     data-cta="contacto-whatsapp"
-                    class="inline-flex items-center justify-center gap-2 rounded-[var(--radius-button)] border border-[#25D366]/50 bg-[#25D366]/10 px-5 py-3 text-sm font-medium text-canvas-white transition-colors hover:border-[#25D366] hover:bg-[#25D366]/20"
+                    class="inline-flex items-center justify-center gap-2 rounded-[var(--radius-button)] bg-whatsapp px-5 py-3 text-sm font-medium text-void transition-colors hover:opacity-90"
                   >
                     WhatsApp {contact.whatsappLabel}
                   </a>
@@ -121,8 +121,8 @@ const inputClass =
         </div>
       </div>
 
-      <div class="galaxy-card rounded-[var(--radius-card)] p-6 md:p-8">
-        <h3 class="text-[length:var(--text-subheading)] font-medium text-core-cream">Newsletter</h3>
+      <div class="galaxy-card rounded-[var(--radius-card)] bg-star-white p-6 text-void md:p-8">
+        <h3 class="text-[length:var(--text-subheading)] font-medium">Newsletter</h3>
         <p class="mt-2 text-sm text-ash-gray">{footer.newsletterLead}</p>
         {
           newsletterConfigured ? (
@@ -157,7 +157,7 @@ const inputClass =
                 contactConfigured ? (
                   <>
                     Escribinos a{' '}
-                    <a href={`mailto:${contact.email}?subject=Newsletter`} class="underline text-canvas-white">
+                    <a href={`mailto:${contact.email}?subject=Newsletter`} class="text-trust underline">
                       {contact.email}
                     </a>{' '}
                     con asunto «Newsletter».
@@ -171,13 +171,13 @@ const inputClass =
         }
 
         <div class="mt-8 border-t border-nebula-cyan/15 pt-6">
-          <p class="text-sm font-medium text-core-cream">{brand.name}</p>
+          <p class="text-sm font-medium">{brand.name}</p>
           <p class="mt-2 text-sm text-ash-gray">{brand.tagline}</p>
         </div>
       </div>
     </div>
 
-    <p class="mt-12 border-t border-nebula-cyan/15 pt-8 text-center text-xs text-ash-gray">
+    <p class="mt-12 border-t border-nebula-cyan/15 pt-8 text-center text-xs text-canvas-white">
       {footer.copyright}
     </p>
   </footer>

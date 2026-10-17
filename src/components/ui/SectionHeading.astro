@@ -23,7 +23,15 @@ const { title, lead, invert = false } = Astro.props;
   }
   {
     lead && (
-      <p class:list={['text-[length:var(--text-body-lg)] text-ash-gray', title && 'mt-4']}>{lead}</p>
+      <p
+        class:list={[
+          'text-[length:var(--text-body-lg)]',
+          invert ? 'text-canvas-white/80' : 'text-ash-gray',
+          title && 'mt-4',
+        ]}
+      >
+        {lead}
+      </p>
     )
   }
 </header>

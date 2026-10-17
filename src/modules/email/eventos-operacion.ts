@@ -45,7 +45,7 @@ export function describir_stock_negativo(args: {
     html: base(
       `<p>Stock negativo después de sincronizar (${escapar(args.dispositivo)} · ${escapar(args.usuario)}).</p>` +
         `<table width="100%">${filasHtml}</table>` +
-        `<a href="{{sync_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar y corregir</a>`,
+        `<a href="{{sync_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar y corregir</a>`,
     ),
     texto: `Stock negativo después de sincronizar (${args.dispositivo} · ${args.usuario}):\n${args.items.map((i) => `- ${i.nombre}: ${i.stock}`).join("\n")}\n[Revisar y corregir]\nBaja: {{baja_url}}`,
   };
@@ -61,7 +61,7 @@ export function describir_cierre_fallido(args: { jornada: string }): EventoEmail
     asunto: `Cierre automático fallido: jornada ${args.jornada}`,
     html: base(
       `<p>La jornada ${escapar(args.jornada)} con movimientos quedó sin cerrar.</p>` +
-        `<a href="{{caja_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver caja</a>`,
+        `<a href="{{caja_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver caja</a>`,
     ),
     texto: `La jornada ${args.jornada} con movimientos quedó sin cerrar.\n[Ver caja]\nBaja: {{baja_url}}`,
   };
@@ -78,7 +78,7 @@ export function describir_conexion_vencida(args: { servicio: "gmail" | "fotos"; 
     asunto: `Conexión vencida: ${args.servicio}`,
     html: base(
       `<p>${escapar(que)}.</p>` +
-        `<a href="{{config_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Volver a conectar</a>`,
+        `<a href="{{config_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Volver a conectar</a>`,
     ),
     texto: `${que}.\n[Volver a conectar]\nBaja: {{baja_url}}`,
   };
@@ -94,7 +94,7 @@ export function describir_sync_pendiente(args: { dispositivo: string; fecha: str
     asunto: `${args.dispositivo} no sincroniza hace más de 24 h`,
     html: base(
       `<p>${escapar(args.dispositivo)} tiene movimientos pendientes hace más de 24 h.</p>` +
-        `<a href="{{sync_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver sincronización</a>`,
+        `<a href="{{sync_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver sincronización</a>`,
     ),
     texto: `${args.dispositivo} tiene movimientos pendientes hace más de 24 h.\n[Ver sincronización]\nBaja: {{baja_url}}`,
   };

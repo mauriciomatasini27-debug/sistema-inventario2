@@ -11,9 +11,9 @@ interface Props {
 const { variant = 'white', id, narrow = false, embedded = false } = Astro.props;
 
 const bg = {
-  dark: 'bg-space-void text-canvas-white',
-  linen: 'bg-space-mist text-canvas-white',
-  white: 'bg-galaxy-deep text-canvas-white',
+  dark: 'bg-space-void text-star-white',
+  linen: 'bg-space-mist text-void',
+  white: 'bg-galaxy-deep text-void',
 }[variant];
 
 const inner = narrow ? 'max-w-2xl' : 'max-w-[var(--width-content)]';
@@ -21,7 +21,7 @@ const inner = narrow ? 'max-w-2xl' : 'max-w-[var(--width-content)]';
 
 {
   embedded ? (
-    <div id={id} class="w-full text-canvas-white">
+    <div id={id} class="w-full text-void">
       <div class:list={['mx-auto w-full', narrow ? 'max-w-2xl' : 'max-w-none']}>
         <slot />
       </div>

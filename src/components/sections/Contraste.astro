@@ -20,10 +20,10 @@ const { embedded = false } = Astro.props;
             <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Hoy</p>
             <p class="mt-1 text-ash-gray">{row.hoy}</p>
           </div>
-          <span class="hidden text-ash-gray md:block" aria-hidden="true">→</span>
-          <div class="galaxy-card rounded-[var(--radius-card)] border-2 border-trust-slate p-5">
+          <span class="hidden text-star-white md:block" aria-hidden="true">→</span>
+          <div class="galaxy-card rounded-[var(--radius-card)] border-2 border-trust-slate bg-star-white p-5 text-void">
             <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Con Inventario</p>
-            <p class="mt-1 font-medium text-core-cream">{row.con}</p>
+            <p class="mt-1 font-medium">{row.con}</p>
           </div>
         </li>
       ))

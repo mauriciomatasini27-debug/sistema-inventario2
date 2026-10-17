@@ -45,6 +45,10 @@ Estados: **hecho** (hay evidencia), **parcial**, **falta** (sin decisión pendie
 | DS-S22 Criterios de aceptación | parcial | Reduced motion y 360px con evidencia automatizada (specs e2e de arriba); contraste por par en `docs/diseno/contraste-aa.md`. | CTA primario en llama: hoy es `star-glow` por AA (decidido). Ticket impreso idéntico y "legible a 2 m" sin evidencia. |
 | DS-S23 Fases 0 a 2 | falta | — | Capturas 360px dark/light lado a lado por fase; depende de cerrar DS-S4/S5/S6. |
 
+## Resuelto el 2026-10-17 (PR posterior a la auditoría)
+
+Mauri decidió header claro. Los tres hallazgos de abajo quedaron corregidos: la landing pasa a texto `void` en secciones claras y `star-white` en las oscuras (`Section.astro`, `SiteHeader.astro`, `Hero.astro`, `Button.astro` `ghost-light`, `SectionHeading.astro`, `Contraste.astro`, `Contacto.astro`), con un spec que mide el contraste real de cada texto a 360px y 1280px (`tests/e2e/landing-legible.spec.ts`) y un trinquete estático (`tests/landing-legibilidad.test.ts`). El botón de WhatsApp usa el token nuevo `--color-whatsapp` con texto `void`, el CTA de los emails pasa a `#bf360c` y `/admin` ya no desborda a 360px. Pares nuevos en `docs/diseno/contraste-aa.md`.
+
 ## Hallazgos HIGH previos (no se tocaron en este PR)
 
 ### Landing
@@ -61,9 +65,9 @@ El documento mide 401px a 360px (la barra `segbar` corta "Prueba"). Ya pasaba en
 
 ## Decisiones pendientes para Mauri
 
-1. Landing: header oscuro con texto claro o header claro; con eso se arregla el contraste de toda la landing.
-2. CTA de email: `#e8590c` → `--color-star-glow #bf360c` como en la landing (5.6:1).
+1. ~~Landing: header oscuro o claro~~ (decidido: claro, resuelto).
+2. ~~CTA de email a `star-glow`~~ (decidido y resuelto).
 3. Montserrat (PRD) o Inter (hoy).
 4. POS oscuro: siempre o solo con el modo del sistema; ambiente radial sí o no.
 5. Glass y blur en panel/POS (ADR-0010 lo descarta en la landing).
-6. Tokens de estado (ok/aviso/vivo/pendiente) y verde WhatsApp `#25d366` (con texto blanco no pasa AA: ¿texto `void` o verde más oscuro?).
+6. Tokens de estado (ok/aviso/vivo/pendiente). El verde WhatsApp ya tiene token (`--color-whatsapp`, texto `void`).

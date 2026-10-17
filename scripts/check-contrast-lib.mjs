@@ -12,6 +12,9 @@ export const PAREJAS = [
   { nombre: "muted sobre star-white", fg: "ash", bg: "star-white", uso: "texto", modo: "light" },
   { nombre: "botón panel", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
   { nombre: "CTA landing", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
+  { nombre: "texto landing sobre blanco", fg: "void", bg: "star-white", uso: "texto", modo: "light" },
+  { nombre: "botón WhatsApp", fg: "void", bg: "whatsapp", uso: "texto", modo: "light" },
+  { nombre: "CTA email", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
   { nombre: "CTA llama dark", fg: "void", bg: "star-warm", uso: "grande", modo: "dark" },
   { nombre: "CTA hover dark", fg: "void", bg: "star-glow", uso: "grande", modo: "dark" },
 ];

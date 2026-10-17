@@ -413,7 +413,7 @@ describe("landing LP3 (ADR-0030)", () => {
     for (const a of ["components/ui/SiteHeader.astro", "components/sections/Hero.astro"] as const) {
       expect(src(a), a).not.toContain("<button");
     }
-    expect(src("components/sections/Hero.astro")).toContain('variant="ghost-dark"');
+    expect(src("components/sections/Hero.astro")).toContain('variant="ghost-light"');
   });
 
   it("AT3: ningún href a /panel, /admin o login dentro del nav de anclas", () => {
@@ -439,11 +439,11 @@ describe("landing LP3 (ADR-0030)", () => {
     expect(afterNav).toContain("accesos.admin");
   });
 
-  it("LP3-S4: hero con fila secundaria de accesos ghost-dark", () => {
+  it("LP3-S4: hero con fila secundaria de accesos ghost-light", () => {
     const heroC = src("components/sections/Hero.astro");
     expect(heroC).toContain("accesos.comercio");
     expect(heroC).toContain("accesos.admin");
-    expect(heroC).toContain('variant="ghost-dark"');
+    expect(heroC).toContain('variant="ghost-light"');
   });
 
   it("LP3-S5: alta/estado Entrar apunta a /panel", () => {

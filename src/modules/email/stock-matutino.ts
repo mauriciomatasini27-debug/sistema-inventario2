@@ -125,7 +125,7 @@ export function armar_matutino(args: {
     `<p style="margin:0 0 8px;font-size:14px;color:#6b6259;">Buen día — esto es lo que se está acabando (${escapar(args.fecha)})</p>` +
     bloquesHtml.join("") +
     guardHtml +
-    `<a href="{{alertas_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver todas las alertas en la app</a>` +
+    `<a href="{{alertas_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver todas las alertas en la app</a>` +
     `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p>` +
     `</div></div>`;
   const texto =

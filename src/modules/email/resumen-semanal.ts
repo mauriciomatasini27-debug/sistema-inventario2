@@ -109,7 +109,7 @@ export function armar_semanal(args: {
     `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
     `<div style="padding:24px 20px;">${cuerpoHtml}` +
     `<p>Faltantes: ${c.faltantes} (${c.sinStock} sin stock).</p>${pedidoHtml}` +
-    `<a href="{{pedidos_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar pedido sugerido</a>` +
+    `<a href="{{pedidos_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar pedido sugerido</a>` +
     `<p><a href="{{programar_url}}">Programar para el lunes</a> · <a href="{{resumen_url}}">Ver resumen completo</a></p>` +
     `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p>` +
     `</div></div>`;

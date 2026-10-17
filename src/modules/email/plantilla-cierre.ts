@@ -54,7 +54,7 @@ export function armar_cierre(datos: DatosCierre): PlantillaCierre {
     `<h1 style="margin:0 0 4px;font-size:24px;">Resultado ${total}</h1>` +
     `<p style="margin:0 0 16px;font-size:14px;color:#6b6259;">Snapshot del cierre, sin recalcular. Si hay diferencia de turno, se resuelve en la app.</p>` +
     `<table width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;"><tbody>${filasHtml}</tbody></table>` +
-    `<a href="{{preferencias_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver cierre en la app</a>` +
+    `<a href="{{preferencias_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Ver cierre en la app</a>` +
     `<p style="font-size:12px;color:#6b6259;">Recibís este aviso porque activaste el resumen de cierre. ` +
     `Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p>` +
     `</div></div>`;

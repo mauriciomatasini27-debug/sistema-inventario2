@@ -67,7 +67,7 @@ export function describir_vencimientos(args: {
       `<div style="max-width:600px;margin:0 auto;background:#f7f5f2;font-family:sans-serif;">` +
       `<div style="padding:24px 20px;"><h1 style="font-size:20px;">${escapar(titulo)} — ${formatear_pesos(total)}</h1>` +
       `<table width="100%">${filasHtml}</table>` +
-      `<a href="{{pagos_url}}" style="display:block;margin:20px 0;padding:14px;background:#e8590c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar y pagar</a>` +
+      `<a href="{{pagos_url}}" style="display:block;margin:20px 0;padding:14px;background:#bf360c;color:#fff;text-align:center;border-radius:12px;text-decoration:none;font-weight:bold;">Revisar y pagar</a>` +
       `<p style="font-size:12px;color:#6b6259;">Preferencias: {{preferencias_url}} · Baja: {{baja_url}}</p></div></div>`,
     texto:
       `${titulo} — ${formatear_pesos(total)}\n` +

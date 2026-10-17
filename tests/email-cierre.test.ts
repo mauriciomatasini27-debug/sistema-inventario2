@@ -34,7 +34,7 @@ describe("email NE4 resumen cierre", () => {
     expect(p.asunto).toContain("Kiosco Lo de Marta");
     expect(p.asunto).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     expect(p.html).toContain("max-width:600px");
-    expect(p.html).toContain("#e8590c");
+    expect(p.html).toContain("#bf360c");
     expect(p.html).toContain("Efectivo");
     expect(p.html).not.toContain("open-pixel");
     expect(p.html).not.toContain("utm_");
