@@ -1,5 +1,5 @@
 import { enviar_whatsapp, marcar_leido, type FetchEnvio, type ResultadoEnvio } from "./cliente-cloud.js";
-import { construir_texto } from "./envio.js";
+import { construir_texto, type PayloadEnvio } from "./envio.js";
 
 // Interfaz WhatsAppTransport (ADR-0042, PRD-BOT-02 BOT2-S5). Toda entrada y
 // salida del bot pasa por acá: el núcleo puro nunca importa adaptadores.
@@ -12,6 +12,15 @@ export interface MensajeWA {
   readonly timestampMs: number;
 }
 
+// Adjunto entrante (image/document de la Cloud API). Los bytes NO se descargan
+// acá: viaja el id de media de Meta como referencia (ADR-0005).
+export interface MensajeAdjuntoWA {
+  readonly wamid: string;
+  readonly remitenteE164: string;
+  readonly timestampMs: number;
+  readonly adjunto: { readonly idMedia: string; readonly mimeType: string; readonly nombreArchivo: string | null };
+}
+
 export type ResultadoEnvioTransporte = ResultadoEnvio;
 
 export interface EstadoTransporte {
@@ -21,48 +30,88 @@ export interface EstadoTransporte {
 
 export interface WhatsAppTransport {
   enviar(toE164: string, texto: string): Promise<ResultadoEnvioTransporte>;
+  enviarPayload(toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte>;
   recibir(payload: unknown): MensajeWA | null;
   estado(): EstadoTransporte;
 }
 
-// Normaliza el payload de la Cloud API al mensaje interno. Misma forma para
-// ambos adaptadores: el fake genera cargas con forma cloud en los tests.
-export function normalizarEntrada(payload: unknown): MensajeWA | null {
+interface MensajeCrudo {
+  readonly id?: string;
+  readonly from?: string;
+  readonly timestamp?: string;
+  readonly type?: string;
+  readonly text?: { readonly body?: string };
+  readonly image?: { readonly id?: string; readonly mime_type?: string };
+  readonly document?: { readonly id?: string; readonly mime_type?: string; readonly filename?: string };
+}
+
+// Primer mensaje del webhook de la Cloud API (con o sin texto).
+function mensajeCrudo(payload: unknown): MensajeCrudo | null {
   try {
     const b = payload as {
       readonly entry?: ReadonlyArray<{
         readonly changes?: ReadonlyArray<{
-          readonly value?: {
-            readonly messages?: ReadonlyArray<{
-              readonly id?: string;
-              readonly from?: string;
-              readonly timestamp?: string;
-              readonly text?: { readonly body?: string };
-            }>;
-          };
+          readonly value?: { readonly messages?: ReadonlyArray<MensajeCrudo> };
         }>;
       }>;
     };
-    const msg = b.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!msg?.text?.body || !msg.from || !msg.id) return null;
-    return {
-      wamid: msg.id,
-      remitenteE164: msg.from.startsWith("+") ? msg.from : `+${msg.from}`,
-      texto: msg.text.body,
-      timestampMs: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
-    };
+    return b.entry?.[0]?.changes?.[0]?.value?.messages?.[0] ?? null;
   } catch {
     return null;
   }
 }
 
+function remitenteDe(from: string): string {
+  return from.startsWith("+") ? from : `+${from}`;
+}
+
+// Normaliza el payload de la Cloud API al mensaje interno. Misma forma para
+// ambos adaptadores: el fake genera cargas con forma cloud en los tests.
+export function normalizarEntrada(payload: unknown): MensajeWA | null {
+  const msg = mensajeCrudo(payload);
+  if (!msg?.text?.body || !msg.from || !msg.id) return null;
+  return {
+    wamid: msg.id,
+    remitenteE164: remitenteDe(msg.from),
+    texto: msg.text.body,
+    timestampMs: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
+  };
+}
+
+// Adjunto de imagen o documento: mismo sobre que el mensaje de texto, con el
+// id de media y el mime_type del payload. El resto de los tipos (audio, voz,
+// ubicación, stickers) sigue sin mensaje, como antes.
+export function normalizarAdjuntoEntrada(payload: unknown): MensajeAdjuntoWA | null {
+  const msg = mensajeCrudo(payload);
+  if (!msg?.from || !msg.id) return null;
+  const medio = msg.type === "image" ? msg.image : msg.type === "document" ? msg.document : undefined;
+  if (!medio?.id) return null;
+  return {
+    wamid: msg.id,
+    remitenteE164: remitenteDe(msg.from),
+    timestampMs: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
+    adjunto: {
+      idMedia: medio.id,
+      mimeType: medio.mime_type ?? "",
+      nombreArchivo: msg.type === "document" ? (msg.document?.filename ?? null) : null,
+    },
+  };
+}
+
 export class TransporteFake implements WhatsAppTransport {
   readonly enviados: Array<{ to: string; texto: string }> = [];
+  readonly enviadosPayload: Array<{ to: string; payload: PayloadEnvio }> = [];
   private n = 0;
 
   async enviar(toE164: string, texto: string): Promise<ResultadoEnvioTransporte> {
     this.n += 1;
     this.enviados.push({ to: toE164, texto });
+    return { ok: true, wamid: `fake-${this.n}` };
+  }
+
+  async enviarPayload(toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte> {
+    this.n += 1;
+    this.enviadosPayload.push({ to: toE164, payload });
     return { ok: true, wamid: `fake-${this.n}` };
   }
 
@@ -81,16 +130,22 @@ export function crearTransporteCloud(opts: {
   fetchFn?: FetchEnvio | undefined;
 }): WhatsAppTransport {
   const disponible = opts.phoneNumberId.length > 0 && opts.token.length > 0;
+  const enviar = (toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte> => {
+    if (!disponible) return Promise.resolve({ ok: false, codigo: "rechazado" });
+    return enviar_whatsapp({
+      phoneNumberId: opts.phoneNumberId,
+      token: opts.token,
+      toE164,
+      payload,
+      fetchFn: opts.fetchFn,
+    });
+  };
   return {
     async enviar(toE164: string, texto: string): Promise<ResultadoEnvioTransporte> {
-      if (!disponible) return { ok: false, codigo: "rechazado" };
-      return enviar_whatsapp({
-        phoneNumberId: opts.phoneNumberId,
-        token: opts.token,
-        toE164,
-        payload: construir_texto(texto),
-        fetchFn: opts.fetchFn,
-      });
+      return enviar(toE164, construir_texto(texto));
+    },
+    async enviarPayload(toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte> {
+      return enviar(toE164, payload);
     },
     recibir(payload: unknown): MensajeWA | null {
       return normalizarEntrada(payload);

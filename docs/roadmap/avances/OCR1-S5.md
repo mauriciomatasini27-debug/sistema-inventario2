@@ -1,0 +1,8 @@
+---
+item: OCR1-S5
+estado: parcial
+adr: ADR-0005
+prd: PRD-OCR-01
+fecha: 2026-10-18
+---
+OCR1-S5 parcial: la ingesta vive una sola vez en `src/lib/ocr-ingesta.ts` (`ingerirOcr` + `respuestaIngesta`) y `POST /api/ocr/jobs` quedó como cáscara con el mismo contrato HTTP; decisión: el webhook reconoce `image`/`document` de la Cloud API (`normalizarAdjuntoEntrada`, media id + mime_type), llama la ingesta con Idempotency-Key = wamid, `origen: "wa"`, `bytes_ref: "wa-media:<id>"` y `es_comprobante` según el mime (415 + texto corto si no es comprobante, sin job), y corre todo inline en la request, sin cola; el media no se descarga todavía (pide el token del número central, P9-3), el job y el borrador quedan en el tenant del número vía `conTenant` y el mismo wamid dos veces no crea ni un segundo job ni una segunda respuesta (AT1), la oferta es un `interactive` de botones con `Confirmar` / `Editar` / `Descartar` e ids `ocr:<acción>:<borradorId>` armados por la función pura `payload_borrador_ocr` (`src/modules/whatsapp/ocr-borrador.ts`) y enviados por `enviarPayload` del transporte, y el toque de los botones no se atiende en este corte (confirmar factura es acción sensible que AU10.4 deriva a la web, y "Editar" necesita un flujo conversacional); quedan para después: el pull real de Gmail (`history.list` con OAuth de Mauri), la descarga del media con el número central y el manejo del toque de botones.

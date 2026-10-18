@@ -17,9 +17,12 @@ import {
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
+import { es_comprobante_desde_mime, payload_borrador_ocr, RESPUESTA_NO_COMPROBANTE } from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
 import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
-import { crearTransporteCloud, marcarLeidoCloud, normalizarEntrada } from "../../../modules/whatsapp/transport.js";
+import { crearTransporteCloud, marcarLeidoCloud, normalizarAdjuntoEntrada, normalizarEntrada, type ResultadoEnvioTransporte, type WhatsAppTransport } from "../../../modules/whatsapp/transport.js";
+import type { PayloadEnvio } from "../../../modules/whatsapp/envio.js";
+import { ingerirOcr } from "../../../lib/ocr-ingesta.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
@@ -78,20 +81,90 @@ function credenciales_envio(env: NodeJS.ProcessEnv = process.env): CredencialesE
   return { phoneNumberId, token };
 }
 
-// Envía el texto por WhatsAppTransport (adaptador cloud) + marca leído. Sin
+// Envía por WhatsAppTransport (adaptador cloud) + marca leído. Sin
 // credenciales omite el envío (enviado:false) pero igual responde 200.
+// `salida` deja elegir el payload: texto o interactivo (botones).
+async function enviarSalida(
+  opts: { toE164: string; wamidEntrante: string; cred: CredencialesEnvio | null },
+  salida: (t: WhatsAppTransport) => Promise<ResultadoEnvioTransporte>,
+): Promise<boolean> {
+  if (!opts.cred) return false;
+  await marcarLeidoCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token, wamidEntrante: opts.wamidEntrante });
+  const t = crearTransporteCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token });
+  const r = await salida(t);
+  registrarEnvioCloud(r.ok, Date.now());
+  return r.ok;
+}
+
 async function responder(opts: {
   toE164: string;
   wamidEntrante: string;
   texto: string;
   cred: CredencialesEnvio | null;
 }): Promise<boolean> {
-  if (!opts.cred) return false;
-  await marcarLeidoCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token, wamidEntrante: opts.wamidEntrante });
-  const t = crearTransporteCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token });
-  const r = await t.enviar(opts.toE164, opts.texto);
-  registrarEnvioCloud(r.ok, Date.now());
-  return r.ok;
+  return enviarSalida(opts, (t) => t.enviar(opts.toE164, opts.texto));
+}
+
+async function responderPayload(
+  opts: { toE164: string; wamidEntrante: string; cred: CredencialesEnvio | null },
+  payload: PayloadEnvio,
+): Promise<boolean> {
+  return enviarSalida(opts, (t) => t.enviarPayload(opts.toE164, payload));
+}
+
+const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
+
+// OCR1-S5: foto o PDF por WhatsApp abre un borrador con confianza por campo y
+// se ofrece con [Confirmar] [Editar] [Descartar]. Idempotente por wamid (AT1) y
+// en el tenant del número. El media NO se descarga de Meta en este corte: viaja
+// como referencia `wa-media:<id>` (pide el número central, P9-3). Todo inline
+// en la request, sin cola, para poder ofrecer el borrador en la misma vuelta.
+async function ofrecerBorradorOcr(opts: {
+  remitente: string;
+  wamid: string;
+  adjunto: { idMedia: string; mimeType: string };
+  tenantId: string;
+  cred: CredencialesEnvio | null;
+}): Promise<Response> {
+  const r = await ingerirOcr({
+    idempotencyKey: opts.wamid,
+    body: {
+      origen: "wa",
+      bytes_ref: `wa-media:${opts.adjunto.idMedia}`,
+      es_comprobante: es_comprobante_desde_mime(opts.adjunto.mimeType),
+      foto_pendiente: true,
+    },
+    tenantId: opts.tenantId,
+  });
+  if (r.status === 415) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_NO_COMPROBANTE, cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_no_comprobante", respuesta: RESPUESTA_NO_COMPROBANTE, enviado });
+  }
+  if (r.status === 200) {
+    // Reentrega en frío (dedup en memoria perdido): el job ya existe y no se
+    // vuelve a ofrecer el borrador.
+    return Response.json({ ok: true, accion: "ocr_duplicado", job_id: r.jobId, borrador_id: r.borradorId });
+  }
+  if (r.status === 201) {
+    const enviado = await responderPayload(
+      { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
+      payload_borrador_ocr(r.borrador, r.revisa),
+    );
+    return Response.json({
+      ok: true,
+      accion: "ocr_borrador",
+      job_id: r.jobId,
+      borrador_id: r.borrador.id,
+      confianza_global: r.confianzaGlobal,
+      revisa: r.revisa,
+      enviado,
+    });
+  }
+  const enviado =
+    r.status === 503
+      ? await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred })
+      : false;
+  return Response.json({ ok: true, accion: r.status === 503 ? "ocr_sin_base" : "ocr_rechazado", enviado });
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -254,6 +327,17 @@ export const POST: APIRoute = async ({ request }) => {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_NO_VINCULADO, cred });
     return Response.json({ ok: true, accion: "consulta", respuesta: RESPUESTA_NO_VINCULADO, enviado });
   }
+  // OCR1-S5: el adjunto no es una consulta del bot; abre el borrador del
+  // comprobante con el tenant del número ya resuelto por la puerta de identidad.
+  if (msg.adjunto) {
+    return ofrecerBorradorOcr({
+      remitente: msg.remitente,
+      wamid: msg.wamid,
+      adjunto: msg.adjunto,
+      tenantId: r.tenantId,
+      cred,
+    });
+  }
   // DASH-S3 (ADR-0034): consulta del bot registrada best-effort. Un fallo de
   // DB nunca rompe el 200 ni cambia la respuesta; VINCULAR/BAJA/ALTA y los no
   // vinculados ya salieron antes por otros caminos.
@@ -347,8 +431,22 @@ function resolver_tenant_de(remitente: string): { id: string; nombreComercio: st
   return { id: link.tenantId, nombreComercio: (t as { nombreComercio?: string }).nombreComercio ?? "tu comercio" };
 }
 
-function extraer_mensaje(body: unknown): { wamid: string; remitente: string; texto: string; timestampMs: number } | null {
-  const m = normalizarEntrada(body);
-  if (!m) return null;
-  return { wamid: m.wamid, remitente: m.remitenteE164, texto: m.texto, timestampMs: m.timestampMs };
+// Un mensaje entrante de la Cloud API: texto o adjunto (image/document). Los
+// otros tipos de Meta (audio, voz, ubicación) siguen ignorándose.
+interface MensajeEntranteWa {
+  wamid: string;
+  remitente: string;
+  texto: string;
+  timestampMs: number;
+  adjunto: { idMedia: string; mimeType: string; nombreArchivo: string | null } | null;
+}
+
+function extraer_mensaje(body: unknown): MensajeEntranteWa | null {
+  const texto = normalizarEntrada(body);
+  if (texto) {
+    return { wamid: texto.wamid, remitente: texto.remitenteE164, texto: texto.texto, timestampMs: texto.timestampMs, adjunto: null };
+  }
+  const adjunto = normalizarAdjuntoEntrada(body);
+  if (!adjunto) return null;
+  return { wamid: adjunto.wamid, remitente: adjunto.remitenteE164, texto: "", timestampMs: adjunto.timestampMs, adjunto: adjunto.adjunto };
 }
