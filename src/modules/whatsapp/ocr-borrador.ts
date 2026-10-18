@@ -13,6 +13,24 @@ export const RESPUESTA_NO_COMPROBANTE =
 export const RESPUESTA_OCR_MEDIA_FALLIDA =
   "No pude bajar el comprobante. Reintentá mandándolo de nuevo." as const;
 
+export type AccionBotonOcr = "confirmar" | "editar" | "descartar";
+
+// Interpreta el id `ocr:<acción>:<borradorId>` de un botón. Devuelve null si no
+// es un id de OCR o la acción no es una de las tres.
+export function parsear_boton_ocr(id: string): { readonly accion: AccionBotonOcr; readonly borradorId: string } | null {
+  const partes = id.split(":");
+  if (partes.length !== 3 || partes[0] !== "ocr") return null;
+  const accion = partes[1];
+  const borradorId = partes[2] ?? "";
+  if (accion !== "confirmar" && accion !== "editar" && accion !== "descartar") return null;
+  if (!borradorId) return null;
+  return { accion, borradorId };
+}
+
+export const RESPUESTA_OCR_DESCARTADO = "Listo, descarté el comprobante." as const;
+export const RESPUESTA_OCR_EDITAR_WEB = "Para editar el borrador entrá a la web." as const;
+export const RESPUESTA_OCR_BOTON_INVALIDO = "Ese botón ya no está disponible." as const;
+
 // El mime del adjunto decide si entra a la extracción; cuando no es
 // comprobante el bot avisa sin crear job (la ingesta responde 415 al caller de
 // API).

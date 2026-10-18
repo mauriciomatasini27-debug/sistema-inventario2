@@ -17,13 +17,26 @@ import {
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
-import { es_comprobante_desde_mime, payload_borrador_ocr, RESPUESTA_NO_COMPROBANTE, RESPUESTA_OCR_MEDIA_FALLIDA } from "../../../modules/whatsapp/ocr-borrador.js";
+import {
+  es_comprobante_desde_mime,
+  parsear_boton_ocr,
+  payload_borrador_ocr,
+  RESPUESTA_NO_COMPROBANTE,
+  RESPUESTA_OCR_BOTON_INVALIDO,
+  RESPUESTA_OCR_DESCARTADO,
+  RESPUESTA_OCR_EDITAR_WEB,
+  RESPUESTA_OCR_MEDIA_FALLIDA,
+} from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
 import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
-import { crearTransporteCloud, marcarLeidoCloud, normalizarAdjuntoEntrada, normalizarEntrada, type ResultadoEnvioTransporte, type WhatsAppTransport } from "../../../modules/whatsapp/transport.js";
+import { crearTransporteCloud, marcarLeidoCloud, normalizarAdjuntoEntrada, normalizarBotonEntrada, normalizarEntrada, type ResultadoEnvioTransporte, type WhatsAppTransport } from "../../../modules/whatsapp/transport.js";
 import type { PayloadEnvio } from "../../../modules/whatsapp/envio.js";
 import { ingerirOcr } from "../../../lib/ocr-ingesta.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { conTenant } from "../../../lib/tenant-mode.js";
+import { descartarBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
+import { registrarEventoOcr } from "../../../lib/repos/ocr.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
@@ -113,6 +126,44 @@ async function responderPayload(
 }
 
 const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
+
+async function atenderBotonOcr(opts: {
+  remitente: string;
+  wamid: string;
+  botonId: string;
+  tenantId: string;
+  cred: CredencialesEnvio | null;
+}): Promise<Response> {
+  const boton = parsear_boton_ocr(opts.botonId);
+  if (!boton) return Response.json({ ok: true, accion: "boton_ignorado" });
+  if (boton.accion === "confirmar") {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_SENSIBLE_BOT, cred: opts.cred });
+    return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_SENSIBLE_BOT, enviado });
+  }
+  if (boton.accion === "editar") {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_EDITAR_WEB, cred: opts.cred });
+    return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_OCR_EDITAR_WEB, enviado });
+  }
+  try {
+    const d = await conTenant(opts.tenantId, async () => {
+      const r = await descartarBorradorOcrRepo({ draftId: boton.borradorId, ahoraIso: new Date().toISOString() });
+      if (r.status === 200) {
+        const jobId = r.borrador.idempotencyKey.startsWith("ocr-") ? r.borrador.idempotencyKey.slice(4) : null;
+        await registrarEventoOcr("ocr_descartado", jobId ? { job_id: jobId, motivo: "boton" } : { borrador_id: r.borrador.id, motivo: "boton" });
+      }
+      return r;
+    });
+    const texto = d.status === 200 ? RESPUESTA_OCR_DESCARTADO : RESPUESTA_OCR_BOTON_INVALIDO;
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto, cred: opts.cred });
+    return Response.json({ ok: true, accion: d.status === 200 ? "ocr_descartado" : "ocr_descartado_error", enviado });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_descartado_error", error: "base_no_disponible", enviado });
+    }
+    throw e;
+  }
+}
 
 // OCR1-S5: foto o PDF por WhatsApp abre un borrador con confianza por campo y
 // se ofrece con [Confirmar] [Editar] [Descartar]. Idempotente por wamid (AT1) y
@@ -335,6 +386,11 @@ export const POST: APIRoute = async ({ request }) => {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_NO_VINCULADO, cred });
     return Response.json({ ok: true, accion: "consulta", respuesta: RESPUESTA_NO_VINCULADO, enviado });
   }
+  // OCR1-S5: el toque de un botón del borrador no es consulta. Descartar cierra
+  // inline; Confirmar y Editar se derivan a la web (AU10.4, ADR-0005).
+  if (msg.boton) {
+    return atenderBotonOcr({ remitente: msg.remitente, wamid: msg.wamid, botonId: msg.boton, tenantId: r.tenantId, cred });
+  }
   // OCR1-S5: el adjunto no es una consulta del bot; abre el borrador del
   // comprobante con el tenant del número ya resuelto por la puerta de identidad.
   if (msg.adjunto) {
@@ -439,22 +495,26 @@ function resolver_tenant_de(remitente: string): { id: string; nombreComercio: st
   return { id: link.tenantId, nombreComercio: (t as { nombreComercio?: string }).nombreComercio ?? "tu comercio" };
 }
 
-// Un mensaje entrante de la Cloud API: texto o adjunto (image/document). Los
-// otros tipos de Meta (audio, voz, ubicación) siguen ignorándose.
+// Un mensaje entrante de la Cloud API: texto, adjunto (image/document) o el
+// toque de un botón (interactive). Los otros tipos de Meta (audio, voz,
+// ubicación) siguen ignorándose.
 interface MensajeEntranteWa {
   wamid: string;
   remitente: string;
   texto: string;
   timestampMs: number;
   adjunto: { idMedia: string; mimeType: string; nombreArchivo: string | null } | null;
+  boton: string | null;
 }
 
 function extraer_mensaje(body: unknown): MensajeEntranteWa | null {
+  const boton = normalizarBotonEntrada(body);
+  if (boton) return { wamid: boton.wamid, remitente: boton.remitenteE164, texto: "", timestampMs: boton.timestampMs, adjunto: null, boton: boton.botonId };
   const texto = normalizarEntrada(body);
   if (texto) {
-    return { wamid: texto.wamid, remitente: texto.remitenteE164, texto: texto.texto, timestampMs: texto.timestampMs, adjunto: null };
+    return { wamid: texto.wamid, remitente: texto.remitenteE164, texto: texto.texto, timestampMs: texto.timestampMs, adjunto: null, boton: null };
   }
   const adjunto = normalizarAdjuntoEntrada(body);
   if (!adjunto) return null;
-  return { wamid: adjunto.wamid, remitente: adjunto.remitenteE164, texto: "", timestampMs: adjunto.timestampMs, adjunto: adjunto.adjunto };
+  return { wamid: adjunto.wamid, remitente: adjunto.remitenteE164, texto: "", timestampMs: adjunto.timestampMs, adjunto: adjunto.adjunto, boton: null };
 }

@@ -45,6 +45,7 @@ interface MensajeCrudo {
   readonly text?: { readonly body?: string };
   readonly image?: { readonly id?: string; readonly mime_type?: string };
   readonly document?: { readonly id?: string; readonly mime_type?: string; readonly filename?: string };
+  readonly interactive?: { readonly button_reply?: { readonly id?: string } };
 }
 
 // Primer mensaje del webhook de la Cloud API (con o sin texto).
@@ -81,8 +82,9 @@ export function normalizarEntrada(payload: unknown): MensajeWA | null {
 }
 
 // Adjunto de imagen o documento: mismo sobre que el mensaje de texto, con el
-// id de media y el mime_type del payload. El resto de los tipos (audio, voz,
-// ubicación, stickers) sigue sin mensaje, como antes.
+// id de media y el mime_type del payload. El toque de botones (interactive) se
+// normaliza aparte con normalizarBotonEntrada; los otros tipos (audio, voz,
+// ubicación, stickers) siguen sin mensaje.
 export function normalizarAdjuntoEntrada(payload: unknown): MensajeAdjuntoWA | null {
   const msg = mensajeCrudo(payload);
   if (!msg?.from || !msg.id) return null;
@@ -97,6 +99,28 @@ export function normalizarAdjuntoEntrada(payload: unknown): MensajeAdjuntoWA | n
       mimeType: medio.mime_type ?? "",
       nombreArchivo: msg.type === "document" ? (msg.document?.filename ?? null) : null,
     },
+  };
+}
+
+// Toque de un botón interactivo (confirmar/editar/descartar el borrador OCR).
+// El id viaja en interactive.button_reply.id y lo interpreta el módulo puro.
+export interface MensajeBotonWA {
+  readonly wamid: string;
+  readonly remitenteE164: string;
+  readonly timestampMs: number;
+  readonly botonId: string;
+}
+
+export function normalizarBotonEntrada(payload: unknown): MensajeBotonWA | null {
+  const msg = mensajeCrudo(payload);
+  if (!msg?.from || !msg.id) return null;
+  const id = msg.type === "interactive" ? msg.interactive?.button_reply?.id : undefined;
+  if (!id) return null;
+  return {
+    wamid: msg.id,
+    remitenteE164: remitenteDe(msg.from),
+    timestampMs: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
+    botonId: id,
   };
 }
 
