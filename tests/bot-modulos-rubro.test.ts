@@ -19,6 +19,7 @@ import {
 } from "../src/lib/repos/bot-modulos.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
+import { crearProveedorCobro, olvidarPlanesEnMemoria } from "../src/lib/repos/planes.js";
 import { tenants } from "../src/db/schema.js";
 import { tenantBotModules } from "../src/db/schema-planes.js";
 import { enrutar, type EntradaRouter } from "../src/modules/whatsapp/router.js";
@@ -57,6 +58,7 @@ function tenantConMiembros(id: string, dueno: string, empleado = "juan") {
 
 beforeEach(() => {
   resetStore();
+  olvidarPlanesEnMemoria();
 });
 
 describe("BOT-S1 defaults por rubro", () => {
@@ -141,6 +143,42 @@ describe("BOT-S1 toggle solo dueño", () => {
     const j = (await rDueno.json()) as { activos: string[] };
     expect(j.activos).toEqual(["vencimientos"]);
     expect(await leerModulosBot("t-1")).toEqual(["vencimientos"]);
+  });
+});
+
+describe("PLAN-S2 bot_rubro gateado por plan", () => {
+  it("Básico no puede encender un módulo de rubro", async () => {
+    tenantConMiembros("t-plan", "dueno-1");
+    await guardarModulosBot("t-plan", []);
+    await crearProveedorCobro().crearSuscripcion({ tenantId: "t-plan", planId: "basico" });
+    const dueno = sesionEnStore("dueno-1", "t-plan");
+
+    const r = await patchBotModulos(
+      ctx("http://x/api/bot-modulos", {
+        method: "PATCH",
+        headers: { cookie: `__Host-sesion=${dueno}` },
+        body: { modulo: "flujo_caja", activo: true },
+      }),
+    );
+    expect(r.status).toBe(403);
+    expect(((await r.json()) as { codigo?: string }).codigo).toBe("fuera_de_plan");
+    expect(await leerModulosBot("t-plan")).not.toContain("flujo_caja");
+  });
+
+  it("Plus sí puede", async () => {
+    tenantConMiembros("t-plan", "dueno-1");
+    await guardarModulosBot("t-plan", []);
+    await crearProveedorCobro().crearSuscripcion({ tenantId: "t-plan", planId: "plus" });
+    const dueno = sesionEnStore("dueno-1", "t-plan");
+
+    const r = await patchBotModulos(
+      ctx("http://x/api/bot-modulos", {
+        method: "PATCH",
+        headers: { cookie: `__Host-sesion=${dueno}` },
+        body: { modulo: "flujo_caja", activo: true },
+      }),
+    );
+    expect(r.status).toBe(200);
   });
 });
 

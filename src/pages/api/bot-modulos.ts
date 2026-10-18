@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { control } from "../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "../../lib/control.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import { planIncluye } from "../../lib/repos/planes.js";
 import { MODULOS_BOT, rubrosAvanzadosHabilitados } from "../../modules/bot/modulos-rubro.js";
 import { cambiarModuloBot, leerModulosBot } from "../../lib/repos/bot-modulos.js";
 
@@ -55,6 +57,20 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Datos inválidos.", 422);
+  if (parsed.data.activo) {
+    try {
+      const inc = await planIncluye(tenantId, "bot_rubro");
+      if (inc.planId !== null && inc.incluida === false) {
+        return Response.json(
+          { error: "Los módulos de rubro del bot no están en tu plan.", codigo: "fuera_de_plan" },
+          { status: 403 },
+        );
+      }
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+      throw e;
+    }
+  }
   const activos = await cambiarModuloBot(tenantId, parsed.data.modulo, parsed.data.activo);
   control.events.push({
     tenantId,

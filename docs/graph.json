@@ -357,6 +357,22 @@
       "ruta": "docs/adr/0088-clasificador-local-integracion.md"
     },
     {
+      "id": "ADR-0089",
+      "ruta": "docs/adr/0089-ocr-fase-0-definitivo.md"
+    },
+    {
+      "id": "ADR-0090",
+      "ruta": "docs/adr/0090-encuadre-legal-fiscal-y-certificados-arca.md"
+    },
+    {
+      "id": "ADR-0091",
+      "ruta": "docs/adr/0091-alta-numero-central-whatsapp.md"
+    },
+    {
+      "id": "ADR-0092",
+      "ruta": "docs/adr/0092-proveedor-cobro-suscripcion.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -549,6 +565,10 @@
       "ruta": "docs/diseno/PRD-BOT-02-consulta-stock-whatsapp.md"
     },
     {
+      "id": "PRD-BOT-03",
+      "ruta": "docs/diseno/PRD-BOT-03-alta-numero-central-meta.md"
+    },
+    {
       "id": "PRD-CAJA-01",
       "ruta": "docs/diseno/PRD-CAJA-01-qr-vencimientos-ticket-payments.md"
     },
@@ -597,6 +617,10 @@
       "ruta": "docs/diseno/PRD-FE-01-fiscal-arca.md"
     },
     {
+      "id": "PRD-FE-02",
+      "ruta": "docs/diseno/PRD-FE-02-cumplimiento-legal-fiscal-y-certificados.md"
+    },
+    {
       "id": "PRD-IA-01",
       "ruta": "docs/diseno/PRD-IA-01-asistente-preguntas-negocio.md"
     },
@@ -641,6 +665,10 @@
       "ruta": "docs/diseno/PRD-NEG-01-negocio-catalogo.md"
     },
     {
+      "id": "PRD-OCR-01",
+      "ruta": "docs/diseno/PRD-OCR-01-motor-ocr-fase-0.md"
+    },
+    {
       "id": "PRD-OP-01",
       "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md"
     },
@@ -679,6 +707,10 @@
     {
       "id": "PRD-PLAN-02",
       "ruta": "docs/diseno/PRD-PLAN-02-precios-suscripcion.md"
+    },
+    {
+      "id": "PRD-PLAN-03",
+      "ruta": "docs/diseno/PRD-PLAN-03-cobro-y-publicacion-precios.md"
     },
     {
       "id": "PRD-PROC-01",
@@ -1980,6 +2012,41 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0089",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0090",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0090",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0091",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0091",
+      "a": "ADR-0042",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0092",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0092",
+      "a": "PRD-PLAN-01",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -2205,6 +2272,26 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-BOT-03",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-03",
+      "a": "ADR-0042",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-03",
+      "a": "ADR-0091",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-BOT-03",
+      "a": "PRD-BOT-02",
+      "tipo": "depende_de"
+    },
+    {
       "de": "PRD-CAJA-01",
       "a": "PRD-CAT-01",
       "tipo": "depende_de"
@@ -2402,6 +2489,21 @@
     {
       "de": "PRD-FE-01",
       "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-02",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-02",
+      "a": "ADR-0090",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-02",
+      "a": "PRD-FE-01",
       "tipo": "depende_de"
     },
     {
@@ -2700,6 +2802,21 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-OCR-01",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OCR-01",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OCR-01",
+      "a": "PRD-PERS-04",
+      "tipo": "depende_de"
+    },
+    {
       "de": "PRD-OP-01",
       "a": "ADR-0006",
       "tipo": "depende_de"
@@ -2977,6 +3094,26 @@
     {
       "de": "PRD-PLAN-02",
       "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-03",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-03",
+      "a": "ADR-0092",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-03",
+      "a": "PRD-PLAN-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PLAN-03",
+      "a": "PRD-PLAN-02",
       "tipo": "depende_de"
     },
     {
