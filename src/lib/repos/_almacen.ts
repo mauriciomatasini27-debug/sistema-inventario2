@@ -663,6 +663,9 @@ export interface SuscripcionPlanes {
   tenantId: string;
   planId: string;
   estado: "activa" | "cancelada";
+  desde?: Date | null;
+  hasta?: Date | null;
+  planProgramado?: string | null;
 }
 
 const suscripcionesPlanes = new Map<string, SuscripcionPlanes>();

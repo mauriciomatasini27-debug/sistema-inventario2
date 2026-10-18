@@ -50,6 +50,10 @@ export interface VistaPlan {
   readonly es_catalogo_ejemplo: boolean;
   readonly features: ReadonlyArray<FeatureVista>;
   readonly asistente: MedidorAsistente;
+  // PLAN-S4: cambio de plan programado a fin de período (null = sin cambio).
+  readonly plan_programado: PlanId | null;
+  readonly plan_programado_nombre: string | null;
+  readonly fecha_cambio: FechaAR | null;
 }
 
 // Día 1 del mes siguiente al de `hoy`, en el calendario civil de Argentina.
@@ -71,9 +75,15 @@ export function vistaPlan(entrada: {
   readonly catalogo: Catalogo;
   readonly consultasAsistenteMes: number;
   readonly hoy: FechaAR;
+  readonly planProgramado?: PlanId | null;
+  readonly fechaCambio?: FechaAR | null;
 }): VistaPlan {
   const plan =
     entrada.planId === null ? null : (entrada.catalogo.find((p) => p.id === entrada.planId) ?? null);
+  const planProgramado = entrada.planProgramado ?? null;
+  const fechaCambio = entrada.fechaCambio ?? null;
+  const planProgramadoNombre =
+    planProgramado === null ? null : (entrada.catalogo.find((p) => p.id === planProgramado)?.nombre ?? null);
   const usado = Math.max(0, Math.floor(entrada.consultasAsistenteMes));
   const reinicia_el = primerDiaMesSiguiente(entrada.hoy);
   const features: FeatureVista[] = ORDEN_FEATURES.map((clave) => ({
@@ -101,6 +111,9 @@ export function vistaPlan(entrada: {
             ? "Sin plan activo, el asistente IA no está disponible."
             : `Tu plan ${plan.nombre} no incluye el asistente IA.`,
       },
+      plan_programado: planProgramado,
+      plan_programado_nombre: planProgramadoNombre,
+      fecha_cambio: fechaCambio,
     };
   }
 
@@ -124,5 +137,8 @@ export function vistaPlan(entrada: {
       reinicia_el,
       explicacion: agotado ? `Llegaste al cupo del mes. Se reinicia el ${diaMesTexto(reinicia_el)}.` : "",
     },
+    plan_programado: planProgramado,
+    plan_programado_nombre: planProgramadoNombre,
+    fecha_cambio: fechaCambio,
   };
 }

@@ -9,6 +9,7 @@ import {
   type PlanId,
 } from "../../modules/planes/catalogo.js";
 import type { ProveedorCobro, Suscripcion } from "../../modules/planes/proveedor.js";
+import { planVigenteDe } from "../../modules/planes/ciclo.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
@@ -63,11 +64,22 @@ function filaASuscripcion(f: typeof subscriptions.$inferSelect): Suscripcion {
     tenantId: f.tenantId,
     planId: f.planId as PlanId,
     estado: f.estado as Suscripcion["estado"],
+    desde: f.desde,
+    hasta: f.hasta,
+    planProgramado: f.planProgramado !== null && esPlanConocido(f.planProgramado) ? (f.planProgramado as PlanId) : null,
   };
 }
 
 function memoriaASuscripcion(s: SuscripcionPlanes): Suscripcion {
-  return { id: s.id, tenantId: s.tenantId, planId: s.planId as PlanId, estado: s.estado };
+  return {
+    id: s.id,
+    tenantId: s.tenantId,
+    planId: s.planId as PlanId,
+    estado: s.estado,
+    desde: s.desde ?? null,
+    hasta: s.hasta ?? null,
+    planProgramado: s.planProgramado != null && esPlanConocido(s.planProgramado) ? (s.planProgramado as PlanId) : null,
+  };
 }
 
 // Catálogo desde plans+plan_features. Features ausentes quedan como no
@@ -131,10 +143,36 @@ function activaEnMemoria(tenantId: string): Suscripcion | null {
   return null;
 }
 
+// PLAN-S4: si el cambio programado ya llegó, el plan vigente es el programado
+// (el resolvedor rueda sin job; la persistencia del rollover es best-effort).
+function aplicarProgramado(sub: Suscripcion, ahora: Date): { readonly sub: Suscripcion; readonly aplico: boolean } {
+  const vigente = planVigenteDe({
+    planId: sub.planId,
+    planProgramado: sub.planProgramado ?? null,
+    hasta: sub.hasta ?? null,
+    ahora,
+  });
+  if (vigente.planId === sub.planId) return { sub, aplico: false };
+  // El ciclo nuevo arranca el día del cambio.
+  return {
+    sub: { ...sub, planId: vigente.planId, planProgramado: null, desde: sub.hasta ?? null, hasta: null },
+    aplico: true,
+  };
+}
+
+function activaRoladaEnMemoria(tenantId: string, ahora: Date): Suscripcion | null {
+  const sub = activaEnMemoria(tenantId);
+  if (!sub) return null;
+  const r = aplicarProgramado(sub, ahora);
+  if (r.aplico) crearAlmacenSuscripciones().guardar(r.sub.id, { ...r.sub });
+  return r.sub;
+}
+
 export async function leerSuscripcionActiva(tenantId: string): Promise<Suscripcion | null> {
   exigirTenant(tenantId);
+  const ahora = new Date();
   const db = dbVivaTenant();
-  if (!db) return activaEnMemoria(tenantId);
+  if (!db) return activaRoladaEnMemoria(tenantId, ahora);
   try {
     const filas = await db
       .select()
@@ -142,13 +180,23 @@ export async function leerSuscripcionActiva(tenantId: string): Promise<Suscripci
       .where(and(eq(subscriptions.tenantId, tenantId), eq(subscriptions.estado, "activa")))
       .limit(1);
     const f = filas[0];
-    if (!f) return activaEnMemoria(tenantId);
-    const sub = filaASuscripcion(f);
-    crearAlmacenSuscripciones().guardar(sub.id, { ...sub });
-    return sub;
+    if (!f) return activaRoladaEnMemoria(tenantId, ahora);
+    const r = aplicarProgramado(filaASuscripcion(f), ahora);
+    if (r.aplico) {
+      try {
+        await db
+          .update(subscriptions)
+          .set({ planId: r.sub.planId, planProgramado: null, desde: r.sub.desde ?? new Date(), hasta: null })
+          .where(eq(subscriptions.id, r.sub.id));
+      } catch (e) {
+        crearAlmacenSuscripciones().anteFalloPersistencia(e);
+      }
+    }
+    crearAlmacenSuscripciones().guardar(r.sub.id, { ...r.sub });
+    return r.sub;
   } catch (e) {
     crearAlmacenSuscripciones().anteFalloPersistencia(e);
-    return activaEnMemoria(tenantId);
+    return activaRoladaEnMemoria(tenantId, ahora);
   }
 }
 
@@ -178,9 +226,68 @@ function crearEnMemoria(tenantId: string, planId: PlanId): Suscripcion {
   for (const s of mapa.mapaVivo().values()) {
     if (s.tenantId === tenantId && s.estado === "activa") mapa.guardar(s.id, { ...s, estado: "cancelada" });
   }
-  const sub: Suscripcion = { id: `sub-mem-${proximoMem++}`, tenantId, planId, estado: "activa" };
+  const sub: Suscripcion = {
+    id: `sub-mem-${proximoMem++}`,
+    tenantId,
+    planId,
+    estado: "activa",
+    desde: new Date(),
+    hasta: null,
+    planProgramado: null,
+  };
   mapa.guardar(sub.id, { ...sub });
   return sub;
+}
+
+function programarEnMemoria(args: {
+  readonly tenantId: string;
+  readonly suscripcionId: string;
+  readonly planProgramado: PlanId | null;
+  readonly hasta: Date | null;
+}): Suscripcion {
+  const mapa = crearAlmacenSuscripciones();
+  const actual = mapa.obtener(args.suscripcionId);
+  if (!actual || actual.tenantId !== args.tenantId) {
+    throw new Error(`suscripción desconocida: ${args.suscripcionId}`);
+  }
+  const next: SuscripcionPlanes = { ...actual, planProgramado: args.planProgramado, hasta: args.hasta };
+  mapa.guardar(args.suscripcionId, next);
+  return memoriaASuscripcion(next);
+}
+
+// PLAN-S4: guarda (o cancela, con null) el cambio de plan programado en la
+// suscripción activa junto con `hasta`, la fecha en que rige, para que el
+// rollover no dependa de cuándo se lea. DB primero con el mismo patrón
+// memoria/DB del resto del repo; no toca el plan vigente.
+export async function programarCambioPlan(args: {
+  readonly tenantId: string;
+  readonly suscripcionId: string;
+  readonly planProgramado: PlanId | null;
+  readonly hasta: Date | null;
+}): Promise<Suscripcion> {
+  exigirTenant(args.tenantId);
+  const db = dbVivaTenant();
+  if (!db) return programarEnMemoria(args);
+  try {
+    const filas = await db
+      .select()
+      .from(subscriptions)
+      .where(and(eq(subscriptions.id, args.suscripcionId), eq(subscriptions.tenantId, args.tenantId)))
+      .limit(1);
+    const f = filas[0];
+    if (!f || f.estado !== "activa") throw new Error(`suscripción desconocida: ${args.suscripcionId}`);
+    await db
+      .update(subscriptions)
+      .set({ planProgramado: args.planProgramado, hasta: args.hasta })
+      .where(eq(subscriptions.id, args.suscripcionId));
+    const sub: Suscripcion = { ...filaASuscripcion(f), planProgramado: args.planProgramado, hasta: args.hasta };
+    crearAlmacenSuscripciones().guardar(sub.id, { ...sub });
+    return sub;
+  } catch (e) {
+    if (esErrorPropio(e)) throw e;
+    crearAlmacenSuscripciones().anteFalloPersistencia(e);
+    return programarEnMemoria(args);
+  }
 }
 
 function cancelarEnMemoria(suscripcionId: string): Suscripcion {

@@ -14,6 +14,10 @@ export interface Suscripcion {
   readonly tenantId: string;
   readonly planId: PlanId;
   readonly estado: EstadoSuscripcion;
+  // PLAN-S4: ciclo de facturación y cambio programado (null = sin cambio).
+  readonly desde?: Date | null;
+  readonly hasta?: Date | null;
+  readonly planProgramado?: PlanId | null;
 }
 
 export interface ProveedorCobro {

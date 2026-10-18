@@ -34,12 +34,15 @@ export const GET: APIRoute = async ({ request }) => {
     const activa = await leerSuscripcionActiva(tenantId);
     const catalogo = await leerCatalogo();
     const uso = await crearRegistroUsoIA().usoDelMes(tenantId, mesAR(ahora));
+    const planProgramado = activa?.planProgramado ?? null;
     return Response.json(
       vistaPlan({
         planId: activa?.planId ?? null,
         catalogo,
         consultasAsistenteMes: uso.consultas,
         hoy: fechaAR(ahora),
+        planProgramado,
+        fechaCambio: planProgramado !== null && activa?.hasta ? fechaAR(activa.hasta) : null,
       }),
     );
   } catch (e) {
