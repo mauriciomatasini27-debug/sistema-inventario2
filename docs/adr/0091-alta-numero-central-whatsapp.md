@@ -1,7 +1,7 @@
 ---
 id: ADR-0091
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [bot]
 depende_de: [ADR-0041, ADR-0042]
 reemplaza: []
@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0091 - Alta del número central de WhatsApp: Meta directo o BSP
 
-Estado: propuesto. Fecha: 2026-10-18. Fuentes: ADR-0041 (Cloud API oficial), ADR-0042 (WhatsAppTransport), PRD-BOT-02 (BOT2-E2), `docs/01-fundacion/costos-por-cliente.md` (número central), P9-3. Decisión propuesta para aprobación de Mauri.
+Estado: aceptado. Fecha: 2026-10-18. Aprobado por Mauri el 2026-10-18. Fuentes: ADR-0041 (Cloud API oficial), ADR-0042 (WhatsAppTransport), PRD-BOT-02 (BOT2-E2), `docs/01-fundacion/costos-por-cliente.md` (número central), P9-3.
 
 ## Decisión
 

@@ -7,10 +7,9 @@
     { "tema": "Mercado Pago", "depende": "Mauri (credenciales y cuenta)" }
   ],
   "decisiones": [
-    { "tema": "Fiscal ARCA", "depende": "Mauri (certificado y homologación)" },
-    { "tema": "Proveedor de OCR", "depende": "Mauri (PaddleOCR propio vs Vision/Textract)" },
-    { "tema": "Proveedor LLM real y costos", "depende": "Mauri (Anthropic/OpenAI y tarifas)" },
-    { "tema": "Pricing y planes publicados (PLAN-02)", "depende": "Mauri (precios y proveedor de cobro)" },
+    { "tema": "Fiscal ARCA", "depende": "Mauri (certificado y homologación; ADR-0090 diferido)" },
+    { "tema": "Proveedor LLM real y costos", "depende": "Mauri (Anthropic/OpenAI y tarifas; mientras tanto un proveedor free)" },
+    { "tema": "Pricing y planes publicados (PLAN-02)", "depende": "Mauri (montos finales por plan)" },
     { "tema": "P2-4 SUP-S5/S6 (Supabase live)", "depende": "Mauri (solo Mauri corre contra la base real)" }
   ]
 }

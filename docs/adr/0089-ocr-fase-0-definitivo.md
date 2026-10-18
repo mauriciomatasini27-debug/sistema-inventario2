@@ -1,7 +1,7 @@
 ---
 id: ADR-0089
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [ocr, compras]
 depende_de: [ADR-0005]
 reemplaza: []
@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0089 - Proveedor OCR definitivo de Fase 0
 
-Estado: propuesto. Fecha: 2026-10-18. Fuentes: ADR-0005 (OCR Fase 0, motor y pipeline), `docs/01-fundacion/costos-por-cliente.md` (costos por cliente, PaddleOCR y nube), `docs/05-compras-servicios-pagos/facturas-proveedores.md` (FP1-FP12), P9-1. Decisión propuesta para aprobación de Mauri.
+Estado: aceptado. Fecha: 2026-10-18. Aprobado por Mauri el 2026-10-18. Fuentes: ADR-0005 (OCR Fase 0, motor y pipeline), `docs/01-fundacion/costos-por-cliente.md` (costos por cliente, PaddleOCR y nube), `docs/05-compras-servicios-pagos/facturas-proveedores.md` (FP1-FP12), P9-1.
 
 ## Decisión
 

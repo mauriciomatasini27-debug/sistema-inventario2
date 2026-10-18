@@ -1,7 +1,7 @@
 ---
 id: ADR-0092
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [precios]
 depende_de: [ADR-0047, PRD-PLAN-01]
 reemplaza: []
@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0092 - Proveedor de cobro de la suscripción
 
-Estado: propuesto. Fecha: 2026-10-18. Fuentes: ADR-0047 (cobro por plan mensual), PRD-PLAN-01, PRD-PLAN-02 (rangos y supuestos), `src/pages/api/billing/webhooks/mercadopago.ts`, P9-5. Decisión propuesta para aprobación de Mauri.
+Estado: aceptado. Fecha: 2026-10-18. Aprobado por Mauri el 2026-10-18. Fuentes: ADR-0047 (cobro por plan mensual), PRD-PLAN-01, PRD-PLAN-02 (rangos y supuestos), `src/pages/api/billing/webhooks/mercadopago.ts`, P9-5.
 
 ## Decisión
 

@@ -98,5 +98,5 @@ resumen: Resumen factual en un máximo de 3 líneas.
 
 ## Notas
 - Divergencia conocida: el `.docx` suelto del Panel incluye ventas/deudas y está prohibido; vale Partes 1-3.
-- OCR sin definir Fase 0 definitivo (PaddleOCR propio vs Vision/Textract).
+- OCR Fase 0 definido: PaddleOCR PP-OCRv5 autohospedado como motor primario, Vision/Textract como fallback de baja confianza (ADR-0089 aceptado 2026-10-18; falta correr el benchmark de PRD-OCR-01).
 - Verificar en fuente oficial antes de implementar: Google OIDC, Gmail/Photos API, Cloud API Meta, ARCA, BarcodeDetector/OPFS iOS.
