@@ -10,6 +10,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
+import { persistirUsuario } from "../../../lib/control-db.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
@@ -69,14 +70,19 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const email = normalizarEmail(identidad.email);
   const ahora = new Date();
   const previo = control.users.get(identidad.sub);
-  control.users.set(identidad.sub, {
+  const usuario = {
     googleSub: identidad.sub,
     email,
     emailVerificado: true,
     nombre: identidad.nombre ?? previo?.nombre,
     fotoUrl: identidad.fotoUrl ?? previo?.fotoUrl,
     ultimoLoginAt: ahora.toISOString(),
-  });
+  };
+  control.users.set(identidad.sub, usuario);
+  // Copia durable antes de seguir: tenants.owner_google_sub referencia
+  // users(google_sub), así que sin esta fila el alta de comercio falla la FK
+  // y queda solo en memoria. Se espera para que el alta no corra en carrera.
+  await persistirUsuario(usuario);
   if (previo && previo.email !== email) {
     control.events.push({
       tenantId: null,
