@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { ocrEventos, ocrJobs } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
-import { con_borrador, type OcrJob } from "../../modules/ocr/jobs.js";
-import { crearAlmacenOcrJobs, crearAlmacenOcrJobsByKey, crearListaEventosOcr } from "./_almacen.js";
+import { con_borrador, type FallbackNubeApi, type OcrJob } from "../../modules/ocr/jobs.js";
+import { crearAlmacenOcrJobs, crearAlmacenOcrJobsByKey, crearListaEventosOcr, type EventoOcr } from "./_almacen.js";
 
 // PERS4-S2/S3 (ADR-0079): trabajos y eventos de OCR. DB primero vía
 // dbVivaTenant(); solo en single sin base usa la memoria particionada. En
@@ -203,5 +203,44 @@ export async function registrarEventoOcr(tipo: string, payload: unknown): Promis
     await db.insert(ocrEventos).values({ tipo, payload: payload as Record<string, unknown> });
   } catch (e) {
     eventos.anteFalloPersistencia(e);
+  }
+}
+
+function leerFallbackNube(payload: unknown): FallbackNubeApi {
+  if (!payload || typeof payload !== "object") return null;
+  return (payload as { fallback_nube?: unknown }).fallback_nube === "ofrecido" ? "ofrecido" : null;
+}
+
+function fallbackNubeEnMemoria(jobId: string): FallbackNubeApi {
+  const eventos: EventoOcr[] = crearListaEventosOcr().listar();
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i]!;
+    const p = e.payload;
+    if (e.tipo !== "ocr_borrador_listo" || !p || typeof p !== "object") continue;
+    if ((p as { job_id?: unknown }).job_id === jobId) return leerFallbackNube(p);
+  }
+  return null;
+}
+
+// El fallback de nube vive en el evento `ocr_borrador_listo`, no en una columna
+// nueva: GET lo deriva de lo ya persistido, sin migración. DB primero, memoria
+// como espejo.
+export async function buscarFallbackNubeJob(jobId: string): Promise<FallbackNubeApi> {
+  const memoria = fallbackNubeEnMemoria(jobId);
+  const db = dbVivaTenant();
+  if (!db) return memoria;
+  try {
+    const filas = await db
+      .select({ payload: ocrEventos.payload })
+      .from(ocrEventos)
+      .where(and(eq(ocrEventos.tipo, "ocr_borrador_listo"), sql`${ocrEventos.payload}->>'job_id' = ${jobId}`))
+      .orderBy(desc(ocrEventos.creadoEn))
+      .limit(1);
+    const fila = filas[0];
+    if (!fila) return memoria;
+    return leerFallbackNube(fila.payload);
+  } catch (e) {
+    crearListaEventosOcr().anteFalloPersistencia(e);
+    return memoria;
   }
 }

@@ -6,6 +6,12 @@ import { VENCIMIENTO_BORRADOR_MS } from "../purchases/facturas.js";
 export type EstadoOcrJob = "en_cola" | "procesando" | "listo" | "fallo";
 export type EstadoBorradorApi = "pendiente" | "confirmable" | "vencida";
 
+// Lo que la API expone del fallback de nube (ADR-0005, ADR-0089): Vision o
+// Textract quedan como opción cuando el motor primario respondió bajo el
+// umbral. Fase 0 no llama a la nube, solo la ofrece; el resto de los caminos
+// (pdf, texto directo, motor caído) viajan en null.
+export type FallbackNubeApi = "ofrecido" | null;
+
 export const RECUERDO_OCR_MS = 24 * 60 * 60 * 1000;
 
 export interface OcrJob {

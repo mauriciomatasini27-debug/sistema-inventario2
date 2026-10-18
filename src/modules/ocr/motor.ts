@@ -28,7 +28,15 @@ export interface Extraccion {
   readonly confianza: ConfianzaExtraccion;
   readonly fuentes: Record<"cuit" | "fecha" | "total", FuenteCampo>;
   readonly usoFallbackLocal: boolean;
+  // Vision o Textract quedan como opción (ADR-0005, ADR-0089). Solo cuando el
+  // motor primario respondió por debajo del umbral: pdf, texto directo y motor
+  // caído (E6) no lo ofrecen.
+  readonly nubeOfrecida: boolean;
 }
+
+// ADR-0089 deja subirlo a 0.7 sin cambiar de primario si el benchmark de
+// PRD-OCR-01 no llega al 80% de acierto por campo.
+export const UMBRAL_FALLBACK_NUBE = 0.6;
 
 // --- Regex deterministas ----------------------------------------------------
 
@@ -138,6 +146,7 @@ export function extraer_campos(fuentes: { pdfTexto?: string | null | undefined; 
     confianza: { cuit: CONFIANZA_FUENTE[ftes.cuit], fecha: CONFIANZA_FUENTE[ftes.fecha], total: CONFIANZA_FUENTE[ftes.total] },
     fuentes: ftes,
     usoFallbackLocal: false,
+    nubeOfrecida: false,
   };
 }
 
@@ -212,16 +221,17 @@ export async function resolver_extraccion(input: {
   if (input.motor) {
     const r = await input.motor.extraer(input.bytesRef);
     if (r && r.texto) {
-      // Confianza Paddle <0.6: el campo cae a baja (fallback nube P1, E6 no
-      // bloquea: se marca revisá).
+      // Confianza Paddle bajo el umbral: el campo cae a baja y la nube queda
+      // ofrecida como opción (Fase 0 solo marca; E6 no bloquea: se marca
+      // revisá).
       const base = extraer_campos({ pdfTexto: input.pdfTexto, ocrTexto: r.texto, cuerpoEmail: input.cuerpoEmail });
-      if (r.confianza < 0.6) {
+      if (r.confianza < UMBRAL_FALLBACK_NUBE) {
         const baja: ConfianzaExtraccion = {
           cuit: base.campos.cuitTexto && base.fuentes.cuit === "ocr" ? "baja" : base.confianza.cuit,
           fecha: base.campos.fechaTexto && base.fuentes.fecha === "ocr" ? "baja" : base.confianza.fecha,
           total: base.campos.totalTexto && base.fuentes.total === "ocr" ? "baja" : base.confianza.total,
         };
-        return { ...base, confianza: baja, usoFallbackLocal: false };
+        return { ...base, confianza: baja, usoFallbackLocal: false, nubeOfrecida: true };
       }
       return base;
     }

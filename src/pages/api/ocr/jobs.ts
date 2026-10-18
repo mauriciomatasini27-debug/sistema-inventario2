@@ -15,7 +15,7 @@ import {
   crear_paddle_cliente,
   resolver_extraccion,
 } from "../../../modules/ocr/motor.js";
-import { crear_job } from "../../../modules/ocr/jobs.js";
+import { crear_job, type FallbackNubeApi } from "../../../modules/ocr/jobs.js";
 
 export const prerender = false;
 
@@ -96,16 +96,19 @@ export const POST: APIRoute = async ({ request }) => {
     const vinculado = await vincularBorradorAlJob(job, borrador.id, ahoraIso);
 
     const global = confianza_global(ext.confianza);
+    const revisa = global !== "alta" || ext.usoFallbackLocal;
+    const fallbackNube: FallbackNubeApi = ext.nubeOfrecida ? "ofrecido" : null;
     await registrarEventoOcr("ocr_borrador_listo", {
       job_id: jobId,
       origen: b.origen,
       confianza_global: global,
       campos_baja: campos_en_baja(ext.confianza),
+      fallback_nube: fallbackNube,
       vence_at: borrador.venceAt,
-      revisa: global !== "alta" || ext.usoFallbackLocal,
+      revisa,
     });
     return Response.json(
-      { job_id: jobId, estado: vinculado.estado, borrador_id: borrador.id, confianza_global: global, revisa: global !== "alta" || ext.usoFallbackLocal },
+      { job_id: jobId, estado: vinculado.estado, borrador_id: borrador.id, confianza_global: global, fallback_nube: fallbackNube, revisa },
       { status: 201 },
     );
   } catch (e) {
