@@ -103,7 +103,7 @@ describe("P3-3b CS4 OCR solo con el motor existente (src/modules/ocr)", () => {
     const pdf = "Edenor Factura Total $48.000,00 08/10/2026 CUIT 30-12345678-1";
     const r = await resolver_extraccion({
       pdfTexto: pdf,
-      bytesRef: "inmemoria",
+      imagen: { bytes: new Uint8Array([1]), mimeType: "image/jpeg" },
       motor: crear_motor_fake({ texto: "otro texto", confianza: 0.9 }),
     });
     expect(r.campos.totalTexto).toBe("48.000,00");

@@ -7,6 +7,7 @@
 // confianza media y marca revisá, sin bloquear.
 import { parseFechaAR, parseMontoAR, type ConfianzaCampo } from "../purchases/facturas.js";
 import { normalizarCuit, validarCuit } from "../purchases/proveedores.js";
+import type { ImagenOcr } from "./imagen.js";
 
 export interface CamposExtraidos {
   readonly cuitTexto: string | null;
@@ -153,7 +154,7 @@ export function extraer_campos(fuentes: { pdfTexto?: string | null | undefined; 
 // --- Cliente PaddleOCR autohospedado -----------------------------------------
 
 export interface MotorOcr {
-  extraer(bytesRef: string): Promise<{ texto: string; confianza: number } | null>;
+  extraer(imagen: ImagenOcr): Promise<{ texto: string; confianza: number } | null>;
 }
 
 // Alias en mayúsculas para el núcleo IA (PRD-IA-01): misma interfaz,
@@ -166,7 +167,7 @@ export function crear_motor_fake(opts?: { texto?: string; confianza?: number }):
   const texto = opts?.texto ?? "CUIT 20-12345678-6 Total $ 1.000,00 15/10/2026";
   const confianza = opts?.confianza ?? 0.9;
   return {
-    async extraer(_bytesRef: string) {
+    async extraer(_imagen: ImagenOcr) {
       return { texto, confianza };
     },
   };
@@ -180,12 +181,15 @@ export function crear_paddle_cliente(opts: {
   const timeoutMs = opts.timeoutMs ?? 15_000;
   const fetchFn = opts.fetchFn ?? fetch;
   return {
-    async extraer(bytesRef: string) {
+    async extraer(imagen: ImagenOcr) {
       try {
         const r = await fetchFn(opts.endpoint.replace(/\/$/, "") + "/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imagen_ref: bytesRef }),
+          body: JSON.stringify({
+            imagen_base64: Buffer.from(imagen.bytes).toString("base64"),
+            mime_type: imagen.mimeType,
+          }),
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (!r.ok) return null;
@@ -193,7 +197,8 @@ export function crear_paddle_cliente(opts: {
         if (typeof data.texto !== "string" || !data.texto) return null;
         const conf = typeof data.confianza === "number" ? data.confianza : 0.5;
         return { texto: data.texto, confianza: conf };
-      } catch {
+      } catch (e) {
+        console.warn("[ocr] motor paddle no respondió", e);
         return null;
       }
     },
@@ -207,7 +212,7 @@ export async function resolver_extraccion(input: {
   pdfTexto?: string | null;
   ocrTextoDirecto?: string | null;
   cuerpoEmail?: string | null;
-  bytesRef: string;
+  imagen?: ImagenOcr | null;
   motor?: MotorOcr | null;
 }): Promise<Extraccion> {
   if (input.pdfTexto) {
@@ -218,8 +223,8 @@ export async function resolver_extraccion(input: {
     const base = extraer_campos({ pdfTexto: input.pdfTexto, ocrTexto: input.ocrTextoDirecto, cuerpoEmail: input.cuerpoEmail });
     return { ...base, usoFallbackLocal: input.motor == null };
   }
-  if (input.motor) {
-    const r = await input.motor.extraer(input.bytesRef);
+  if (input.motor && input.imagen) {
+    const r = await input.motor.extraer(input.imagen);
     if (r && r.texto) {
       // Confianza Paddle bajo el umbral: el campo cae a baja y la nube queda
       // ofrecida como opción (Fase 0 solo marca; E6 no bloquea: se marca

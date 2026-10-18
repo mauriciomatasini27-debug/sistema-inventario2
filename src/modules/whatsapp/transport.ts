@@ -1,5 +1,6 @@
-import { enviar_whatsapp, marcar_leido, type FetchEnvio, type ResultadoEnvio } from "./cliente-cloud.js";
+import { descargar_media, enviar_whatsapp, marcar_leido, type FetchEnvio, type ResultadoEnvio } from "./cliente-cloud.js";
 import { construir_texto, type PayloadEnvio } from "./envio.js";
+import type { ImagenOcr } from "../ocr/imagen.js";
 
 // Interfaz WhatsAppTransport (ADR-0042, PRD-BOT-02 BOT2-S5). Toda entrada y
 // salida del bot pasa por acá: el núcleo puro nunca importa adaptadores.
@@ -12,8 +13,8 @@ export interface MensajeWA {
   readonly timestampMs: number;
 }
 
-// Adjunto entrante (image/document de la Cloud API). Los bytes NO se descargan
-// acá: viaja el id de media de Meta como referencia (ADR-0005).
+// Adjunto entrante (image/document de la Cloud API). El mensaje trae el id de
+// media de Meta; los bytes los baja `descargarMedia` (ADR-0005).
 export interface MensajeAdjuntoWA {
   readonly wamid: string;
   readonly remitenteE164: string;
@@ -32,6 +33,7 @@ export interface WhatsAppTransport {
   enviar(toE164: string, texto: string): Promise<ResultadoEnvioTransporte>;
   enviarPayload(toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte>;
   recibir(payload: unknown): MensajeWA | null;
+  descargarMedia(idMedia: string): Promise<ImagenOcr | null>;
   estado(): EstadoTransporte;
 }
 
@@ -119,6 +121,10 @@ export class TransporteFake implements WhatsAppTransport {
     return normalizarEntrada(payload);
   }
 
+  async descargarMedia(_idMedia: string): Promise<ImagenOcr | null> {
+    return { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), mimeType: "image/jpeg" };
+  }
+
   estado(): EstadoTransporte {
     return { nombre: "fake", disponible: true };
   }
@@ -128,6 +134,7 @@ export function crearTransporteCloud(opts: {
   phoneNumberId: string;
   token: string;
   fetchFn?: FetchEnvio | undefined;
+  apiVersion?: string | undefined;
 }): WhatsAppTransport {
   const disponible = opts.phoneNumberId.length > 0 && opts.token.length > 0;
   const enviar = (toE164: string, payload: PayloadEnvio): Promise<ResultadoEnvioTransporte> => {
@@ -149,6 +156,10 @@ export function crearTransporteCloud(opts: {
     },
     recibir(payload: unknown): MensajeWA | null {
       return normalizarEntrada(payload);
+    },
+    async descargarMedia(idMedia: string): Promise<ImagenOcr | null> {
+      if (!disponible) return null;
+      return descargar_media({ idMedia, token: opts.token, ...(opts.apiVersion ? { apiVersion: opts.apiVersion } : {}) });
     },
     estado(): EstadoTransporte {
       return { nombre: "cloud", disponible };

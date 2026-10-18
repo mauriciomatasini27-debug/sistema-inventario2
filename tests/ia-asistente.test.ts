@@ -99,7 +99,7 @@ describe("ia-asistente (PRD-IA-01 núcleo, sin DB)", () => {
 
   it("motor OCR fake reutilizable devuelve texto fijo sin red", async () => {
     const motor = crear_motor_fake({ texto: "CUIT 20-12345678-6 total $1.000,00" });
-    const r = await motor.extraer("ref-1");
+    const r = await motor.extraer({ bytes: new Uint8Array([1]), mimeType: "image/jpeg" });
     expect(r?.texto).toContain("CUIT");
   });
 });

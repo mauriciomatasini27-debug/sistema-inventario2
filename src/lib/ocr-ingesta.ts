@@ -16,6 +16,7 @@ import {
   resolver_extraccion,
 } from "../modules/ocr/motor.js";
 import { crear_job, type EstadoOcrJob, type FallbackNubeApi } from "../modules/ocr/jobs.js";
+import type { ImagenOcr } from "../modules/ocr/imagen.js";
 import type { Borrador, ConfianzaCampo, ConfianzaPorCampo } from "../modules/purchases/facturas.js";
 
 // Ingesta OCR (ADR-0005, PRD-OCR-01) en una sola implementación: la usan
@@ -32,6 +33,8 @@ export interface EntradaIngestaOcr {
   readonly body: unknown;
   /** Tenant destino; con contexto explícito el job y el borrador quedan en su base. */
   readonly tenantId?: string | undefined;
+  /** Bytes del media que aporta la frontera (webhook); no viaja en el body. */
+  readonly imagen?: ImagenOcr | undefined;
 }
 
 export type ResultadoIngestaOcr =
@@ -90,7 +93,7 @@ async function ingerir(entrada: EntradaIngestaOcr): Promise<ResultadoIngestaOcr>
     pdfTexto: b.texto_pdf ?? null,
     ocrTextoDirecto: b.texto_ocr ?? null,
     cuerpoEmail: b.cuerpo_email ?? null,
-    bytesRef: b.bytes_ref ?? b.pdf_ref ?? key,
+    imagen: entrada.imagen ?? null,
     motor,
   });
 

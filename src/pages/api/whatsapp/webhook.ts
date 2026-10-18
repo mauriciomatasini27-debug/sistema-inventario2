@@ -17,7 +17,7 @@ import {
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
-import { es_comprobante_desde_mime, payload_borrador_ocr, RESPUESTA_NO_COMPROBANTE } from "../../../modules/whatsapp/ocr-borrador.js";
+import { es_comprobante_desde_mime, payload_borrador_ocr, RESPUESTA_NO_COMPROBANTE, RESPUESTA_OCR_MEDIA_FALLIDA } from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
 import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
 import { crearTransporteCloud, marcarLeidoCloud, normalizarAdjuntoEntrada, normalizarEntrada, type ResultadoEnvioTransporte, type WhatsAppTransport } from "../../../modules/whatsapp/transport.js";
@@ -116,9 +116,10 @@ const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en
 
 // OCR1-S5: foto o PDF por WhatsApp abre un borrador con confianza por campo y
 // se ofrece con [Confirmar] [Editar] [Descartar]. Idempotente por wamid (AT1) y
-// en el tenant del número. El media NO se descarga de Meta en este corte: viaja
-// como referencia `wa-media:<id>` (pide el número central, P9-3). Todo inline
-// en la request, sin cola, para poder ofrecer el borrador en la misma vuelta.
+// en el tenant del número. El media se descarga de Meta con las credenciales
+// del número central y sus bytes van al motor OCR; el job guarda
+// `wa-media:<id>` como referencia de auditoría. Todo inline en la request, sin
+// cola, para poder ofrecer el borrador en la misma vuelta.
 async function ofrecerBorradorOcr(opts: {
   remitente: string;
   wamid: string;
@@ -126,20 +127,27 @@ async function ofrecerBorradorOcr(opts: {
   tenantId: string;
   cred: CredencialesEnvio | null;
 }): Promise<Response> {
+  if (!es_comprobante_desde_mime(opts.adjunto.mimeType)) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_NO_COMPROBANTE, cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_no_comprobante", respuesta: RESPUESTA_NO_COMPROBANTE, enviado });
+  }
+  const t = opts.cred ? crearTransporteCloud({ phoneNumberId: opts.cred.phoneNumberId, token: opts.cred.token }) : null;
+  const imagen = t ? await t.descargarMedia(opts.adjunto.idMedia) : null;
+  if (!imagen) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_MEDIA_FALLIDA, cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_media_fallida", enviado });
+  }
   const r = await ingerirOcr({
     idempotencyKey: opts.wamid,
     body: {
       origen: "wa",
       bytes_ref: `wa-media:${opts.adjunto.idMedia}`,
-      es_comprobante: es_comprobante_desde_mime(opts.adjunto.mimeType),
+      es_comprobante: true,
       foto_pendiente: true,
     },
     tenantId: opts.tenantId,
+    imagen,
   });
-  if (r.status === 415) {
-    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_NO_COMPROBANTE, cred: opts.cred });
-    return Response.json({ ok: true, accion: "ocr_no_comprobante", respuesta: RESPUESTA_NO_COMPROBANTE, enviado });
-  }
   if (r.status === 200) {
     // Reentrega en frío (dedup en memoria perdido): el job ya existe y no se
     // vuelve a ofrecer el borrador.

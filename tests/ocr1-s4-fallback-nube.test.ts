@@ -15,6 +15,7 @@ import {
 } from "../src/modules/ocr/motor.js";
 import { POST as postJobs } from "../src/pages/api/ocr/jobs.js";
 import { GET as getJob } from "../src/pages/api/ocr/jobs/[id].js";
+import { ingerirOcr, respuestaIngesta } from "../src/lib/ocr-ingesta.js";
 
 const OCR_BORROSO = "FACTURA\nCUIT 20-93333172-6\nFecha 10/10/2026\nTotal $ 164.800,00\n";
 const PDF = "FACTURA C 00003-000001\nCUIT: 20-93333172-6\nFecha: 10/10/2026\nTotal: $ 164.800,00\n";
@@ -32,6 +33,13 @@ function baseBody(over: Record<string, unknown> = {}) {
 }
 
 async function crear(key: string, body: Record<string, unknown>) {
+  const r = respuestaIngesta(
+    await ingerirOcr({ idempotencyKey: key, body, imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" } }),
+  );
+  return { status: r.status, json: r.body };
+}
+
+async function crearRuta(key: string, body: Record<string, unknown>) {
   const res = (await postJobs(
     ctx("http://x/api/ocr/jobs", {
       method: "POST",
@@ -94,7 +102,7 @@ describe("resolver_extraccion marca la nube solo si el motor respondió bajo el 
   });
 
   it("confianza 0.4: cae a baja y ofrece la nube", async () => {
-    const e = await resolver_extraccion({ bytesRef: "b", motor: motorPaddle(0.4) });
+    const e = await resolver_extraccion({ imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" }, motor: motorPaddle(0.4) });
     expect(e.nubeOfrecida).toBe(true);
     expect(e.confianza).toEqual({ cuit: "baja", fecha: "baja", total: "baja" });
     expect(e.usoFallbackLocal).toBe(false);
@@ -102,13 +110,13 @@ describe("resolver_extraccion marca la nube solo si el motor respondió bajo el 
   });
 
   it("confianza 0.9: no ofrece la nube", async () => {
-    const e = await resolver_extraccion({ bytesRef: "b", motor: motorPaddle(0.9) });
+    const e = await resolver_extraccion({ imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" }, motor: motorPaddle(0.9) });
     expect(e.nubeOfrecida).toBe(false);
     expect(confianza_global(e.confianza)).toBe("media");
   });
 
   it("confianza 0.6 exacto: el umbral es 'bajo 0.6', no ofrece la nube", async () => {
-    const e = await resolver_extraccion({ bytesRef: "b", motor: motorPaddle(0.6) });
+    const e = await resolver_extraccion({ imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" }, motor: motorPaddle(0.6) });
     expect(e.nubeOfrecida).toBe(false);
     expect(confianza_global(e.confianza)).toBe("media");
   });
@@ -118,19 +126,19 @@ describe("resolver_extraccion marca la nube solo si el motor respondió bajo el 
       endpoint: ENDPOINT,
       fetchFn: async (): Promise<Response> => { throw new Error("down"); },
     });
-    const e = await resolver_extraccion({ bytesRef: "b", motor: caido, cuerpoEmail: "total $ 500,00" });
+    const e = await resolver_extraccion({ imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" }, motor: caido, cuerpoEmail: "total $ 500,00" });
     expect(e.nubeOfrecida).toBe(false);
     expect(e.usoFallbackLocal).toBe(true);
   });
 
   it("pdf digital: no ofrece la nube aunque el motor esté disponible", async () => {
-    const e = await resolver_extraccion({ pdfTexto: PDF, bytesRef: "b", motor: motorPaddle(0.4) });
+    const e = await resolver_extraccion({ pdfTexto: PDF, imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" }, motor: motorPaddle(0.4) });
     expect(e.nubeOfrecida).toBe(false);
     expect(e.fuentes).toEqual({ cuit: "pdf", fecha: "pdf", total: "pdf" });
   });
 
   it("texto directo de OCR: no ofrece la nube", async () => {
-    const e = await resolver_extraccion({ ocrTextoDirecto: OCR_BORROSO, bytesRef: "b" });
+    const e = await resolver_extraccion({ ocrTextoDirecto: OCR_BORROSO, imagen: { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/jpeg" } });
     expect(e.nubeOfrecida).toBe(false);
     expect(e.usoFallbackLocal).toBe(true);
   });
@@ -251,7 +259,7 @@ describe.skipIf(!hayPG)("OCR1-S4 con PG local: el GET deriva el fallback del eve
   });
 
   it("job con pdf sale null en A y B; el evento guardado en A devuelve 'ofrecido' solo en A", async () => {
-    const r = await conTenant("tenant-a", () => crear(`ocr1-s4-${sufijoPG}`, baseBody({ texto_pdf: PDF })));
+    const r = await conTenant("tenant-a", () => crearRuta(`ocr1-s4-${sufijoPG}`, baseBody({ texto_pdf: PDF })));
     expect(r.status).toBe(201);
     const jobId = r.json["job_id"] as string;
     expect(r.json["fallback_nube"]).toBeNull();

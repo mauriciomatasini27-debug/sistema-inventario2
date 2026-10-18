@@ -10,8 +10,12 @@ import type { Borrador } from "../purchases/facturas.js";
 export const RESPUESTA_NO_COMPROBANTE =
   "Ese archivo no parece un comprobante. Mandame una foto o un PDF de la factura." as const;
 
+export const RESPUESTA_OCR_MEDIA_FALLIDA =
+  "No pude bajar el comprobante. Reintentá mandándolo de nuevo." as const;
+
 // El mime del adjunto decide si entra a la extracción; cuando no es
-// comprobante la ingesta responde 415 y el bot avisa sin crear job.
+// comprobante el bot avisa sin crear job (la ingesta responde 415 al caller de
+// API).
 export function es_comprobante_desde_mime(mime: string | null | undefined): boolean {
   const m = (mime ?? "").toLowerCase();
   return m.startsWith("image/") || m === "application/pdf";

@@ -26,7 +26,7 @@ const MEDIA_ID = "media-777";
 const TEXTO_OCR = "FACTURA\nCUIT 20-93333172-6\nFecha 10/10/2026\nTotal $ 164.800,00\n";
 
 let enviados: Record<string, unknown>[] = [];
-let refsMotor: string[] = [];
+let peticionesMotor: Array<{ b64: string; mime: string }> = [];
 let n = 0;
 
 function nombreWamid(): string {
@@ -41,17 +41,27 @@ function conCredenciales() {
   process.env.OCR_PADDLE_ENDPOINT = ENDPOINT;
 }
 
-// Red falsa: el motor Paddle responde con el texto del comprobante y la Cloud
-// API captura lo que el bot envía (los recibos de leído no cuentan).
-function stubRed(confianza = 0.9) {
-  vi.stubGlobal("fetch", async (entrada: unknown, init: { body?: string }) => {
+// Red falsa: el motor Paddle responde con el texto del comprobante, la Cloud
+// API de media devuelve metadata y bytes, y el envío captura lo que el bot manda
+// (los recibos de leído no cuentan).
+function stubRed(confianza = 0.9, mediaStatus = 200) {
+  vi.stubGlobal("fetch", async (entrada: unknown, init: { body?: string } = {}) => {
     const url = String(entrada);
     if (url.startsWith(ENDPOINT)) {
-      const cuerpo = JSON.parse(init.body ?? "{}") as { imagen_ref?: string };
-      refsMotor.push(cuerpo.imagen_ref ?? "");
+      const cuerpo = JSON.parse(init.body ?? "{}") as { imagen_base64?: string; mime_type?: string };
+      peticionesMotor.push({ b64: cuerpo.imagen_base64 ?? "", mime: cuerpo.mime_type ?? "" });
       return new Response(JSON.stringify({ texto: TEXTO_OCR, confianza }), {
         headers: { "content-type": "application/json" },
       });
+    }
+    if (url.includes(`/${MEDIA_ID}`)) {
+      if (mediaStatus !== 200) return new Response("{}", { status: mediaStatus });
+      return new Response(JSON.stringify({ url: "https://media.local/blob/777", mime_type: "image/jpeg" }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url === "https://media.local/blob/777") {
+      return new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), { status: 200 });
     }
     const cuerpo = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
     if (cuerpo["status"] === "read") return new Response("{}", { status: 200 });
@@ -108,7 +118,7 @@ async function leerJob(jobId: string) {
 beforeEach(() => {
   resetStore();
   enviados = [];
-  refsMotor = [];
+  peticionesMotor = [];
   conCredenciales();
   stubRed();
 });
@@ -130,7 +140,10 @@ describe("OCR1-S5 una foto de WhatsApp abre un borrador con botones", () => {
     expect(r.status).toBe(200);
     expect(r.json["accion"]).toBe("ocr_borrador");
     expect(store.ocrJobs.size).toBe(1);
-    expect(refsMotor).toEqual([`wa-media:${MEDIA_ID}`]);
+    expect(peticionesMotor).toEqual([
+      { b64: Buffer.from(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])).toString("base64"), mime: "image/jpeg" },
+    ]);
+    expect(Object.keys(peticionesMotor[0]!)).toEqual(["b64", "mime"]);
 
     const jobId = r.json["job_id"] as string;
     const borradorId = r.json["borrador_id"] as string;
@@ -191,6 +204,20 @@ describe("OCR1-S5 una foto de WhatsApp abre un borrador con botones", () => {
     expect(store.ocrJobs.size).toBe(1);
     expect(enviados.length).toBe(1);
   });
+
+  it("si el media no baja (404): avisa, no crea job ni llama al motor", async () => {
+    comercioVinculado();
+    stubRed(0.9, 404);
+    const r = await mandar(cargaAdjunto(nombreWamid(), "image", "image/jpeg"));
+    expect(r.status).toBe(200);
+    expect(r.json["accion"]).toBe("ocr_media_fallida");
+    expect(store.ocrJobs.size).toBe(0);
+    expect(peticionesMotor).toEqual([]);
+    expect(enviados.length).toBe(1);
+    expect((enviados[0]!["text"] as { body: string }).body).toBe(
+      "No pude bajar el comprobante. Reintentá mandándolo de nuevo.",
+    );
+  });
 });
 
 describe("OCR1-S5 lo que NO es comprobante o no está vinculado", () => {
@@ -200,7 +227,7 @@ describe("OCR1-S5 lo que NO es comprobante o no está vinculado", () => {
     expect(r.status).toBe(200);
     expect(r.json["accion"]).toBe("ocr_no_comprobante");
     expect(store.ocrJobs.size).toBe(0);
-    expect(refsMotor).toEqual([]);
+    expect(peticionesMotor).toEqual([]);
     expect(enviados.length).toBe(1);
     expect(enviados[0]).toMatchObject({ type: "text", text: { preview_url: false } });
     expect((enviados[0]!["text"] as { body: string }).body).toBe(
@@ -215,7 +242,7 @@ describe("OCR1-S5 lo que NO es comprobante o no está vinculado", () => {
     expect(r.json["accion"]).toBe("consulta");
     expect(r.json["respuesta"]).toBe(RESPUESTA_NO_VINCULADO);
     expect(store.ocrJobs.size).toBe(0);
-    expect(refsMotor).toEqual([]);
+    expect(peticionesMotor).toEqual([]);
     expect((enviados[0]!["text"] as { body: string }).body).toBe(RESPUESTA_NO_VINCULADO);
   });
 
