@@ -9,12 +9,14 @@ interface Props {
 const { href, variant = 'primary', class: className, ...rest } = Astro.props;
 
 const base =
-  'inline-flex items-center justify-center rounded-[var(--radius-button)] px-6 py-4 text-base font-medium transition-colors hover:opacity-90';
+  'inline-flex items-center justify-center rounded-[var(--radius-button)] px-6 py-4 text-base';
 
 const variants = {
-  primary: 'bg-star-glow text-star-white hover:brightness-90',
-  'ghost-dark': 'border border-canvas-white/50 text-canvas-white bg-transparent hover:border-canvas-white',
-  'ghost-light': 'border border-ash-gray/60 text-void bg-transparent hover:border-void',
+  primary: 'sg-flame-cta',
+  'ghost-dark':
+    'border border-canvas-white/50 text-canvas-white bg-transparent font-medium transition-colors hover:opacity-90 hover:border-canvas-white',
+  'ghost-light':
+    'border border-ash-gray/60 text-void bg-transparent font-medium transition-colors hover:opacity-90 hover:border-void',
 };
 ---
 

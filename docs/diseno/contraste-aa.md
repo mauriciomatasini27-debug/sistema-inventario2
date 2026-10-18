@@ -20,6 +20,7 @@
 | CTA email | light | #ffffff | #bf360c | texto | 5.60:1 | 4.5 | PASS |
 | CTA llama dark | dark | #1a1a1a | #e64a19 | grande | 4.44:1 | 3 | PASS |
 | CTA hover dark | dark | #1a1a1a | #bf360c | grande | 3.11:1 | 3 | PASS |
+| CTA hover oscurecido (DS-S1) | light | #ffffff | #a22e0a | texto | 7.16:1 | 4.5 | PASS |
 | ok sobre ok-tint | light | #2e6b1f | #e6f2dc | texto | 5.59:1 | 4.5 | PASS |
 | ok sobre canvas | light | #2e6b1f | #f7f5f2 | texto | 5.96:1 | 4.5 | PASS |
 | aviso sobre aviso-tint | light | #8a5300 | #fff1cc | texto | 5.64:1 | 4.5 | PASS |

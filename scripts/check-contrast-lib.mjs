@@ -17,6 +17,8 @@ export const PAREJAS = [
   { nombre: "CTA email", fg: "star-white", bg: "star-glow", uso: "texto", modo: "light" },
   { nombre: "CTA llama dark", fg: "void", bg: "star-warm", uso: "grande", modo: "dark" },
   { nombre: "CTA hover dark", fg: "void", bg: "star-glow", uso: "grande", modo: "dark" },
+  // DS-S1: hover del CTA sg-flame-cta, color-mix(star-glow 85%, #000) con blanco encima.
+  { nombre: "CTA hover oscurecido (DS-S1)", fg: "star-white", bg: "star-glow", alfa: 0.85, debajo: "#000000", uso: "texto", modo: "light" },
   // Estados claros (texto 4.5 sobre su tint y sobre canvas).
   { nombre: "ok sobre ok-tint", fg: "ok", bg: "ok-tint", uso: "texto", modo: "light" },
   { nombre: "ok sobre canvas", fg: "ok", bg: "canvas", uso: "texto", modo: "light" },
@@ -118,7 +120,13 @@ export function evaluar(pairs, tokens) {
   return pairs.map((p) => {
     const fgHex = tokens[p.fg] ?? null;
     const bgBase = tokens[p.bg] ?? null;
-    const debajoHex = p.debajo === undefined ? null : (tokens[p.debajo] ?? null);
+    // debajo admite token o hex literal (el #000000 del color-mix del hover CTA).
+    const debajoHex =
+      p.debajo === undefined
+        ? null
+        : String(p.debajo).startsWith("#")
+          ? String(p.debajo)
+          : (tokens[p.debajo] ?? null);
     const bgHex =
       bgBase && p.alfa !== undefined
         ? debajoHex
