@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-02
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [bot, caja, compras, email, fiado, fiscal, inventario, offline, pagos, persistencia, precios, tenant, ventas]
 depende_de: [ADR-0002, ADR-0023, ADR-0024, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056]
 reemplaza: []

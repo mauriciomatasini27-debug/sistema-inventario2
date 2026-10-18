@@ -1,7 +1,7 @@
 ---
 id: PRD-PS-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [caja]
 depende_de: [ADR-0084]
 reemplaza: []

@@ -1,7 +1,7 @@
 ---
 id: PRD-FE-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [fiscal]
 depende_de: [ADR-0003, ADR-0004, ADR-0007, ADR-0011, ADR-0017]
 reemplaza: []

@@ -1,7 +1,7 @@
 ---
 id: PRD-ADAP-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [inventario]
 depende_de: [ADR-0006, ADR-0013, PRD-CP-01, PRD-LP-01, PRD-NEG-01]
 reemplaza: []

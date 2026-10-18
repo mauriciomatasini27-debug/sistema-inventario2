@@ -1,7 +1,7 @@
 ---
 id: PRD-SEC-04
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [tenant]
 depende_de: [ADR-0050, ADR-0051, ADR-0052, ADR-0077, PRD-PERS-02]
 reemplaza: []

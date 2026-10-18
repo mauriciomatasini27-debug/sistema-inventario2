@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [offline, persistencia]
 depende_de: []
 reemplaza: []

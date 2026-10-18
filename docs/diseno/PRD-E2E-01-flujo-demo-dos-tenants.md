@@ -1,7 +1,7 @@
 ---
 id: PRD-E2E-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [onboarding, tenant]
 depende_de: [ADR-0001, ADR-0030, ADR-0031]
 reemplaza: []

@@ -1,7 +1,7 @@
 ---
 id: PRD-CAT-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario]
 depende_de: [ADR-0012]
 reemplaza: []

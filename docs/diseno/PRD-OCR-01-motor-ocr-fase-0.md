@@ -1,7 +1,7 @@
 ---
 id: PRD-OCR-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [ocr, compras]
 depende_de: [ADR-0005, ADR-0089, PRD-PERS-04]
 reemplaza: []

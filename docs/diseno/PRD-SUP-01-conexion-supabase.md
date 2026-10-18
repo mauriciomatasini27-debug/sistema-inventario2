@@ -1,7 +1,7 @@
 ---
 id: PRD-SUP-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [persistencia]
 depende_de: []
 reemplaza: []

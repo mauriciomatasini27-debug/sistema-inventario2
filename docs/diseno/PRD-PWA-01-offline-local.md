@@ -1,7 +1,7 @@
 ---
 id: PRD-PWA-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [offline, persistencia]
 depende_de: [ADR-0003]
 reemplaza: []

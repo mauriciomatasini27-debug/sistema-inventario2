@@ -1,7 +1,7 @@
 ---
 id: PRD-UX-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [admin]
 depende_de: [ADR-0036, ADR-0037, ADR-0038, ADR-0044, ADR-0046, PRD-DASH-01, PRD-DS-01, PRD-DS-02, PRD-UI-01, PRD-UI-07]
 reemplaza: []

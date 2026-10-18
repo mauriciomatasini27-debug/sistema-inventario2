@@ -1,7 +1,7 @@
 ---
 id: PRD-SEC-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: [ADR-0024, ADR-0031, ADR-0051, ADR-0064, ADR-0066]
 reemplaza: []

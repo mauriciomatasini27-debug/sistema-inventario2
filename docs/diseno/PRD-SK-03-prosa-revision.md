@@ -1,7 +1,7 @@
 ---
 id: PRD-SK-03
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: []
 depende_de: [ADR-0008, ADR-0016, PRD-DS-01]
 reemplaza: []

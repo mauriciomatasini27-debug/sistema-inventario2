@@ -1,7 +1,7 @@
 ---
 id: PRD-LP-02
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario, landing]
 depende_de: [ADR-0002, ADR-0008, ADR-0010, ADR-0021, PRD-LANDING-01]
 reemplaza: []

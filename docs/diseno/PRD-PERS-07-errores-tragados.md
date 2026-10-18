@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-07
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [admin, bot, offline, pagos, persistencia, ventas]
 depende_de: [ADR-0065, ADR-0073, ADR-0082]
 reemplaza: []

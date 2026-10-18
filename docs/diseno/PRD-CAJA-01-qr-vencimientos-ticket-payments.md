@@ -1,7 +1,7 @@
 ---
 id: PRD-CAJA-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [caja, ventas]
 depende_de: [PRD-CAT-01, PRD-SYNC-01]
 reemplaza: []

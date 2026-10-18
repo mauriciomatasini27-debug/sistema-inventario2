@@ -1,7 +1,7 @@
 ---
 id: PRD-LP-03
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [landing]
 depende_de: [ADR-0010, ADR-0022, ADR-0030, PRD-AU-02]
 reemplaza: []

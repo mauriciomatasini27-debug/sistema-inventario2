@@ -1,7 +1,7 @@
 ---
 id: PRD-NEG-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [inventario]
 depende_de: [ADR-0012, PRD-LANDING-01]
 reemplaza: []

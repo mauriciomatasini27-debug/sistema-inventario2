@@ -1,7 +1,7 @@
 ---
 id: PRD-CH-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [email]
 depende_de: [ADR-0002]
 reemplaza: []

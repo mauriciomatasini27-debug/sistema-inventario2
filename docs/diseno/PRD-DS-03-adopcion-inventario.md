@@ -1,7 +1,7 @@
 ---
 id: PRD-DS-03
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [inventario]
 depende_de: [ADR-0002, ADR-0008, ADR-0009, PRD-DS-01, PRD-DS-02]
 reemplaza: []

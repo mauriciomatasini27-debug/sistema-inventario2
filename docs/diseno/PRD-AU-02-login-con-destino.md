@@ -1,7 +1,7 @@
 ---
 id: PRD-AU-02
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [admin, auth, tenant]
 depende_de: [ADR-0030, ADR-0031, PRD-AU-01, PRD-LP-03]
 reemplaza: []

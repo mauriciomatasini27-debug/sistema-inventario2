@@ -1,7 +1,7 @@
 ---
 id: PRD-UI-02
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: []
 depende_de: [ADR-0002, ADR-0008, ADR-0033, PRD-DS-01]
 reemplaza: []

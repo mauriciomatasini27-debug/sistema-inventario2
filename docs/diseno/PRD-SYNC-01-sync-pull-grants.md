@@ -1,7 +1,7 @@
 ---
 id: PRD-SYNC-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [offline]
 depende_de: [ADR-0003, ADR-0017]
 reemplaza: []

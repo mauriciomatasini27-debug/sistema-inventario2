@@ -44,13 +44,13 @@ Credenciales externas:
 - Resend (email) · depende de Mauri (cuenta y dominio verificado)
 - Sentry · depende de Mauri (proyecto y DSN)
 - Mercado Pago · depende de Mauri (credenciales y cuenta)
+- Corpus del piloto OCR (imágenes y endpoint Paddle) · depende de Mauri (set etiquetado del piloto y host CX22/CX33 para medir exactitud y latencia; OCR1-S3)
 
 Decisiones de Mauri:
 
-- Fiscal ARCA · depende de Mauri (certificado y homologación; ADR-0090 diferido)
+- Fiscal ARCA · depende de Mauri (certificado y homologación; ADR-0090 diferido, P9-2)
 - Proveedor LLM real y costos · depende de Mauri (Anthropic/OpenAI y tarifas; mientras tanto un proveedor free)
 - Pricing y planes publicados (PLAN-02) · depende de Mauri (montos finales por plan)
-- P2-4 SUP-S5/S6 (Supabase live) · depende de Mauri (solo Mauri corre contra la base real)
 
 ## Gate de merge
 

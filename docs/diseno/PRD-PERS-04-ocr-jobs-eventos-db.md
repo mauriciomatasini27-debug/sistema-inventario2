@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-04
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [persistencia]
 depende_de: [ADR-0005, ADR-0024, ADR-0052, ADR-0060, ADR-0079]
 reemplaza: []

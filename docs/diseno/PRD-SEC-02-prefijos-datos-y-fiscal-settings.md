@@ -1,7 +1,7 @@
 ---
 id: PRD-SEC-02
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [fiscal, persistencia, tenant]
 depende_de: [ADR-0024, ADR-0050, ADR-0051, ADR-0066, ADR-0074]
 reemplaza: []

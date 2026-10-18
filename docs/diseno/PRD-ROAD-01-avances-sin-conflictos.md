@@ -1,7 +1,7 @@
 ---
 id: PRD-ROAD-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: [ADR-0065, ADR-0073, ADR-0076]
 reemplaza: []

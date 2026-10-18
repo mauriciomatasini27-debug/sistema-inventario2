@@ -1,7 +1,7 @@
 ---
 id: PRD-ISO-02
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [caja, compras, fiscal, persistencia, tenant, ventas]
 depende_de: [ADR-0002, ADR-0003, ADR-0048, ADR-0050, ADR-0051, PRD-ISO-01]
 reemplaza: []

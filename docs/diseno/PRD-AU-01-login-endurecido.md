@@ -1,7 +1,7 @@
 ---
 id: PRD-AU-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [auth]
 depende_de: []
 reemplaza: []

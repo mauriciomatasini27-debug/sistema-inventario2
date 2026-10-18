@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-06
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario, offline, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0081, PRD-SYNC-01]
 reemplaza: []

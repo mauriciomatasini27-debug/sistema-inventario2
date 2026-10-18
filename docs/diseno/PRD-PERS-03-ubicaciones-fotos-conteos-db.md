@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-03
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario, persistencia]
 depende_de: [ADR-0024, ADR-0052, ADR-0062, ADR-0078]
 reemplaza: []

@@ -1,7 +1,7 @@
 ---
 id: PRD-DEP-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: [ADR-0065, ADR-0067, ADR-0072]
 reemplaza: []

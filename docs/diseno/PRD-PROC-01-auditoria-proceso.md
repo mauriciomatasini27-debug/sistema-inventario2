@@ -1,7 +1,7 @@
 ---
 id: PRD-PROC-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: [ADR-0076, ADR-0083]
 reemplaza: []

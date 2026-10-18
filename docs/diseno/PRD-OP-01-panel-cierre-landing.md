@@ -1,7 +1,7 @@
 ---
 id: PRD-OP-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [admin, landing]
 depende_de: [ADR-0006, ADR-0020, ADR-0022]
 reemplaza: []

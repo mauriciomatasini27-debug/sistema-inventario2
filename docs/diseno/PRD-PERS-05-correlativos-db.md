@@ -1,7 +1,7 @@
 ---
 id: PRD-PERS-05
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [fiado, offline, persistencia, ventas]
 depende_de: [ADR-0024, ADR-0052, ADR-0061, ADR-0063, ADR-0066, ADR-0080]
 reemplaza: []

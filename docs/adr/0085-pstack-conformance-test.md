@@ -1,7 +1,7 @@
 ---
 id: ADR-0085
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: []
 depende_de: [ADR-0084, PRD-PS-01]
 reemplaza: []
