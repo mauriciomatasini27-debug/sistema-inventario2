@@ -16,6 +16,7 @@ import {
   crear_arca_provider_desde_env,
 } from "../../../modules/fiscal/arca-provider.js";
 import { crear_homo_fake } from "../../../modules/fiscal/homo-fake.js";
+import { taDurablePara } from "../../../lib/repos/fiscal-control.js";
 import {
   type FiscalProvider,
 } from "../../../modules/fiscal/fiscal.js";
@@ -29,7 +30,7 @@ export const prerender = false;
 // para el slice Control.
 function resolverProvider(): FiscalProvider {
   const cfg = crear_arca_provider_desde_env(process.env);
-  return cfg ? crear_arca_provider(cfg) : crear_homo_fake();
+  return cfg ? crear_arca_provider(cfg, { ta: taDurablePara(cfg) }) : crear_homo_fake();
 }
 
 function aRespuesta(salida: EmisionDurable): Response {

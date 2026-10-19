@@ -13,6 +13,16 @@ export interface ArcaConfig {
   readonly keyPem: string;
 }
 
+export interface TaDurable {
+  leer(): Promise<{ token: string; sign: string; expiraEn: number } | null>;
+  guardar(ta: { token: string; sign: string; expiraEn: number }): Promise<void>;
+}
+
+export interface DepsArca {
+  readonly ta?: TaDurable;
+  readonly login?: (ambiente: "homo" | "prod", cmsBase64: string) => Promise<{ token: string; sign: string }>;
+}
+
 const TA_TTL_MS = 12 * 60 * 60 * 1000;
 const RENOVAR_ANTES_MS = 60 * 60 * 1000;
 
@@ -55,7 +65,30 @@ export function limpiar_ta_cache(): void {
   lastWsaaErrorAt = 0;
 }
 
-export function crear_arca_provider(cfg: ArcaConfig): FiscalProvider {
+export function crear_arca_provider(cfg: ArcaConfig, deps: DepsArca = {}): FiscalProvider {
+  const login = deps.login ?? login_cms;
+
+  async function leerDurable(): Promise<TaCache | null> {
+    if (!deps.ta) return null;
+    try {
+      const d = await deps.ta.leer();
+      if (!d || d.expiraEn - Date.now() <= RENOVAR_ANTES_MS) return null;
+      return { token: d.token, sign: d.sign, expiraEn: d.expiraEn };
+    } catch (e) {
+      console.warn("fiscal: no se pudo leer la TA durable", e instanceof Error ? e.message : String(e));
+      return null;
+    }
+  }
+
+  async function persistirDurable(ta: TaCache): Promise<void> {
+    if (!deps.ta) return;
+    try {
+      await deps.ta.guardar({ token: ta.token, sign: ta.sign, expiraEn: ta.expiraEn });
+    } catch (e) {
+      console.warn("fiscal: no se pudo persistir la TA", e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function get_ta(): Promise<{ token: string; sign: string }> {
     const key = cacheKey(cfg);
     const ahora = Date.now();
@@ -68,13 +101,20 @@ export function crear_arca_provider(cfg: ArcaConfig): FiscalProvider {
     taInflight = (async (): Promise<TaCache> => {
       const doble = taCache.get(key);
       if (doble && doble.expiraEn - Date.now() > RENOVAR_ANTES_MS) return doble;
+      // Segundo worker: la TA persistida por otro proceso evita pedir otra.
+      const durable = await leerDurable();
+      if (durable) {
+        taCache.set(key, durable);
+        return durable;
+      }
       const t = tra_times(new Date());
       const tra = armar_tra_xml({ ...t, service: WSAA_SERVICE });
       const cms = firmar_tra_cms(tra, cfg.certPem, cfg.keyPem);
       try {
-        const { token, sign } = await login_cms(cfg.ambiente, cms);
+        const { token, sign } = await login(cfg.ambiente, cms);
         const fresh: TaCache = { token, sign, expiraEn: Date.now() + TA_TTL_MS };
         taCache.set(key, fresh);
+        await persistirDurable(fresh);
         return fresh;
       } catch (e) {
         // alreadyAuthenticated: otro worker ganó; relee caché en vez de backoff.
