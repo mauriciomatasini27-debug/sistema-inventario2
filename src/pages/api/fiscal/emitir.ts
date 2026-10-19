@@ -11,26 +11,15 @@ import {
   type EmisionDurable,
   type PuertoFiscalDurable,
 } from "../../../lib/fiscal-emitir.js";
-import {
-  crear_arca_provider,
-  crear_arca_provider_desde_env,
-} from "../../../modules/fiscal/arca-provider.js";
-import { crear_homo_fake } from "../../../modules/fiscal/homo-fake.js";
-import {
-  type FiscalProvider,
-} from "../../../modules/fiscal/fiscal.js";
+import { resolverProvider } from "../../../lib/fiscal-provider.js";
 
 export const prerender = false;
 
 // POST /api/fiscal/emitir — cáscara fina sobre emitir_fiscal_durable (G2c).
 // PERS2-S8: el puerto y el doc salen del repo fiscal (DB del tenant o memoria
 // en single); sin boot hook en Astro standalone el reaper corre como
-// barrido previo best-effort en este camino; el scheduler periódico queda
-// para el slice Control.
-function resolverProvider(): FiscalProvider {
-  const cfg = crear_arca_provider_desde_env(process.env);
-  return cfg ? crear_arca_provider(cfg) : crear_homo_fake();
-}
+// barrido previo best-effort en este camino y el job fiscal-reconciliacion lo
+// repite en horario, sin depender de una venta nueva.
 
 function aRespuesta(salida: EmisionDurable): Response {
   const doc = salida.doc;
