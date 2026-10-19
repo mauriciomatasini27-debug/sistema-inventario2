@@ -1,14 +1,31 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
 ---
-<PanelShell titulo="Plan" subtitulo="Tu plan, lo que incluye y el cupo del asistente IA del mes.">
+<PanelShell titulo="Plan" subtitulo="Tu plan, cuándo se renueva y los cupos del mes.">
   <section class="card card-ember card-ember--ambar" id="plan-card">
     <h2 id="plan-nombre">Cargando…</h2>
     <p class="nota" id="plan-ejemplo" hidden>Datos de ejemplo del catálogo de planes.</p>
+    <p class="nota" id="plan-renovacion" hidden></p>
     <p class="plan-cambio" id="plan-cambio" hidden></p>
     <div class="estado" id="plan-estado" role="status">Cargando…</div>
 
     <div id="plan-contenido" hidden>
+      <h3>Cupo de WhatsApp</h3>
+      <div
+        id="whatsapp-medidor"
+        class="medidor"
+        role="meter"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        aria-label="Cupo de consultas por WhatsApp del mes"
+        hidden
+      >
+        <div class="medidor-barra"><span id="whatsapp-relleno"></span></div>
+      </div>
+      <p class="medidor-texto" id="whatsapp-texto"></p>
+      <p class="medidor-explicacion" id="whatsapp-explicacion" aria-live="polite"></p>
+
       <h3>Cupo del asistente IA</h3>
       <div
         id="asistente"
@@ -24,6 +41,10 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       </div>
       <p class="medidor-explicacion" id="asistente-explicacion" aria-live="polite"></p>
 
+      <h3>Cambiar plan</h3>
+      <div class="plan-botones" id="plan-botones"></div>
+      <p class="medidor-explicacion" id="plan-accion-estado" aria-live="polite"></p>
+
       <h3>Qué incluye tu plan</h3>
       <ul class="lista" id="plan-features"></ul>
     </div>
@@ -37,10 +58,12 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   .medidor-barra span { display: block; height: 100%; width: 0; background: var(--tema-acento); }
   .medidor-texto, .medidor-explicacion { font-variant-numeric: tabular-nums; font-size: 14px; }
   .medidor-explicacion { color: var(--estado-vivo); }
+  .plan-botones { display: flex; flex-wrap: wrap; gap: 8px; }
   .feature-no { color: var(--tema-texto-suave); }
 </style>
 
 <script>
+  import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
 
   const $ = (id) => document.getElementById(id);
@@ -48,6 +71,45 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     const el = $(id);
     if (el) el.textContent = valor;
   };
+
+  function fechaLarga(fecha) {
+    const [anio, mes, dia] = String(fecha).split("-");
+    if (!anio || !mes || !dia) return "";
+    return dia + "/" + mes + "/" + anio;
+  }
+
+  function pintarRenovacion(v) {
+    const el = $("plan-renovacion");
+    if (!el) return;
+    if (!v.renovacion) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.textContent = "Se renueva el " + fechaLarga(v.renovacion) + ".";
+    el.hidden = false;
+  }
+
+  function pintarWhatsapp(w) {
+    const meter = $("whatsapp-medidor");
+    texto("whatsapp-explicacion", w.explicacion);
+    if (!w.incluido || w.cupo === null) {
+      meter.hidden = true;
+      texto(
+        "whatsapp-texto",
+        w.incluido ? "Usaste " + w.usado + " consultas por WhatsApp este mes · sin techo definido" : "",
+      );
+      return;
+    }
+    meter.hidden = false;
+    meter.setAttribute("aria-valuenow", String(w.porcentaje));
+    meter.setAttribute(
+      "aria-valuetext",
+      "Usaste " + w.usado + " de " + w.cupo + " consultas por WhatsApp este mes, quedan " + w.restante,
+    );
+    $("whatsapp-relleno").style.width = w.porcentaje + "%";
+    texto("whatsapp-texto", "Usaste " + w.usado + " de " + w.cupo + " consultas por WhatsApp este mes · quedan " + w.restante);
+  }
 
   function pintarAsistente(a) {
     const meter = $("asistente");
@@ -86,8 +148,8 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     const el = $("plan-cambio");
     if (!el) return;
     if (v.plan_programado && v.fecha_cambio) {
-      const [anio, mes, dia] = String(v.fecha_cambio).split("-");
-      el.textContent = "Tu plan pasa a " + v.plan_programado_nombre + " el " + dia + "/" + mes + "/" + anio + ".";
+      el.textContent =
+        "Tu plan pasa a " + v.plan_programado_nombre + " el " + fechaLarga(v.fecha_cambio) + ".";
       el.hidden = false;
     } else {
       el.textContent = "";
@@ -95,8 +157,74 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     }
   }
 
+  function pintarBotones(v) {
+    const cont = $("plan-botones");
+    if (!cont) return;
+    cont.textContent = "";
+    if (v.plan_programado) {
+      const cancelar = document.createElement("button");
+      cancelar.type = "button";
+      cancelar.textContent = "Cancelar cambio a " + v.plan_programado_nombre;
+      cancelar.addEventListener("click", () => void cambiar(v.plan_id));
+      cont.appendChild(cancelar);
+    }
+    for (const plan of v.otros_planes ?? []) {
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.textContent = "Cambiar a " + plan.nombre;
+      boton.addEventListener("click", () => void cambiar(plan.id));
+      cont.appendChild(boton);
+    }
+  }
+
+  function bloquearBotones(bloqueado) {
+    for (const boton of document.querySelectorAll("#plan-botones button")) {
+      boton.disabled = bloqueado;
+    }
+  }
+
+  async function cambiar(planDestino) {
+    if (!planDestino) return;
+    const estado = $("plan-accion-estado");
+    estado.textContent = "Guardando…";
+    bloquearBotones(true);
+    let r;
+    try {
+      r = await fetch("/api/plan/cambiar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plan: planDestino }),
+      });
+    } catch (error) {
+      console.warn("[panel/plan] cambiar", error);
+      toast.error("Sin conexión con el servidor.");
+      estado.textContent = "Sin conexión con el servidor.";
+      bloquearBotones(false);
+      return;
+    }
+    const v = await r.json().catch((error) => {
+      console.warn("[panel/plan] respuesta de cambio no JSON", error);
+      return {};
+    });
+    if (!r.ok) {
+      const mensaje =
+        r.status === 409 && v.error === "requiere_cobro"
+          ? "Subir de plan necesita el cobro, que todavía no está disponible."
+          : textoError(v.error, r.status);
+      toast.error(mensaje);
+      estado.textContent = mensaje;
+      bloquearBotones(false);
+      return;
+    }
+    toast.success(v.efecto === "sin_cambio" ? "Cambio de plan cancelado." : "Cambio de plan programado.");
+    estado.textContent = "";
+    await cargar();
+  }
+
   function mostrarError(mensaje) {
     $("plan-contenido").hidden = true;
+    $("plan-renovacion").hidden = true;
+    $("plan-cambio").hidden = true;
     texto("plan-nombre", "Plan");
     $("plan-estado").textContent =
       derivarEstado({ cargando: false, error: true, items: 0 }) === "error" ? mensaje : "";
@@ -123,9 +251,13 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     }
     texto("plan-nombre", v.nombre);
     $("plan-ejemplo").hidden = !v.es_catalogo_ejemplo;
+    pintarRenovacion(v);
     pintarCambio(v);
+    pintarWhatsapp(v.whatsapp);
     pintarAsistente(v.asistente);
+    pintarBotones(v);
     pintarFeatures(v.features);
+    texto("plan-accion-estado", "");
     $("plan-contenido").hidden = false;
     $("plan-estado").textContent = "";
   }

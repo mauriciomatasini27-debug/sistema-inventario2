@@ -3,7 +3,7 @@ import { whatsappUsage } from "../../db/schema-whatsapp.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { crearAlmacenBotConsultas } from "./_almacen.js";
 import { resumenConsultas, type ResumenConsultas } from "../../modules/whatsapp/tarjeta-bot.js";
-import { fechaAR } from "../fecha-ar.js";
+import { fechaAR, mesAR } from "../fecha-ar.js";
 
 // DASH-S3 (ADR-0034): registro y resumen de las consultas del bot para la
 // tarjeta `Bot` de /panel. DB primero via dbVivaTenant(tenantId); sin base
@@ -97,5 +97,41 @@ export async function leerResumenConsultasBot(tenantId: string, ahoraMs: number)
   } catch (e) {
     crearAlmacenBotConsultas().anteFalloPersistencia(e);
     return resumenMemoria(tenantId, ahoraMs);
+  }
+}
+
+// PLAN-S7: consultas del bot del mes civil AR, para el cupo de WhatsApp de
+// /panel/plan. Misma fuente que la tarjeta `Bot` (whatsapp_usage tipo
+// consulta); el mes arranca el día 1 a las 00:00 -03:00.
+function inicioMesARMs(ahoraMs: number): number {
+  return Date.parse(`${mesAR(ahoraMs)}-01T00:00:00-03:00`);
+}
+
+function consultasMesMemoria(tenantId: string, ahoraMs: number): number {
+  const desde = inicioMesARMs(ahoraMs);
+  return [...crearAlmacenBotConsultas().comoMapaSoloLectura().values()].filter(
+    (r) => r.tenantId === tenantId && r.creadoEnMs >= desde && r.creadoEnMs <= ahoraMs,
+  ).length;
+}
+
+export async function contarConsultasBotDelMes(tenantId: string, ahoraMs: number): Promise<number> {
+  const db = dbDeConsultas(tenantId);
+  if (!db) return consultasMesMemoria(tenantId, ahoraMs);
+  try {
+    const inicio = new Date(inicioMesARMs(ahoraMs)).toISOString().replace("T", " ").replace("Z", "");
+    const [fila] = await db
+      .select({ total: sql<number>`count(*)`.mapWith(Number) })
+      .from(whatsappUsage)
+      .where(
+        and(
+          eq(whatsappUsage.tenantId, tenantId),
+          eq(whatsappUsage.tipo, "consulta"),
+          sql`${whatsappUsage.createdAt} >= ${inicio}::timestamp`,
+        ),
+      );
+    return fila?.total ?? 0;
+  } catch (e) {
+    crearAlmacenBotConsultas().anteFalloPersistencia(e);
+    return consultasMesMemoria(tenantId, ahoraMs);
   }
 }

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { getTenantDb } from "../src/lib/db.js";
 import { whatsappUsage } from "../src/db/schema-whatsapp.js";
 import { resetStore } from "../src/lib/store.js";
-import { leerResumenConsultasBot, registrarConsultaBot } from "../src/lib/repos/bot-consultas.js";
+import { contarConsultasBotDelMes, leerResumenConsultasBot, registrarConsultaBot } from "../src/lib/repos/bot-consultas.js";
 
 // DASH-S3: el resumen de la tarjeta `Bot` contra Postgres real (whatsapp_usage,
 // tenant_id uuid): count del día AR + max, dedupe por wamid y aislamiento.
@@ -44,5 +44,15 @@ describe.skipIf(!hayPG)("DASH-S3 consultas del bot en Postgres", () => {
     await registrarConsultaBot({ tenantId: tenantA, numeroE164: "+5491100000001", wamid: `wa-hoy-${sufijo}`, ahoraMs: AHORA });
     expect(await leerResumenConsultasBot(tenantA, AHORA)).toEqual({ hoy: 1, ultimaEnMs: AHORA - 60_000 });
     expect(await leerResumenConsultasBot(tenantB, AHORA)).toEqual({ hoy: 0, ultimaEnMs: null });
+  });
+
+  it("PLAN-S7: cuenta las consultas del mes AR, sin las del mes anterior ni duplicados, y B no ve las de A", async () => {
+    fijarMulti();
+    const SEPT_AR = Date.parse("2026-10-01T02:30:00Z"); // 23:30 AR del 30/9
+    await registrarConsultaBot({ tenantId: tenantA, numeroE164: "+5491100000001", wamid: `wa-sept-${sufijo}`, ahoraMs: SEPT_AR });
+    await registrarConsultaBot({ tenantId: tenantA, numeroE164: "+5491100000001", wamid: `wa-hoy-${sufijo}`, ahoraMs: AHORA });
+    // ayer (16/10) y hoy (17/10) ya están del caso anterior; el duplicado no suma.
+    expect(await contarConsultasBotDelMes(tenantA, AHORA)).toBe(2);
+    expect(await contarConsultasBotDelMes(tenantB, AHORA)).toBe(0);
   });
 });
