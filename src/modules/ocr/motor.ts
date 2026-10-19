@@ -270,19 +270,42 @@ export interface ItemLinea {
   readonly importeTexto: string | null;
 }
 
+// Un importe solo vale si parece dinero: con `$`, punto de miles o coma
+// decimal. Un entero pelado suele ser una cantidad, un código o parte del
+// encabezado, no el precio.
+function esMontoDinerario(importe: string): boolean {
+  if (importe.startsWith("$")) return true;
+  if (/\d{1,3}(?:\.\d{3})+/.test(importe)) return true;
+  if (/\d+,\d{1,2}/.test(importe)) return true;
+  return false;
+}
+
+// Encabezados y etiquetas que el OCR puede leer como ítems. Se comparan sin
+// tildes y en minúsculas, por prefijo de la descripción.
+const ETIQUETAS_ITEM =
+  /^(total|subtotal|iva|vuelto|pago|cambio|descuento|fecha|cuit|cuil|tel|telefono|cel|celular|vencimiento|vence|cae|nro|numero|remito|factura|ticket|comprobante|percepcion|impuesto|iibb|saldo|recargo)/;
+
+function normalizarDescripcion(descripcion: string): string {
+  return descripcion.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export function extraer_items(texto: string): ItemLinea[] {
   const out: ItemLinea[] = [];
   // Los separadores no cruzan saltos de línea: si no, el dígito final del CUIT
   // se combina con la fecha del renglón siguiente y aparece un ítem falso.
-  const re = /(\d{1,3})[ \t]*(?:x|×|\*|-)?[ \t]*([A-Za-zÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜ0-9 .\-/]{2,60}?)[ \t]+(\$?[ \t]*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?)?/gi;
+  // `(?!\w)` descarta un número pegado a una unidad (`500g`): sin él la
+  // descripción corta antes de `500` y se pierde el precio real `$5.000,00`.
+  const re = /(\d{1,3})[ \t]*(?:x|×|\*|-)?[ \t]*([A-Za-zÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜ0-9 .\-/]{2,60}?)[ \t]+(\$?[ \t]*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?)(?!\w)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(texto)) !== null && out.length < 50) {
     const cant = Number(m[1]);
     const desc = (m[2] ?? "").trim();
+    const importeTexto = m[3]?.trim() ?? null;
     if (!Number.isInteger(cant) || cant < 1 || cant > 999) continue;
     if (desc.length < 3) continue;
-    if (/^(total|subtotal|iva|vuelto|pago|cambio|descuento)/i.test(desc)) continue;
-    out.push({ cantidad: cant, descripcion: desc.slice(0, 80), importeTexto: m[3]?.trim() ? m[3].trim() : null });
+    if (ETIQUETAS_ITEM.test(normalizarDescripcion(desc))) continue;
+    if (importeTexto === null || !esMontoDinerario(importeTexto)) continue;
+    out.push({ cantidad: cant, descripcion: desc.slice(0, 80), importeTexto });
   }
   return out;
 }
