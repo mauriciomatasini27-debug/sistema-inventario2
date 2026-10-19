@@ -22,6 +22,8 @@
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:context": "node scripts/docs-context.mjs",
+    "credenciales": "node scripts/chequear-credenciales.mjs",
+    "cargar:credenciales": "node scripts/cargar-credenciales.mjs",
     "roadmap": "node scripts/roadmap.mjs",
     "verify": "node scripts/verify.mjs",
     "verificar:formal": "bash scripts/verificar-formal.sh"
