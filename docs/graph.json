@@ -389,6 +389,10 @@
       "ruta": "docs/adr/0096-recepcion-facturas-proveedores-whatsapp.md"
     },
     {
+      "id": "ADR-0097",
+      "ruta": "docs/adr/0097-verificacion-formal.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -815,6 +819,10 @@
     {
       "id": "PRD-UX-01",
       "ruta": "docs/diseno/PRD-UX-01-uso-skills-diseno-dashboard.md"
+    },
+    {
+      "id": "PRD-VF-01",
+      "ruta": "docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md"
     },
     {
       "id": "SPEC-UI-00",
@@ -2154,6 +2162,26 @@
     {
       "de": "ADR-0096",
       "a": "ADR-0095",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0097",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0097",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0097",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0097",
+      "a": "ADR-0086",
       "tipo": "depende_de"
     },
     {
@@ -3609,6 +3637,21 @@
     {
       "de": "PRD-UX-01",
       "a": "PRD-UI-07",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VF-01",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VF-01",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VF-01",
+      "a": "ADR-0097",
       "tipo": "depende_de"
     },
     {
