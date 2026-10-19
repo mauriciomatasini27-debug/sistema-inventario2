@@ -97,11 +97,22 @@ preparar_jar() {
 }
 
 correr_tlc() {
-  local cfg="$1" salida="$2" metadir
+  local spec="$1" cfg="$2" salida="$3" metadir
   metadir="$(mktemp -d "$TMP_ROOT/meta.XXXXXX")"
   "$JAVA" -XX:+UseParallelGC -cp "$JAR" tlc2.TLC \
     -workers 1 -nowarning -cleanup -metadir "$metadir" \
-    -config "$cfg" VentaSync.tla >"$salida" 2>&1 || true
+    -config "$cfg" "$spec" >"$salida" 2>&1 || true
+}
+
+spec_de_cfg() {
+  case "$1" in
+    venta-sync|quiebre-limpia-todo|quiebre-sigue-tras-fallo|quiebre-sin-pk)
+      printf 'VentaSync.tla\n' ;;
+    plan-cambio|quiebre-baja-antes|quiebre-dos-cambios|quiebre-subida-sin-cobro|quiebre-sin-hasta|quiebre-no-cancela)
+      printf 'PlanCambio.tla\n' ;;
+    *)
+      return 1 ;;
+  esac
 }
 
 estados_distintos() {
@@ -150,8 +161,12 @@ if [ "${1:-}" = "--traza" ]; then
     printf 'verificar:formal: no existe %s.cfg\n' "$cfg" >&2
     exit 2
   fi
+  if ! spec="$(spec_de_cfg "$cfg")"; then
+    printf 'verificar:formal: no conozco el spec de %s.cfg\n' "$cfg" >&2
+    exit 2
+  fi
   salida="$TMP_ROOT/traza-$cfg.txt"
-  correr_tlc "$cfg.cfg" "$salida"
+  correr_tlc "$spec" "$cfg.cfg" "$salida"
   printf '== %s ==\n' "$cfg"
   cat "$salida"
   exit 0
@@ -160,11 +175,12 @@ fi
 fallo=0
 
 correr_ok() {
-  local cfg="$1"
-  local leyes="$2"
+  local spec="$1"
+  local cfg="$2"
+  local leyes="$3"
   local salida
   salida="$TMP_ROOT/$cfg.txt"
-  correr_tlc "$cfg.cfg" "$salida"
+  correr_tlc "$spec" "$cfg.cfg" "$salida"
   if grep -q "No error has been found" "$salida"; then
     printf 'ok  %s: se cumplen %s (%s estados distintos)\n' "$cfg" "$leyes" "$(estados_distintos "$salida")"
   else
@@ -175,11 +191,12 @@ correr_ok() {
 }
 
 correr_quiebre() {
-  local cfg="$1"
-  local ley="$2"
+  local spec="$1"
+  local cfg="$2"
+  local ley="$3"
   local salida
   salida="$TMP_ROOT/$cfg.txt"
-  correr_tlc "$cfg.cfg" "$salida"
+  correr_tlc "$spec" "$cfg.cfg" "$salida"
   if grep -q "Invariant $ley is violated" "$salida"; then
     printf 'ok  %s: TLC encontró la violación esperada de %s (traza de %s estados)\n' "$cfg" "$ley" "$(estados_traza "$salida")"
   else
@@ -189,9 +206,16 @@ correr_quiebre() {
   fi
 }
 
-correr_ok "venta-sync" "NoVentaPerdida, AlMasUnaFila, NoAtascada"
-correr_quiebre "quiebre-limpia-todo" "NoVentaPerdida"
-correr_quiebre "quiebre-sigue-tras-fallo" "NoAtascada"
-correr_quiebre "quiebre-sin-pk" "AlMasUnaFila"
+correr_ok "VentaSync.tla" "venta-sync" "NoVentaPerdida, AlMasUnaFila, NoAtascada"
+correr_quiebre "VentaSync.tla" "quiebre-limpia-todo" "NoVentaPerdida"
+correr_quiebre "VentaSync.tla" "quiebre-sigue-tras-fallo" "NoAtascada"
+correr_quiebre "VentaSync.tla" "quiebre-sin-pk" "AlMasUnaFila"
+
+correr_ok "PlanCambio.tla" "plan-cambio" "UnSoloCambio, SinUpgradeSinCobro, ProgramadoCompleto, CancelaMismoPlan"
+correr_quiebre "PlanCambio.tla" "quiebre-baja-antes" "UnSoloCambio"
+correr_quiebre "PlanCambio.tla" "quiebre-dos-cambios" "UnSoloCambio"
+correr_quiebre "PlanCambio.tla" "quiebre-subida-sin-cobro" "SinUpgradeSinCobro"
+correr_quiebre "PlanCambio.tla" "quiebre-sin-hasta" "ProgramadoCompleto"
+correr_quiebre "PlanCambio.tla" "quiebre-no-cancela" "CancelaMismoPlan"
 
 exit "$fallo"
