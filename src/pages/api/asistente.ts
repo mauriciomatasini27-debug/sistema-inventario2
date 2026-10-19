@@ -6,7 +6,10 @@ import { BaseNoDisponible } from "../../lib/server-db.js";
 import { planIncluye } from "../../lib/repos/planes.js";
 import { crearRegistroUsoIA } from "../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../lib/repos/ia-lecturas.js";
-import { CUPO_ASISTENTE_POR_DEFECTO, crearAsistente } from "../../modules/ia/asistente.js";
+import { CUPO_ASISTENTE_POR_DEFECTO, crearAsistente, detectar_intencion } from "../../modules/ia/asistente.js";
+import { cifrasDeHerramienta } from "../../modules/ia/cifras.js";
+import { preguntasSugeridas } from "../../modules/ia/preguntas.js";
+import { reporteDeHerramienta } from "../../modules/ia/reportes.js";
 import { ProveedorLLMFake, crear_proveedor_llm_desde_env } from "../../modules/ia/proveedor.js";
 
 export const prerender = false;
@@ -43,14 +46,19 @@ export const GET: APIRoute = async ({ request }) => {
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   const tenantId = tenantDeSesion(ctx);
   if (!tenantId) return jsonError("No tenés permiso en este comercio.", 403);
-  if (!membershipActiva(tenantId, ctx.googleSub)) {
+  const membresia = membershipActiva(tenantId, ctx.googleSub);
+  if (!membresia) {
     return jsonError("No tenés permiso en este comercio.", 403);
   }
   try {
     const inc = await planIncluye(tenantId, "asistente_ia");
+    const preguntas = inc.incluida
+      ? preguntasSugeridas(crearLecturasIA(), membresia.rol)
+      : [];
     return Response.json({
       incluido: inc.incluida,
       explicacion: inc.incluida ? "" : explicacionFueraDePlan(inc.planId),
+      preguntas,
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
@@ -111,13 +119,20 @@ export const POST: APIRoute = async ({ request }) => {
     lecturas: crearLecturasIA(),
     cupoConsultasPorMes: cupo,
   });
+  const herramienta = detectar_intencion(parsed.data.pregunta, asistente.catalogo);
   const respuesta = await asistente.preguntar(
     { tenantId, rol: membresia.rol },
     parsed.data.pregunta,
   );
-  return Response.json({
+  const salida: Record<string, unknown> = {
     texto: respuesta.texto,
     rechazada: respuesta.rechazada,
     ...(respuesta.herramienta ? { herramienta: respuesta.herramienta } : {}),
-  });
+  };
+  if (herramienta === null) salida["fueraDeCatalogo"] = true;
+  if (!respuesta.rechazada && respuesta.herramienta && respuesta.datos !== undefined) {
+    salida["cifras"] = cifrasDeHerramienta(respuesta.herramienta, respuesta.datos);
+    salida["reporte"] = reporteDeHerramienta(respuesta.herramienta);
+  }
+  return Response.json(salida);
 };

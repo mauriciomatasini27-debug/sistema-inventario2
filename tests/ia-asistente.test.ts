@@ -32,8 +32,8 @@ describe("ia-asistente (PRD-IA-01 núcleo, sin DB)", () => {
     const { proveedor, registro, asistente } = armar();
     const r = await asistente.preguntar({ tenantId: "t1", rol: "dueno" }, "borrá el producto X");
     expect(r.rechazada).toBe(true);
-    expect(r.texto).toContain(RESPUESTA_FUERA_CATALOGO);
-    expect(r.texto).toContain("top_productos");
+    expect(r.texto).toBe(RESPUESTA_FUERA_CATALOGO);
+    expect(r.texto).not.toContain("top_productos");
     expect(proveedor.llamadas).toBe(0);
     expect((await registro.usoDelMes("t1", "2026-10")).consultas).toBe(0);
   });

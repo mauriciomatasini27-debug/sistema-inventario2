@@ -123,7 +123,8 @@ export function detectar_intencion(pregunta: string, catalogo: readonly Herramie
   return catalogo.find((h) => h.patrones.test(t)) ?? null;
 }
 
-export const RESPUESTA_FUERA_CATALOGO = "Todavía no sé responder eso" as const;
+export const RESPUESTA_FUERA_CATALOGO =
+  "Todavía no sé responder eso. Probá con una de las preguntas sugeridas." as const;
 export const RESPUESTA_SIN_PERMISO = "No tenés permiso para ver esa información." as const;
 export const RESPUESTA_SIN_CUPO = "Llegaste al cupo mensual de consultas del asistente. Se reinicia el mes que viene." as const;
 
@@ -162,7 +163,7 @@ export function crearAsistente(opts: {
     if (!herramienta) {
       return {
         rechazada: true,
-        texto: `${RESPUESTA_FUERA_CATALOGO}. Puedo responder: ${NOMBRES_HERRAMIENTAS.join(", ")}.`,
+        texto: RESPUESTA_FUERA_CATALOGO,
       };
     }
     if (herramienta.soloDueno && sesion.rol !== "dueno") {

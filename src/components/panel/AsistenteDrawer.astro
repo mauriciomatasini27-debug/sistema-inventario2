@@ -1,0 +1,499 @@
+---
+---
+<div class="asistente-trigger">
+  <button type="button" id="asistente-abrir" class="asistente-abrir" hidden>
+    Preguntale al negocio
+  </button>
+  <p class="mini asistente-trigger-estado" id="asistente-trigger-estado" role="status" hidden></p>
+</div>
+
+<dialog id="asistente-drawer" class="asistente-drawer" aria-labelledby="asistente-titulo">
+  <div class="asistente-drawer-panel">
+    <header class="asistente-drawer-head">
+      <h2 id="asistente-titulo">Preguntale al negocio</h2>
+      <button type="button" id="asistente-cerrar" class="asistente-cerrar">
+        Cerrar
+      </button>
+    </header>
+    <div class="asistente-drawer-body">
+      <p class="mini">Probá con una de estas preguntas o escribí la tuya.</p>
+      <div class="asistente-chips" id="asistente-chips" role="group" aria-label="Preguntas sugeridas" hidden></div>
+      <p class="asistente-chips-aviso" id="asistente-chips-aviso" hidden>Probá con una de estas.</p>
+      <form id="asistente-form" class="asistente-form">
+        <label class="asistente-label" for="asistente-pregunta">Tu pregunta</label>
+        <div class="asistente-fila">
+          <input
+            id="asistente-pregunta"
+            name="pregunta"
+            type="text"
+            maxlength="500"
+            required
+            autocomplete="off"
+            placeholder="¿Cuánto vendí este mes?"
+          />
+          <button type="submit" id="asistente-enviar">Preguntar</button>
+        </div>
+      </form>
+      <p class="asistente-respuesta" id="asistente-respuesta" aria-live="polite"></p>
+      <ul class="asistente-cifras" id="asistente-cifras" hidden></ul>
+      <a class="asistente-reporte" id="asistente-reporte" hidden>Ver reporte</a>
+      <p class="mini" id="asistente-estado" role="status"></p>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  [hidden] {
+    display: none !important;
+  }
+  .asistente-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .asistente-abrir {
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font: inherit;
+    font-weight: 700;
+    background: var(--llama);
+    color: var(--tinta);
+    cursor: pointer;
+  }
+  .asistente-abrir:focus-visible,
+  .asistente-cerrar:focus-visible,
+  .asistente-fila button:focus-visible,
+  .asistente-reporte:focus-visible {
+    outline: 2px solid var(--texto);
+    outline-offset: 2px;
+  }
+  :global(.asistente-chip:focus-visible) {
+    outline: 2px solid var(--texto);
+    outline-offset: 2px;
+  }
+  .asistente-drawer {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(420px, 100vw);
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--card);
+    color: var(--texto);
+    box-shadow: 0 0 0 1px var(--borde), 0 12px 40px var(--sombra);
+  }
+  .asistente-drawer::backdrop {
+    background: color-mix(in srgb, var(--tinta) 45%, transparent);
+  }
+  .asistente-drawer-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .asistente-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .asistente-drawer-head h2 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--texto);
+  }
+  .asistente-cerrar {
+    min-height: 44px;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    padding: 8px 16px;
+    background: var(--card);
+    color: var(--texto);
+    font: inherit;
+    cursor: pointer;
+  }
+  .asistente-drawer-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .asistente-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  :global(.asistente-chip) {
+    min-height: 44px;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    padding: 8px 14px;
+    background: var(--card);
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  :global(.asistente-chip.chip-resaltado) {
+    border-color: var(--llama);
+    background: color-mix(in srgb, var(--llama) 22%, var(--card));
+    font-weight: 700;
+  }
+  .asistente-chips-aviso {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--texto);
+  }
+  .asistente-form {
+    margin: 0;
+  }
+  .asistente-label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .asistente-fila {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .asistente-fila input {
+    flex: 1 1 200px;
+    min-height: 44px;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    padding: 8px 14px;
+    background: var(--card);
+    color: var(--texto);
+    font: inherit;
+    font-size: 16px;
+  }
+  .asistente-fila button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font: inherit;
+    font-weight: 700;
+    background: var(--llama);
+    color: var(--tinta);
+    cursor: pointer;
+  }
+  .asistente-fila button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .asistente-respuesta {
+    font-size: 15px;
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .asistente-respuesta.rechazada {
+    color: var(--muted);
+  }
+  .asistente-cifras {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+  }
+  :global(.asistente-cifras li) {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  :global(.asistente-cifras li + li) {
+    border-top: 1px solid var(--borde);
+  }
+  :global(.asistente-cifras li b) {
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .asistente-reporte {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    align-self: flex-start;
+    color: var(--texto);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  @media (max-width: 480px) {
+    .asistente-drawer {
+      inset: 0;
+      width: 100%;
+      height: 100dvh;
+    }
+  }
+</style>
+
+<script>
+  import { toast } from "sonner";
+
+  interface Cifra {
+    etiqueta: string;
+    valor: string;
+  }
+  interface Reporte {
+    href: string;
+    etiqueta: string;
+  }
+  interface Pregunta {
+    texto: string;
+    herramienta?: string;
+  }
+  interface RespuestaAPI {
+    incluido?: boolean;
+    explicacion?: string;
+    preguntas?: Pregunta[];
+    codigo?: string;
+    error?: string;
+    texto?: string;
+    rechazada?: boolean;
+    fueraDeCatalogo?: boolean;
+    cifras?: Cifra[];
+    reporte?: Reporte;
+  }
+
+  const abrir = document.getElementById("asistente-abrir");
+  const drawer = document.getElementById("asistente-drawer");
+  const cerrar = document.getElementById("asistente-cerrar");
+  const triggerEstado = document.getElementById("asistente-trigger-estado");
+  const form = document.getElementById("asistente-form");
+  const input = document.getElementById("asistente-pregunta");
+  const enviar = document.getElementById("asistente-enviar");
+  const chips = document.getElementById("asistente-chips");
+  const avisoChips = document.getElementById("asistente-chips-aviso");
+  const respuesta = document.getElementById("asistente-respuesta");
+  const cifras = document.getElementById("asistente-cifras");
+  const reporte = document.getElementById("asistente-reporte");
+  const estado = document.getElementById("asistente-estado");
+
+  if (
+    !(abrir instanceof HTMLButtonElement) ||
+    !(drawer instanceof HTMLDialogElement) ||
+    !(cerrar instanceof HTMLButtonElement) ||
+    !(triggerEstado instanceof HTMLElement) ||
+    !(form instanceof HTMLFormElement) ||
+    !(input instanceof HTMLInputElement) ||
+    !(enviar instanceof HTMLButtonElement) ||
+    !(chips instanceof HTMLElement) ||
+    !(avisoChips instanceof HTMLElement) ||
+    !(respuesta instanceof HTMLElement) ||
+    !(cifras instanceof HTMLUListElement) ||
+    !(reporte instanceof HTMLAnchorElement) ||
+    !(estado instanceof HTMLElement)
+  ) {
+    throw new Error("asistente: faltan elementos del drawer");
+  }
+
+  let disparador: HTMLElement = abrir;
+  let enviando = false;
+
+  async function leerJson(r: Response): Promise<RespuestaAPI> {
+    const crudo = await r.text();
+    if (crudo === "") return {};
+    try {
+      const valor: unknown = JSON.parse(crudo);
+      return typeof valor === "object" && valor !== null ? (valor as RespuestaAPI) : {};
+    } catch (error) {
+      console.warn("[asistente] respuesta no JSON", error);
+      return {};
+    }
+  }
+
+  function ocultarBoton(explicacion: string): void {
+    abrir.hidden = true;
+    triggerEstado.textContent = explicacion;
+    triggerEstado.hidden = explicacion === "";
+  }
+
+  function mostrarBoton(): void {
+    abrir.hidden = false;
+    triggerEstado.textContent = "";
+    triggerEstado.hidden = true;
+  }
+
+  function limpiarResultado(): void {
+    respuesta.textContent = "";
+    respuesta.classList.remove("rechazada");
+    cifras.textContent = "";
+    cifras.hidden = true;
+    reporte.hidden = true;
+    reporte.removeAttribute("href");
+    reporte.textContent = "Ver reporte";
+    avisoChips.hidden = true;
+    for (const chip of chips.querySelectorAll<HTMLButtonElement>("[data-asistente-chip]")) {
+      chip.classList.remove("chip-resaltado");
+    }
+  }
+
+  function pintarChips(preguntas: Pregunta[]): void {
+    chips.textContent = "";
+    for (const pregunta of preguntas) {
+      if (typeof pregunta.texto !== "string" || pregunta.texto.trim() === "") continue;
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.className = "asistente-chip";
+      boton.dataset.asistenteChip = "";
+      boton.textContent = pregunta.texto;
+      boton.addEventListener("click", () => {
+        input.value = pregunta.texto;
+        void enviarPregunta(pregunta.texto);
+      });
+      chips.appendChild(boton);
+    }
+    chips.hidden = chips.children.length === 0;
+  }
+
+  function pintarCifras(lista: Cifra[] | undefined): void {
+    cifras.textContent = "";
+    if (!Array.isArray(lista)) {
+      cifras.hidden = true;
+      return;
+    }
+    for (const cifra of lista) {
+      if (typeof cifra.etiqueta !== "string" || typeof cifra.valor !== "string") continue;
+      const item = document.createElement("li");
+      const etiqueta = document.createElement("span");
+      etiqueta.textContent = cifra.etiqueta;
+      const valor = document.createElement("b");
+      valor.textContent = cifra.valor;
+      item.append(etiqueta, valor);
+      cifras.appendChild(item);
+    }
+    cifras.hidden = cifras.children.length === 0;
+  }
+
+  function pintarReporte(destino: Reporte | undefined): void {
+    if (!destino || typeof destino.href !== "string" || typeof destino.etiqueta !== "string") {
+      reporte.hidden = true;
+      reporte.removeAttribute("href");
+      return;
+    }
+    reporte.href = destino.href;
+    reporte.textContent = `Ver ${destino.etiqueta}`;
+    reporte.hidden = false;
+  }
+
+  async function cargarPreguntas(): Promise<void> {
+    try {
+      const r = await fetch("/api/asistente");
+      if (!r.ok) throw new Error("http " + r.status);
+      const j = await leerJson(r);
+      if (!j.incluido) {
+        ocultarBoton(j.explicacion || "Tu plan no incluye el asistente IA.");
+        return;
+      }
+      pintarChips(Array.isArray(j.preguntas) ? j.preguntas : []);
+      mostrarBoton();
+    } catch (error) {
+      console.warn("[asistente] no pudimos verificar el plan", error);
+      mostrarBoton();
+    }
+  }
+
+  async function enviarPregunta(pregunta: string): Promise<void> {
+    if (enviando || pregunta.trim() === "") return;
+    enviando = true;
+    enviar.disabled = true;
+    limpiarResultado();
+    estado.textContent = "Consultando…";
+    try {
+      const r = await fetch("/api/asistente", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pregunta }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 403 && j.codigo === "fuera_de_plan") {
+        const explicacion = j.error || "Tu plan no incluye el asistente IA.";
+        estado.textContent = explicacion;
+        ocultarBoton(explicacion);
+        drawer.close();
+        return;
+      }
+      if (r.status === 503 && j.codigo === "asistente_no_configurado") {
+        estado.textContent = j.error || "El asistente IA todavía no está configurado.";
+        return;
+      }
+      if (!r.ok) throw new Error(j.error || "http " + r.status);
+      respuesta.textContent = j.texto || "";
+      respuesta.classList.toggle("rechazada", j.rechazada === true);
+      if (j.fueraDeCatalogo === true) {
+        avisoChips.hidden = false;
+        for (const chip of chips.querySelectorAll<HTMLButtonElement>("[data-asistente-chip]")) {
+          chip.classList.add("chip-resaltado");
+        }
+      }
+      pintarCifras(j.cifras);
+      pintarReporte(j.reporte);
+      estado.textContent = "";
+      input.value = "";
+      respuesta.scrollIntoView({ block: "nearest" });
+    } catch (error) {
+      console.warn("[asistente] no pudimos consultar", error);
+      estado.textContent = "";
+      toast.error("No pudimos consultar al asistente. Reintentá en un rato.");
+    } finally {
+      enviando = false;
+      enviar.disabled = false;
+    }
+  }
+
+  abrir.addEventListener("click", () => {
+    if (drawer.open) return;
+    disparador = document.activeElement instanceof HTMLElement ? document.activeElement : abrir;
+    drawer.showModal();
+    // A 360 px el teclado taparía los chips: el foco queda en el primer control del drawer.
+    if (window.matchMedia("(min-width: 481px)").matches) input.focus();
+  });
+
+  cerrar.addEventListener("click", () => drawer.close());
+
+  // El reporte de ventas vive en este mismo /panel (#kpi-strip): cerrar el
+  // drawer deja ver el destino del link.
+  reporte.addEventListener("click", () => drawer.close());
+
+  drawer.addEventListener("close", () => {
+    disparador.focus({ preventScroll: true });
+  });
+
+  drawer.addEventListener("click", (event) => {
+    if (event.target !== drawer) return;
+    const caja = drawer.getBoundingClientRect();
+    const fuera =
+      event.clientX < caja.left ||
+      event.clientX > caja.right ||
+      event.clientY < caja.top ||
+      event.clientY > caja.bottom;
+    if (fuera) drawer.close();
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void enviarPregunta(input.value.trim());
+  });
+
+  void cargarPreguntas();
+</script>

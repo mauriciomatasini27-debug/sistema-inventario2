@@ -150,11 +150,15 @@ describe("IA-S4 POST /api/asistente", () => {
     const plano = sesion("g-1", "t-1");
     const r = await pedir(plano, { pregunta: "¿cuál es el saldo de caja de hoy?" });
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({
+    const body = (await r.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       texto: "Vendiste Yerba",
       rechazada: false,
       herramienta: "caja_dia",
+      reporte: { href: "/panel/caja", etiqueta: "caja" },
     });
+    expect(body["cifras"]).toContainEqual({ etiqueta: "Total en caja", valor: "$ 0,00" });
+    expect(body["datos"]).toBeUndefined();
     expect(mocks.espia.llamadas).toBe(1);
     const uso = await crearRegistroUsoIA().usoDelMes("t-1", mesAR());
     expect(uso.consultas).toBe(1);
@@ -198,7 +202,9 @@ describe("IA-S4 POST /api/asistente", () => {
     expect(r.status).toBe(200);
     const body = (await r.json()) as Record<string, unknown>;
     expect(body["rechazada"]).toBe(true);
+    expect(body["fueraDeCatalogo"]).toBe(true);
     expect(String(body["texto"])).toContain("Todavía no sé responder eso");
+    expect(body["datos"]).toBeUndefined();
     expect(mocks.espia.llamadas).toBe(0);
   });
 
