@@ -35,6 +35,7 @@ export const RESPUESTA_PROV_RECIBIDO =
 export const RESPUESTA_PROV_PENDIENTE =
   "Tu solicitud quedó pendiente de aprobación del comercio. Te avisamos cuando esté habilitado." as const;
 export const RESPUESTA_PROV_FACTURA = "Mandame la foto o el PDF de la factura." as const;
+export const RESPUESTA_PROV_FACTURA_RECIBIDA = "Recibí la factura. El comercio la revisa y la confirma." as const;
 export const RESPUESTA_PROV_CODIGO_INVALIDO =
   "No pude validar el código de invitación. Pedí uno nuevo en el comercio e intentá otra vez." as const;
 
@@ -68,6 +69,35 @@ export function contacto_por_numero(
   numero: string,
 ): ContactoProveedor | null {
   return contactos.get(numero) ?? null;
+}
+
+// PROV-S8 (ADR-0096): la factura de un proveedor avisa al Dueño, no al
+// proveedor. El destino es el número del Dueño: la primera membership
+// `dueno`+`activo` del comercio que tenga un vínculo bot verificado. Si no hay
+// Dueño con número verificado, no hay aviso (`null`).
+export function numero_dueno_verificado(opts: {
+  tenantId: string;
+  memberships: ReadonlyArray<{
+    readonly tenantId: string;
+    readonly googleSub: string;
+    readonly rol: string;
+    readonly estado: string;
+  }>;
+  botLinks: ReadonlyArray<{
+    readonly numeroE164: string;
+    readonly tenantId: string;
+    readonly googleSub: string;
+    readonly estado: string;
+  }>;
+}): string | null {
+  for (const m of opts.memberships) {
+    if (m.tenantId !== opts.tenantId || m.rol !== "dueno" || m.estado !== "activo") continue;
+    const link = opts.botLinks.find(
+      (l) => l.tenantId === opts.tenantId && l.googleSub === m.googleSub && l.estado === "verificado",
+    );
+    if (link) return link.numeroE164;
+  }
+  return null;
 }
 
 // PRD-PROV-01 S6/S7 (ADR-0096): la identidad del proveedor sale del CUIT que

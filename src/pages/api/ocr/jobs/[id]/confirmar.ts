@@ -3,6 +3,7 @@ import { ocrConfirmarSchema } from "../../../../../lib/validation.js";
 import { BaseNoDisponible } from "../../../../../lib/server-db.js";
 import { obtenerJob, registrarEventoOcr } from "../../../../../lib/repos/ocr.js";
 import { confirmarBorradorOcrRepo } from "../../../../../lib/repos/facturas-proveedor.js";
+import { asegurarProveedorDesdeCuit } from "../../../../../lib/repos/proveedores.js";
 
 export const prerender = false;
 
@@ -33,8 +34,27 @@ export const POST: APIRoute = async ({ request, params }) => {
       factura_id: r.factura.id,
       confirmado_por: parsed.data.quien,
     });
+    // PROV-S10 (ADR-0096): si el CUIT de la factura no está en la lista del
+    // comercio, se da de alta al confirmar. Best-effort: la confirmación ya
+    // quedó hecha y un fallo de base no la revierte.
+    let proveedorCreado = false;
+    try {
+      const alta = await asegurarProveedorDesdeCuit({
+        cuit: r.factura.supplierCuit,
+        nombre: r.factura.nombreProveedor,
+        ahoraIso: new Date().toISOString(),
+      });
+      proveedorCreado = alta.creado;
+    } catch (e) {
+      if (!(e instanceof BaseNoDisponible)) throw e;
+    }
     return Response.json(
-      { factura_id: r.factura.id, total_centavos: r.factura.totalCentavos.toString(), aviso_revisar: r.avisoRevisar },
+      {
+        factura_id: r.factura.id,
+        total_centavos: r.factura.totalCentavos.toString(),
+        aviso_revisar: r.avisoRevisar,
+        proveedor_creado: proveedorCreado,
+      },
       { status: 201 },
     );
   } catch (e) {

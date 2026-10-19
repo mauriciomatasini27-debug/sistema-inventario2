@@ -56,9 +56,11 @@ import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
 import {
   contacto_por_numero,
+  numero_dueno_verificado,
   parsear_invitar,
   RESPUESTA_PROV_CODIGO_INVALIDO,
   RESPUESTA_PROV_FACTURA,
+  RESPUESTA_PROV_FACTURA_RECIBIDA,
   RESPUESTA_PROV_PENDIENTE,
   RESPUESTA_PROV_RECIBIDO,
   type ResultadoVincularCuit,
@@ -405,6 +407,10 @@ async function ofrecerBorradorOcr(opts: {
   tenantId: string;
   cred: CredencialesEnvio | null;
   origen?: OrigenIngesta;
+  // PROV-S8: a quién se le ofrece el borrador. `undefined` = al remitente
+  // (Dueño/Empleado). Un número = al Dueño del comercio. `null` = sin aviso:
+  // el borrador igual se crea y el llamador responde al remitente.
+  destinoOferta?: string | null;
   alCrearBorrador?: (borrador: Borrador) => void | Promise<void>;
 }): Promise<Response> {
   if (!es_comprobante_desde_mime(opts.adjunto.mimeType)) {
@@ -439,12 +445,16 @@ async function ofrecerBorradorOcr(opts: {
     await opts.alCrearBorrador?.(r.borrador);
     const ahoraIso = new Date().toISOString();
     const propuesta = propuesta_correccion_total(r.borrador);
-    const enviado = await responderPayload(
-      { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
-      propuesta
-        ? payload_correccion_ocr(r.borrador, propuesta)
-        : payload_borrador_ocr(r.borrador, r.revisa, ahoraIso),
-    );
+    const destino = opts.destinoOferta === undefined ? opts.remitente : opts.destinoOferta;
+    const enviado =
+      destino === null
+        ? false
+        : await responderPayload(
+            { toE164: destino, wamidEntrante: opts.wamid, cred: opts.cred },
+            propuesta
+              ? payload_correccion_ocr(r.borrador, propuesta)
+              : payload_borrador_ocr(r.borrador, r.revisa, ahoraIso),
+          );
     return Response.json({
       ok: true,
       accion: "ocr_borrador",
@@ -525,6 +535,18 @@ async function atenderProveedor(opts: {
       // S6/S7: el contacto verificado manda la factura. Antes de ofrecer el
       // borrador se ata su identidad al CUIT que leyó el OCR. El callback corre
       // dentro de `ofrecerBorradorOcr`; `vinculo` queda para la respuesta.
+      // S8: el aviso con botones va al Dueño verificado; el proveedor recibe
+      // solo el acuse. Sin Dueño con número verificado, igual entra el borrador.
+      const destino = numero_dueno_verificado({
+        tenantId: contacto.tenantId,
+        memberships: [...control.memberships.values()].map((m) => ({
+          tenantId: m.tenantId,
+          googleSub: m.googleSub,
+          rol: m.rol,
+          estado: m.estado,
+        })),
+        botLinks: [...control.botLinks.entries()].map(([numeroE164, l]) => ({ numeroE164, ...l })),
+      });
       const vinculo: { r: ResultadoVincularCuit | null } = { r: null };
       const res = await ofrecerBorradorOcr({
         remitente: msg.remitente,
@@ -533,6 +555,7 @@ async function atenderProveedor(opts: {
         tenantId: contacto.tenantId,
         cred,
         origen: "wa_proveedor",
+        destinoOferta: destino,
         alCrearBorrador: async (borrador) => {
           const { proveedores } = await conTenant(contacto.tenantId, () => listarProveedores());
           const resultado = vincular_cuit_contacto({ contacto, cuitLeido: borrador.cuit, proveedores });
@@ -544,7 +567,15 @@ async function atenderProveedor(opts: {
       if (resultado === null) return res;
       const cuit = resultado.cambio ? resultado.contacto.supplierCuit : resultado.supplierCuit;
       const cuerpo = (await res.json()) as Record<string, unknown>;
-      return Response.json({ ...cuerpo, cuit, proveedor_existe: resultado.proveedorExiste });
+      if (cuerpo["accion"] === "ocr_borrador") {
+        await responder({
+          toE164: msg.remitente,
+          wamidEntrante: msg.wamid,
+          texto: RESPUESTA_PROV_FACTURA_RECIBIDA,
+          cred,
+        });
+      }
+      return Response.json({ ...cuerpo, cuit, proveedor_existe: resultado.proveedorExiste, aviso_dueno: destino !== null });
     }
     const enviado = await responder({
       toE164: msg.remitente,

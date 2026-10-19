@@ -78,6 +78,22 @@ async function altaProveedorEnDb(db: TenantDb, cuit: string, supplier: Supplier)
   return { ok: true, supplierId: supplier.id, cuit: supplier.cuit, fuente: "db" };
 }
 
+// PROV-S10 (ADR-0096): al confirmar el borrador de un proveedor, si el CUIT de
+// la factura no está en la lista del comercio, se da de alta. Best-effort: un
+// CUIT inválido no lanza, devuelve `{creado:false, supplierId:null}`. El alta
+// ya existente no duplica: `CUIT_EXISTE` deja `creado:false`.
+export async function asegurarProveedorDesdeCuit(input: {
+  cuit: string;
+  nombre: string | null;
+  ahoraIso: string;
+}): Promise<{ creado: boolean; supplierId: string | null }> {
+  const nombre = input.nombre ?? `Proveedor ${normalizarCuit(input.cuit)}`;
+  const r = await altaProveedor({ cuit: input.cuit, nombre, ahoraIso: input.ahoraIso });
+  if (r.ok) return { creado: true, supplierId: r.supplierId };
+  if (r.codigo === "CUIT_EXISTE") return { creado: false, supplierId: normalizarCuit(input.cuit) };
+  return { creado: false, supplierId: null };
+}
+
 export interface ProveedorLista {
   readonly cuit: string;
   readonly nombre: string;
