@@ -7,7 +7,7 @@ depende_de: [ADR-0005, ADR-0089, ADR-0079, ADR-0091]
 reemplaza: []
 reemplazado_por: ""
 modifica: [ADR-0005]
-modificado_por: []
+modificado_por: [ADR-0095]
 resumen: |
   La media del comprobante de WhatsApp se descarga en el borde del webhook con las credenciales del número
   central, y el motor OCR recibe bytes y no una referencia. El borrador se ofrece con tres botones: Descartar

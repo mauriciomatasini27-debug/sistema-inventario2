@@ -15,6 +15,7 @@ import { RESPUESTA_NO_VINCULADO } from "../src/modules/whatsapp/resolucion.js";
 
 const SECRET = "s5-botones-secret";
 const NUMERO = "5491100000000";
+const EMPLEADO = "5491100000001";
 const SIN_VINCULAR = "5491199999999";
 const PNID = "123456";
 const TOKEN = "tok-opaco";
@@ -117,6 +118,11 @@ function comercioVinculado(tenantId = "t-1") {
   control.botLinks.set(`+${NUMERO}`, { tenantId, googleSub: "g-1", estado: "verificado" });
 }
 
+function empleadoVinculado(tenantId = "t-1") {
+  control.memberships.set("m-2", { id: "m-2", tenantId, googleSub: "g-2", rol: "empleado", permisos: [], estado: "activo", puedeUsarBot: true });
+  control.botLinks.set(`+${EMPLEADO}`, { tenantId, googleSub: "g-2", estado: "verificado" });
+}
+
 async function crearBorrador(): Promise<string> {
   const r = await mandar(cargaAdjunto(nombreWamid(), "image", "image/jpeg"));
   expect(r.json["accion"]).toBe("ocr_borrador");
@@ -186,11 +192,29 @@ describe("OCR1-S5 el toque de los botones del borrador", () => {
     expect(store.borradores.get(borradorId)?.estado).toBe("pendiente");
   });
 
-  it("editar deriva a la web y deja el borrador pendiente", async () => {
+  it("FP3.3 editar como Dueño abre la sesión de edición por texto con la lista de campos", async () => {
     comercioVinculado();
     const borradorId = await crearBorrador();
 
     const r = await mandar(cargaBoton(nombreWamid(), `ocr:editar:${borradorId}`));
+
+    expect(r.status).toBe(200);
+    expect(r.json["accion"]).toBe("ocr_editar_pedido");
+    const texto = ultimoTexto();
+    expect(texto).toContain("¿Qué corrijo?");
+    expect(texto).toContain("monto");
+    expect(texto).toContain("fecha");
+    expect(texto).toContain("proveedor");
+    expect(texto).toContain("cuit");
+    expect(store.borradores.get(borradorId)?.estado).toBe("pendiente");
+  });
+
+  it("editar como Empleado deriva a la web y deja el borrador pendiente", async () => {
+    comercioVinculado();
+    empleadoVinculado();
+    const borradorId = await crearBorrador();
+
+    const r = await mandar(cargaBoton(nombreWamid(), `ocr:editar:${borradorId}`, EMPLEADO));
 
     expect(r.status).toBe(200);
     expect(r.json["accion"]).toBe("derivada_web");
@@ -247,12 +271,14 @@ describe("OCR1-S5 el toque de los botones del borrador", () => {
 });
 
 describe("OCR1-S5 parseo de botones (puro)", () => {
-  it("parsear_boton_ocr acepta las cinco acciones y rechaza el resto", () => {
+  it("parsear_boton_ocr acepta las siete acciones y rechaza el resto", () => {
     expect(parsear_boton_ocr("ocr:confirmar:b-1")).toEqual({ accion: "confirmar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:editar:b-1")).toEqual({ accion: "editar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:descartar:b-1")).toEqual({ accion: "descartar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:corregir:b-1")).toEqual({ accion: "corregir", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:omitir:b-1")).toEqual({ accion: "omitir", borradorId: "b-1" });
+    expect(parsear_boton_ocr("ocr:aprobar:b-1")).toEqual({ accion: "aprobar", borradorId: "b-1" });
+    expect(parsear_boton_ocr("ocr:cancelar:b-1")).toEqual({ accion: "cancelar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:otra:b-1")).toBeNull();
     expect(parsear_boton_ocr("otra:confirmar:b-1")).toBeNull();
     expect(parsear_boton_ocr("ocr:confirmar:")).toBeNull();

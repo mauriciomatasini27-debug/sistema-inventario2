@@ -381,6 +381,10 @@
       "ruta": "docs/adr/0094-correcciones-borrador-ocr-aprobadas-por-dueno.md"
     },
     {
+      "id": "ADR-0095",
+      "ruta": "docs/adr/0095-edicion-texto-borrador-ocr-dueno.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -2085,6 +2089,11 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0093",
+      "a": "ADR-0095",
+      "tipo": "modificado_por"
+    },
+    {
       "de": "ADR-0094",
       "a": "ADR-0005",
       "tipo": "depende_de"
@@ -2092,6 +2101,26 @@
     {
       "de": "ADR-0094",
       "a": "ADR-0093",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0095",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0095",
+      "a": "ADR-0093",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0095",
+      "a": "ADR-0093",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0095",
+      "a": "ADR-0094",
       "tipo": "depende_de"
     },
     {

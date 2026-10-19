@@ -46,7 +46,7 @@ El borrador puede quedar con un total corregido por el Dueño sin pasar por la w
 
 ## Pendientes
 
-Edición por texto libre (FP3.3/CS4.4). Endurecer el parser de ítems y su denylist de etiquetas. Aviso al Dueño cuando el borrador es de otro vinculado.
+Edición por texto libre de FP3.3 (resuelta en ADR-0095) y de CS4.4 (pendiente). Endurecer el parser de ítems y su denylist de etiquetas (hecho en OCR1-S5). Aviso al Dueño cuando el borrador es de otro vinculado.
 
 ## Evidencia de aceptación (2026-10-18)
 

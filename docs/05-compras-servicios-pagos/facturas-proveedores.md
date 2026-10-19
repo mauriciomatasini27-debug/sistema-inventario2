@@ -184,7 +184,7 @@ FP3.2 Cada campo tiene un nivel de confianza (alta / media / baja). Los de confi
 
 FP3.3 Mensaje de sugerencia con botones: [Confirmar] [Editar] [Descartar]. "Editar" muestra una lista con los campos (Fecha, Monto, Proveedor, N° de factura, CUIT) y el usuario corrige el que elige escribiendo el valor ("monto 164800", "fecha 8/10").
 
-> Nota 2026-10-18: la corrección por texto todavía no está construida. Lo que salió es el `interactive` de tres botones de ADR-0093: "Descartar" cierra el borrador al toque desde el bot, y "Confirmar" y "Editar" derivan a la web. La corrección escribiendo el valor queda pendiente (ADR-0093, Pendientes).
+> Nota 2026-10-19: la corrección por texto ya está construida para el Dueño (ADR-0095). Toca "Editar", el bot lista los campos, el Dueño escribe el valor ("monto 164800") y lo aprueba con OK antes de que el cambio se guarde. El Empleado sigue derivado a la web.
 
 FP3.4 Formatos argentinos: fechas dd/mm/aaaa; montos con punto de miles y coma decimal ($164.800,00). El OCR normaliza "164.800,00", "164800" y "$ 164.800" al mismo valor en centavos.
 

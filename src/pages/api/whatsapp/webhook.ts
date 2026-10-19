@@ -18,18 +18,26 @@ import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
 import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
 import {
+  cuerpo_pedir_edicion_ocr,
   es_comprobante_desde_mime,
+  mensaje_error_edicion,
   parsear_boton_ocr,
+  parsear_edicion_ocr,
+  parche_de_edicion,
   payload_borrador_ocr,
   payload_correccion_ocr,
+  payload_propuesta_edicion_ocr,
   propuesta_correccion_total,
   RESPUESTA_NO_COMPROBANTE,
   RESPUESTA_OCR_BOTON_INVALIDO,
+  RESPUESTA_OCR_CANCELADO,
   RESPUESTA_OCR_CORREGIDO,
   RESPUESTA_OCR_DESCARTADO,
   RESPUESTA_OCR_EDITAR_WEB,
   RESPUESTA_OCR_MEDIA_FALLIDA,
+  RESPUESTA_OCR_NO_ENTENDI,
   RESPUESTA_OCR_SOLO_DUENO,
+  type EdicionOcrTexto,
 } from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
 import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
@@ -45,7 +53,7 @@ import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
-import type { Borrador } from "../../../modules/purchases/facturas.js";
+import { editarBorrador, type Borrador } from "../../../modules/purchases/facturas.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -54,6 +62,7 @@ import {
   listarCatalogoVivo,
   listarMovimientosVista,
   listarPedidosDia,
+  type SesionViva,
 } from "../../../lib/repos/whatsapp.js";
 
 export const prerender = false;
@@ -142,6 +151,65 @@ function monto_texto_ar(centavos: bigint): string {
   return `${centavos / 100n},${(centavos % 100n).toString().padStart(2, "0")}`;
 }
 
+function string_de_contexto(contexto: Record<string, unknown>, clave: string): string | null {
+  const v = contexto[clave];
+  return typeof v === "string" && v !== "" ? v : null;
+}
+
+// Reconstruye la edición guardada en `ocr_editar_ok`; vuelve a pasar por
+// `parsear_edicion_ocr` para no confiar en lo que quedó en el contexto.
+function edicion_de_sesion(contexto: Record<string, unknown>): { borradorId: string; ed: EdicionOcrTexto } | null {
+  const borradorId = string_de_contexto(contexto, "borradorId");
+  const campo = string_de_contexto(contexto, "campo");
+  const valor = string_de_contexto(contexto, "valor");
+  if (!borradorId || !campo || !valor) return null;
+  const ed = parsear_edicion_ocr(`${campo} ${valor}`);
+  if (!ed) return null;
+  return { borradorId, ed };
+}
+
+// FP3.3: el Dueño escribió mientras la sesión está en `ocr_editar`. El texto
+// elige un campo, el núcleo valida y solo el OK del Dueño persiste la edición.
+async function atenderEdicionTexto(opts: {
+  remitente: string;
+  wamid: string;
+  texto: string;
+  tenantId: string;
+  sesion: SesionViva;
+  cred: CredencialesEnvio | null;
+}): Promise<Response> {
+  const borradorId = string_de_contexto(opts.sesion.contexto, "borradorId");
+  const ed = parsear_edicion_ocr(opts.texto);
+  if (!borradorId || !ed) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_NO_ENTENDI, cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_edicion_no_entendida", enviado });
+  }
+  try {
+    const ahoraMs = Date.now();
+    const r = await conTenant(opts.tenantId, async (): Promise<{ status: 404; error: string } | ReturnType<typeof editarBorrador>> => {
+      const b = await leerBorradorOcrRepo(borradorId);
+      if (!b) return { status: 404, error: "borrador inexistente" };
+      return editarBorrador(b, parche_de_edicion(ed), new Date(ahoraMs).toISOString());
+    });
+    if (r.status === 200) {
+      await guardarSesion(opts.remitente, "ocr_editar_ok", { borradorId, campo: ed.campo, valor: ed.valor }, ahoraMs, opts.tenantId);
+      const enviado = await responderPayload(
+        { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
+        payload_propuesta_edicion_ocr(ed, r.borrador),
+      );
+      return Response.json({ ok: true, accion: "ocr_edicion_propuesta", campo: ed.campo, enviado });
+    }
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: mensaje_error_edicion(r.status), cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_edicion_error", status: r.status, enviado });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_edicion_error", error: "base_no_disponible", enviado });
+    }
+    throw e;
+  }
+}
+
 async function atenderBotonOcr(opts: {
   remitente: string;
   wamid: string;
@@ -157,8 +225,28 @@ async function atenderBotonOcr(opts: {
     return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_SENSIBLE_BOT, enviado });
   }
   if (boton.accion === "editar") {
-    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_EDITAR_WEB, cred: opts.cred });
-    return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_OCR_EDITAR_WEB, enviado });
+    // FP3.3: el Dueño corrige por texto; el Empleado sigue derivado a la web.
+    if (opts.rol !== "dueno") {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_EDITAR_WEB, cred: opts.cred });
+      return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_OCR_EDITAR_WEB, enviado });
+    }
+    try {
+      const ahoraMs = Date.now();
+      const b = await conTenant(opts.tenantId, () => leerBorradorOcrRepo(boton.borradorId));
+      if (!b) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_BOTON_INVALIDO, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_editar_error", enviado });
+      }
+      await guardarSesion(opts.remitente, "ocr_editar", { borradorId: b.id }, ahoraMs, opts.tenantId);
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: cuerpo_pedir_edicion_ocr(b), cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_editar_pedido", enviado });
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_editar_error", error: "base_no_disponible", enviado });
+      }
+      throw e;
+    }
   }
   if (boton.accion === "omitir") {
     try {
@@ -221,6 +309,55 @@ async function atenderBotonOcr(opts: {
       }
       throw e;
     }
+  }
+  if (boton.accion === "aprobar") {
+    // AU10.4: la edición la aprueba el Dueño; el Empleado solo recibe el aviso.
+    if (opts.rol !== "dueno") {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SOLO_DUENO, cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_editado_error", respuesta: RESPUESTA_OCR_SOLO_DUENO, enviado });
+    }
+    try {
+      const ahoraMs = Date.now();
+      const sesion = await leerSesion(opts.remitente, ahoraMs, opts.tenantId);
+      const pendiente = sesion?.paso === "ocr_editar_ok" ? edicion_de_sesion(sesion.contexto) : null;
+      if (!pendiente) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_BOTON_INVALIDO, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_editado_error", enviado });
+      }
+      const ahoraIso = new Date(ahoraMs).toISOString();
+      const r = await conTenant(opts.tenantId, async () => {
+        const editado = await editarBorradorOcrRepo({ draftId: pendiente.borradorId, parche: parche_de_edicion(pendiente.ed), ahoraIso });
+        if (editado.status === 200) {
+          await registrarEventoOcr("ocr_editado", { borrador_id: editado.borrador.id, campo: pendiente.ed.campo });
+        }
+        return editado;
+      });
+      await guardarSesion(opts.remitente, "nada", {}, ahoraMs, opts.tenantId);
+      if (r.status !== 200) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_BOTON_INVALIDO, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_editado_error", enviado });
+      }
+      const enviado = await responderPayload(
+        { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
+        payload_borrador_ocr(r.borrador, revisa_borrador(r.borrador), ahoraIso),
+      );
+      return Response.json({ ok: true, accion: "ocr_editado", enviado });
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_editado_error", error: "base_no_disponible", enviado });
+      }
+      throw e;
+    }
+  }
+  if (boton.accion === "cancelar") {
+    if (opts.rol !== "dueno") {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SOLO_DUENO, cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_edicion_cancelada", respuesta: RESPUESTA_OCR_SOLO_DUENO, enviado });
+    }
+    await guardarSesion(opts.remitente, "nada", {}, Date.now(), opts.tenantId);
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_CANCELADO, cred: opts.cred });
+    return Response.json({ ok: true, accion: "ocr_edicion_cancelada", enviado });
   }
   try {
     const d = await conTenant(opts.tenantId, async () => {
@@ -469,7 +606,8 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: true, accion: "consulta", respuesta: RESPUESTA_NO_VINCULADO, enviado });
   }
   // OCR1-S5: el toque de un botón del borrador no es consulta. Descartar cierra
-  // inline; Confirmar y Editar se derivan a la web (AU10.4, ADR-0005).
+  // inline; Confirmar se deriva a la web y Editar abre la edición por texto del
+  // Dueño (AU10.4, ADR-0005, FP3.3).
   if (msg.boton) {
     return atenderBotonOcr({ remitente: msg.remitente, wamid: msg.wamid, botonId: msg.boton, tenantId: r.tenantId, rol: r.rol, cred });
   }
@@ -483,6 +621,21 @@ export const POST: APIRoute = async ({ request }) => {
       tenantId: r.tenantId,
       cred,
     });
+  }
+  // FP3.3: con la sesión `ocr_editar` abierta, el texto del Dueño corrige el
+  // borrador. Con otro rol la sesión se ignora y sigue el flujo normal.
+  if (r.rol === "dueno") {
+    const sesionEdicion = await leerSesion(msg.remitente, ahoraMs, r.tenantId);
+    if (sesionEdicion?.paso === "ocr_editar") {
+      return atenderEdicionTexto({
+        remitente: msg.remitente,
+        wamid: msg.wamid,
+        texto: msg.texto,
+        tenantId: r.tenantId,
+        sesion: sesionEdicion,
+        cred,
+      });
+    }
   }
   // DASH-S3 (ADR-0034): consulta del bot registrada best-effort. Un fallo de
   // DB nunca rompe el 200 ni cambia la respuesta; VINCULAR/BAJA/ALTA y los no

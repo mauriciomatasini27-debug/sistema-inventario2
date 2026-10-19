@@ -257,7 +257,7 @@ CS4.3 Cada campo tiene confianza (alta / media / baja); los de confianza media s
 
 CS4.4 Mensaje de sugerencia por WhatsApp con botones: [Confirmar] [Editar] [Descartar] (máximo 3 botones [fuente: Meta]). "Editar" abre una lista con los campos (Tipo, Proveedor, Monto, Emisión, Vencimiento, N° de cuenta) y el dueño corrige escribiendo el valor ("monto 48500", "vence 22/10").
 
-> Nota 2026-10-18: igual que FP3.3, la corrección por texto todavía no está construida. Lo que salió es el `interactive` de tres botones de ADR-0093: "Descartar" cierra el borrador al toque desde el bot, y "Confirmar" y "Editar" derivan a la web. La corrección escribiendo el valor queda pendiente (ADR-0093, Pendientes).
+> Nota 2026-10-19: la corrección por texto de servicios todavía no está construida. Falta el camino que crea el borrador de servicio desde Gmail y lo ofrece el bot. En facturas de proveedor sí existe, para el Dueño (ADR-0095).
 
 CS4.5 Después de confirmar los datos, el bot pregunta el estado de pago: [Ya la pagué] [Pendiente] [Orden de pago] (ver CS5 y CS6). Si la cuenta está marcada como débito automático (CS8), propone registrarla como pagada en la fecha de vencimiento con el medio habitual.
 
