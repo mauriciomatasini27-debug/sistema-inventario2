@@ -7,15 +7,15 @@ depende_de: [ADR-0012]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Bot único con módulos por rubro, resumen mensual y acciones propuestas. BOT-S1 a S4 y S7 (resumen mensual WA +
-  email) hechos 2026-10-16; fábrica y logística detrás del flag BOT_RUBROS_AVANZADOS. Pendiente BOT-S8
-  (acciones).
+  Bot único con módulos por rubro, resumen mensual y acciones propuestas. BOT-S1 a S4, S7 (resumen mensual WA +
+  email) y S8 (acciones propuestas con botón) hechos; fábrica y logística detrás del flag BOT_RUBROS_AVANZADOS.
+  Pendientes BOT-S5/S6 (por migración), la plantilla Meta `resumen_mensual` y el cron del día 1.
 ---
 # PRD-BOT-01 - Bot único con módulos por rubro + resumen mensual
 
 Fuente: `07-canales-whatsapp-email/bot-whatsapp-parte-*.md` (B1-B15), ADR-0012, `src/modules/whatsapp/*`. Gap: el bot asume rubro quiosco; sin resumen mensual; sin acciones propuestas por rubro.
 
-> Estado al 2026-10-16: en curso. BOT-S1 a BOT-S4 hechos (módulos por rubro DB-first, router por módulo, quiosco y pyme) y BOT-S7 hecho (resumen mensual WA + email, `POST /api/jobs/resumen-mensual`); fábrica y logística detrás de `BOT_RUBROS_AVANZADOS`; pendiente BOT-S8.
+> Estado al 2026-10-19: en curso. BOT-S1 a BOT-S4 hechos (módulos por rubro DB-first, router por módulo, quiosco y pyme), BOT-S7 hecho (resumen mensual WA + email, `POST /api/jobs/resumen-mensual`) y BOT-S8 hecho (acciones propuestas con botón, `src/modules/bot/acciones-propuestas.ts`); fábrica y logística detrás de `BOT_RUBROS_AVANZADOS`; pendientes BOT-S5/S6, la plantilla Meta `resumen_mensual` y el cron del día 1.
 
 ## Épica BOT-E1. Rubro y módulos (reusa B1 vinculación)
 
@@ -32,7 +32,7 @@ Fuente: `07-canales-whatsapp-email/bot-whatsapp-parte-*.md` (B1-B15), ADR-0012, 
 ## Épica BOT-E3. Resumen mensual + acciones
 
 - BOT-S7. Job mensual día 1 09:00 TZ del tenant, WA + email (mismo snapshot, idempotente por `tenant+mes+canal`). AC: Given mes cerrado When corre Then 1 resumen por canal con opt-in; reintento no duplica. Depende de: BOT-S1.
-- BOT-S8. Acciones propuestas (máx 3, deterministas, sin IA en P1) con botón. AC: Given acción `reponer X` When toca Then crea borrador (nunca ejecuta pago ni pedido solo). Depende de: BOT-S7.
+- BOT-S8. Acciones propuestas (máx 3, deterministas, sin IA en P1) con botón. AC: Given acción `reponer X` When toca Then crea borrador (nunca ejecuta pago ni pedido solo). Depende de: BOT-S7. Hecho 2026-10-19.
 
 ## Estrategia prueba
 

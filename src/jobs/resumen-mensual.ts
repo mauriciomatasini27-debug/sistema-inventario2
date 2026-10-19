@@ -8,6 +8,12 @@ import { deudores_a_cobrar, type ClientePyme, type PagoPyme } from "./bot-pyme.j
 import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
 import { puede_enviar_email, type PreferenciasEmail } from "../modules/email/proveedor.js";
 import type { ModuloBot } from "../modules/bot/modulos-rubro.js";
+import {
+  calcular_acciones_propuestas,
+  texto_acciones_sugeridas,
+  type AccionPropuesta,
+  type ProductoAccion,
+} from "../modules/bot/acciones-propuestas.js";
 
 export const ZONA_DEFECTO = "America/Argentina/Buenos_Aires";
 export const HORA_RESUMEN_MENSUAL = 9;
@@ -39,6 +45,9 @@ export interface ComercioResumen {
   readonly nombreComercio: string;
   readonly modulos: ReadonlyArray<ModuloBot>;
   readonly movimientos: ReadonlyArray<MovimientoResumen>;
+  // BOT-S8: productos con stock vivo para proponer reposición (opcional para
+  // no romper a los llamadores que solo arman caja/cobranza).
+  readonly productos?: ReadonlyArray<ProductoAccion> | undefined;
   readonly clientes: ReadonlyArray<ClientePyme>;
   readonly pagos: ReadonlyArray<PagoPyme>;
   readonly prefsWa: Preferencias;
@@ -52,6 +61,9 @@ export interface SnapshotMensual {
   readonly egresosCentavos: bigint;
   readonly resultadoCentavos: bigint;
   readonly ventas: number;
+  // BOT-S8: acciones deterministas que viajan al adaptador de WhatsApp como
+  // botones y al texto compartido por ambos canales.
+  readonly acciones: ReadonlyArray<AccionPropuesta>;
   readonly texto: string;
 }
 
@@ -80,7 +92,14 @@ export interface ResultadoResumenMensual {
 }
 
 export interface EnviarWaResumen {
-  (tenantId: string, payload: { readonly texto: string; readonly clave: string }): Promise<EnvioWaResumen>;
+  (
+    tenantId: string,
+    payload: {
+      readonly texto: string;
+      readonly clave: string;
+      readonly acciones?: ReadonlyArray<AccionPropuesta> | undefined;
+    },
+  ): Promise<EnvioWaResumen>;
 }
 
 export interface EncolarEmailResumen {
@@ -204,7 +223,23 @@ export function armar_snapshot_mensual(c: ComercioResumen, mes: string, zona: st
     lineas.push(`- Pagos pendientes en ${siguiente}: ${formatear_pesos(total)} (${cantidad})`);
   }
 
-  return { mes, ingresosCentavos: ingresos, egresosCentavos: egresos, resultadoCentavos: resultado, ventas, texto: lineas.join("\n") };
+  const acciones = calcular_acciones_propuestas({
+    modulos: c.modulos,
+    productos: c.productos ?? [],
+    clientes: c.clientes,
+  });
+  const bloqueAcciones = texto_acciones_sugeridas(acciones);
+  if (bloqueAcciones !== "") lineas.push(...bloqueAcciones.split("\n"));
+
+  return {
+    mes,
+    ingresosCentavos: ingresos,
+    egresosCentavos: egresos,
+    resultadoCentavos: resultado,
+    ventas,
+    acciones,
+    texto: lineas.join("\n"),
+  };
 }
 
 // Corridas WA ya registradas en este proceso (idempotencia en memoria, igual
@@ -234,11 +269,16 @@ export async function ejecutar_resumen_mensual(args: {
     error: null,
   });
 
-  const correrWa = async (c: ComercioResumen, clave: string, texto: string): Promise<CanalResumenMensual> => {
+  const correrWa = async (
+    c: ComercioResumen,
+    clave: string,
+    texto: string,
+    acciones: ReadonlyArray<AccionPropuesta>,
+  ): Promise<CanalResumenMensual> => {
     if (corridas.has(clave) || args.yaEnviadosWa?.has(clave) === true) return canalTestigo("wa", clave, "omitido_ya_enviado");
     if (!puede_enviar_whatsapp(c.prefsWa, args.ahoraMs)) return canalTestigo("wa", clave, "omitido_optout");
     try {
-      const r = await args.enviarWa(c.tenantId, { texto, clave });
+      const r = await args.enviarWa(c.tenantId, { texto, clave, acciones });
       if (!r.ok) return { canal: "wa", clave, estado: "fallo", error: r.error ?? "fallo_envio" };
       corridas.add(clave);
       return canalTestigo("wa", clave, "enviado");
@@ -289,9 +329,12 @@ export async function ejecutar_resumen_mensual(args: {
       continue;
     }
     // Snapshot y texto UNA vez; los dos canales usan exactamente el mismo.
-    const { texto } = armar_snapshot_mensual(c, mes, args.zona);
-    const canales = [await correrWa(c, claveWa, texto), await correrEmail(c, claveEmail, texto)];
-    resultados.push({ tenantId: c.tenantId, mes, texto, canales });
+    const snapshot = armar_snapshot_mensual(c, mes, args.zona);
+    const canales = [
+      await correrWa(c, claveWa, snapshot.texto, snapshot.acciones),
+      await correrEmail(c, claveEmail, snapshot.texto),
+    ];
+    resultados.push({ tenantId: c.tenantId, mes, texto: snapshot.texto, canales });
   }
 
   return { resultados: Object.freeze(resultados) };

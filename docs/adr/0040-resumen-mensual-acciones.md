@@ -32,4 +32,4 @@ Acciones automáticas sin confirmar: se descarta por riesgo sobre caja/pagos y L
 
 ## Pendientes
 
-BOT-S7 hecho 2026-10-16 (`src/jobs/resumen-mensual.ts`, `POST /api/jobs/resumen-mensual`, test de idempotencia por canal; sin migración). Pendientes: BOT-S8, aprobación de la plantilla Meta `resumen_mensual`, cron que llame al job el día 1 desde las 09:00 y zona horaria por tenant (hoy America/Argentina/Buenos_Aires).
+BOT-S7 hecho 2026-10-16 (`src/jobs/resumen-mensual.ts`, `POST /api/jobs/resumen-mensual`, test de idempotencia por canal; sin migración). BOT-S8 hecho 2026-10-19 (`src/modules/bot/acciones-propuestas.ts` con hasta 3 acciones deterministas, sección `Acciones sugeridas` en el snapshot, botones `acc:` por WhatsApp y despacho en el webhook; `reponer` deja OC abierta, `cobrar` devuelve el recordatorio + `wa.me`; sin migración). Pendientes: BOT-S5/S6 (por migración), aprobación de la plantilla Meta `resumen_mensual`, cron que llame al job el día 1 desde las 09:00 y zona horaria por tenant (hoy America/Argentina/Buenos_Aires).

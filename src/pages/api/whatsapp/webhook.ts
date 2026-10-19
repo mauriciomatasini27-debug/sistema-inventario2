@@ -51,6 +51,12 @@ import { descartarBorradorOcrRepo, editarBorradorOcrRepo, leerBorradorOcrRepo } 
 import { registrarEventoOcr } from "../../../lib/repos/ocr.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
+import { MENSAJE_MODULO_APAGADO } from "../../../modules/bot/modulos-rubro.js";
+import { cantidad_reponer, parsear_boton_accion, type TipoAccionPropuesta } from "../../../modules/bot/acciones-propuestas.js";
+import { crearOrdenRepo } from "../../../lib/repos/proveedores.js";
+import { listarClientesConSaldo } from "../../../lib/repos/fiado.js";
+import { texto_recordatorio } from "../../../jobs/bot-pyme.js";
+import { link_whatsapp } from "../../../modules/credit/fiado.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
@@ -156,6 +162,15 @@ async function responderPayload(
 }
 
 const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
+
+// BOT-S8: botón de una acción del resumen mensual.
+const RESPUESTA_ACCION_INVALIDA = "Ese botón ya no está disponible." as const;
+const RESPUESTA_ACCION_SOLO_DUENO = "Solo el Dueño puede armar pedidos." as const;
+
+const MODULO_DE_ACCION: Record<TipoAccionPropuesta, "rotacion" | "cobranza"> = {
+  reponer: "rotacion",
+  cobrar: "cobranza",
+};
 
 function revisa_borrador(b: Borrador): boolean {
   return b.confianza.cuit !== "alta" || b.confianza.fecha !== "alta" || b.confianza.total !== "alta";
@@ -394,6 +409,133 @@ async function atenderBotonOcr(opts: {
     }
     throw e;
   }
+}
+
+// BOT-S8: el toque de una acción propuesta (ADR-0040). El bot prepara, el
+// comerciante confirma: reponer deja un borrador de OC abierto (nunca lo
+// confirma ni le escribe al proveedor) y cobrar devuelve el texto de
+// recordatorio + link wa.me para que lo mande el Dueño (nunca al cliente).
+async function atenderBotonAccion(opts: {
+  remitente: string;
+  wamid: string;
+  botonId: string;
+  tenantId: string;
+  googleSub: string;
+  rol: "dueno" | "empleado";
+  soloLectura: boolean;
+  cred: CredencialesEnvio | null;
+}): Promise<Response> {
+  const invalida = async (): Promise<Response> => {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_ACCION_INVALIDA, cred: opts.cred });
+    return Response.json({ ok: true, accion: "accion_invalida", enviado });
+  };
+  const boton = parsear_boton_accion(opts.botonId);
+  if (!boton) return invalida();
+  const modulo = MODULO_DE_ACCION[boton.tipo];
+  const modulos = await leerModulosBot(opts.tenantId);
+  if (!modulos.includes(modulo)) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: MENSAJE_MODULO_APAGADO, cred: opts.cred });
+    return Response.json({ ok: true, accion: "accion_modulo_apagado", modulo, enviado });
+  }
+  // B1.7: armar un pedido es del Dueño (y nunca de un comercio suspendido).
+  if (opts.rol !== "dueno" || opts.soloLectura) {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_ACCION_SOLO_DUENO, cred: opts.cred });
+    return Response.json({ ok: true, accion: "accion_sin_permiso", enviado });
+  }
+  try {
+    if (boton.tipo === "reponer") return await atenderAccionReponer(opts, boton.ref);
+    return await atenderAccionCobrar(opts, boton.ref);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+      return Response.json({ ok: true, accion: "accion_error", error: "base_no_disponible", enviado });
+    }
+    throw e;
+  }
+}
+
+// Reponer X: crea (o reusa en el mismo mes, clave proveedor+sku+mes AR) un
+// borrador de OC abierta con la cantidad sugerida del catálogo vivo. Nunca la
+// confirma ni le escribe al proveedor: la confirmación vive en la web (AU10.4).
+// Por qué el proveedor único: products no tiene proveedor; con 0 o más de un
+// proveedor activo el bot no adivina y deriva al panel.
+async function atenderAccionReponer(
+  opts: { remitente: string; wamid: string; tenantId: string; googleSub: string; cred: CredencialesEnvio | null },
+  ref: string,
+): Promise<Response> {
+  const contestar = async (texto: string, cuerpo: Record<string, unknown>): Promise<Response> => {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto, cred: opts.cred });
+    return Response.json({ ok: true, ...cuerpo, enviado });
+  };
+  const item = (await listarCatalogoVivo(opts.tenantId)).find((c) => c.sku === ref);
+  if (!item) return contestar(RESPUESTA_ACCION_INVALIDA, { accion: "accion_invalida" });
+  const { proveedores } = await conTenant(opts.tenantId, () => listarProveedores());
+  const activos = proveedores.filter((p) => p.activo);
+  const porNombre = item.proveedor ? activos.find((p) => p.nombre === item.proveedor || p.cuit === item.proveedor) : undefined;
+  const proveedor = porNombre ?? (activos.length === 1 ? activos[0] : undefined);
+  if (!proveedor) {
+    return contestar(`No sé a qué proveedor pedirle ${item.nombre}. Armá el pedido desde el panel de proveedores.`, {
+      accion: "accion_sin_proveedor",
+    });
+  }
+  const qty = cantidad_reponer({ sku: item.sku, nombre: item.nombre, stock: item.stock, umbral: item.umbral, reorderQty: item.reorderQty ?? null });
+  const bruto = item.costoCentavos != null && item.costoCentavos > 0n ? item.costoCentavos : item.precioCentavos > 0n ? item.precioCentavos : 1n;
+  const costo = bruto > 999_999_999n ? 999_999_999n : bruto;
+  const ahora = Date.now();
+  const mes = mesAR(ahora);
+  const r = await conTenant(opts.tenantId, () =>
+    crearOrdenRepo({
+      key: `bot-accion:reponer:${proveedor.cuit}:${item.sku}:${mes}`,
+      supplierCuit: proveedor.cuit,
+      lineas: [{ sku: item.sku, qty, costoCentavos: costo }],
+      creadoPor: opts.googleSub,
+      ahoraIso: new Date(ahora).toISOString(),
+    }),
+  );
+  if (!r.ok && r.codigo !== "DUPLICADA") return contestar(RESPUESTA_ACCION_INVALIDA, { accion: "accion_invalida" });
+  if (!r.ok) {
+    return contestar(
+      `Ya tenías el borrador de pedido de ${item.nombre} a ${proveedor.nombre} de este mes. Revisalo y confirmalo desde el panel de proveedores.`,
+      { accion: "accion_reponer_borrador", reusado: true, order_id: null },
+    );
+  }
+  return contestar(
+    `Armé un borrador de pedido a ${proveedor.nombre}: ${item.nombre} x ${qty} (quedan ${item.stock}). No se envió nada: revisalo y confirmalo desde el panel de proveedores.`,
+    { accion: "accion_reponer_borrador", reusado: false, order_id: r.orderId },
+  );
+}
+
+// Mes calendario en Argentina (AAAA-MM): acota la reutilización del borrador
+// al mes del resumen que trajo el botón.
+function mesAR(ms: number): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit" }).format(new Date(ms)).slice(0, 7);
+}
+
+// Cobrar X: devuelve al Dueño el recordatorio y el link wa.me del cliente. El
+// bot nunca le escribe al cliente.
+async function atenderAccionCobrar(
+  opts: { remitente: string; wamid: string; tenantId: string; cred: CredencialesEnvio | null },
+  ref: string,
+): Promise<Response> {
+  const invalida = async (): Promise<Response> => {
+    const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_ACCION_INVALIDA, cred: opts.cred });
+    return Response.json({ ok: true, accion: "accion_invalida", enviado });
+  };
+  const { clientes } = await conTenant(opts.tenantId, () => listarClientesConSaldo(Date.now()));
+  const cliente = clientes.find((c) => c.id === ref);
+  if (!cliente || cliente.saldoCentavos <= 0n) return invalida();
+  const comercio = control.tenants.get(opts.tenantId)?.nombreComercio ?? "tu comercio";
+  const recordatorio = texto_recordatorio(cliente.nombre, comercio, cliente.saldoCentavos);
+  const wa = cliente.telefono === null ? null : link_whatsapp(cliente.telefono, recordatorio);
+  const link = wa !== null && wa.ok ? wa.url : null;
+  const cola = link !== null ? `Mandalo desde acá: ${link}` : `Sin teléfono cargado para ${cliente.nombre}.`;
+  const enviado = await responder({
+    toE164: opts.remitente,
+    wamidEntrante: opts.wamid,
+    texto: `Recordatorio para ${cliente.nombre}:\n${recordatorio}\n${cola}`,
+    cred: opts.cred,
+  });
+  return Response.json({ ok: true, accion: "accion_cobrar_recordatorio", enviado });
 }
 
 // OCR1-S5: foto o PDF por WhatsApp abre un borrador con confianza por campo y
@@ -792,6 +934,19 @@ export const POST: APIRoute = async ({ request }) => {
   // inline; Confirmar se deriva a la web y Editar abre la edición por texto del
   // Dueño (AU10.4, ADR-0005, FP3.3).
   if (msg.boton) {
+    // BOT-S8: un botón `acc:` se despacha antes del flujo OCR.
+    if (parsear_boton_accion(msg.boton)) {
+      return atenderBotonAccion({
+        remitente: msg.remitente,
+        wamid: msg.wamid,
+        botonId: msg.boton,
+        tenantId: r.tenantId,
+        googleSub: r.googleSub,
+        rol: r.rol,
+        soloLectura: r.soloLectura,
+        cred,
+      });
+    }
     return atenderBotonOcr({ remitente: msg.remitente, wamid: msg.wamid, botonId: msg.boton, tenantId: r.tenantId, rol: r.rol, cred });
   }
   // OCR1-S5: el adjunto no es una consulta del bot; abre el borrador del
