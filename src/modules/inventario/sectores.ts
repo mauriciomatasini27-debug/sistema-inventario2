@@ -7,7 +7,7 @@
 import type { MovimientoStock, Sku } from "./inventario.js";
 
 export const SECTOR_DEFECTO = "general" as const;
-const SECTOR_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+export const SECTOR_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
 export function normalizarSector(raw: string | null | undefined): string {
   const s = (raw ?? "").trim().toLowerCase();

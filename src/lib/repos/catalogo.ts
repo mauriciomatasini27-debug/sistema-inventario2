@@ -3,6 +3,7 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
+import { normalizarSector } from "../../modules/inventario/sectores.js";
 import {
   crearAlmacenCodigos,
   crearAlmacenFotosProducto,
@@ -17,11 +18,7 @@ import {
   type UbicacionCatalogo,
 } from "./_almacen.js";
 
-// PERS2-S23 (ADR-0062): catalogo (productos, codigos, fotos, sectores,
-// ubicaciones). DB primero via dbVivaTenant(); solo en single sin base usa la
-// memoria particionada. En multi sin base dbVivaTenant lanza
-// BaseNoDisponible y se propaga (la ruta responde 503). Los sectores quedan
-// en el mapa de sectores en memoria, sin columna propia en la DB local.
+// PERS2-S23 (ADR-0062): catálogo DB-first, memoria solo en single sin base.
 
 export type FichaProducto = FichaCatalogo;
 export type Ubicacion = UbicacionCatalogo;
@@ -61,13 +58,6 @@ function fichaDeFila(
   };
 }
 
-function sectorDe(sku: string, sectores: AlmacenVivo<string>): string {
-  return sectores.obtener(sku) ?? "general";
-}
-
-// Por qué defensivo: una base de tenant sin la migración 0021 no tiene la
-// columna location_id (mismo drift conocido que sector); en ese caso la
-// ubicación queda solo en el espejo en memoria en vez de romper la lectura.
 function esColumnaLocationFaltante(e: unknown): boolean {
   if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
   const msg = e instanceof Error ? e.message : String(e);
@@ -187,7 +177,6 @@ async function presentarDb(db: TenantDb, fichas: FichaProducto[]): Promise<Ficha
 export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: FichaListado; fuente: "db" | "memoria" } | null> {
   const productos = crearAlmacenProductos();
   const codigos = crearAlmacenCodigos();
-  const sectores = crearAlmacenSectores();
   const cod = codigo.trim().toUpperCase();
   const enMemoria = codigos.obtener(cod);
   const memoria = enMemoria ? (productos.obtener(enMemoria) ?? null) : null;
@@ -198,7 +187,7 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     const fila = filas[0];
     if (!fila) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
     const prods = await db
-      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
+      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
       .from(products)
       .where(eq(products.sku, fila.sku))
       .limit(1);
@@ -214,7 +203,7 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     // escritura más reciente del proceso; la DB rellena lo sin espejo.
     const umDb = enMem ? null : (await umbralesDb(db, [p.sku])).get(p.sku) ?? null;
     const ficha: FichaProducto = {
-      ...fichaDeFila(p, sectorDe(p.sku, sectores), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb),
+      ...fichaDeFila(p, enMem?.sector ?? normalizarSector(p.sector), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb),
       estado: enMem?.estado ?? "activo",
     };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
@@ -227,7 +216,6 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
 
 export async function listarProductos(q: string): Promise<{ fichas: FichaListado[]; fuente: "db" | "memoria" }> {
   const productos = crearAlmacenProductos();
-  const sectores = crearAlmacenSectores();
   const existencias = crearAlmacenStock();
   const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
@@ -239,10 +227,8 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       fuente: "memoria",
     };
   try {
-    // La DB local puede no tener la columna sector (drift conocido): se
-    // leen solo las columnas que existen y el sector queda en memoria.
     const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
+      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
       .from(products);
     const union = new Map<string, FichaProducto>();
     for (const p of productos.comoMapaSoloLectura().values()) union.set(p.sku, p);
@@ -255,7 +241,7 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       filas.map((f) => f.sku),
     );
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, sectorDe(f.sku, sectores), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null));
+      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, normalizarSector(f.sector), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null));
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
@@ -326,7 +312,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     sku,
     nombre: input.nombre,
     precioCentavos: input.precioCentavos,
-    sector: input.sector,
+    sector: normalizarSector(input.sector),
     locationId: input.locationId ?? null,
     archivado: false,
     controlaVencimiento: input.controlaVencimiento,
@@ -347,7 +333,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
       if (previoCod[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
     }
     await db.execute(
-      sql`insert into products (sku, nombre, precio_centavos, stock_actual) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0) on conflict do nothing`,
+      sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}) on conflict do nothing`,
     );
     if (cod) {
       await db.insert(productCodes).values({ codigo: cod, sku, padre: null }).onConflictDoNothing();
@@ -426,17 +412,21 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   }
   try {
     const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
+      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
       .from(products)
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
+    const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
       .update(products)
-      .set({ nombre: next.nombre, precioCentavos: BigInt(next.precioCentavos) })
+      .set({
+        nombre: next.nombre,
+        precioCentavos: BigInt(next.precioCentavos),
+        ...(parche.sector !== undefined ? { sector: next.sector } : {}),
+      })
       .where(eq(products.sku, sku));
     if (parche.locationId !== undefined) await fijarLocationDb(db, sku, parche.locationId);
     // Por qué separado: fijarUmbralesDb tolera bases sin la 0027 igual
@@ -463,7 +453,7 @@ function aplicarParche(
     ...p,
     ...(parche.nombre ? { nombre: parche.nombre } : {}),
     ...(parche.precioCentavos !== undefined ? { precioCentavos: parche.precioCentavos } : {}),
-    ...(parche.sector ? { sector: parche.sector } : {}),
+    ...(parche.sector !== undefined ? { sector: normalizarSector(parche.sector) } : {}),
     ...(parche.locationId !== undefined ? { locationId: parche.locationId } : {}),
     ...(parche.archivado !== undefined ? { archivado: parche.archivado } : {}),
     ...(parche.minStock !== undefined ? { minStock: parche.minStock } : {}),
@@ -471,7 +461,7 @@ function aplicarParche(
   };
   productos.guardar(p.sku, next);
   if (parche.precioCentavos !== undefined) precios.guardar(p.sku, parche.precioCentavos);
-  if (parche.sector) sectores.guardar(p.sku, parche.sector);
+  if (parche.sector !== undefined) sectores.guardar(p.sku, next.sector);
   return next;
 }
 
@@ -565,7 +555,7 @@ export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Prom
       let base: FichaProducto | null = enMemoria ?? null;
       if (!base && db) {
         const filas = await db
-          .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos })
+          .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
           .from(products)
           .where(eq(products.sku, sku))
           .limit(1);
@@ -574,8 +564,7 @@ export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Prom
           no_encontrados.push(sku);
           continue;
         }
-        const sectores = crearAlmacenSectores();
-        base = fichaDeFila(fila, sectorDe(fila.sku, sectores), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null);
+        base = fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null);
       }
       if (!base) {
         no_encontrados.push(sku);

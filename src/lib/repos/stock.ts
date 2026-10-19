@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { products, stockCounts, stockCountLines, stockMovements } from "../../db/schema.js";
-import { dbVivaTenant } from "../server-db.js";
+import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenConteoVistos,
   crearAlmacenSectores,
@@ -14,7 +14,7 @@ import {
   type ListaAlmacen,
   type StoredStockMovement,
 } from "./_almacen.js";
-import { conteo_por_sector, type LineaFisica } from "../../modules/inventario/sectores.js";
+import { conteo_por_sector, normalizarSector, type LineaFisica } from "../../modules/inventario/sectores.js";
 
 // PERS2-S23 (ADR-0062): stock, movimientos y conteos. Los movimientos de
 // stock se escriben solo por este modulo. DB primero via dbVivaTenant();
@@ -26,6 +26,17 @@ function esChoqueIdemKey(e: unknown): boolean {
   if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "23505") return true;
   const msg = e instanceof Error ? e.message : String(e);
   return msg.includes("stock_counts_idem_key_unique");
+}
+
+async function sectoresDeDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  if (skus.length === 0) return mapa;
+  const filas = await db
+    .select({ sku: products.sku, sector: products.sector })
+    .from(products)
+    .where(inArray(products.sku, [...skus]));
+  for (const f of filas) mapa.set(f.sku, normalizarSector(f.sector));
+  return mapa;
 }
 
 type DiferenciaConteo = { sku: string; teorico: number; fisico: number; diferencia: number };
@@ -304,10 +315,20 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
   const sectores = crearAlmacenSectores();
   const visto = vistos.obtener(input.key);
   if (visto !== undefined) return { ok: false, codigo: "DUPLICADO", conteoId: visto };
+  const db = dbVivaTenant();
+  const sectorDe = new Map(sectores.mapaVivo());
+  if (db) {
+    try {
+      const deDb = await sectoresDeDb(db, input.fisico.map((l) => l.sku));
+      for (const [sku, sector] of deDb) sectorDe.set(sku, sector);
+    } catch (e) {
+      conteos.anteFalloPersistencia(e);
+    }
+  }
   const r = conteo_por_sector(
     input.motivo === undefined
-      ? { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe: sectores.mapaVivo(), sector: input.sector, idemKey: input.key }
-      : { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe: sectores.mapaVivo(), sector: input.sector, idemKey: input.key, motivo: input.motivo },
+      ? { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe, sector: input.sector, idemKey: input.key }
+      : { teorico: existencias.mapaVivo(), fisico: [...input.fisico], sectorDe, sector: input.sector, idemKey: input.key, motivo: input.motivo },
   );
   if (!r.ok) return { ok: false, codigo: r.codigo, error: r.codigo };
   const diferencias: DiferenciaConteo[] = r.valor.diferencias.map((d) => ({
@@ -316,7 +337,6 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     fisico: d.fisico,
     diferencia: d.diferencia,
   }));
-  const db = dbVivaTenant();
   if (db) {
     try {
       const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
