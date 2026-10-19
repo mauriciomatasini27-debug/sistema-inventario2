@@ -4,7 +4,7 @@
 // sin credenciales el envío falla (se registra) pero el job no revienta.
 
 import { control, store } from "../lib/store.js";
-import { construir_texto } from "../modules/whatsapp/envio.js";
+import { construir_texto, type PayloadEnvio } from "../modules/whatsapp/envio.js";
 import { enviar_whatsapp } from "../modules/whatsapp/cliente-cloud.js";
 import type { Preferencias } from "../modules/whatsapp/optin.js";
 
@@ -51,9 +51,15 @@ export function cred_wa(): { readonly phoneNumberId: string; readonly token: str
 // Envía texto libre por Cloud API. Nunca lanza: false si no hay
 // credenciales o el envío falla (el job lo registra por canal).
 export async function enviar_texto_wa(toE164: string, texto: string): Promise<boolean> {
+  return enviar_payload_wa(toE164, construir_texto(texto));
+}
+
+// BOT-S8: mismo envío, con payload interactivo (botones de acciones). Nunca
+// lanza: false si no hay credenciales o el envío falla.
+export async function enviar_payload_wa(toE164: string, payload: PayloadEnvio): Promise<boolean> {
   const c = cred_wa();
   if (!c) return false;
-  const r = await enviar_whatsapp({ ...c, toE164, payload: construir_texto(texto) });
+  const r = await enviar_whatsapp({ ...c, toE164, payload });
   return r.ok;
 }
 

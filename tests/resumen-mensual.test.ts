@@ -159,7 +159,9 @@ describe("BOT-S7 snapshot mensual", () => {
         "- Resultado: $ 70.000,00\n" +
         "- Ventas registradas: 2\n" +
         "Cobranza:\n" +
-        "- Fiado a cobrar: $ 15.000,00 (2 deudores)",
+        "- Fiado a cobrar: $ 15.000,00 (2 deudores)\n" +
+        "Acciones sugeridas:\n" +
+        "- Cobrar a Ana: $ 12.000,00.",
     );
   });
 

@@ -3,14 +3,18 @@ import { correrJob } from "../../../lib/jobs-tenant.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { listarClientesConSaldo } from "../../../lib/repos/fiado.js";
 import { listarMovimientosConFecha, listarVencimientos } from "../../../lib/repos/caja.js";
-import { marcarWaEnviado, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
+import { listarCatalogoVivo, marcarWaEnviado, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
 import { encolarEnvio } from "../../../lib/repos/email.js";
 import { control } from "../../../lib/store.js";
 import { ZONA_DEFECTO, ejecutar_resumen_mensual, en_ventana_mensual, mes_cerrado } from "../../../jobs/resumen-mensual.js";
 import type { PagoPyme } from "../../../jobs/bot-pyme.js";
-import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
+import { acciones_a_botones } from "../../../modules/bot/acciones-propuestas.js";
+import { construir_botones, construir_texto } from "../../../modules/whatsapp/envio.js";
+import { cred_wa, enviar_payload_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
+
+const MAX_CUERPO_INTERACTIVO = 1024;
 
 // POST /api/jobs/resumen-mensual — BOT-S7: el día 1 a las 09:00 de la zona
 // del tenant, WhatsApp + email con el MISMO snapshot del mes cerrado. El
@@ -42,6 +46,15 @@ export const POST: APIRoute = async ({ request }) => {
     }
     const modulos = await leerModulosBot(tenantId);
     const movimientos = await listarMovimientosConFecha();
+    const catalogo = modulos.includes("rotacion") ? await listarCatalogoVivo(tenantId) : [];
+    const productos = catalogo.map((p) => ({
+      sku: p.sku,
+      nombre: p.nombre,
+      stock: p.stock,
+      umbral: p.umbral,
+      ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
+      proveedor: p.proveedor ?? null,
+    }));
     const clientes = modulos.includes("cobranza") ? (await listarClientesConSaldo(ahoraMs)).clientes : [];
     const pagos: PagoPyme[] = modulos.includes("flujo_caja")
       ? (await listarVencimientos())
@@ -60,6 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
           nombreComercio: comercio.nombreComercio,
           modulos,
           movimientos,
+          productos,
           clientes,
           pagos,
           prefsWa: comercio.prefs,
@@ -72,7 +86,14 @@ export const POST: APIRoute = async ({ request }) => {
       yaEnviadosWa: waEnviadosVivos(),
       enviarWa: async (_id, payload) => {
         if (!hayCred) return { ok: false, error: "sin_credenciales" };
-        const ok = await enviar_texto_wa(comercio.numero, payload.texto);
+        // Por qué el tope: Meta acepta hasta 1.024 caracteres en el cuerpo de
+        // un interactivo; un resumen más largo sale como texto, sin botones.
+        const acciones = payload.acciones ?? [];
+        const salida =
+          acciones.length > 0 && payload.texto.length <= MAX_CUERPO_INTERACTIVO
+            ? construir_botones(payload.texto, acciones_a_botones(acciones))
+            : construir_texto(payload.texto);
+        const ok = await enviar_payload_wa(comercio.numero, salida);
         return ok ? { ok: true } : { ok: false, error: "fallo_envio" };
       },
       encolarEmail: async (_id, payload) => {
