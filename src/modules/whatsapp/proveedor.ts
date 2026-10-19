@@ -8,6 +8,11 @@ import { normalizarCuit } from "../purchases/proveedores.js";
 export const INVITAR_TTL_MIN = 30 as const;
 export const INVITAR_LEN = 6 as const;
 
+// PROV-E4 (S11): cupo por número, 20 mensajes por ventana móvil de 60 min.
+// Default ajustable, pendiente de que Mauri fije el valor definitivo.
+export const CUPO_PROV_MENSAJES = 20 as const;
+export const CUPO_PROV_VENTANA_MIN = 60 as const;
+
 export type EstadoContactoProveedor = "pendiente" | "verificado" | "revocado";
 
 export interface ContactoProveedor {
@@ -38,6 +43,34 @@ export const RESPUESTA_PROV_FACTURA = "Mandame la foto o el PDF de la factura." 
 export const RESPUESTA_PROV_FACTURA_RECIBIDA = "Recibí la factura. El comercio la revisa y la confirma." as const;
 export const RESPUESTA_PROV_CODIGO_INVALIDO =
   "No pude validar el código de invitación. Pedí uno nuevo en el comercio e intentá otra vez." as const;
+export const RESPUESTA_PROV_CUPO =
+  "Recibí muchos mensajes seguidos de este número. Esperá un rato y volvé a mandar la factura." as const;
+
+export interface ResultadoCupoProveedor {
+  readonly permitido: boolean;
+  /** Marcas vigentes; incluye la nueva solo cuando se permite el mensaje. */
+  readonly marcasMs: readonly number[];
+  /** Instante en que se libera un lugar, o null cuando no hay corte. */
+  readonly reponeEnMs: number | null;
+}
+
+// Ventana móvil por número. Las marcas viejas no cuentan y los mensajes
+// rechazados tampoco, así el cupo se repone solo al correr la ventana.
+export function evaluar_cupo_proveedor(opts: {
+  marcasMs: readonly number[];
+  ahoraMs: number;
+  cupo?: number | undefined;
+  ventanaMs?: number | undefined;
+}): ResultadoCupoProveedor {
+  const cupo = opts.cupo ?? CUPO_PROV_MENSAJES;
+  const ventanaMs = opts.ventanaMs ?? CUPO_PROV_VENTANA_MIN * 60_000;
+  const vigentes = opts.marcasMs.filter((m) => opts.ahoraMs - m < ventanaMs);
+  if (vigentes.length >= cupo) {
+    const masVieja = Math.min(...vigentes);
+    return { permitido: false, marcasMs: vigentes, reponeEnMs: masVieja + ventanaMs };
+  }
+  return { permitido: true, marcasMs: [...vigentes, opts.ahoraMs], reponeEnMs: null };
+}
 
 export function parsear_invitar(texto: string): string | null {
   const m = texto.trim().match(/^PROV\s+(\d{6})$/i);

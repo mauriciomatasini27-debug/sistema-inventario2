@@ -357,6 +357,8 @@ export function resetStore() {
   control.bienvenidas.clear();
   control.proveedorContactos.clear();
   control.proveedorInvitaciones.clear();
+  control.proveedorCupo.clear();
+  control.proveedorCupoAviso.clear();
 }
 
 // Control Auth + Onboarding en memoria: mismo rol que `store` en Slice-0 —
@@ -491,6 +493,11 @@ export const control = {
   // haya migración aprobada.
   proveedorContactos: new Map<string, import("../modules/whatsapp/proveedor.js").ContactoProveedor>(),
   proveedorInvitaciones: new Map<string, import("../modules/whatsapp/proveedor.js").InvitacionProveedor>(),
+  // PROV-E4: marcas de mensajes por número para el cupo (ventana móvil). En
+  // memoria como proveedorContactos, hasta que haya migración aprobada.
+  proveedorCupo: new Map<string, number[]>(),
+  // PROV-E4: números ya avisados del corte actual. Se borra al reponerse.
+  proveedorCupoAviso: new Map<string, true>(),
 };
 
 export function resetControl() {

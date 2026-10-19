@@ -30,5 +30,9 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "contacto inexistente" }, { status: 404 });
   }
   control.proveedorContactos.set(numero, { ...actual, estado });
+  // PROV-E4: aprobar (o re-aprobar) habilita de nuevo al proveedor; revocar
+  // también limpia. El cupo se reconstruye solo desde el próximo mensaje.
+  control.proveedorCupo.delete(numero);
+  control.proveedorCupoAviso.delete(numero);
   return Response.json({ numero, estado });
 };

@@ -56,9 +56,11 @@ import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
 import {
   contacto_por_numero,
+  evaluar_cupo_proveedor,
   numero_dueno_verificado,
   parsear_invitar,
   RESPUESTA_PROV_CODIGO_INVALIDO,
+  RESPUESTA_PROV_CUPO,
   RESPUESTA_PROV_FACTURA,
   RESPUESTA_PROV_FACTURA_RECIBIDA,
   RESPUESTA_PROV_PENDIENTE,
@@ -481,6 +483,32 @@ async function atenderProveedor(opts: {
   cred: CredencialesEnvio | null;
 }): Promise<Response | null> {
   const { msg, ahoraMs, cred } = opts;
+  const contacto = contacto_por_numero(control.proveedorContactos, msg.remitente);
+  // PROV-E4: el cupo corre antes de cualquier respuesta u OCR. Un revocado no
+  // consume cupo y sigue a la puerta de identidad.
+  if (contacto && contacto.estado !== "revocado") {
+    const cupo = evaluar_cupo_proveedor({
+      marcasMs: control.proveedorCupo.get(msg.remitente) ?? [],
+      ahoraMs,
+    });
+    control.proveedorCupo.set(msg.remitente, [...cupo.marcasMs]);
+    if (!cupo.permitido) {
+      // Solo el primer corte de cada racha responde; los siguientes callan
+      // para no amplificar el spam.
+      let enviado = false;
+      if (!control.proveedorCupoAviso.has(msg.remitente)) {
+        enviado = await responder({
+          toE164: msg.remitente,
+          wamidEntrante: msg.wamid,
+          texto: RESPUESTA_PROV_CUPO,
+          cred,
+        });
+        control.proveedorCupoAviso.set(msg.remitente, true);
+      }
+      return Response.json({ ok: true, accion: "prov_cupo_excedido", enviado });
+    }
+    control.proveedorCupoAviso.delete(msg.remitente);
+  }
   const codigo = parsear_invitar(msg.texto);
   if (codigo !== null) {
     const hash = sha256Hex(codigo);
@@ -528,7 +556,6 @@ async function atenderProveedor(opts: {
     });
     return Response.json({ ok: true, accion: "prov_invitado", tenantId: inv.tenantId, enviado });
   }
-  const contacto = contacto_por_numero(control.proveedorContactos, msg.remitente);
   if (!contacto) return null;
   if (contacto.estado === "verificado") {
     if (msg.adjunto) {
