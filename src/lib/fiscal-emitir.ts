@@ -50,11 +50,18 @@ export interface ResultadoWorker {
   readonly lastNumber: number;
 }
 
+export interface SecuenciaFiscal {
+  readonly puntoVenta: string;
+  readonly cbteTipo: string;
+  readonly lastNumber: number;
+}
+
 export interface PuertoFiscalDurable {
   claim(ctx: ContextoEmision): Promise<ResultadoReclamo>;
   store(ctx: ContextoEmision, resultado: ResultadoWorker): Promise<EmisionDurable>;
   release(cuit: number, clave: SequenceKey, docId: string): Promise<void>;
   listar_varados(): Promise<ReadonlyArray<StoredFiscalDoc>>;
+  listar_secuencias(): Promise<ReadonlyArray<SecuenciaFiscal>>;
 }
 
 function esUuid(v: string): boolean {
@@ -279,7 +286,17 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
     return [...porId.values()];
   }
 
-  return { claim, store, release, listar_varados };
+  async function listar_secuencias(): Promise<ReadonlyArray<SecuenciaFiscal>> {
+    return db
+      .select({
+        puntoVenta: fiscalSequences.puntoVenta,
+        cbteTipo: fiscalSequences.cbteTipo,
+        lastNumber: fiscalSequences.lastNumber,
+      })
+      .from(fiscalSequences);
+  }
+
+  return { claim, store, release, listar_varados, listar_secuencias };
 }
 
 interface TxEmision {
@@ -404,7 +421,14 @@ export function puertoMemoria(): PuertoFiscalDurable {
     return [...out.values()];
   }
 
-  return { claim, store, release, listar_varados };
+  async function listar_secuencias(): Promise<ReadonlyArray<SecuenciaFiscal>> {
+    return [...secuenciasMemoria.entries()].map(([k, v]) => {
+      const [puntoVenta = "", cbteTipo = ""] = k.split(":");
+      return { puntoVenta, cbteTipo, lastNumber: v.lastNumber };
+    });
+  }
+
+  return { claim, store, release, listar_varados, listar_secuencias };
 }
 
 export async function emitir_fiscal_durable(

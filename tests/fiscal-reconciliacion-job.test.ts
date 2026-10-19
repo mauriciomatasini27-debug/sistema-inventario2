@@ -3,7 +3,7 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore, type StoredFiscalDoc } from "../src/lib/store.js";
 import { POST as POSTReconciliacion } from "../src/pages/api/jobs/fiscal-reconciliacion.js";
 import { asegurarDoc, buscarFiscalDocPorId } from "../src/lib/repos/fiscal.js";
-import { puertoMemoria } from "../src/lib/fiscal-emitir.js";
+import { emitir_fiscal_durable, puertoMemoria, reiniciar_puerto_memoria } from "../src/lib/fiscal-emitir.js";
 import { ejecutarReconciliacionFiscal } from "../src/jobs/fiscal-reconciliacion.js";
 import type { FiscalProvider } from "../src/modules/fiscal/fiscal.js";
 
@@ -50,6 +50,7 @@ function docVarado(overrides: Partial<StoredFiscalDoc> = {}): StoredFiscalDoc {
 
 beforeEach(() => {
   resetStore();
+  reiniciar_puerto_memoria();
   delete process.env.TENANT_DATABASE_URL;
   delete process.env["TENANT_DATABASE_URL_tenant-a"];
   process.env.JOBS_SECRET = "job-secret";
@@ -68,7 +69,7 @@ describe("FE-S19 job de reconciliación fiscal", () => {
 
     const r = await ejecutarReconciliacionFiscal({ cuit: CUIT, provider: proveedor(), puerto: puertoMemoria() });
 
-    expect(r).toEqual({ resueltos: 1, retenidos: 0 });
+    expect(r).toEqual({ resueltos: 1, retenidos: 0, fuera_del_sistema: [] });
     const final = await buscarFiscalDocPorId(doc.id);
     expect(final?.estado).toBe("autorizado");
     expect(final?.cae).toBe("70412345678901");
@@ -87,7 +88,7 @@ describe("FE-S19 job de reconciliación fiscal", () => {
 
     const r = await ejecutarReconciliacionFiscal({ cuit: CUIT, provider, puerto: puertoMemoria() });
 
-    expect(r).toEqual({ resueltos: 0, retenidos: 1 });
+    expect(r).toEqual({ resueltos: 0, retenidos: 1, fuera_del_sistema: [] });
     const final = await buscarFiscalDocPorId(doc.id);
     expect(final?.estado).toBe("respuesta_incierta");
   });
@@ -106,7 +107,7 @@ describe("FE-S19 job de reconciliación fiscal", () => {
       }),
     );
     expect(con.status).toBe(200);
-    expect(await con.json()).toEqual({ resueltos: 1, retenidos: 0 });
+    expect(await con.json()).toEqual({ resueltos: 1, retenidos: 0, fuera_del_sistema: [] });
     expect((await buscarFiscalDocPorId(doc.id))?.estado).toBe("autorizado");
   });
 
@@ -116,7 +117,7 @@ describe("FE-S19 job de reconciliación fiscal", () => {
 
     const r = await ejecutarReconciliacionFiscal({ cuit: CUIT, provider: proveedor(), puerto: puertoMemoria() });
 
-    expect(r).toEqual({ resueltos: 0, retenidos: 0 });
+    expect(r).toEqual({ resueltos: 0, retenidos: 0, fuera_del_sistema: [] });
     const final = await buscarFiscalDocPorId(doc.id);
     expect(final).toEqual(expect.objectContaining({ estado: "autorizado", cae: "70000000000001" }));
   });
@@ -127,8 +128,27 @@ describe("FE-S19 job de reconciliación fiscal", () => {
 
     const r = await ejecutarReconciliacionFiscal({ cuit: CUIT, provider: proveedor(), puerto: puertoMemoria() });
 
-    expect(r).toEqual({ resueltos: 0, retenidos: 1 });
+    expect(r).toEqual({ resueltos: 0, retenidos: 1, fuera_del_sistema: [] });
     const final = await buscarFiscalDocPorId(doc.id);
     expect(final?.estado).toBe("pendiente");
+  });
+
+  it("reporta los comprobantes emitidos fuera del sistema contra FECompUltimoAutorizado", async () => {
+    const puerto = puertoMemoria();
+    const doc = docVarado({ estado: "pendiente", cbte_nro: null });
+    await asegurarDoc(doc);
+    await emitir_fiscal_durable({ docId: doc.id, cuit: CUIT, provider: proveedor() }, puerto);
+
+    const provider: FiscalProvider = {
+      ...proveedor(),
+      async ultimo_autorizado() {
+        return 7;
+      },
+    };
+    const r = await ejecutarReconciliacionFiscal({ cuit: CUIT, provider, puerto });
+
+    expect(r.fuera_del_sistema).toEqual([
+      { puntoVenta: "3", cbteTipo: "11", local: 5, remoto: 7, faltantes: 2 },
+    ]);
   });
 });
