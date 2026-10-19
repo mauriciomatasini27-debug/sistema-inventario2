@@ -89,8 +89,8 @@ Copiá `.env.example` a `.env` y completalo vos; nunca subas ni pegues `.env` en
 ## Flujo de un cambio
 
 1. `git fetch && git switch -c mauri/<tema> origin/main`. Nunca commitees a `main` directo.
-2. Trabajá con OpenCode. Si es un ítem del roadmap, agregá `docs/roadmap/avances/<id>.md` (formato en `docs/roadmap/avances/README.md`); `docs/ROADMAP.md`, `docs/INDEX.md` y `docs/ESTADO.md` no se editan a mano.
-3. `git fetch && git rebase origin/main` y después `npm run verify`, que tiene que dar verde y regenera los archivos generados. Si el rebase choca en esos archivos, quedate con cualquier lado y volvé a correr `verify`.
+2. Trabajá con OpenCode. Si es un ítem del roadmap, agregá `docs/roadmap/avances/<id>.md` (formato en `docs/roadmap/avances/README.md`); `docs/ROADMAP.md`, `docs/INDEX.md` y `docs/ESTADO.md` no se editan a mano ni se commitean en la rama.
+3. `git fetch && git rebase origin/main` y después `npm run verify`, que tiene que dar verde. Los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) los regenera `main`, no la rama, así el PR no queda CONFLICTING cuando otro se mergeó antes. Si la rama ya los trae, `verify` falla en la guarda `docs:generados` y te dice cómo quitarlos (`git checkout $(git merge-base origin/main HEAD) -- <archivo>`).
 4. Commiteá y `git push -u origin mauri/<tema>`, después `gh pr create`.
 5. PR visual (toca `src/**/*.astro|css|tsx|jsx`): el cuerpo lleva una sección `## interface-review` con `Veredicto: Approve` y ningún HIGH abierto. Chequealo antes de abrir el PR con `npm run review:gate -- --body-file <cuerpo.md>`.
 6. `node scripts/cadena/puede-mergear.mjs <PR>` tiene que dar exit 0. Bloquea por "No mergear"/"DO NOT MERGE", por migraciones `drizzle/*.sql` no registradas en `docs/roadmap/migraciones-aplicadas.md` de `main` y por el gate visual.

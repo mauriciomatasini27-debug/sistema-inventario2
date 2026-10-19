@@ -1,6 +1,6 @@
 # Avances del roadmap
 
-Cada PR de implementación agrega un archivo `docs/roadmap/avances/<número-ADR>.md`. Nunca se edita `docs/ROADMAP.md` a mano: lo regenera `npm run verify` (o `npm run roadmap`) y viaja en el mismo PR (ADR-0086).
+Cada PR de implementación agrega un archivo `docs/roadmap/avances/<número-ADR>.md`. Nunca se edita `docs/ROADMAP.md` a mano ni se commitea en la rama: `docs/ROADMAP.md`, `docs/ESTADO.md`, `docs/INDEX.md` y `docs/graph.json` los regenera `main` (ADR-0076). En una rama de trabajo `npm run roadmap` / `docs:estado` / `docs:index` no escriben (usá `--forzar` para previsualizar) y `npm run verify` falla en la guarda `docs:generados` si la rama trae un generado.
 
 ## Formato
 
@@ -44,6 +44,6 @@ ROAD1-S1: validación de avances con `npm run roadmap`.
 
 ## Comandos
 
-- `npm run roadmap`: regenera la sección en `docs/ROADMAP.md`.
+- `npm run roadmap`: regenera la sección en `docs/ROADMAP.md` (en una rama de trabajo no escribe; eso lo hace `main`).
 - `npm run roadmap -- --validate`: solo valida los avances, no escribe.
 - `npm run roadmap -- --check`: sale 1 si la sección está desactualizada, no escribe.

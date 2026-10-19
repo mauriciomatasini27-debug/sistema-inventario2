@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { aplicarSeccion, guardaPR, parsearAvance, renderizarSeccion } from "./roadmap-lib.mjs";
+import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
 
 const INICIO = "<!-- roadmap:avances:inicio -->";
 
@@ -20,10 +21,12 @@ const args = process.argv.slice(2);
 let root = process.cwd();
 let check = false;
 let validate = false;
+let forzar = false;
 let guard = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--check") check = true;
   else if (args[i] === "--validate") validate = true;
+  else if (args[i] === "--forzar") forzar = true;
   else if (args[i] === "--root") root = args[++i];
   else if (args[i] === "--guard") guard = args[++i];
 }
@@ -69,6 +72,11 @@ if (check) {
     process.exit(1);
   }
   console.log("sección de avances al día");
+  process.exit(0);
+}
+
+if (!forzar && esRamaDeTrabajo(ramaActual())) {
+  console.log("roadmap: en rama de trabajo no se escribe docs/ROADMAP.md; lo regenera main (usá --forzar para previsualizar)");
   process.exit(0);
 }
 

@@ -243,10 +243,10 @@ describe("docs:index roadmap", () => {
 describe("docs:index CLI --raiz/--check", () => {
   it("--check sale 0 cuando está fresco y 1 con archivos rancios", () => {
     const raiz = raizBase();
-    execFileSync(process.execPath, [CLI, "--raiz", raiz], { stdio: "pipe" });
+    execFileSync(process.execPath, [CLI, "--raiz", raiz], { stdio: "pipe", cwd: raiz });
     const fresco = (() => {
       try {
-        execFileSync(process.execPath, [CLI, "--raiz", raiz, "--check"], { stdio: "pipe" });
+        execFileSync(process.execPath, [CLI, "--raiz", raiz, "--check"], { stdio: "pipe", cwd: raiz });
         return 0;
       } catch (e) {
         return (e as { status?: number }).status ?? 99;

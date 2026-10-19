@@ -7,11 +7,12 @@ Reglas cortas para agentes en este repo.
 - Estado rápido: `docs/ESTADO.md` (autogenerado con `npm run docs:estado`; no editar a mano).
 - Para trabajar un PRD/ADR o un módulo: `npm run docs:context <tema|modulo|id>` y leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` para ubicar algo). No leas docs completos "por las dudas".
 - Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
-- Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`), después `npm run docs:estado`, `npm run docs:index` y `npm run docs:check`.
+- Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`) y después `npm run docs:check`. Los generados (`docs/ESTADO.md`, `docs/INDEX.md`, `docs/graph.json`) los regenera `main`, no la rama.
 
 ## Roadmap
 
-- Nunca edites `docs/ROADMAP.md` a mano: se regenera con `npm run verify` (o `npm run roadmap`) y viaja en el PR.
+- Nunca edites `docs/ROADMAP.md` a mano ni commitees los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) en una rama: los regenera `main` con `npm run docs:estado` / `docs:index` / `roadmap`, que en una rama de trabajo no escriben (usá `--forzar` para previsualizar). Así el PR no queda CONFLICTING por esos archivos cuando otro PR se mergeó antes.
+- `npm run verify` corre la guarda `docs:generados` y falla, nombrando el archivo y el comando para quitarlo, si la rama trae un generado.
 - Agregá tu avance en `docs/roadmap/avances/<número-ADR>.md` con front-matter `item`, `estado`, `adr`, `prd`, `fecha` (`AAAA-MM-DD`) y una línea de texto. Formato y ejemplo en `docs/roadmap/avances/README.md`.
 - Ítems chicos (sin decisión nueva de arquitectura): solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR solo para decisiones reales de arquitectura o producto.
 - Antes de abrir el PR: `npm run roadmap -- --validate`.

@@ -1,12 +1,15 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parsearAvances, parsearMigraciones, renderEstado } from "./docs-estado-lib.mjs";
+import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
 
 const args = process.argv.slice(2);
 let raiz = "docs";
 let check = false;
+let forzar = false;
 for (let i = 0; i < args.length; i += 1) {
   if (args[i] === "--check") check = true;
+  else if (args[i] === "--forzar") forzar = true;
   else if (args[i] === "--raiz") raiz = args[(i += 1)] ?? raiz;
   else if (args[i].startsWith("--raiz=")) raiz = args[i].slice("--raiz=".length) || raiz;
 }
@@ -56,6 +59,8 @@ if (check) {
     process.exit(1);
   }
   console.log("docs:estado al día");
+} else if (!forzar && esRamaDeTrabajo(ramaActual())) {
+  console.log(`docs:estado: en rama de trabajo no se escribe ${rutaEstado}; lo regenera main (usá --forzar para previsualizar)`);
 } else {
   writeFileSync(rutaEstado, contenido);
   console.log(`${rutaEstado} actualizado`);

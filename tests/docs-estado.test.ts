@@ -43,6 +43,7 @@ function correr(raiz: string, extra: string[] = []): { estado: number; salida: s
     const out = execFileSync(process.execPath, [CLI, "--raiz", raiz, ...extra], {
       stdio: "pipe",
       encoding: "utf8",
+      cwd: raiz,
     });
     return { estado: 0, salida: String(out) };
   } catch (e) {

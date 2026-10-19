@@ -3,6 +3,9 @@ import { basename, join, normalize } from "node:path";
 import { generarContenidos } from "./docs-index-lib.mjs";
 import { listarDocs } from "./docs-lib.mjs";
 import { aplicarBaseline, checkEnlaces, checkEsquema, checkIds, checkSimetria, formatoError } from "./docs-check-lib.mjs";
+import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
+
+const enRamaDeTrabajo = esRamaDeTrabajo(ramaActual());
 
 const args = process.argv.slice(2);
 let raiz = "docs";
@@ -56,11 +59,15 @@ const leido = (p) => {
 };
 const rutaIndice = join(raiz, "INDEX.md");
 const rutaGrafo = join(raiz, "graph.json");
-if (leido(rutaIndice) !== index) {
-  errores.push({ ruta: `${base}/INDEX.md`, linea: 1, mensaje: "INDEX desactualizado: corré npm run docs:index" });
-}
-if (leido(rutaGrafo) !== grafo) {
-  errores.push({ ruta: `${base}/graph.json`, linea: 1, mensaje: "graph desactualizado: corré npm run docs:index" });
+if (enRamaDeTrabajo) {
+  console.log("docs:check: en rama de trabajo se omite la frescura de INDEX/graph; los regenera main");
+} else {
+  if (leido(rutaIndice) !== index) {
+    errores.push({ ruta: `${base}/INDEX.md`, linea: 1, mensaje: "INDEX desactualizado: corré npm run docs:index" });
+  }
+  if (leido(rutaGrafo) !== grafo) {
+    errores.push({ ruta: `${base}/graph.json`, linea: 1, mensaje: "graph desactualizado: corré npm run docs:index" });
+  }
 }
 
 if (errores.length > 0) {
