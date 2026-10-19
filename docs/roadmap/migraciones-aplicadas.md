@@ -35,3 +35,4 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 - 0026_ai_usage
 - 0027_products_min_stock
 - 0028_tenant_bot_modules
+- 0029_products_sector
