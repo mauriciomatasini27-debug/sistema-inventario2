@@ -247,10 +247,12 @@ describe("OCR1-S5 el toque de los botones del borrador", () => {
 });
 
 describe("OCR1-S5 parseo de botones (puro)", () => {
-  it("parsear_boton_ocr acepta las tres acciones y rechaza el resto", () => {
+  it("parsear_boton_ocr acepta las cinco acciones y rechaza el resto", () => {
     expect(parsear_boton_ocr("ocr:confirmar:b-1")).toEqual({ accion: "confirmar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:editar:b-1")).toEqual({ accion: "editar", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:descartar:b-1")).toEqual({ accion: "descartar", borradorId: "b-1" });
+    expect(parsear_boton_ocr("ocr:corregir:b-1")).toEqual({ accion: "corregir", borradorId: "b-1" });
+    expect(parsear_boton_ocr("ocr:omitir:b-1")).toEqual({ accion: "omitir", borradorId: "b-1" });
     expect(parsear_boton_ocr("ocr:otra:b-1")).toBeNull();
     expect(parsear_boton_ocr("otra:confirmar:b-1")).toBeNull();
     expect(parsear_boton_ocr("ocr:confirmar:")).toBeNull();

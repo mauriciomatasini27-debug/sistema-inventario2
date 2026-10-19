@@ -42,7 +42,7 @@ Plata que sale: mercadería, luz/gas, pagos.
 - `facturas-proveedores.md` (FP1-FP12, OCR → confirma 1 toque, `supplier_invoices` inmutable + `drafts`) → `src/modules/purchases/*`, `src/modules/ocr/*`, `src/pages/api/supplier-invoices/*`, `src/db/schema-proveedores.ts`
 - `consumos-servicios.md` (CS1-CS12, Gmail `users.watch`, PDF primero) → `src/modules/utilities/*`, `src/pages/api/utility-bills/*`, `src/db/schema-servicios.ts`
 - `ordenes-pago.md` (OP1-OP13, el bot prepara el comerciante paga, allowlist dominios) → `src/modules/payments/*`, `src/modules/pagos-tx/*`, `src/pages/api/payment-orders/*`, `src/db/schema-pagos.ts`
-- ADRs: `adr/0005-ocr.md`
+- ADRs: `adr/0005-ocr.md`, `adr/0089-ocr-fase-0-definitivo.md`, `adr/0093-ocr-media-y-botones-borrador.md`
 
 ## 06-fiscal-arca/ — Facturación electrónica ARCA
 Lo único fiscal; el ticket sigue no fiscal.

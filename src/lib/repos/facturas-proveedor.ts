@@ -22,6 +22,7 @@ import {
   registrarPago,
   type ConfianzaPorCampo,
   type Factura,
+  type ItemBorrador,
   type PagoProveedor,
   type ParcheBorrador,
   type RegistrarPagoInput,
@@ -795,6 +796,7 @@ export interface IngestaOcrInput {
   readonly nombreProveedor?: string | undefined;
   readonly fechaTexto?: string | undefined;
   readonly totalTexto?: string | undefined;
+  readonly items?: ReadonlyArray<ItemBorrador> | undefined;
   readonly confianza: ConfianzaPorCampo;
   readonly fotoPendiente: boolean;
   readonly ahoraIso: string;
@@ -818,6 +820,7 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
     ...(input.nombreProveedor !== undefined ? { nombreProveedor: input.nombreProveedor } : {}),
     ...(input.fechaTexto !== undefined ? { fechaTexto: input.fechaTexto } : {}),
     ...(input.totalTexto !== undefined ? { totalTexto: input.totalTexto } : {}),
+    ...(input.items !== undefined ? { items: input.items } : {}),
     confianza: { ...input.confianza },
     fotoPendiente: input.fotoPendiente,
     ahoraIso: input.ahoraIso,

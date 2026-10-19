@@ -21,11 +21,15 @@ import {
   es_comprobante_desde_mime,
   parsear_boton_ocr,
   payload_borrador_ocr,
+  payload_correccion_ocr,
+  propuesta_correccion_total,
   RESPUESTA_NO_COMPROBANTE,
   RESPUESTA_OCR_BOTON_INVALIDO,
+  RESPUESTA_OCR_CORREGIDO,
   RESPUESTA_OCR_DESCARTADO,
   RESPUESTA_OCR_EDITAR_WEB,
   RESPUESTA_OCR_MEDIA_FALLIDA,
+  RESPUESTA_OCR_SOLO_DUENO,
 } from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
 import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
@@ -35,12 +39,13 @@ import { ingerirOcr } from "../../../lib/ocr-ingesta.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { conTenant } from "../../../lib/tenant-mode.js";
-import { descartarBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
+import { descartarBorradorOcrRepo, editarBorradorOcrRepo, leerBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
 import { registrarEventoOcr } from "../../../lib/repos/ocr.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
+import type { Borrador } from "../../../modules/purchases/facturas.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -127,11 +132,22 @@ async function responderPayload(
 
 const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
 
+function revisa_borrador(b: Borrador): boolean {
+  return b.confianza.cuit !== "alta" || b.confianza.fecha !== "alta" || b.confianza.total !== "alta";
+}
+
+// `parseMontoAR` acepta coma decimal; sin el punto de miles el texto sigue
+// siendo AR y no depende del formato de `formatear_pesos`.
+function monto_texto_ar(centavos: bigint): string {
+  return `${centavos / 100n},${(centavos % 100n).toString().padStart(2, "0")}`;
+}
+
 async function atenderBotonOcr(opts: {
   remitente: string;
   wamid: string;
   botonId: string;
   tenantId: string;
+  rol: "dueno" | "empleado";
   cred: CredencialesEnvio | null;
 }): Promise<Response> {
   const boton = parsear_boton_ocr(opts.botonId);
@@ -143,6 +159,68 @@ async function atenderBotonOcr(opts: {
   if (boton.accion === "editar") {
     const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_EDITAR_WEB, cred: opts.cred });
     return Response.json({ ok: true, accion: "derivada_web", respuesta: RESPUESTA_OCR_EDITAR_WEB, enviado });
+  }
+  if (boton.accion === "omitir") {
+    try {
+      const ahoraIso = new Date().toISOString();
+      const b = await conTenant(opts.tenantId, () => leerBorradorOcrRepo(boton.borradorId));
+      if (!b) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_BOTON_INVALIDO, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_correccion_omitida_error", enviado });
+      }
+      const enviado = await responderPayload(
+        { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
+        payload_borrador_ocr(b, revisa_borrador(b), ahoraIso),
+      );
+      return Response.json({ ok: true, accion: "ocr_correccion_omitida", enviado });
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_correccion_omitida_error", error: "base_no_disponible", enviado });
+      }
+      throw e;
+    }
+  }
+  if (boton.accion === "corregir") {
+    // AU10.4/ADR-0093: la corrección la autoriza el Dueño; el Empleado solo
+    // recibe el aviso y el borrador queda intacto.
+    if (opts.rol !== "dueno") {
+      const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SOLO_DUENO, cred: opts.cred });
+      return Response.json({ ok: true, accion: "ocr_corregido_error", respuesta: RESPUESTA_OCR_SOLO_DUENO, enviado });
+    }
+    try {
+      const ahoraIso = new Date().toISOString();
+      const corregido = await conTenant(opts.tenantId, async () => {
+        const b = await leerBorradorOcrRepo(boton.borradorId);
+        if (!b) return null;
+        const propuesta = propuesta_correccion_total(b);
+        if (!propuesta) return null;
+        const editado = await editarBorradorOcrRepo({
+          draftId: b.id,
+          parche: { totalTexto: monto_texto_ar(propuesta.totalPropuestoCentavos) },
+          ahoraIso,
+        });
+        if (editado.status !== 200) return null;
+        await registrarEventoOcr("ocr_corregido", { borrador_id: editado.borrador.id, motivo: "validacion" });
+        return editado.borrador;
+      });
+      if (!corregido) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_BOTON_INVALIDO, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_corregido_error", enviado });
+      }
+      const enviadoTexto = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_CORREGIDO, cred: opts.cred });
+      const enviadoOffer = await responderPayload(
+        { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
+        payload_borrador_ocr(corregido, revisa_borrador(corregido), ahoraIso),
+      );
+      return Response.json({ ok: true, accion: "ocr_corregido", enviado: enviadoTexto && enviadoOffer });
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred });
+        return Response.json({ ok: true, accion: "ocr_corregido_error", error: "base_no_disponible", enviado });
+      }
+      throw e;
+    }
   }
   try {
     const d = await conTenant(opts.tenantId, async () => {
@@ -205,9 +283,13 @@ async function ofrecerBorradorOcr(opts: {
     return Response.json({ ok: true, accion: "ocr_duplicado", job_id: r.jobId, borrador_id: r.borradorId });
   }
   if (r.status === 201) {
+    const ahoraIso = new Date().toISOString();
+    const propuesta = propuesta_correccion_total(r.borrador);
     const enviado = await responderPayload(
       { toE164: opts.remitente, wamidEntrante: opts.wamid, cred: opts.cred },
-      payload_borrador_ocr(r.borrador, r.revisa),
+      propuesta
+        ? payload_correccion_ocr(r.borrador, propuesta)
+        : payload_borrador_ocr(r.borrador, r.revisa, ahoraIso),
     );
     return Response.json({
       ok: true,
@@ -389,7 +471,7 @@ export const POST: APIRoute = async ({ request }) => {
   // OCR1-S5: el toque de un botón del borrador no es consulta. Descartar cierra
   // inline; Confirmar y Editar se derivan a la web (AU10.4, ADR-0005).
   if (msg.boton) {
-    return atenderBotonOcr({ remitente: msg.remitente, wamid: msg.wamid, botonId: msg.boton, tenantId: r.tenantId, cred });
+    return atenderBotonOcr({ remitente: msg.remitente, wamid: msg.wamid, botonId: msg.boton, tenantId: r.tenantId, rol: r.rol, cred });
   }
   // OCR1-S5: el adjunto no es una consulta del bot; abre el borrador del
   // comprobante con el tenant del número ya resuelto por la puerta de identidad.

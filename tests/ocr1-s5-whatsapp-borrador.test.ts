@@ -318,9 +318,11 @@ const BORRADOR: Borrador = {
   venceAt: "2026-10-25T12:00:00.000Z",
 };
 
+const AHORA = "2026-10-18T12:00:00.000Z";
+
 describe("OCR1-S5 payload de botones (puro)", () => {
   it("el cuerpo muestra proveedor, fecha y total con la confianza de cada campo", () => {
-    expect(cuerpo_borrador_ocr(BORRADOR, true)).toBe(
+    expect(cuerpo_borrador_ocr(BORRADOR, true, AHORA)).toBe(
       [
         "Leí tu comprobante:",
         "• ACME SA (CUIT 20-93333172-6) — confianza alta",
@@ -332,14 +334,14 @@ describe("OCR1-S5 payload de botones (puro)", () => {
   });
 
   it("sin campos pendientes de revisar el cuerpo no avisa", () => {
-    const cuerpo = cuerpo_borrador_ocr(BORRADOR, false);
+    const cuerpo = cuerpo_borrador_ocr(BORRADOR, false, AHORA);
     expect(cuerpo).not.toContain("Revisá");
     expect(cuerpo.split("\n").length).toBe(4);
   });
 
   it("un borrador sin cuit ni total lo dice en vez de inventar", () => {
     const vacio: Borrador = { ...BORRADOR, cuit: null, nombreProveedor: null, totalCentavos: null, fechaIso: null };
-    expect(cuerpo_borrador_ocr(vacio, true)).toBe(
+    expect(cuerpo_borrador_ocr(vacio, true, AHORA)).toBe(
       [
         "Leí tu comprobante:",
         "• Sin proveedor (CUIT sin leer) — confianza alta",
@@ -351,7 +353,7 @@ describe("OCR1-S5 payload de botones (puro)", () => {
   });
 
   it("los botones son exactamente Confirmar, Editar y Descartar con acción y borrador", () => {
-    const payload = payload_borrador_ocr(BORRADOR, true);
+    const payload = payload_borrador_ocr(BORRADOR, true, AHORA);
     expect(payload.type).toBe("interactive");
     expect(payload.interactive.type).toBe("button");
     expect(payload.interactive.action.buttons.map((b) => b.reply.title)).toEqual(["Confirmar", "Editar", "Descartar"]);

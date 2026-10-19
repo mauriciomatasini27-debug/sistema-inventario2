@@ -14,10 +14,11 @@ import {
   confianza_global,
   crear_paddle_cliente,
   resolver_extraccion,
+  type ItemLinea,
 } from "../modules/ocr/motor.js";
 import { crear_job, type EstadoOcrJob, type FallbackNubeApi } from "../modules/ocr/jobs.js";
 import type { ImagenOcr } from "../modules/ocr/imagen.js";
-import type { Borrador, ConfianzaCampo, ConfianzaPorCampo } from "../modules/purchases/facturas.js";
+import { parseMontoAR, type Borrador, type ConfianzaCampo, type ConfianzaPorCampo, type ItemBorrador } from "../modules/purchases/facturas.js";
 
 // Ingesta OCR (ADR-0005, PRD-OCR-01) en una sola implementación: la usan
 // `POST /api/ocr/jobs` (Gmail y callers de API) y el webhook de WhatsApp.
@@ -55,6 +56,23 @@ export type ResultadoIngestaOcr =
 export async function ingerirOcr(entrada: EntradaIngestaOcr): Promise<ResultadoIngestaOcr> {
   if (entrada.tenantId) return conTenant(entrada.tenantId, () => ingerir(entrada));
   return ingerir(entrada);
+}
+
+// El OCR no separa precio unitario de subtotal: el importe capturado se toma
+// como subtotal de la línea. Multiplicar por la cantidad duplicaría el monto
+// cuando el renglón ya trae el total de la línea.
+function itemsBorrador(items: ReadonlyArray<ItemLinea>): ReadonlyArray<ItemBorrador> {
+  if (items.length === 0) return [];
+  const out: ItemBorrador[] = [];
+  for (const it of items) {
+    if (it.importeTexto === null || it.cantidad < 1) return [];
+    try {
+      out.push({ sku: null, cantidad: it.cantidad, subtotalCentavos: parseMontoAR(it.importeTexto) });
+    } catch {
+      return [];
+    }
+  }
+  return out;
 }
 
 async function ingerir(entrada: EntradaIngestaOcr): Promise<ResultadoIngestaOcr> {
@@ -96,6 +114,7 @@ async function ingerir(entrada: EntradaIngestaOcr): Promise<ResultadoIngestaOcr>
     imagen: entrada.imagen ?? null,
     motor,
   });
+  const items = itemsBorrador(ext.items);
 
   try {
     await crearJobRegistro(job);
@@ -107,6 +126,7 @@ async function ingerir(entrada: EntradaIngestaOcr): Promise<ResultadoIngestaOcr>
       ...(b.nombre_proveedor !== undefined ? { nombreProveedor: b.nombre_proveedor } : {}),
       ...(ext.campos.fechaTexto ? { fechaTexto: ext.campos.fechaTexto } : {}),
       ...(ext.campos.totalTexto ? { totalTexto: ext.campos.totalTexto } : {}),
+      items,
       confianza: { ...ext.confianza },
       fotoPendiente: b.foto_pendiente,
       ahoraIso,

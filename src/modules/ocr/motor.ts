@@ -28,6 +28,7 @@ export interface Extraccion {
   readonly campos: CamposExtraidos;
   readonly confianza: ConfianzaExtraccion;
   readonly fuentes: Record<"cuit" | "fecha" | "total", FuenteCampo>;
+  readonly items: ReadonlyArray<ItemLinea>;
   readonly usoFallbackLocal: boolean;
   // Vision o Textract quedan como opción (ADR-0005, ADR-0089). Solo cuando el
   // motor primario respondió por debajo del umbral: pdf, texto directo y motor
@@ -126,26 +127,34 @@ export function extraer_campos(fuentes: { pdfTexto?: string | null | undefined; 
     totalTexto: null,
   };
   const ftes: Record<"cuit" | "fecha" | "total", FuenteCampo> = { cuit: "ninguna", fecha: "ninguna", total: "ninguna" };
+  let items: ReadonlyArray<ItemLinea> = [];
   for (const { texto, fuente } of orden) {
+    if (!texto) continue;
     const r = extraer_de_fuente(texto, fuente);
-    if (!r) continue;
-    if (!campos.cuitTexto && r.campos.cuitTexto) {
-      campos.cuitTexto = r.campos.cuitTexto;
-      ftes.cuit = fuente;
+    if (r) {
+      if (!campos.cuitTexto && r.campos.cuitTexto) {
+        campos.cuitTexto = r.campos.cuitTexto;
+        ftes.cuit = fuente;
+      }
+      if (!campos.fechaTexto && r.campos.fechaTexto) {
+        campos.fechaTexto = r.campos.fechaTexto;
+        ftes.fecha = fuente;
+      }
+      if (!campos.totalTexto && r.campos.totalTexto) {
+        campos.totalTexto = r.campos.totalTexto;
+        ftes.total = fuente;
+      }
     }
-    if (!campos.fechaTexto && r.campos.fechaTexto) {
-      campos.fechaTexto = r.campos.fechaTexto;
-      ftes.fecha = fuente;
-    }
-    if (!campos.totalTexto && r.campos.totalTexto) {
-      campos.totalTexto = r.campos.totalTexto;
-      ftes.total = fuente;
+    if (items.length === 0) {
+      const deFuente = extraer_items(texto);
+      if (deFuente.length > 0) items = deFuente;
     }
   }
   return {
     campos: { ...campos, nombreProveedor: null },
     confianza: { cuit: CONFIANZA_FUENTE[ftes.cuit], fecha: CONFIANZA_FUENTE[ftes.fecha], total: CONFIANZA_FUENTE[ftes.total] },
     fuentes: ftes,
+    items,
     usoFallbackLocal: false,
     nubeOfrecida: false,
   };
@@ -263,7 +272,9 @@ export interface ItemLinea {
 
 export function extraer_items(texto: string): ItemLinea[] {
   const out: ItemLinea[] = [];
-  const re = /(\d{1,3})\s*(?:x|×|\*|-)?\s*([A-Za-zÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜ0-9 .\-/]{2,60}?)\s+(\$?\s*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?)?/gi;
+  // Los separadores no cruzan saltos de línea: si no, el dígito final del CUIT
+  // se combina con la fecha del renglón siguiente y aparece un ítem falso.
+  const re = /(\d{1,3})[ \t]*(?:x|×|\*|-)?[ \t]*([A-Za-zÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜ0-9 .\-/]{2,60}?)[ \t]+(\$?[ \t]*(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?)?/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(texto)) !== null && out.length < 50) {
     const cant = Number(m[1]);

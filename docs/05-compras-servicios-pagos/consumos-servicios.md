@@ -257,6 +257,8 @@ CS4.3 Cada campo tiene confianza (alta / media / baja); los de confianza media s
 
 CS4.4 Mensaje de sugerencia por WhatsApp con botones: [Confirmar] [Editar] [Descartar] (máximo 3 botones [fuente: Meta]). "Editar" abre una lista con los campos (Tipo, Proveedor, Monto, Emisión, Vencimiento, N° de cuenta) y el dueño corrige escribiendo el valor ("monto 48500", "vence 22/10").
 
+> Nota 2026-10-18: igual que FP3.3, la corrección por texto todavía no está construida. Lo que salió es el `interactive` de tres botones de ADR-0093: "Descartar" cierra el borrador al toque desde el bot, y "Confirmar" y "Editar" derivan a la web. La corrección escribiendo el valor queda pendiente (ADR-0093, Pendientes).
+
 CS4.5 Después de confirmar los datos, el bot pregunta el estado de pago: [Ya la pagué] [Pendiente] [Orden de pago] (ver CS5 y CS6). Si la cuenta está marcada como débito automático (CS8), propone registrarla como pagada en la fecha de vencimiento con el medio habitual.
 
 CS4.6 Formatos argentinos: fechas dd/mm/aaaa, montos con punto de miles y coma decimal; "48.000,00", "48000" y "$ 48.000" se normalizan al mismo valor en centavos (igual que FP3.4).

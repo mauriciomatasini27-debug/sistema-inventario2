@@ -373,6 +373,14 @@
       "ruta": "docs/adr/0092-proveedor-cobro-suscripcion.md"
     },
     {
+      "id": "ADR-0093",
+      "ruta": "docs/adr/0093-ocr-media-y-botones-borrador.md"
+    },
+    {
+      "id": "ADR-0094",
+      "ruta": "docs/adr/0094-correcciones-borrador-ocr-aprobadas-por-dueno.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -860,6 +868,11 @@
       "de": "ADR-0003",
       "a": "ADR-0004",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0005",
+      "a": "ADR-0093",
+      "tipo": "modificado_por"
     },
     {
       "de": "ADR-0008",
@@ -2044,6 +2057,41 @@
     {
       "de": "ADR-0092",
       "a": "PRD-PLAN-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0093",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0093",
+      "a": "ADR-0005",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0093",
+      "a": "ADR-0079",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0093",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0093",
+      "a": "ADR-0091",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0094",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0094",
+      "a": "ADR-0093",
       "tipo": "depende_de"
     },
     {
