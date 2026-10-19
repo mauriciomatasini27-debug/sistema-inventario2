@@ -50,6 +50,12 @@ import { conTenant } from "../../../lib/tenant-mode.js";
 import { descartarBorradorOcrRepo, editarBorradorOcrRepo, leerBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
 import { registrarEventoOcr } from "../../../lib/repos/ocr.js";
 import { enrutar } from "../../../modules/whatsapp/router.js";
+import { preguntar_asistente_bot, reconoce_pregunta_ia } from "../../../modules/whatsapp/asistente.js";
+import { CUPO_ASISTENTE_POR_DEFECTO } from "../../../modules/ia/asistente.js";
+import { ProveedorLLMFake, crear_proveedor_llm_desde_env } from "../../../modules/ia/proveedor.js";
+import { planIncluye } from "../../../lib/repos/planes.js";
+import { crearRegistroUsoIA } from "../../../lib/repos/ia-uso.js";
+import { crearLecturasIA } from "../../../lib/repos/ia-lecturas.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { MENSAJE_MODULO_APAGADO } from "../../../modules/bot/modulos-rubro.js";
 import { cantidad_reponer, parsear_boton_accion, type TipoAccionPropuesta } from "../../../modules/bot/acciones-propuestas.js";
@@ -1030,6 +1036,49 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
   if (!sensible && !posibleCosto && intencion !== "stock" && intencion !== "precio" && intencion !== "alertas") {
+    // IA-S4: el asistente va después de los flujos existentes y solo si el
+    // plan del tenant del vínculo lo incluye. Apagado no se llama al LLM.
+    if (reconoce_pregunta_ia(msg.texto)) {
+      let incluido = false;
+      let cupo = CUPO_ASISTENTE_POR_DEFECTO;
+      try {
+        const inc = await planIncluye(r.tenantId, "asistente_ia");
+        incluido = inc.incluida;
+        if (typeof inc.cupo === "number") cupo = inc.cupo;
+      } catch (e) {
+        if (!(e instanceof BaseNoDisponible)) throw e;
+        console.warn("[whatsapp] sin base para verificar el plan del asistente", e);
+      }
+      // Sin ASSISTANT_LLM_KEY el proveedor es el fake (devuelve el prompt
+      // crudo): no se le contesta al comercio con eso, sigue el flujo actual.
+      const proveedor = incluido ? crear_proveedor_llm_desde_env() : null;
+      if (proveedor && !(proveedor instanceof ProveedorLLMFake)) {
+        const respuesta = await preguntar_asistente_bot({
+          texto: msg.texto,
+          tenantId: r.tenantId,
+          rol: r.rol,
+          cupoConsultasPorMes: cupo,
+          proveedor,
+          registro: crearRegistroUsoIA(),
+          lecturas: crearLecturasIA(),
+        });
+        if (respuesta) {
+          const enviado = await responder({
+            toE164: msg.remitente,
+            wamidEntrante: msg.wamid,
+            texto: respuesta.texto,
+            cred,
+          });
+          return Response.json({
+            ok: true,
+            accion: "asistente",
+            respuesta: respuesta.texto,
+            herramienta: respuesta.herramienta,
+            enviado,
+          });
+        }
+      }
+    }
     return Response.json({ ok: true, accion: "consulta", intencion });
   }
   // AU11.4: rol y permisos de la membership en cada mensaje (nunca copiados

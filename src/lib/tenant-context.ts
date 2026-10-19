@@ -56,6 +56,8 @@ export const PREFIJOS_DATOS = [
   // DASH-S8: resumen read-only de /panel/plan; el middleware fija el tenant
   // para que los repos de planes usen la base del comercio (ADR-0051).
   "/api/plan",
+  // IA-S4: lee plan y escribe ai_usage en la base del tenant.
+  "/api/asistente",
 ];
 
 export function esRutaDatos(path: string): boolean {

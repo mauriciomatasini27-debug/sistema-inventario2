@@ -73,6 +73,7 @@ describe("IA-S5 memoria: registro por consulta con aislamiento por tenant y mes"
     const asistente = crearAsistente({
       proveedor,
       registro,
+      lecturas: { top_productos: () => [{ nombre: "Yerba", cantidad: 5 }] },
       cupoConsultasPorMes: 1,
       mesActual: () => "2026-10",
     });
@@ -88,7 +89,13 @@ describe("IA-S5 memoria: registro por consulta con aislamiento por tenant y mes"
     const registro = crearRegistroUsoIA();
     const proveedor = new ProveedorLLMFake();
     let mes = "2026-10";
-    const asistente = crearAsistente({ proveedor, registro, cupoConsultasPorMes: 1, mesActual: () => mes });
+    const asistente = crearAsistente({
+      proveedor,
+      registro,
+      lecturas: { top_productos: () => [{ nombre: "Yerba", cantidad: 5 }] },
+      cupoConsultasPorMes: 1,
+      mesActual: () => mes,
+    });
     expect((await asistente.preguntar({ tenantId: "t1", rol: "dueno" }, "¿qué vendí más esta semana?")).rechazada).toBe(
       false,
     );
@@ -224,6 +231,7 @@ describe.skipIf(!hayPG)("IA-S5 PG: ai_usage persiste una fila por consulta, aisl
       crearAsistente({
         proveedor,
         registro: crearRegistroUsoIA(),
+        lecturas: { top_productos: () => [{ nombre: "Yerba", cantidad: 5 }] },
         cupoConsultasPorMes: 1,
         mesActual: () => "2026-12",
       }),
