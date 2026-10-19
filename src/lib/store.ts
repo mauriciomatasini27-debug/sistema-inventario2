@@ -355,6 +355,8 @@ export function resetStore() {
   control.onboardingState.clear();
   control.ejemplos.clear();
   control.bienvenidas.clear();
+  control.proveedorContactos.clear();
+  control.proveedorInvitaciones.clear();
 }
 
 // Control Auth + Onboarding en memoria: mismo rol que `store` en Slice-0 —
@@ -484,6 +486,11 @@ export const control = {
   onboardingState: new Map<string, import("../modules/onboarding/estado.js").OnboardingState>(),
   ejemplos: new Map<string, import("../modules/onboarding/estado.js").EjemploInfo>(),
   bienvenidas: new Set<string>(),
+  // PRD-PROV-01 (ADR-0096): contactos de proveedor por número (clave E.164) e
+  // invitaciones por hash del código (clave codigoHash). En memoria hasta que
+  // haya migración aprobada.
+  proveedorContactos: new Map<string, import("../modules/whatsapp/proveedor.js").ContactoProveedor>(),
+  proveedorInvitaciones: new Map<string, import("../modules/whatsapp/proveedor.js").InvitacionProveedor>(),
 };
 
 export function resetControl() {

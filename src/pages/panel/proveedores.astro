@@ -78,6 +78,17 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <p class="estado">Una orden nace abierta y se cierra al matchear la factura del proveedor. El cierre lo hace <span style="font-family:monospace">POST /api/purchase-orders/close</span>.</p>
     </section>
   </div>
+
+  <section class="card">
+    <h2>Invitación de proveedores por WhatsApp</h2>
+    <p class="estado">El proveedor manda <span style="font-family:monospace">PROV &lt;código&gt;</span> al WhatsApp del comercio. El código vence en 30 minutos y se usa una sola vez.</p>
+    <button id="prov-invitar" type="button">Generar código de invitación</button>
+    <div class="estado" id="estado-prov-invitar" role="status">Se usa el CUIT del formulario de alta si ya lo cargaste.</div>
+    <ul class="lista" id="prov-invitar-lista"></ul>
+    <h3>Contactos de proveedores</h3>
+    <ul class="lista" id="prov-contactos"></ul>
+    <div class="estado" id="estado-prov-contactos" role="status">Sin contactos todavía.</div>
+  </section>
 </PanelShell>
 
 <style is:global>
@@ -240,6 +251,98 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       estado.textContent = mensaje("error", "");
     }
   });
+
+  const decidirContacto = (numero, estado) => {
+    fetch("/api/suppliers/contactos/decidir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ numero, estado }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return refrescarContactos();
+      })
+      .catch((error) => {
+        console.warn("[panel/proveedores] decidir contacto", error);
+        $("estado-prov-contactos").textContent = "No se pudo actualizar el contacto.";
+      });
+  };
+
+  const refrescarContactos = () => {
+    const lista = $("prov-contactos");
+    const estado = $("estado-prov-contactos");
+    estado.textContent = "Cargando…";
+    return fetch("/api/suppliers/contactos")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items ?? [];
+        lista.textContent = "";
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          const texto = document.createElement("span");
+          const etiqueta = item.estado === "verificado" ? "verificado" : item.estado === "revocado" ? "revocado" : "pendiente";
+          texto.textContent = item.numeroE164 + " · " + etiqueta;
+          li.appendChild(texto);
+          if (item.estado !== "verificado") {
+            const aprobar = document.createElement("button");
+            aprobar.type = "button";
+            aprobar.textContent = "Aprobar";
+            aprobar.addEventListener("click", () => decidirContacto(item.numeroE164, "verificado"));
+            li.appendChild(aprobar);
+          }
+          if (item.estado !== "revocado") {
+            const revocar = document.createElement("button");
+            revocar.type = "button";
+            revocar.textContent = "Revocar";
+            revocar.addEventListener("click", () => decidirContacto(item.numeroE164, "revocado"));
+            li.appendChild(revocar);
+          }
+          lista.appendChild(li);
+        });
+        estado.textContent = items.length > 0 ? "" : "Sin contactos todavía.";
+      })
+      .catch((error) => {
+        console.warn("[panel/proveedores] contactos", error);
+        lista.textContent = "";
+        estado.textContent = mensaje("error", "");
+      });
+  };
+
+  $("prov-invitar").addEventListener("click", async () => {
+    const estado = $("estado-prov-invitar");
+    const lista = $("prov-invitar-lista");
+    const cuit = $("prov-cuit").value.trim();
+    estado.textContent = "Generando…";
+    lista.textContent = "";
+    try {
+      const r = await fetch("/api/suppliers/invitar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuit ? { cuit } : {}),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/proveedores] invitar sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se generó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Código válido por " + j.vence_en_min + " minutos.";
+      const li = document.createElement("li");
+      li.textContent = "Mandale al proveedor: PROV " + j.codigo;
+      lista.appendChild(li);
+      refrescarContactos();
+    } catch (error) {
+      console.warn("[panel/proveedores] invitar", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  refrescarContactos();
 
   $("oc-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();

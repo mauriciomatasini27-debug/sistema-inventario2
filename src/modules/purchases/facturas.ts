@@ -15,7 +15,7 @@ import type { Medio } from "../../lib/validation.js";
 import { normalizarCuit, validarCuit } from "./proveedores.js";
 
 export type ConfianzaCampo = "alta" | "media" | "baja";
-export type OrigenIngesta = "wa" | "gmail";
+export type OrigenIngesta = "wa" | "gmail" | "wa_proveedor";
 export type EstadoBorrador = "pendiente" | "confirmada" | "descartada";
 
 export const VENCIMIENTO_BORRADOR_MS = 7 * 24 * 60 * 60 * 1000;
@@ -154,7 +154,7 @@ export function parseFechaAR(texto: string): string {
 
 export const ingestaBorradorSchema = z.object({
   idempotency_key: z.string().min(1).max(128),
-  origen: z.enum(["wa", "gmail"]),
+  origen: z.enum(["wa", "gmail", "wa_proveedor"]),
   bytes_ref: z.string().min(1).max(512),
   es_comprobante: z.boolean(),
   cuit_texto: z.string().max(14).optional(),

@@ -53,7 +53,16 @@ import { enrutar } from "../../../modules/whatsapp/router.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
-import { editarBorrador, type Borrador } from "../../../modules/purchases/facturas.js";
+import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
+import {
+  contacto_por_numero,
+  parsear_invitar,
+  RESPUESTA_PROV_CODIGO_INVALIDO,
+  RESPUESTA_PROV_FACTURA,
+  RESPUESTA_PROV_PENDIENTE,
+  RESPUESTA_PROV_RECIBIDO,
+  verificar_invitacion,
+} from "../../../modules/whatsapp/proveedor.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -392,6 +401,7 @@ async function ofrecerBorradorOcr(opts: {
   adjunto: { idMedia: string; mimeType: string };
   tenantId: string;
   cred: CredencialesEnvio | null;
+  origen?: OrigenIngesta;
 }): Promise<Response> {
   if (!es_comprobante_desde_mime(opts.adjunto.mimeType)) {
     const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_NO_COMPROBANTE, cred: opts.cred });
@@ -406,7 +416,7 @@ async function ofrecerBorradorOcr(opts: {
   const r = await ingerirOcr({
     idempotencyKey: opts.wamid,
     body: {
-      origen: "wa",
+      origen: opts.origen ?? "wa",
       bytes_ref: `wa-media:${opts.adjunto.idMedia}`,
       es_comprobante: true,
       foto_pendiente: true,
@@ -443,6 +453,96 @@ async function ofrecerBorradorOcr(opts: {
       ? await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_OCR_SIN_BASE, cred: opts.cred })
       : false;
   return Response.json({ ok: true, accion: r.status === 503 ? "ocr_sin_base" : "ocr_rechazado", enviado });
+}
+
+// ADR-0096: el número central es compartido, así que el comercio de un
+// proveedor sale SOLO del código de invitación, nunca del contenido. Devuelve
+// null cuando el remitente no es proveedor y sigue el flujo normal.
+async function atenderProveedor(opts: {
+  msg: MensajeEntranteWa;
+  ahoraMs: number;
+  cred: CredencialesEnvio | null;
+}): Promise<Response | null> {
+  const { msg, ahoraMs, cred } = opts;
+  const codigo = parsear_invitar(msg.texto);
+  if (codigo !== null) {
+    const hash = sha256Hex(codigo);
+    const inv = control.proveedorInvitaciones.get(hash) ?? null;
+    const v = verificar_invitacion({
+      textoEntrante: msg.texto,
+      codigoIngresadoHash: hash,
+      invitacion: inv,
+      ahoraMs,
+    });
+    if (!v.ok || !inv) {
+      const enviado = await responder({
+        toE164: msg.remitente,
+        wamidEntrante: msg.wamid,
+        texto: RESPUESTA_PROV_CODIGO_INVALIDO,
+        cred,
+      });
+      return Response.json({ ok: true, accion: "prov_codigo_invalido", motivo: v.ok ? "codigo_invalido" : v.motivo, enviado });
+    }
+    // Un número ata a un comercio: si ya es proveedor verificado de otro, no
+    // se reasigna y se responde el genérico de código inválido.
+    const existente = contacto_por_numero(control.proveedorContactos, msg.remitente);
+    if (existente?.estado === "verificado" && existente.tenantId !== inv.tenantId) {
+      const enviado = await responder({
+        toE164: msg.remitente,
+        wamidEntrante: msg.wamid,
+        texto: RESPUESTA_PROV_CODIGO_INVALIDO,
+        cred,
+      });
+      return Response.json({ ok: true, accion: "prov_codigo_invalido", motivo: "numero_ocupado", enviado });
+    }
+    control.proveedorContactos.set(msg.remitente, {
+      numeroE164: msg.remitente,
+      tenantId: inv.tenantId,
+      supplierCuit: inv.supplierCuit,
+      estado: "pendiente",
+      creadoEn: new Date(ahoraMs).toISOString(),
+    });
+    control.proveedorInvitaciones.set(hash, { ...inv, usado: true });
+    const enviado = await responder({
+      toE164: msg.remitente,
+      wamidEntrante: msg.wamid,
+      texto: RESPUESTA_PROV_RECIBIDO,
+      cred,
+    });
+    return Response.json({ ok: true, accion: "prov_invitado", tenantId: inv.tenantId, enviado });
+  }
+  const contacto = contacto_por_numero(control.proveedorContactos, msg.remitente);
+  if (!contacto) return null;
+  if (contacto.estado === "verificado") {
+    if (msg.adjunto) {
+      return ofrecerBorradorOcr({
+        remitente: msg.remitente,
+        wamid: msg.wamid,
+        adjunto: msg.adjunto,
+        tenantId: contacto.tenantId,
+        cred,
+        origen: "wa_proveedor",
+      });
+    }
+    const enviado = await responder({
+      toE164: msg.remitente,
+      wamidEntrante: msg.wamid,
+      texto: RESPUESTA_PROV_FACTURA,
+      cred,
+    });
+    return Response.json({ ok: true, accion: "prov_factura_pedida", enviado });
+  }
+  if (contacto.estado === "pendiente") {
+    const enviado = await responder({
+      toE164: msg.remitente,
+      wamidEntrante: msg.wamid,
+      texto: RESPUESTA_PROV_PENDIENTE,
+      cred,
+    });
+    return Response.json({ ok: true, accion: "prov_pendiente", enviado });
+  }
+  // revocado: cae a la puerta de identidad y recibe el genérico no vinculado.
+  return null;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -562,6 +662,9 @@ export const POST: APIRoute = async ({ request }) => {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_ALTA, cred });
     return Response.json({ ok: true, accion: "opt_in", respuesta: RESPUESTA_ALTA, enviado });
   }
+  // El proveedor no está vinculado: va antes de la puerta de identidad.
+  const proveedor = await atenderProveedor({ msg, ahoraMs, cred });
+  if (proveedor) return proveedor;
   // AU10.4/AU11.7: las acciones sensibles solo se hacen desde la web; por el
   // bot se derivan (se responde tras la puerta de identidad, sin ejecutar).
   // Las preguntas por costo pasan el gate de intención para denegarse con

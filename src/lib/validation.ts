@@ -242,7 +242,7 @@ export const closeOrderSchema = z.object({
 });
 // O2.2 borradores proveedor (FP1-FP12): foto al bot -> OCR -> confirma 1 toque.
 export const draftIngestSchema = z.object({
-  origen: z.enum(["wa", "gmail"]),
+  origen: z.enum(["wa", "gmail", "wa_proveedor"]),
   bytes_ref: z.string().min(1).max(512),
   es_comprobante: z.boolean(),
   cuit_texto: z.string().max(14).optional(),
@@ -365,7 +365,7 @@ export const fiscalEmitirSchema = z.object({
 });
 // OCR Fase 0 (ADR-0005): job idempotente por wamid/message-id (E2).
 export const ocrJobSchema = z.object({
-  origen: z.enum(["wa", "gmail"]),
+  origen: z.enum(["wa", "gmail", "wa_proveedor"]),
   bytes_ref: z.string().min(1).max(512).optional(),
   pdf_ref: z.string().min(1).max(512).optional(),
   emisor: z.string().min(1).max(120).optional(),

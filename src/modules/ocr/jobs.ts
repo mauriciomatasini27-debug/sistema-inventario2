@@ -17,7 +17,7 @@ export const RECUERDO_OCR_MS = 24 * 60 * 60 * 1000;
 export interface OcrJob {
   readonly id: string;
   readonly idempotencyKey: string;
-  readonly origen: "wa" | "gmail";
+  readonly origen: "wa" | "gmail" | "wa_proveedor";
   readonly bytesRef: string;
   readonly emisor: string | null;
   readonly estado: EstadoOcrJob;
@@ -31,7 +31,7 @@ export interface OcrJob {
 export function crear_job(input: {
   jobId: string;
   idempotencyKey: string;
-  origen: "wa" | "gmail";
+  origen: "wa" | "gmail" | "wa_proveedor";
   bytesRef: string;
   emisor?: string | null;
   ahoraIso: string;
