@@ -87,6 +87,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
       )}
     </main>
     <script>
+      import { sincronizarColaVenta } from "../offline/cola-venta.js";
       const $ = (id) => document.getElementById(id);
       const seqKey = "slice0-seq";
       const outboxKey = "slice0-outbox";
@@ -150,23 +151,23 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         balance();
       };
       $("sync").onclick = async () => {
-        const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
-        let sensibles = 0;
-        for (const item of q) {
-          try {
-            const r = await fetch("/api/sync/push", {
+        const r = await sincronizarColaVenta({
+          leer: () => JSON.parse(localStorage.getItem(outboxKey) ?? "[]"),
+          escribir: (items) => localStorage.setItem(outboxKey, JSON.stringify(items)),
+          enviar: async (item) => {
+            const res = await fetch("/api/sync/push", {
               method: "POST",
               headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
               body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
             });
-            const j = await r.json().catch((error) => { console.warn("[venta] sync sin JSON", r.status, error); return {}; });
-            const unos = Array.isArray(j.resultados) ? j.resultados : [j];
-            for (const uno of unos) if (uno && uno.resultado === "necesita_conexion") sensibles += 1;
-          } catch (error) { console.warn("[venta] sync sin red", error); }
-        }
-        localStorage.setItem(outboxKey, "[]");
+            const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
+            return { status: res.status, cuerpo };
+          },
+        });
         // SYNC-S7: lo sensible solo va online; se avisa en vez de fallar.
-        estado(sensibles > 0 ? "Necesita conexión (" + sensibles + " sensible(s) solo online)" : "sync intentado (" + q.length + ")");
+        if (r.cortado) estado("sync cortado: " + r.pendientes + " pendiente(s)");
+        else if (r.sensibles > 0) estado("Necesita conexión (" + r.sensibles + " sensible(s) solo online)");
+        else estado("sync intentado (" + r.confirmados + ")");
         balance();
       };
       // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.

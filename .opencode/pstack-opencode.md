@@ -55,3 +55,7 @@ Cada error tiene un guard estructural; la doc es el último recurso. E1: nunca e
 - Dentro de la cadena el ORQUESTADOR ya tomó el lock: la sesión de OpenCode NO lo adquiere ni lo libera, y no hace push ni merge.
 - Gate de merge (lo corre el orquestador): `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0. GitHub Actions quedó manual-only (`workflow_dispatch`, ADR-0086); el gate real es `npm run verify`.
 - Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones-aplicadas.md` antes del merge. Tests: `tests/cadena-lock.test.ts`, `tests/cadena-puede-mergear.test.ts`, `tests/cadena-con-lock.test.ts`.
+
+## Verificación formal
+
+- `/create-formal-verification-skill` para una promesa nueva donde un bug cuesta plata o datos y los tests llegan poco (concurrencia, reintentos, máquinas de estado); `/maintain-formal-verification-skill` después de merges o refactors que tocaron código verificado sin re-chequear; `/verify-venta-sync` antes de cerrar cualquier cambio en la cola offline de `/venta`, `cola-venta.ts`, `empujarOperacion` o la tabla `outbox`. El chequeo formal es `npm run verificar:formal` (Java 17+, opcional, fuera de `verify`; ver `verificacion/tla/README.md`).

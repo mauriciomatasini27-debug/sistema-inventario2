@@ -1,7 +1,7 @@
 ---
 id: ADR-0097
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [ventas, sync]
 depende_de: [ADR-0003, ADR-0017, ADR-0061, ADR-0086]
 reemplaza: []
@@ -15,7 +15,7 @@ resumen: |
 ---
 # ADR-0097 - Verificación formal de promesas críticas
 
-Estado: propuesto. Fecha: 2026-10-19. Fuentes: spike del 2026-10-19 sobre la cola offline de `/venta` y `empujarOperacion` (modelo, `.cfg` y salidas de TLC en el box, `/workspace/formal-eval/`, fuera del repo); `src/pages/venta.astro:146-167`, `src/lib/repos/sync.ts:95-160`, `src/db/schema.ts:112`; ADR-0003 (datos offline), ADR-0017 (slice 0), ADR-0061 (repo sync), ADR-0086 (gate local).
+Estado: aceptado. Fecha: 2026-10-19. Aceptado: 2026-10-19 por Mauri. Fuentes: spike del 2026-10-19 sobre la cola offline de `/venta` y `empujarOperacion` (modelo, `.cfg` y salidas de TLC en el box, `/workspace/formal-eval/`, fuera del repo); `src/pages/venta.astro:146-167`, `src/lib/repos/sync.ts:95-160`, `src/db/schema.ts:112`; ADR-0003 (datos offline), ADR-0017 (slice 0), ADR-0061 (repo sync), ADR-0086 (gate local).
 
 ## Decisión
 
@@ -42,7 +42,7 @@ El modelo `VentaSync` describe la cola de `/venta` y `empujarOperacion` con N=3 
 - `AlMasUnaFila`. Ningún `op_id` tiene más de una fila en la outbox del servidor.
 - `NoAtascada`. Ningún item que queda en la cola está condenado a 422 para siempre.
 
-Resultados reales de TLC2 2026.10.15 con tla2tools.jar 1.8.0 y JRE 21. La tabla sale de `RESULTADOS.txt` del spike. En las corridas violadas, los estados generados varían un poco entre corridas porque TLC usa 2 workers; el contraejemplo es el mismo.
+Resultados reales de TLC2 2026.10.15 con tla2tools.jar 1.8.0 y JRE 21 en el spike. La tabla sale de `RESULTADOS.txt` del spike. El script del repo pinnea 1.7.4, la última release estable: 1.8.0 es un prerelease que se re-publica y rompe el checksum. En las corridas violadas, los estados generados varían un poco entre corridas porque TLC usa 2 workers; el contraejemplo es el mismo.
 
 | Escenario | Ley | Resultado | Generados / distintos |
 |---|---|---|---|
@@ -80,28 +80,36 @@ El modelo no cubre payload distinto con el mismo `op_id` (409), `/api/sales` en 
 ## Qué cambia
 
 - Se agregan este ADR y el PRD-VF-01. No se agrega código, dependencia ni migración en este ADR.
-- VF-S1 mueve el modelo `VentaSync` a `verificacion/tla/`, conserva los siete escenarios y agrega `scripts/verificacion-tla.sh`.
-- VF-S2 arregla `src/pages/venta.astro` y agrega el test de regresión que reproduce la pérdida.
+- VF-S1 mueve el modelo `VentaSync` a `verificacion/tla/` con `venta-sync.cfg` y tres configs de quiebre, y agrega `scripts/verificar-formal.sh`, que se corre con `npm run verificar:formal`. El jar 1.7.4 se descarga a `${XDG_CACHE_HOME:-$HOME/.cache}/sistema-inventario/tla/`, fuera del repo, con chequeo de SHA256.
+- VF-S2 arregla la cola offline en `src/offline/cola-venta.ts` y su `onclick` de `#sync` en `src/pages/venta.astro`, corta también el flush de `src/offline/sync-worker.ts`, y agrega los tests de regresión que reproducen la pérdida.
 - VF-S3 genera `.agents/skills/verify-venta-sync/SKILL.md` con la cobertura y el commit de sync, y la prueba con un quiebre.
 - VF-S4 suma el segundo modelo estable sobre PLAN-S4.
 
 ### Gate
 
-TLA+ no entra a `npm run verify` todavía. El script `scripts/verificacion-tla.sh` es opcional. Si falta `java` o falta el jar, imprime el motivo y sale 0. Si están, corre el modelo vigente y el quiebre deliberado.
+TLA+ no entra a `npm run verify` todavía. El script `scripts/verificar-formal.sh` (`npm run verificar:formal`) es opcional. Si falta `java` o falta el jar, imprime el motivo y sale 0. Si están, corre el modelo vigente y los tres quiebres deliberados.
 
 Entra al gate recién cuando haya 2 modelos estables. Un modelo es estable cuando pasa sobre el código actual, falla en una variante rota deliberada y tiene su skill local con cobertura y sync commit al día. Hasta entonces, el script se corre a mano en los PRs que tocan las áreas cubiertas.
 
 ### Costo
 
-- Java 17+ y `tla2tools.jar` viven fuera de `package.json`. El spike usó JRE 21, tla2tools.jar 1.8.0 y TLC2 2026.10.15.
-- Con estas cotas las 7 corridas tardan unos 7 segundos en total en el box. El costo crece rápido con N y con la cantidad de drenajes, así que cada modelo fija sus cotas y las justifica.
+- Java 17+ y `tla2tools.jar` viven fuera de `package.json`. El script fija tla2tools.jar 1.7.4 con SHA256 `936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88`; el spike original usó 1.8.0 con JRE 21 y TLC2 2026.10.15.
+- Con estas cotas las 4 corridas del script tardan unos 4 a 5 segundos en total (medido en el box y en un clon limpio con JRE 17). El costo crece rápido con N y con la cantidad de drenajes, así que cada modelo fija sus cotas y las justifica.
 - El modelo se mantiene cuando cambia el código cubierto. Para eso está `/maintain-formal-verification-skill`.
-- La meta-skill es beta en pstack v0.15.27 y no está vendorizada. El ADR no depende de que la meta-skill sea estable. Los artefactos durables son el modelo, los `.cfg`, el script y la skill local generada.
+- Las meta-skills están vendorizadas desde pstack v0.15.28 y siguen en beta. El ADR no depende de que sean estables. Los artefactos durables son el modelo, los `.cfg`, el script y la skill local generada.
+
+## Resultado sobre el código arreglado
+
+Con `npm run verificar:formal` y TLC 1.7.4 `-workers 1`:
+
+```
+ok  venta-sync: se cumplen NoVentaPerdida, AlMasUnaFila, NoAtascada (7519 estados distintos)
+ok  quiebre-limpia-todo: TLC encontró la violación esperada de NoVentaPerdida (traza de 4 estados)
+ok  quiebre-sigue-tras-fallo: TLC encontró la violación esperada de NoAtascada (traza de 9 estados)
+ok  quiebre-sin-pk: TLC encontró la violación esperada de AlMasUnaFila (traza de 12 estados)
+```
 
 ## Pendientes
 
-- OK de Mauri para vendorizar `/create-formal-verification-skill` y `/maintain-formal-verification-skill` (beta, pstack v0.15.27).
-- OK de Mauri para pedir Java 17+ y `tla2tools.jar` (versión pinneada) a quien corra el chequeo, incluida su máquina Windows. En el box ya hay un JRE 21 en `~/.local`, fuera del repo.
-- OK de Mauri para sumar fast-check como devDependency.
-- Confirmar el segundo modelo estable. El candidato de VF-S4 es PLAN-S4.
-- Decidir si el script opcional corre también en la verificación local manual.
+- Cerrar VF-S4: confirmar el segundo modelo estable, PLAN-S4 sobre `src/pages/api/plan/cambiar.ts` y los repos de planes.
+- Decidir si el chequeo formal entra a `npm run verify` cuando haya 2 modelos estables.

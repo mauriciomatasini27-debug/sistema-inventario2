@@ -105,6 +105,20 @@ Migraciones: aplicalas vos sobre la base real y registralas en `docs/roadmap/mig
 - `main` se mueve seguido: rebaseá antes de `verify` y de mergear. Si vas a tocar el mismo módulo que un PR abierto de la Cadena, esperá a que se mergee o cerralo vos.
 - No hagas force-push a `main`.
 
+## Verificación formal (TLA+)
+
+El chequeo formal de la cola offline de venta es opcional y no entra a `npm run verify` (ADR-0097). Necesita Java 17+:
+
+```bash
+sudo apt install -y openjdk-17-jre-headless
+java -version    # tiene que decir 17 o más
+npm run verificar:formal
+```
+
+La primera vez descarga `tla2tools.jar` 1.7.4 (unos 2 MB) a `~/.cache/sistema-inventario/tla`, fuera del repo, y verifica su SHA256. La salida esperada son cuatro líneas `ok`: `venta-sync` cumple las tres leyes y cada quiebre encuentra su violación esperada.
+
+Si dice "No se verificó nada" y sale 0, falta Java o la red: no es verde. Si dice `FALLA`, es un bug del código o un modelo desactualizado; seguí `/verify-venta-sync` y `/maintain-formal-verification-skill`. Detalle en `verificacion/tla/README.md`.
+
 ## Problemas comunes
 
 - `verify: falta Postgres (PG_TEST_URL_A/B)`: estás en Windows nativo o falló `pg-local.sh start`. Mirá `$PGDATA_LOCAL/server.log`.

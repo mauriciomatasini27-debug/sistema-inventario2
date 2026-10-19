@@ -1,6 +1,6 @@
 import { confirmar, marcarEnviado, pendientes } from "./outbox-store.js";
 import { fijarDef } from "./id-mappings.js";
-import { avanzarCursor as avanzarCursorPolicy, decidirPush, mapKindASyncModulo, reducirPushResult } from "./sync-policy.js";
+import { avanzarCursor as avanzarCursorPolicy, decidirPush, mapKindASyncModulo } from "./sync-policy.js";
 import type { Cursor, IdDef, IdProv, OpLocal, ResultadoSync } from "./types.js";
 
 // Worker interno: push secuencial por seq (respeta 422), pull por cursor,
@@ -69,13 +69,9 @@ export async function sincronizarAhora(opts: WorkerOpts = {}): Promise<Resultado
     let res: PushResult;
     try {
       res = await push.enviar(op, deviceCode);
-    } catch {
-      const ef = reducirPushResult(op, 500, null);
-      if (ef.accion === "reintentar") {
-        const cur = (await pendientes(1)).find((o) => o.opId === op.opId);
-        void cur;
-      }
-      continue;
+    } catch (error) {
+      console.warn("[sync-worker] push cortado sin red", op.opId, error);
+      break;
     }
     if (res.kind === "creado" || res.kind === "replay") {
       const { confirmar: confirmarOp } = await import("./outbox-store.js");

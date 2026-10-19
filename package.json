@@ -23,7 +23,8 @@
     "docs:check": "node scripts/docs-check.mjs",
     "docs:context": "node scripts/docs-context.mjs",
     "roadmap": "node scripts/roadmap.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "verificar:formal": "bash scripts/verificar-formal.sh"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.7",
@@ -52,6 +53,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/sql.js": "^1.4.11",
     "drizzle-kit": "^0.31.11",
+    "fast-check": "4.10.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.4"
