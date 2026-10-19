@@ -61,8 +61,11 @@ import {
   RESPUESTA_PROV_FACTURA,
   RESPUESTA_PROV_PENDIENTE,
   RESPUESTA_PROV_RECIBIDO,
+  type ResultadoVincularCuit,
   verificar_invitacion,
+  vincular_cuit_contacto,
 } from "../../../modules/whatsapp/proveedor.js";
+import { listarProveedores } from "../../../lib/repos/proveedores.js";
 import {
   agregarListaViernes,
   guardarSesion,
@@ -402,6 +405,7 @@ async function ofrecerBorradorOcr(opts: {
   tenantId: string;
   cred: CredencialesEnvio | null;
   origen?: OrigenIngesta;
+  alCrearBorrador?: (borrador: Borrador) => void | Promise<void>;
 }): Promise<Response> {
   if (!es_comprobante_desde_mime(opts.adjunto.mimeType)) {
     const enviado = await responder({ toE164: opts.remitente, wamidEntrante: opts.wamid, texto: RESPUESTA_NO_COMPROBANTE, cred: opts.cred });
@@ -430,6 +434,9 @@ async function ofrecerBorradorOcr(opts: {
     return Response.json({ ok: true, accion: "ocr_duplicado", job_id: r.jobId, borrador_id: r.borradorId });
   }
   if (r.status === 201) {
+    // S6/S7: antes de ofrecer el borrador, el llamador ata la identidad del
+    // proveedor al CUIT leído. Sin callback no cambia nada.
+    await opts.alCrearBorrador?.(r.borrador);
     const ahoraIso = new Date().toISOString();
     const propuesta = propuesta_correccion_total(r.borrador);
     const enviado = await responderPayload(
@@ -515,14 +522,29 @@ async function atenderProveedor(opts: {
   if (!contacto) return null;
   if (contacto.estado === "verificado") {
     if (msg.adjunto) {
-      return ofrecerBorradorOcr({
+      // S6/S7: el contacto verificado manda la factura. Antes de ofrecer el
+      // borrador se ata su identidad al CUIT que leyó el OCR. El callback corre
+      // dentro de `ofrecerBorradorOcr`; `vinculo` queda para la respuesta.
+      const vinculo: { r: ResultadoVincularCuit | null } = { r: null };
+      const res = await ofrecerBorradorOcr({
         remitente: msg.remitente,
         wamid: msg.wamid,
         adjunto: msg.adjunto,
         tenantId: contacto.tenantId,
         cred,
         origen: "wa_proveedor",
+        alCrearBorrador: async (borrador) => {
+          const { proveedores } = await conTenant(contacto.tenantId, () => listarProveedores());
+          const resultado = vincular_cuit_contacto({ contacto, cuitLeido: borrador.cuit, proveedores });
+          if (resultado.cambio) control.proveedorContactos.set(contacto.numeroE164, resultado.contacto);
+          vinculo.r = resultado;
+        },
       });
+      const resultado = vinculo.r;
+      if (resultado === null) return res;
+      const cuit = resultado.cambio ? resultado.contacto.supplierCuit : resultado.supplierCuit;
+      const cuerpo = (await res.json()) as Record<string, unknown>;
+      return Response.json({ ...cuerpo, cuit, proveedor_existe: resultado.proveedorExiste });
     }
     const enviado = await responder({
       toE164: msg.remitente,

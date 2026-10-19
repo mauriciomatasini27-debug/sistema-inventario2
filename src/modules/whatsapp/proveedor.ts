@@ -3,6 +3,8 @@
 // El comercio se resuelve SOLO por el código de invitación; nunca por el
 // contenido del mensaje, porque el número central es compartido.
 
+import { normalizarCuit } from "../purchases/proveedores.js";
+
 export const INVITAR_TTL_MIN = 30 as const;
 export const INVITAR_LEN = 6 as const;
 
@@ -66,4 +68,77 @@ export function contacto_por_numero(
   numero: string,
 ): ContactoProveedor | null {
   return contactos.get(numero) ?? null;
+}
+
+// PRD-PROV-01 S6/S7 (ADR-0096): la identidad del proveedor sale del CUIT que
+// lee el OCR de la factura, no del teléfono. El teléfono es el vínculo
+// secundario: un CUIT ya cargado que entra por un número nuevo no lo duplica,
+// el contacto queda atado a ese CUIT. El núcleo no decide altas ni mensajes
+// (S10 queda fuera); solo resuelve si hay que escribir la identidad y si el
+// CUIT ya está entre los proveedores del comercio.
+export interface ProveedorResumen {
+  readonly cuit: string;
+  readonly nombre: string;
+}
+
+export type ResultadoVincularCuit =
+  | {
+      readonly cambio: false;
+      readonly motivo: "sin_cuit" | "ya_igual" | "conflicto";
+      readonly supplierCuit: string | null;
+      readonly proveedorExiste: boolean;
+      readonly proveedorNombre: string | null;
+    }
+  | {
+      readonly cambio: true;
+      readonly contacto: ContactoProveedor;
+      readonly proveedorExiste: boolean;
+      readonly proveedorNombre: string | null;
+    };
+
+export function vincular_cuit_contacto(opts: {
+  contacto: ContactoProveedor;
+  cuitLeido: string | null;
+  proveedores: ReadonlyArray<ProveedorResumen>;
+}): ResultadoVincularCuit {
+  const cuit = normalizarCuit(opts.cuitLeido ?? "");
+  const actual = opts.contacto.supplierCuit === null ? null : normalizarCuit(opts.contacto.supplierCuit);
+  if (!/^\d{11}$/.test(cuit)) {
+    return {
+      cambio: false,
+      motivo: "sin_cuit",
+      supplierCuit: opts.contacto.supplierCuit,
+      proveedorExiste: false,
+      proveedorNombre: null,
+    };
+  }
+  const match = opts.proveedores.find((p) => normalizarCuit(p.cuit) === cuit) ?? null;
+  const proveedorExiste = match !== null;
+  const proveedorNombre = match?.nombre ?? null;
+  // La identidad previa no se pisa: si el contacto ya tenía un CUIT distinto,
+  // el conflicto se reporta y el llamador decide (S10), no este núcleo.
+  if (actual === cuit) {
+    return {
+      cambio: false,
+      motivo: "ya_igual",
+      supplierCuit: opts.contacto.supplierCuit,
+      proveedorExiste,
+      proveedorNombre,
+    };
+  }
+  if (actual !== null) {
+    return {
+      cambio: false,
+      motivo: "conflicto",
+      supplierCuit: opts.contacto.supplierCuit,
+      proveedorExiste,
+      proveedorNombre,
+    };
+  }
+  return {
+    cambio: true,
+    contacto: { ...opts.contacto, supplierCuit: cuit },
+    proveedorExiste,
+    proveedorNombre,
+  };
 }
