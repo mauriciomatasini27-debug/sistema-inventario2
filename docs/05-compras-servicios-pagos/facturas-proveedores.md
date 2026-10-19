@@ -50,6 +50,8 @@ Según cómo trabaja ese proveedor, descuenta el pago de la caja en el momento o
 
 "Sacale una foto a la factura y listo: queda guardada, vinculada al proveedor y al pedido, y la plata sale de la caja cuando la pagás."
 
+> Nota 2026-10-19: además del Dueño y el Empleado, un proveedor invitado puede mandar la factura al bot (ADR-0096, PRD-PROV-01). El Dueño le da un código de invitación, el teléfono queda atado al comercio como contacto pendiente, y la identidad del proveedor sale del CUIT que lee el OCR, no del teléfono. El borrador sigue sin tocar nada hasta que el Dueño lo confirma.
+
 ### 1.4 Alcance del módulo
 
 Es un módulo del mismo producto: misma app Astro, mismos usuarios y roles, misma base de datos por comercio, mismo bot.
@@ -71,6 +73,8 @@ No emite facturas ni comprobantes fiscales (igual que el PRD de caja).
 No es un sistema contable: no lleva libro IVA compras, no discrimina IVA para liquidación ni genera asientos.
 
 No se conecta con los sistemas de los proveedores ni recibe facturas por email en el MVP (la carga es por foto vía WhatsApp; carga desde la web en P1).
+
+> Nota 2026-10-19: el proveedor puede mandar la factura por WhatsApp al bot si el Dueño lo invitó con un código (ADR-0096, PRD-PROV-01). El email sigue fuera.
 
 No reemplaza la decisión del dueño: ningún dato leído por OCR, ningún vínculo con un pedido y ningún pago se registra sin confirmación explícita.
 

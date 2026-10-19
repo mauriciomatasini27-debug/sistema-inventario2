@@ -385,6 +385,10 @@
       "ruta": "docs/adr/0095-edicion-texto-borrador-ocr-dueno.md"
     },
     {
+      "id": "ADR-0096",
+      "ruta": "docs/adr/0096-recepcion-facturas-proveedores-whatsapp.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -727,6 +731,10 @@
     {
       "id": "PRD-PROC-01",
       "ruta": "docs/diseno/PRD-PROC-01-auditoria-proceso.md"
+    },
+    {
+      "id": "PRD-PROV-01",
+      "ruta": "docs/diseno/PRD-PROV-01-facturas-proveedores-por-whatsapp.md"
     },
     {
       "id": "PRD-PS-01",
@@ -2124,6 +2132,31 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0096",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0096",
+      "a": "ADR-0091",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0096",
+      "a": "ADR-0093",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0096",
+      "a": "ADR-0094",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0096",
+      "a": "ADR-0095",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -3201,6 +3234,11 @@
     {
       "de": "PRD-PROC-01",
       "a": "ADR-0083",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-PROV-01",
+      "a": "ADR-0096",
       "tipo": "depende_de"
     },
     {
