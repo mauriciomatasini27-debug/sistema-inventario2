@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { tenantSchema } from "../../lib/validation.js";
 import { control } from "../../lib/store.js";
-import { esSuperadmin, jsonError, resolverSesion } from "../../lib/control.js";
+import { jsonError } from "../../lib/control.js";
+import { exigirAdmin } from "./admin/_guard.js";
 import { asegurarAltaPendiente, buscarAltasPorDueno, buscarDatabasePorTenant } from "../../lib/control-db.js";
 import { ejecutarAprovisionamiento } from "../../jobs/aprovisionar.js";
 import {
@@ -18,11 +19,9 @@ export const prerender = false;
 // La membership de Dueño se crea recién en el paso crear_membership_dueno:
 // nunca activa sin base completa.
 export const POST: APIRoute = async ({ request }) => {
-  const ctx = resolverSesion(request);
-  if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
-  if (!esSuperadmin(ctx.googleSub)) {
-    return jsonError("No tenés permiso para crear comercios.", 403);
-  }
+  const admin = exigirAdmin(request, "No tenés permiso para crear comercios.");
+  if (admin instanceof Response) return admin;
+  const { googleSub } = admin;
 
   let body: unknown;
   try {
@@ -40,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const b = parsed.data;
   const requestKey =
-    b.request_key ?? request.headers.get("Idempotency-Key") ?? `${ctx.googleSub}:${b.nombre_comercio}`;
+    b.request_key ?? request.headers.get("Idempotency-Key") ?? `${googleSub}:${b.nombre_comercio}`;
 
   const existentes = [...control.tenants.values()].map((t) => ({
     tenantId: t.id,
@@ -121,7 +120,7 @@ export const POST: APIRoute = async ({ request }) => {
   const membershipDueno = [...control.memberships.values()].find(
     (m) => m.tenantId === id && m.googleSub === b.owner_google_sub,
   );
-  control.events.push({ tenantId: id, tipo: "alta_comercio", actor: ctx.googleSub });
+  control.events.push({ tenantId: id, tipo: "alta_comercio", actor: googleSub });
 
   return Response.json(
     {

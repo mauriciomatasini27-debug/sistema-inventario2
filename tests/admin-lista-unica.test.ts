@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
-import { resetAdmin } from "../src/lib/admin-store.js";
+import { adminStore, resetAdmin } from "../src/lib/admin-store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { esAdminAllowlist, leerAllowlist } from "../src/modules/admin/guard.js";
 import { esSuperadmin } from "../src/lib/control.js";
@@ -119,6 +119,24 @@ describe("P9-12 lista única de admins", () => {
       }),
     )) as Response;
     expect(no.status).toBe(403);
+  });
+
+  it("el rechazo de tenants y embudo deja el mismo acto auditado", async () => {
+    fijarListas("admin-ok", "");
+    const intruso = sesionEnStore("intruso");
+    const cookie = { cookie: `__Host-sesion=${intruso}` };
+    const t = (await postTenants(
+      ctx("http://x/api/tenants", { method: "POST", body: cuerpoTenants("audit"), headers: cookie }),
+    )) as Response;
+    expect(t.status).toBe(403);
+    const e = (await getEmbudo(ctx("http://x/api/admin/onboarding/embudo", { headers: cookie }))) as Response;
+    expect(e.status).toBe(403);
+    const denegados = adminStore.actos.filter((a) => a.actoKind === "senal_descartada");
+    expect(denegados.map((a) => a.detalle)).toEqual([
+      { kind: "senal_descartada", outboxId: "guard", tipo: "acceso_denegado_admin" },
+      { kind: "senal_descartada", outboxId: "guard", tipo: "acceso_denegado_admin" },
+    ]);
+    expect(denegados.every((a) => a.actorGoogleSub === "intruso")).toBe(true);
   });
 
   it("embudo y tenants consistentes con la misma lista", async () => {

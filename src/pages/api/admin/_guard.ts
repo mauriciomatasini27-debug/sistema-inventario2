@@ -18,7 +18,7 @@ export interface AdminCtx {
   googleSub: string;
 }
 
-export function exigirAdmin(request: Request): AdminCtx | Response {
+export function exigirAdmin(request: Request, mensaje = "No tenés permiso para ver el panel."): AdminCtx | Response {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   if (!esAdminAllowlist(ctx.googleSub, leerAllowlist())) {
@@ -27,7 +27,7 @@ export function exigirAdmin(request: Request): AdminCtx | Response {
       ctx.googleSub,
       "panel",
     );
-    return jsonError("No tenés permiso para ver el panel.", 403);
+    return jsonError(mensaje, 403);
   }
   return { googleSub: ctx.googleSub };
 }
