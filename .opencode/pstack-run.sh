@@ -48,7 +48,9 @@ for m in "${modelos[@]}"; do
   # Por qué también "Error:" en texto: sin --format json, opencode 1.19 imprime
   # un fallo del proveedor ("Upstream request failed") como línea "Error: ..."
   # y sale con rc=0; sin esta guarda el intento se daba por bueno sin escribir nada.
-  if [ $rc -eq 0 ] && sed 's/\x1b\[[0-9;]*m//g' "$out" | grep -qE '^Error: '; then rc=5; fi
+  # Solo errores del proveedor ("Upstream ..." o el JSON de UnknownError): un
+  # "Error:" de herramienta (permiso rechazado) es parte normal de la sesión.
+  if [ $rc -eq 0 ] && sed 's/\x1b\[[0-9;]*m//g' "$out" | grep -qE '^Error: (Upstream|\{)'; then rc=5; fi
   # Por qué solo eventos de error: el texto de la sesión (código, tests) puede
   # contener "quota" o "429" y no es un fallo del modelo.
   if [ $rc -eq 0 ] && ! grep -E '^\{"type":"error"' "$out" | grep -qiE 'rate.?limit|quota|insufficient|too many requests|429|exhausted' && ! { grep -q '"type":"error"' "$out" && ! grep -q '"type":"text"' "$out"; }; then
