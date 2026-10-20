@@ -38,7 +38,7 @@ Reglas cortas para agentes en este repo.
 
 ## OpenCode (modelos)
 
-- Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/space-bunny-free` (cross-family). Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
+- Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/glm-5.3-flash-free` (cross-family; `space-bunny-free` salió de Zen el 2026-10-20). Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
 
 ## Verificación formal
 
