@@ -1,0 +1,22 @@
+---
+import { moduloIndice } from "../../lib/panel-modulos.js";
+
+const alertas = moduloIndice("alertas");
+---
+<section class="card card-ember card-ember--rojo" id="alertas" data-modulo-indice={alertas.id}>
+  <h2>Alertas <a href={alertas.href} aria-label="Configurar alertas">↗</a></h2>
+  <div class="mini">Stock mínimo y cantidad a reponer por producto.</div>
+  <a class="alertas-acceso" href={alertas.href}>Configurar umbrales</a>
+</section>
+
+<style>
+  .alertas-acceso {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: 8px;
+    color: var(--texto);
+    font-weight: 700;
+    text-underline-offset: 3px;
+  }
+</style>

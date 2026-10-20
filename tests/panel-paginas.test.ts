@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pillsPanel } from "../src/lib/panel-modulos.js";
+import { pillsPanel, moduloIndice } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
@@ -130,9 +130,10 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
   });
 
   it("la tarjeta de bot enlaza a /panel/bot/config y la pantalla ofrece vincular", () => {
-    const destino = "/panel/bot/config";
+    const destino = moduloIndice("bot").href;
+    expect(destino).toBe("/panel/bot/config");
     expect(archivoDeHref(destino)).toBe("src/pages/panel/bot/config.astro");
-    expect(leer("src/components/panel/BotModulosCard.astro")).toContain(`href="${destino}"`);
+    expect(leer("src/components/panel/BotModulosCard.astro")).toContain("href={bot.href}");
     const pantalla = leer("src/pages/panel/bot/config.astro");
     expect(pantalla).toContain("Vincular WhatsApp");
     expect(pantalla).toContain("Generar código");

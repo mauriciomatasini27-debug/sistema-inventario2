@@ -67,6 +67,7 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
     expect(hrefs).toEqual([
       "/panel", "/venta", "/panel/caja", "/panel/stock", "/panel/precios",
       "/panel/proveedores", "/panel/consumos", "/panel/fiado", "/panel/reportes",
+      "/panel/bot/config", "/panel/alertas/umbrales",
     ]);
   });
 

@@ -57,6 +57,8 @@ export const PREFIJOS_DATOS = [
   // DASH-S8: resumen read-only de /panel/plan; el middleware fija el tenant
   // para que los repos de planes usen la base del comercio (ADR-0051).
   "/api/plan",
+  // DASH-S12: el índice de /panel lee las features del plan del tenant.
+  "/api/panel",
   // IA-S4: lee plan y escribe ai_usage en la base del tenant.
   "/api/asistente",
   // ADR-0102: las rutas de integraciones escriben en la base del comercio.

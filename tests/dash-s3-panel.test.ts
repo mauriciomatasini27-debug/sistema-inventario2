@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { moduloIndice } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
@@ -15,7 +16,8 @@ describe("DASH-S3 tarjeta Bot en el índice de /panel", () => {
 
   it("la tarjeta enlaza a la config del bot y trae los tres datos", () => {
     const card = leer("src/components/panel/BotCard.astro");
-    expect(card).toContain('href="/panel/bot/config"');
+    expect(moduloIndice("bot").href).toBe("/panel/bot/config");
+    expect(card).toContain("href={bot.href}");
     expect(card).toContain("Consultas de hoy");
     expect(card).toContain("Última consulta");
     expect(card).toContain("tabular-nums");

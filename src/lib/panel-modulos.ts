@@ -1,3 +1,5 @@
+import type { Feature } from "../modules/planes/catalogo.js";
+
 export type ModuloPanel =
   | "caja"
   | "stock"
@@ -8,6 +10,30 @@ export type ModuloPanel =
   | "reportes";
 
 export type DestinoPanel = "dashboard" | "ventas" | ModuloPanel;
+
+export type ModuloIndice = DestinoPanel | "bot" | "alertas" | "asistente";
+
+export type RequisitoIndice =
+  | { readonly tipo: "siempre" }
+  | { readonly tipo: "feature"; readonly feature: Feature }
+  | { readonly tipo: "alguna"; readonly features: ReadonlyArray<Feature> };
+
+export type FeaturesPlan = Partial<Record<Feature, boolean>>;
+
+export interface EntradaIndice {
+  readonly id: ModuloIndice;
+  readonly label: string;
+  readonly href: string;
+  readonly ember: Ember | null;
+  readonly enPills: boolean;
+  readonly requisito: RequisitoIndice;
+}
+
+export interface ModuloVisible {
+  readonly id: ModuloIndice;
+  readonly label: string;
+  readonly href: string;
+}
 
 // Acento ember de cada módulo (DS-S2): solo secundarias, nunca CTA primario.
 export type Ember = "ambar" | "coral" | "rojo" | "vino";
@@ -26,6 +52,7 @@ export interface PillPanel {
   label: string;
   href: string;
   activo: boolean;
+  id: ModuloIndice;
   ember?: Ember;
 }
 
@@ -53,18 +80,6 @@ const ETIQUETAS: Record<ModuloPanel, string> = {
 
 const MODULOS: ReadonlySet<string> = new Set(Object.keys(ETIQUETAS));
 
-const DESTINOS: ReadonlyArray<DestinoPanel> = [
-  "dashboard",
-  "ventas",
-  "caja",
-  "stock",
-  "precios",
-  "proveedores",
-  "consumos",
-  "fiado",
-  "reportes",
-];
-
 export function tienePantalla(id: ModuloPanel): boolean {
   return CON_PANTALLA.has(id);
 }
@@ -85,22 +100,75 @@ export function emberModulo(id: ModuloPanel): Ember {
   return EMBER_MODULO[id];
 }
 
-function etiquetaDestino(id: DestinoPanel): string {
-  if (id === "dashboard") return "Dashboard";
-  if (id === "ventas") return "Ventas";
-  return ETIQUETAS[id];
+export const MODULOS_INDICE: ReadonlyArray<EntradaIndice> = Object.freeze([
+  { id: "dashboard", label: "Dashboard", href: "/panel", ember: null, enPills: true, requisito: { tipo: "siempre" } },
+  { id: "ventas", label: "Ventas", href: "/venta", ember: null, enPills: true, requisito: { tipo: "siempre" } },
+  { id: "caja", label: "Caja", href: hrefModulo("caja"), ember: emberModulo("caja"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "stock", label: "Stock", href: hrefModulo("stock"), ember: emberModulo("stock"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "precios", label: "Precios", href: hrefModulo("precios"), ember: emberModulo("precios"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "proveedores", label: "Proveedores", href: hrefModulo("proveedores"), ember: emberModulo("proveedores"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "consumos", label: "Consumos", href: hrefModulo("consumos"), ember: emberModulo("consumos"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "fiado", label: "Fiado", href: hrefModulo("fiado"), ember: emberModulo("fiado"), enPills: true, requisito: { tipo: "siempre" } },
+  { id: "reportes", label: "Reportes", href: hrefModulo("reportes"), ember: emberModulo("reportes"), enPills: true, requisito: { tipo: "siempre" } },
+  {
+    id: "bot",
+    label: "Bot",
+    href: "/panel/bot/config",
+    ember: "ambar",
+    enPills: true,
+    requisito: { tipo: "feature", feature: "bot_consulta" },
+  },
+  {
+    id: "alertas",
+    label: "Alertas",
+    href: "/panel/alertas/umbrales",
+    ember: "rojo",
+    enPills: true,
+    requisito: { tipo: "alguna", features: ["alertas_email", "alertas_whatsapp"] },
+  },
+  {
+    id: "asistente",
+    label: "Asistente",
+    href: "#asistente",
+    ember: null,
+    enPills: false,
+    requisito: { tipo: "feature", feature: "asistente_ia" },
+  },
+]);
+
+export function moduloIndice(id: ModuloIndice): EntradaIndice {
+  const entrada = MODULOS_INDICE.find((m) => m.id === id);
+  if (!entrada) throw new Error(`módulo de índice desconocido: ${id}`);
+  return entrada;
 }
 
-function hrefDestino(id: DestinoPanel): string {
-  if (id === "dashboard") return "/panel";
-  if (id === "ventas") return "/venta";
-  return hrefModulo(id);
+function encendido(requisito: RequisitoIndice, features: FeaturesPlan): boolean {
+  if (requisito.tipo === "siempre") return true;
+  if (requisito.tipo === "feature") return features[requisito.feature] === true;
+  return requisito.features.some((f) => features[f] === true);
+}
+
+export function indicePanel(features: FeaturesPlan = {}): ModuloVisible[] {
+  return MODULOS_INDICE.filter((m) => encendido(m.requisito, features)).map(({ id, label, href }) => ({
+    id,
+    label,
+    href,
+  }));
+}
+
+export function featuresDelIndice(): Feature[] {
+  const features = new Set<Feature>();
+  for (const { requisito } of MODULOS_INDICE) {
+    if (requisito.tipo === "feature") features.add(requisito.feature);
+    else if (requisito.tipo === "alguna") for (const f of requisito.features) features.add(f);
+  }
+  return [...features];
 }
 
 export function pillsPanel(activo?: DestinoPanel): PillPanel[] {
-  return DESTINOS.map((id) => {
-    const pill: PillPanel = { label: etiquetaDestino(id), href: hrefDestino(id), activo: id === activo };
-    if (esModuloPanel(id)) pill.ember = emberModulo(id);
+  return MODULOS_INDICE.filter((m) => m.enPills).map((m) => {
+    const pill: PillPanel = { id: m.id, label: m.label, href: m.href, activo: m.id === activo };
+    if (m.ember !== null) pill.ember = m.ember;
     return pill;
   });
 }

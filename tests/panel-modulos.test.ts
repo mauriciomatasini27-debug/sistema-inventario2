@@ -43,6 +43,8 @@ describe("panel-modulos: navegación de pills", () => {
       "Consumos",
       "Fiado",
       "Reportes",
+      "Bot",
+      "Alertas",
     ]);
     expect(pills.filter((p) => p.activo).map((p) => p.label)).toEqual(["Stock"]);
     expect(pills.some((p) => p.href.startsWith("#"))).toBe(false);
@@ -50,7 +52,7 @@ describe("panel-modulos: navegación de pills", () => {
 
   it("pillsPanel sin activo conocido no rompe", () => {
     const pills = pillsPanel();
-    expect(pills).toHaveLength(9);
+    expect(pills).toHaveLength(11);
     expect(pills.some((p) => p.activo)).toBe(false);
   });
 

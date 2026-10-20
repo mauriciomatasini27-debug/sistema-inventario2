@@ -1,6 +1,9 @@
 ---
+import { moduloIndice } from "../../lib/panel-modulos.js";
+
+const asistente = moduloIndice("asistente");
 ---
-<div class="asistente-trigger">
+<div class="asistente-trigger" data-modulo-indice={asistente.id}>
   <button type="button" id="asistente-abrir" class="asistente-abrir" hidden>
     Preguntale al negocio
   </button>

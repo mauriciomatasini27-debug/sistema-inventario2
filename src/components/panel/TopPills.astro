@@ -9,6 +9,6 @@ const pills = pillsPanel(activo);
 ---
 <nav class="pills" aria-label="Módulos">
   {pills.map((p) => (
-    <a href={p.href} class={p.activo ? "active" : ""} aria-current={p.activo ? "page" : undefined}>{p.ember ? <span class={`pill-ember ember-${p.ember}`} aria-hidden="true" /> : null}{p.label}</a>
+    <a href={p.href} data-modulo-indice={p.id} class={p.activo ? "active" : ""} aria-current={p.activo ? "page" : undefined}>{p.ember ? <span class={`pill-ember ember-${p.ember}`} aria-hidden="true" /> : null}{p.label}</a>
   ))}
 </nav>
