@@ -393,8 +393,36 @@
       "ruta": "docs/adr/0097-verificacion-formal.md"
     },
     {
+      "id": "ADR-0098",
+      "ruta": "docs/adr/0098-persistencia-control-fiscal-idempotente.md"
+    },
+    {
+      "id": "ADR-0101",
+      "ruta": "docs/adr/0101-sector-producto-en-products.md"
+    },
+    {
+      "id": "ADR-0102",
+      "ruta": "docs/adr/0102-conexion-google-oauth.md"
+    },
+    {
+      "id": "ADR-0103",
+      "ruta": "docs/adr/0103-ingesta-gmail-watch-history.md"
+    },
+    {
+      "id": "ADR-0104",
+      "ruta": "docs/adr/0104-fotos-google-y-almacenamiento-propio.md"
+    },
+    {
+      "id": "ADR-0105",
+      "ruta": "docs/adr/0105-correccion-signo-caja-venta-fiado.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
+    },
+    {
+      "id": "DESTRABE-CREDENCIALES",
+      "ruta": "docs/guias/destrabe-credenciales.md"
     },
     {
       "id": "EVIDENCIA-UI-00",
@@ -541,6 +569,10 @@
       "ruta": "docs/09-frontend-landing-diseno/landing-gaps-modoops.md"
     },
     {
+      "id": "PEDIDO-FE-02",
+      "ruta": "docs/06-fiscal-arca/pedido-contador-abogado.md"
+    },
+    {
       "id": "PLAN-COM-01",
       "ruta": "docs/diseno/PLAN-COM-01-poda-comentarios.md"
     },
@@ -555,6 +587,10 @@
     {
       "id": "PLAN-COM-01-C",
       "ruta": "docs/diseno/PLAN-COM-01/c-conservar.md"
+    },
+    {
+      "id": "PLANTILLAS-META",
+      "ruta": "docs/07-canales-whatsapp-email/plantillas-meta.md"
     },
     {
       "id": "PRD-ADAP-01",
@@ -595,6 +631,10 @@
     {
       "id": "PRD-CAT-01",
       "ruta": "docs/diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md"
+    },
+    {
+      "id": "PRD-CAT-02",
+      "ruta": "docs/diseno/PRD-CAT-02-sector-producto-db.md"
     },
     {
       "id": "PRD-CH-01",
@@ -639,6 +679,14 @@
     {
       "id": "PRD-FE-02",
       "ruta": "docs/diseno/PRD-FE-02-cumplimiento-legal-fiscal-y-certificados.md"
+    },
+    {
+      "id": "PRD-FE-03",
+      "ruta": "docs/diseno/PRD-FE-03-persistencia-control-fiscal.md"
+    },
+    {
+      "id": "PRD-GMAIL-01",
+      "ruta": "docs/diseno/PRD-GMAIL-01-conexion-google-ingesta-gmail-photos.md"
     },
     {
       "id": "PRD-IA-01",
@@ -691,6 +739,10 @@
     {
       "id": "PRD-OP-01",
       "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md"
+    },
+    {
+      "id": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "ruta": "docs/diseno/PRD-P0-VENTA-CAJA-FIADO-01-correccion-cobro-fiado.md"
     },
     {
       "id": "PRD-PERS-01",
@@ -823,6 +875,10 @@
     {
       "id": "PRD-VF-01",
       "ruta": "docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md"
+    },
+    {
+      "id": "PRECIOS-DEFAULTS",
+      "ruta": "docs/01-fundacion/precios-defaults.md"
     },
     {
       "id": "SPEC-UI-00",
@@ -2120,6 +2176,11 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0094",
+      "a": "ADR-0095",
+      "tipo": "modificado_por"
+    },
+    {
       "de": "ADR-0095",
       "a": "ADR-0005",
       "tipo": "depende_de"
@@ -2138,6 +2199,11 @@
       "de": "ADR-0095",
       "a": "ADR-0094",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0095",
+      "a": "ADR-0094",
+      "tipo": "modifica"
     },
     {
       "de": "ADR-0096",
@@ -2185,6 +2251,146 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0098",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0098",
+      "a": "ADR-0054",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0098",
+      "a": "ADR-0082",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0098",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0098",
+      "a": "PRD-FE-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0101",
+      "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0101",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0101",
+      "a": "ADR-0078",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0102",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0102",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0102",
+      "a": "MOD-05-CONSUMOS-SERVICIOS",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0102",
+      "a": "MOD-05-FACTURAS-PROVEEDORES",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0103",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0103",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0103",
+      "a": "ADR-0102",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0103",
+      "a": "MOD-05-CONSUMOS-SERVICIOS",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "ADR-0028",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "ADR-0102",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "MOD-05-CONSUMOS-SERVICIOS",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "MOD-05-FACTURAS-PROVEEDORES",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0104",
+      "a": "PRD-CH-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0105",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0105",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0105",
+      "a": "ADR-0063",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0105",
+      "a": "PRD-CAJA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0105",
+      "a": "PRD-PERS-01",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -2210,6 +2416,36 @@
       "tipo": "depende_de"
     },
     {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0090",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0091",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "DESTRABE-CREDENCIALES",
+      "a": "ADR-0092",
+      "tipo": "depende_de"
+    },
+    {
       "de": "GUIA-DEV-01",
       "a": "ADR-0086",
       "tipo": "depende_de"
@@ -2217,6 +2453,21 @@
     {
       "de": "MOD-01-VERIFICACION-FUENTE-OFICIAL",
       "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PEDIDO-FE-02",
+      "a": "ADR-0090",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PEDIDO-FE-02",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PEDIDO-FE-02",
+      "a": "PRD-FE-02",
       "tipo": "depende_de"
     },
     {
@@ -2282,6 +2533,21 @@
     {
       "de": "PLAN-COM-01-C",
       "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLANTILLAS-META",
+      "a": "ADR-0041",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLANTILLAS-META",
+      "a": "ADR-0091",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLANTILLAS-META",
+      "a": "PRD-BOT-03",
       "tipo": "depende_de"
     },
     {
@@ -2442,6 +2708,21 @@
     {
       "de": "PRD-CAT-01",
       "a": "ADR-0012",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAT-02",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAT-02",
+      "a": "ADR-0078",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-CAT-02",
+      "a": "ADR-0101",
       "tipo": "depende_de"
     },
     {
@@ -2642,6 +2923,61 @@
     {
       "de": "PRD-FE-02",
       "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-03",
+      "a": "ADR-0098",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-FE-03",
+      "a": "PRD-FE-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0005",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0089",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0093",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0102",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0103",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "ADR-0104",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "MOD-05-CONSUMOS-SERVICIOS",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "MOD-05-FACTURAS-PROVEEDORES",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-GMAIL-01",
+      "a": "PRD-OCR-01",
       "tipo": "depende_de"
     },
     {
@@ -2967,6 +3303,31 @@
     {
       "de": "PRD-OP-01",
       "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "a": "ADR-0063",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "a": "PRD-CAJA-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-P0-VENTA-CAJA-FIADO-01",
+      "a": "PRD-PERS-01",
       "tipo": "depende_de"
     },
     {
@@ -3652,6 +4013,21 @@
     {
       "de": "PRD-VF-01",
       "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRECIOS-DEFAULTS",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRECIOS-DEFAULTS",
+      "a": "ADR-0047",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRECIOS-DEFAULTS",
+      "a": "PRD-PLAN-02",
       "tipo": "depende_de"
     },
     {
