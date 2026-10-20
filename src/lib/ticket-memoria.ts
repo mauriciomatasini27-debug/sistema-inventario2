@@ -47,12 +47,20 @@ export function listarLineasTicket(saleId: string): LineaTicketMemoria[] {
   return store.ticketLineas.filter((l) => l.sale_id === saleId);
 }
 
+export function listarTodasLasLineasTicket(): LineaTicketMemoria[] {
+  return store.ticketLineas;
+}
+
 export function agregarDescuentoTicket(descuento: DescuentoTicketMemoria): void {
   store.ticketDescuentos.push(descuento);
 }
 
 export function listarDescuentosTicket(saleId: string): DescuentoTicketMemoria[] {
   return store.ticketDescuentos.filter((d) => d.sale_id === saleId);
+}
+
+export function listarTodosLosDescuentosTicket(): DescuentoTicketMemoria[] {
+  return store.ticketDescuentos;
 }
 
 export function agregarStockMoveMemoria(m: (typeof store)["stockMoves"][number]): void {

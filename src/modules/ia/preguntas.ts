@@ -21,17 +21,24 @@ const PLANTILLAS: Record<NombreHerramienta, readonly string[]> = {
   rotacion_lenta: ["¿Qué productos no rotan?", "¿Qué está estancado?"],
 };
 
+// DASH-S7 (PRD-DASH-01): el drawer muestra entre 8 y 12 chips. Primero una
+// pregunta por herramienta conectada y después las segundas variantes, hasta 12.
+export const MAX_PREGUNTAS_SUGERIDAS = 12;
+
 export function preguntasSugeridas(
   lecturas: LecturasIA,
   rol: SesionIA["rol"],
 ): PreguntaSugerida[] {
-  const catalogo = crear_catalogo(lecturas);
-  return catalogo.flatMap((herramienta) => {
-    if (!herramienta.ejecutar) return [];
-    if (herramienta.soloDueno && rol !== "dueno") return [];
-    return PLANTILLAS[herramienta.nombre].map((texto) => ({
-      texto,
-      herramienta: herramienta.nombre,
-    }));
-  });
+  const disponibles = crear_catalogo(lecturas).filter(
+    (herramienta) => herramienta.ejecutar && !(herramienta.soloDueno && rol !== "dueno"),
+  );
+  const rondas = Math.max(0, ...disponibles.map((h) => PLANTILLAS[h.nombre].length));
+  const preguntas: PreguntaSugerida[] = [];
+  for (let ronda = 0; ronda < rondas; ronda++) {
+    for (const herramienta of disponibles) {
+      const texto = PLANTILLAS[herramienta.nombre][ronda];
+      if (texto !== undefined) preguntas.push({ texto, herramienta: herramienta.nombre });
+    }
+  }
+  return preguntas.slice(0, MAX_PREGUNTAS_SUGERIDAS);
 }

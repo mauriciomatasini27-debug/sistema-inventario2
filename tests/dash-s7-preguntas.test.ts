@@ -22,10 +22,25 @@ describe("DASH-S7 preguntas sugeridas", () => {
     );
     const preguntas = preguntasSugeridas(lecturas, "dueno");
 
-    expect(preguntas.length).toBeGreaterThanOrEqual(8);
-    expect(preguntas.length).toBeLessThanOrEqual(12);
-    expect(conectadas.size).toBe(5);
+    expect(preguntas).toHaveLength(12);
+    expect(conectadas.size).toBe(8);
     expect(new Set(preguntas.map((p) => p.herramienta))).toEqual(conectadas);
+    expect(preguntas.slice(0, 8).map((p) => p.herramienta)).toEqual([
+      "top_productos",
+      "ventas_periodo",
+      "por_vencer",
+      "deudores",
+      "stock_bajo",
+      "margen_producto",
+      "caja_dia",
+      "rotacion_lenta",
+    ]);
+    expect(preguntas.slice(8).map((p) => p.texto)).toEqual([
+      "¿Cuáles son los productos más vendidos?",
+      "¿Cómo vienen las ventas del mes?",
+      "¿Qué productos vencen pronto?",
+      "¿Cómo está el fiado?",
+    ]);
     for (const pregunta of preguntas) {
       expect(conectadas.has(pregunta.herramienta)).toBe(true);
     }

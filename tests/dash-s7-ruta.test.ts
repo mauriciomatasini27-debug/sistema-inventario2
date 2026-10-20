@@ -98,6 +98,33 @@ async function activarPlan(planId: "basico" | "plus" | "pro") {
   await crearProveedorCobro().crearSuscripcion({ tenantId: "t-1", planId });
 }
 
+function sembrarVentaTop() {
+  store.productos.set("A-1", {
+    sku: "A-1",
+    nombre: "Yerba",
+    precioCentavos: 1000,
+    sector: "general",
+    locationId: null,
+    archivado: false,
+    controlaVencimiento: false,
+    estado: "activo",
+    minStock: null,
+    reorderQty: null,
+  });
+  store.prices.set("A-1", 1000);
+  store.stock.set("A-1", 8);
+  store.ticketLineas.push({ sale_id: "s-1", product_id: "A-1", qty: 4, precio_centavos: "1000" });
+  store.ticketDescuentos.push({
+    sale_id: "s-1",
+    linea_idx: 0,
+    sku: "A-1",
+    bruto_centavos: "4000",
+    desc_linea_centavos: "0",
+    desc_ticket_centavos: "0",
+    neto_centavos: "4000",
+  });
+}
+
 function sembrarCaja() {
   store.movements.push({
     id: "mv-1",
@@ -125,14 +152,15 @@ afterEach(() => {
 });
 
 describe("DASH-S7 GET /api/asistente", () => {
-  it("con plan incluido suma 10 preguntas sugeridas", async () => {
+  it("con plan incluido suma 12 preguntas sugeridas, una por cada una de las 8 herramientas primero", async () => {
     comercio();
     await activarPlan("plus");
     const body = (await (await consultar(sesion("g-1", "t-1"))).json()) as Record<string, unknown>;
     const preguntas = body["preguntas"] as Array<{ texto: string; herramienta: string }>;
     expect(body["incluido"]).toBe(true);
-    expect(preguntas).toHaveLength(10);
-    expect(preguntas[0]).toEqual({ texto: "¿Cuánto vendí este mes?", herramienta: "ventas_periodo" });
+    expect(preguntas).toHaveLength(12);
+    expect(new Set(preguntas.map((p) => p.herramienta)).size).toBe(8);
+    expect(preguntas[0]).toEqual({ texto: "¿Qué productos se vendieron más este mes?", herramienta: "top_productos" });
   });
 
   it("un empleado no recibe preguntas de herramientas solo dueño", async () => {
@@ -145,7 +173,7 @@ describe("DASH-S7 GET /api/asistente", () => {
         .filter((h) => h.soloDueno)
         .map((h) => h.nombre),
     );
-    expect(preguntas.length).toBeGreaterThan(0);
+    expect(preguntas).toHaveLength(12);
     expect(preguntas.every((p) => !soloDueno.has(p.herramienta))).toBe(true);
   });
 
@@ -168,6 +196,36 @@ describe("DASH-S7 POST /api/asistente", () => {
     expect(body).toEqual({ texto: FUERA_CATALOGO, rechazada: true, fueraDeCatalogo: true });
     expect(mocks.espia.llamadas).toBe(0);
     expect((await crearRegistroUsoIA().usoDelMes("t-1", mesAR())).consultas).toBe(0);
+  });
+
+  it("top_productos responde con datos reales y ya no dice que no puede leer", async () => {
+    comercio();
+    await activarPlan("plus");
+    sembrarVentaTop();
+    const r = await pedir(sesion("g-1", "t-1"), { pregunta: "¿Qué productos se vendieron más este mes?" });
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      rechazada: false,
+      herramienta: "top_productos",
+      reporte: { href: "/panel/reportes", etiqueta: "reportes" },
+    });
+    expect(body["texto"]).not.toContain("Todavía no puedo leer");
+    expect(body["cifras"]).toEqual([]);
+    expect(mocks.espia.llamadas).toBe(1);
+  });
+
+  it("un empleado no puede pedir margen", async () => {
+    comercio();
+    await activarPlan("plus");
+    const r = await pedir(sesion("g-3", "t-1"), { pregunta: "¿Cuál es el margen del producto?" });
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as Record<string, unknown>;
+    expect(body).toEqual({
+      texto: "No tenés permiso para ver esa información.",
+      rechazada: true,
+    });
+    expect(mocks.espia.llamadas).toBe(0);
   });
 
   it("caja_dia devuelve las cifras exactas sembradas y el reporte", async () => {

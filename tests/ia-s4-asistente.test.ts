@@ -179,19 +179,18 @@ describe("IA-S4 POST /api/asistente", () => {
     expect((await crearRegistroUsoIA().usoDelMes("t-1", mesAR())).consultas).toBe(0);
   });
 
-  it("una herramienta sin lectura responde honesto sin llamar al LLM", async () => {
+  it("top_productos responde con lectura real y ya no dice que no puede leer", async () => {
     comercio();
     await activarPlan("plus");
     const plano = sesion("g-1", "t-1");
     const r = await pedir(plano, { pregunta: "¿qué vendí más esta semana?" });
     expect(r.status).toBe(200);
     const body = (await r.json()) as Record<string, unknown>;
-    expect(body["rechazada"]).toBe(true);
-    expect(body["texto"]).toBe(
-      "Todavía no puedo leer productos más vendidos del período desde el asistente.",
-    );
-    expect(mocks.espia.llamadas).toBe(0);
-    expect((await crearRegistroUsoIA().usoDelMes("t-1", mesAR())).consultas).toBe(0);
+    expect(body["rechazada"]).toBe(false);
+    expect(body["herramienta"]).toBe("top_productos");
+    expect(String(body["texto"])).not.toContain("Todavía no puedo leer");
+    expect(mocks.espia.llamadas).toBe(1);
+    expect((await crearRegistroUsoIA().usoDelMes("t-1", mesAR())).consultas).toBe(1);
   });
 
   it("una pregunta fuera del catálogo se rechaza sin llamar al LLM", async () => {
