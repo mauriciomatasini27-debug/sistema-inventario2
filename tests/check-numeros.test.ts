@@ -62,6 +62,23 @@ const RAMA_RENUMERADA = {
   ],
 };
 
+const RAMA_HUECOS = {
+  archivos: [
+    ...BASE.archivos,
+    "drizzle/0030_google_integrations.sql",
+    "drizzle/0031_gmail_ingestion.sql",
+    "docs/adr/0099-ingesta-gmail-watch-history.md",
+    "docs/adr/0100-fotos-google-y-almacenamiento-propio.md",
+    "docs/adr/0102-conexion-google-oauth.md",
+    "docs/roadmap/avances/0102.md",
+  ],
+  journal: [
+    ...BASE.journal,
+    { idx: 30, tag: "0030_google_integrations" },
+    { idx: 31, tag: "0031_gmail_ingestion" },
+  ],
+};
+
 describe("numeros: siguiente libre", () => {
   it("toma el máximo de main y suma uno", () => {
     const base = armarEstado(BASE);
@@ -95,17 +112,18 @@ describe("numeros: caso real PR #207", () => {
     expect(arreglos).toContain(
       "docs/adr/0098-conexion-google-oauth.md: renumerá a docs/adr/0102-conexion-google-oauth.md",
     );
-    expect(arreglos).toContain(
-      "docs/adr/0099-ingesta-gmail-watch-history.md: renumerá a docs/adr/0103-ingesta-gmail-watch-history.md",
-    );
-    expect(arreglos).toContain(
-      "docs/adr/0100-fotos-google-y-almacenamiento-propio.md: renumerá a docs/adr/0104-fotos-google-y-almacenamiento-propio.md",
-    );
     expect(arreglos).toContain("docs/roadmap/avances/0098.md: renumerá a docs/roadmap/avances/0102.md");
+    expect(arreglos).not.toContain("docs/adr/0099-ingesta-gmail-watch-history.md");
+    expect(arreglos).not.toContain("docs/adr/0100-fotos-google-y-almacenamiento-propio.md");
   });
 
   it("pasa con la rama renumerada a 0030/0031 y ADR-0102", () => {
     const r = evaluarNumeros({ base: armarEstado(BASE), rama: armarEstado(RAMA_RENUMERADA) });
+    expect(r).toEqual({ ok: true, problemas: [], arreglos: [] });
+  });
+
+  it("no marca choque cuando la rama usa huecos libres de main", () => {
+    const r = evaluarNumeros({ base: armarEstado(BASE), rama: armarEstado(RAMA_HUECOS) });
     expect(r).toEqual({ ok: true, problemas: [], arreglos: [] });
   });
 });
@@ -153,6 +171,21 @@ describe("numeros: journal de drizzle", () => {
     );
   });
 
+  it("falla si reusa un idx del journal de main con otro tag", () => {
+    const rama = armarEstado({
+      archivos: [...BASE.archivos, "drizzle/0030_gmail_ingestion.sql"],
+      journal: [
+        ...BASE.journal,
+        { idx: 29, tag: "0030_gmail_ingestion" },
+      ],
+    });
+    const r = evaluarNumeros({ base: armarEstado(BASE), rama });
+    expect(r.ok).toBe(false);
+    expect(r.problemas.join("\n")).toContain(
+      "reusa el idx 29 de main (0029_products_sector) para 0030_gmail_ingestion",
+    );
+  });
+
   it("pasa si main no tiene archivos numerados", () => {
     const base = armarEstado({ archivos: ["src/x.ts"], journal: [] });
     const rama = armarEstado({
@@ -197,11 +230,23 @@ describe("numeros: guarda contra git real", () => {
 
   const hayCasoReal = tieneRef("ea9c921") && tieneRef("541db3c");
   describe.skipIf(!hayCasoReal)("caso real ea9c921 contra main 541db3c", () => {
-    it("falla nombrando la migración y el ADR que chocan", () => {
+    it("falla nombrando la migración, el ADR y el avance que chocan", () => {
       const r = correrCli(["--base", "541db3c", "--head", "ea9c921"]);
       expect(r.status).toBe(1);
-      expect(r.stderr).toContain("drizzle/0029_google_integrations.sql");
-      expect(r.stderr).toContain("docs/adr/0098-conexion-google-oauth.md");
+      expect(r.stderr).toContain(
+        "drizzle/0029_google_integrations.sql: renumerá a drizzle/0030_google_integrations.sql",
+      );
+      expect(r.stderr).toContain(
+        "drizzle/0030_gmail_ingestion.sql: renumerá a drizzle/0031_gmail_ingestion.sql",
+      );
+      expect(r.stderr).toContain(
+        "docs/adr/0098-conexion-google-oauth.md: renumerá a docs/adr/0102-conexion-google-oauth.md",
+      );
+      expect(r.stderr).toContain(
+        "docs/roadmap/avances/0098.md: renumerá a docs/roadmap/avances/0102.md",
+      );
+      expect(r.stderr).not.toContain("0099-ingesta-gmail-watch-history.md");
+      expect(r.stderr).not.toContain("0100-fotos-google-y-almacenamiento-propio.md");
       expect(r.stderr).toContain("el siguiente libre en main es 0030");
     });
 
@@ -209,6 +254,16 @@ describe("numeros: guarda contra git real", () => {
       const r = correrCli(["--base", "541db3c", "--head", "541db3c"]);
       expect(r.status).toBe(0);
       expect(r.stdout).toContain("check:numeros ok");
+    });
+  });
+
+  const hayResolucion207 = tieneRef("756a6cd") && tieneRef("541db3c");
+  describe.skipIf(!hayResolucion207)("resolución #207 con huecos contra main 541db3c", () => {
+    it("pasa sin pedir renumber de ADR-0099, 0100 ni 0102", () => {
+      const r = correrCli(["--base", "541db3c", "--head", "756a6cd"]);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("check:numeros ok");
+      expect(`${r.stdout}${r.stderr}`).not.toContain("renumerá");
     });
   });
 });

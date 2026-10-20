@@ -80,39 +80,83 @@ function renombrar(ruta, numero) {
   return `${dir}${base}`;
 }
 
-function evaluarSerie({ etiqueta, baseItems, ramaItems, maxBase }) {
+function evaluarSerie({ etiqueta, baseItems, ramaItems, maxBase, numerosReservados = null }) {
   const rutasBase = new Set(baseItems.map((x) => x.ruta));
   const agregados = ramaItems.filter((x) => !rutasBase.has(x.ruta));
   const problemas = [];
   const arreglos = [];
   if (agregados.length === 0) return { problemas, arreglos };
 
+  const numerosBase = new Set(
+    [...(numerosReservados ?? baseItems.map((x) => x.numero))].filter((n) => Number.isInteger(n)),
+  );
   const porNumero = new Map();
   for (const a of agregados) {
     const lista = porNumero.get(a.numero) ?? [];
-    lista.push(a.ruta);
+    lista.push(a);
     porNumero.set(a.numero, lista);
   }
-  for (const [numero, rutas] of porNumero) {
-    if (rutas.length > 1) {
+  for (const [numero, items] of porNumero) {
+    if (items.length > 1) {
       problemas.push(
-        `${etiqueta}: las rutas ${rutas.join(", ")} repiten el número ${formatearNumero(numero)}.`,
+        `${etiqueta}: las rutas ${items.map((x) => x.ruta).join(", ")} repiten el número ${formatearNumero(numero)}.`,
       );
     }
   }
 
-  const reusaNumerosDeMain = agregados.some((a) => a.numero <= maxBase);
-  if (!reusaNumerosDeMain) return { problemas, arreglos };
+  const reusaExacto = [...porNumero.keys()].some((numero) => numerosBase.has(numero));
+  if (reusaExacto) {
+    problemas.push(
+      `${etiqueta}: main ya usa hasta ${formatearNumero(maxBase)} y el siguiente libre en main es ${siguienteNumero(maxBase)}.`,
+    );
+  }
 
-  problemas.push(
-    `${etiqueta}: main ya usa hasta ${formatearNumero(maxBase)} y el siguiente libre en main es ${siguienteNumero(maxBase)}.`,
+  const ordenados = [...agregados].sort(
+    (a, b) => a.numero - b.numero || a.ruta.localeCompare(b.ruta),
   );
-  const unicos = [...porNumero.keys()].sort((a, b) => a - b);
-  const destino = new Map();
-  unicos.forEach((numero, i) => destino.set(numero, maxBase + 1 + i));
-  for (const a of agregados) {
-    const nuevo = destino.get(a.numero);
-    arreglos.push(`- ${a.ruta}: renumerá a ${renombrar(a.ruta, nuevo)}`);
+  const ocupados = new Map();
+  const aMover = [];
+  for (const item of ordenados) {
+    if (numerosBase.has(item.numero)) aMover.push(item);
+    else if (!ocupados.has(item.numero)) ocupados.set(item.numero, item);
+    else aMover.push(item);
+  }
+  if (aMover.length === 0) return { problemas, arreglos };
+
+  const nuevoNumero = new Map();
+  const insertar = (numero, item) => {
+    let n = numero;
+    let entrante = item;
+    while (true) {
+      while (numerosBase.has(n)) n += 1;
+      const ocupante = ocupados.get(n);
+      if (!ocupante) {
+        ocupados.set(n, entrante);
+        nuevoNumero.set(entrante.ruta, n);
+        return n;
+      }
+      if (ocupante.numero === item.numero) {
+        n += 1;
+        continue;
+      }
+      ocupados.set(n, entrante);
+      nuevoNumero.set(entrante.ruta, n);
+      entrante = ocupante;
+      n += 1;
+    }
+  };
+
+  let cursor = maxBase + 1;
+  for (const item of aMover) {
+    if (ocupados.get(item.numero) === item) ocupados.delete(item.numero);
+    const colocado = insertar(cursor, item);
+    cursor = colocado + 1;
+  }
+
+  for (const item of ordenados) {
+    const nuevo = nuevoNumero.get(item.ruta);
+    if (nuevo === undefined || nuevo === item.numero) continue;
+    arreglos.push(`- ${item.ruta}: renumerá a ${renombrar(item.ruta, nuevo)}`);
   }
   return { problemas, arreglos };
 }
@@ -121,6 +165,7 @@ function evaluarJournal({ base, rama }) {
   const problemas = [];
   const rutasBase = new Set(base.migraciones.map((x) => x.ruta));
   const tagsBase = new Set(base.journal.map((x) => x.tag));
+  const tagPorIdxBase = new Map(base.journal.map((x) => [x.idx, x.tag]));
   const migracionesAgregadas = rama.migraciones.filter((x) => !rutasBase.has(x.ruta));
   const tagsAgregados = new Set(migracionesAgregadas.map((x) => tagDeRuta(x.ruta)));
 
@@ -145,6 +190,16 @@ function evaluarJournal({ base, rama }) {
     );
   }
 
+  for (const j of rama.journal) {
+    if (tagsBase.has(j.tag)) continue;
+    const tagDeMain = tagPorIdxBase.get(j.idx);
+    if (tagDeMain !== undefined && tagDeMain !== j.tag) {
+      problemas.push(
+        `Migraciones drizzle: drizzle/meta/_journal.json reusa el idx ${j.idx} de main (${tagDeMain}) para ${j.tag}.`,
+      );
+    }
+  }
+
   return problemas;
 }
 
@@ -156,24 +211,36 @@ export function evaluarNumeros({ base, rama }) {
   const maxMigracion = Math.max(maximo(base.migraciones), maximo(base.journal));
   const maxAdr = maximo(base.adrs);
   const maxAvance = maximo(base.avances);
+  const maxDocs = Math.max(maxAdr, maxAvance);
+  const numerosDocsBase = new Set([
+    ...base.adrs.map((x) => x.numero),
+    ...base.avances.map((x) => x.numero),
+  ]);
 
+  const numerosMigracionBase = new Set([
+    ...base.migraciones.map((x) => x.numero),
+    ...base.journal.map((x) => x.idx),
+  ]);
   const migraciones = evaluarSerie({
     etiqueta: "Migraciones drizzle",
     baseItems: base.migraciones,
     ramaItems: rama.migraciones,
     maxBase: maxMigracion,
+    numerosReservados: numerosMigracionBase,
   });
   const adrs = evaluarSerie({
     etiqueta: "ADR",
     baseItems: base.adrs,
     ramaItems: rama.adrs,
-    maxBase: maxAdr,
+    maxBase: maxDocs,
+    numerosReservados: numerosDocsBase,
   });
   const avances = evaluarSerie({
     etiqueta: "Avances numerados",
     baseItems: base.avances,
     ramaItems: rama.avances,
-    maxBase: maxAvance,
+    maxBase: maxDocs,
+    numerosReservados: numerosDocsBase,
   });
 
   const problemas = [
