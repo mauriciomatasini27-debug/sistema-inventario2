@@ -141,6 +141,9 @@ export interface SesionIA {
 export interface RespuestaAsistente {
   readonly rechazada: boolean;
   readonly texto: string;
+  // DASH-S9: dato estructurado para que la ruta distinga cupo agotado sin
+  // comparar el texto. WhatsApp lo ignora y sigue respondiendo el texto fijo.
+  readonly motivo?: "sin_cupo" | undefined;
   readonly herramienta?: NombreHerramienta | undefined;
   readonly datos?: unknown;
 }
@@ -174,7 +177,7 @@ export function crearAsistente(opts: {
     }
     const mes = mesActual();
     if ((await opts.registro.usoDelMes(sesion.tenantId, mes)).consultas >= cupo) {
-      return { rechazada: true, texto: RESPUESTA_SIN_CUPO };
+      return { rechazada: true, texto: RESPUESTA_SIN_CUPO, motivo: "sin_cupo" };
     }
     const validado = herramienta.esquema.safeParse({});
     const datos = await herramienta.ejecutar({ tenantId: sesion.tenantId }, validado.success ? validado.data : {});

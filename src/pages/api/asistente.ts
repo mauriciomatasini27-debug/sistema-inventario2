@@ -6,6 +6,8 @@ import { BaseNoDisponible } from "../../lib/server-db.js";
 import { planIncluye } from "../../lib/repos/planes.js";
 import { crearRegistroUsoIA } from "../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../lib/repos/ia-lecturas.js";
+import { fechaAR, mesAR } from "../../lib/fecha-ar.js";
+import { medidorAsistente } from "../../lib/plan-panel.js";
 import { CUPO_ASISTENTE_POR_DEFECTO, crearAsistente, detectar_intencion } from "../../modules/ia/asistente.js";
 import { cifrasDeHerramienta } from "../../modules/ia/cifras.js";
 import { preguntasSugeridas } from "../../modules/ia/preguntas.js";
@@ -55,10 +57,26 @@ export const GET: APIRoute = async ({ request }) => {
     const preguntas = inc.incluida
       ? preguntasSugeridas(crearLecturasIA(), membresia.rol)
       : [];
+    // DASH-S9: el medidor del drawer sale de la misma fórmula que /panel/plan y
+    // el bloqueo del POST, con el uso del mes en hora AR.
+    let cupo: Record<string, unknown> | null = null;
+    if (inc.incluida) {
+      const uso = await crearRegistroUsoIA().usoDelMes(tenantId, mesAR());
+      const medidor = medidorAsistente({ usado: uso.consultas, cupoDeclarado: inc.cupo, hoy: fechaAR() });
+      cupo = {
+        usado: medidor.usado,
+        cupo: medidor.cupo,
+        restante: medidor.restante,
+        agotado: medidor.agotado,
+        reinicia_el: medidor.reinicia_el,
+        explicacion: medidor.explicacion,
+      };
+    }
     return Response.json({
       incluido: inc.incluida,
       explicacion: inc.incluida ? "" : explicacionFueraDePlan(inc.planId),
       preguntas,
+      ...(cupo === null ? {} : { cupo }),
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
@@ -113,9 +131,10 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 503 },
     );
   }
+  const registro = crearRegistroUsoIA();
   const asistente = crearAsistente({
     proveedor,
-    registro: crearRegistroUsoIA(),
+    registro,
     lecturas: crearLecturasIA(),
     cupoConsultasPorMes: cupo,
   });
@@ -124,6 +143,20 @@ export const POST: APIRoute = async ({ request }) => {
     { tenantId, rol: membresia.rol },
     parsed.data.pregunta,
   );
+  if (respuesta.motivo === "sin_cupo") {
+    const uso = await registro.usoDelMes(tenantId, mesAR());
+    const medidor = medidorAsistente({ usado: uso.consultas, cupoDeclarado: inclusion.cupo, hoy: fechaAR() });
+    const explicacion = medidor.explicacion || respuesta.texto;
+    return Response.json(
+      {
+        codigo: "sin_cupo",
+        error: explicacion,
+        texto: explicacion,
+        reinicia_el: medidor.reinicia_el,
+      },
+      { status: 429 },
+    );
+  }
   const salida: Record<string, unknown> = {
     texto: respuesta.texto,
     rechazada: respuesta.rechazada,

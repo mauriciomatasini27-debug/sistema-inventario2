@@ -19,6 +19,20 @@
       <p class="mini">Probá con una de estas preguntas o escribí la tuya.</p>
       <div class="asistente-chips" id="asistente-chips" role="group" aria-label="Preguntas sugeridas" hidden></div>
       <p class="asistente-chips-aviso" id="asistente-chips-aviso" hidden>Probá con una de estas.</p>
+      <div class="asistente-medidor" id="asistente-medidor" hidden>
+        <p class="asistente-medidor-texto" id="asistente-medidor-texto"></p>
+        <div
+          class="asistente-medidor-barra"
+          id="asistente-medidor-barra"
+          role="progressbar"
+          aria-label="Consultas del asistente usadas este mes"
+          aria-valuemin="0"
+          aria-valuemax="0"
+          aria-valuenow="0"
+        >
+          <span class="asistente-medidor-relleno" id="asistente-medidor-relleno"></span>
+        </div>
+      </div>
       <form id="asistente-form" class="asistente-form">
         <label class="asistente-label" for="asistente-pregunta">Tu pregunta</label>
         <div class="asistente-fila">
@@ -38,6 +52,9 @@
       <ul class="asistente-cifras" id="asistente-cifras" hidden></ul>
       <a class="asistente-reporte" id="asistente-reporte" hidden>Ver reporte</a>
       <p class="mini" id="asistente-estado" role="status"></p>
+      <button type="button" id="asistente-reintentar" class="asistente-reintentar" hidden>
+        Reintentar
+      </button>
     </div>
   </div>
 </dialog>
@@ -66,6 +83,7 @@
   .asistente-abrir:focus-visible,
   .asistente-cerrar:focus-visible,
   .asistente-fila button:focus-visible,
+  .asistente-reintentar:focus-visible,
   .asistente-reporte:focus-visible {
     outline: 2px solid var(--texto);
     outline-offset: 2px;
@@ -151,6 +169,34 @@
     background: color-mix(in srgb, var(--llama) 22%, var(--card));
     font-weight: 700;
   }
+  :global(.asistente-chip:disabled) {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .asistente-medidor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .asistente-medidor-texto {
+    margin: 0;
+    font-size: 14px;
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
+  }
+  .asistente-medidor-barra {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--borde);
+    overflow: hidden;
+  }
+  .asistente-medidor-relleno {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--llama);
+  }
   .asistente-chips-aviso {
     margin: 0;
     font-size: 14px;
@@ -182,7 +228,11 @@
     font: inherit;
     font-size: 16px;
   }
-  .asistente-fila button {
+  .asistente-fila input:disabled {
+    opacity: 0.6;
+  }
+  .asistente-fila button,
+  .asistente-reintentar {
     min-height: 44px;
     border: 0;
     border-radius: 999px;
@@ -193,7 +243,11 @@
     color: var(--tinta);
     cursor: pointer;
   }
-  .asistente-fila button:disabled {
+  .asistente-reintentar {
+    align-self: flex-start;
+  }
+  .asistente-fila button:disabled,
+  .asistente-reintentar:disabled {
     opacity: 0.6;
     cursor: default;
   }
@@ -248,7 +302,14 @@
 </style>
 
 <script>
-  import { toast } from "sonner";
+  import {
+    MENSAJE_NO_CONFIGURADO,
+    transicion,
+    vistaChat,
+    type EstadoChat,
+    type EventoChat,
+    type RespuestaChat,
+  } from "../../lib/asistente-chat.js";
 
   interface Cifra {
     etiqueta: string;
@@ -262,13 +323,23 @@
     texto: string;
     herramienta?: string;
   }
+  interface CupoAPI {
+    usado: number;
+    cupo: number;
+    restante: number;
+    agotado: boolean;
+    reinicia_el: string | null;
+    explicacion?: string | undefined;
+  }
   interface RespuestaAPI {
     incluido?: boolean;
     explicacion?: string;
     preguntas?: Pregunta[];
+    cupo?: unknown;
     codigo?: string;
     error?: string;
     texto?: string;
+    reinicia_el?: unknown;
     rechazada?: boolean;
     fueraDeCatalogo?: boolean;
     cifras?: Cifra[];
@@ -288,6 +359,11 @@
   const cifras = document.getElementById("asistente-cifras");
   const reporte = document.getElementById("asistente-reporte");
   const estado = document.getElementById("asistente-estado");
+  const medidor = document.getElementById("asistente-medidor");
+  const medidorTexto = document.getElementById("asistente-medidor-texto");
+  const medidorBarra = document.getElementById("asistente-medidor-barra");
+  const medidorRelleno = document.getElementById("asistente-medidor-relleno");
+  const reintentar = document.getElementById("asistente-reintentar");
 
   if (
     !(abrir instanceof HTMLButtonElement) ||
@@ -302,13 +378,20 @@
     !(respuesta instanceof HTMLElement) ||
     !(cifras instanceof HTMLUListElement) ||
     !(reporte instanceof HTMLAnchorElement) ||
-    !(estado instanceof HTMLElement)
+    !(estado instanceof HTMLElement) ||
+    !(medidor instanceof HTMLElement) ||
+    !(medidorTexto instanceof HTMLElement) ||
+    !(medidorBarra instanceof HTMLElement) ||
+    !(medidorRelleno instanceof HTMLElement) ||
+    !(reintentar instanceof HTMLButtonElement)
   ) {
     throw new Error("asistente: faltan elementos del drawer");
   }
 
   let disparador: HTMLElement = abrir;
-  let enviando = false;
+  let chat: EstadoChat = { tipo: "inactivo" };
+  let cupoActual: CupoAPI | null = null;
+  const TIMEOUT_MS = 20_000;
 
   async function leerJson(r: Response): Promise<RespuestaAPI> {
     const crudo = await r.text();
@@ -334,6 +417,72 @@
     triggerEstado.hidden = true;
   }
 
+  function fechaReinicioTexto(reinicia_el: string | null | undefined): string {
+    if (typeof reinicia_el !== "string") return "";
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reinicia_el);
+    if (!m) return "";
+    return `${Number(m[3])}/${Number(m[2])}`;
+  }
+
+  function mensajeSinCupo(explicacion: string | undefined, reinicia_el: string | null | undefined): string {
+    if (typeof explicacion === "string" && explicacion.trim() !== "") return explicacion;
+    const fecha = fechaReinicioTexto(reinicia_el);
+    return fecha
+      ? `Llegaste al cupo del mes. Se reinicia el ${fecha}.`
+      : "Llegaste al cupo mensual del asistente.";
+  }
+
+  function leerCupo(valor: unknown): CupoAPI | null {
+    if (typeof valor !== "object" || valor === null) return null;
+    const fila = valor as Record<string, unknown>;
+    if (
+      typeof fila["usado"] !== "number" ||
+      typeof fila["cupo"] !== "number" ||
+      typeof fila["restante"] !== "number"
+    ) {
+      return null;
+    }
+    return {
+      usado: fila["usado"],
+      cupo: fila["cupo"],
+      restante: fila["restante"],
+      agotado: fila["agotado"] === true,
+      reinicia_el: typeof fila["reinicia_el"] === "string" ? fila["reinicia_el"] : null,
+      explicacion: typeof fila["explicacion"] === "string" ? fila["explicacion"] : undefined,
+    };
+  }
+
+  function pintarMedidor(cupo: CupoAPI | null): void {
+    cupoActual = cupo;
+    if (cupo === null || !Number.isFinite(cupo.cupo) || cupo.cupo <= 0) {
+      medidor.hidden = true;
+      return;
+    }
+    const usado = Math.max(0, cupo.usado);
+    const restante = Math.max(0, cupo.restante);
+    medidorTexto.textContent = `Te quedan ${restante} de ${cupo.cupo} consultas este mes`;
+    medidorBarra.setAttribute("aria-valuemax", String(cupo.cupo));
+    medidorBarra.setAttribute("aria-valuenow", String(Math.min(usado, cupo.cupo)));
+    medidorRelleno.style.width = `${Math.min(100, Math.round((usado / cupo.cupo) * 100))}%`;
+    medidor.hidden = false;
+  }
+
+  function bajarMedidor(): void {
+    if (cupoActual === null) return;
+    const usado = cupoActual.usado + 1;
+    pintarMedidor({
+      ...cupoActual,
+      usado,
+      restante: Math.max(0, cupoActual.cupo - usado),
+      agotado: usado >= cupoActual.cupo,
+    });
+  }
+
+  function marcarMedidorAgotado(): void {
+    if (cupoActual === null) return;
+    pintarMedidor({ ...cupoActual, usado: cupoActual.cupo, restante: 0, agotado: true });
+  }
+
   function limpiarResultado(): void {
     respuesta.textContent = "";
     respuesta.classList.remove("rechazada");
@@ -357,6 +506,7 @@
       boton.className = "asistente-chip";
       boton.dataset.asistenteChip = "";
       boton.textContent = pregunta.texto;
+      boton.disabled = !vistaChat(chat).puedeEnviar;
       boton.addEventListener("click", () => {
         input.value = pregunta.texto;
         void enviarPregunta(pregunta.texto);
@@ -366,7 +516,7 @@
     chips.hidden = chips.children.length === 0;
   }
 
-  function pintarCifras(lista: Cifra[] | undefined): void {
+  function pintarCifras(lista: ReadonlyArray<Cifra> | undefined): void {
     cifras.textContent = "";
     if (!Array.isArray(lista)) {
       cifras.hidden = true;
@@ -396,6 +546,40 @@
     reporte.hidden = false;
   }
 
+  function pintarRespuesta(respuestaChat: RespuestaChat): void {
+    respuesta.textContent = respuestaChat.texto;
+    respuesta.classList.toggle("rechazada", respuestaChat.rechazada);
+    if (respuestaChat.fueraDeCatalogo === true) {
+      avisoChips.hidden = false;
+      for (const chip of chips.querySelectorAll<HTMLButtonElement>("[data-asistente-chip]")) {
+        chip.classList.add("chip-resaltado");
+      }
+    }
+    pintarCifras(respuestaChat.cifras);
+    pintarReporte(respuestaChat.reporte);
+    input.value = "";
+    respuesta.scrollIntoView({ block: "nearest" });
+  }
+
+  function render(): void {
+    const vista = vistaChat(chat);
+    input.disabled = !vista.puedeEnviar;
+    enviar.disabled = !vista.puedeEnviar;
+    for (const chip of chips.querySelectorAll<HTMLButtonElement>("[data-asistente-chip]")) {
+      chip.disabled = !vista.puedeEnviar;
+    }
+    respuesta.setAttribute("aria-busy", vista.ocupado ? "true" : "false");
+    estado.setAttribute("role", chat.tipo === "error" ? "alert" : "status");
+    estado.textContent = chat.tipo === "enviando" ? "Consultando…" : vista.mensaje;
+    reintentar.hidden = !vista.mostrarReintentar;
+    if (chat.tipo === "respondiendo") pintarRespuesta(chat.respuesta);
+  }
+
+  function aplicar(evento: EventoChat): void {
+    chat = transicion(chat, evento);
+    render();
+  }
+
   async function cargarPreguntas(): Promise<void> {
     try {
       const r = await fetch("/api/asistente");
@@ -407,58 +591,100 @@
       }
       pintarChips(Array.isArray(j.preguntas) ? j.preguntas : []);
       mostrarBoton();
+      const cupo = leerCupo(j.cupo);
+      pintarMedidor(cupo);
+      if (cupo?.agotado === true) {
+        aplicar({
+          tipo: "cupo_agotado",
+          mensaje: mensajeSinCupo(cupo.explicacion, cupo.reinicia_el),
+          reinicia_el: cupo.reinicia_el,
+        });
+      }
     } catch (error) {
       console.warn("[asistente] no pudimos verificar el plan", error);
       mostrarBoton();
     }
   }
 
-  async function enviarPregunta(pregunta: string): Promise<void> {
-    if (enviando || pregunta.trim() === "") return;
-    enviando = true;
-    enviar.disabled = true;
-    limpiarResultado();
-    estado.textContent = "Consultando…";
+  async function lanzarConsulta(pregunta: string): Promise<void> {
+    if (navigator.onLine === false) {
+      aplicar({ tipo: "error_red" });
+      return;
+    }
+    const controlador = new AbortController();
+    const timer = setTimeout(() => controlador.abort(), TIMEOUT_MS);
     try {
       const r = await fetch("/api/asistente", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pregunta }),
+        signal: controlador.signal,
       });
       const j = await leerJson(r);
+      if (r.status === 429 && j.codigo === "sin_cupo") {
+        marcarMedidorAgotado();
+        const reinicia = typeof j.reinicia_el === "string" ? j.reinicia_el : null;
+        aplicar({
+          tipo: "respuesta_sin_cupo",
+          mensaje: mensajeSinCupo(j.error || j.texto, reinicia),
+          reinicia_el: reinicia,
+        });
+        return;
+      }
       if (r.status === 403 && j.codigo === "fuera_de_plan") {
         const explicacion = j.error || "Tu plan no incluye el asistente IA.";
-        estado.textContent = explicacion;
+        aplicar({ tipo: "fuera_de_plan", mensaje: explicacion });
         ocultarBoton(explicacion);
         drawer.close();
         return;
       }
       if (r.status === 503 && j.codigo === "asistente_no_configurado") {
-        estado.textContent = j.error || "El asistente IA todavía no está configurado.";
+        aplicar({ tipo: "no_configurado", mensaje: j.error || MENSAJE_NO_CONFIGURADO });
         return;
       }
-      if (!r.ok) throw new Error(j.error || "http " + r.status);
-      respuesta.textContent = j.texto || "";
-      respuesta.classList.toggle("rechazada", j.rechazada === true);
-      if (j.fueraDeCatalogo === true) {
-        avisoChips.hidden = false;
-        for (const chip of chips.querySelectorAll<HTMLButtonElement>("[data-asistente-chip]")) {
-          chip.classList.add("chip-resaltado");
-        }
+      if (!r.ok) {
+        aplicar({ tipo: "error_servidor" });
+        return;
       }
-      pintarCifras(j.cifras);
-      pintarReporte(j.reporte);
-      estado.textContent = "";
-      input.value = "";
-      respuesta.scrollIntoView({ block: "nearest" });
+      const respuestaChat: RespuestaChat = {
+        texto: typeof j.texto === "string" ? j.texto : "",
+        rechazada: j.rechazada === true,
+        fueraDeCatalogo: j.fueraDeCatalogo === true,
+        cifras: Array.isArray(j.cifras) ? j.cifras : undefined,
+        reporte: j.reporte,
+      };
+      if (!respuestaChat.rechazada) bajarMedidor();
+      aplicar({ tipo: "respuesta_ok", respuesta: respuestaChat });
+      // La consulta que gastó la última del mes deja el chat sin cupo sin
+      // esperar al 429 de la próxima: la respuesta queda a la vista.
+      if (cupoActual?.agotado === true) {
+        aplicar({
+          tipo: "cupo_agotado",
+          mensaje: mensajeSinCupo(undefined, cupoActual.reinicia_el),
+          reinicia_el: cupoActual.reinicia_el,
+        });
+      }
     } catch (error) {
-      console.warn("[asistente] no pudimos consultar", error);
-      estado.textContent = "";
-      toast.error("No pudimos consultar al asistente. Reintentá en un rato.");
+      if (controlador.signal.aborted) {
+        aplicar({ tipo: "timeout" });
+      } else if (navigator.onLine === false || error instanceof TypeError) {
+        aplicar({ tipo: "error_red" });
+      } else {
+        console.warn("[asistente] no pudimos consultar", error);
+        aplicar({ tipo: "error_servidor" });
+      }
     } finally {
-      enviando = false;
-      enviar.disabled = false;
+      clearTimeout(timer);
     }
+  }
+
+  async function enviarPregunta(pregunta: string): Promise<void> {
+    const siguiente = transicion(chat, { tipo: "enviar", pregunta });
+    if (siguiente === chat) return;
+    chat = siguiente;
+    limpiarResultado();
+    render();
+    if (chat.tipo === "enviando") await lanzarConsulta(chat.pregunta);
   }
 
   abrir.addEventListener("click", () => {
@@ -488,6 +714,15 @@
       event.clientY < caja.top ||
       event.clientY > caja.bottom;
     if (fuera) drawer.close();
+  });
+
+  reintentar.addEventListener("click", () => {
+    const siguiente = transicion(chat, { tipo: "reintentar" });
+    if (siguiente === chat || siguiente.tipo !== "enviando") return;
+    chat = siguiente;
+    limpiarResultado();
+    render();
+    void lanzarConsulta(siguiente.pregunta);
   });
 
   form.addEventListener("submit", (event) => {

@@ -95,6 +95,46 @@ function diaMesTexto(fecha: FechaAR): string {
   return `${Number(fecha.slice(8, 10))}/${Number(fecha.slice(5, 7))}`;
 }
 
+// Única fórmula del medidor del asistente: la usan /panel/plan, el GET del
+// drawer y el error sin cupo del POST. Restante nunca negativo y agotado en
+// usado >= cupo, con el mismo cupo efectivo que crearAsistente.
+export function medidorAsistente(entrada: {
+  readonly usado: number;
+  readonly cupoDeclarado: number | null | undefined;
+  readonly hoy: FechaAR;
+  readonly incluido?: boolean;
+  readonly explicacionExcluido?: string;
+}): MedidorAsistente {
+  const usado = Math.max(0, Math.floor(entrada.usado));
+  const reinicia_el = primerDiaMesSiguiente(entrada.hoy);
+  if (entrada.incluido === false) {
+    return {
+      incluido: false,
+      usado,
+      cupo: 0,
+      restante: 0,
+      agotado: false,
+      porcentaje: 0,
+      reinicia_el,
+      explicacion: entrada.explicacionExcluido ?? "Sin plan activo, el asistente IA no está disponible.",
+    };
+  }
+  const cupo = typeof entrada.cupoDeclarado === "number" ? entrada.cupoDeclarado : CUPO_ASISTENTE_POR_DEFECTO;
+  const restante = Math.max(0, cupo - usado);
+  const agotado = usado >= cupo;
+  const porcentaje = cupo > 0 ? Math.min(100, Math.round((usado / cupo) * 100)) : 0;
+  return {
+    incluido: true,
+    usado,
+    cupo,
+    restante,
+    agotado,
+    porcentaje,
+    reinicia_el,
+    explicacion: agotado ? `Llegaste al cupo del mes. Se reinicia el ${diaMesTexto(reinicia_el)}.` : "",
+  };
+}
+
 function medidorWhatsapp(plan: PlanEjemplo | null, mensajesMes: number, reinicia_el: FechaAR): MedidorWhatsapp {
   const usado = Math.max(0, Math.floor(mensajesMes));
   if (plan === null) {
@@ -188,19 +228,16 @@ export function vistaPlan(entrada: {
       nombre: plan?.nombre ?? "Sin plan activo",
       es_catalogo_ejemplo: plan?.ejemplo === true,
       features,
-      asistente: {
-        incluido: false,
+      asistente: medidorAsistente({
         usado,
-        cupo: 0,
-        restante: 0,
-        agotado: false,
-        porcentaje: 0,
-        reinicia_el,
-        explicacion:
+        cupoDeclarado: null,
+        hoy: entrada.hoy,
+        incluido: false,
+        explicacionExcluido:
           plan === null
             ? "Sin plan activo, el asistente IA no está disponible."
             : `Tu plan ${plan.nombre} no incluye el asistente IA.`,
-      },
+      }),
       whatsapp,
       renovacion,
       otros_planes,
@@ -210,26 +247,16 @@ export function vistaPlan(entrada: {
     };
   }
 
-  const declarado = plan.cupos.asistente_ia;
-  const cupo = typeof declarado === "number" ? declarado : CUPO_ASISTENTE_POR_DEFECTO;
-  const restante = Math.max(0, cupo - usado);
-  const agotado = usado >= cupo;
-  const porcentaje = cupo > 0 ? Math.min(100, Math.round((usado / cupo) * 100)) : 0;
   return {
     plan_id: plan.id,
     nombre: plan.nombre,
     es_catalogo_ejemplo: plan.ejemplo === true,
     features,
-    asistente: {
-      incluido: true,
+    asistente: medidorAsistente({
       usado,
-      cupo,
-      restante,
-      agotado,
-      porcentaje,
-      reinicia_el,
-      explicacion: agotado ? `Llegaste al cupo del mes. Se reinicia el ${diaMesTexto(reinicia_el)}.` : "",
-    },
+      cupoDeclarado: plan.cupos.asistente_ia,
+      hoy: entrada.hoy,
+    }),
     whatsapp,
     renovacion,
     otros_planes,
