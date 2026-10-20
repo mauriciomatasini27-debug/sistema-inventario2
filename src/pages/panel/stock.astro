@@ -31,6 +31,26 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     </section>
   </div>
 
+  <div class="grid">
+    <section class="card" id="ubicaciones">
+      <h2>Ubicaciones</h2>
+      <div class="aviso" id="aviso-ubicaciones" hidden>
+        <p>Estas ubicaciones las armamos según tu rubro. Cambiales el nombre para que coincidan con tu local</p>
+        <button id="aviso-ubicaciones-cerrar" type="button">Entendido</button>
+      </div>
+      <ul class="lista" id="ubicaciones-lista"></ul>
+      <form id="ubicacion-form">
+        <div class="fila">
+          <label>Nueva ubicación
+            <input id="ubicacion-nombre" data-campo="nombre" type="text" maxlength="80" autocomplete="off" />
+          </label>
+          <button id="ubicacion-crear" type="submit">Nueva ubicación</button>
+        </div>
+        <div class="estado" id="estado-ubicaciones" role="status">Cargando…</div>
+      </form>
+    </section>
+  </div>
+
   <div class="grid dos">
     <section class="card">
       <h2>Ingreso de mercadería</h2>
@@ -64,11 +84,29 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   </div>
 </PanelShell>
 
+<style>
+  .aviso {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--tema-acento);
+    border-radius: 12px;
+    background: var(--tema-superficie);
+  }
+  .aviso[hidden] {
+    display: none;
+  }
+  .aviso p {
+    margin: 0 0 8px;
+  }
+</style>
+
 <script>
+  import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -132,6 +170,103 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         $("estado-lotes").textContent = mensaje("error", "");
       });
   };
+
+  const avisoDescartado = () => {
+    try {
+      return localStorage.getItem(CLAVE_AVISO_UBICACIONES) === "1";
+    } catch (error) {
+      console.warn("[panel/stock] aviso ubicaciones", error);
+      return false;
+    }
+  };
+
+  const pintarUbicaciones = (ubicaciones: Array<{ nombre: string; archivada: boolean }>, sembradas: boolean) => {
+    const lista = $("ubicaciones-lista");
+    lista.textContent = "";
+    ubicaciones.forEach((u) => {
+      const li = document.createElement("li");
+      li.textContent = u.archivada ? u.nombre + " (archivada)" : u.nombre;
+      lista.appendChild(li);
+    });
+    $("estado-ubicaciones").textContent = mensaje(
+      derivarEstado({ cargando: false, error: false, items: ubicaciones.length }),
+      "Todavía no hay ubicaciones.",
+    );
+    $("aviso-ubicaciones").hidden = !mostrarAvisoUbicaciones({
+      sembradasPorRubro: sembradas,
+      descartado: avisoDescartado(),
+    });
+  };
+
+  const cargarUbicaciones = () => {
+    fetch("/api/locations")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => pintarUbicaciones(j.ubicaciones || [], j.sembradas_por_rubro === true))
+      .catch((error) => {
+        console.warn("[panel/stock] ubicaciones", error);
+        $("estado-ubicaciones").textContent = mensaje("error", "");
+      });
+  };
+
+  $("aviso-ubicaciones-cerrar").addEventListener("click", () => {
+    $("aviso-ubicaciones").hidden = true;
+    try {
+      localStorage.setItem(CLAVE_AVISO_UBICACIONES, "1");
+    } catch (error) {
+      console.warn("[panel/stock] aviso ubicaciones", error);
+    }
+  });
+
+  $("ubicacion-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = evento.currentTarget as HTMLFormElement;
+    limpiarErrores(form);
+    const estado = $("estado-ubicaciones");
+    const nombre = $("ubicacion-nombre").value.trim();
+    if (!nombre) {
+      mostrarErrores(form, { nombre: mensajeCampo("nombre", REQUERIDO) });
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    estado.textContent = "Creando ubicación…";
+    try {
+      const r = await fetch("/api/locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/stock] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (r.status === 409) {
+        toast.error("Ya tenés una ubicación con ese nombre. Elegí otro nombre.");
+        estado.textContent = "Esa ubicación ya existe. Cambiale el nombre para crearla.";
+        $("ubicacion-nombre").focus();
+        return;
+      }
+      if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        toast.error(textoError(j.error, r.status));
+        estado.textContent = "No se creó la ubicación.";
+        return;
+      }
+      toast.success("Ubicación creada.");
+      form.reset();
+      cargarUbicaciones();
+    } catch (error) {
+      console.warn("[panel/stock] alta ubicación", error);
+      toast.error("Sin conexión con el servidor.");
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
   ["lote-sku", "ingreso-sku"].forEach((id) =>
     $(id).addEventListener("input", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLInputElement).value)),
   );
@@ -191,4 +326,5 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 
   cargarCatalogo();
   buscarLotes();
+  cargarUbicaciones();
 </script>
