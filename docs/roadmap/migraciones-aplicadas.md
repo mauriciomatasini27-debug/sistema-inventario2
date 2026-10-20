@@ -38,3 +38,5 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 - 0029_products_sector
 - 0030_google_integrations
 - 0031_gmail_ingestion
+- 0032_tenant_location_seeds
+<!-- 2026-10-20 (ART): 0032 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0032-schema-20261020-1050.json -->
