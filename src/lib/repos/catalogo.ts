@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
-import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { conTenant } from "../tenant-mode.js";
 import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
 import { normalizarSector } from "../../modules/inventario/sectores.js";
+import { nombresUbicacionesRubro } from "../../modules/onboarding/ubicaciones-rubro.js";
 import {
   crearAlmacenCodigos,
   crearAlmacenFotosProducto,
@@ -465,10 +467,8 @@ function aplicarParche(
   return next;
 }
 
-export async function listarUbicaciones(): Promise<Ubicacion[]> {
-  const ubicaciones = crearAlmacenUbicaciones();
+async function leerUbicaciones(db: TenantDb | null, ubicaciones: AlmacenVivo<Ubicacion>): Promise<Ubicacion[]> {
   const memoria = [...ubicaciones.comoMapaSoloLectura().values()];
-  const db = dbVivaTenant();
   if (!db) return memoria;
   try {
     const filas = await db.select().from(locations);
@@ -482,6 +482,49 @@ export async function listarUbicaciones(): Promise<Ubicacion[]> {
     ubicaciones.anteFalloPersistencia(e);
     return memoria;
   }
+}
+
+export async function listarUbicaciones(): Promise<Ubicacion[]> {
+  return leerUbicaciones(dbVivaTenant(), crearAlmacenUbicaciones());
+}
+
+export interface SembrarUbicacionesResultado {
+  readonly creadas: Ubicacion[];
+  readonly existentes: Ubicacion[];
+}
+
+export async function sembrarUbicacionesRubro(
+  tenantId: string,
+  rubro: string,
+): Promise<SembrarUbicacionesResultado> {
+  return conTenant(tenantId, async () => {
+    const ubicaciones = crearAlmacenUbicaciones();
+    let db: TenantDb | null = null;
+    let existentes: Ubicacion[];
+    try {
+      db = dbVivaTenant(tenantId);
+      existentes = await leerUbicaciones(db, ubicaciones);
+    } catch (e) {
+      if (!(e instanceof BaseNoDisponible)) throw e;
+      db = null;
+      existentes = [...ubicaciones.comoMapaSoloLectura().values()];
+    }
+    const nombres = nombresUbicacionesRubro(rubro, existentes);
+    if (nombres.length === 0) return { creadas: [], existentes };
+    const nuevas: Ubicacion[] = nombres.map((nombre) => ({ id: randomUUID(), nombre, archivada: false }));
+    if (db) {
+      try {
+        // Un solo INSERT: o quedan todas las ubicaciones del rubro o ninguna.
+        await db.insert(locations).values(nuevas);
+      } catch (e) {
+        // Otra alta sembró primero (índice único por nombre): no es error.
+        if (esChoqueUnicoUbicacion(e)) return { creadas: [], existentes: await leerUbicaciones(db, ubicaciones) };
+        ubicaciones.anteFalloPersistencia(e);
+      }
+    }
+    for (const u of nuevas) espejarUbicacion(u, ubicaciones);
+    return { creadas: nuevas, existentes };
+  });
 }
 
 export type AltaUbicacionResultado =

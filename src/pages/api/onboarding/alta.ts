@@ -11,6 +11,13 @@ import {
 } from "../../../modules/tenants/aprovisionar.js";
 import { generar_codigo_vincular, normalizar_ar, VINCULAR_TTL_MIN } from "../../../modules/whatsapp/vincular.js";
 import { aplicarDefaultsModulosBot } from "../../../lib/repos/bot-modulos.js";
+import { sembrarUbicacionesRubro } from "../../../lib/repos/catalogo.js";
+import { VERSION_PLANTILLAS_RUBRO } from "../../../modules/onboarding/plantillas-rubro.js";
+import {
+  EVENTO_UBICACIONES_SEMBRADAS,
+  EVENTO_UBICACIONES_SEMBRADAS_ERROR,
+  ORIGEN_PLANTILLA_RUBRO,
+} from "../../../modules/onboarding/ubicaciones-rubro.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 
 export const prerender = false;
@@ -107,6 +114,34 @@ export const POST: APIRoute = async ({ request }) => {
   const corrido = await ejecutarAprovisionamiento(jobId);
   // BOT-S1: al terminar el alta se activan los módulos del bot del rubro.
   await aplicarDefaultsModulosBot(id, b.rubro);
+  try {
+    const sembrado = await sembrarUbicacionesRubro(id, b.rubro);
+    control.events.push({
+      tenantId: id,
+      tipo: EVENTO_UBICACIONES_SEMBRADAS,
+      actor: "sistema",
+      creadoEn: new Date().toISOString(),
+      detalle: {
+        origen: ORIGEN_PLANTILLA_RUBRO,
+        rubro: b.rubro,
+        version: VERSION_PLANTILLAS_RUBRO,
+        cantidad: sembrado.creadas.length,
+      },
+    });
+  } catch (e) {
+    control.events.push({
+      tenantId: id,
+      tipo: EVENTO_UBICACIONES_SEMBRADAS_ERROR,
+      actor: "sistema",
+      creadoEn: new Date().toISOString(),
+      detalle: {
+        origen: ORIGEN_PLANTILLA_RUBRO,
+        rubro: b.rubro,
+        version: VERSION_PLANTILLAS_RUBRO,
+        error: e instanceof Error ? e.message : String(e),
+      },
+    });
+  }
   control.events.push({
     tenantId: id,
     tipo: "alta_formulario_completo",
