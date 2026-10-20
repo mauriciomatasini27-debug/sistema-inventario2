@@ -8,6 +8,7 @@ import {
 } from "../../offline/sensibles.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { aplicarVentaOutbox } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
   crearAlmacenDeviceSeq,
   crearAlmacenDeviceSync,
@@ -31,6 +32,22 @@ import {
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
+}
+
+// jsonb de Postgres no conserva el orden de claves del payload: comparar con
+// JSON.stringify daría 409 en todo replay con más de una clave. Ordenar claves
+// compara el mismo payload sin cambiar el rechazo de uno distinto.
+function canonico(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonico).join(",")}]`;
+  if (typeof v === "object" && v !== null) {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonico(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+function mismoPayload(a: unknown, b: unknown): boolean {
+  return canonico(a) === canonico(b);
 }
 
 export interface PushEntrada {
@@ -59,7 +76,7 @@ function pushEnMemoria(
 ): RespuestaRepo {
   const prev = buzon.obtener(b.opId);
   if (prev) {
-    const same = JSON.stringify(prev) === JSON.stringify(b.payload);
+    const same = mismoPayload(prev, b.payload);
     if (!same) return { status: 409, cuerpo: { error: "op_id duplicado", original: prev } };
     return { status: 200, cuerpo: { op_id: b.opId, cursor_nuevo: String(buzon.comoMapaSoloLectura().size) } };
   }
@@ -78,13 +95,35 @@ function pushEnMemoria(
 }
 
 async function replayDb(db: TenantDb, opId: string, payload: unknown, fila: { payload: unknown }): Promise<RespuestaRepo> {
-  const same = JSON.stringify(fila.payload) === JSON.stringify(payload);
+  const same = mismoPayload(fila.payload, payload);
   if (!same) return { status: 409, cuerpo: { error: "op_id duplicado", original: fila.payload } };
   try {
     const total = await contarOutbox(db);
     return { status: 200, cuerpo: { op_id: opId, cursor_nuevo: String(total), fuente: "db" } };
   } catch {
     return { status: 200, cuerpo: { op_id: opId, cursor_nuevo: "0", fuente: "db" } };
+  }
+}
+
+// P10-6 (ADR-0097 VF-S2): tras guardar la op (201) o en el replay (200)
+// aplicar la venta con key = op_id. El replay re-aplica para cerrar el hueco
+// "outbox guardada pero venta no aplicada"; registrar_venta es idempotente.
+async function aplicarVentaSiCorresponde(b: PushEntrada, r: RespuestaRepo): Promise<RespuestaRepo> {
+  if (b.modulo !== "sales") return r;
+  if (r.status !== 200 && r.status !== 201) return r;
+  try {
+    const venta = await aplicarVentaOutbox({ opId: b.opId, payload: b.payload, modulo: b.modulo });
+    return {
+      status: r.status,
+      cuerpo: {
+        ...r.cuerpo,
+        venta: venta.resultado,
+        ...(venta.resultado === "aplicada" ? { sale_id: venta.saleId } : {}),
+      },
+    };
+  } catch (e) {
+    console.warn("[sync] venta no aplicada", b.opId, e);
+    return { status: 503, cuerpo: { error: "venta_no_aplicada", op_id: b.opId } };
   }
 }
 
@@ -107,11 +146,11 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
   const buzon = crearAlmacenOutbox();
   const secuencias = crearAlmacenDeviceSeq();
   const db = dbVivaTenant();
-  if (!db) return pushEnMemoria(b, buzon, secuencias);
+  if (!db) return aplicarVentaSiCorresponde(b, pushEnMemoria(b, buzon, secuencias));
   try {
     const previo = await db.select().from(outbox).where(eq(outbox.opId, b.opId)).limit(1);
     const fila = previo[0];
-    if (fila) return replayDb(db, b.opId, b.payload, fila);
+    if (fila) return aplicarVentaSiCorresponde(b, await replayDb(db, b.opId, b.payload, fila));
 
     const maxFilas = await db
       .select({ m: sql<number | null>`max(${outbox.deviceSeq})` })
@@ -141,22 +180,22 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
     buzon.guardar(b.opId, b.payload);
     secuencias.guardar(b.deviceCode, b.deviceSeq);
     const total = await contarOutbox(db);
-    return {
+    return aplicarVentaSiCorresponde(b, {
       status: 201,
       cuerpo: { op_id: b.opId, cursor_nuevo: String(total), id_mapeado: idMapeado, fuente: "db" },
-    };
+    });
   } catch (e) {
     if (esConflictoUnico(e) && db) {
       try {
         const previo = await db.select().from(outbox).where(eq(outbox.opId, b.opId)).limit(1);
         const fila = previo[0];
-        if (fila) return replayDb(db, b.opId, b.payload, fila);
+        if (fila) return aplicarVentaSiCorresponde(b, await replayDb(db, b.opId, b.payload, fila));
       } catch {
         // Cae al espejo memoria de abajo.
       }
     }
     buzon.anteFalloPersistencia(e);
-    return pushEnMemoria(b, buzon, secuencias);
+    return aplicarVentaSiCorresponde(b, pushEnMemoria(b, buzon, secuencias));
   }
 }
 

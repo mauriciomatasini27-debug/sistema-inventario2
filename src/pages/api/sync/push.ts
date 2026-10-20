@@ -54,7 +54,10 @@ export const POST: APIRoute = async ({ request }) => {
           modulo: op.modulo,
           payload: op.payload,
         });
-        resultados.push({ ...r.cuerpo, ...(r.cuerpo["resultado"] === undefined ? { resultado: "aplicado" } : {}) });
+        // P10-6: un 503 "venta_no_aplicada" (o cualquier 4xx/5xx) no puede
+        // leerse como aplicado: el cliente sacaría de la cola una venta sin aplicar.
+        const resultado = r.status >= 400 ? "error" : "aplicado";
+        resultados.push({ ...r.cuerpo, ...(r.cuerpo["resultado"] === undefined ? { resultado, status: r.status } : {}) });
       } catch (e) {
         if (e instanceof BaseNoDisponible) {
           resultados.push({ op_id: op.op_id, resultado: "error", error: "base_no_disponible" });
