@@ -52,12 +52,17 @@ export const PREFIJOS_DATOS = [
   "/api/stock",
   "/api/service-accounts",
   "/api/utility-bills",
+  "/api/email-drafts",
   "/api/ocr",
   // DASH-S8: resumen read-only de /panel/plan; el middleware fija el tenant
   // para que los repos de planes usen la base del comercio (ADR-0051).
   "/api/plan",
   // IA-S4: lee plan y escribe ai_usage en la base del tenant.
   "/api/asistente",
+  // ADR-0102: las rutas de integraciones escriben en la base del comercio.
+  "/api/integrations",
+  // Disparo manual del watch de Gmail: solo Dueño, tenant de la sesión.
+  "/api/gmail/watch",
 ];
 
 export function esRutaDatos(path: string): boolean {

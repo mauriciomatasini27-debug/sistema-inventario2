@@ -20,7 +20,7 @@ Comando de control: `npm run credenciales`. Lee el entorno, informa qué falta p
 
 Carga guiada: `npm run cargar:credenciales`. Lee `.env`, pregunta solo por las variables que faltan y las escribe sin mostrarlas en una terminal interactiva. En modo no interactivo (pipe) la entrada no se oculta y hay que pasar una línea por variable. Enter vacío omite una variable. Para un PEM, escribir `@ruta/al/archivo.pem` en lugar del contenido.
 
-Orden recomendado: primero el LLM, que es una clave y ya tiene código. Después ARCA homologación, cuando estén las respuestas legales. OCR requiere desplegar un servicio. Mercado Pago y Gmail/Photos esperan código que todavía no existe.
+Orden recomendado: primero el LLM, que es una clave y ya tiene código. Después ARCA homologación, cuando estén las respuestas legales. OCR requiere desplegar un servicio. Mercado Pago y Photos esperan código que todavía no existe; Gmail ya tiene OAuth, watch e ingesta backend.
 
 ## Google login
 
@@ -36,11 +36,20 @@ Desbloquea el login real con Google. La app debe pedir solo `openid email profil
 
 | Variable | Uso |
 |---|---|
-| `GOOGLE_INTEGRATIONS_CLIENT_ID` | App OAuth separada para Gmail y Photos |
+| `GOOGLE_INTEGRATIONS_CLIENT_ID` | App OAuth de Gmail, separada del login |
 | `GOOGLE_INTEGRATIONS_CLIENT_SECRET` | Canje del código |
 | `GOOGLE_INTEGRATIONS_REDIRECT` | Redirect autorizado, hoy `http://localhost:4321/api/integrations/callback` |
+| `GMAIL_PUBSUB_TOPIC` | Topic de `users.watch` |
+| `GMAIL_PUBSUB_AUDIENCE` | Audience del token OIDC del push |
+| `GMAIL_PUBSUB_EMAIL` | Cuenta de servicio que firma el push |
+| `GMAIL_ROUTE_PEPPER` | Pepper del HMAC de la casilla en el ruteo |
+| `INTEGRATIONS_KMS_KEY_B64` | Clave AES-256-GCM de integraciones, separada de la fiscal |
+| `INTEGRATIONS_KMS_KEY_ID` | Identificador de la clave de integraciones |
+| `INTEGRATIONS_STATE_SECRET` | Firma la cookie de state del OAuth; fallback `JOBS_SECRET` |
 
-Pendiente de cableado. Ningún archivo de `src/` lee estas variables hoy, así que no hace falta crear la app OAuth todavía. Faltan el flujo OAuth, la tabla `google_connections` con su migración, el cifrado del refresh token, el cliente de Gmail (`users.watch` + `history.list`) y la pantalla de consentimiento. `src/pages/api/gmail/watch.ts` y `webhook.ts` son stubs con un `Map` en memoria. Además, `gmail.readonly` es un scope restringido que exige verificación de la app y una evaluación CASA, y los scopes de Photos cambiaron en 2025. Cuando se implemente, se crea una app separada de la de login.
+Photos, si se habilita, usa un cliente propio para poder desconectarlo sin tocar Gmail: `GOOGLE_PHOTOS_CLIENT_ID`, `GOOGLE_PHOTOS_CLIENT_SECRET` y `GOOGLE_PHOTOS_REDIRECT`.
+
+Gmail ya tiene el flujo OAuth (`/api/integrations/start`, `callback` y `disconnect`), la tabla `google_connections` con su migración, el refresh token cifrado con `INTEGRATIONS_KMS_*` y el backend de ingesta: `users.watch`, `history.list`, webhook Pub/Sub con OIDC, ruteo HMAC de la casilla, cola durable con reintentos y borradores en `email_ingestion_drafts`. Faltan la pantalla de consentimiento/confirmación y la UI de remitentes; el adjunto PDF usa un extractor inyectable hasta sumar una dependencia de texto PDF. Además, `gmail.readonly` es un scope restringido que exige verificación de la app y una evaluación CASA, y los scopes de Photos cambiaron en 2025. Photos usa una app separada y todavía no está cableado.
 
 ## Meta WhatsApp Cloud API
 

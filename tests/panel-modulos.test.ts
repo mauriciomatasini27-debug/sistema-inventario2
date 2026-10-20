@@ -5,6 +5,7 @@ import {
   etiquetaModulo,
   formatearCentavos,
   hrefModulo,
+  montoParaInput,
   pillsPanel,
   tienePantalla,
 } from "../src/lib/panel-modulos.js";
@@ -73,6 +74,13 @@ describe("panel-modulos: formato y estado de widgets", () => {
     expect(formatearCentavos(1500n)).toBe("$15.00");
     expect(formatearCentavos(-250)).toBe("-$2.50");
     expect(formatearCentavos(Number.NaN)).toBe("$0.00");
+  });
+
+  it("convierte centavos al valor del input de monto", () => {
+    expect(montoParaInput(null)).toBe("");
+    expect(montoParaInput(0)).toBe("0,00");
+    expect(montoParaInput(123450)).toBe("1234,50");
+    expect(montoParaInput("123450")).toBe("1234,50");
   });
 
   it("deriva el estado en orden cargando > error > vacío > listo", () => {

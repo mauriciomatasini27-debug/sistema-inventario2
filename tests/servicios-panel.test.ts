@@ -77,4 +77,13 @@ describe("CS7 panel de consumos (vista)", () => {
     expect(panel.toLowerCase()).not.toContain("opsoutbox");
     expect(panel.toLowerCase()).not.toContain("ops_outbox");
   });
+
+  it("la página de consumos integra los borradores de email", () => {
+    const consumos = readFileSync(join(process.cwd(), "src", "pages", "panel", "consumos.astro"), "utf8");
+    expect(consumos).toContain('id="consumos-borradores"');
+    expect(consumos).toContain('fetch("/api/email-drafts")');
+    expect(consumos).toContain('fetch("/api/email-drafts/confirm"');
+    expect(consumos).toContain('fetch("/api/email-drafts/discard"');
+    expect(consumos).toContain('id="borrador-form"');
+  });
 });

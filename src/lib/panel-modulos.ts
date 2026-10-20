@@ -117,6 +117,13 @@ export function formatearCentavos(centavos: number | bigint | string): string {
   return `${signo}$${(Math.abs(valor) / 100).toFixed(2)}`;
 }
 
+export function montoParaInput(centavos: number | bigint | string | null): string {
+  if (centavos === null) return "";
+  const numero = Number(centavos);
+  if (!Number.isFinite(numero)) return "";
+  return (numero / 100).toFixed(2).replace(".", ",");
+}
+
 export function derivarEstado({ cargando, error, items }: { cargando: boolean; error: boolean; items: number }): EstadoWidget {
   if (cargando) return "cargando";
   if (error) return "error";

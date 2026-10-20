@@ -68,11 +68,14 @@ describe("N2-4 fiscal + canales", () => {
     const mp = (await POSTMp(req("http://x/api/billing/webhooks/mercadopago", { preapproval_id: "pre1", estado: "activo" }, { "x-test": "true" }))) as Response;
     expect(mp.status).toBe(201);
   });
-  it("gmail watch + webhook 200 + ocr items", async () => {
+  it("gmail watch exige Dueño y webhook falla cerrado sin OIDC + ocr items", async () => {
     const w = (await POSTWatch(req("http://x/api/gmail/watch", { user_id: "a@b.com", topic: "projects/x/topics/y" }))) as Response;
-    expect(w.status).toBe(201);
+    expect(w.status).toBe(403);
+    delete process.env.GMAIL_PUBSUB_AUDIENCE;
+    delete process.env.GMAIL_PUBSUB_EMAIL;
+    delete process.env.GMAIL_PUBSUB_TOPIC;
     const h = (await POSTWebhook(req("http://x/api/gmail/webhook", { email: "a@b.com", historyId: "123" }))) as Response;
-    expect(h.status).toBe(200);
+    expect(h.status).toBe(503);
     expect(extraer_items("2 x Yerba 500g $5.000,00\n1 Azucar $1.200").length).toBe(2);
   });
 });

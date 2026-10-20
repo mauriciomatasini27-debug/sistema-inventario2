@@ -1,21 +1,63 @@
 import type { APIRoute } from "astro";
-import { z } from "zod";
-import { validar_watch_event } from "../../../modules/utilities/ingesta_gmail.js";
+import { encolarIngesta } from "../../../lib/repos/gmail-cola.js";
+import { resolverRutaWatch } from "../../../lib/repos/gmail-watch.js";
+import { ErrorOAuthGoogle } from "../../../modules/integraciones/google-oauth.js";
+import {
+  decodificarPushPubSub,
+  leerConfigPubSub,
+  verificarPushPubSub,
+} from "../../../modules/integraciones/pubsub.js";
 
 export const prerender = false;
 
-// POST /api/gmail/webhook — push PubSub {email, historyId}. Siempre 200 para
-// no reintentar en loop; el trabajo real lo hace history.list 15min.
 export const POST: APIRoute = async ({ request }) => {
+  let config;
+  try {
+    config = leerConfigPubSub();
+  } catch {
+    return new Response(null, { status: 503 });
+  }
+
+  try {
+    await verificarPushPubSub({
+      authorization: request.headers.get("authorization"),
+      audience: config.audience,
+      emailEsperado: config.email,
+    });
+  } catch (e) {
+    if (e instanceof ErrorOAuthGoogle) {
+      return new Response(null, { status: 401 });
+    }
+    throw e;
+  }
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return Response.json({ ok: true, nota: "body inválido, se ignora para no reintentar" });
+    return new Response(null, { status: 204 });
   }
-  const parsed = z.object({ email: z.string().email(), historyId: z.string().min(1) }).safeParse(body);
-  if (!parsed.success) return Response.json({ ok: true, nota: "evento incompleto" });
-  const errores = validar_watch_event({ email: parsed.data.email, historyId: parsed.data.historyId });
-  if (errores.length > 0) return Response.json({ ok: true, nota: "evento inválido" });
-  return Response.json({ ok: true, job: "gmail_history_fallback", desde: parsed.data.historyId });
+  const push = decodificarPushPubSub(body);
+  if (!push) return new Response(null, { status: 204 });
+
+  let ruta;
+  try {
+    ruta = await resolverRutaWatch(push.email);
+  } catch {
+    return new Response(null, { status: 503 });
+  }
+  if (!ruta) return new Response(null, { status: 204 });
+
+  try {
+    await encolarIngesta({
+      tenantId: ruta.tenantId,
+      connectionId: ruta.connectionId,
+      historyId: push.historyId,
+      motivo: "push",
+    });
+  } catch (e) {
+    console.warn("[gmail] no se pudo encolar el push:", e instanceof Error ? e.message : "error");
+    return new Response(null, { status: 500 });
+  }
+  return new Response(null, { status: 204 });
 };

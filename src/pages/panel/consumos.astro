@@ -20,6 +20,29 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   </div>
 
   <section class="card">
+    <h2>Borradores de email</h2>
+    <p class="estado">Facturas detectadas en Gmail. No se registran hasta que las confirmes.</p>
+    <ul class="lista" id="consumos-borradores"></ul>
+    <div class="estado" id="estado-borradores" role="status">Cargando…</div>
+    <form id="borrador-form" hidden>
+      <input type="hidden" id="borrador-id" />
+      <div class="fila">
+        <label>Cuenta <select id="borrador-cuenta" data-campo="account_id"></select></label>
+        <label>Monto <input id="borrador-monto" data-campo="monto" inputmode="decimal" autocomplete="off" /></label>
+      </div>
+      <div class="fila">
+        <label>Vencimiento <input id="borrador-vencimiento" data-campo="vencimiento" type="date" /></label>
+        <label>Período <input id="borrador-periodo" data-campo="periodo" type="month" /></label>
+      </div>
+      <div class="fila">
+        <button type="submit" id="borrador-confirmar">Confirmar factura</button>
+        <button type="button" id="borrador-descartar">Descartar</button>
+      </div>
+      <div class="estado" id="estado-borrador" role="status"></div>
+    </form>
+  </section>
+
+  <section class="card">
     <h2>Pagar factura</h2>
     <p class="estado">El pago registra el egreso en caja en el mismo paso.</p>
     <form id="pago-form">
@@ -38,10 +61,11 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 </PanelShell>
 
 <script>
-  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { derivarEstado, formatearCentavos, montoParaInput, textoError } from "../../lib/panel-modulos.js";
   import { REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
+  import { toast } from "sonner";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -49,6 +73,9 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
   const cuentasPorId = new Map();
   const facturasPorId = new Map();
+  const borradoresPorId = new Map();
+  let cuentasPromesa = null;
+  let borradorAbierto = null;
   const nombreCuenta = (id) => {
     const c = cuentasPorId.get(id);
     return c ? (c.alias || c.proveedor) + " · " + c.servicio : "cuenta";
@@ -65,8 +92,9 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     return filas.length;
   };
 
-  const cargarCuentas = () =>
-    fetch("/api/service-accounts")
+  const cargarCuentas = () => {
+    if (cuentasPromesa) return cuentasPromesa;
+    cuentasPromesa = fetch("/api/service-accounts")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
@@ -80,12 +108,31 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
           derivarEstado({ cargando: false, error: false, items: items.length }),
           "Todavía no hay cuentas cargadas.",
         );
+        const select = $("borrador-cuenta");
+        select.textContent = "";
+        const vacia = document.createElement("option");
+        vacia.value = "";
+        vacia.textContent = "Elegí una cuenta";
+        select.appendChild(vacia);
+        items
+          .filter((c) => c.activa)
+          .forEach((c) => {
+            const option = document.createElement("option");
+            option.value = c.account_id;
+            option.textContent = (c.alias || c.proveedor) + " · " + c.servicio;
+            select.appendChild(option);
+          });
+        return items;
       })
       .catch((error) => {
         console.warn("[panel/consumos] cuentas", error);
+        cuentasPromesa = null;
         pintarLista("consumos-cuentas", [], "");
         $("estado-cuentas").textContent = mensaje("error", "");
+        return [];
       });
+    return cuentasPromesa;
+  };
 
   const cargarVencimientos = () =>
     fetch("/api/utility-bills/due?dentro_dias=7")
@@ -119,6 +166,216 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         pintarLista("consumos-vencidas", [], "");
         $("estado-vencimientos").textContent = mensaje("error", "");
       });
+
+  const cargarBorradores = () =>
+    fetch("/api/email-drafts")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.items || [];
+        borradoresPorId.clear();
+        const ul = $("consumos-borradores");
+        ul.textContent = "";
+        if (items.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No hay borradores pendientes.";
+          ul.appendChild(li);
+        }
+        items.forEach((b) => {
+          borradoresPorId.set(b.draft_id, b);
+          const li = document.createElement("li");
+          const span = document.createElement("span");
+          let texto = [
+            b.remitente_dominio || "Gmail",
+            b.periodo || "sin período",
+            b.monto_centavos === null ? "falta monto" : formatearCentavos(b.monto_centavos),
+            b.vencimiento ? "vence " + b.vencimiento : "falta vencimiento",
+          ].join(" · ");
+          if (b.vencido) texto += " · vencido";
+          if (b.confianza_monto === "baja" || b.confianza_vencimiento === "baja") texto += " · confianza baja";
+          span.textContent = texto;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Revisar";
+          button.setAttribute("aria-label", "Revisar " + texto);
+          button.dataset.borrador = b.draft_id;
+          li.append(span, button);
+          ul.appendChild(li);
+        });
+        if (borradorAbierto !== null && !borradoresPorId.has(borradorAbierto)) {
+          borradorAbierto = null;
+          $("borrador-form").hidden = true;
+        }
+        $("estado-borradores").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "No hay borradores pendientes.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/consumos] borradores", error);
+        borradoresPorId.clear();
+        pintarLista("consumos-borradores", [], "");
+        $("estado-borradores").textContent = mensaje("error", "");
+      });
+
+  const abrirBorrador = async (id) => {
+    await cargarCuentas();
+    const borrador = borradoresPorId.get(id);
+    if (!borrador) return;
+    borradorAbierto = id;
+    $("borrador-id").value = id;
+    $("borrador-monto").value = montoParaInput(borrador.monto_centavos);
+    $("borrador-vencimiento").value = borrador.vencimiento || "";
+    $("borrador-periodo").value =
+      borrador.periodo || (borrador.vencimiento ? borrador.vencimiento.slice(0, 7) : "");
+    const select = $("borrador-cuenta");
+    const cuentaValida =
+      borrador.account_id !== null && Array.from(select.options).some((o) => o.value === borrador.account_id);
+    select.value = cuentaValida ? borrador.account_id : "";
+    limpiarErrores($("borrador-form"));
+    $("borrador-form").hidden = false;
+    const estado = $("estado-borrador");
+    const boton = $("borrador-confirmar");
+    if (borrador.vencido) {
+      estado.textContent = "Este borrador venció; descartalo y esperá el próximo correo.";
+      boton.disabled = true;
+    } else {
+      estado.textContent = "";
+      boton.disabled = false;
+    }
+    $("borrador-monto").focus();
+    $("borrador-form").scrollIntoView({ block: "nearest" });
+  };
+
+  $("consumos-borradores").addEventListener("click", (evento) => {
+    const target = evento.target;
+    if (!(target instanceof Element)) return;
+    const boton = target.closest("button[data-borrador]");
+    if (!(boton instanceof HTMLButtonElement)) return;
+    const id = boton.dataset.borrador;
+    if (id) abrirBorrador(id);
+  });
+
+  $("borrador-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("borrador-form");
+    limpiarErrores(form);
+    const estado = $("estado-borrador");
+    const id = $("borrador-id").value;
+    if (!id || borradorAbierto === null) {
+      estado.textContent = "Elegí un borrador de la lista.";
+      return;
+    }
+    const cuentaId = $("borrador-cuenta").value;
+    const monto = $("borrador-monto").value.trim();
+    const vencimiento = $("borrador-vencimiento").value.trim();
+    const periodo = $("borrador-periodo").value.trim();
+    const errores = {
+      ...(!cuentaId ? { account_id: mensajeCampo("account_id", REQUERIDO) } : {}),
+      ...(!monto ? { monto: mensajeCampo("monto", REQUERIDO) } : {}),
+      ...(!vencimiento ? { vencimiento: mensajeCampo("vencimiento", REQUERIDO) } : {}),
+    };
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Confirmar factura",
+      mensaje:
+        "Vas a registrar " +
+        monto +
+        " de " +
+        nombreCuenta(cuentaId) +
+        " con vencimiento " +
+        vencimiento +
+        ".",
+      accion: "Confirmar",
+    });
+    if (!confirmado) return;
+    estado.textContent = "Registrando…";
+    try {
+      const r = await fetch("/api/email-drafts/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_id: id,
+          account_id: cuentaId,
+          monto,
+          vencimiento,
+          ...(periodo ? { periodo } : {}),
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/consumos] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (r.status === 410 || r.status === 409) {
+        estado.textContent = textoError(j.error, r.status);
+        toast.error(textoError(j.error, r.status));
+        form.hidden = true;
+        borradorAbierto = null;
+        cargarBorradores();
+        return;
+      }
+      if (!r.ok) {
+        if (r.status === 422 && mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        estado.textContent = textoError(j.error, r.status);
+        return;
+      }
+      estado.textContent = "Factura registrada. Ya aparece en vencimientos.";
+      toast.success("Factura registrada.");
+      form.hidden = true;
+      borradorAbierto = null;
+      cargarBorradores();
+      cargarVencimientos();
+    } catch (error) {
+      console.warn("[panel/consumos] confirmar borrador", error);
+      estado.textContent = "Sin conexión con el servidor.";
+    }
+  });
+
+  $("borrador-descartar").addEventListener("click", async () => {
+    const estado = $("estado-borrador");
+    const id = $("borrador-id").value;
+    if (!id || borradorAbierto === null) {
+      estado.textContent = "Elegí un borrador de la lista.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Descartar borrador",
+      mensaje: "El correo no se va a registrar como factura.",
+      accion: "Descartar",
+    });
+    if (!confirmado) return;
+    estado.textContent = "Descartando…";
+    try {
+      const r = await fetch("/api/email-drafts/discard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft_id: id }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/consumos] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = textoError(j.error, r.status);
+        return;
+      }
+      $("borrador-form").hidden = true;
+      borradorAbierto = null;
+      toast("Borrador descartado.");
+      cargarBorradores();
+    } catch (error) {
+      console.warn("[panel/consumos] descartar borrador", error);
+      estado.textContent = "Sin conexión con el servidor.";
+    }
+  });
 
   $("pago-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
@@ -179,5 +436,33 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   });
 
   cargarCuentas();
+  cargarBorradores();
   cargarVencimientos();
 </script>
+
+<style>
+  #consumos-borradores li {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #consumos-borradores li button {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  #borrador-form {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--tema-linea);
+  }
+  #borrador-form[hidden] {
+    display: none;
+  }
+  #borrador-descartar {
+    background: transparent;
+    color: var(--tema-texto);
+    border: 1px solid var(--tema-linea);
+  }
+</style>

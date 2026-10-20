@@ -25,7 +25,7 @@ const PANTALLAS = [
 ] as const;
 
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|analytics\/|bot-modulos|plan\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
+  /^\/api\/(cash\/|products|lots|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|bot-modulos|plan\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";

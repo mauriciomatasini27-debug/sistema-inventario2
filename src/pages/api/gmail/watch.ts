@@ -1,23 +1,35 @@
 import type { APIRoute } from "astro";
-import { z } from "zod";
+import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
+import { renovarWatchGmail } from "../../../jobs/gmail.js";
+import { CasillaEnOtroComercio } from "../../../lib/repos/gmail-watch.js";
+import { ErrorGmail } from "../../../modules/integraciones/gmail-cliente.js";
+import { ErrorOAuthGoogle } from "../../../modules/integraciones/google-oauth.js";
 
 export const prerender = false;
 
-// Estado monoproceso watch Gmail (CS): userId -> {historyId, expiration}.
-const watches = new Map<string, { historyId: string; expiration: string; topic: string }>();
-
-// POST /api/gmail/watch — registra users.watch (stub local + descriptor real).
 export const POST: APIRoute = async ({ request }) => {
-  let body: unknown;
+  const dueno = exigirDuenoDeRequest(request);
+  if (!dueno.ok) return dueno.respuesta;
+
   try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "json invalido" }, { status: 422 });
+    const r = await renovarWatchGmail({ tenantId: dueno.tenantId });
+    return Response.json(
+      { ok: true, history_id: r.historyId, expira_at: r.expiraAt.toISOString() },
+      { status: 201, headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (e) {
+    if (e instanceof CasillaEnOtroComercio) {
+      return Response.json({ error: "casilla_en_otro_comercio" }, { status: 409 });
+    }
+    if (e instanceof ErrorOAuthGoogle) {
+      if (e.codigo === "sin_conexion") {
+        return Response.json({ error: "sin_conexion" }, { status: 409 });
+      }
+      return Response.json({ error: "integracion_no_configurada" }, { status: 503 });
+    }
+    if (e instanceof ErrorGmail) {
+      return Response.json({ error: "gmail_no_disponible" }, { status: 502 });
+    }
+    throw e;
   }
-  const parsed = z.object({ user_id: z.string().email().max(320), topic: z.string().min(1).max(300) }).safeParse(body);
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
-  const historyId = crypto.randomUUID();
-  const expiration = new Date(Date.now() + 7 * 86400_000).toISOString();
-  watches.set(parsed.data.user_id, { historyId, expiration, topic: parsed.data.topic });
-  return Response.json({ user_id: parsed.data.user_id, historyId, expiration, renuevo_en: "24h", fallback: "history.list 15min" }, { status: 201 });
 };

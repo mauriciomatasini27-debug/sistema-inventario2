@@ -44,6 +44,9 @@ export const utilityBills = pgTable("utility_bills", {
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
   estado: text("estado").notNull().default("pendiente"),
   necesitaRevision: boolean("necesita_revision").notNull().default(false),
+  // canal = por dónde entró; origen = cómo se extrajo (pdf_digital/ocr/email_respaldo).
+  canal: text("canal").notNull().default("manual"),
+  gmailAttachmentId: text("gmail_attachment_id"),
   origen: text("origen").notNull(),
   confianza: jsonb("confianza").notNull().default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),

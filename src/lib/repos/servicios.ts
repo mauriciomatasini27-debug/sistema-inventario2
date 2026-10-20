@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { serviceAccounts, utilityBills } from "../../db/schema-servicios.js";
-import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenCuentasServicio,
   crearAlmacenFacturasServicio,
@@ -41,6 +41,12 @@ export interface FacturaNueva {
   readonly origen: OrigenExtraccion;
   readonly confianzaMonto: ConfianzaCampo;
   readonly confianzaVencimiento: ConfianzaCampo;
+  readonly canal?: "manual" | "gmail" | "whatsapp" | "web" | "email_reenvio";
+  readonly gmailAttachmentId?: string | null;
+}
+
+export interface RegistrarFacturaOpciones {
+  readonly requerirDb?: boolean;
 }
 
 export type RegistrarFacturaResultado =
@@ -55,7 +61,10 @@ function espejoFactura(factura: FacturaServicio): void {
 }
 
 // Alta CS9.1: message-id UNIQUE. Retry identico => 409 con el original.
-export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFacturaResultado> {
+export async function registrarFactura(
+  input: FacturaNueva,
+  opciones: RegistrarFacturaOpciones = {},
+): Promise<RegistrarFacturaResultado> {
   const facturasPorMensaje = crearAlmacenFacturasServicioPorMensaje();
   const r = registrar_factura(
     {
@@ -76,6 +85,7 @@ export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFa
 
   const db = dbVivaTenant();
   if (!db) {
+    if (opciones.requerirDb) throw new BaseNoDisponible();
     espejoFactura(r.factura);
     return { ok: true, factura: r.factura, advertencias: r.advertencias, fuente: "memoria" };
   }
@@ -97,10 +107,27 @@ export async function registrarFactura(input: FacturaNueva): Promise<RegistrarFa
       necesitaRevision: r.factura.necesitaRevision,
       origen: r.factura.origen,
       confianza: { monto: r.factura.confianzaMonto, vencimiento: r.factura.confianzaVencimiento },
+      canal: input.canal ?? "manual",
+      gmailAttachmentId: input.gmailAttachmentId ?? null,
     });
     espejoFactura(r.factura);
     return { ok: true, factura: r.factura, advertencias: r.advertencias, fuente: "db" };
   } catch (e) {
+    if (opciones.requerirDb) {
+      if (esConflictoUnico(e)) {
+        try {
+          const previo = await db.select().from(utilityBills).where(eq(utilityBills.messageId, input.messageId)).limit(1);
+          if (previo[0]) {
+            const f = filaAFactura(previo[0]);
+            espejoFactura(f);
+            return { ok: false, codigo: "MENSAJE_REPETIDO", error: "message-id repetido" };
+          }
+        } catch {
+          throw new BaseNoDisponible();
+        }
+      }
+      throw new BaseNoDisponible();
+    }
     if (esConflictoUnico(e)) {
       try {
         const previo = await db.select().from(utilityBills).where(eq(utilityBills.messageId, input.messageId)).limit(1);
