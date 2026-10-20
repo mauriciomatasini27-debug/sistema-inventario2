@@ -9,7 +9,7 @@
 //   cacheada (o "/" si esa no está).
 // - Solo GET; nunca intercepta POST (push/promote/sales) ni cross-origin.
 // Bumpeá CACHE al cambiar precacheados.
-const CACHE = "inventario-v2";
+const CACHE = "inventario-v3";
 const PAGINAS_OFFLINE = new Set(["/", "/venta"]);
 const PRECACHE = [
   "/",
@@ -36,6 +36,12 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "cachear-assets" || !Array.isArray(data.urls)) return;
+  event.waitUntil(cachearAssets(data.urls));
 });
 
 self.addEventListener("fetch", (event) => {
@@ -88,6 +94,35 @@ self.addEventListener("fetch", (event) => {
     ),
   );
 });
+
+function cachearAssets(urls) {
+  return caches.open(CACHE).then((cache) =>
+    Promise.all(
+      urls.map((raw) => {
+        if (typeof raw !== "string") return undefined;
+        const url = new URL(raw, self.location.origin);
+        if (url.origin !== self.location.origin) return undefined;
+        if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return undefined;
+        if (url.pathname === "/sw.js") return undefined;
+        return cache.match(url.href).then((hit) => {
+          if (hit) return undefined;
+          return fetch(url.href)
+            .then((res) => {
+              // Nunca HTML: solo /, /venta (navegación) quedan como páginas offline.
+              if (!res.ok || res.redirected) return undefined;
+              if ((res.headers?.get("content-type") ?? "").includes("text/html")) return undefined;
+              const headers = new Headers(res.headers);
+              headers.delete("vary");
+              return cache.put(url.href, new Response(res.body, { status: res.status, statusText: res.statusText, headers }));
+            })
+            .catch((error) => {
+              console.warn("[pwa] no se pudo cachear el asset", url.href, error);
+            });
+        });
+      }),
+    ),
+  );
+}
 
 function marcarDesdeCache(res) {
   const headers = new Headers(res.headers);

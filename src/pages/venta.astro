@@ -5,6 +5,7 @@ import "../styles/tokens-papel.css";
 import "../styles/tema.css";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
+import PwaRegistro from "../components/ui/PwaRegistro.astro";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
@@ -17,6 +18,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Venta mostrador</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
     <TemaInicial />
     <style>
       *, *::before, *::after { box-sizing: border-box; }
@@ -88,6 +90,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         </div>
       )}
     </main>
+    <PwaRegistro />
     <script>
       import { sincronizarColaVenta } from "../offline/cola-venta.js";
       import { debeDescargar, descargarCatalogo, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";

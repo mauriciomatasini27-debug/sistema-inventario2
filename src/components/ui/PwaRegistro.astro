@@ -1,0 +1,29 @@
+<script>
+  const TIPOS_ASSET = new Set(["script", "link", "css"]);
+
+  function assetsCargados(): string[] {
+    return performance
+      .getEntriesByType("resource")
+      .filter((entry) => TIPOS_ASSET.has((entry as PerformanceResourceTiming).initiatorType))
+      .map((entry) => entry.name)
+      .filter((url) => url.startsWith(location.origin + "/") && !url.startsWith(location.origin + "/api/"));
+  }
+
+  function avisarAssets(registro: ServiceWorkerRegistration) {
+    const worker = registro.active ?? navigator.serviceWorker.controller;
+    const urls = assetsCargados();
+    if (worker && urls.length > 0) worker.postMessage({ type: "cachear-assets", urls });
+  }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then(() => navigator.serviceWorker.ready)
+        .then(avisarAssets)
+        .catch(function (error) {
+          console.warn("[pwa] no se pudo registrar el service worker", error);
+        });
+    });
+  }
+</script>

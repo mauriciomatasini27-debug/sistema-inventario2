@@ -21,16 +21,24 @@ describe("PWA instalable PWA-S1/S2 (PRD-PWA-01)", () => {
     expect(m.icons?.some((i) => i.sizes === "512x512")).toBe(true);
   });
 
-  it("BaseLayout enlaza manifest + apple-touch-icon y registra el SW", () => {
+  it("BaseLayout y /venta comparten el registro del SW y enlazan el manifest", () => {
     const layout = readFileSync(join(ROOT, "src/layouts/BaseLayout.astro"), "utf8");
+    const venta = readFileSync(join(ROOT, "src/pages/venta.astro"), "utf8");
+    const registro = readFileSync(join(ROOT, "src/components/ui/PwaRegistro.astro"), "utf8");
     expect(layout).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(layout).toContain('rel="apple-touch-icon" href="/icons/icon-192.png"');
-    expect(layout).toContain('navigator.serviceWorker.register("/sw.js")');
+    expect(layout).toContain("<PwaRegistro");
+    expect(venta).toContain('rel="manifest" href="/manifest.webmanifest"');
+    expect(venta).toContain("<PwaRegistro");
+    expect(registro).toContain('"serviceWorker" in navigator');
+    expect(registro).toContain('.register("/sw.js")');
+    expect(registro).toContain("cachear-assets");
+    expect(registro).toContain('console.warn("[pwa] no se pudo registrar el service worker"');
   });
 
   it("sw.js cachea estático y /venta, hace network-first en sync/pull y nunca toca POST", () => {
     const sw = readFileSync(join(ROOT, "public/sw.js"), "utf8");
-    expect(sw).toContain("inventario-v2");
+    expect(sw).toContain("inventario-v3");
     expect(sw).toContain("/api/sync/pull");
     expect(sw).toContain('"/venta"');
     expect(sw).toContain('req.method !== "GET"');

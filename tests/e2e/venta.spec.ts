@@ -47,6 +47,39 @@ test("catálogo descargado completa el precio y sigue disponible offline", async
   await expect(page.locator("#catalogo-estado")).toContainText("Catálogo del");
 });
 
+// PWA-S2b (ADR-0003): abrir /venta directo registra el SW, guarda sus assets y
+// la página vuelve a abrir sin red con JS funcionando.
+test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, context }) => {
+  await page.goto("/venta");
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 15_000 });
+  const assets = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("script[src], link[rel='stylesheet']"))
+      .map((el) => {
+        const raw = el.getAttribute("src") ?? el.getAttribute("href");
+        return raw ? new URL(raw, location.origin).href : "";
+      })
+      .filter(Boolean),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(async (urls) => {
+        const cache = await caches.open("inventario-v3");
+        const hits = await Promise.all(urls.map((url) => cache.match(url)));
+        return hits.length > 0 && hits.every(Boolean);
+      }, assets),
+    )
+    .toBe(true);
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator("h1")).toHaveText("Venta mostrador");
+  await page.fill("#sku", "demo-sku-2");
+  await page.fill("#qty", "2");
+  await page.fill("#precio", "500");
+  await page.click("#cobrar");
+  await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
+});
+
 // VF-S2 (ADR-0097): si el push falla, la venta encolada no se borra.
 test("sync con push caído deja la venta en la cola y la sube después", async ({ page, context }) => {
   await page.goto("/venta");

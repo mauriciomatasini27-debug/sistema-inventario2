@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import SiteHeader from '../components/ui/SiteHeader.astro';
 import ChatLanding from '../components/ui/ChatLanding.astro';
+import PwaRegistro from '../components/ui/PwaRegistro.astro';
 import { Toaster } from '../components/ui/Toaster';
 
 interface Props {
@@ -55,14 +56,7 @@ const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toSt
     </div>
     <ChatLanding />
     <Toaster client:idle />
-    <script>
-      // PWA-S1: registra el SW sin romper si no hay soporte o falla la red.
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("/sw.js").catch(function (error) { console.warn("[pwa] no se pudo registrar el service worker", error); });
-        });
-      }
-    </script>
+    <PwaRegistro />
     <script>
       (function () {
         var els = document.querySelectorAll('main section[id], #inicio');
