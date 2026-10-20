@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { altaUbicacion, listarUbicaciones } from "../../lib/repos/catalogo.js";
-import { ubicacionesSembradasPorRubro } from "../../lib/eventos-control.js";
+import { leerSembradasPorRubro } from "../../lib/repos/siembra-ubicaciones.js";
 
 export const prerender = false;
 
@@ -13,7 +13,7 @@ export const GET: APIRoute = async () => {
   try {
     return Response.json({
       ubicaciones: await listarUbicaciones(),
-      sembradas_por_rubro: ubicacionesSembradasPorRubro(),
+      sembradas_por_rubro: await leerSembradasPorRubro(),
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });

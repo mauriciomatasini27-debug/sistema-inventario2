@@ -225,6 +225,13 @@
       "when": 1792449722954,
       "tag": "0031_gmail_ingestion",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792500000000,
+      "tag": "0032_tenant_location_seeds",
+      "breakpoints": true
     }
   ]
 }

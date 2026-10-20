@@ -117,3 +117,13 @@ export const tenantBotModules = pgTable(
   },
   (t) => [unique("tenant_bot_modules_tenant_modulo_unique").on(t.tenantId, t.modulo)],
 );
+
+// ON4-SEED/ON4-5: registro de siembra de ubicaciones por plantilla de rubro,
+// migración 0032. Una fila por tenant; RLS en la migración.
+export const tenantLocationSeeds = pgTable("tenant_location_seeds", {
+  tenantId: text("tenant_id").primaryKey(),
+  rubro: text("rubro").notNull(),
+  plantillaVersion: text("plantilla_version").notNull(),
+  cantidad: integer("cantidad").notNull().default(0),
+  sembradoAt: timestamp("sembrado_at").notNull().defaultNow(),
+});

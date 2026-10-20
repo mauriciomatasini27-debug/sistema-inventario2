@@ -12,6 +12,7 @@ import {
 import { generar_codigo_vincular, normalizar_ar, VINCULAR_TTL_MIN } from "../../../modules/whatsapp/vincular.js";
 import { aplicarDefaultsModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { sembrarUbicacionesRubro } from "../../../lib/repos/catalogo.js";
+import { registrarSiembraUbicaciones } from "../../../lib/repos/siembra-ubicaciones.js";
 import { VERSION_PLANTILLAS_RUBRO } from "../../../modules/onboarding/plantillas-rubro.js";
 import {
   EVENTO_UBICACIONES_SEMBRADAS,
@@ -127,6 +128,11 @@ export const POST: APIRoute = async ({ request }) => {
         version: VERSION_PLANTILLAS_RUBRO,
         cantidad: sembrado.creadas.length,
       },
+    });
+    await registrarSiembraUbicaciones(id, {
+      rubro: b.rubro,
+      version: VERSION_PLANTILLAS_RUBRO,
+      cantidad: sembrado.creadas.length,
     });
   } catch (e) {
     control.events.push({
