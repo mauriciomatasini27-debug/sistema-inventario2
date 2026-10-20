@@ -1,12 +1,19 @@
 // PWA-S2 (PRD-PWA-01, OF1/OF3): SW mínimo sin dependencias.
 // - Estático same-origin: cache-first (la app abre sin red con último catálogo).
 // - GET /api/sync/pull: network-first con fallback a caché (fondo del catálogo).
-// - Navegaciones: network-first con fallback a "/" cacheado.
+// - GET /api/sync/pull sin red: la copia cacheada sale marcada con
+//   `x-desde-cache: 1` para que el cliente no la tome como catálogo recién bajado.
+// - Navegaciones: network-first; solo las páginas que funcionan sin red
+//   (PAGINAS_OFFLINE) se guardan al responder OK sin redirección, para no dejar
+//   HTML con datos del panel en el dispositivo. Sin red sirve la misma página
+//   cacheada (o "/" si esa no está).
 // - Solo GET; nunca intercepta POST (push/promote/sales) ni cross-origin.
 // Bumpeá CACHE al cambiar precacheados.
-const CACHE = "inventario-v1";
+const CACHE = "inventario-v2";
+const PAGINAS_OFFLINE = new Set(["/", "/venta"]);
 const PRECACHE = [
   "/",
+  "/venta",
   "/manifest.webmanifest",
   "/favicon.svg",
   "/icons/icon-192.png",
@@ -45,13 +52,27 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE).then((c) => c.put(req, copia));
           return res;
         })
-        .catch(() => caches.match(req)),
+        .catch(() => caches.match(req).then((hit) => (hit ? marcarDesdeCache(hit) : hit))),
     );
     return;
   }
 
   if (req.mode === "navigate") {
-    event.respondWith(fetch(req).catch(() => caches.match("/")));
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok && !res.redirected && PAGINAS_OFFLINE.has(url.pathname)) {
+            const copia = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copia));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches
+            .match(req, { ignoreSearch: true })
+            .then((hit) => hit ?? caches.match("/")),
+        ),
+    );
     return;
   }
 
@@ -67,3 +88,9 @@ self.addEventListener("fetch", (event) => {
     ),
   );
 });
+
+function marcarDesdeCache(res) {
+  const headers = new Headers(res.headers);
+  headers.set("x-desde-cache", "1");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}

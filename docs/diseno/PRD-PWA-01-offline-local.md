@@ -8,12 +8,12 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Fuente: docs/01-fundacion/modo-offline.md (OF1, OF3, OF11, OF14), ADR-0003. Implementado: SQLite-WASM sobre
-  OPFS, manifest, service worker, journal_outbox, photos_queue y borrado remoto. Refinamiento pendiente:
-  descarga proactiva del catálogo (PWA-S2) y cifrado local.
+  OPFS, manifest, service worker, journal_outbox, photos_queue, descarga proactiva del catálogo y borrado remoto.
+  Refinamiento pendiente: cifrado local.
 ---
 # PRD-PWA-01 - PWA instalable + SQLite local + OPFS
 
-Fuente: `docs/01-fundacion/modo-offline.md` (OF1, OF3, OF11, OF14), ADR-0003. Estado 2026-10-20: PWA-S1, S3 y S4 hechos (`public/manifest.webmanifest`, `public/sw.js`, `src/offline/db.ts`, `src/offline/fotos.ts`); PWA-S2 parcial (el SW cachea el pull al navegar, sin descarga proactiva); PWA-S5 hecha (borrado remoto). El cifrado local sigue como refinamiento.
+Fuente: `docs/01-fundacion/modo-offline.md` (OF1, OF3, OF11, OF14), ADR-0003. Estado 2026-10-20: PWA-S1, S2, S3 y S4 hechos (`public/manifest.webmanifest`, `public/sw.js`, `src/offline/catalogo-local.ts`, `src/offline/db.ts`, `src/offline/fotos.ts`); PWA-S2 descarga el catálogo en segundo plano y lo guarda en localStorage; PWA-S5 hecha (borrado remoto). El cifrado local sigue como refinamiento.
 
 ## Épica PWA-E1. Instalabilidad
 

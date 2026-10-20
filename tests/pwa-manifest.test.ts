@@ -28,11 +28,17 @@ describe("PWA instalable PWA-S1/S2 (PRD-PWA-01)", () => {
     expect(layout).toContain('navigator.serviceWorker.register("/sw.js")');
   });
 
-  it("sw.js cachea estático, hace network-first en sync/pull y nunca toca POST", () => {
+  it("sw.js cachea estático y /venta, hace network-first en sync/pull y nunca toca POST", () => {
     const sw = readFileSync(join(ROOT, "public/sw.js"), "utf8");
-    expect(sw).toContain("inventario-v1");
+    expect(sw).toContain("inventario-v2");
     expect(sw).toContain("/api/sync/pull");
+    expect(sw).toContain('"/venta"');
     expect(sw).toContain('req.method !== "GET"');
+    expect(sw).toContain("caches.match(req");
     expect(sw).toContain('caches.match("/")');
+    // PWA-S2: solo se guardan páginas que funcionan sin red y el pull cacheado sale marcado.
+    expect(sw).toContain('PAGINAS_OFFLINE = new Set(["/", "/venta"])');
+    expect(sw).toContain("!res.redirected");
+    expect(sw).toContain('"x-desde-cache", "1"');
   });
 });

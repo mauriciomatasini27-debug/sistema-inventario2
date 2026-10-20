@@ -1,3 +1,4 @@
+import { almacenamientoLocal, borrarCatalogoLocal, type StorageCatalogo } from "./catalogo-local.js";
 import { resetDb } from "./db.js";
 import { hidratarFotos, resetFotos } from "./fotos.js";
 import { hidratarMappings, resetMappings } from "./id-mappings.js";
@@ -92,11 +93,15 @@ export interface RevocacionResult {
 }
 
 /**
- * Borrado remoto al revocar: vacía outbox+mappings+fotos y borra el snapshot
- * SQLite/OPFS. Tras esto no hay base legible (resetDb elimina los bytes).
- * Nunca lanza: el borrado es best-effort idempotente.
+ * Borrado remoto al revocar: vacía outbox+mappings+fotos, borra el catálogo
+ * local y el snapshot SQLite/OPFS. Tras esto no hay base legible (resetDb
+ * elimina los bytes). Nunca lanza: el borrado es best-effort idempotente.
  */
-export async function revocarDispositivo(motivo = "revocado"): Promise<RevocacionResult> {
+export async function revocarDispositivo(
+  motivo = "revocado",
+  storage: StorageCatalogo | null = almacenamientoLocal(),
+): Promise<RevocacionResult> {
+  borrarCatalogoLocal(storage);
   try {
     await resetOutbox();
   } catch {
