@@ -13,6 +13,7 @@ Reglas cortas para agentes en este repo.
 
 - Nunca edites `docs/ROADMAP.md` a mano ni commitees los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) en una rama: los regenera `main` con `npm run docs:estado` / `docs:index` / `roadmap`, que en una rama de trabajo no escriben (usá `--forzar` para previsualizar). Así el PR no queda CONFLICTING por esos archivos cuando otro PR se mergeó antes.
 - `npm run verify` corre la guarda `docs:generados` y falla, nombrando el archivo y el comando para quitarlo, si la rama trae un generado.
+- Para números nuevos usá `npm run siguiente-numero` (mira `origin/main`); `npm run verify` falla en `numeros` si la rama reusa un número de migración, ADR o avance que main ya reservó.
 - Agregá tu avance en `docs/roadmap/avances/<número-ADR>.md` con front-matter `item`, `estado`, `adr`, `prd`, `fecha` (`AAAA-MM-DD`) y una línea de texto. Formato y ejemplo en `docs/roadmap/avances/README.md`.
 - Ítems chicos (sin decisión nueva de arquitectura): solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR solo para decisiones reales de arquitectura o producto.
 - Antes de abrir el PR: `npm run roadmap -- --validate`.
