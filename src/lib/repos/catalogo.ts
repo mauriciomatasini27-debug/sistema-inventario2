@@ -564,6 +564,50 @@ export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResult
   return { ok: true, ubicacion: creada };
 }
 
+export type RenombrarUbicacionResultado =
+  | { ok: true; ubicacion: Ubicacion }
+  | { ok: false; codigo: "DUPLICADA"; error: string }
+  | { ok: false; codigo: "DESCONOCIDA"; error: string };
+
+export async function renombrarUbicacion(id: string, nombre: string): Promise<RenombrarUbicacionResultado> {
+  const ubicaciones = crearAlmacenUbicaciones();
+  const limpio = nombre.trim();
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const previas = await db
+        .select({ id: locations.id, nombre: locations.nombre, archivada: locations.archivada })
+        .from(locations);
+      const actual = previas.find((p) => p.id === id);
+      if (!actual) return { ok: false, codigo: "DESCONOCIDA", error: "ubicacion desconocida" };
+      if (previas.some((p) => p.id !== id && p.nombre.toLowerCase() === limpio.toLowerCase())) {
+        return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
+      }
+      const u: Ubicacion = { id, nombre: limpio, archivada: actual.archivada ?? false };
+      try {
+        await db.update(locations).set({ nombre: limpio }).where(eq(locations.id, id));
+      } catch (upd) {
+        if (esChoqueUnicoUbicacion(upd)) return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
+        throw upd;
+      }
+      espejarUbicacion(u, ubicaciones);
+      return { ok: true, ubicacion: u };
+    } catch (e) {
+      ubicaciones.anteFalloPersistencia(e);
+    }
+  }
+  const actual = ubicaciones.obtener(id);
+  if (!actual) return { ok: false, codigo: "DESCONOCIDA", error: "ubicacion desconocida" };
+  for (const u of ubicaciones.comoMapaSoloLectura().values()) {
+    if (u.id !== id && u.nombre.toLowerCase() === limpio.toLowerCase() && !u.archivada) {
+      return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
+    }
+  }
+  const next: Ubicacion = { ...actual, nombre: limpio };
+  espejarUbicacion(next, ubicaciones);
+  return { ok: true, ubicacion: next };
+}
+
 export interface AsignacionMasivaInput {
   readonly locationId: string;
   readonly skus: ReadonlyArray<string>;

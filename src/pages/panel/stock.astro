@@ -98,6 +98,34 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   .aviso p {
     margin: 0 0 8px;
   }
+  #ubicaciones-lista li button {
+    margin-left: 8px;
+  }
+  .editor-ubicacion {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: end;
+    animation: aparecer-editor 120ms ease-out;
+  }
+  .editor-ubicacion label input {
+    display: block;
+  }
+  @keyframes aparecer-editor {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .editor-ubicacion {
+      animation: none;
+    }
+  }
 </style>
 
 <script>
@@ -180,12 +208,113 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     }
   };
 
-  const pintarUbicaciones = (ubicaciones: Array<{ nombre: string; archivada: boolean }>, sembradas: boolean) => {
+  type UbicacionPanel = { id: string; nombre: string; archivada: boolean };
+
+  const textoUbicacion = (u: UbicacionPanel) => (u.archivada ? u.nombre + " (archivada)" : u.nombre);
+
+  const editarUbicacion = (
+    li: HTMLLIElement,
+    ubicacion: UbicacionPanel,
+    texto: HTMLSpanElement,
+    boton: HTMLButtonElement,
+  ) => {
+    if (li.querySelector(".editor-ubicacion")) return;
+    texto.hidden = true;
+    boton.hidden = true;
+    const form = document.createElement("form");
+    form.className = "editor-ubicacion";
+    const label = document.createElement("label");
+    label.textContent = "Nuevo nombre";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 80;
+    input.autocomplete = "off";
+    input.value = ubicacion.nombre;
+    label.appendChild(input);
+    const guardar = document.createElement("button");
+    guardar.type = "submit";
+    guardar.textContent = "Guardar";
+    const cancelar = document.createElement("button");
+    cancelar.type = "button";
+    cancelar.textContent = "Cancelar";
+    const estado = document.createElement("span");
+    estado.className = "estado";
+    estado.setAttribute("role", "status");
+    estado.setAttribute("aria-live", "polite");
+    form.append(label, guardar, cancelar, estado);
+
+    const cerrar = (enfocar: boolean) => {
+      form.remove();
+      texto.hidden = false;
+      boton.hidden = false;
+      if (enfocar) boton.focus();
+    };
+
+    cancelar.addEventListener("click", () => cerrar(true));
+    input.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape") {
+        evento.preventDefault();
+        cerrar(true);
+      }
+    });
+    form.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const nombre = input.value.trim();
+      if (!nombre) {
+        estado.textContent = "Escribí un nombre para la ubicación.";
+        input.focus();
+        return;
+      }
+      estado.textContent = "Guardando…";
+      try {
+        const r = await fetch("/api/locations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: ubicacion.id, nombre }),
+        });
+        const j = await r.json().catch((error) => {
+          console.warn("[panel/stock] respuesta sin JSON", r.status, error);
+          return {};
+        });
+        if (r.status === 409) {
+          estado.textContent = "Ya tenés una ubicación con ese nombre. Elegí otro.";
+          input.focus();
+          return;
+        }
+        if (!r.ok) {
+          estado.textContent =
+            r.status === 404 ? "Esa ubicación ya no existe. Recargá la lista." : "No se renombró la ubicación.";
+          return;
+        }
+        ubicacion.nombre = typeof j.nombre === "string" ? j.nombre : nombre;
+        ubicacion.archivada = j.archivada === true;
+        texto.textContent = textoUbicacion(ubicacion);
+        boton.setAttribute("aria-label", "Renombrar " + ubicacion.nombre);
+        toast.success("Ubicación renombrada.");
+        cerrar(true);
+      } catch (error) {
+        console.warn("[panel/stock] renombrar ubicación", error);
+        estado.textContent = mensaje("error", "");
+      }
+    });
+    li.appendChild(form);
+    input.focus();
+    input.select();
+  };
+
+  const pintarUbicaciones = (ubicaciones: UbicacionPanel[], sembradas: boolean) => {
     const lista = $("ubicaciones-lista");
     lista.textContent = "";
     ubicaciones.forEach((u) => {
       const li = document.createElement("li");
-      li.textContent = u.archivada ? u.nombre + " (archivada)" : u.nombre;
+      const texto = document.createElement("span");
+      texto.textContent = textoUbicacion(u);
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.textContent = "Renombrar";
+      boton.setAttribute("aria-label", "Renombrar " + u.nombre);
+      boton.addEventListener("click", () => editarUbicacion(li, u, texto, boton));
+      li.append(texto, " ", boton);
       lista.appendChild(li);
     });
     $("estado-ubicaciones").textContent = mensaje(
