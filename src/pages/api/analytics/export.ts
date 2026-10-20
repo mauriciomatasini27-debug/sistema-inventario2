@@ -1,17 +1,27 @@
+import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { exigirReauthReciente, resolverSesion, membershipActiva } from "../../../lib/control.js";
+import { control } from "../../../lib/store.js";
 import { calcular_rotacion } from "../../../modules/analytics/agregador.js";
 import { fuente_memoria } from "../../../modules/analytics/fuente.js";
 import { armar_csv, auditar_export, decidir_modo_export } from "../../../modules/analytics/export.js";
+import { armar_reporte_pdf } from "../../../modules/analytics/export-pdf.js";
+import { generar_reporte_pdf } from "../../../modules/analytics/export-pdf-pdfkit.js";
 import { puede_exportar } from "../../../modules/analytics/permisos.js";
 import type { Grant, SkuRot } from "../../../modules/analytics/tipos.js";
 
 export const prerender = false;
 
-// GET /api/analytics/export?formato=csv&desde=&hasta= — RT8 P0.
-// Solo Dueño (403 + mensaje en castellano). CSV UTF-8 con BOM. PDF P0:
-// mismo snapshot, documento básico generado en servidor (ver nota).
-// >2000 filas: 202 con estado pendiente (worker); el caller reintenta.
+// Por qué sin CUIT: /api/analytics no está en PREFIJOS_DATOS, así que esta ruta
+// no lee la base del tenant (ISO AT3); el núcleo ya lo imprime cuando llegue.
+function nombre_comercio(tenantId: string | null): string {
+  if (!tenantId) return "Comercio";
+  return control.tenants.get(tenantId)?.nombreComercio.trim() || "Comercio";
+}
+
+// GET /api/analytics/export?formato=csv|pdf&desde=&hasta= — RT8.1/RT8.2.
+// Solo Dueño (403 + mensaje en castellano). CSV UTF-8 con BOM y PDF real con
+// el mismo snapshot. >2000 filas: 202 con estado pendiente (worker).
 export const GET: APIRoute = async ({ request, url }) => {
   const formato = url.searchParams.get("formato") ?? "csv";
   const desde = url.searchParams.get("desde") ?? "";
@@ -55,15 +65,26 @@ export const GET: APIRoute = async ({ request, url }) => {
     return Response.json({ estado: "pendiente", filas: r.valor.length }, { status: 202 });
   }
   if (formato === "pdf") {
-    // P0: PDF básico en servidor como texto estructurado; la maquetación
-    // completa (paginado, fórmulas, identificador único) queda para P1 con
-    // worker de cola de jobs (RT8.3).
-    const lineas = r.valor.map((f) => `${f.sku} ${f.nombre}: neto ${f.neto}, rot ${f.rotacion ?? "n/d"}`).join("\n");
-    const pdf = `Reporte rotación ${desde}..${hasta}\nGenerado ${new Date().toISOString()} por ${actor}\n\n${lineas}\n`;
-    return new Response(pdf, {
-      status: 200,
-      headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="rotacion-${desde}-${hasta}.pdf"` },
-    });
+    try {
+      const reporte = armar_reporte_pdf({
+        filas: r.valor,
+        desde,
+        hasta,
+        comercio: nombre_comercio(ctx?.tenantId ?? null),
+        generadoEn: new Date().toISOString(),
+        generador: actor,
+        id: randomUUID(),
+        filtros: ["Ninguno"],
+      });
+      const pdf = await generar_reporte_pdf(reporte);
+      return new Response(new Uint8Array(pdf), {
+        status: 200,
+        headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="rotacion-${desde}-${hasta}.pdf"` },
+      });
+    } catch (e) {
+      console.error("No se pudo generar el reporte PDF de rotación", e);
+      return Response.json({ error: "No se pudo generar el PDF. Intentá de nuevo." }, { status: 500 });
+    }
   }
   const csv = armar_csv({ filas: r.valor, desde, hasta, generadoEn: new Date().toISOString(), generador: actor });
   return new Response(csv, {

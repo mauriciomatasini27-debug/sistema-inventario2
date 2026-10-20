@@ -1,5 +1,5 @@
 // Núcleo puro RT8: CSV + decisión sync/worker + auditoría.
-// PDF: el adaptador genera en servidor con el mismo snapshot (ver ruta).
+// PDF: contenido en export-pdf.ts y dibujo en export-pdf-pdfkit.ts.
 import type { FilaRotacion } from "./tipos.js";
 
 export function decidir_modo_export(totalFilas: number): "sincronico" | "worker" {
