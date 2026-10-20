@@ -13,7 +13,7 @@ resumen: |
 ---
 # ADR-0085 - Test de conformidad del cableado pstack
 
-Estado: propuesto. Fecha: 2026-10-15. Fuentes: `tests/pstack-wiring.test.ts`, `opencode.json`, `.opencode/pstack-models.md`, PRD `diseno/PRD-PS-01-pstack-opencode.md`.
+Estado: aceptado (2026-10-18, evidencia: `tests/pstack-wiring.test.ts` verde). Fecha: 2026-10-15. Fuentes: `tests/pstack-wiring.test.ts`, `opencode.json`, `.opencode/pstack-models.md`, PRD `diseno/PRD-PS-01-pstack-opencode.md`.
 
 ## Decisión
 

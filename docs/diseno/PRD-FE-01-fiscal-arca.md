@@ -15,6 +15,8 @@ resumen: |
 Fuente: `PRD - Facturación Electrónica ARCA para Sistema de Inventario.docx` (verificado 9/10/2026), `ADR-0007` (WSFEv1 verificado), manual WSFEv1 v4.7, WSAA 1.2.2, RG 1415 / 4291 / 4892 / 5616 / 5700 / 5782 / 5866. Restringido por ADR-0003 (offline), ADR-0004 (caja/ticket/fiado/precios), ADR-0011 (control plane), ADR-0017 (slice-0).
 Principio: todo se opera al 100% desde el celular. Lo único que necesita conexión es la autorización en ARCA. Ticket sigue no fiscal (`DOCUMENTO NO VÁLIDO COMO FACTURA`).
 
+> Estado al 2026-10-20: en curso. FE-S7/S8/S10/S11/S14/S16/S17/S18/S20/S25 implementados; FE-S26 parcial (KMS y TA durable hechos, faltan CSR/certificado WSASS, alertas y runbooks); pendientes FE-S3/S5/S6/S12/S19/S21/S24/S27/S28. La emisión real sigue bloqueada por P9-2/ADR-0090 y no hay UI fiscal en `src/pages/`.
+
 ## Épica FE-E1. Configuración fiscal y activación con delegación (FE1, FE2)
 
 Requisito: emisor con CUIT válida, punto de venta WS correcto, ambiente por comercio, modo de facturación, wizard celular con delegación en CUIT proveedor + computador fiscal único.

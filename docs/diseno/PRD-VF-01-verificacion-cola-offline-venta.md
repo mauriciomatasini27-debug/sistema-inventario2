@@ -1,7 +1,7 @@
 ---
 id: PRD-VF-01
 tipo: prd
-estado: aceptado
+estado: hecho
 modulos: [ventas, sync]
 depende_de: [ADR-0003, ADR-0061, ADR-0097]
 reemplaza: []

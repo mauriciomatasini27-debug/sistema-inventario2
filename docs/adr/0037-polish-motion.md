@@ -12,7 +12,7 @@ resumen: |
 ---
 # ADR-0037 - Polish y motion
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-ui/SKILL.md`, `.agents/skills/emil-design-eng/SKILL.md`, `.agents/skills/animation-performance/SKILL.md`, `.agents/skills/pick-ui-library/SKILL.md`.
+Estado: aceptado (2026-10-18, evidencia parcial: Sonner, NumberFlow, Virtuoso y `prefers-reduced-motion`; `base-ui` no se adoptó y el diálogo usa `<dialog>` nativo). Fecha: 2026-10-12. Fuentes: `.agents/skills/better-ui/SKILL.md`, `.agents/skills/emil-design-eng/SKILL.md`, `.agents/skills/animation-performance/SKILL.md`, `.agents/skills/pick-ui-library/SKILL.md`.
 
 ## Decisión
 

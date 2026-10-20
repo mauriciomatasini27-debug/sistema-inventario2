@@ -12,7 +12,7 @@ resumen: |
 ---
 # ADR-0026 - Catálogo, lotes FEFO, ubicaciones y conteo
 
-Estado: aceptado (parcial) (2026-10-14, evidencia: `src/db/schema.ts` tablas `products`, `product_codes`, `product_photos`, `stock_lots`, `locations`, `stock_counts`/`stock_count_lines`; `src/pages/api/products.ts`, `src/pages/api/lots.ts`, `src/pages/api/locations.ts`, `src/pages/api/counts.ts`, `src/lib/repos/lotes.ts`; `tests/pers3-ubicaciones-fotos-conteos.test.ts`; parcial: sin `/api/stock/ingreso` y CAT-S1→S6 sin cerrar). Fecha: 2026-10-11. Fuentes: F1/F2/F9/F12/F13, ADR-0012, grep `pgTable` (sin `locations/promotions`), `src/pages/api/stock/conteo.ts`.
+Estado: aceptado (2026-10-16, evidencia: `src/pages/api/products.ts`, `lots.ts`, `locations.ts`, `counts.ts`, `stock/ingreso.ts`, `src/lib/repos/{catalogo,lotes,stock}.ts`, `tests/cat-s1..s6`, `tests/pers3-ubicaciones-fotos-conteos.test.ts`; CAT-S1 a S6 cerrados por PRD-CAT-01 y CAT-S7 a S11 por PRD-CAT-02). Fecha: 2026-10-11. Fuentes: F1/F2/F9/F12/F13, ADR-0012, grep `pgTable` (sin `locations/promotions`), `src/pages/api/stock/conteo.ts`.
 
 ## Decisión
 
@@ -32,4 +32,4 @@ Dejar conteo ciego actual: se descarta porque incumple F9/F13.
 
 ## Pendientes
 
-CAT-S1→S6 + tests FEFO y `ajuste_conteo` con contó/confirmó.
+Sin pendientes de CAT-S1 a S11. El detalle por lote en la consulta del bot sigue en PRD-BOT-02.

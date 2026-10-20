@@ -141,7 +141,7 @@ function aOk(t: TicketEmitido): ConfirmarVentaOk {
     monto_centavos: t.totalCentavos,
     origen: "venta" as const,
   };
-  const balance = derivar_balance([{ tipo: "egreso" as const, metodo: t.medio, monto_centavos: t.totalCentavos, origen: "venta" as const }]);
+  const balance = derivar_balance([{ tipo: "ingreso" as const, metodo: t.medio, monto_centavos: t.totalCentavos, origen: "venta" as const }]);
   return {
     status: 201,
     ticket: {

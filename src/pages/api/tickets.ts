@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buscarTicketPorNumero } from "../../lib/repos/tickets.js";
+import { buscarTicketPorNumero, leerLineasTicket } from "../../lib/repos/tickets.js";
 
 export const prerender = false;
 
@@ -11,7 +11,7 @@ function forma(t: {
   medio: string;
   sobreventa: boolean;
   fuente: "db" | "memoria";
-}) {
+}, lineas: Awaited<ReturnType<typeof leerLineasTicket>>) {
   return Response.json(
     {
       sale_id: t.sale_id,
@@ -20,6 +20,7 @@ function forma(t: {
       total_centavos: t.total_centavos,
       medio: t.medio,
       sobreventa: t.sobreventa,
+      lineas,
       leyenda: "DOCUMENTO NO VÁLIDO COMO FACTURA",
       fuente: t.fuente,
     },
@@ -35,13 +36,16 @@ export const GET: APIRoute = async ({ request }) => {
   if (!numero) return Response.json({ error: "falta numero" }, { status: 422 });
   const hallado = await buscarTicketPorNumero(numero);
   if (!hallado) return Response.json({ error: "no encontrado" }, { status: 404 });
-  return forma({
-    sale_id: hallado.ticket.sale_id,
-    ticket_definitivo: hallado.ticket.ticket_definitivo,
-    ticket_provisorio: hallado.ticket.ticket_provisorio,
-    total_centavos: hallado.ticket.total_centavos,
-    medio: hallado.ticket.medio,
-    sobreventa: hallado.ticket.sobreventa,
-    fuente: hallado.fuente,
-  });
+  return forma(
+    {
+      sale_id: hallado.ticket.sale_id,
+      ticket_definitivo: hallado.ticket.ticket_definitivo,
+      ticket_provisorio: hallado.ticket.ticket_provisorio,
+      total_centavos: hallado.ticket.total_centavos,
+      medio: hallado.ticket.medio,
+      sobreventa: hallado.ticket.sobreventa,
+      fuente: hallado.fuente,
+    },
+    await leerLineasTicket(hallado.ticket.sale_id),
+  );
 };

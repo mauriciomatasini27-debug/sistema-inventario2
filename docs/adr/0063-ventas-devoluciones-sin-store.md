@@ -36,6 +36,6 @@ Grupos siguientes de PERS-S4 y PERS-S5.
 - `npm test`: 829 passed, 3 failed, 28 skipped. Fallan los 2 de caja-c11 y el de `tests/vencimientos.test.ts` que depende de la fecha (preexistentes, ver ADR-0057).
 - Tests PG con Postgres local (`PG_TEST_URL_A/B`): 9/9 en `tests/pers2-ventas.test.ts`, con el arch-test global (0 rutas con `store`). La devolución y la corrección de medio de A quedan en A y B no las ve.
 - 44 rutas siguen importando de `lib/store` solo `control` (plano de control global) o tipos, como permite ADR-0053.
-- Pendiente: el correlativo de devoluciones (`nextReturn`) no tiene tabla y queda en memoria dentro de `src/lib/repos/ventas.ts`.
+- Resuelto: el correlativo de devoluciones sale de `ticket_counters` con `FOR UPDATE` (ADR-0080, migración `0019_return_counter.sql`).
 - `tsc --noEmit`: 1 error preexistente. `npm run build`: OK.
 - Rutas en `src/pages/api` que importan `store`: 3 → 0.

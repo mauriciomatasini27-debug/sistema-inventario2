@@ -18,7 +18,7 @@ Fuente: ADR-0005, ADR-0089, `docs/05-compras-servicios-pagos/facturas-proveedore
 
 ## Problema
 
-El pipeline de OCR y el job existen, pero el motor real nunca se encendió en el piloto. Sin el benchmark de Fase 0 no se sabe si PaddleOCR cumple el tiempo y la tasa de acierto que ADR-0005 prometió, y P9-1 sigue bloqueado.
+El pipeline de OCR y el job existen y el cliente PaddleOCR ya está cableado (`src/modules/ocr/motor.ts`, `src/lib/ocr-ingesta.ts`). Falta la medición real de Fase 0 sobre el set del piloto: sin tiempo por imagen y tasa de acierto no se sabe si PaddleOCR cumple lo que prometió ADR-0089. OCR1-S3 tiene un benchmark determinista (`tests/ocr-benchmark.test.ts`) y OCR1-S4 está hecho; OCR1-S5 está parcial (WhatsApp y Gmail cableados, falta E2E con proveedores reales).
 
 ## Épica OCR1-E1. Benchmark de Fase 0
 

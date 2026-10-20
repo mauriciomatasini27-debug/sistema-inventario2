@@ -1,6 +1,16 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { customerMovements, customers } from "../../db/schema-credito.js";
-import { SERIE_MOSTRADOR, ticketCounters } from "../../db/schema.js";
+import {
+  SERIE_MOSTRADOR,
+  cashMovements,
+  products,
+  sales,
+  stockMovements,
+  ticketCounters,
+  ticketLines,
+  tickets,
+} from "../../db/schema.js";
+import { agregarLineaTicket, agregarStockMoveMemoria, guardarTicketFiado } from "../ticket-memoria.js";
 import { dbVivaTenant, intentarLeer } from "../server-db.js";
 import {
   crearAlmacenCreditoVistos,
@@ -20,6 +30,10 @@ import { registrarIngresoCobro } from "./caja.js";
 // DB primero via dbVivaTenant(); solo en single sin base usa la memoria
 // particionada. En multi sin base dbVivaTenant lanza BaseNoDisponible y se
 // propaga (la ruta responde 503). Los ingresos a caja van por caja.ts.
+
+function esUuid(v: string | null | undefined): v is string {
+  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -77,10 +91,35 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   }
   const total = input.lineas.reduce((acc, l) => acc + BigInt(l.qty) * BigInt(l.precioCentavos), 0n);
 
-  const espejoMemoria = (ticket: string | null, siguiente: number | null) => {
+  const espejoMemoria = (ticket: string | null, siguiente: number | null, saleId: string) => {
     // Sin tabla propia: vistos y movimientos en memoria (durable via UNIQUE).
     creditoVistos.guardar(input.key, { customer_id: input.customerId });
     movsCredito.agregar({ customer_id: input.customerId, debe: total.toString(), haber: "0", key: input.key, fecha_ms: Date.now() });
+    // P10-2: ticket y stock consultables también sin base.
+    guardarTicketFiado(saleId, {
+      sale_id: saleId,
+      ticket_definitivo: r.efecto.ticket.definitivo,
+      ticket_provisorio: r.efecto.ticket.provisorio,
+      total_centavos: total.toString(),
+      medio: "A cuenta",
+      sobreventa: r.efecto.faltantes.length > 0,
+      idempotency_key: input.key,
+    });
+    for (const l of input.lineas) {
+      agregarLineaTicket({
+        sale_id: saleId,
+        product_id: l.sku,
+        qty: l.qty,
+        precio_centavos: String(l.precioCentavos),
+      });
+    }
+    const stock = almacenStock.mapaVivo();
+    for (const d of r.efecto.descuentos) {
+      stock.set(d.sku, (stock.get(d.sku) ?? 0) - d.cantidad);
+    }
+    for (const m of r.efecto.movimientosStock) {
+      agregarStockMoveMemoria({ idemKey: input.key, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo });
+    }
     // Espejo del correlativo T-*: en memoria avanza de a uno; con base viva
     // se alinea al número dado por ticket_counters (PERS5-S3).
     if (ticket) {
@@ -93,7 +132,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   if (!db) {
     const dup = movsCredito.listar().find((m) => m.key === input.key);
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    espejoMemoria(r.efecto.ticket.definitivo, null);
+    espejoMemoria(r.efecto.ticket.definitivo, null, crypto.randomUUID());
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 
@@ -114,21 +153,62 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       const definitivo = r.efecto.ticket.definitivo !== null;
       const n = definitivo ? ultimo + 1 : ultimo;
       const ticket = definitivo ? siguiente_numero(ultimo > 0 ? { n: ultimo } : null) : null;
+      const saleId = crypto.randomUUID();
+      const prods = await tx.select({ id: products.id, sku: products.sku }).from(products);
+      const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
       await tx.insert(customerMovements).values({
         customerId: input.customerId,
         tipo: "venta",
         debeCentavos: total,
         haberCentavos: 0n,
+        saleId,
         idempotencyKey: input.key,
         clientOccurredAt: new Date(),
       });
+      await tx.insert(sales).values({
+        id: saleId,
+        idempotencyKey: input.key,
+        medio: "A cuenta",
+        totalCentavos: total,
+        sobreventa: r.efecto.faltantes.length > 0,
+        offline: false,
+        clientOccurredAt: new Date(),
+      });
+      await tx.insert(tickets).values({
+        saleId,
+        definitivo: ticket,
+        provisorio: r.efecto.ticket.provisorio,
+      });
+      const lineasDb = input.lineas.flatMap((l) => {
+        const productId = idPorSku.get(l.sku);
+        if (!productId) return [];
+        return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos) }];
+      });
+      if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+      if (r.efecto.movimientosStock.length > 0) {
+        await tx.insert(stockMovements).values(
+          r.efecto.movimientosStock.map((m) => ({
+            idemKey: input.key,
+            sku: m.sku,
+            loteId: esUuid(m.loteId) ? m.loteId : null,
+            delta: m.delta,
+            tipo: m.tipo,
+          })),
+        );
+      }
+      for (const d of r.efecto.descuentos) {
+        await tx
+          .update(products)
+          .set({ stockActual: sql`${products.stockActual} - ${d.cantidad}` })
+          .where(eq(products.sku, d.sku));
+      }
       if (definitivo) await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_MOSTRADOR));
-      return { estado: "ok", ticket, n } as const;
+      return { estado: "ok", ticket, n, saleId } as const;
     });
     if (salida.estado === "repetida") {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    espejoMemoria(salida.ticket, salida.n + 1);
+    espejoMemoria(salida.ticket, salida.n + 1, salida.saleId);
     return { ok: true, ticketDefinitivo: salida.ticket, totalCentavos: total.toString(), fuente: "db" };
   } catch (e) {
     if (esConflictoUnico(e)) {
@@ -145,7 +225,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     if (creditoVistos.contiene(input.key)) {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    espejoMemoria(r.efecto.ticket.definitivo, null);
+    espejoMemoria(r.efecto.ticket.definitivo, null, crypto.randomUUID());
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 }
@@ -196,15 +276,25 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
   try {
     const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
     if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    await db.insert(customerMovements).values({
-      customerId: input.customerId,
-      tipo: "cobro",
-      debeCentavos: 0n,
-      haberCentavos: input.montoCentavos,
-      idempotencyKey: input.key,
-      clientOccurredAt: new Date(),
+    await db.transaction(async (tx) => {
+      await tx.insert(customerMovements).values({
+        customerId: input.customerId,
+        tipo: "cobro",
+        debeCentavos: 0n,
+        haberCentavos: input.montoCentavos,
+        idempotencyKey: input.key,
+        clientOccurredAt: new Date(),
+      });
+      await tx.insert(cashMovements).values({
+        id: crypto.randomUUID(),
+        idempotencyKey: input.key,
+        tipo: "ingreso",
+        metodo: input.medio,
+        categoriaId: "cobro_fiado",
+        origen: "cobro_fiado",
+        montoCentavos: input.montoCentavos,
+      });
     });
-    await registrarIngresoCobro({ key: input.key, montoCentavos: input.montoCentavos, medio: input.medio });
     espejoCredito();
     return { ok: true, customerId: input.customerId, haberCentavos: input.montoCentavos.toString(), fuente: "db" };
   } catch (e) {

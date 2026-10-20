@@ -7,7 +7,7 @@ depende_de: [ADR-0005, ADR-0093]
 reemplaza: []
 reemplazado_por: ""
 modifica: []
-modificado_por: []
+modificado_por: [ADR-0095]
 resumen: |
   El borrador OCR guarda los ítems que lee el motor. Cuando la suma no cierra con el total, el bot propone
   corregir el total y solo el Dueño lo aprueba con un toque. CUIT y fecha solo se avisan. El bot nunca
@@ -21,7 +21,7 @@ Estado: aceptado. Fecha: 2026-10-18. Aprobado por Mauri el 2026-10-19. Fuentes: 
 
 El borrador OCR ahora guarda los ítems de línea que lee el motor (`extraer_items`). Cuando la suma de esos ítems no cierra con el total (tolerancia 1%, `verificarSumaItems`), el bot manda un `interactive` con [Sí, corregir] [No, dejarlo]. "Sí, corregir" lo aprueba solo el Dueño: reescribe el total a la suma de ítems con `editarBorradorOcrRepo` y vuelve a ofrecer el borrador con [Confirmar] [Editar] [Descartar]. El Empleado que toca "Sí, corregir" recibe un aviso y el borrador queda intacto. Un total no positivo, una fecha fuera de rango y un CUIT inválido se avisan como texto, sin corrección.
 
-La edición por texto libre del usuario (FP3.3) sigue pendiente y `Editar` continúa derivando a la web.
+La edición por texto libre del usuario (FP3.3) quedó resuelta por ADR-0095: el Dueño edita `Editar` por texto desde el bot y el Empleado sigue derivado a la web.
 
 ## Por qué
 

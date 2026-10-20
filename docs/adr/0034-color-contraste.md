@@ -12,7 +12,7 @@ resumen: |
 ---
 # ADR-0034 - Color semántico y contraste
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-colors/SKILL.md`, PRD-DS-01 DS-S1 a DS-S5.
+Estado: aceptado (2026-10-18, evidencia: `npm run check:contrast` 70/70 pares y tema oscuro por dispositivo). Fecha: 2026-10-12. Fuentes: `.agents/skills/better-colors/SKILL.md`, PRD-DS-01 DS-S1 a DS-S5.
 
 ## Decisión
 

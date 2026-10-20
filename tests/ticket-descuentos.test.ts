@@ -184,7 +184,7 @@ describe("TV4/TV5.8/TV7 en vender_mostrador (aditivo)", () => {
     if (!r.ok) return;
     expect(r.efecto.ticket.totalCentavos).toBe(7200n);
     expect(r.efecto.ticket.leyenda).toBe(LEYENDA_NO_FISCAL);
-    expect(r.efecto.egreso).toMatchObject({ tipo: "egreso", monto_centavos: 7200n });
+    expect(r.efecto.egreso).toMatchObject({ tipo: "ingreso", monto_centavos: 7200n });
     expect(r.efecto.ingresaACaja).toBe(true);
     expect(r.efecto.totalBrutoCentavos).toBe(10000n);
     expect(r.efecto.totalDescuentoCentavos).toBe(2800n);

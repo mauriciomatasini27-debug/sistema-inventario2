@@ -1,7 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq, or } from "drizzle-orm";
-import { sales, tickets } from "../../db/schema.js";
-import { ticketLinkRevocations, ticketLinks } from "../../db/schema-tickets.js";
+import { products, sales, ticketLines, tickets } from "../../db/schema.js";
+import { ticketDiscounts, ticketLinkRevocations, ticketLinks } from "../../db/schema-tickets.js";
+import { listarDescuentosTicket, listarLineasTicket, listarTicketsFiado } from "../ticket-memoria.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenIdempotenciaVentas,
@@ -33,6 +34,87 @@ export interface TicketResumen {
   total_centavos: string;
   medio: string;
   sobreventa: boolean;
+}
+
+export interface TicketLineaResumen {
+  sku: string;
+  qty: number;
+  precio_centavos: string;
+  bruto_centavos: string;
+  desc_linea_centavos: string;
+  desc_ticket_centavos: string;
+  neto_centavos: string;
+}
+
+// TV1/TV2 (P10-5): las líneas congeladas al emitir. DB primero y, si la
+// tabla no tiene filas, cae al espejo memoria de la misma venta.
+export async function leerLineasTicket(saleId: string): Promise<TicketLineaResumen[]> {
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const filas = await db
+        .select({
+          productId: ticketLines.productId,
+          sku: products.sku,
+          qty: ticketLines.qty,
+          precio: ticketLines.precioCentavos,
+        })
+        .from(ticketLines)
+        .leftJoin(products, eq(ticketLines.productId, products.id))
+        .where(eq(ticketLines.saleId, saleId));
+      const desc = await db.select().from(ticketDiscounts).where(eq(ticketDiscounts.saleId, saleId));
+      const porSku = new Map(desc.map((d) => [d.sku, d] as const));
+      return filas.map((f, idx) => {
+        const bruto = f.precio * BigInt(f.qty);
+        const d = porSku.get(f.sku ?? "") ?? desc[idx];
+        return {
+          sku: f.sku ?? f.productId,
+          qty: f.qty,
+          precio_centavos: f.precio.toString(),
+          bruto_centavos: d ? d.brutoCentavos.toString() : bruto.toString(),
+          desc_linea_centavos: d ? d.descLineaCentavos.toString() : "0",
+          desc_ticket_centavos: d ? d.descTicketCentavos.toString() : "0",
+          neto_centavos: d ? d.netoCentavos.toString() : bruto.toString(),
+        };
+      });
+    } catch {
+      return leerLineasEnMemoria(saleId);
+    }
+  }
+  return leerLineasEnMemoria(saleId);
+}
+
+function leerLineasEnMemoria(saleId: string): TicketLineaResumen[] {
+  const lineas = listarLineasTicket(saleId);
+  const descuentos = listarDescuentosTicket(saleId);
+  if (descuentos.length === 0) {
+    return lineas.map((l) => {
+      const bruto = BigInt(l.precio_centavos) * BigInt(l.qty);
+      return {
+        sku: l.product_id,
+        qty: l.qty,
+        precio_centavos: l.precio_centavos,
+        bruto_centavos: bruto.toString(),
+        desc_linea_centavos: "0",
+        desc_ticket_centavos: "0",
+        neto_centavos: bruto.toString(),
+      };
+    });
+  }
+  return descuentos
+    .sort((a, b) => a.linea_idx - b.linea_idx)
+    .map((d) => {
+      const linea = lineas[d.linea_idx];
+      return {
+        sku: d.sku,
+        qty: linea?.qty ?? 0,
+        precio_centavos: linea?.precio_centavos ?? "0",
+        bruto_centavos: d.bruto_centavos,
+        desc_linea_centavos: d.desc_linea_centavos,
+        desc_ticket_centavos: d.desc_ticket_centavos,
+        neto_centavos: d.neto_centavos,
+      };
+    });
 }
 
 export function sha256Hex(plano: string): string {
@@ -119,6 +201,11 @@ function buscarTicketEnMemoria(
   numero: string,
   idempotencia: AlmacenVivo<StoredTicket>,
 ): { ticket: TicketResumen; fuente: "db" | "memoria" } | null {
+  for (const t of listarTicketsFiado()) {
+    if (t.ticket_definitivo === numero || t.ticket_provisorio === numero) {
+      return { ticket: { ...t }, fuente: "memoria" };
+    }
+  }
   for (const t of idempotencia.comoMapaSoloLectura().values()) {
     if (t.ticket_definitivo === numero || t.ticket_provisorio === numero) {
       return {

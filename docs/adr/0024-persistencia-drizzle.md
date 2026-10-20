@@ -13,7 +13,7 @@ resumen: |
 ---
 # ADR-0024 - Persistencia Drizzle real tras store en memoria
 
-Estado: aceptado (2026-10-12, evidencia: `src/lib/control-db.ts`). Fecha: 2026-10-11. Fuentes: auditoría `src/lib/store.ts` (~100 imports en `src/pages/api`), `src/pages/api/sync/promote.ts`, `src/db/*.ts` (86 tablas).
+Estado: aceptado (2026-10-12, evidencia: `src/lib/control-db.ts`). Fecha: 2026-10-11. Fuentes: auditoría `src/lib/store.ts` (~100 imports en `src/pages/api` al 2026-10-12; 55 al 2026-10-20), `src/pages/api/sync/promote.ts`, `src/db/*.ts` (86 tablas).
 
 ## Decisión
 

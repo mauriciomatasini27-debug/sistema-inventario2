@@ -1,7 +1,7 @@
 ---
 id: PRD-CAT-02
 tipo: prd
-estado: en curso
+estado: hecho
 modulos: [inventario, persistencia]
 depende_de: [ADR-0101, ADR-0078, ADR-0062]
 reemplaza: []

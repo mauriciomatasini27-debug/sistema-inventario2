@@ -1,7 +1,7 @@
 ---
 id: PRD-FE-03
 tipo: prd
-estado: aceptado
+estado: hecho
 modulos: [fiscal, persistencia]
 depende_de: [PRD-FE-01, ADR-0098]
 reemplaza: []

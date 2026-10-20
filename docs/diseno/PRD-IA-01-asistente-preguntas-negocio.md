@@ -7,15 +7,15 @@ depende_de: [ADR-0003, ADR-0006, ADR-0039, ADR-0044, ADR-0045, PRD-BOT-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Asistente de preguntas del negocio con catálogo cerrado y function calling de solo lectura. Núcleo, aislamiento
-  y cupo con registro ai_usage hechos 2026-10-16 (IA-S1 a IA-S3, IA-S5); pendientes la UI en /panel, el canal
-  WhatsApp (IA-S4) y el proveedor LLM real (decisión de Mauri).
+  Asistente de preguntas del negocio con catálogo cerrado. Núcleo, aislamiento, cupo, drawer de /panel y canal
+  WhatsApp hechos; IA-S2 parcial (resolución por intención, 3 herramientas sin datos) y proveedor LLM real
+  pendiente de decisión de Mauri.
 ---
 # PRD-IA-01 - Asistente de IA para preguntas del negocio (R2)
 
 Fuente: `docs/08-operacion-admin-analytics/reportes-rotacion.md` (RT1-RT11), `docs/04-ventas-caja-fiado/caja-digital-parte-1.md`, `docs/04-ventas-caja-fiado/fiado-cuenta-corriente.md`, `src/db/schema*.ts`, PRD-BOT-01. Fecha extracción: 2026-10-12. Restringido por ADR-0003 (aislamiento tenant), ADR-0006 (Ley 25.326), ADR-0039, ADR-0044, ADR-0045. Gap: reportes fijos; sin consulta en lenguaje natural.
 
-> Estado al 2026-10-16: en curso. IA-S1 a IA-S3 (núcleo con `ProveedorLLM` y catálogo cerrado) e IA-S5 (`ai_usage` persistido) hechos; faltan IA-S4 (UI en `/panel` y canal WhatsApp) y el proveedor LLM real.
+> Estado al 2026-10-20: en curso. IA-S1, IA-S3, IA-S4 (drawer de `/panel` y módulo de WhatsApp) e IA-S5 (`ai_usage` persistido) hechos. IA-S2 es parcial: el catálogo se resuelve por intención con expresiones regulares, no con function calling, y 3 de las 8 herramientas (`top_productos`, `margen_producto`, `rotacion_lenta`) responden sin datos reales. Falta el proveedor LLM real con clave de producción.
 
 ## Épica IA-E1. Catálogo cerrado de preguntas
 

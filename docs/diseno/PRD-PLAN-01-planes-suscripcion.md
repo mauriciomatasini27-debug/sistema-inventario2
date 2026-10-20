@@ -8,14 +8,14 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Planes mensuales que definen módulos y cupos (Básico, Plus, Pro), sin venta por módulo. Catálogo, planes,
-  suscripciones y usage_counters persistidos en DB 2026-10-16 (PLAN-S1, PLAN-S10); panel /panel/plan, cambios de
-  plan, cupos, cobro y embudo pendientes. Precios y proveedor de cobro bloqueados por decisión de Mauri (PLAN-02).
+  suscripciones, usage_counters, gating y /panel/plan hechos; pendientes upgrade con prorrateo, cupos, cobro y
+  embudo. Precios y cobro bloqueados por decisión de Mauri (PLAN-02/PLAN-03).
 ---
 # PRD-PLAN-01 - Planes de suscripción mensual, cupos y estrategia comercial (R2)
 
 Fuente: `docs/01-fundacion/costos-por-cliente.md` (precios de referencia Básico 15 / Plus 35 / Pro 59 USD, número central WABA, ~USD 0,026 por mensaje AR a verificar, WhatsApp dentro del precio del plan, "cupo y cobrar el excedente"), `docs/03-inventario-precios/inventario-parte-1.md:49` (suscripción mensual ARS con ajuste o USD, Mercado Pago o transferencia), `docs/03-inventario-precios/inventario-parte-2.md` (F8.4 prueba gratis, mora 14 días), `docs/02-identidad-onboarding/onboarding-parte-1.md` (prueba sin tarjeta) y `onboarding-parte-2.md` (cupo Básico 100 mensajes, ON5.8 mensajes de onboarding fuera del cupo), PRD-BOT-01, PRD-BOT-02, PRD-ALR-01, PRD-IA-01 (IA-S5 `ai_usage`), PRD-LP-04, PRD-DASH-01 (DASH-S8, DASH-S12), PRD-CP-01 (mora, CP-S8 sin billing automático en MVP), PRD-NEG-01, `src/pages/panel.astro`, `C:\Users\mauri\ModoOpsVideoTools\README-INSTALACION.md` (stack de video IA local con MoneyPrinterTurbo). Fecha extracción: 2026-10-12. Restringido por ADR-0047, ADR-0003, ADR-0006, ADR-0039, ADR-0041, ADR-0045, ADR-0046.
 
-> Estado al 2026-10-16: en curso. PLAN-S1 y PLAN-S10 (catálogo, planes, suscripciones y usage_counters en DB) hechos con `src/lib/repos/planes.ts`; el resto del PRD sigue pendiente.
+> Estado al 2026-10-20: en curso. Hechos PLAN-S1, S2, S4, S7 (`/panel/plan` solo Dueño, renovación y cupo de WhatsApp), S10 y S13 parcial. Pendientes PLAN-S3 (upgrade con prorrateo; hoy responde 409), S5/S6 (más cambios de plan), S8/S9/S11/S12 (panel, upsell y embudo) y S14 a S19 (cupos y cobro). Precios y cobro siguen bloqueados por P9-5/PLAN-02/PLAN-03.
 
 ## Planes y funciones
 

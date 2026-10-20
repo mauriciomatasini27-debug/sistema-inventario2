@@ -53,7 +53,7 @@ describe("CAJA-S4 memoria: pago dividido crea 1 ticket + N egresos origen=venta 
     const movs = store.movements.filter((m) => m.sale_id === j.sale_id);
     expect(movs.length).toBe(2);
     for (const m of movs) {
-      expect(m.tipo).toBe("egreso");
+      expect(m.tipo).toBe("ingreso");
       expect(m.origen).toBe("venta");
     }
     expect(movs.map((m) => m.monto_centavos).sort()).toEqual(["10000", "5000"]);
@@ -91,7 +91,7 @@ describe("CAJA-S4 memoria: pago dividido crea 1 ticket + N egresos origen=venta 
     expect(j.pagos.length).toBe(1);
     const movs = store.movements.filter((m) => m.sale_id === j.sale_id);
     expect(movs.length).toBe(1);
-    expect(movs[0]?.tipo).toBe("egreso");
+    expect(movs[0]?.tipo).toBe("ingreso");
     expect(movs[0]?.origen).toBe("venta");
     expect(movs[0]?.id).toBe(j.pagos[0]?.cash_movement_id);
   });
@@ -139,7 +139,7 @@ describe.skipIf(!hayPG)("CAJA-S4 PG: ticket_payments.cash_movement_id referencia
         const mov = await db.select().from(cashMovements).where(eq(cashMovements.id, p.cashMovementId as string)).limit(1);
         expect(mov.length).toBe(1);
         expect(mov[0]?.saleId).toBe(saleId);
-        expect(mov[0]?.tipo).toBe("egreso");
+        expect(mov[0]?.tipo).toBe("ingreso");
         expect(mov[0]?.origen).toBe("venta");
         expect(mov[0]?.montoCentavos).toBe(p.montoCentavos);
       }

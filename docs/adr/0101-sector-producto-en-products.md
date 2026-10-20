@@ -18,7 +18,7 @@ Estado: aceptado. Fecha: 2026-10-19. Fuentes: PRD `diseno/PRD-CAT-02-sector-prod
 
 ## Contexto
 
-`src/db/schema.ts` declara `products.sector` como `text NOT NULL DEFAULT 'general'`. Ninguna migración de `drizzle/` crea esa columna. `catalogo.ts` guarda el sector en `store.productSectores`, omite la columna en el insert crudo y lo lee solo de memoria. Los comentarios del repositorio llaman a esto "drift conocido".
+`src/db/schema.ts` declara `products.sector` como `text NOT NULL DEFAULT 'general'`. Al momento de escribir este ADR, ninguna migración de `drizzle/` creaba esa columna; la decisión la agrega en `drizzle/0029_products_sector.sql`. `catalogo.ts` guarda el sector en `store.productSectores`, omite la columna en el insert crudo y lo lee solo de memoria. Los comentarios del repositorio llaman a esto "drift conocido".
 
 El efecto es que el sector dura lo que dura el proceso. Después de un reinicio, o en una segunda instancia, todos los productos leen `general`. `conteoPorSector` arma el mapa de sectores desde memoria, así que un conteo de un sector distinto de `general` se rechaza con `LINEA_INVALIDA`. La edición masiva por sector del panel agrupa todo el catálogo como `general`.
 

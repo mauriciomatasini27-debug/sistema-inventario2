@@ -8,8 +8,10 @@ import {
   stockMovements,
   ticketCounters,
   ticketPayments,
+  ticketLines,
   tickets,
 } from "../../db/schema.js";
+import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { store, type StoredTicket } from "../../lib/store.js";
 import type { Medio } from "../../lib/validation.js";
 import { lotesDesdeStock, type Sku } from "../inventario/inventario.js";
@@ -137,7 +139,7 @@ function espejoMemoria(
   for (const p of pagosConId) {
     store.movements.push({
       id: p.cashMovementId,
-      tipo: "egreso",
+      tipo: "ingreso",
       metodo: p.medio,
       monto_centavos: String(p.monto_centavos),
       origen: "venta",
@@ -151,6 +153,25 @@ function espejoMemoria(
     saleId,
     pagosConId.map((p) => ({ medio: p.medio, montoCentavos: String(p.monto_centavos), cashMovementId: p.cashMovementId })),
   );
+  for (const l of e.lineasConDescuento) {
+    const linea = i.lineas[l.idx];
+    if (!linea) continue;
+    store.ticketLineas.push({
+      sale_id: saleId,
+      product_id: linea.product_id,
+      qty: l.cantidad,
+      precio_centavos: String(linea.precio_centavos),
+    });
+    store.ticketDescuentos.push({
+      sale_id: saleId,
+      linea_idx: l.idx,
+      sku: l.sku,
+      bruto_centavos: l.brutoCentavos.toString(),
+      desc_linea_centavos: l.descLineaCentavos.toString(),
+      desc_ticket_centavos: l.descTicketCentavos.toString(),
+      neto_centavos: l.netoCentavos.toString(),
+    });
+  }
   // PERS5-S3: el espejo se alinea al número del ticket (de memoria o de la
   // base) en vez de sumar 1: tras un reinicio no queda atrás del contador.
   if (e.ticket.definitivo) store.nextTicket = Math.max(store.nextTicket, Number(e.ticket.definitivo.slice(2)) + 1);
@@ -214,8 +235,9 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       const filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).for("update");
       const ultimo = filas[0]?.ultimo ?? 0;
       // Misma semántica que memoria: niveles por sku con la misma función.
-      const prods = await tx.select({ sku: products.sku, stockActual: products.stockActual }).from(products);
+      const prods = await tx.select({ id: products.id, sku: products.sku, stockActual: products.stockActual }).from(products);
       const niveles = new Map(prods.map((p) => [p.sku, p.stockActual] as const));
+      const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
       const r = vender_mostrador({
         idempotencyKey: i.key,
         lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
@@ -257,13 +279,37 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         definitivo: e.ticket.definitivo,
         provisorio: e.ticket.provisorio,
       });
+      const lineasDb = e.lineasConDescuento.flatMap((l) => {
+        const linea = i.lineas[l.idx];
+        if (!linea) return [];
+        const productId = esUuid(linea.product_id) ? linea.product_id : idPorSku.get(linea.product_id);
+        if (!productId) return [];
+        return [{
+          saleId,
+          productId,
+          qty: l.cantidad,
+          precioCentavos: BigInt(linea.precio_centavos),
+        }];
+      });
+      if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+      await tx.insert(ticketDiscounts).values(
+        e.lineasConDescuento.map((l) => ({
+          saleId,
+          lineaIdx: l.idx,
+          sku: l.sku,
+          brutoCentavos: l.brutoCentavos,
+          descLineaCentavos: l.descLineaCentavos,
+          descTicketCentavos: l.descTicketCentavos,
+          netoCentavos: l.netoCentavos,
+        })),
+      );
       if (e.ingresaACaja) {
         await tx.insert(cashMovements).values(
           pagosConId.map((p) => ({
             id: p.cashMovementId,
             saleId,
             idempotencyKey: esDividido ? `${i.key}:${p.medio}` : i.key,
-            tipo: "egreso",
+            tipo: "ingreso",
             metodo: p.medio,
             categoriaId: "venta",
             origen: "venta",

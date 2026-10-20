@@ -12,6 +12,8 @@ resumen: |
 ---
 # PRD-LP-02 - Landing Inventario, iteración contenido (R2)
 
+> Estado al 2026-10-20: el contenido se entregó, pero la foto inicial quedó vieja. La landing tiene 18 secciones y `Faq.astro` es una sección propia, no vive dentro de Contacto. Ver `PRD-LP-01` y `docs/09-frontend-landing-diseno/landing-gaps-modoops.md` para el estado actual.
+
 Fuente: auditoría LP-S1/S7 vs `consultoria/web` (ModoOps: 10 bloques, FAQ 4 Q&A, SupportModel 3 fases, Discovery con entregables, newsletter, canvas three.js). Restringido por ADR-0021, ADR-0010, ADR-0008, ADR-0002.
 
 Alcance decidido: solo contenido + micro-interacciones CSS. Sin canvas three.js (choca con "sin neón" de ADR-0010). 8 secciones intactas: FAQ vive dentro de Contacto, sin enmienda al ADR.

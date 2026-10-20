@@ -7,15 +7,14 @@ depende_de: [ADR-0006, ADR-0020, ADR-0029, ADR-0032, ADR-0038, ADR-0039, ADR-004
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Implementación en el dashboard de bot, alertas, asistente IA y chat de landing. Solo DASH-S10/S11 (chat de
-  landing) hechos 2026-10-16; pendientes las pantallas de /panel (bot, alertas, asistente, plan) y la navegación
-  sin hardcode (DASH-S12).
+  Implementación en el dashboard de bot, alertas, asistente IA y chat de landing. Hechos S1, S3, S4, S7 a S11
+  y S13; pendientes DASH-S2, S5, S6 y el cierre de S12 (tarjeta de Alertas y pills).
 ---
 # PRD-DASH-01 - Implementación en dashboard: bot, alertas, asistente IA y chat de landing (R2)
 
 Fuente: PRD-BOT-02, PRD-ALR-01, PRD-IA-01, PRD-LP-04, PRD-BOT-01, PRD-OP-01, PRD-DS-02, PRD-UI-01 a PRD-UI-07, `docs/08-operacion-admin-analytics/dashboard-indice-navegacion.md`, `docs/07-canales-whatsapp-email/*`, `src/pages/panel.astro`, `src/pages/index.astro`, `src/components/ui/FloatingWhatsApp.astro`, `src/components/sections/Faq.astro`. Skills UI/UX: `.agents/skills/better-layout`, `better-typography`, `better-colors`, `better-writing`, `better-accessibility`, `better-ui`, `ask-sonner`, `state-machine`, `interface-review`, `break-ui`, `mobile-native`. Fecha extracción: 2026-10-12. Restringido por ADR-0006, ADR-0020, ADR-0029, ADR-0032 a ADR-0038, ADR-0039, ADR-0041 a ADR-0046.
 
-> Estado al 2026-10-16: en curso. Solo DASH-S10 y DASH-S11 (chat de landing, vía PRD-LP-04) hechos; las pantallas de `/panel` (bot, alertas, asistente, plan) y DASH-S12 siguen pendientes.
+> Estado al 2026-10-20: en curso. Hechos DASH-S1 (`/panel/bot/config`), S3 (tarjeta Bot), S4 (`/panel/alertas/umbrales`), S7/S8/S9 (drawer del asistente con estados y cupo), S10/S11 (chat de landing) y S13 (gate de UI). Pendientes DASH-S2 (historial del bot), S5 (destinatarios), S6 (historial de alertas) y S12 completo (tarjeta de Alertas y pills de Bot/Asistente; hoy `panel-modulos.ts` solo lista los siete módulos de comercio).
 
 ## Épica DASH-E1. Bot de WhatsApp en el panel de tenant
 

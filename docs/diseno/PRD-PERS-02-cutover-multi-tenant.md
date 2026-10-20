@@ -8,16 +8,16 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Fuente: PRD-PERS-01 (PERS-S4 y PERS-S5 pendientes), ADR-0024, ADR-0050, ADR-0051, PRD-ISO-02 (Pendientes),
-  node scripts/cutover-scope.mjs (110 archivos de src/pages/api importan src/lib/store.ts, medido 2026-10-13),
+  node scripts/cutover-scope.mjs (110 archivos de src/pages/api importaban src/lib/store.ts al 2026-10-13; 55 al 2026-10-20),
   src/lib/store.ts:97 (store único por proceso), src/lib/server-db.ts (intentarLeer/intentarPersistir devuelven
 ---
 # PRD-PERS-02 - Cutover a Postgres por tenant: memoria aislada, sin fallback silencioso en multi y jobs con tenant (R1)
 
-Fuente: PRD-PERS-01 (PERS-S4 y PERS-S5 pendientes), ADR-0024, ADR-0050, ADR-0051, PRD-ISO-02 (Pendientes), `node scripts/cutover-scope.mjs` (110 archivos de `src/pages/api` importan `src/lib/store.ts`, medido 2026-10-13), `src/lib/store.ts:97` (`store` único por proceso), `src/lib/server-db.ts` (`intentarLeer`/`intentarPersistir` devuelven `null`/`false` y el caller cae a memoria), `dbViva()` local en 13 rutas y en `src/lib/compras-db.ts`, `src/middleware.ts` (`X-Job-Secret` pasa sin tenant), `src/pages/api/jobs/*`. Fecha extracción: 2026-10-13. Restringido por ADR-0052, ADR-0024, ADR-0051, ADR-0002.
+Fuente: PRD-PERS-01 (PERS-S4 y PERS-S5 pendientes), ADR-0024, ADR-0050, ADR-0051, PRD-ISO-02 (Pendientes), `node scripts/cutover-scope.mjs` (110 archivos de `src/pages/api` importaban `src/lib/store.ts` al 2026-10-13; 55 al 2026-10-20), `src/lib/store.ts:97` (`store` único por proceso), `src/lib/server-db.ts` (`intentarLeer`/`intentarPersistir` devuelven `null`/`false` y el caller cae a memoria), `dbViva()` local en 13 rutas y en `src/lib/compras-db.ts`, `src/middleware.ts` (`X-Job-Secret` pasa sin tenant), `src/pages/api/jobs/*`. Fecha extracción: 2026-10-13. Restringido por ADR-0052, ADR-0024, ADR-0051, ADR-0002.
 
 ## Hallazgo
 
-Con ISO-S5 la base ya sale del tenant de la request, pero la memoria no: `store` es un objeto por proceso. En `TENANT_MODE=multi` una ruta que cae a memoria (base caída o dominio todavía sin DB) lee y escribe el mismo `store` para todos los comercios. Además los jobs entran por `X-Job-Secret` sin tenant. Retirar `store.ts` de 110 rutas es Talla L; este PRD cierra primero el riesgo de mezcla con un corte verificable y deja el resto del cutover por dominio.
+Con ISO-S5 la base ya sale del tenant de la request, pero la memoria no: `store` es un objeto por proceso. En `TENANT_MODE=multi` una ruta que cae a memoria (base caída o dominio todavía sin DB) lee y escribe el mismo `store` para todos los comercios. Además los jobs entran por `X-Job-Secret` sin tenant. Retirar `store.ts` de 110 rutas era Talla L; al 2026-10-20 quedan 55; este PRD cierra primero el riesgo de mezcla con un corte verificable y deja el resto del cutover por dominio.
 
 ## Épica PERS2-E1. Memoria por tenant y sin fallback silencioso
 

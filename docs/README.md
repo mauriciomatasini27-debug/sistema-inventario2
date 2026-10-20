@@ -42,12 +42,13 @@ Plata que sale: mercadería, luz/gas, pagos.
 - `facturas-proveedores.md` (FP1-FP12, OCR → confirma 1 toque, `supplier_invoices` inmutable + `drafts`) → `src/modules/purchases/*`, `src/modules/ocr/*`, `src/pages/api/supplier-invoices/*`, `src/db/schema-proveedores.ts`
 - `consumos-servicios.md` (CS1-CS12, Gmail `users.watch`, PDF primero) → `src/modules/utilities/*`, `src/pages/api/utility-bills/*`, `src/db/schema-servicios.ts`
 - `ordenes-pago.md` (OP1-OP13, el bot prepara el comerciante paga, allowlist dominios) → `src/modules/payments/*`, `src/modules/pagos-tx/*`, `src/pages/api/payment-orders/*`, `src/db/schema-pagos.ts`
-- ADRs: `adr/0005-ocr.md`, `adr/0089-ocr-fase-0-definitivo.md`, `adr/0093-ocr-media-y-botones-borrador.md`
+- Google integrations (Gmail/Photos): `diseno/PRD-GMAIL-01-conexion-google-ingesta-gmail-photos.md` (en curso) + `adr/0102-conexion-google-oauth.md` y `adr/0103-ingesta-gmail-watch-history.md` (aceptados 2026-10-20); `adr/0104-fotos-google-y-almacenamiento-propio.md` (propuesto, Photos como espejo opcional)
+- ADRs: `adr/0005-ocr.md`, `adr/0089-ocr-fase-0-definitivo.md`, `adr/0093-ocr-media-y-botones-borrador.md`, `adr/0102-conexion-google-oauth.md`, `adr/0103-ingesta-gmail-watch-history.md`, `adr/0104-fotos-google-y-almacenamiento-propio.md`
 
 ## 06-fiscal-arca/ — Facturación electrónica ARCA
 Lo único fiscal; el ticket sigue no fiscal.
 - `facturacion-electronica-arca.md` (FE1-FE16, CAE + QR, `FiscalProvider` propio, WSAA 12h, cola + lock por CUIT/PV/tipo) → `src/modules/fiscal/*`, `src/pages/api/fiscal/*`, `src/db/schema-fiscal.ts`, `src/db/schema-fiscal-control.ts`
-- ADRs: `adr/0018-fiscal-arca.md`, `adr/0019-slice-fiscal.md`, `adr/0050-aislamiento-fiscal-por-tenant.md` + `diseno/PRD-FE-01-fiscal-arca.md`, `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`, `diseno/PRD-ISO-02-aislamiento-plano-datos.md` + `adr/0051-tenant-por-request.md`
+- ADRs: `adr/0018-fiscal-arca.md`, `adr/0019-slice-fiscal.md`, `adr/0050-aislamiento-fiscal-por-tenant.md` + `diseno/PRD-FE-01-fiscal-arca.md` (en curso), `diseno/PRD-FE-03-persistencia-control-fiscal.md` (hecho), `diseno/PRD-ISO-01-aislamiento-fiscal-tenant.md`, `diseno/PRD-ISO-02-aislamiento-plano-datos.md` + `adr/0051-tenant-por-request.md`
 
 ## 07-canales-whatsapp-email/ — Bot y email
 Canales de aviso y consulta.
@@ -100,3 +101,4 @@ resumen: Resumen factual en un máximo de 3 líneas.
 - Divergencia conocida: el `.docx` suelto del Panel incluye ventas/deudas y está prohibido; vale Partes 1-3.
 - OCR Fase 0 definido: PaddleOCR PP-OCRv5 autohospedado como motor primario, Vision/Textract como fallback de baja confianza (ADR-0089 aceptado 2026-10-18; falta correr el benchmark de PRD-OCR-01).
 - Verificar en fuente oficial antes de implementar: Google OIDC, Gmail/Photos API, Cloud API Meta, ARCA, BarcodeDetector/OPFS iOS.
+- Auditoría 2026-10-20 del código contra los PRD/ADR: `docs/roadmap/auditorias/2026-10-20.md`. Se actualizaron 32 PRD/ADR y se abrieron 5 defectos P0 de venta/fiado/caja (ver `docs/ROADMAP.md`, sección Pendientes priorizados P0).

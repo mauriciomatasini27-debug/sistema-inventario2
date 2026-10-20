@@ -153,6 +153,11 @@ function crearEstado() {
   qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string; fechaOperacion?: string; origen?: string; cashMovementId?: string | null }>(),
   vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
   ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
+  // TV1/TV2 (P10-5): líneas y descuentos congelados por venta.
+  ticketLineas: [] as Array<{ sale_id: string; product_id: string; qty: number; precio_centavos: string }>,
+  ticketDescuentos: [] as Array<{ sale_id: string; linea_idx: number; sku: string; bruto_centavos: string; desc_linea_centavos: string; desc_ticket_centavos: string; neto_centavos: string }>,
+  // P10-2: ticket de venta a cuenta (no vive en idempotency de contado).
+  fiadoTickets: new Map<string, { sale_id: string; ticket_definitivo: string | null; ticket_provisorio: string; total_centavos: string; medio: string; sobreventa: boolean; idempotency_key: string }>(),
   conteos: [] as Array<{ id: string; sector: string; idemKey: string; creadoEn: string; estado?: string | undefined; contadoPor?: string | undefined; diferencias: Array<{ sku: string; teorico: number; fisico: number; diferencia: number }> }>,
   conteoVistos: new Map<string, string>(),
   suppliers: new Map<string, Supplier>(),
@@ -291,6 +296,9 @@ export function resetStore() {
   s.qrRecibos.clear();
   s.vencimientosCaja.clear();
   s.ticketPagos.clear();
+  s.ticketLineas = [];
+  s.ticketDescuentos = [];
+  s.fiadoTickets.clear();
   s.conteos = [];
   s.conteoVistos.clear();
   s.suppliers.clear();

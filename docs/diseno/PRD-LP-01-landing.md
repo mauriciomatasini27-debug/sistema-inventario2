@@ -14,6 +14,8 @@ resumen: |
 
 Fuente: `consultoria/docs/marketing-one-pager.md`, `landing-architecture.md`, `DESIGN.md`, `web/`. Restringido por ADR-0010, ADR-0008, ADR-0002.
 
+> Estado al 2026-10-20: la landing tiene 18 secciones, no 8 (`src/pages/index.astro`). LP-S1, S2, S4 y S6 están hechos; LP-S3 usa `max-w-2xl` (672px) en vez de 720px; LP-S5 quedó superado por PRD-LANDING-01/ADR-0047. LP-S7 (SEO/meta) sigue parcial.
+
 ## Épica LP-E1. Estructura 8 secciones
 
 Requisito LP1: misma información en landing y PDF, un solo precio público.

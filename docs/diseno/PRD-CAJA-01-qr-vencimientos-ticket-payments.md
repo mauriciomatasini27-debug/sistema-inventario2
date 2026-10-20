@@ -1,18 +1,18 @@
 ---
 id: PRD-CAJA-01
 tipo: prd
-estado: hecho
+estado: en curso
 modulos: [caja, ventas]
 depende_de: [PRD-CAT-01, PRD-SYNC-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: docs/04-ventas-caja-fiado/caja-digital-.md (C9, C13), ticket-venta-.md (TV5.8 dividido P1). Gap: sin
-  tabla cashqrreceipts|cashdueitems|ticketpayments; sin /api/cash/qr.
+  Fuente: docs/04-ventas-caja-fiado/caja-digital-.md (C9, C13), ticket-venta-.md (TV5.8 dividido P1). Tablas y
+  /api/cash/qr hechos; falta la extracción real del QR desde bot/Gmail (C13).
 ---
 # PRD-CAJA-01 - QR, vencimientos y ticket_payments
 
-Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Gap: sin tabla `cash_qr_receipts|cash_due_items|ticket_payments`; sin `/api/cash/qr`.
+Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Estado 2026-10-20: tablas `cash_qr_receipts`, `cash_due_items` y `ticket_payments` creadas (migraciones 0022, 0023 y 0008) y `/api/cash/qr` existe; falta la extracción real del QR desde bot/Gmail (C13).
 
 ## Estado por slice (2026-10-15)
 
@@ -20,7 +20,7 @@ Parte del bullet Nivel 1 de P3 (P3-1), separado de CAT (PRD-CAT-01, hecho), PWA 
 
 | Slice | Estado | Nota |
 |---|---|---|
-| CAJA-S1 | en curso | rutas y repo existen; falta migración de `cash_qr_receipts` (0022), asociación ±15 min y auto + Deshacer |
+| CAJA-S1 | parcial | migración 0022, asociación ±15 min y auto + Deshacer hechos; falta la extracción real desde bot/Gmail: `POST /api/cash/qr` recibe monto/fecha/operación ya extraídos |
 | CAJA-S2 | hecho | dedupe 409 y filtro existían; cuenta en cierre agregada 2026-10-15 |
 | CAJA-S3 | hecho | migración 0023 + job aviso 3d + pago precargado (2026-10-15) |
 | CAJA-S4 | hecho | `ticket_payments` migrada en 0008; `cash_movements.id = ticket_payments.cash_movement_id` desde 2026-10-15 |

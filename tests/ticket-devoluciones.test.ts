@@ -51,7 +51,7 @@ describe("TV13 devolución parcial", () => {
     expect(siguiente_numero_devolucion({ n: 41 })).toBe("D-000042");
   });
 
-  it("stock inverso COMPENSATORIO + caja opuesta al egreso", () => {
+  it("stock inverso COMPENSATORIO + caja opuesta al ingreso", () => {
     const r = registrar_devolucion(devBase({}));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -62,7 +62,7 @@ describe("TV13 devolución parcial", () => {
       tipo: "COMPENSATORIO",
     });
     expect(r.efecto.movimientoCaja).toMatchObject({
-      tipo: "ingreso",
+      tipo: "egreso",
       origen: "devolucion",
       metodo: "Efectivo",
       monto_centavos: 5000n,
@@ -77,11 +77,11 @@ describe("TV13 devolución parcial", () => {
     expect(r.ok).toBe(true);
     if (!r.ok || !r.efecto.movimientoCaja) return;
     const b = derivar_balance([
-      { tipo: "egreso", metodo: "Efectivo", monto_centavos: 15000n, origen: "venta" },
+      { tipo: "ingreso", metodo: "Efectivo", monto_centavos: 15000n, origen: "venta" },
       r.efecto.movimientoCaja,
     ]);
-    expect(b.porMedio["Efectivo"]).toBe(-10000n);
-    expect(b.total).toBe(-10000n);
+    expect(b.porMedio["Efectivo"]).toBe(10000n);
+    expect(b.total).toBe(10000n);
   });
 
   it("doble toque con misma key es 409 con el original (E3)", () => {

@@ -21,7 +21,7 @@ Estado: aceptado. Fecha: 2026-10-18. Aprobado por Mauri el 2026-10-18. Fuentes: 
 
 El webhook de la Cloud API es el borde que reconoce el comprobante. `normalizarAdjuntoEntrada` detecta `image` o `document`, valida el mime y, si el adjunto no es comprobante, responde 415 sin crear job. El borde descarga el media con las credenciales del número central (`descargar_media`, dos saltos, metadata y binario) y entrega los bytes al motor OCR como `ImagenOcr` (base64 más mime). El motor nunca recibe una URL ni una referencia. El job, el borrador y el evento conservan `wa-media:<id>` como referencia de auditoría.
 
-El borrador se ofrece como un `interactive` de tres botones con ids `ocr:<acción>:<borradorId>` que arma la función pura `payload_borrador_ocr`. Descartar cierra el borrador al toque desde el número dueño y emite `ocr_descartado`. Confirmar y Editar derivan a la web. El flujo de edición por texto de ADR-0005 queda pendiente.
+El borrador se ofrece como un `interactive` de tres botones con ids `ocr:<acción>:<borradorId>` que arma la función pura `payload_borrador_ocr`. Descartar cierra el borrador al toque desde el número dueño y emite `ocr_descartado`. Confirmar deriva a la web. La parte de Editar quedó reemplazada por ADR-0095: el Dueño edita por texto desde el bot y el Empleado sigue derivado a la web.
 
 ## Por qué
 

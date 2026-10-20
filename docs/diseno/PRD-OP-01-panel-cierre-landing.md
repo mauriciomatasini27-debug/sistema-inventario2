@@ -14,6 +14,8 @@ resumen: |
 
 Fuente: ADR-0006, ADR-0020, ADR-0022, `src/pages/admin.astro:4-6`, `src/pages/panel.astro:204-230`, `src/data/business.ts:36-39`. Gap: admin resto demo; panel comercio KPIs hardcodeados; landing placeholders E13.
 
+> Estado al 2026-10-20: en curso. OP-S1 y OP-S2 tienen rutas reales (`/api/admin/tenants`, `audit`, `rollouts`, guard por allowlist) pero PA3 a PA5, PA8 a PA11 y PA13 siguen sin implementación real; OP-S3 está parcial (pantallas de módulos, sin tarjetas de bot/alertas) y OP-S4 está parcial (OG real, faltan PDF espejo y guarda de placeholders). La ruta de reintento es `POST /api/admin/rollouts` con `rollout_id`, no `rollouts/:id/reintentar`.
+
 ## Épica OP-E1. Panel admin real
 
 - OP-S1. `GET /api/admin/tenants` + `suspender|reactivar` + `rollouts/:id/reintentar` + `GET /api/admin/audit`. AC: Given admin When listo Then sin badges `demo`; Infra deja `Próximamente (PA11)` solo si ADR lo fija. Tablas: `platform_admins`, `migration_rollouts`, `infra_hosts`, `tenant_daily_usage`. Depende de: PERS-S4.

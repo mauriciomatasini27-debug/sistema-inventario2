@@ -3,7 +3,7 @@ id: ADR-0098
 tipo: adr
 estado: aceptado
 modulos: [fiscal, persistencia]
-depende_de: [ADR-0018, ADR-0054, ADR-0082, PRD-FE-01]
+depende_de: [ADR-0018, ADR-0054, ADR-0082, PRD-FE-01, PRD-FE-03]
 reemplaza: []
 reemplazado_por: ""
 modifica: []
@@ -46,8 +46,6 @@ El alta del computador converge al mismo estado corra una o dos veces. La TA dur
 
 ## Pendientes
 
-- Implementar el `.returning`, el log del fallback y la validación del ambiente.
-- Test del store drizzle contra el control DB.
 - Cablear `leerComputadorFiscal` cuando el provider lea el computador persistido en vez de env.
 - CSR y alta del certificado WSASS, alertas de vencimiento a 60, 30 y 7 días, y runbooks de renovación y revocación.
 

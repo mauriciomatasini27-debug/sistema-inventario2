@@ -48,7 +48,7 @@ describe("vender_mostrador", () => {
     if (!r.ok) return;
     expect(r.efecto.ticket).toMatchObject({ kind: "online", definitivo: "T-000129", provisorio: "KIOSCO-01-41", leyenda: LEYENDA_NO_FISCAL });
     expect(r.efecto.descuentos.map((d) => d.loteId)).toEqual(["pronto"]);
-    expect(r.efecto.egreso).toMatchObject({ tipo: "egreso", origen: "venta", monto_centavos: 30000n });
+    expect(r.efecto.egreso).toMatchObject({ tipo: "ingreso", origen: "venta", monto_centavos: 30000n });
     expect(r.efecto.movimientosStock).toHaveLength(1);
     expect(r.efecto.vistoARegistrar.key).toBeDefined();
   });

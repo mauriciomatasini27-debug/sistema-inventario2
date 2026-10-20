@@ -12,7 +12,7 @@ resumen: |
 ---
 # ADR-0038 - Revisión y stress automatizado
 
-Estado: propuesto. Fecha: 2026-10-12. Fuentes: `.agents/skills/better-interface/SKILL.md`, `.agents/skills/interface-review/SKILL.md`, `.agents/skills/break-ui/SKILL.md`, `.agents/skills/state-machine/SKILL.md`, `.agents/skills/variant/SKILL.md`.
+Estado: aceptado (2026-10-18, evidencia parcial: gate `review:gate`, harness `venta` y `check:ui`; faltan `/states`, variantes y capturas por fase). Fecha: 2026-10-12. Fuentes: `.agents/skills/better-interface/SKILL.md`, `.agents/skills/interface-review/SKILL.md`, `.agents/skills/break-ui/SKILL.md`, `.agents/skills/state-machine/SKILL.md`, `.agents/skills/variant/SKILL.md`.
 
 ## Decisión
 

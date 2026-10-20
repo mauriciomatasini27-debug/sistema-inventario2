@@ -12,6 +12,8 @@ resumen: |
 ---
 # PRD-CH-01 - Canales faltantes: email/send, media, jobs, billing
 
+> Estado al 2026-10-20: en curso. Los cuatro endpoints existen: CH-S1 (`POST /api/email/send`), CH-S2 (`POST /api/media/upload-url`), CH-S3 (`POST /api/jobs/enqueue`) y CH-S4 (webhook de Mercado Pago). CH-S2 y CH-S3 siguen siendo stubs (HMAC local y `Map` en memoria); CH-S1 no actualiza `delivery_status` cuando falta `RESEND_API_KEY`.
+
 Fuente: ADR-0002, `docs/07-canales-whatsapp-email/*`, `docs/05-compras-servicios-pagos/ordenes-pago.md`. Gap: grep `email/send|media/upload|jobs/enqueue|billing/webhook|mercadopago` en `src/pages/api` = 0 endpoints.
 
 ## Épica CH-E1. Email + media + jobs

@@ -1,7 +1,7 @@
 ---
 id: ADR-0102
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [auth, compras]
 depende_de: [ADR-0005, ADR-0089, MOD-05-CONSUMOS-SERVICIOS, MOD-05-FACTURAS-PROVEEDORES]
 reemplaza: []
@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0102 - Conexión de Google con OAuth separado y token cifrado
 
-Estado: propuesto. Fecha: 2026-10-19. Fuentes: `src/modules/auth/oidc.ts`, `.env.example`, `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1.1 a CS1.8), ADR-0005, ADR-0089.
+Estado: aceptado (2026-10-19, evidencia: `src/pages/api/integrations/start.ts`, `callback.ts`, `disconnect.ts`, `src/lib/repos/google-conexiones.ts`, `src/modules/integraciones/google-oauth.ts`, migración `0030_google_integrations`, `tests/google-oauth.test.ts`). Fecha: 2026-10-19. Fuentes: `src/modules/auth/oidc.ts`, `.env.example`, `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1.1 a CS1.8), ADR-0005, ADR-0089.
 
 ## Decisión
 

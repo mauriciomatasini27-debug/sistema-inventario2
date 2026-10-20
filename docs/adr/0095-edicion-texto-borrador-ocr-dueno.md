@@ -6,7 +6,7 @@ modulos: [ocr, compras, bot]
 depende_de: [ADR-0005, ADR-0093, ADR-0094]
 reemplaza: []
 reemplazado_por: ""
-modifica: [ADR-0093]
+modifica: [ADR-0093, ADR-0094]
 modificado_por: []
 resumen: |
   El Dueño corrige por texto el borrador OCR desde el bot. Toca Editar, escribe "campo valor", el bot valida

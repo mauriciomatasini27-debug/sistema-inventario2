@@ -5,11 +5,15 @@
     { "tema": "Resend (email)", "depende": "Mauri (cuenta y dominio verificado)" },
     { "tema": "Sentry", "depende": "Mauri (proyecto y DSN)" },
     { "tema": "Mercado Pago", "depende": "Mauri (credenciales y cuenta)" },
-    { "tema": "Corpus del piloto OCR (imágenes y endpoint Paddle)", "depende": "Mauri (set etiquetado del piloto y host CX22/CX33 para medir exactitud y latencia; OCR1-S3)" }
+    { "tema": "Corpus del piloto OCR (imágenes y endpoint Paddle)", "depende": "Mauri (set etiquetado del piloto y host CX22/CX33 para medir exactitud y latencia; OCR1-S3)" },
+    { "tema": "Google OAuth (Gmail/Photos)", "depende": "Mauri (GOOGLE_INTEGRATIONS_CLIENT_ID/SECRET/REDIRECT; consents versionados por conexión)" },
+    { "tema": "Google Pub/Sub y KMS", "depende": "Mauri (topic para users.watch y clave de cifrado de refresh tokens; ADR-0102)" },
+    { "tema": "Google Photos (espejo opcional)", "depende": "Mauri (segunda ola tras Gmail; ADR-0104 propuesto)" }
   ],
   "decisiones": [
     { "tema": "Fiscal ARCA", "depende": "Mauri (certificado y homologación; ADR-0090 diferido, P9-2)" },
     { "tema": "Proveedor LLM real y costos", "depende": "Mauri (Anthropic/OpenAI y tarifas; mientras tanto un proveedor free)" },
-    { "tema": "Pricing y planes publicados (PLAN-02)", "depende": "Mauri (montos finales por plan)" }
+    { "tema": "Pricing y planes publicados (PLAN-02)", "depende": "Mauri (montos finales por plan)" },
+    { "tema": "Gmail UI, consentimiento y remitentes", "depende": "Mauri (UI de conexión/desconexión, invalid_grant, administración de remitentes y modo prueba; PRD-GMAIL-01)" }
   ]
 }

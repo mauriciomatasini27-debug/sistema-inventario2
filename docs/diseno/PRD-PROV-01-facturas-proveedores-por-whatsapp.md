@@ -1,7 +1,7 @@
 ---
 id: PRD-PROV-01
 tipo: prd
-estado: propuesto
+estado: en curso
 modulos: [bot, compras]
 depende_de: [ADR-0096]
 reemplaza: []
@@ -16,6 +16,8 @@ resumen: |
 # PRD-PROV-01 - Recepción de facturas de proveedores por WhatsApp
 
 Fuente: ADR-0096. Restringido por ADR-0096.
+
+> Estado al 2026-10-20: en curso. PROV-E1 a PROV-E4 implementadas y probadas (alta por invitación, CUIT leído, aviso al Dueño, alta al confirmar y cupo/revocado). Pendiente durable: invitaciones, contactos y cupo viven en memoria (`src/lib/store.ts`) hasta aprobar la migración.
 
 ## Problema
 

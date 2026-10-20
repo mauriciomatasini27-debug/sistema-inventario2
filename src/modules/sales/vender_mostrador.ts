@@ -155,7 +155,7 @@ export function vender_mostrador(input: VenderMostradorInput): VentaMostradorRes
   const provisorio = `${input.deviceCode}-${input.seqLocal}`;
   const definitivo = input.offline ? null : siguiente_numero(input.ultimoDefinitivo);
   const egreso = registrar_movimiento({
-    tipo: "egreso",
+    tipo: "ingreso",
     metodo: input.medio,
     monto_centavos: total,
     origen: "venta",

@@ -48,6 +48,17 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     expect(t.status).toBe(200);
     const tj = (await t.json()) as Record<string, unknown>;
     expect(tj["sale_id"]).toBe(json["sale_id"]);
+    expect(tj["lineas"]).toEqual([
+      {
+        sku: "demo-sku-1",
+        qty: 1,
+        precio_centavos: "15000",
+        bruto_centavos: "15000",
+        desc_linea_centavos: "0",
+        desc_ticket_centavos: "0",
+        neto_centavos: "15000",
+      },
+    ]);
 
     const egresos = store.movements.filter((m) => m.idempotency_key === key && m.origen === "venta");
     expect(egresos).toHaveLength(1);
@@ -55,8 +66,8 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
 
     const b = (await GETBalance(ctx("http://x/api/cash/balance"))) as Response;
     const bj = (await b.json()) as { por_medio: Record<string, string>; total: string };
-    expect(bj.por_medio["Efectivo"]).toBe("-15000");
-    expect(bj.total).toBe("-15000");
+    expect(bj.por_medio["Efectivo"]).toBe("15000");
+    expect(bj.total).toBe("15000");
   });
 
   it("doble toque misma key: 409 y un solo par ticket-egreso; cash/movements misma key tambien 409", async () => {
@@ -92,9 +103,9 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     });
     const b = (await GETBalance(ctx("http://x/api/cash/balance"))) as Response;
     const bj = (await b.json()) as { por_medio: Record<string, string>; total: string };
-    expect(bj.por_medio["Efectivo"]).toBe("-15000");
-    expect(bj.por_medio["QR"]).toBe("-10000");
-    expect(bj.total).toBe("-25000");
+    expect(bj.por_medio["Efectivo"]).toBe("15000");
+    expect(bj.por_medio["QR"]).toBe("10000");
+    expect(bj.total).toBe("25000");
   });
 
   it("corte offline: provisorio -> push -> promote reasigna T-* sin duplicar; replay idempotente", async () => {

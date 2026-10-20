@@ -1,7 +1,7 @@
 ---
 id: ADR-0103
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [compras, ocr]
 depende_de: [ADR-0102, ADR-0005, ADR-0089, MOD-05-CONSUMOS-SERVICIOS]
 reemplaza: []
@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0103 - Ingesta de Gmail por watch y history.list
 
-Estado: propuesto. Fecha: 2026-10-19. Fuentes: `src/pages/api/gmail/watch.ts`, `src/pages/api/gmail/webhook.ts`, `src/modules/utilities/ingesta_gmail.ts`, `src/db/schema-servicios.ts`, `src/modules/ocr/motor.ts`, ADR-0102, ADR-0096, `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1.4 a CS1.8).
+Estado: aceptado (2026-10-19, evidencia: `src/jobs/gmail.ts`, `gmail-sync.ts`, `src/pages/api/gmail/webhook.ts`, `src/lib/repos/gmail-*.ts`, migración `0031_gmail_ingestion`, tests `tests/gmail-*.test.ts`). Fecha: 2026-10-19. Fuentes: `src/pages/api/gmail/watch.ts`, `src/pages/api/gmail/webhook.ts`, `src/modules/utilities/ingesta_gmail.ts`, `src/db/schema-servicios.ts`, `src/modules/ocr/motor.ts`, ADR-0102, ADR-0096, `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1.4 a CS1.8).
 
 ## Decisión
 

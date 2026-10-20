@@ -170,12 +170,12 @@ export function registrar_devolucion(input: DevolucionInput): DevolucionResult {
     }),
   );
 
-  // Caja opuesta al egreso de la venta (mismo medio/monto, origen
-  // devolucion). Si era A cuenta no hubo egreso: sin movimiento de caja.
+  // Caja opuesta al ingreso de la venta (mismo medio/monto, origen
+  // devolucion). Si era A cuenta no hubo ingreso: sin movimiento de caja.
   const ingresaACaja = !input.fueAcuenta;
   const movimientoCaja = ingresaACaja
     ? registrar_movimiento({
-        tipo: "ingreso",
+        tipo: "egreso",
         metodo: input.medio,
         monto_centavos: input.montoCentavos,
         origen: "devolucion",

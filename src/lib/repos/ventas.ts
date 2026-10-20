@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm";
 import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
+import { customerMovements } from "../../db/schema-credito.js";
 import { dbVivaTenant } from "../server-db.js";
+import { obtenerTicketFiado } from "../ticket-memoria.js";
 import {
   crearAlmacenCorrecciones,
   crearAlmacenDevoluciones,
   crearAlmacenDevolucionVistos,
   crearAlmacenIdempotenciaVentas,
   crearContadorDevoluciones,
+  crearListaMovimientosCredito,
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
@@ -42,23 +45,66 @@ export interface VentaParaDevolucion {
   sale_id: string;
   total_centavos: string;
   medio: Medio;
+  idempotency_key: string;
+  fueAcuenta: boolean;
 }
 
 /** Venta por sale_id: memoria caliente, luego sales del tenant. Sin DB (solo single) cae a memoria. */
 export async function buscarVentaPorId(saleId: string): Promise<VentaParaDevolucion | null> {
   const idempotencia = crearAlmacenIdempotenciaVentas();
-  const mem = [...idempotencia.comoMapaSoloLectura().values()].find((t) => t.sale_id === saleId) ?? null;
-  if (mem) return { sale_id: mem.sale_id, total_centavos: mem.total_centavos, medio: mem.medio };
+  const mem = [...idempotencia.comoMapaSoloLectura().entries()].find(([, t]) => t.sale_id === saleId) ?? null;
+  if (mem) {
+    return {
+      sale_id: mem[1].sale_id,
+      total_centavos: mem[1].total_centavos,
+      medio: mem[1].medio,
+      idempotency_key: mem[0],
+      fueAcuenta: false,
+    };
+  }
+  const fiado = obtenerTicketFiado(saleId);
+  if (fiado) {
+    return {
+      sale_id: fiado.sale_id,
+      total_centavos: fiado.total_centavos,
+      medio: "Efectivo",
+      idempotency_key: fiado.idempotency_key,
+      fueAcuenta: true,
+    };
+  }
   const db = dbVivaTenant();
   if (!db) return null;
   try {
     const filas = await db.select().from(sales).where(eq(sales.id, saleId)).limit(1);
     const f = filas[0];
     if (!f) return null;
-    return { sale_id: f.id, total_centavos: f.totalCentavos.toString(), medio: f.medio as Medio };
+    return {
+      sale_id: f.id,
+      total_centavos: f.totalCentavos.toString(),
+      medio: f.medio as Medio,
+      idempotency_key: f.idempotencyKey,
+      fueAcuenta: f.medio === "A cuenta",
+    };
   } catch (e) {
     idempotencia.anteFalloPersistencia(e);
     return null;
+  }
+}
+
+async function clienteDeVenta(key: string): Promise<string | undefined> {
+  const mem = crearListaMovimientosCredito().listar().find((m) => m.key === key);
+  if (mem) return mem.customer_id;
+  const db = dbVivaTenant();
+  if (!db) return undefined;
+  try {
+    const filas = await db
+      .select({ customerId: customerMovements.customerId })
+      .from(customerMovements)
+      .where(eq(customerMovements.idempotencyKey, key))
+      .limit(1);
+    return filas[0]?.customerId;
+  } catch {
+    return undefined;
   }
 }
 
@@ -174,6 +220,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
 
   // Puerta de escritura: en multi sin base propaga BaseNoDisponible (503).
   const db = dbVivaTenant();
+  const customerId = venta.fueAcuenta ? await clienteDeVenta(venta.idempotency_key) : undefined;
 
   const nucleo = (ultimo: DevolucionSeq | null) =>
     registrar_devolucion({
@@ -184,7 +231,8 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       montoCentavos: input.montoCentavos,
       items: input.items.map((it) => ({ sku: it.sku as Sku, cantidad: it.cantidad })),
       medio: input.medio,
-      fueAcuenta: false,
+      fueAcuenta: venta.fueAcuenta,
+      customerId,
       motivo: input.motivo,
       actor: input.actor,
       ultimoDevolucion: ultimo,
@@ -282,7 +330,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
           acumuladoPrevioCentavos: acumuladoPrevio,
           acumuladoNuevoCentavos: acumuladoPrevio + input.montoCentavos,
           medio: input.medio,
-          fueAcuenta: false,
+          fueAcuenta: venta.fueAcuenta,
           motivo: input.motivo,
           actor: input.actor,
         });
@@ -343,6 +391,36 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       medio: input.medio,
       montoCentavos: input.montoCentavos,
       tipo: e.movimientoCaja.tipo === "ingreso" ? "ingreso" : "egreso",
+    });
+  }
+  if (e.credito) {
+    const credito = crearListaMovimientosCredito();
+    const key = `${input.key}:devolucion`;
+    if (db) {
+      try {
+        await db
+          .insert(customerMovements)
+          .values({
+            customerId: e.credito.customerId,
+            tipo: "devolucion",
+            debeCentavos: 0n,
+            haberCentavos: e.credito.haberCentavos,
+            saleId: input.saleId,
+            idempotencyKey: key,
+            motivo: e.credito.motivo,
+            clientOccurredAt: new Date(input.clientOccurredAt),
+          })
+          .onConflictDoNothing();
+      } catch (err) {
+        credito.anteFalloPersistencia(err);
+      }
+    }
+    credito.agregar({
+      customer_id: e.credito.customerId,
+      debe: "0",
+      haber: e.credito.haberCentavos.toString(),
+      key,
+      fecha_ms: Date.now(),
     });
   }
 
