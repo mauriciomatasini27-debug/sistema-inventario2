@@ -142,14 +142,14 @@ export function moduloIndice(id: ModuloIndice): EntradaIndice {
   return entrada;
 }
 
-function encendido(requisito: RequisitoIndice, features: FeaturesPlan): boolean {
+export function cumpleRequisito(requisito: RequisitoIndice, features: FeaturesPlan): boolean {
   if (requisito.tipo === "siempre") return true;
   if (requisito.tipo === "feature") return features[requisito.feature] === true;
   return requisito.features.some((f) => features[f] === true);
 }
 
 export function indicePanel(features: FeaturesPlan = {}): ModuloVisible[] {
-  return MODULOS_INDICE.filter((m) => encendido(m.requisito, features)).map(({ id, label, href }) => ({
+  return MODULOS_INDICE.filter((m) => cumpleRequisito(m.requisito, features)).map(({ id, label, href }) => ({
     id,
     label,
     href,

@@ -19,6 +19,7 @@ import PreciosCard from "../components/panel/PreciosCard.astro";
 import ProveedoresCard from "../components/panel/ProveedoresCard.astro";
 import FiadoCard from "../components/panel/FiadoCard.astro";
 import AlertasCard from "../components/panel/AlertasCard.astro";
+import UpsellCard from "../components/panel/UpsellCard.astro";
 import BotModulosCard from "../components/panel/BotModulosCard.astro";
 import AsistenteDrawer from "../components/panel/AsistenteDrawer.astro";
 import BotCard from "../components/panel/BotCard.astro";
@@ -149,6 +150,8 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
         <a href="/venta">Vender →</a>
       </div>
 
+      <UpsellCard />
+
       <div class="grid" style="margin-bottom:16px">
         <AsistenteDrawer />
       </div>
@@ -182,6 +185,32 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
     </div>
     <script>
       import { renderResumen, renderResumenError } from "../lib/panel-dashboard.js";
+      import {
+        CLAVE_DESCARTES_UPSELL,
+        elegirOferta,
+        esOfertaUpsell,
+        type OfertaUpsell,
+      } from "../lib/panel-upsell.js";
+
+      // El cliente no conoce el tenant: una sola clave de descartes por navegador.
+      const CLAVE_DESCARTES = CLAVE_DESCARTES_UPSELL;
+
+      function leerDescartes(): Record<string, number> | null {
+        try {
+          const crudo = localStorage.getItem(CLAVE_DESCARTES);
+          if (crudo === null) return {};
+          const datos: unknown = JSON.parse(crudo);
+          if (typeof datos !== "object" || datos === null || Array.isArray(datos)) return null;
+          const salida: Record<string, number> = {};
+          for (const [modulo, marca] of Object.entries(datos)) {
+            if (typeof marca === "number" && Number.isFinite(marca)) salida[modulo] = marca;
+          }
+          return salida;
+        } catch (error) {
+          console.warn("[panel] no pudimos leer los descartes de upsell", error);
+          return null;
+        }
+      }
 
       function aplicarIndice(crudo: unknown): void {
         if (typeof crudo !== "object" || crudo === null) return;
@@ -200,9 +229,62 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
         }
       }
 
+      function aplicarUpsell(crudo: unknown): void {
+        if (typeof crudo !== "object" || crudo === null) return;
+        const card = document.querySelector<HTMLElement>("[data-upsell]");
+        if (!card) return;
+        const datos = crudo as { upsell?: unknown; rol?: unknown };
+        if (!Array.isArray(datos.upsell)) return;
+        const ofertas: OfertaUpsell[] = [];
+        for (const item of datos.upsell) {
+          if (esOfertaUpsell(item)) ofertas.push(item);
+        }
+        const descartes = leerDescartes();
+        if (descartes === null) return;
+        const oferta = elegirOferta({ ofertas, descartes, ahora: Date.now() });
+        if (oferta === null) return;
+
+        const titulo = card.querySelector<HTMLElement>("[data-upsell-titulo]");
+        const texto = card.querySelector<HTMLElement>("[data-upsell-texto]");
+        const link = card.querySelector<HTMLElement>("[data-upsell-link]");
+        const empleado = card.querySelector<HTMLElement>("[data-upsell-empleado]");
+        if (!titulo || !texto || !link || !empleado) return;
+
+        titulo.textContent = oferta.titulo;
+        texto.textContent = oferta.texto;
+        const esDueno = datos.rol === "dueno";
+        link.hidden = !esDueno;
+        empleado.hidden = esDueno;
+        card.dataset.upsellModulo = oferta.modulo;
+        card.hidden = false;
+      }
+
+      function descartarUpsell(): void {
+        const card = document.querySelector<HTMLElement>("[data-upsell]");
+        if (!card) return;
+        const modulo = card.dataset.upsellModulo;
+        if (modulo) {
+          const descartes = leerDescartes() ?? {};
+          descartes[modulo] = Date.now();
+          try {
+            localStorage.setItem(CLAVE_DESCARTES, JSON.stringify(descartes));
+          } catch (error) {
+            console.warn("[panel] no pudimos guardar el descarte de upsell", error);
+          }
+        }
+        card.hidden = true;
+      }
+
+      document
+        .querySelector<HTMLButtonElement>("[data-upsell-descartar]")
+        ?.addEventListener("click", descartarUpsell);
+
       fetch("/api/panel/indice")
         .then((r) => (r.ok ? r.json() : null))
-        .then(aplicarIndice)
+        .then((crudo) => {
+          aplicarIndice(crudo);
+          aplicarUpsell(crudo);
+        })
         .catch((error) => {
           console.warn("[panel] no pudimos leer el índice de módulos", error);
         });

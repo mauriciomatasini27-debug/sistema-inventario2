@@ -1,0 +1,88 @@
+---
+---
+<section class="card upsell" id="upsell" data-upsell hidden aria-labelledby="upsell-titulo">
+  <div class="upsell-cuerpo">
+    <h2 id="upsell-titulo" data-upsell-titulo></h2>
+    <p class="upsell-texto" data-upsell-texto></p>
+  </div>
+  <div class="upsell-acciones">
+    <a class="upsell-ver" data-upsell-link href="/panel/plan" hidden>Ver planes</a>
+    <span class="upsell-empleado" data-upsell-empleado hidden>Pedile al Dueño que lo active</span>
+    <button type="button" class="upsell-ahora" data-upsell-descartar>Ahora no</button>
+  </div>
+</section>
+
+<style>
+  .upsell {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    border: 1px solid var(--linea);
+  }
+  .upsell[hidden],
+  .upsell [hidden] {
+    display: none !important;
+  }
+  .upsell-cuerpo {
+    flex: 1 1 260px;
+    min-width: 0;
+  }
+  .upsell h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    color: var(--texto);
+  }
+  .upsell-texto {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .upsell-acciones {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .upsell-ver {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--llama);
+    color: var(--tinta);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .upsell-ver:hover {
+    background: var(--llama-hover);
+    color: var(--tinta);
+  }
+  .upsell-empleado {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .upsell-ahora {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 16px;
+    border: 1px solid var(--linea);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--texto);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .upsell-ahora:hover {
+    border-color: var(--texto);
+  }
+  .upsell-ver:focus-visible,
+  .upsell-ahora:focus-visible {
+    outline: 2px solid var(--llama);
+    outline-offset: 2px;
+  }
+</style>

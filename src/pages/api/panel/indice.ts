@@ -2,8 +2,9 @@ import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
-import { planIncluye } from "../../../lib/repos/planes.js";
+import { leerCatalogo, planIncluye } from "../../../lib/repos/planes.js";
 import { featuresDelIndice, indicePanel, type FeaturesPlan } from "../../../lib/panel-modulos.js";
+import { ofertasUpsell } from "../../../lib/panel-upsell.js";
 
 export const prerender = false;
 
@@ -28,10 +29,20 @@ export const GET: APIRoute = async ({ request }) => {
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
   try {
     const features: FeaturesPlan = {};
+    let conPlan = false;
     for (const feature of featuresDelIndice()) {
-      features[feature] = (await planIncluye(tenantId, feature)).incluida;
+      const inclusion = await planIncluye(tenantId, feature);
+      features[feature] = inclusion.incluida;
+      if (inclusion.planId !== null) conPlan = true;
     }
-    return Response.json({ modulos: indicePanel(features) });
+    // PLAN-S8: sin suscripción activa no hay plan contra el cual comparar;
+    // ofrecer "Bot en Básico" sería un dato falso, así que no hay upsell.
+    const upsell = conPlan ? ofertasUpsell(features, await leerCatalogo()) : [];
+    return Response.json({
+      modulos: indicePanel(features),
+      upsell,
+      rol: m.rol,
+    });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;
