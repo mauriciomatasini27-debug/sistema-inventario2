@@ -42,4 +42,4 @@ Sembrar automáticamente en el alta: crea productos que el dueño no quiere y ob
 
 ## Pendientes
 
-Aprobación de Mauri para aplicar `0034_tenant_product_seeds`. Definir el contenido inicial de `PLANTILLAS_PRODUCTOS_RUBRO` por rubro.
+Mauri aprobó el 2026-10-20 la migración `0034_tenant_product_seeds` para el PR de código que la traiga; sigue propuesta, no aplicada. Definir el contenido inicial de `PLANTILLAS_PRODUCTOS_RUBRO` por rubro.

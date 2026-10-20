@@ -23,10 +23,10 @@ Fuente: `docs/03-inventario-precios/inventario-parte-1.md` (F1-F14), `src/pages/
 
 Requisito STOCK-R1: en `/venta`, un SKU o producto desconocido se da de alta al vuelo con nombre y precio, marcado "sin stock inicial" (`products.stock_actual = 0` y `products.origen = "alta_al_vender"`), y la venta se cobra y encola sin perderse.
 
-- Historia STOCK-S1. Alta al vuelo en `/venta` offline. AC: Given `/venta` offline con el catálogo local (`offline:catalogo`) sin el SKU When el cajero ingresa SKU desconocido, nombre y precio y cobra Then el SKU se suma al snapshot local `offline:catalogo` con stock 0 y el precio cargado, la venta se encola en `slice0-outbox` con su `op_id` y el alta (`sku`, `nombre`, `precio_centavos`) dentro del payload, y sale el ticket provisorio; al reconectar, `POST /api/sync/push` guarda la op en `outbox` sin 409 ni pérdida. Hoy el push no materializa ventas (solo `outbox` e `id_mappings`): crear la fila de `products` con `origen = "alta_al_vender"` desde la outbox depende de un aplicador que todavía no existe (ADR-0106, Pendientes). ADR: 0106. Talla M. Depende de: STOCK-S2 y del aplicador de outbox (ADR-0106).
+- Historia STOCK-S1. Alta al vuelo en `/venta` offline. AC: Given `/venta` offline con el catálogo local (`offline:catalogo`) sin el SKU When el cajero ingresa SKU desconocido, nombre y precio y cobra Then el SKU se suma al snapshot local `offline:catalogo` con stock 0 y el precio cargado, la venta se encola en `slice0-outbox` con su `op_id` y el alta (`sku`, `nombre`, `precio_centavos`) dentro del payload, y sale el ticket provisorio; al reconectar, `POST /api/sync/push` guarda la op en `outbox` sin 409 ni pérdida. Hoy el push no materializa ventas (solo `outbox` e `id_mappings`): crear la fila de `products` con `origen = "alta_al_vender"` desde la outbox depende del aplicador de ventas de la outbox, P10-6 (PR #224), que va primero. ADR: 0106. Talla M. Depende de: STOCK-S2 y P10-6 (PR #224).
 - Historia STOCK-S2. Alta al vuelo online. AC: Given `/venta` online con el SKU desconocido When el cajero da nombre y precio Then `POST /api/sales` → `registrar_venta` crea el producto con `origen = "alta_al_vender"` y stock 0 y registra la venta en la misma `db.transaction`, incluida la fila de `ticket_lines` (hoy se descarta si el SKU no está en `products`); Given el SKU ya existe en el catálogo Then no lo pisa y solo registra la venta. ADR: 0106. Talla M. Depende de: nada (es el primer slice implementable).
 - Historia STOCK-S3. Conflicto de sync entre dos devices. AC: Given dos devices offline que venden el mismo SKU desconocido con nombre y precio distintos When las dos ops se aplican (cada device tiene su propio `device_seq`; el orden entre devices lo da el aplicador) Then el primero crea el producto y el segundo no lo pisa y ambas ventas quedan; ninguna venta se pierde. ADR: 0106. Talla L. Depende de: STOCK-S1.
-- Historia STOCK-S4. Carga progresiva de cantidades iniciales en `/panel`. AC: Given el catálogo con productos "sin stock inicial" When el dueño abre `/panel/stock` Then ve los productos con `origen = "alta_al_vender"` y stock 0 ordenados por unidades vendidas (`ticket_lines.qty` de los últimos 30 días, cálculo propuesto), de a 5 por vez, y puede cargar la cantidad inicial por SKU; al guardar se aplica un ALTA con `aplicarMovimiento` (`src/lib/repos/stock.ts`) y el producto deja de estar marcado. ADR: 0106. Talla M. Depende de: STOCK-S1.
+- Historia STOCK-S4. Carga progresiva de cantidades iniciales en `/panel`. AC: Given el catálogo con productos "sin stock inicial" When el dueño abre `/panel/stock` Then ve los productos con `origen = "alta_al_vender"` y stock 0 ordenados por unidades vendidas (`ticket_lines.qty` de los últimos 30 días, de a 5 por vez; criterio aprobado por Mauri), y puede cargar la cantidad inicial por SKU; al guardar se aplica un ALTA con `aplicarMovimiento` (`src/lib/repos/stock.ts`) y el producto deja de aparecer como pendiente; `origen` queda como historial. ADR: 0106. Talla M. Depende de: STOCK-S1.
 - Historia STOCK-S5. La cola offline no pierde la venta. AC: Given ventas offline con producto provisorio When el push lanza o responde fuera de 2xx (p.ej. 422 por `device_seq`) Then `sincronizarColaVenta` (`src/offline/cola-venta.ts`, ya hecho en VF-S2) corta en el primer fallo y no saca de la cola lo no confirmado; la venta sigue en `slice0-outbox`. El payload con `alta` no cambia esa regla; es regresión, no código nuevo. ADR: 0097. Talla S. Depende de: STOCK-S1.
 
 ## Épica STOCK-E2. Catálogo sugerido por rubro
@@ -53,14 +53,14 @@ Precios sugeridos o automáticos, importación masiva desde Excel o CSV, categor
 
 ## Dependencias externas
 
-STOCK-S1 a STOCK-S5 dependen de ADR-0106 y de la migración propuesta `0033_products_origen`. STOCK-S6 a STOCK-S9 dependen de ADR-0107 y de la migración propuesta `0034_tenant_product_seeds`. Ninguna se aplica sin la aprobación de Mauri.
+STOCK-S1 a STOCK-S5 dependen de ADR-0106 y de la migración propuesta `0033_products_origen`. STOCK-S6 a STOCK-S9 dependen de ADR-0107 y de la migración propuesta `0034_tenant_product_seeds`. Mauri las aprobó el 2026-10-20 para los PR de código que las traigan; hasta entonces siguen propuestas, no aplicadas. Antes de STOCK-E1 va P10-6 (PR #224): aplicar las ventas de la outbox con `registrar_venta`.
 
 ## Migraciones (propuestas, no aplicadas)
 
 | Tag | Qué hace | Estado |
 |---|---|---|
-| `0033_products_origen` | agrega `products.origen` text nullable (valores `alta_al_vender`, `plantilla_rubro`) | propuesta, no aplicada |
-| `0034_tenant_product_seeds` | crea `tenant_product_seeds` (`tenant_id` text PK, `rubro`, `plantilla_version`, `cantidad`, `sembrado_at`) | propuesta, no aplicada |
+| `0033_products_origen` | agrega `products.origen` text nullable (valores `alta_al_vender`, `plantilla_rubro`) | propuesta (aprobada), no aplicada |
+| `0034_tenant_product_seeds` | crea `tenant_product_seeds` (`tenant_id` text PK, `rubro`, `plantilla_version`, `cantidad`, `sembrado_at`) | propuesta (aprobada), no aplicada |
 
 ## Estrategia prueba
 
