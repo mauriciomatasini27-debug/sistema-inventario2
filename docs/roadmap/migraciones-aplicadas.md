@@ -36,3 +36,5 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 - 0027_products_min_stock
 - 0028_tenant_bot_modules
 - 0029_products_sector
+- 0030_google_integrations
+- 0031_gmail_ingestion
