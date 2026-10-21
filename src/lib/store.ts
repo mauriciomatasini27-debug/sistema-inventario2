@@ -154,7 +154,7 @@ function crearEstado() {
   altasAlVender: new Set<string>(),
   // N1 CAT-S1: catálogo mínimo (sku -> ficha). Memoria manda sin DB; con DB
   // viva hay write-through best-effort a products/product_codes.
-  productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo" | "pendiente_revision"; minStock: number | null; reorderQty: number | null }>(),
+  productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo" | "pendiente_revision"; minStock: number | null; reorderQty: number | null }>(),
   codigos: new Map<string, string>(),
   fotosProducto: new Map<string, Array<{ id: string; url: string; ancho: number; alto: number; bytes: number }>>(),
   // N1 CAT-S3: lotes en memoria (id -> lote). FEFO puro en inventario.ts.
@@ -384,6 +384,7 @@ export function resetStore() {
   control.onboardingState.clear();
   control.ejemplos.clear();
   control.bienvenidas.clear();
+  control.semillasProductos.clear();
   control.proveedorContactos.clear();
   control.proveedorInvitaciones.clear();
   control.proveedorCupo.clear();
@@ -517,6 +518,9 @@ export const control = {
   onboardingState: new Map<string, import("../modules/onboarding/estado.js").OnboardingState>(),
   ejemplos: new Map<string, import("../modules/onboarding/estado.js").EjemploInfo>(),
   bienvenidas: new Set<string>(),
+  // PRD-STOCK-01 STOCK-S8 (ADR-0107): tenants con la plantilla de productos
+  // ya confirmada. Espejo en memoria de tenant_product_seeds.
+  semillasProductos: new Set<string>(),
   // PRD-PROV-01 (ADR-0096): contactos de proveedor por número (clave E.164) e
   // invitaciones por hash del código (clave codigoHash). En memoria hasta que
   // haya migración aprobada.
