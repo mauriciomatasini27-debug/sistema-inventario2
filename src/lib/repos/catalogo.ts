@@ -262,6 +262,37 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
   }
 }
 
+// Los SKU del archivo llegan trimmeados en mayúsculas; el mapa se normaliza igual.
+export async function leerStockActualPorSkus(skus: readonly string[]): Promise<Map<string, number>> {
+  const claves = [...new Set(skus.map((s) => s.trim().toUpperCase()).filter((s) => s !== ""))];
+  const resultado = new Map<string, number>();
+  if (claves.length === 0) return resultado;
+  const db = dbVivaTenant();
+  if (!db) {
+    const existencias = crearAlmacenStock().mapaVivo();
+    for (const sku of claves) {
+      const exacto = existencias.get(sku);
+      if (typeof exacto === "number") {
+        resultado.set(sku, exacto);
+        continue;
+      }
+      for (const [clave, valor] of existencias) {
+        if (clave.toUpperCase() === sku && typeof valor === "number") {
+          resultado.set(sku, valor);
+          break;
+        }
+      }
+    }
+    return resultado;
+  }
+  const filas = await db
+    .select({ sku: products.sku, stockActual: products.stockActual })
+    .from(products)
+    .where(inArray(products.sku, claves));
+  for (const fila of filas) resultado.set(fila.sku.toUpperCase(), fila.stockActual);
+  return resultado;
+}
+
 function filtrar(lista: FichaProducto[], q: string, existencias: AlmacenVivo<number>, precios: AlmacenVivo<number>): FichaProducto[] {
   const query = q.trim().toUpperCase();
   if (lista.length === 0 && existencias.contiene("demo-sku-1")) {

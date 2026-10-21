@@ -298,6 +298,23 @@ export const stockMovements = pgTable("stock_movements", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Vive en la base del tenant: sin tenant_id, como stock_movements.
+export const stockImports = pgTable("stock_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  idemKey: text("idem_key").notNull().unique(),
+  archivoNombre: text("archivo_nombre").notNull(),
+  archivoSha256: text("archivo_sha256").notNull(),
+  formato: text("formato").notNull(),
+  filasTotal: integer("filas_total").notNull(),
+  filasImportadas: integer("filas_importadas").notNull(),
+  filasNuevas: integer("filas_nuevas").notNull(),
+  filasExistentes: integer("filas_existentes").notNull(),
+  filasError: integer("filas_error").notNull(),
+  movimientos: integer("movimientos").notNull(),
+  creadoPor: text("creado_por").notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});
+
 // N1 CAT-S1/S5/S6 + CAJA-S1/S3/S4: tablas mínimas para cutover DB.
 // Tests/build sin DB usan store en memoria; con DB viva hay write-through.
 export const productPhotos = pgTable("product_photos", {

@@ -232,6 +232,13 @@
       "when": 1792500000000,
       "tag": "0032_tenant_location_seeds",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792538873372,
+      "tag": "0035_stock_imports",
+      "breakpoints": true
     }
   ]
 }

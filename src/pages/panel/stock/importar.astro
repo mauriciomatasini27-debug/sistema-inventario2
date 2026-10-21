@@ -1,0 +1,290 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell
+  titulo="Importar stock"
+  subtitulo="Subí un CSV o Excel, revisá la vista previa y confirmá la importación."
+  activo="stock"
+>
+  <section class="card">
+    <h2>Importar stock desde CSV o Excel</h2>
+    <p class="estado">
+      Necesitás conexión para importar. La cantidad de cada fila se suma al stock actual; el precio se usa solo al crear
+      el producto.
+    </p>
+    <p><a href="/api/stock/importar/plantilla.csv">Descargar plantilla CSV</a></p>
+
+    <form id="form-importar">
+      <div class="fila">
+        <label>Archivo CSV o XLSX
+          <input id="archivo-importar" data-campo="archivo" type="file" name="archivo" accept=".csv,.xlsx" required />
+        </label>
+        <button id="preview-importar" type="submit">Vista previa</button>
+      </div>
+      <p class="estado">Hasta 2 MB, 1000 filas y 20 columnas. Las filas vacías y las que empiezan con # se ignoran.</p>
+      <div class="estado" id="estado-importar" role="status"></div>
+    </form>
+
+    <div id="resumen-importar" hidden>
+      <h3>Vista previa</h3>
+      <p class="estado" id="advertencia-importar" hidden></p>
+      <ul class="lista" id="contadores-importar"></ul>
+    </div>
+
+    <div id="tabla-importar" hidden></div>
+
+    <p>
+      <button id="confirmar-importar" type="button" hidden disabled>Confirmar y aplicar</button>
+    </p>
+    <div class="estado" id="resultado-importar" role="status"></div>
+    <p id="volver-stock" hidden><a href="/panel/stock">Volver al stock</a></p>
+  </section>
+</PanelShell>
+
+<script>
+  import { REQUERIDO, mensajeCampo } from "../../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../../lib/errores-campo-dom.js";
+
+  type ErrorFila = { campo: string; codigo: string; mensaje: string };
+  type FilaPreview =
+    | {
+        estado: "nueva" | "existente";
+        fila: number;
+        sku: string;
+        nombre: string;
+        precio_centavos: number;
+        cantidad: number;
+        sector: string;
+        stock_actual: number;
+        stock_resultante: number;
+        errores: [];
+      }
+    | { estado: "error"; fila: number; crudo: string[]; errores: ErrorFila[] };
+  type Resumen = { total: number; validas: number; nuevas: number; existentes: number; con_error: number };
+  type Preview = {
+    archivo: { nombre: string; sha256: string; bytes: number; formato: "csv" | "xlsx" };
+    resumen: Resumen;
+    filas: FilaPreview[];
+    columnas_ignoradas: string[];
+    advertencia_codificacion: boolean;
+  };
+  type ErrorResp = { error?: string; codigo?: string; columnas?: string[] };
+  type Confirmacion = {
+    importacion_id: string;
+    filas_importadas: number;
+    filas_nuevas: number;
+    filas_existentes: number;
+    filas_error: number;
+    movimientos: number;
+    reintento: boolean;
+  };
+
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const archivoInput = $("archivo-importar") as HTMLInputElement;
+  const previewBoton = $("preview-importar") as HTMLButtonElement;
+  const confirmarBoton = $("confirmar-importar") as HTMLButtonElement;
+  const estado = $("estado-importar");
+  const resultado = $("resultado-importar");
+
+  let archivoActual: File | null = null;
+  let shaActual: string | null = null;
+  // La key nace en la vista previa y sobrevive los reintentos, porque una
+  // confirmación que falló puede haberse aplicado en el servidor.
+  let keyPendiente: string | null = null;
+
+  const mensaje = (status: number, cuerpo: ErrorResp): string => {
+    if (status === 403) return "No tenés permiso.";
+    if (status === 413) return "El archivo supera los 2 MB.";
+    if (status === 415) return "Formato no soportado. Usá CSV o XLSX.";
+    if (status === 503) return "Sin base: probá de nuevo.";
+    if (cuerpo.codigo === "COLUMNAS_FALTANTES") {
+      const columnas = cuerpo.columnas && cuerpo.columnas.length > 0 ? `: ${cuerpo.columnas.join(", ")}` : ".";
+      return `Falta una columna obligatoria${columnas}`;
+    }
+    if (cuerpo.codigo === "DEMASIADAS_FILAS") return "El archivo tiene más de 1000 filas.";
+    if (cuerpo.codigo === "DEMASIADAS_COLUMNAS") return "El archivo tiene más de 20 columnas.";
+    if (cuerpo.codigo === "ARCHIVO_CAMBIADO") return "El archivo cambió desde la vista previa. Volvé a previsualizar.";
+    if (cuerpo.codigo === "SIN_FILAS_VALIDAS") return "No hay filas válidas para importar.";
+    if (cuerpo.codigo === "ARCHIVO_GRANDE") return "El archivo supera los 2 MB.";
+    if (cuerpo.codigo === "FORMATO_NO_SOPORTADO") return "Formato no soportado. Usá CSV o XLSX.";
+    return "No se pudo completar la importación. Revisá el archivo.";
+  };
+
+  const limpiarPreview = () => {
+    $("resumen-importar").hidden = true;
+    $("tabla-importar").hidden = true;
+    $("contadores-importar").textContent = "";
+    $("tabla-importar").textContent = "";
+  };
+
+  const pintarContadores = (resumen: Resumen) => {
+    const lista = $("contadores-importar");
+    lista.textContent = "";
+    const filas: Array<[string, number]> = [
+      ["Filas leídas", resumen.total],
+      ["Válidas", resumen.validas],
+      ["Nuevas", resumen.nuevas],
+      ["Existentes", resumen.existentes],
+      ["Con error", resumen.con_error],
+    ];
+    filas.forEach(([etiqueta, valor]) => {
+      const li = document.createElement("li");
+      li.textContent = `${etiqueta}: ${valor}`;
+      lista.appendChild(li);
+    });
+  };
+
+  const pintarTabla = (filas: FilaPreview[]) => {
+    const contenedor = $("tabla-importar");
+    contenedor.textContent = "";
+    const tabla = document.createElement("table");
+    const thead = document.createElement("thead");
+    const filaTitulo = document.createElement("tr");
+    ["Fila", "Estado", "SKU", "Nombre", "Precio", "Cantidad", "Stock actual", "Stock resultante", "Errores"].forEach(
+      (titulo) => {
+        const th = document.createElement("th");
+        th.textContent = titulo;
+        filaTitulo.appendChild(th);
+      },
+    );
+    thead.appendChild(filaTitulo);
+    const tbody = document.createElement("tbody");
+    filas.slice(0, 30).forEach((fila) => {
+      const tr = document.createElement("tr");
+      const celdas =
+        fila.estado === "error"
+          ? [
+              String(fila.fila),
+              "error",
+              "—",
+              "—",
+              "—",
+              "—",
+              "—",
+              "—",
+              fila.errores.map((e) => `${e.campo}: ${e.mensaje}`).join(" "),
+            ]
+          : [
+              String(fila.fila),
+              fila.estado,
+              fila.sku,
+              fila.nombre,
+              `$ ${(fila.precio_centavos / 100).toFixed(2)}`,
+              String(fila.cantidad),
+              String(fila.stock_actual),
+              String(fila.stock_resultante),
+              "",
+            ];
+      celdas.forEach((valor) => {
+        const td = document.createElement("td");
+        td.textContent = valor;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tabla.append(thead, tbody);
+    tabla.createCaption().textContent = `Vista previa de la importación: ${filas.length} filas.`;
+    contenedor.appendChild(tabla);
+    if (filas.length > 30) {
+      const nota = document.createElement("p");
+      nota.className = "estado";
+      nota.textContent = `Se muestran las primeras 30 filas de ${filas.length}.`;
+      contenedor.appendChild(nota);
+    }
+    contenedor.hidden = false;
+  };
+
+  const pintarPreview = (preview: Preview) => {
+    pintarContadores(preview.resumen);
+    pintarTabla(preview.filas);
+    $("resumen-importar").hidden = false;
+    const advertencia = $("advertencia-importar");
+    advertencia.hidden = !preview.advertencia_codificacion;
+    advertencia.textContent = preview.advertencia_codificacion
+      ? "El archivo no era UTF-8; se leyó como Windows-1252. Revisá las tildes antes de confirmar."
+      : "";
+    archivoActual = archivoInput.files?.[0] ?? null;
+    shaActual = preview.archivo.sha256;
+    keyPendiente = keyPendiente ?? crypto.randomUUID();
+    confirmarBoton.hidden = preview.resumen.validas === 0;
+    confirmarBoton.disabled = preview.resumen.validas === 0;
+    if (preview.resumen.validas === 0) {
+      estado.textContent = "No hay filas válidas para importar. Corregí el archivo y volvé a previsualizar.";
+    } else {
+      estado.textContent = "Revisá la vista previa y confirmá.";
+    }
+  };
+
+  $("form-importar").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("form-importar");
+    limpiarErrores(form);
+    const archivo = archivoInput.files?.[0];
+    if (!archivo) {
+      mostrarErrores(form, { archivo: mensajeCampo("archivo", REQUERIDO) });
+      estado.textContent = "Elegí un archivo CSV o XLSX.";
+      return;
+    }
+    previewBoton.disabled = true;
+    confirmarBoton.hidden = true;
+    confirmarBoton.disabled = true;
+    resultado.textContent = "";
+    limpiarPreview();
+    estado.textContent = "Leyendo el archivo…";
+    try {
+      const fd = new FormData();
+      fd.append("archivo", archivo);
+      const r = await fetch("/api/stock/importar/preview", { method: "POST", body: fd });
+      const cuerpo = (await r.json()) as Preview | ErrorResp;
+      if (!r.ok) {
+        estado.textContent = mensaje(r.status, cuerpo as ErrorResp);
+        return;
+      }
+      pintarPreview(cuerpo as Preview);
+    } catch (error) {
+      console.warn("[panel/stock/importar] vista previa", error);
+      estado.textContent = "Sin conexión con el servidor.";
+    } finally {
+      previewBoton.disabled = false;
+    }
+  });
+
+  confirmarBoton.addEventListener("click", async () => {
+    if (!archivoActual || !shaActual || !keyPendiente) {
+      estado.textContent = "Volvé a previsualizar el archivo antes de confirmar.";
+      return;
+    }
+    confirmarBoton.disabled = true;
+    resultado.textContent = "Importando…";
+    try {
+      const fd = new FormData();
+      fd.append("archivo", archivoActual);
+      fd.append("archivo_sha256", shaActual);
+      const r = await fetch("/api/stock/importar/confirmar", {
+        method: "POST",
+        headers: { "Idempotency-Key": keyPendiente },
+        body: fd,
+      });
+      const cuerpo = (await r.json()) as Confirmacion | ErrorResp;
+      if (!r.ok) {
+        resultado.textContent = mensaje(r.status, cuerpo as ErrorResp);
+        confirmarBoton.disabled = false;
+        return;
+      }
+      const confirmacion = cuerpo as Confirmacion;
+      resultado.textContent = confirmacion.reintento
+        ? `Ya se había importado; no se aplicó nada. Filas importadas: ${confirmacion.filas_importadas}.`
+        : `Importación aplicada: ${confirmacion.filas_importadas} filas (${confirmacion.filas_nuevas} nuevas, ${confirmacion.filas_existentes} existentes, ${confirmacion.filas_error} con error), ${confirmacion.movimientos} movimientos.`;
+      confirmarBoton.hidden = true;
+      confirmarBoton.disabled = true;
+      archivoActual = null;
+      shaActual = null;
+      keyPendiente = null;
+      $("volver-stock").hidden = false;
+    } catch (error) {
+      console.warn("[panel/stock/importar] confirmar", error);
+      resultado.textContent = "Sin conexión con el servidor.";
+      confirmarBoton.disabled = false;
+    }
+  });
+</script>

@@ -12,6 +12,7 @@ import type { FacturaServicio } from "../modules/utilities/facturas_servicios.js
 import type { Payee } from "../modules/payments/beneficiarios.js";
 import type { PaymentOrder, PagoConfirmado } from "../modules/payments/ordenes.js";
 import type { EventoResumen, OutboxPendiente } from "../modules/email/resumen-cierre.js";
+import type { ImportacionRegistrada } from "./repos/importaciones.js";
 import { esModoMulti, tenantActual } from "./tenant-mode.js";
 
 export interface StoredTicket {
@@ -147,6 +148,7 @@ function crearEstado() {
   fotosProducto: new Map<string, Array<{ id: string; url: string; ancho: number; alto: number; bytes: number }>>(),
   // N1 CAT-S3: lotes en memoria (id -> lote). FEFO puro en inventario.ts.
   lotes: new Map<string, { id: string; sku: string; cantidad: number; cantidadRestante: number; venceEl: string | null; costoCentavos: string }>(),
+  importaciones: new Map<string, ImportacionRegistrada>(),
   // N1 CAT-S5: ubicaciones + conteos con líneas/estado.
   ubicaciones: new Map<string, { id: string; nombre: string; archivada: boolean }>(),
   // N1 CAJA-S1/S3/S4: qr, vencimientos caja, pagos divididos.
@@ -256,6 +258,12 @@ export const store: EstadoStore = new Proxy({} as EstadoStore, {
   },
 });
 
+// Único camino de memoria que no pasa por _almacen: AT4 prohíbe nuevas
+// referencias a store. en repos, así que el repo lee el mapa por acá.
+export function importacionesEnMemoria(): Map<string, ImportacionRegistrada> {
+  return estadoActual().importaciones;
+}
+
 export function resetStore() {
   // Por qué limpiar todas: en multi fuera de contexto (setup de tests) no hay
   // partición actual; se descartan todas y se resetea la de single.
@@ -292,6 +300,7 @@ export function resetStore() {
   s.codigos.clear();
   s.fotosProducto.clear();
   s.lotes.clear();
+  s.importaciones.clear();
   s.ubicaciones.clear();
   s.qrRecibos.clear();
   s.vencimientosCaja.clear();

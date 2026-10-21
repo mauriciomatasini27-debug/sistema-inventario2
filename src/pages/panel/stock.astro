@@ -15,6 +15,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       </div>
       <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
       <p class="estado"><a href="/panel/alertas/umbrales">Editar umbrales por producto</a></p>
+      <p class="estado"><a href="/panel/stock/importar">Importar stock desde CSV o Excel</a></p>
       <div class="estado" id="estado-stock" role="status">Cargando…</div>
     </section>
 

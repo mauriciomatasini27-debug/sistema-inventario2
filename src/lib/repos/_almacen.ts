@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { control, store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { control, importacionesEnMemoria, store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -559,6 +559,8 @@ export function crearListaEventosOcr(): ListaAlmacen<EventoOcr> {
 // este corte. `control` es el plano global (no particionado, no datos de un
 // comercio) y se reexporta para que ningún repo importe el estado directo.
 export { control };
+
+export { importacionesEnMemoria };
 
 export interface SesionWa {
   paso: string;

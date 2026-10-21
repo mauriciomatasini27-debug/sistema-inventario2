@@ -4,6 +4,7 @@ export interface CtxInit {
   method?: string;
   headers?: HeadersInit;
   body?: string | Record<string, unknown>;
+  form?: FormData;
   params?: Record<string, string>;
   cookies?: Record<string, string>;
   locals?: Record<string, unknown>;
@@ -25,7 +26,9 @@ export function ctx(url: string, init: CtxInit = {}): APIContext {
   const completa = new URL(url, "http://localhost");
   const headers = new Headers(init.headers);
   let body: BodyInit | undefined;
-  if (typeof init.body === "string") {
+  if (init.form !== undefined) {
+    body = init.form;
+  } else if (typeof init.body === "string") {
     body = init.body;
   } else if (init.body !== undefined) {
     body = JSON.stringify(init.body);
