@@ -131,6 +131,42 @@ describe("P10-6 push de venta: aplica, descuenta stock y el replay no duplica", 
   });
 });
 
+describe("STOCK-S1 push de venta offline con alta: crea el provisorio y el replay no lo duplica", () => {
+  beforeEach(() => {
+    modoSingleSinDb();
+    resetStore();
+  });
+
+  it("responde aplicada y deja el producto con nombre, precio y stock 0", async () => {
+    const opId = crypto.randomUUID();
+    const payload = {
+      lineas: [{ product_id: "STOCK-S1-PUSH", qty: 2, precio_centavos: 7000, alta: { nombre: "Yerba nueva" } }],
+      medio: "Efectivo",
+      device_code: "caja-01",
+      seq_local: 1,
+      client_occurred_at: new Date().toISOString(),
+      offline: true,
+    };
+
+    const r1 = (await POSTPush(pushCtx(opId, 1, payload))) as Response;
+    expect(r1.status).toBe(201);
+    expect(((await r1.json()) as Record<string, unknown>)["venta"]).toBe("aplicada");
+    expect(store.productos.get("STOCK-S1-PUSH")?.nombre).toBe("Yerba nueva");
+    expect(store.productos.get("STOCK-S1-PUSH")?.precioCentavos).toBe(7000);
+    expect(store.altasAlVender.has("STOCK-S1-PUSH")).toBe(true);
+    expect(store.stock.get("STOCK-S1-PUSH")).toBe(0);
+    expect(store.ticketLineas).toHaveLength(1);
+
+    const r2 = (await POSTPush(pushCtx(opId, 1, payload))) as Response;
+    expect(r2.status).toBe(200);
+    expect(((await r2.json()) as Record<string, unknown>)["venta"]).toBe("ya_aplicada");
+    expect(store.productos.size).toBe(1);
+    expect(store.altasAlVender.size).toBe(1);
+    expect(store.ticketLineas).toHaveLength(1);
+    expect(store.idempotency.size).toBe(1);
+  });
+});
+
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const sufijoPG = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`.replace(/[^a-z0-9]/g, "").slice(0, 10);
 
@@ -244,5 +280,106 @@ describe.skipIf(!hayPG)("P10-6 multi con PG local: la venta queda aplicada y el 
     expect(despues.ventas).toHaveLength(1);
     expect(despues.prods[0]?.stockActual).toBe(8);
     expect(despues.movs).toHaveLength(1);
+  });
+});
+
+describe.skipIf(!hayPG)("STOCK-S1 multi con PG: el push offline crea products.origen alta_al_vender", () => {
+  const sku = `STOCKS1${sufijoPG}`.toUpperCase().slice(0, 32);
+  const device = `stock-s1-${sufijoPG}`.slice(0, 32);
+  const opId = crypto.randomUUID();
+  let basePriv = "";
+  let saleId = "";
+
+  function fijarMulti() {
+    process.env.TENANT_MODE = "multi";
+    process.env["TENANT_DATABASE_URL_tenant-a"] = basePriv;
+  }
+
+  function push(seq: number, payload: Record<string, unknown>) {
+    return ctx("http://localhost/api/sync/push", {
+      body: {
+        op_id: opId,
+        device_code: device,
+        device_seq: seq,
+        hlc: `${Date.now()}:${seq}`,
+        modulo: "sales",
+        payload,
+        client_occurred_at: new Date().toISOString(),
+      },
+      headers: { "Idempotency-Key": opId },
+    });
+  }
+
+  beforeAll(async () => {
+    basePriv = await asegurarBasePrivada("stock_s1_push_a", process.env.PG_TEST_URL_A ?? "");
+    fijarMulti();
+    resetStore();
+  });
+
+  afterAll(async () => {
+    if (!basePriv) return;
+    fijarMulti();
+    await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      if (saleId) {
+        await db.delete(ticketDiscounts).where(eq(ticketDiscounts.saleId, saleId));
+        await db.delete(ticketLines).where(eq(ticketLines.saleId, saleId));
+        await db.delete(ticketPayments).where(eq(ticketPayments.saleId, saleId));
+        await db.delete(tickets).where(eq(tickets.saleId, saleId));
+        await db.delete(cashMovements).where(eq(cashMovements.saleId, saleId));
+        await db.delete(sales).where(eq(sales.id, saleId));
+      }
+      await db.delete(stockMovements).where(eq(stockMovements.idemKey, opId));
+      await db.delete(outbox).where(eq(outbox.opId, opId));
+      await db.delete(idMappings).where(eq(idMappings.opId, opId));
+      await db.delete(products).where(eq(products.sku, sku));
+    });
+    delete process.env.TENANT_MODE;
+    delete process.env["TENANT_DATABASE_URL_tenant-a"];
+  });
+
+  it("el producto queda con origen alta_al_vender y el replay no duplica", async () => {
+    fijarMulti();
+    const payload = {
+      lineas: [{ product_id: sku, qty: 2, precio_centavos: 7000, alta: { nombre: "Provisorio S1" } }],
+      medio: "Efectivo",
+      device_code: device,
+      seq_local: 1,
+      client_occurred_at: new Date().toISOString(),
+      offline: true,
+    };
+
+    const r1 = (await conTenant("tenant-a", () => POSTPush(push(1, payload)))) as Response;
+    expect(r1.status).toBe(201);
+    const j1 = (await r1.json()) as Record<string, unknown>;
+    expect(j1["venta"]).toBe("aplicada");
+    saleId = String(j1["sale_id"]);
+
+    const estado = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      const prods = await db.select().from(products).where(eq(products.sku, sku));
+      const lineas = await db.select().from(ticketLines).where(eq(ticketLines.saleId, saleId));
+      return { prods, lineas };
+    });
+    expect(estado.prods).toHaveLength(1);
+    expect(estado.prods[0]?.origen).toBe("alta_al_vender");
+    expect(estado.prods[0]?.nombre).toBe("Provisorio S1");
+    expect(estado.prods[0]?.precioCentavos).toBe(7000n);
+    expect(estado.prods[0]?.stockActual).toBe(0);
+    expect(estado.lineas).toHaveLength(1);
+    expect(estado.lineas[0]?.productId).toBe(estado.prods[0]?.id);
+
+    const r2 = (await conTenant("tenant-a", () => POSTPush(push(1, payload)))) as Response;
+    expect(r2.status).toBe(200);
+    expect(((await r2.json()) as Record<string, unknown>)["venta"]).toBe("ya_aplicada");
+
+    const despues = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      const prods = await db.select().from(products).where(eq(products.sku, sku));
+      const lineas = await db.select().from(ticketLines).where(eq(ticketLines.saleId, saleId));
+      return { prods, lineas };
+    });
+    expect(despues.prods).toHaveLength(1);
+    expect(despues.lineas).toHaveLength(1);
   });
 });

@@ -94,7 +94,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
     <PwaRegistro />
     <script>
       import { sincronizarColaVenta } from "../offline/cola-venta.js";
-      import { debeDescargar, descargarCatalogo, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
+      import { agregarProvisorio, debeDescargar, descargarCatalogo, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       const $ = (id) => document.getElementById(id);
       const seqKey = "slice0-seq";
@@ -117,7 +117,8 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         $("alta-nombre-label").hidden = precioLocal(catalogo, $("sku").value) !== null;
       };
       const mostrarCatalogo = () => {
-        $("catalogo-estado").textContent = catalogo
+        // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).
+        $("catalogo-estado").textContent = catalogo && new Date(catalogo.descargadoEl).getTime() > 0
           ? "Catálogo del " + fechaCatalogo(catalogo.descargadoEl)
           : "Sin catálogo descargado";
         mostrarAlta();
@@ -211,6 +212,12 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
           const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
           q.push({ op_id, device_code, device_seq: seq, payload });
           localStorage.setItem(outboxKey, JSON.stringify(q));
+          // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
+          // desde el snapshot local en vez de volver a pedir el nombre.
+          if (linea.alta) {
+            catalogo = agregarProvisorio(localStorage, linea.product_id, linea.precio_centavos);
+            mostrarCatalogo();
+          }
           estado("offline provisorio " + device_code + "-" + seq + " encolado " + op_id);
         }
         balance();

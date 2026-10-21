@@ -137,6 +137,39 @@ export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<Re
   return { ok: true, snapshot };
 }
 
+// STOCK-S1 (ADR-0106): el alta al vender sin red suma el SKU al snapshot local
+// para que la próxima venta autocomplete precio. First-writer-wins por SKU: un
+// SKU existente no se pisa. El epoch es a propósito: el alta no es una descarga
+// y debeDescargar tiene que seguir pidiendo el pull para reconciliar.
+const EPOCH_CATALOGO = "1970-01-01T00:00:00.000Z";
+
+function snapshotVacio(): SnapshotCatalogoLocal {
+  return { version: VERSION_CATALOGO, descargadoEl: EPOCH_CATALOGO, productos: {} };
+}
+
+export function agregarProvisorio(
+  storage: StorageCatalogo,
+  sku: string,
+  precioCentavos: number,
+): SnapshotCatalogoLocal {
+  const previo = leerCatalogoLocal(storage) ?? snapshotVacio();
+  if (sku.trim() === "" || CLAVES_PELIGROSAS.has(sku)) return previo;
+  if (Object.hasOwn(previo.productos, sku)) return previo;
+  if (!esEnteroNoNegativo(precioCentavos)) return previo;
+
+  const snapshot: SnapshotCatalogoLocal = {
+    version: VERSION_CATALOGO,
+    descargadoEl: previo.descargadoEl,
+    productos: { ...previo.productos, [sku]: { stock: 0, precioCentavos } },
+  };
+  try {
+    storage.setItem(CLAVE_CATALOGO, JSON.stringify(snapshot));
+  } catch (error) {
+    console.warn("[catalogo-local] no se pudo guardar el provisorio", error);
+  }
+  return snapshot;
+}
+
 export function leerCatalogoLocal(storage: StorageCatalogo): SnapshotCatalogoLocal | null {
   try {
     const crudo = storage.getItem(CLAVE_CATALOGO);
