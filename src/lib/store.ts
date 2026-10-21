@@ -307,6 +307,7 @@ export function resetStore() {
   s.creditVistos.clear();
   s.creditMovs = [];
   s.productSectores.clear();
+  s.altasAlVender.clear();
   s.productos.clear();
   s.codigos.clear();
   s.fotosProducto.clear();
