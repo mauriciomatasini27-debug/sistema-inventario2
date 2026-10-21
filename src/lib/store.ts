@@ -111,12 +111,21 @@ export interface StoredReturn {
 // Por qué factory + Proxy: la forma del estado se define una sola vez y `store`
 // resuelve la partición del tenant actual en cada acceso (sin ciclos: solo se
 // importa tenant-mode, que no toca store ni db).
+export interface StoredOutbox {
+  payload: unknown;
+  estado: string;
+  deviceCode: string;
+  deviceSeq: number;
+  modulo: string;
+  createdAt: string;
+}
+
 function crearEstado() {
   return {
   idempotency: new Map<string, StoredTicket>(),
   movements: [] as StoredMovement[],
   stockMoves: [] as StoredStockMovement[],
-  outbox: new Map<string, unknown>(),
+  outbox: new Map<string, StoredOutbox>(),
   deviceSeq: new Map<string, number>(),
   nextTicket: 1,
   stock: new Map<string, number>([["demo-sku-1", 10]]),

@@ -173,6 +173,11 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
       </div>
 
       <div class="grid r3">
+        <a class="card" href="/panel/ventas-pendientes" data-modulo-indice="ventas-pendientes" style="text-decoration:none;color:inherit">
+          <h2>Ventas pendientes</h2>
+          <div class="mini">Revisá las ventas offline que no se pudieron aplicar.</div>
+          <div class="mini" data-ventas-pendientes-cuenta hidden></div>
+        </a>
         <StockCard />
         <PreciosCard />
         <ProveedoresCard />
@@ -185,6 +190,7 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
     </div>
     <script>
       import { renderResumen, renderResumenError } from "../lib/panel-dashboard.js";
+      import { textoVentasPendientes } from "../lib/panel-modulos.js";
       import {
         CLAVE_DESCARTES_UPSELL,
         elegirOferta,
@@ -227,6 +233,12 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
           const id = el.dataset["moduloIndice"];
           if (id) el.hidden = !ids.has(id);
         }
+        const cuenta = document.querySelector<HTMLElement>("[data-ventas-pendientes-cuenta]");
+        if (!cuenta) return;
+        const pendientes = (crudo as { ventas_pendientes?: unknown }).ventas_pendientes;
+        const texto = typeof pendientes === "number" ? textoVentasPendientes(pendientes) : "";
+        cuenta.textContent = texto;
+        cuenta.hidden = texto === "";
       }
 
       function aplicarUpsell(crudo: unknown): void {

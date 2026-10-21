@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState, offlineGrants } from "../../db/schema-sync.js";
 import {
@@ -6,9 +6,10 @@ import {
   MENSAJE_NECESITA_CONEXION,
   esOperacionSoloOnline,
 } from "../../offline/sensibles.js";
+import { postSalesSchema } from "../validation.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { aplicarVentaOutbox } from "../../modules/sync/aplicar-venta-outbox.js";
+import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
   crearAlmacenDeviceSeq,
   crearAlmacenDeviceSync,
@@ -23,6 +24,7 @@ import {
   type ContadorAlmacen,
   type LatidoSync,
   type PromocionSync,
+  type StoredOutbox,
 } from "./_almacen.js";
 
 // PERS2-S21/S22 (ADR-0061): outbox, secuencia por dispositivo, mapeos provisorio
@@ -69,15 +71,38 @@ async function contarOutbox(db: TenantDb): Promise<number> {
   return Number(filas[0]?.n ?? 0);
 }
 
+const PREFIJO_NO_APLICABLE = "no_aplicable:";
+
+function estadoDeResultado(venta: ResultadoAplicarVenta): string {
+  if (venta.resultado === "no_aplicable") return `${PREFIJO_NO_APLICABLE}${venta.motivo}`;
+  return "aplicada";
+}
+
+async function guardarResultadoOutbox(opId: string, estado: string, payload?: unknown): Promise<void> {
+  const buzon = crearAlmacenOutbox();
+  const fila = buzon.obtener(opId);
+  if (fila) buzon.guardar(opId, { ...fila, estado, ...(payload === undefined ? {} : { payload }) });
+  const db = dbVivaTenant();
+  if (!db) return;
+  try {
+    await db
+      .update(outbox)
+      .set(payload === undefined ? { estado } : { estado, payload: payload as OutboxPayload })
+      .where(eq(outbox.opId, opId));
+  } catch (e) {
+    buzon.anteFalloPersistencia(e);
+  }
+}
+
 function pushEnMemoria(
   b: PushEntrada,
-  buzon: AlmacenVivo<unknown>,
+  buzon: AlmacenVivo<StoredOutbox>,
   secuencias: AlmacenVivo<number>,
 ): RespuestaRepo {
   const prev = buzon.obtener(b.opId);
   if (prev) {
-    const same = mismoPayload(prev, b.payload);
-    if (!same) return { status: 409, cuerpo: { error: "op_id duplicado", original: prev } };
+    const same = mismoPayload(prev.payload, b.payload);
+    if (!same) return { status: 409, cuerpo: { error: "op_id duplicado", original: prev.payload } };
     return { status: 200, cuerpo: { op_id: b.opId, cursor_nuevo: String(buzon.comoMapaSoloLectura().size) } };
   }
   // deviceSeq has no table: la secuencia por dispositivo vive en memoria del repo.
@@ -85,7 +110,14 @@ function pushEnMemoria(
   if (b.deviceSeq <= lastSeq) {
     return { status: 422, cuerpo: { error: "device_seq duplicado o desordenado" } };
   }
-  buzon.guardar(b.opId, b.payload);
+  buzon.guardar(b.opId, {
+    payload: b.payload,
+    estado: "pendiente",
+    deviceCode: b.deviceCode,
+    deviceSeq: b.deviceSeq,
+    modulo: b.modulo,
+    createdAt: new Date().toISOString(),
+  });
   secuencias.guardar(b.deviceCode, b.deviceSeq);
   const idMapeado = `srv-${b.opId.slice(0, 8)}`;
   return {
@@ -112,13 +144,19 @@ async function aplicarVentaSiCorresponde(b: PushEntrada, r: RespuestaRepo): Prom
   if (b.modulo !== "sales") return r;
   if (r.status !== 200 && r.status !== 201) return r;
   try {
+    // P10-7: una venta que el Dueño descartó no se re-aplica aunque el
+    // dispositivo reenvíe la misma op (el replay 200 vuelve a pasar por acá).
+    const actual = await leerFilaOutbox(b.opId);
+    if (actual?.estado === "descartada") return { status: r.status, cuerpo: { ...r.cuerpo, venta: "descartada" } };
     const venta = await aplicarVentaOutbox({ opId: b.opId, payload: b.payload, modulo: b.modulo });
+    await guardarResultadoOutbox(b.opId, estadoDeResultado(venta));
     return {
       status: r.status,
       cuerpo: {
         ...r.cuerpo,
         venta: venta.resultado,
         ...(venta.resultado === "aplicada" ? { sale_id: venta.saleId } : {}),
+        ...(venta.resultado === "no_aplicable" ? { motivo: venta.motivo } : {}),
       },
     };
   } catch (e) {
@@ -177,7 +215,14 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
         .values({ opId: b.opId, idProvisorio: b.opId, idDefinitivo: idMapeado })
         .onConflictDoNothing({ target: idMappings.opId });
     });
-    buzon.guardar(b.opId, b.payload);
+    buzon.guardar(b.opId, {
+      payload: b.payload,
+      estado: "pendiente",
+      deviceCode: b.deviceCode,
+      deviceSeq: b.deviceSeq,
+      modulo: b.modulo,
+      createdAt: new Date().toISOString(),
+    });
     secuencias.guardar(b.deviceCode, b.deviceSeq);
     const total = await contarOutbox(db);
     return aplicarVentaSiCorresponde(b, {
@@ -235,14 +280,14 @@ function catalogoMemoria(stock: AlmacenVivo<number>, precios: AlmacenVivo<number
 function loteEnMemoria(
   start: number,
   limite: number,
-  buzon: AlmacenVivo<unknown>,
+  buzon: AlmacenVivo<StoredOutbox>,
   promociones: AlmacenVivo<PromocionSync>,
   stock: AlmacenVivo<number>,
   precios: AlmacenVivo<number>,
 ): LoteSync {
   const entries = Array.from(buzon.comoMapaSoloLectura().entries());
   const page = entries.slice(start, start + limite);
-  const movimientos = page.map(([op_id, payload]) => ({ op_id, payload }));
+  const movimientos = page.map(([op_id, fila]) => ({ op_id, payload: fila.payload }));
   return {
     movimientos,
     cursorNuevo: String(start + page.length),
@@ -293,6 +338,143 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
     buzon.anteFalloPersistencia(e);
     return loteEnMemoria(start, tope, buzon, promociones, stock, precios);
   }
+}
+
+export interface VentaNoAplicable {
+  readonly op_id: string;
+  readonly device_code: string;
+  readonly device_seq: number;
+  readonly created_at: string;
+  readonly motivo: string;
+  readonly payload: unknown;
+}
+
+function motivoDeEstado(estado: string): string {
+  return estado.slice(PREFIJO_NO_APLICABLE.length);
+}
+
+function listarNoAplicablesMemoria(): VentaNoAplicable[] {
+  const buzon = crearAlmacenOutbox();
+  const filas: VentaNoAplicable[] = [];
+  for (const [opId, fila] of buzon.comoMapaSoloLectura()) {
+    if (fila.modulo !== "sales" || !fila.estado.startsWith(PREFIJO_NO_APLICABLE)) continue;
+    filas.push({
+      op_id: opId,
+      device_code: fila.deviceCode,
+      device_seq: fila.deviceSeq,
+      created_at: fila.createdAt,
+      motivo: motivoDeEstado(fila.estado),
+      payload: fila.payload,
+    });
+  }
+  return filas.sort((a, b) =>
+    a.created_at === b.created_at ? a.op_id.localeCompare(b.op_id) : a.created_at.localeCompare(b.created_at),
+  );
+}
+
+// P10-7 (ADR-0097): las ventas que no se pudieron aplicar quedan en outbox con
+// estado `no_aplicable:<motivo>`; el Dueño las revisa desde /panel. La fila
+// nunca se borra: reintentar o descartar solo cambia su estado.
+export async function listarVentasNoAplicables(): Promise<VentaNoAplicable[]> {
+  const buzon = crearAlmacenOutbox();
+  const db = dbVivaTenant();
+  if (!db) return listarNoAplicablesMemoria();
+  try {
+    const filas = await db
+      .select({
+        opId: outbox.opId,
+        deviceCode: outbox.deviceCode,
+        deviceSeq: outbox.deviceSeq,
+        createdAt: outbox.createdAt,
+        estado: outbox.estado,
+        payload: outbox.payload,
+      })
+      .from(outbox)
+      .where(and(eq(outbox.modulo, "sales"), like(outbox.estado, `${PREFIJO_NO_APLICABLE}%`)))
+      .orderBy(outbox.createdAt, outbox.opId);
+    return filas.map((f) => ({
+      op_id: f.opId,
+      device_code: f.deviceCode,
+      device_seq: f.deviceSeq,
+      created_at: f.createdAt instanceof Date ? f.createdAt.toISOString() : String(f.createdAt),
+      motivo: motivoDeEstado(f.estado),
+      payload: f.payload,
+    }));
+  } catch (e) {
+    buzon.anteFalloPersistencia(e);
+    return listarNoAplicablesMemoria();
+  }
+}
+
+interface FilaOutboxResuelta {
+  readonly payload: unknown;
+  readonly estado: string;
+  readonly modulo: string;
+}
+
+function filaOutboxMemoria(opId: string): FilaOutboxResuelta | null {
+  const fila = crearAlmacenOutbox().obtener(opId);
+  if (!fila) return null;
+  return { payload: fila.payload, estado: fila.estado, modulo: fila.modulo };
+}
+
+async function leerFilaOutbox(opId: string): Promise<FilaOutboxResuelta | null> {
+  const buzon = crearAlmacenOutbox();
+  const db = dbVivaTenant();
+  if (!db) return filaOutboxMemoria(opId);
+  try {
+    const filas = await db
+      .select({ payload: outbox.payload, estado: outbox.estado, modulo: outbox.modulo })
+      .from(outbox)
+      .where(eq(outbox.opId, opId))
+      .limit(1);
+    const f = filas[0];
+    return f ? { payload: f.payload, estado: f.estado, modulo: f.modulo } : null;
+  } catch (e) {
+    buzon.anteFalloPersistencia(e);
+    return filaOutboxMemoria(opId);
+  }
+}
+
+async function filaPendiente(opId: string): Promise<FilaOutboxResuelta | null> {
+  const fila = await leerFilaOutbox(opId);
+  if (!fila || fila.modulo !== "sales" || !fila.estado.startsWith(PREFIJO_NO_APLICABLE)) return null;
+  return fila;
+}
+
+const NO_PENDIENTE = { status: 409, cuerpo: { error: "venta_no_pendiente" } } as const;
+
+export async function reintentarVentaNoAplicable(
+  opId: string,
+  payloadCorregido?: unknown,
+): Promise<RespuestaRepo> {
+  const fila = await filaPendiente(opId);
+  if (!fila) return NO_PENDIENTE;
+  let payload = fila.payload;
+  if (payloadCorregido !== undefined) {
+    const parsed = postSalesSchema.safeParse(payloadCorregido);
+    if (!parsed.success) return { status: 422, cuerpo: { error: "payload_invalido" } };
+    payload = parsed.data;
+  }
+  const venta = await aplicarVentaOutbox({ opId, payload, modulo: "sales" });
+  await guardarResultadoOutbox(opId, estadoDeResultado(venta), payloadCorregido === undefined ? undefined : payload);
+  return {
+    status: 200,
+    cuerpo: {
+      op_id: opId,
+      resultado: venta.resultado,
+      estado: estadoDeResultado(venta),
+      ...(venta.resultado === "aplicada" ? { sale_id: venta.saleId } : {}),
+      ...(venta.resultado === "no_aplicable" ? { motivo: venta.motivo } : {}),
+    },
+  };
+}
+
+export async function descartarVentaNoAplicable(opId: string): Promise<RespuestaRepo> {
+  const fila = await filaPendiente(opId);
+  if (!fila) return NO_PENDIENTE;
+  await guardarResultadoOutbox(opId, "descartada");
+  return { status: 200, cuerpo: { op_id: opId, estado: "descartada" } };
 }
 
 export interface PromoteEntrada {

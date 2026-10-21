@@ -22,10 +22,11 @@ const PANTALLAS = [
   "src/pages/panel/alertas/umbrales.astro",
   "src/pages/panel/bot/config.astro",
   "src/pages/panel/plan.astro",
+  "src/pages/panel/ventas-pendientes.astro",
 ] as const;
 
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|bot-modulos|plan\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
+  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";

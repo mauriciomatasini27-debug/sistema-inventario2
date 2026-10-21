@@ -121,6 +121,11 @@ describe("DASH-S12 modelo del índice", () => {
     expect(ids({})).toEqual(CORE);
   });
 
+  it("ventas pendientes solo aparece para el Dueño", () => {
+    expect(indicePanel({}, "empleado").map((m) => m.id)).not.toContain("ventas-pendientes");
+    expect(indicePanel({}, "dueno").map((m) => m.id)).toContain("ventas-pendientes");
+  });
+
   it("devuelve etiqueta y destino reales de bot y alertas", () => {
     expect(indicePanel(TODO)).toContainEqual({ id: "bot", label: "Bot", href: "/panel/bot/config" });
     expect(indicePanel(TODO)).toContainEqual({
@@ -166,13 +171,13 @@ describe("DASH-S12 GET /api/panel/indice", () => {
 
   it("sin plan activo devuelve solo el núcleo", async () => {
     comercio();
-    expect((await modulos(sesion("g-1", "t-1"))).map((m) => m.id)).toEqual(CORE);
+    expect((await modulos(sesion("g-1", "t-1"))).map((m) => m.id)).toEqual([...CORE, "ventas-pendientes"]);
   });
 
   it("plan Básico enciende bot y alertas, no el asistente", async () => {
     comercio();
     await crearProveedorCobro().crearSuscripcion({ tenantId: "t-1", planId: "basico" });
-    expect((await modulos(sesion("g-1", "t-1"))).map((m) => m.id)).toEqual([...CORE, "bot", "alertas"]);
+    expect((await modulos(sesion("g-1", "t-1"))).map((m) => m.id)).toEqual([...CORE, "ventas-pendientes", "bot", "alertas"]);
   });
 
   it("plan Plus enciende bot, alertas y asistente", async () => {
@@ -189,6 +194,7 @@ describe("DASH-S12 GET /api/panel/indice", () => {
       { id: "consumos", label: "Consumos", href: "/panel/consumos" },
       { id: "fiado", label: "Fiado", href: "/panel/fiado" },
       { id: "reportes", label: "Reportes", href: "/panel/reportes" },
+      { id: "ventas-pendientes", label: "Ventas pendientes", href: "/panel/ventas-pendientes" },
       { id: "bot", label: "Bot", href: "/panel/bot/config" },
       { id: "alertas", label: "Alertas", href: "/panel/alertas/umbrales" },
       { id: "asistente", label: "Asistente", href: "#asistente" },
