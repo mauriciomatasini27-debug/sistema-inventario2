@@ -43,4 +43,5 @@ Reglas cortas para agentes en este repo.
 
 ## Verificación formal
 
+- Verificación de UI con `/control-app`: `node scripts/control-app/control-app.mjs` levanta el entorno local, siembra el tenant, entra como Dueño o empleado, navega y deja PNG más JSON en `.agents/skills/control-app/artifacts/` (ADR-0111).
 - `/create-formal-verification-skill` para una promesa nueva donde un bug cuesta plata o datos y los tests llegan poco (concurrencia, reintentos, máquinas de estado); `/maintain-formal-verification-skill` después de merges o refactors que tocaron código verificado sin re-chequear; `/verify-venta-sync` antes de cerrar cualquier cambio en la cola offline de `/venta`, `cola-venta.ts`, `empujarOperacion` o la tabla `outbox`. El chequeo formal es `npm run verificar:formal` (Java 17+, opcional, fuera de `verify`; ver `verificacion/tla/README.md`).

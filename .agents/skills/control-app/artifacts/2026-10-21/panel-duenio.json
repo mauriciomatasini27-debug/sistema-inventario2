@@ -1,0 +1,13 @@
+{
+  "accion": "captura",
+  "url": "http://localhost:4321/panel",
+  "titulo": "Panel del comercio",
+  "h1": "Hola",
+  "estado": null,
+  "status": null,
+  "archivo": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-21/panel-duenio.png",
+  "json": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-21/panel-duenio.json",
+  "tomada_en": "2026-10-21T20:58:37.560Z",
+  "errores": 0,
+  "detalle_errores": []
+}

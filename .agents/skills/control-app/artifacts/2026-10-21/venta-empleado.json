@@ -1,0 +1,13 @@
+{
+  "accion": "captura",
+  "url": "http://localhost:4321/venta",
+  "titulo": "Venta mostrador",
+  "h1": "Venta mostrador",
+  "estado": "201 {\"sale_id\":\"3a2f8197-70f1-48c0-bf59-451953c11413\",\"ticket_definitivo\":\"T-000001\",\"ticket_provisorio\":\"caja-01-1\",\"total_centavos\":\"850000\",\"sobreventa\":false,\"leyenda\":\"DOCUMENTO NO VÁLIDO COMO FACTURA\",\"fiscal_estado\":\"pendiente\",\"fuente\":\"memoria\",\"pagos\":[{\"medio\":\"Efectivo\",\"monto_centavos\":\"850000\",\"cash_movement_id\":\"3d156d36-a79e-459e-a77b-ddfd3dfd5ee4\"}]}",
+  "status": null,
+  "archivo": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-21/venta-empleado.png",
+  "json": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-21/venta-empleado.json",
+  "tomada_en": "2026-10-21T20:58:53.205Z",
+  "errores": 0,
+  "detalle_errores": []
+}
