@@ -125,7 +125,8 @@ export const POST: APIRoute = async ({ request }) => {
   // Sin ASSISTANT_LLM_KEY el proveedor es el fake, que devuelve el prompt
   // crudo: en producción eso no se le muestra a nadie.
   const proveedor = crear_proveedor_llm_desde_env();
-  if (proveedor instanceof ProveedorLLMFake) {
+  const controlAppDev = process.env.CONTROL_APP_DEV === "1" && process.env.NODE_ENV !== "production";
+  if (proveedor instanceof ProveedorLLMFake && !controlAppDev) {
     return Response.json(
       { error: "El asistente IA todavía no está configurado.", codigo: "asistente_no_configurado" },
       { status: 503 },

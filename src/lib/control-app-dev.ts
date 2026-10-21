@@ -1,0 +1,187 @@
+import { randomUUID } from "node:crypto";
+import { control, resetStore, store } from "./store.js";
+import { cookieSesion, crearSesion } from "../modules/auth/sesiones.js";
+import { crearProveedorCobro } from "./repos/planes.js";
+import { altaProducto } from "./repos/catalogo.js";
+import { aplicarMovimiento } from "./repos/stock.js";
+
+export const TENANT_CONTROL_APP = "control-app";
+const SUBS = {
+  duenio: "control-app-duenio",
+  empleado: "control-app-empleado",
+} as const;
+const DEVICE = "CONTROL-APP-01";
+
+const PRODUCTOS = [
+  { sku: "CAFE-001", nombre: "Café molido 500 g", precioCentavos: 850_000, stock: 12, minStock: 4, sector: "almacen" },
+  { sku: "YERBA-002", nombre: "Yerba mate 1 kg", precioCentavos: 420_000, stock: 3, minStock: 5, sector: "almacen" },
+  { sku: "GASEOSA-003", nombre: "Gaseosa 2,25 L", precioCentavos: 310_000, stock: 0, minStock: 2, sector: "bebidas" },
+] as const;
+
+export function controlAppDevHabilitado(): boolean {
+  return process.env.CONTROL_APP_DEV === "1" && process.env.NODE_ENV !== "production";
+}
+
+function ahora(): string {
+  return new Date().toISOString();
+}
+
+function sembrar(): Response {
+  resetStore();
+  const creadoEn = ahora();
+  control.tenants.set(TENANT_CONTROL_APP, {
+    id: TENANT_CONTROL_APP,
+    nombreComercio: "Almacén Control App",
+    slug: "almacen-control-app",
+    estado: "activo",
+    plan: "plus",
+    moneda: "ARS",
+    ownerGoogleSub: SUBS.duenio,
+    esDemo: true,
+    rubro: "almacen",
+  });
+  control.users.set(SUBS.duenio, {
+    googleSub: SUBS.duenio,
+    email: "duenio@control-app.local",
+    emailVerificado: true,
+    nombre: "Mora Dueña",
+    ultimoLoginAt: creadoEn,
+  });
+  control.users.set(SUBS.empleado, {
+    googleSub: SUBS.empleado,
+    email: "empleado@control-app.local",
+    emailVerificado: true,
+    nombre: "Tomi Empleado",
+    ultimoLoginAt: creadoEn,
+  });
+  control.memberships.set("control-app-m-duenio", {
+    id: "control-app-m-duenio",
+    tenantId: TENANT_CONTROL_APP,
+    googleSub: SUBS.duenio,
+    rol: "dueno",
+    permisos: [],
+    estado: "activo",
+  });
+  control.memberships.set("control-app-m-empleado", {
+    id: "control-app-m-empleado",
+    tenantId: TENANT_CONTROL_APP,
+    googleSub: SUBS.empleado,
+    rol: "empleado",
+    permisos: ["registrar_devoluciones"],
+    estado: "activo",
+  });
+  control.devices.set(DEVICE, {
+    deviceCode: DEVICE,
+    tenantId: TENANT_CONTROL_APP,
+    registradoPor: SUBS.duenio,
+    registradoEn: creadoEn,
+  });
+  control.offlineGrants.set("control-app-grant", {
+    grantId: "control-app-grant",
+    tokenHash: "control-app-token-hash",
+    tenantId: TENANT_CONTROL_APP,
+    googleSub: SUBS.duenio,
+    deviceCode: DEVICE,
+    alcance: "venta",
+    expiraEn: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+  });
+
+  const mostrador = randomUUID();
+  const deposito = randomUUID();
+  store.ubicaciones.set(mostrador, { id: mostrador, nombre: "Mostrador", archivada: false });
+  store.ubicaciones.set(deposito, { id: deposito, nombre: "Depósito", archivada: false });
+
+  return Response.json({
+    ok: true,
+    accion: "seed",
+    tenant: { id: TENANT_CONTROL_APP, nombre: "Almacén Control App", estado: "activo" },
+    usuarios: {
+      duenio: { email: "duenio@control-app.local", nombre: "Mora Dueña" },
+      empleado: { email: "empleado@control-app.local", nombre: "Tomi Empleado" },
+    },
+    ubicaciones: [
+      { id: mostrador, nombre: "Mostrador" },
+      { id: deposito, nombre: "Depósito" },
+    ],
+    productos: PRODUCTOS.map((p) => ({ sku: p.sku, nombre: p.nombre, stock: p.stock, min_stock: p.minStock })),
+    device_code: DEVICE,
+    siguiente: "control-app login --rol duenio",
+  });
+}
+
+export async function sembrarControlApp(): Promise<Response> {
+  const r = sembrar();
+  if (!r.ok) return r;
+  for (const p of PRODUCTOS) {
+    const alta = await altaProducto({
+      sku: p.sku,
+      nombre: p.nombre,
+      precioCentavos: p.precioCentavos,
+      sector: p.sector,
+      controlaVencimiento: false,
+      estado: "activo",
+      minStock: p.minStock,
+      reorderQty: Math.max(1, p.minStock),
+    });
+    if (!alta.ok) return Response.json({ error: `No pude sembrar ${p.sku}: ${alta.error}` }, { status: 500 });
+    await aplicarMovimiento({
+      idemKey: `control-app:alta:${p.sku}`,
+      sku: p.sku,
+      loteId: null,
+      delta: p.stock,
+      tipo: "ALTA",
+      motivo: "seed control-app",
+    });
+  }
+  await crearProveedorCobro().crearSuscripcion({ tenantId: TENANT_CONTROL_APP, planId: "plus" });
+  const cuerpo = (await r.json()) as Record<string, unknown>;
+  return Response.json({ ...cuerpo, plan: "plus" });
+}
+
+export function iniciarSesionControlApp(rol: "duenio" | "empleado"): Response {
+  if (!control.tenants.has(TENANT_CONTROL_APP)) {
+    return Response.json(
+      {
+        error: "No hay tenant sembrado.",
+        hint: "Corré `control-app seed` antes de `control-app login`.",
+      },
+      { status: 409 },
+    );
+  }
+  const googleSub = SUBS[rol];
+  const membership = control.memberships.get(rol === "duenio" ? "control-app-m-duenio" : "control-app-m-empleado");
+  if (!membership || membership.estado !== "activo") {
+    return Response.json(
+      {
+        error: `No hay membership activa para ${rol}.`,
+        hint: "Corré `control-app seed` para recrear el tenant de prueba.",
+      },
+      { status: 409 },
+    );
+  }
+  const creada = crearSesion({ googleSub, tenantId: TENANT_CONTROL_APP });
+  const creadoEn = ahora();
+  control.sessions.set(creada.registro.idHash, {
+    idHash: creada.registro.idHash,
+    googleSub,
+    tenantId: TENANT_CONTROL_APP,
+    expiraAt: creada.registro.expiraAt,
+    expiraAbsoluta: creada.registro.expiraAbsoluta,
+    lastSeenAt: creadoEn,
+    reauthAt: creadoEn,
+    agente: "control-app",
+  });
+  const cookie = cookieSesion(creada.idPlano, creada.registro.expiraAt);
+  return Response.json(
+    {
+      ok: true,
+      accion: "login",
+      rol,
+      tenant_id: TENANT_CONTROL_APP,
+      nombre: control.users.get(googleSub)?.nombre ?? rol,
+      cookie,
+      siguiente: rol === "duenio" ? "control-app ir /panel" : "control-app ir /venta",
+    },
+    { status: 200, headers: { "Set-Cookie": cookie } },
+  );
+}

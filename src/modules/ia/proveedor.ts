@@ -95,6 +95,7 @@ export function crear_proveedor_llm_desde_env(
   opts: { env?: NodeJS.ProcessEnv; fetch?: typeof fetch } = {},
 ): ProveedorLLM {
   const env = opts.env ?? process.env;
+  if (env.CONTROL_APP_DEV === "1") return new ProveedorLLMFake();
   const clave = leerVarEntorno(CLAVE_LLM_ASISTENTE, env);
   if (!clave) return new ProveedorLLMFake();
   return new ProveedorLLMOpenAICompat({
