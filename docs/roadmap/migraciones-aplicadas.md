@@ -46,3 +46,5 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 <!-- 2026-10-21 (ART): 0033 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0033-schema-20261021-0144.json -->
 - 0034_tenant_product_seeds
 <!-- 2026-10-21 (ART): 0034 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0034-schema-20261021-0153.json -->
+- 0036_stock_inicial_unico
+<!-- 2026-10-21 (ART): 0036 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0036-schema-20261021-0227.json -->
