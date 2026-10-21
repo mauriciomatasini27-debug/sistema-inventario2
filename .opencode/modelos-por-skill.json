@@ -1,0 +1,103 @@
+{
+  "$comentario": "Modelo free por skill/agente (ADR-0109, PRD-OPENCODE-01). Cada perfil es una lista en orden de preferencia; .opencode/modelos.mjs toma el primero disponible y avisa si cae. Benchmark 2026-10-20 en docs/diseno/PRD-OPENCODE-01-modelos-por-skill.md.",
+  "ttlMinutos": 10,
+  "perfilPorDefecto": "razon",
+  "privacidad": {
+    "$comentario": "opencode.ai/docs/zen (2026-10-20). Mandan código del repo: el primero de cada perfil debe ser sinRetencion; entrenan/retienen solo como último respaldo.",
+    "sinRetencion": [
+      "opencode/glm-5.3-flash-free",
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/minimax-m3.1-flash-free",
+      "opencode/longcat-2.5-preview-free"
+    ],
+    "retiene30dSinEntrenar": [
+      "opencode/beam-free"
+    ],
+    "puedeEntrenar": [
+      "opencode/big-pickle",
+      "opencode/mimo-v2.6-flash-free",
+      "opencode/mimo-v2.5-free",
+      "opencode/ll-alpha-free",
+      "opencode/exo-free",
+      "opencode/nemotron-3-ultra-free",
+      "opencode/nemotron-3.5-lightning-free",
+      "opencode/nemotron-3.5-super-vl-free"
+    ]
+  },
+  "perfiles": {
+    "codigo": [
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/glm-5.3-flash-free",
+      "opencode/longcat-2.5-preview-free",
+      "opencode/minimax-m3.1-flash-free",
+      "opencode/mimo-v2.6-flash-free",
+      "opencode/big-pickle"
+    ],
+    "razon": [
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/glm-5.3-flash-free",
+      "opencode/longcat-2.5-preview-free",
+      "opencode/minimax-m3.1-flash-free",
+      "opencode/big-pickle"
+    ],
+    "juez": [
+      "opencode/glm-5.3-flash-free",
+      "opencode/longcat-2.5-preview-free",
+      "opencode/minimax-m3.1-flash-free",
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/mimo-v2.6-flash-free",
+      "opencode/big-pickle"
+    ],
+    "prosa": [
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/glm-5.3-flash-free",
+      "opencode/longcat-2.5-preview-free",
+      "opencode/minimax-m3.1-flash-free"
+    ],
+    "rapido": [
+      "opencode/deepseek-v4.1-flash-free",
+      "opencode/glm-5.3-flash-free",
+      "opencode/beam-free",
+      "opencode/mimo-v2.6-flash-free"
+    ],
+    "largo": [
+      "opencode/minimax-m3.1-flash-free",
+      "opencode/beam-free",
+      "opencode/deepseek-v4.1-flash-free"
+    ]
+  },
+  "agentes": {
+    "poteto-agent": "razon",
+    "pstack-worker": "codigo",
+    "pstack-judge": "juez",
+    "comment-sicko": "rapido"
+  },
+  "skills": {
+    "poteto-mode": "razon",
+    "architect": "razon",
+    "reflect": "razon",
+    "why": "razon",
+    "how": "razon",
+    "blast-radius": "razon",
+    "figure-it-out": "razon",
+    "arena": "razon",
+    "interrogate": "juez",
+    "interface-review": "juez",
+    "swarm": "codigo",
+    "prototype": "codigo",
+    "tdd": "codigo",
+    "correct": "codigo",
+    "verify-inventario": "codigo",
+    "verify-plan-cambio": "codigo",
+    "verify-venta-sync": "codigo",
+    "technical-writing": "prosa",
+    "unslop": "prosa",
+    "writing-guidelines": "prosa",
+    "better-writing": "prosa",
+    "show-me-your-work": "prosa",
+    "no-comments": "rapido",
+    "setup-pstack": "rapido",
+    "recall": "largo",
+    "automate-me": "largo"
+  }
+}

@@ -38,7 +38,8 @@ Reglas cortas para agentes en este repo.
 
 ## OpenCode (modelos)
 
-- Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/glm-5.3-flash-free` (cross-family; `space-bunny-free` salió de Zen el 2026-10-20). Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
+- Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/glm-5.3-flash-free` (cross-family), los primarios son modelos sin retención de datos (Zen); los que pueden entrenar solo quedan de último respaldo. Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
+- Modelo por skill (ADR-0109): `.opencode/modelos-por-skill.json` + `node .opencode/modelos.mjs elegir <skill>`. Si el asignado no está, cae al siguiente free, avisa por stderr y anota en `.opencode/modelos-caidos.log`; `pstack-run.sh` lo usa solo. Si cambiás un agente en `opencode.json`, cambiá su perfil en el JSON (lo chequea `tests/opencode-modelos.test.ts`).
 
 ## Verificación formal
 

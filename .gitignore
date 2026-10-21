@@ -12,3 +12,4 @@ playwright-report/
 .verify-receipt.json
 vitest-report.json
 .pstack-tmp/
+.opencode/modelos-caidos.log
