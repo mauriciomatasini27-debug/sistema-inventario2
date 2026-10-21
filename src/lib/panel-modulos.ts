@@ -9,7 +9,7 @@ export type ModuloPanel =
   | "fiado"
   | "reportes";
 
-export type DestinoPanel = "dashboard" | "ventas" | ModuloPanel;
+export type DestinoPanel = "dashboard" | "ventas" | ModuloPanel | "ventas-pendientes";
 
 export type ModuloIndice = DestinoPanel | "bot" | "alertas" | "asistente";
 
@@ -27,6 +27,7 @@ export interface EntradaIndice {
   readonly ember: Ember | null;
   readonly enPills: boolean;
   readonly requisito: RequisitoIndice;
+  readonly soloDueno?: boolean;
 }
 
 export interface ModuloVisible {
@@ -111,6 +112,15 @@ export const MODULOS_INDICE: ReadonlyArray<EntradaIndice> = Object.freeze([
   { id: "fiado", label: "Fiado", href: hrefModulo("fiado"), ember: emberModulo("fiado"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "reportes", label: "Reportes", href: hrefModulo("reportes"), ember: emberModulo("reportes"), enPills: true, requisito: { tipo: "siempre" } },
   {
+    id: "ventas-pendientes",
+    label: "Ventas pendientes",
+    href: "/panel/ventas-pendientes",
+    ember: "rojo",
+    enPills: false,
+    requisito: { tipo: "siempre" },
+    soloDueno: true,
+  },
+  {
     id: "bot",
     label: "Bot",
     href: "/panel/bot/config",
@@ -148,8 +158,13 @@ export function cumpleRequisito(requisito: RequisitoIndice, features: FeaturesPl
   return requisito.features.some((f) => features[f] === true);
 }
 
-export function indicePanel(features: FeaturesPlan = {}): ModuloVisible[] {
-  return MODULOS_INDICE.filter((m) => cumpleRequisito(m.requisito, features)).map(({ id, label, href }) => ({
+export function indicePanel(
+  features: FeaturesPlan = {},
+  rol?: "dueno" | "empleado",
+): ModuloVisible[] {
+  return MODULOS_INDICE.filter(
+    (m) => cumpleRequisito(m.requisito, features) && (!m.soloDueno || rol === "dueno"),
+  ).map(({ id, label, href }) => ({
     id,
     label,
     href,
@@ -183,6 +198,13 @@ export function formatearCentavos(centavos: number | bigint | string): string {
   const valor = Number.isFinite(numero) ? numero : 0;
   const signo = valor < 0 ? "-" : "";
   return `${signo}$${(Math.abs(valor) / 100).toFixed(2)}`;
+}
+
+export function textoVentasPendientes(n: number): string {
+  if (!Number.isInteger(n) || n < 0) return "";
+  if (n === 0) return "Sin ventas pendientes";
+  if (n === 1) return "1 venta pendiente de revisar";
+  return `${n} ventas pendientes de revisar`;
 }
 
 export function montoParaInput(centavos: number | bigint | string | null): string {

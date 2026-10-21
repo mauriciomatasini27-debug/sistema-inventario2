@@ -185,7 +185,7 @@ describe("PLAN-S8 GET /api/panel/indice suma upsell y rol", () => {
     comercio();
     await crearProveedorCobro().crearSuscripcion({ tenantId: "t-1", planId: "basico" });
     const body = await indice(sesion("g-1", "t-1"));
-    expect(body.modulos.map((m) => m.id)).toEqual([...CORE, "bot", "alertas"]);
+    expect(body.modulos.map((m) => m.id)).toEqual([...CORE, "ventas-pendientes", "bot", "alertas"]);
     expect(body.upsell).toEqual([ASISTENTE_EN_PLUS]);
     expect(body.rol).toBe("dueno");
   });
@@ -194,6 +194,7 @@ describe("PLAN-S8 GET /api/panel/indice suma upsell y rol", () => {
     comercio();
     await crearProveedorCobro().crearSuscripcion({ tenantId: "t-1", planId: "plus" });
     const body = await indice(sesion("g-3", "t-1"));
+    expect(body.modulos.map((m) => m.id)).not.toContain("ventas-pendientes");
     expect(body.modulos.map((m) => m.id)).toContain("asistente");
     expect(body.upsell).toEqual([]);
     expect(body.rol).toBe("empleado");
@@ -202,7 +203,7 @@ describe("PLAN-S8 GET /api/panel/indice suma upsell y rol", () => {
   it("sin suscripción activa no ofrece nada: no hay plan contra el cual comparar", async () => {
     comercio();
     const body = await indice(sesion("g-1", "t-1"));
-    expect(body.modulos.map((m) => m.id)).toEqual(CORE);
+    expect(body.modulos.map((m) => m.id)).toEqual([...CORE, "ventas-pendientes"]);
     expect(body.upsell).toEqual([]);
   });
 });

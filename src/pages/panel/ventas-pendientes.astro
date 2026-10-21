@@ -1,0 +1,185 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+---
+<PanelShell
+  titulo="Ventas pendientes"
+  subtitulo="Ventas offline que no se pudieron aplicar. Corregí el JSON o descartalas."
+  activo="ventas-pendientes"
+>
+  <section class="card">
+    <h2>Pendientes de revisar</h2>
+    <div id="lista-ventas"></div>
+    <div class="estado" id="estado-ventas" role="status">Cargando…</div>
+  </section>
+</PanelShell>
+
+<style>
+  .venta-pendiente { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--tema-linea); }
+  .venta-pendiente:last-child { border-bottom: 0; }
+  .venta-pendiente .resumen { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; font-size: 13px; }
+  .venta-pendiente .motivo { font-weight: 600; }
+  .venta-pendiente textarea { box-sizing: border-box; width: 100%; min-height: 120px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-family: monospace; font-size: 13px; }
+  .venta-pendiente .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+
+<script>
+  import { confirmar } from "../../lib/confirmar-dom.js";
+  import { formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+
+  interface VentaPendiente {
+    op_id: string;
+    device_code: string;
+    device_seq: number;
+    created_at: string;
+    motivo: string;
+    payload: Record<string, unknown>;
+  }
+
+  const MOTIVOS: Record<string, string> = {
+    payload_invalido: "El formulario de la venta llegó incompleto o inválido.",
+    SIN_STOCK: "No alcanza el stock para uno de los productos.",
+    LINEA_INVALIDA: "Una línea de la venta no es válida.",
+    DESCUENTO_INVALIDO: "El descuento de la venta no es válido.",
+    PAGOS_NO_SUMAN: "La suma de los pagos no coincide con el total.",
+    FISCAL_RECHAZO: "La venta no pasó la validación fiscal.",
+  };
+
+  const $ = (id: string) => document.getElementById(id);
+
+  function textoMotivo(motivo: string): string {
+    return MOTIVOS[motivo] ?? "La venta no se pudo aplicar (" + motivo + ").";
+  }
+
+  function fechaLegible(iso: string): string {
+    const fecha = new Date(iso);
+    if (Number.isNaN(fecha.getTime())) return iso;
+    return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(fecha);
+  }
+
+  function totalCentavos(payload: Record<string, unknown>): number {
+    const lineas = payload["lineas"];
+    if (!Array.isArray(lineas)) return 0;
+    return lineas.reduce((total, linea) => {
+      if (typeof linea !== "object" || linea === null) return total;
+      const l = linea as { qty?: unknown; precio_centavos?: unknown };
+      const qty = typeof l.qty === "number" ? l.qty : 0;
+      const precio = typeof l.precio_centavos === "number" ? l.precio_centavos : 0;
+      return total + qty * precio;
+    }, 0);
+  }
+
+  function boton(texto: string, alHacer: () => void): HTMLButtonElement {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = texto;
+    b.addEventListener("click", alHacer);
+    return b;
+  }
+
+  async function enviar(venta: VentaPendiente, accion: "reintentar" | "descartar", payload?: unknown) {
+    const estado = $("estado-ventas");
+    if (estado) estado.textContent = accion === "reintentar" ? "Reintentando…" : "Descartando…";
+    try {
+      const r = await fetch("/api/sync/no-aplicables", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op_id: venta.op_id, accion, ...(payload === undefined ? {} : { payload }) }),
+      });
+      let cuerpo: Record<string, unknown> = {};
+      try {
+        cuerpo = (await r.json()) as Record<string, unknown>;
+      } catch (error) {
+        console.warn("[panel/ventas-pendientes] respuesta sin JSON", r.status, error);
+      }
+      if (!r.ok) {
+        if (estado) estado.textContent = "No se pudo: " + textoError(cuerpo["error"], r.status) + ".";
+        return;
+      }
+      await cargar();
+    } catch (error) {
+      console.warn("[panel/ventas-pendientes] acción", error);
+      if (estado) estado.textContent = "No hay conexión con el servidor.";
+    }
+  }
+
+  async function reintentar(venta: VentaPendiente, area: HTMLTextAreaElement) {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(area.value);
+    } catch {
+      const estado = $("estado-ventas");
+      if (estado) estado.textContent = "El JSON no es válido. Corregilo antes de reintentar.";
+      return;
+    }
+    await enviar(venta, "reintentar", payload);
+  }
+
+  async function descartar(venta: VentaPendiente) {
+    const confirmado = await confirmar({
+      titulo: "Descartar venta",
+      mensaje: "La venta queda guardada en la outbox, pero deja de aparecer en pendientes.",
+      accion: "Descartar",
+    });
+    if (!confirmado) return;
+    await enviar(venta, "descartar");
+  }
+
+  function render(items: VentaPendiente[]) {
+    const contenedor = $("lista-ventas");
+    const estado = $("estado-ventas");
+    if (!contenedor || !estado) return;
+    contenedor.textContent = "";
+    if (items.length === 0) {
+      estado.textContent = "No hay ventas pendientes de revisar";
+      return;
+    }
+    estado.textContent = "";
+    for (const venta of items) {
+      const articulo = document.createElement("article");
+      articulo.className = "venta-pendiente";
+
+      const resumen = document.createElement("div");
+      resumen.className = "resumen";
+      const fecha = document.createElement("span");
+      fecha.textContent = fechaLegible(venta.created_at);
+      const caja = document.createElement("span");
+      caja.textContent = "Caja " + venta.device_code + "-" + venta.device_seq;
+      const total = document.createElement("span");
+      total.textContent = formatearCentavos(totalCentavos(venta.payload));
+      resumen.append(fecha, caja, total);
+
+      const motivo = document.createElement("p");
+      motivo.className = "motivo";
+      motivo.textContent = textoMotivo(venta.motivo);
+
+      const area = document.createElement("textarea");
+      area.value = JSON.stringify(venta.payload, null, 2);
+      area.setAttribute("aria-label", "JSON de la venta " + venta.op_id);
+
+      const acciones = document.createElement("div");
+      acciones.className = "acciones";
+      acciones.append(
+        boton("Reintentar", () => void reintentar(venta, area)),
+        boton("Descartar", () => void descartar(venta)),
+      );
+
+      articulo.append(resumen, motivo, area, acciones);
+      contenedor.appendChild(articulo);
+    }
+  }
+
+  async function cargar() {
+    const estado = $("estado-ventas");
+    try {
+      const r = await fetch("/api/sync/no-aplicables");
+      if (!r.ok) throw new Error("http " + r.status);
+      const cuerpo = (await r.json()) as { items?: VentaPendiente[] };
+      render(cuerpo.items ?? []);
+    } catch (error) {
+      console.warn("[panel/ventas-pendientes] listar", error);
+      if (estado) estado.textContent = "No hay conexión con el servidor.";
+    }
+  }
+
+  cargar();
+</script>

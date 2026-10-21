@@ -82,7 +82,7 @@ describe("P10-6 single sin DB: aplicarVentaOutbox", () => {
 
   it("payload inválido devuelve no_aplicable y no escribe nada", async () => {
     const r = await aplicarVentaOutbox({ opId: crypto.randomUUID(), payload: { lineas: [] } });
-    expect(r).toEqual({ resultado: "no_aplicable" });
+    expect(r).toEqual({ resultado: "no_aplicable", motivo: "payload_invalido" });
     expect(store.idempotency.size).toBe(0);
     expect(store.ticketLineas).toHaveLength(0);
     expect(store.stock.get("demo-sku-1")).toBe(10);

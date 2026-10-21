@@ -1,10 +1,18 @@
 import { postSalesSchema } from "../../lib/validation.js";
 import { registrar_venta } from "../sales/registro_venta.js";
 
+export type MotivoNoAplicable =
+  | "payload_invalido"
+  | "SIN_STOCK"
+  | "LINEA_INVALIDA"
+  | "DESCUENTO_INVALIDO"
+  | "PAGOS_NO_SUMAN"
+  | "FISCAL_RECHAZO";
+
 export type ResultadoAplicarVenta =
   | { readonly resultado: "aplicada"; readonly saleId: string }
   | { readonly resultado: "ya_aplicada" }
-  | { readonly resultado: "no_aplicable" };
+  | { readonly resultado: "no_aplicable"; readonly motivo: MotivoNoAplicable };
 
 // P10-6 (ADR-0097 VF-S2): una op "sales" del outbox se aplica con el
 // mismo repo que /api/sales. offline: true siempre: el definitivo T-* lo
@@ -15,9 +23,11 @@ export async function aplicarVentaOutbox(e: {
   readonly payload: unknown;
   readonly modulo?: string;
 }): Promise<ResultadoAplicarVenta> {
-  if (e.modulo !== undefined && e.modulo !== "sales") return { resultado: "no_aplicable" };
+  if (e.modulo !== undefined && e.modulo !== "sales") {
+    return { resultado: "no_aplicable", motivo: "payload_invalido" };
+  }
   const parsed = postSalesSchema.safeParse(e.payload);
-  if (!parsed.success) return { resultado: "no_aplicable" };
+  if (!parsed.success) return { resultado: "no_aplicable", motivo: "payload_invalido" };
   const b = parsed.data;
   const reg = await registrar_venta({
     key: e.opId,
@@ -31,7 +41,7 @@ export async function aplicarVentaOutbox(e: {
   });
   if (!reg.ok) {
     if (reg.codigo === "YA_VISTA" || reg.codigo === "YA_VISTA_DB") return { resultado: "ya_aplicada" };
-    return { resultado: "no_aplicable" };
+    return { resultado: "no_aplicable", motivo: reg.codigo };
   }
   return { resultado: "aplicada", saleId: reg.venta.saleId };
 }

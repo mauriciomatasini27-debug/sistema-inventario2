@@ -7,6 +7,7 @@ import {
   hrefModulo,
   montoParaInput,
   pillsPanel,
+  textoVentasPendientes,
   tienePantalla,
 } from "../src/lib/panel-modulos.js";
 
@@ -91,6 +92,22 @@ describe("panel-modulos: formato y estado de widgets", () => {
     expect(derivarEstado({ cargando: false, error: true, items: 0 })).toBe("error");
     expect(derivarEstado({ cargando: false, error: false, items: 0 })).toBe("vacio");
     expect(derivarEstado({ cargando: false, error: false, items: 3 })).toBe("listo");
+  });
+});
+
+describe("textoVentasPendientes", () => {
+  it("singular, plural y cero", () => {
+    expect(textoVentasPendientes(0)).toBe("Sin ventas pendientes");
+    expect(textoVentasPendientes(1)).toBe("1 venta pendiente de revisar");
+    expect(textoVentasPendientes(2)).toBe("2 ventas pendientes de revisar");
+    expect(textoVentasPendientes(37)).toBe("37 ventas pendientes de revisar");
+  });
+
+  it("no inventa texto para valores inválidos", () => {
+    expect(textoVentasPendientes(-1)).toBe("");
+    expect(textoVentasPendientes(1.5)).toBe("");
+    expect(textoVentasPendientes(Number.NaN)).toBe("");
+    expect(textoVentasPendientes(Number.POSITIVE_INFINITY)).toBe("");
   });
 });
 

@@ -5,6 +5,7 @@ import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { leerCatalogo, planIncluye } from "../../../lib/repos/planes.js";
 import { featuresDelIndice, indicePanel, type FeaturesPlan } from "../../../lib/panel-modulos.js";
 import { ofertasUpsell } from "../../../lib/panel-upsell.js";
+import { listarVentasNoAplicables } from "../../../lib/repos/sync.js";
 
 export const prerender = false;
 
@@ -38,11 +39,19 @@ export const GET: APIRoute = async ({ request }) => {
     // PLAN-S8: sin suscripción activa no hay plan contra el cual comparar;
     // ofrecer "Bot en Básico" sería un dato falso, así que no hay upsell.
     const upsell = conPlan ? ofertasUpsell(features, await leerCatalogo()) : [];
-    return Response.json({
-      modulos: indicePanel(features),
+    const cuerpo: Record<string, unknown> = {
+      modulos: indicePanel(features, m.rol),
       upsell,
       rol: m.rol,
-    });
+    };
+    if (m.rol === "dueno") {
+      try {
+        cuerpo["ventas_pendientes"] = (await listarVentasNoAplicables()).length;
+      } catch (error) {
+        console.warn("[panel] no pudimos contar las ventas pendientes", error);
+      }
+    }
+    return Response.json(cuerpo);
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;

@@ -1,6 +1,6 @@
 import { esModoMulti } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { control, importacionesEnMemoria, store, type StoredFiscalDoc, type StoredMovement, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { control, importacionesEnMemoria, store, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -19,6 +19,7 @@ import type { OcrJob } from "../../modules/ocr/jobs.js";
 import type { EventoResumen, OutboxPendiente } from "../../modules/email/resumen-cierre.js";
 
 export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
+export type { StoredOutbox };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
 // factoría de abajo. Quien llama usa el puerto y nunca vuelve a preguntar el
@@ -271,7 +272,7 @@ export function crearContadorOrdenesPago(): ContadorAlmacen {
 // fallo de DB se propaga como BaseNoDisponible; en single la llamada sigue
 // hacia memoria. Precios y stock son mapas compartidos que otros repos
 // reutilizan en cortes siguientes; el contador no toca DB y no tiene fallo.
-export function crearAlmacenOutbox(): AlmacenVivo<unknown> {
+export function crearAlmacenOutbox(): AlmacenVivo<StoredOutbox> {
   return crearAlmacenVivo(store.outbox);
 }
 
