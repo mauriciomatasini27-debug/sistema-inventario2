@@ -1,10 +1,15 @@
-import { and, asc, count, desc, eq, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, notExists, sql, TransactionRollbackError } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
-import { crearAlmacenProductos, crearListaMovimientosStock } from "./_almacen.js";
+import {
+  crearAlmacenProductos,
+  crearAlmacenStock,
+  crearListaMovimientosStock,
+  type StoredStockMovement,
+} from "./_almacen.js";
 import { subconsultaVentas30d, ventasPorProductoMemoria } from "./_ventas-30d.js";
-import { aplicarMovimiento } from "./stock.js";
+import { aplicarEnMemoria, aplicarMovimiento } from "./stock.js";
 
 // STOCK-S4 (ADR-0106): carga progresiva del stock inicial de los productos
 // creados al vender. Pendiente = origen "alta_al_vender" sin movimiento ALTA.
@@ -132,13 +137,33 @@ export async function cargarStockInicial(
     crearListaMovimientosStock().anteFalloPersistencia(e);
     return cargarStockInicialMemoria(sku, cantidad);
   }
-  await aplicarMovimiento({
+  const registro: StoredStockMovement = {
     idemKey: `stock-inicial:${sku}`,
     sku,
     loteId: null,
     delta: cantidad,
     tipo: "ALTA",
     motivo: "stock inicial",
-  });
+  };
+  try {
+    await db.transaction(async (tx) => {
+      const fila = await tx
+        .insert(stockMovements)
+        .values(registro)
+        .onConflictDoNothing()
+        .returning({ id: stockMovements.id });
+      // Sin fila, otro "Guardar" ganó el índice parcial: nada que sumar.
+      if (!fila[0]) tx.rollback();
+      await tx
+        .update(products)
+        .set({ stockActual: sql`${products.stockActual} + ${cantidad}` })
+        .where(eq(products.sku, sku));
+    });
+  } catch (e) {
+    if (e instanceof TransactionRollbackError) return { ok: false, codigo: "NO_PENDIENTE" };
+    crearListaMovimientosStock().anteFalloPersistencia(e);
+    throw e;
+  }
+  aplicarEnMemoria(registro, crearAlmacenStock(), crearListaMovimientosStock());
   return { ok: true };
 }
