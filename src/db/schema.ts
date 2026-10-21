@@ -290,6 +290,9 @@ export const stockLots = pgTable("stock_lots", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// PRD-STOCK-01 STOCK-S4 (ADR-0106): el índice parcial único
+// stock_movements_stock_inicial_unico (migración 0036) cubre las keys
+// 'stock-inicial:%'; drizzle-kit no declara índices parciales acá.
 export const stockMovements = pgTable("stock_movements", {
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull(),

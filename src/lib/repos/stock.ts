@@ -149,7 +149,7 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
   }
 }
 
-function aplicarEnMemoria(
+export function aplicarEnMemoria(
   m: StoredStockMovement,
   existencias: AlmacenVivo<number>,
   movimientos: ListaAlmacen<StoredStockMovement>,

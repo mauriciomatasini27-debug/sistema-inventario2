@@ -253,6 +253,13 @@
       "when": 1792672800000,
       "tag": "0034_tenant_product_seeds",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792759200000,
+      "tag": "0036_stock_inicial_unico",
+      "breakpoints": true
     }
   ]
 }
