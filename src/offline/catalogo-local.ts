@@ -1,4 +1,8 @@
+// P10-13: el catálogo local es por tenant. `offline:catalogo:<tenantId>` aísla
+// el snapshot entre comercios del mismo navegador; la clave global legada
+// `offline:catalogo` se descarta al arrancar con tenant conocido, sin migrarla.
 export const CLAVE_CATALOGO = "offline:catalogo";
+export const PREFIJO_CLAVE_CATALOGO = "offline:catalogo:";
 export const VERSION_CATALOGO = 1 as const;
 export const MAX_EDAD_CATALOGO_MS = 15 * 60_000;
 export const URL_CATALOGO = "/api/sync/pull?cursor=0&limite=1";
@@ -18,6 +22,15 @@ export interface StorageCatalogo {
   getItem(clave: string): string | null;
   setItem(clave: string, valor: string): void;
   removeItem(clave: string): void;
+  // Para el wipe: enumerar las claves `offline:catalogo:*`. Opcional para no
+  // romper storages mínimos (tests, mocks).
+  keys?(): string[];
+}
+
+/** Clave del snapshot del tenant. Sin tenant conocido no hay clave. */
+export function claveCatalogo(tenantId: string | null | undefined): string | null {
+  const t = typeof tenantId === "string" ? tenantId.trim() : "";
+  return t === "" ? null : PREFIJO_CLAVE_CATALOGO + t;
 }
 
 export interface RespuestaCatalogo {
@@ -30,12 +43,13 @@ export interface RespuestaCatalogo {
 }
 
 export interface DepsDescargarCatalogo {
+  tenantId: string | null;
   fetch(url: string): Promise<RespuestaCatalogo>;
   storage: StorageCatalogo;
   ahora?: () => Date;
 }
 
-export type MotivoFalloCatalogo = "sin_red" | "desde_cache" | "respuesta_invalida" | `http_${number}`;
+export type MotivoFalloCatalogo = "sin_tenant" | "sin_red" | "desde_cache" | "respuesta_invalida" | `http_${number}`;
 
 export type ResultadoDescargaCatalogo =
   | { ok: true; snapshot: SnapshotCatalogoLocal }
@@ -93,6 +107,8 @@ function snapshotDesdeValor(valor: unknown): SnapshotCatalogoLocal | null {
  * el último snapshot bueno cuando la red o la respuesta fallan.
  */
 export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<ResultadoDescargaCatalogo> {
+  const clave = claveCatalogo(deps.tenantId);
+  if (!clave) return { ok: false, motivo: "sin_tenant" };
   let res: RespuestaCatalogo;
   try {
     res = await deps.fetch(URL_CATALOGO);
@@ -129,7 +145,7 @@ export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<Re
     productos,
   };
   try {
-    deps.storage.setItem(CLAVE_CATALOGO, JSON.stringify(snapshot));
+    deps.storage.setItem(clave, JSON.stringify(snapshot));
   } catch (error) {
     console.warn("[catalogo-local] no se pudo guardar el snapshot", error);
     return { ok: false, motivo: "respuesta_invalida" };
@@ -149,10 +165,13 @@ function snapshotVacio(): SnapshotCatalogoLocal {
 
 export function agregarProvisorio(
   storage: StorageCatalogo,
+  tenantId: string | null,
   sku: string,
   precioCentavos: number,
 ): SnapshotCatalogoLocal {
-  const previo = leerCatalogoLocal(storage) ?? snapshotVacio();
+  const clave = claveCatalogo(tenantId);
+  if (!clave) return snapshotVacio();
+  const previo = leerCatalogoLocal(storage, tenantId) ?? snapshotVacio();
   if (sku.trim() === "" || CLAVES_PELIGROSAS.has(sku)) return previo;
   if (Object.hasOwn(previo.productos, sku)) return previo;
   if (!esEnteroNoNegativo(precioCentavos)) return previo;
@@ -163,16 +182,18 @@ export function agregarProvisorio(
     productos: { ...previo.productos, [sku]: { stock: 0, precioCentavos } },
   };
   try {
-    storage.setItem(CLAVE_CATALOGO, JSON.stringify(snapshot));
+    storage.setItem(clave, JSON.stringify(snapshot));
   } catch (error) {
     console.warn("[catalogo-local] no se pudo guardar el provisorio", error);
   }
   return snapshot;
 }
 
-export function leerCatalogoLocal(storage: StorageCatalogo): SnapshotCatalogoLocal | null {
+export function leerCatalogoLocal(storage: StorageCatalogo, tenantId: string | null): SnapshotCatalogoLocal | null {
+  const clave = claveCatalogo(tenantId);
+  if (!clave) return null;
   try {
-    const crudo = storage.getItem(CLAVE_CATALOGO);
+    const crudo = storage.getItem(clave);
     if (!crudo) return null;
     return snapshotDesdeValor(JSON.parse(crudo));
   } catch (error) {
@@ -197,18 +218,84 @@ export function debeDescargar(snapshot: SnapshotCatalogoLocal | null, ahora: Dat
 
 export function almacenamientoLocal(): StorageCatalogo | null {
   try {
-    return (globalThis as { localStorage?: StorageCatalogo }).localStorage ?? null;
+    const ls = (globalThis as { localStorage?: Storage }).localStorage ?? null;
+    if (!ls) return null;
+    return {
+      getItem: (clave) => ls.getItem(clave),
+      setItem: (clave, valor) => {
+        ls.setItem(clave, valor);
+      },
+      removeItem: (clave) => {
+        ls.removeItem(clave);
+      },
+      keys: () => {
+        const out: string[] = [];
+        for (let i = 0; i < ls.length; i++) {
+          const k = ls.key(i);
+          if (k !== null) out.push(k);
+        }
+        return out;
+      },
+    };
   } catch (error) {
     console.warn("[catalogo-local] sin localStorage", error);
     return null;
   }
 }
 
-export function borrarCatalogoLocal(storage: StorageCatalogo | null): void {
+/** Borra el snapshot del tenant. Sin tenant no toca nada. */
+export function borrarCatalogoLocal(storage: StorageCatalogo | null, tenantId: string | null): void {
+  const clave = claveCatalogo(tenantId);
+  if (!storage || !clave) return;
+  try {
+    storage.removeItem(clave);
+  } catch (error) {
+    console.warn("[catalogo-local] no se pudo borrar el snapshot", error);
+  }
+}
+
+function clavesCatalogo(storage: StorageCatalogo): string[] {
+  if (typeof storage.keys !== "function") return [];
+  let claves: string[];
+  try {
+    claves = storage.keys();
+  } catch (error) {
+    console.warn("[catalogo-local] no se pudieron enumerar las claves", error);
+    return [];
+  }
+  if (!Array.isArray(claves)) return [];
+  return claves.filter((k) => typeof k === "string" && k.startsWith(PREFIJO_CLAVE_CATALOGO));
+}
+
+/**
+ * Borrado remoto: borra la clave legada global y todas las `offline:catalogo:*`
+ * de cualquier tenant. Es la garantía de "sin base legible" al revocar.
+ */
+export function borrarCatalogosLocales(storage: StorageCatalogo | null): void {
   if (!storage) return;
   try {
     storage.removeItem(CLAVE_CATALOGO);
   } catch (error) {
-    console.warn("[catalogo-local] no se pudo borrar el snapshot", error);
+    console.warn("[catalogo-local] no se pudo borrar la clave legada", error);
+  }
+  for (const clave of clavesCatalogo(storage)) {
+    try {
+      storage.removeItem(clave);
+    } catch (error) {
+      console.warn("[catalogo-local] no se pudo borrar el snapshot", error);
+    }
+  }
+}
+
+/**
+ * Primer arranque con tenant conocido: descarta la clave legada global sin
+ * migrarla. Es idempotente; sin tenant no toca nada.
+ */
+export function descartarCatalogoLegado(storage: StorageCatalogo | null, tenantId: string | null): void {
+  if (!storage || !claveCatalogo(tenantId)) return;
+  try {
+    storage.removeItem(CLAVE_CATALOGO);
+  } catch (error) {
+    console.warn("[catalogo-local] no se pudo descartar la clave legada", error);
   }
 }
