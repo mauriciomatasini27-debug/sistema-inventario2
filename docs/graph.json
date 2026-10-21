@@ -417,6 +417,18 @@
       "ruta": "docs/adr/0105-correccion-signo-caja-venta-fiado.md"
     },
     {
+      "id": "ADR-0106",
+      "ruta": "docs/adr/0106-producto-provisorio-alta-al-vender.md"
+    },
+    {
+      "id": "ADR-0107",
+      "ruta": "docs/adr/0107-plantilla-catalogo-por-rubro.md"
+    },
+    {
+      "id": "ADR-0108",
+      "ruta": "docs/adr/0108-importacion-stock-csv-excel.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -831,6 +843,14 @@
     {
       "id": "PRD-SK-03",
       "ruta": "docs/diseno/PRD-SK-03-prosa-revision.md"
+    },
+    {
+      "id": "PRD-STOCK-01",
+      "ruta": "docs/diseno/PRD-STOCK-01-carga-stock-tanda1.md"
+    },
+    {
+      "id": "PRD-STOCK-02",
+      "ruta": "docs/diseno/PRD-STOCK-02-carga-stock-tanda2.md"
     },
     {
       "id": "PRD-SUP-01",
@@ -2391,6 +2411,76 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0106",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0106",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0106",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0106",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0106",
+      "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0106",
+      "a": "PRD-STOCK-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0107",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0107",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0107",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0107",
+      "a": "PRD-STOCK-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0108",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0108",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0108",
+      "a": "ADR-0107",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0108",
+      "a": "PRD-STOCK-01",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -3788,6 +3878,71 @@
     {
       "de": "PRD-SK-03",
       "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0024",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0061",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "ADR-0107",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-01",
+      "a": "PRD-PERS-06",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-02",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-02",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-02",
+      "a": "ADR-0107",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-02",
+      "a": "ADR-0108",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-02",
+      "a": "PRD-STOCK-01",
       "tipo": "depende_de"
     },
     {
