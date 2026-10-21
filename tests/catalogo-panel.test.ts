@@ -13,10 +13,11 @@ import {
   suscribirSkuSeleccionado,
   type ProductoCatalogo,
 } from "../src/lib/catalogo-panel.js";
-import { formatearCentavos } from "../src/lib/panel-modulos.js";
+import { formatearPesos } from "../src/lib/pesos.js";
 
 const nfPrecio = new Intl.NumberFormat(LOCALE_PRECIO, FORMATO_PRECIO);
-const precioNumberFlow = (centavos: number | string): string => nfPrecio.format(pesosDesdeCentavos(centavos));
+const precioNumberFlow = (centavos: number | string): string =>
+  nfPrecio.format(pesosDesdeCentavos(centavos)).replace(/[\u00a0\u202f]/g, " ");
 
 describe("pesosDesdeCentavos", () => {
   it("convierte centavos a pesos", () => {
@@ -33,16 +34,16 @@ describe("pesosDesdeCentavos", () => {
   });
 });
 
-describe("FORMATO_PRECIO reproduce formatearCentavos", () => {
+describe("FORMATO_PRECIO reproduce formatearPesos", () => {
   it("con LOCALE_PRECIO da el mismo texto del panel, signo incluido", () => {
     for (const centavos of [0, 5, 123456, -500, 999999999]) {
-      expect(precioNumberFlow(centavos), String(centavos)).toBe(formatearCentavos(centavos));
+      expect(precioNumberFlow(centavos), String(centavos)).toBe(formatearPesos(centavos));
     }
   });
 
-  it("no agrupa miles ni recorta decimales", () => {
-    expect(precioNumberFlow(123456)).toBe("$1234.56");
-    expect(precioNumberFlow(0)).toBe("$0.00");
+  it("agrupa miles y usa coma decimal", () => {
+    expect(precioNumberFlow(123456)).toBe("$ 1.234,56");
+    expect(precioNumberFlow(0)).toBe("$ 0,00");
   });
 });
 

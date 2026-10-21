@@ -130,6 +130,18 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(textos.filter((t) => /centavos/i.test(t))).toEqual([]);
   });
 
+  it("precios.astro muestra montos en pesos y no la palabra centavos al usuario", () => {
+    const src = leer("src/pages/panel/precios.astro");
+    const markup = src.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]*>/g, " ");
+    expect(markup).not.toMatch(/centavos/i);
+    const scripts = [...src.matchAll(/<script[\s\S]*?<\/script>/gi)].map((m) => m[0]).join("\n");
+    const textos = [...scripts.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)].map(
+      (m) => m[1] ?? m[2] ?? m[3] ?? "",
+    );
+    expect(textos.filter((t) => /centavos/i.test(t))).toEqual([]);
+    expect(src).toContain("formatearPesos");
+  });
+
   it("ajustes enlaza a /panel/plan y la pantalla muestra el medidor en texto", () => {
     const destino = "/panel/plan";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/plan.astro");

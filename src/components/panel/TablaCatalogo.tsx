@@ -9,9 +9,7 @@ import {
 } from "react-virtuoso";
 import {
   FORMATO_PRECIO,
-  FORMATO_PRECIO_AR,
   LOCALE_PRECIO,
-  LOCALE_PRECIO_AR,
   leerCatalogo,
   leerSkuSeleccionado,
   pesosDesdeCentavos,
@@ -44,13 +42,13 @@ const ENCABEZADOS: Record<Columnas, readonly string[]> = {
   stock: ["SKU", "Nombre", "Precio", "Mínimo", "A reponer"],
 };
 
-function CeldaPrecio({ centavos, ar = false }: { centavos: number | string; ar?: boolean }) {
+function CeldaPrecio({ centavos }: { centavos: number | string }) {
   return (
     <td className="tnum precio">
       <NumberFlow
         value={pesosDesdeCentavos(centavos)}
-        locales={ar ? LOCALE_PRECIO_AR : LOCALE_PRECIO}
-        format={ar ? FORMATO_PRECIO_AR : FORMATO_PRECIO}
+        locales={LOCALE_PRECIO}
+        format={FORMATO_PRECIO}
         respectMotionPreference
       />
     </td>
@@ -69,7 +67,7 @@ const CELDAS: Record<Columnas, (p: ProductoCatalogo) => ReactNode> = {
     <>
       <td className="sku">{p.sku}</td>
       <td className="nombre">{p.nombre}</td>
-      <CeldaPrecio centavos={p.precioCentavos} ar />
+      <CeldaPrecio centavos={p.precioCentavos} />
       <td className="tnum cantidad">{p.min_stock ?? "—"}</td>
       <td className="tnum cantidad">{p.reorder_qty ?? "—"}</td>
     </>
