@@ -1,8 +1,8 @@
 # pstack model configuration (OpenCode adaptation of setup-pstack)
 # budget: small (free tier). OpenCode's Task tool selects a subagent by `subagent_type`, not by model slug.
 # Wherever a pstack skill says "pass model X to a Task subagent", dispatch the OpenCode subagent named below instead.
-# Primary: opencode/deepseek-v4.1-flash-free. Fallback order: opencode/longcat-2.5-preview-free, opencode/big-pickle (unreliable, last). muse-spark-1.3-contributor-free no longer exists in Zen.
-# pstack-worker, poteto-agent, comment-sicko: opencode/deepseek-v4.1-flash-free. pstack-judge: opencode/glm-5.3-flash-free (different family for cross-judging; big-pickle unreliable fallback).
+# Per-skill/agent models and fallback order live in .opencode/modelos-por-skill.json (ADR-0109); .opencode/modelos.mjs resolves them and warns + logs to .opencode/modelos-caidos.log on fallback.
+# pstack-worker, poteto-agent: opencode/deepseek-v4.1-flash-free. pstack-judge: opencode/glm-5.3-flash-free (different family for cross-judging). comment-sicko: opencode/deepseek-v4.1-flash-free. Primaries are zero-retention Zen models; models that may train on data are last-resort only. space-bunny-free and muse-spark no longer exist in Zen.
 # Merge gate: npm run verify (Node 22, PG A/B) + node scripts/cadena/puede-mergear.mjs <PR> exit 0; GitHub Actions manual-only (ADR-0086).
 feature, refactoring: pstack-worker
 bug-fix: pstack-worker

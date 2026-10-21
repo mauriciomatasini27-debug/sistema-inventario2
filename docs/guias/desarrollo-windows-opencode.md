@@ -72,7 +72,32 @@ Copiá `.env.example` a `.env` y completalo vos; nunca subas ni pegues `.env` en
 2. `opencode.json` ya fija el modelo `opencode/deepseek-v4.1-flash-free` y carga `AGENTS.md` y `.opencode/pstack-*.md`. Chequeá con `opencode debug config` y `opencode models opencode`.
 3. Skills del repo en `.agents/skills/` (`opencode debug skill`). Se invocan en el prompt: `/poteto-mode <tarea>`, `/tdd`, `/correct`, `/why`, `/interface-review`.
 4. Sesiones headless: `.opencode/pstack-run.sh "prompt"`, que reintenta con otro modelo free si falla por cuota o timeout. Una sesión por vez (OpenCode usa SQLite; dos en paralelo dan "database is locked").
-5. Modelos: deepseek-v4.1-flash-free primero (worker/poteto/comment-sicko); `pstack-judge` usa `glm-5.3-flash-free` (cross-family); `space-bunny-free` ya no existe en Zen (2026-10-20); `big-pickle` es inestable (último respaldo); `muse-spark-1.3-contributor-free` ya no existe en Zen.
+5. Modelos: cada skill tiene su modelo free (ver "Modelo por skill" abajo); `big-pickle` es inestable (último respaldo); `space-bunny-free` y `muse-spark-1.3-contributor-free` ya no existen en Zen.
+
+### Modelo por skill y aviso de modelos caídos
+
+`.opencode/modelos-por-skill.json` asigna a cada skill un perfil (`codigo`, `razon`, `juez`, `prosa`, `rapido`, `largo`) y cada perfil es una lista de modelos free en orden (ADR-0109, PRD-OPENCODE-01). Necesita solo Node 22 (sin npm install).
+
+```bash
+cd ~/sistema-inventario
+node .opencode/modelos.mjs elegir poteto-mode     # modelo que va a usar
+node .opencode/modelos.mjs lista technical-writing # cadena de respaldo disponible
+node .opencode/modelos.mjs revivir <modelo>       # le borra la marca de caído
+.opencode/pstack-run.sh "/poteto-mode <tarea>"    # elige por el /skill del prompt
+.opencode/pstack-run.sh --skill tdd "<tarea>"     # o forzá la skill
+tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál se usó
+```
+
+- Si el asignado no figura en `opencode models opencode` o falló hace menos de 10 min, se usa el siguiente, sale un `⚠ pstack-modelos:` en la terminal y se agrega una línea al log (gitignored).
+- Un `Error: Upstream` o `Error: {` cuenta como fallo solo si está al final de la salida (la última línea no vacía, o seguido únicamente por el JSON de ese mismo error). Si una herramienta leyó un log con ese texto en el medio y la sesión respondió bien al final, no se marca caído.
+- `Error: Upstream` no marca el modelo caído: `.opencode/pstack-run.sh` reintenta el mismo modelo `PSTACK_UPSTREAM_REINTENTOS` veces (default 2) esperando `PSTACK_UPSTREAM_ESPERA` segundos (default 5, después 10) y avisa cada reintento por stderr. Agotados los reintentos, pasa al siguiente modelo solo para esa corrida y lo anuncia, sin tocar el log de caídos.
+- Cualquier otra indisponibilidad (modelo ausente, acceso deshabilitado, fondos insuficientes, cuota/rate limit, `Error: {"...UnknownError...}` o timeout) sí marca caído como antes.
+- El benchmark no tiene rutina periódica: se corre a demanda con `node scripts/opencode/bench-modelos.mjs <modelos...>`.
+- Si un modelo quedó marcado caído por un falso positivo o ya se recuperó, `node .opencode/modelos.mjs revivir <modelo>` le borra la marca y vuelve a entrar en el orden.
+- La lista de modelos se cachea 10 min en `~/.cache/pstack-modelos/estado.json` (`PSTACK_MODELOS_TTL_MIN` lo cambia); listar no gasta tokens.
+- Si cambia el modelo de algún agente, `pstack-run.sh` reinicia `opencode serve` con `OPENCODE_CONFIG_CONTENT`. En la TUI (`opencode` a secas) los agentes usan lo de `opencode.json`: si ves el aviso, reabrí desde `pstack-run.sh` o editá el JSON.
+- Privacidad: el primero de cada perfil es un modelo Zen sin retención; los que pueden entrenar con tus datos (mimo, big-pickle, nemotron) solo entran como último respaldo y el aviso te lo muestra.
+- `-m <modelo>` o `PSTACK_FALLBACK_MODELS` siguen pisando todo.
 
 ## Comandos diarios
 
