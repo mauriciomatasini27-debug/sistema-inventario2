@@ -90,8 +90,8 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
           </label>
         </div>
         <div class="fila">
-          <label>Costo en centavos
-            <input id="ingreso-costo" data-campo="costo_centavos" type="number" min="0" step="1" inputmode="numeric" value="0" />
+          <label>Costo (pesos)
+            <input id="ingreso-costo" data-campo="costo_centavos" type="text" inputmode="decimal" placeholder="Ej. 1.234,50" autocomplete="off" value="0" />
           </label>
           <label>Vence el
             <input id="ingreso-vence" data-campo="vence_el" type="datetime-local" />
@@ -189,6 +189,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
 
   const $ = (id) => document.getElementById(id);
@@ -309,9 +310,14 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 
   const guardarPrecio = async (item, input) => {
     const estado = $("estado-precio-pendiente");
-    const precio = input.value.trim() === "" ? NaN : Number(input.value);
-    if (!Number.isInteger(precio) || precio < 1 || precio > 999999999) {
-      estado.textContent = "Escribí un precio entero en centavos entre 1 y 999999999.";
+    const parseo = parsearPesos(input.value);
+    if (!parseo.ok) {
+      estado.textContent = mensajePesos(parseo.motivo);
+      input.focus();
+      return;
+    }
+    if (parseo.centavos < 1) {
+      estado.textContent = "El precio tiene que ser mayor a 0.";
       input.focus();
       return;
     }
@@ -320,7 +326,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       const r = await fetch("/api/stock/precio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sku: item.sku, precio_centavos: precio }),
+        body: JSON.stringify({ sku: item.sku, precio_centavos: parseo.centavos }),
       });
       if (r.status === 409) {
         estado.textContent = "Ese producto ya tiene precio.";
@@ -352,18 +358,19 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       const vendidas = document.createElement("span");
       vendidas.textContent = "vendidas en 30 días: " + p.vendidas30d;
       const input = document.createElement("input");
-      input.type = "number";
-      input.min = "1";
-      input.max = "999999999";
-      input.step = "1";
-      input.inputMode = "numeric";
-      input.placeholder = "Precio en centavos";
-      input.setAttribute("aria-label", "Precio de " + p.nombre);
+      input.type = "text";
+      input.inputMode = "decimal";
+      input.placeholder = "Ej. 1.234,50";
+      input.autocomplete = "off";
+      input.setAttribute("aria-label", "Precio (pesos) de " + p.nombre);
+      const etiqueta = document.createElement("label");
+      etiqueta.textContent = "Precio (pesos)";
+      etiqueta.appendChild(input);
       const boton = document.createElement("button");
       boton.type = "button";
       boton.textContent = "Guardar";
       boton.addEventListener("click", () => guardarPrecio(p, input));
-      li.append(nombre, vendidas, input, boton);
+      li.append(nombre, vendidas, etiqueta, boton);
       lista.appendChild(li);
     });
   };
@@ -714,11 +721,11 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     const form = $("ingreso-form");
     const sku = $("ingreso-sku").value.trim();
     const cantidad = Number($("ingreso-cantidad").value);
-    const costo = Number($("ingreso-costo").value);
+    const costo = parsearPesos($("ingreso-costo").value);
     const errores = {};
     if (!sku) errores.sku = mensajeCampo("sku", REQUERIDO);
     if (!Number.isInteger(cantidad) || cantidad < 1) errores.cantidad = mensajeCampo("cantidad", enteroMin(1));
-    if (!Number.isInteger(costo) || costo < 0) errores.costo_centavos = mensajeCampo("costo_centavos", enteroMin(0));
+    if (!costo.ok) errores.costo_centavos = mensajePesos(costo.motivo);
     if (Object.keys(errores).length > 0) {
       mostrarErrores(form, errores);
       estado.textContent = "Revisá los campos marcados.";
@@ -733,7 +740,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         body: JSON.stringify({
           sku,
           cantidad: Number($("ingreso-cantidad").value),
-          costo_centavos: Number($("ingreso-costo").value),
+          costo_centavos: costo.ok ? costo.centavos : 0,
           controla_vencimiento: vence !== "",
           vence_el: vence === "" ? null : new Date(vence).toISOString(),
         }),
