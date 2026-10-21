@@ -48,3 +48,4 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 <!-- 2026-10-21 (ART): 0034 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0034-schema-20261021-0153.json -->
 - 0036_stock_inicial_unico
 <!-- 2026-10-21 (ART): 0036 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0036-schema-20261021-0227.json -->
+<!-- 2026-10-21 (ART): fila de drizzle.__drizzle_migrations para 0035_stock_imports agregada vía conector Supabase (id 37, hash sha256 del archivo, created_at 1792538873372 del journal; el migrador ordena por created_at, así que 0036 sigue siendo la última); backup solo de esquema en /workspace/backups/pre-0035row-schema-20261021-0247.json -->
