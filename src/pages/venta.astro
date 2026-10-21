@@ -58,6 +58,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
         <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
         <label>Precio centavos <input id="precio" type="number" value={harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000} min="0" /></label>
+        <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
         <label>Medio
           <select id="medio">
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
@@ -110,10 +111,16 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         const partes = fechaAR(new Date(iso)).split("-");
         return (partes[2] ?? "") + "/" + (partes[1] ?? "") + " " + horaMinutoAR(new Date(iso));
       };
+      // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
+      // el nombre para darlo de alta al cobrar. El precio es el de la línea.
+      const mostrarAlta = () => {
+        $("alta-nombre-label").hidden = precioLocal(catalogo, $("sku").value) !== null;
+      };
       const mostrarCatalogo = () => {
         $("catalogo-estado").textContent = catalogo
           ? "Catálogo del " + fechaCatalogo(catalogo.descargadoEl)
           : "Sin catálogo descargado";
+        mostrarAlta();
       };
       mostrarCatalogo();
       let precioEditado = false;
@@ -129,6 +136,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
           precioEditado = false;
         }
         completarPrecio();
+        mostrarAlta();
       });
       $("precio").addEventListener("input", () => { precioEditado = true; });
       const refrescarCatalogo = async () => {
@@ -161,8 +169,15 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
         const seq = nextSeq();
         const device_code = "caja-01";
         const op_id = crypto.randomUUID();
+        const nombreNuevo = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
+        const linea = {
+          product_id: $("sku").value,
+          qty: Number($("qty").value),
+          precio_centavos: Number($("precio").value),
+          ...(nombreNuevo ? { alta: { nombre: nombreNuevo } } : {}),
+        };
         const payload = {
-          lineas: [{ product_id: $("sku").value, qty: Number($("qty").value), precio_centavos: Number($("precio").value) }],
+          lineas: [linea],
           medio: $("medio").value,
           device_code,
           seq_local: seq,
