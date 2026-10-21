@@ -61,7 +61,23 @@ export interface AuditoriaConteoListo {
   confirmadoPor: string;
 }
 
-export type AuditEntry = AuditoriaReversion | AuditoriaUbicacion | AuditoriaConteo | AuditoriaConteoListo;
+// STOCK-S9: completar el precio de un producto sembrado sin precio. Reusa la
+// lista de auditoría en memoria; en Postgres el historial va a
+// pricing_audit_log.
+export interface AuditoriaPrecioCompletado {
+  accion: "precio_completado";
+  sku: string;
+  antes: string;
+  despues: string;
+  actor: string;
+}
+
+export type AuditEntry =
+  | AuditoriaReversion
+  | AuditoriaUbicacion
+  | AuditoriaConteo
+  | AuditoriaConteoListo
+  | AuditoriaPrecioCompletado;
 
 export interface DetalleReversion {
   readonly motivo: string | null;

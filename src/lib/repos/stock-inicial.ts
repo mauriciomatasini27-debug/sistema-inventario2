@@ -1,8 +1,9 @@
-import { and, asc, count, desc, eq, gte, notExists, sql } from "drizzle-orm";
-import { products, sales, stockMovements, ticketLines } from "../../db/schema.js";
+import { and, asc, count, desc, eq, notExists, sql } from "drizzle-orm";
+import { products, stockMovements } from "../../db/schema.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
-import { listarAltasAlVender, listarTodasLasLineasTicket } from "../ticket-memoria.js";
+import { listarAltasAlVender } from "../ticket-memoria.js";
 import { crearAlmacenProductos, crearListaMovimientosStock } from "./_almacen.js";
+import { subconsultaVentas30d, ventasPorProductoMemoria } from "./_ventas-30d.js";
 import { aplicarMovimiento } from "./stock.js";
 
 // STOCK-S4 (ADR-0106): carga progresiva del stock inicial de los productos
@@ -34,11 +35,7 @@ function listarPendientesMemoria(limite: number): PendientesStockInicial {
   const movimientos = crearListaMovimientosStock().listar();
   const conAlta = new Set(movimientos.filter((m) => m.tipo === "ALTA").map((m) => m.sku));
   const productos = crearAlmacenProductos();
-  const vendidas = new Map<string, number>();
-  // En memoria no hay fecha de venta confiable: se cuentan todas las líneas.
-  for (const linea of listarTodasLasLineasTicket()) {
-    vendidas.set(linea.product_id, (vendidas.get(linea.product_id) ?? 0) + linea.qty);
-  }
+  const vendidas = ventasPorProductoMemoria();
   const pendientes = listarAltasAlVender()
     .filter((sku) => !conAlta.has(sku))
     .map((sku) => ({
@@ -55,16 +52,7 @@ async function listarPendientesDb(
   limite: number,
   desde: Date,
 ): Promise<PendientesStockInicial> {
-  const ventas30d = db
-    .select({
-      productId: ticketLines.productId,
-      vendidas: sql<number>`sum(${ticketLines.qty})`.mapWith(Number).as("vendidas"),
-    })
-    .from(ticketLines)
-    .innerJoin(sales, eq(ticketLines.saleId, sales.id))
-    .where(gte(sales.createdAt, desde))
-    .groupBy(ticketLines.productId)
-    .as("ventas_30d");
+  const ventas30d = subconsultaVentas30d(db, desde);
   const vendidas = sql<number>`coalesce(${ventas30d.vendidas}, 0)`.mapWith(Number);
   const pendiente = and(
     eq(products.origen, "alta_al_vender"),

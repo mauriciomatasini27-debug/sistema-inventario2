@@ -1,6 +1,6 @@
 // Plantilla de productos por rubro ON4/STOCK-E2: solo nombres, sin precios.
 // Versionada en código: un cambio solo afecta siembras nuevas.
-// v1 propuesta, revisar con Mauri.
+// v1 aprobada por Mauri el 2026-10-20.
 export const VERSION_PLANTILLAS_PRODUCTOS_RUBRO = "v1";
 
 export interface PlantillaProductosRubro {

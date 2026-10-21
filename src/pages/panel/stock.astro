@@ -24,6 +24,13 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     <div class="estado" id="estado-stock-inicial" role="status"></div>
   </section>
 
+  <section class="card" id="precio-pendiente" hidden>
+    <h2>Completá el precio</h2>
+    <p>Estos productos no tienen precio todavía. Cargalo para poder venderlos bien; primero los más vendidos.</p>
+    <ul class="lista" id="precio-pendiente-lista"></ul>
+    <div class="estado" id="estado-precio-pendiente" role="status"></div>
+  </section>
+
   <div class="grid dos">
     <section class="card" data-harness={harness}>
       <h2>Catálogo</h2>
@@ -126,6 +133,12 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     align-items: center;
     gap: 8px;
   }
+  #precio-pendiente-lista li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
   #catalogo-sugerido-lista li {
     display: flex;
     flex-wrap: wrap;
@@ -139,6 +152,9 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   }
   #stock-inicial-lista input {
     width: 96px;
+  }
+  #precio-pendiente-lista input {
+    width: 160px;
   }
   .editor-ubicacion {
     display: flex;
@@ -288,6 +304,86 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       .catch((error) => {
         console.warn("[panel/stock] stock inicial", error);
         $("estado-stock-inicial").textContent = mensaje("error", "");
+      });
+  };
+
+  const guardarPrecio = async (item, input) => {
+    const estado = $("estado-precio-pendiente");
+    const precio = input.value.trim() === "" ? NaN : Number(input.value);
+    if (!Number.isInteger(precio) || precio < 1 || precio > 999999999) {
+      estado.textContent = "Escribí un precio entero en centavos entre 1 y 999999999.";
+      input.focus();
+      return;
+    }
+    estado.textContent = "Guardando…";
+    try {
+      const r = await fetch("/api/stock/precio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku: item.sku, precio_centavos: precio }),
+      });
+      if (r.status === 409) {
+        estado.textContent = "Ese producto ya tiene precio.";
+        cargarPreciosPendientes();
+        return;
+      }
+      if (!r.ok) {
+        estado.textContent = "No se guardó el precio.";
+        return;
+      }
+      toast.success("Precio guardado.");
+      estado.textContent = "Precio guardado.";
+      cargarPreciosPendientes();
+      cargarCatalogo();
+    } catch (error) {
+      console.warn("[panel/stock] guardar precio", error);
+      estado.textContent = mensaje("error", "");
+    }
+  };
+
+  const pintarPreciosPendientes = (items, total) => {
+    $("precio-pendiente").hidden = total === 0;
+    const lista = $("precio-pendiente-lista");
+    lista.textContent = "";
+    items.forEach((p) => {
+      const li = document.createElement("li");
+      const nombre = document.createElement("span");
+      nombre.textContent = p.nombre;
+      const vendidas = document.createElement("span");
+      vendidas.textContent = "vendidas en 30 días: " + p.vendidas30d;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "1";
+      input.max = "999999999";
+      input.step = "1";
+      input.inputMode = "numeric";
+      input.placeholder = "Precio en centavos";
+      input.setAttribute("aria-label", "Precio de " + p.nombre);
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.textContent = "Guardar";
+      boton.addEventListener("click", () => guardarPrecio(p, input));
+      li.append(nombre, vendidas, input, boton);
+      lista.appendChild(li);
+    });
+  };
+
+  const cargarPreciosPendientes = () => {
+    fetch("/api/stock/precio")
+      .then((r) => {
+        if (r.status === 403) {
+          $("precio-pendiente").hidden = true;
+          return null;
+        }
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        if (j) pintarPreciosPendientes(j.items || [], j.total || 0);
+      })
+      .catch((error) => {
+        console.warn("[panel/stock] precio pendiente", error);
+        $("estado-precio-pendiente").textContent = mensaje("error", "");
       });
   };
 
@@ -666,6 +762,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   cargarCatalogo();
   cargarCatalogoSugerido();
   cargarStockInicialPanel();
+  cargarPreciosPendientes();
   buscarLotes();
   cargarUbicaciones();
 </script>
