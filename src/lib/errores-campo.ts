@@ -33,6 +33,8 @@ const ETIQUETAS_CAMPO: Readonly<Record<string, string>> = {
   numero: "el celular",
   monto: "el monto",
   monto_centavos: "el monto",
+  costo_centavos: "el costo",
+  precio_centavos: "el precio",
   cantidad: "la cantidad",
   qty: "la cantidad",
   sku: "el SKU",

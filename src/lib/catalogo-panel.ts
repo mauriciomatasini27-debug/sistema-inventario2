@@ -19,6 +19,16 @@ export const FORMATO_PRECIO = {
   useGrouping: false,
 } as const;
 
+// P10-11: /panel/stock muestra pesos es-AR ("$ 1.234,50"); /panel/precios
+// conserva el formato histórico de arriba hasta que se decida migrarlo.
+export const LOCALE_PRECIO_AR = "es-AR";
+export const FORMATO_PRECIO_AR = {
+  style: "currency",
+  currency: "ARS",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+} as const;
+
 export function pesosDesdeCentavos(centavos: number | string): number {
   const numero = Number(centavos);
   return Number.isFinite(numero) ? numero / 100 : 0;
