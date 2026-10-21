@@ -12,3 +12,13 @@ export function existeEventoDeTenant(
 export function ubicacionesSembradasPorRubro(tenantId?: string): boolean {
   return existeEventoDeTenant(EVENTO_UBICACIONES_SEMBRADAS, tenantId);
 }
+
+// PRD-STOCK-01 STOCK-S8 (ADR-0107): espejo en memoria de tenant_product_seeds
+// para single sin DB. La clave es el tenant, no la partición de store.
+export function productosSembradosRubro(tenantId: string): boolean {
+  return control.semillasProductos.has(tenantId);
+}
+
+export function marcarProductosSembradosRubro(tenantId: string): void {
+  control.semillasProductos.add(tenantId);
+}

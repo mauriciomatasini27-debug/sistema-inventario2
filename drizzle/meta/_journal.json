@@ -246,6 +246,13 @@
       "when": 1792586400000,
       "tag": "0033_products_origen",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792672800000,
+      "tag": "0034_tenant_product_seeds",
+      "breakpoints": true
     }
   ]
 }

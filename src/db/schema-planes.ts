@@ -127,3 +127,14 @@ export const tenantLocationSeeds = pgTable("tenant_location_seeds", {
   cantidad: integer("cantidad").notNull().default(0),
   sembradoAt: timestamp("sembrado_at").notNull().defaultNow(),
 });
+
+// PRD-STOCK-01 STOCK-S8 (ADR-0107): registro de siembra del catálogo de
+// productos por plantilla de rubro, migración 0034. Una fila por tenant; RLS
+// en la migración.
+export const tenantProductSeeds = pgTable("tenant_product_seeds", {
+  tenantId: text("tenant_id").primaryKey(),
+  rubro: text("rubro").notNull(),
+  plantillaVersion: text("plantilla_version").notNull(),
+  cantidad: integer("cantidad").notNull().default(0),
+  sembradoAt: timestamp("sembrado_at").notNull().defaultNow(),
+});

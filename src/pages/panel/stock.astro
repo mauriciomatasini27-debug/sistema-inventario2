@@ -6,6 +6,17 @@ import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
+  <section class="card" id="catalogo-sugerido" hidden>
+    <h2>Catálogo sugerido para tu rubro</h2>
+    <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
+    <ul class="lista" id="catalogo-sugerido-lista"></ul>
+    <div class="fila">
+      <button id="catalogo-sugerido-crear" type="button">Crear seleccionados</button>
+      <button id="catalogo-sugerido-no" type="button">No, gracias</button>
+    </div>
+    <div class="estado" id="estado-catalogo-sugerido" role="status"></div>
+  </section>
+
   <section class="card" id="stock-inicial" hidden>
     <h2>Cargá el stock inicial</h2>
     <p>Estos productos los diste de alta al vender. Contá cuántos tenés y cargalos; te mostramos los más vendidos primero.</p>
@@ -112,6 +123,17 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   #stock-inicial-lista li {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  #catalogo-sugerido-lista li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  #catalogo-sugerido-lista label {
+    display: flex;
     align-items: center;
     gap: 8px;
   }
@@ -268,6 +290,96 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         $("estado-stock-inicial").textContent = mensaje("error", "");
       });
   };
+
+  const ocultarCatalogoSugerido = () => {
+    $("catalogo-sugerido").hidden = true;
+  };
+
+  const pintarCatalogoSugerido = (j) => {
+    const productos = Array.isArray(j.productos) ? j.productos : [];
+    if (j.sembrado === true || productos.length === 0) {
+      ocultarCatalogoSugerido();
+      return;
+    }
+    const lista = $("catalogo-sugerido-lista");
+    lista.textContent = "";
+    productos.forEach((nombre) => {
+      const li = document.createElement("li");
+      const label = document.createElement("label");
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = true;
+      check.value = nombre;
+      label.append(check, " ", nombre);
+      li.appendChild(label);
+      lista.appendChild(li);
+    });
+    $("estado-catalogo-sugerido").textContent = "";
+    $("catalogo-sugerido").hidden = false;
+  };
+
+  const cargarCatalogoSugerido = () => {
+    fetch("/api/stock/plantilla")
+      .then((r) => {
+        if (r.status === 403) {
+          ocultarCatalogoSugerido();
+          return null;
+        }
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        if (j) pintarCatalogoSugerido(j);
+      })
+      .catch((error) => {
+        console.warn("[panel/stock] catálogo sugerido", error);
+        $("estado-catalogo-sugerido").textContent = mensaje("error", "");
+      });
+  };
+
+  const sembrarCatalogoSugerido = async (nombres) => {
+    const estado = $("estado-catalogo-sugerido");
+    estado.textContent = nombres.length === 0 ? "Descartando…" : "Creando productos…";
+    try {
+      const r = await fetch("/api/stock/plantilla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombres }),
+      });
+      if (r.status === 409) {
+        estado.textContent = "Ya elegiste tu catálogo.";
+        ocultarCatalogoSugerido();
+        return;
+      }
+      if (!r.ok) {
+        estado.textContent =
+          r.status === 422 ? "Revisá los productos elegidos." : "No se crearon los productos.";
+        return;
+      }
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/stock] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      toast.success(
+        nombres.length === 0 ? "Listo, no te mostramos sugerencias." : "Productos creados sin precio.",
+      );
+      estado.textContent =
+        nombres.length === 0 ? "" : "Creados " + (j.cantidad ?? nombres.length) + " productos sin precio.";
+      ocultarCatalogoSugerido();
+      cargarCatalogo();
+    } catch (error) {
+      console.warn("[panel/stock] sembrar catálogo sugerido", error);
+      estado.textContent = mensaje("error", "");
+    }
+  };
+
+  $("catalogo-sugerido-crear").addEventListener("click", () => {
+    const nombres = [...document.querySelectorAll<HTMLInputElement>("#catalogo-sugerido-lista input:checked")].map(
+      (input) => input.value,
+    );
+    sembrarCatalogoSugerido(nombres);
+  });
+  $("catalogo-sugerido-no").addEventListener("click", () => sembrarCatalogoSugerido([]));
 
   const buscarLotes = () => {
     const sku = $("lote-sku").value.trim().toUpperCase();
@@ -552,6 +664,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   });
 
   cargarCatalogo();
+  cargarCatalogoSugerido();
   cargarStockInicialPanel();
   buscarLotes();
   cargarUbicaciones();
