@@ -1,4 +1,4 @@
-import { almacenamientoLocal, borrarCatalogoLocal, type StorageCatalogo } from "./catalogo-local.js";
+import { almacenamientoLocal, borrarCatalogosLocales, type StorageCatalogo } from "./catalogo-local.js";
 import { resetDb } from "./db.js";
 import { hidratarFotos, resetFotos } from "./fotos.js";
 import { hidratarMappings, resetMappings } from "./id-mappings.js";
@@ -101,7 +101,7 @@ export async function revocarDispositivo(
   motivo = "revocado",
   storage: StorageCatalogo | null = almacenamientoLocal(),
 ): Promise<RevocacionResult> {
-  borrarCatalogoLocal(storage);
+  borrarCatalogosLocales(storage);
   try {
     await resetOutbox();
   } catch {

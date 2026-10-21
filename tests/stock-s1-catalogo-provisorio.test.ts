@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLAVE_CATALOGO,
   agregarProvisorio,
+  claveCatalogo,
   debeDescargar,
   leerCatalogoLocal,
   type StorageCatalogo,
@@ -9,6 +10,8 @@ import {
 
 const EPOCH = "1970-01-01T00:00:00.000Z";
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
+const T1 = "tenant-a";
+const T2 = "tenant-b";
 
 function storageMemoria(inicial: Record<string, string> = {}): StorageCatalogo {
   const mapa = new Map(Object.entries(inicial));
@@ -20,7 +23,14 @@ function storageMemoria(inicial: Record<string, string> = {}): StorageCatalogo {
     removeItem: (clave) => {
       mapa.delete(clave);
     },
+    keys: () => [...mapa.keys()],
   };
+}
+
+function k(tenant: string): string {
+  const c = claveCatalogo(tenant);
+  if (!c) throw new Error("clave de tenant inválida");
+  return c;
 }
 
 function snapshotJson(): string {
@@ -31,23 +41,24 @@ function snapshotJson(): string {
   });
 }
 
-describe("STOCK-S1 agregarProvisorio: snapshot local de offline:catalogo", () => {
+describe("STOCK-S1 agregarProvisorio: snapshot local por tenant", () => {
   it("sin snapshot crea uno con epoch, stock 0 y el precio de la línea", () => {
     const storage = storageMemoria();
-    const snapshot = agregarProvisorio(storage, "nuevo-1", 7000);
+    const snapshot = agregarProvisorio(storage, T1, "nuevo-1", 7000);
 
     expect(snapshot).toEqual({
       version: 1,
       descargadoEl: EPOCH,
       productos: { "nuevo-1": { stock: 0, precioCentavos: 7000 } },
     });
-    expect(leerCatalogoLocal(storage)).toEqual(snapshot);
+    expect(leerCatalogoLocal(storage, T1)).toEqual(snapshot);
     expect(debeDescargar(snapshot, AHORA, true)).toBe(true);
+    expect(storage.getItem(CLAVE_CATALOGO)).toBeNull();
   });
 
   it("con snapshot agrega el SKU y conserva productos y fecha de descarga", () => {
-    const storage = storageMemoria({ [CLAVE_CATALOGO]: snapshotJson() });
-    const snapshot = agregarProvisorio(storage, "nuevo-1", 7000);
+    const storage = storageMemoria({ [k(T1)]: snapshotJson() });
+    const snapshot = agregarProvisorio(storage, T1, "nuevo-1", 7000);
 
     expect(snapshot).toEqual({
       version: 1,
@@ -57,23 +68,41 @@ describe("STOCK-S1 agregarProvisorio: snapshot local de offline:catalogo", () =>
         "nuevo-1": { stock: 0, precioCentavos: 7000 },
       },
     });
-    expect(leerCatalogoLocal(storage)).toEqual(snapshot);
+    expect(leerCatalogoLocal(storage, T1)).toEqual(snapshot);
   });
 
   it("no pisa un SKU que ya existe en el snapshot", () => {
-    const storage = storageMemoria({ [CLAVE_CATALOGO]: snapshotJson() });
-    const snapshot = agregarProvisorio(storage, "yerba-1", 9999);
+    const storage = storageMemoria({ [k(T1)]: snapshotJson() });
+    const snapshot = agregarProvisorio(storage, T1, "yerba-1", 9999);
 
     expect(snapshot.productos["yerba-1"]).toEqual({ stock: 3, precioCentavos: 1234 });
-    expect(leerCatalogoLocal(storage)?.productos["yerba-1"]).toEqual({ stock: 3, precioCentavos: 1234 });
+    expect(leerCatalogoLocal(storage, T1)?.productos["yerba-1"]).toEqual({ stock: 3, precioCentavos: 1234 });
   });
 
   it("repetir el alta del mismo SKU no cambia el snapshot", () => {
     const storage = storageMemoria();
-    const primera = agregarProvisorio(storage, "nuevo-1", 7000);
-    const segunda = agregarProvisorio(storage, "nuevo-1", 9999);
+    const primera = agregarProvisorio(storage, T1, "nuevo-1", 7000);
+    const segunda = agregarProvisorio(storage, T1, "nuevo-1", 9999);
 
     expect(segunda).toEqual(primera);
     expect(segunda.productos["nuevo-1"]?.precioCentavos).toBe(7000);
+  });
+
+  it("aislamiento A/B: el alta de un tenant no toca el snapshot del otro", () => {
+    const storage = storageMemoria({ [k(T1)]: snapshotJson() });
+    agregarProvisorio(storage, T2, "nuevo-2", 5000);
+
+    expect(leerCatalogoLocal(storage, T1)?.productos["nuevo-2"]).toBeUndefined();
+    expect(leerCatalogoLocal(storage, T2)?.productos["nuevo-2"]).toEqual({ stock: 0, precioCentavos: 5000 });
+    expect(storage.getItem(CLAVE_CATALOGO)).toBeNull();
+  });
+
+  it("sin tenant no escribe nada", () => {
+    const storage = storageMemoria();
+    const snapshot = agregarProvisorio(storage, null, "nuevo-1", 7000);
+
+    expect(snapshot.descargadoEl).toBe(EPOCH);
+    expect(storage.getItem(k(T1))).toBeNull();
+    expect(storage.getItem(CLAVE_CATALOGO)).toBeNull();
   });
 });

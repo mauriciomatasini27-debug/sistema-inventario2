@@ -7,9 +7,15 @@ import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
 import PwaRegistro from "../components/ui/PwaRegistro.astro";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
+import { tenantDeRequest } from "../lib/tenant-context.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);
+// P10-13: el catálogo offline es por tenant. El servidor resuelve con
+// tenantDeRequest (valida la membership como el resto de rutas) y lo inyecta
+// al cliente por data-attribute; sin tenant conocido no se lee ni escribe.
+const tenant = tenantDeRequest(Astro.request);
+const tenantId = tenant.ok ? tenant.tenantId : null;
 ---
 <!doctype html>
 <html lang="es" dir={harness.dir}>
@@ -53,7 +59,7 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
       <h1>Venta mostrador</h1>
       <TemaToggle />
     </header>
-    <main>
+    <main data-tenant={tenantId ?? ""}>
       <div class="card vidrio-card">
         <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
         <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
@@ -94,11 +100,13 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
     <PwaRegistro />
     <script>
       import { sincronizarColaVenta } from "../offline/cola-venta.js";
-      import { agregarProvisorio, debeDescargar, descargarCatalogo, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
+      import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       const $ = (id) => document.getElementById(id);
       const seqKey = "slice0-seq";
       const outboxKey = "slice0-outbox";
+      const tenant = document.querySelector("[data-tenant]")?.dataset.tenant ?? "";
+      const storage = localStorage;
       const nextSeq = () => {
         const n = Number(localStorage.getItem(seqKey) ?? "0") + 1;
         localStorage.setItem(seqKey, String(n));
@@ -106,7 +114,10 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
       };
       const estado = (t) => { $("estado").textContent = t; };
       const esHarnessWorst = Boolean(document.getElementById("lineas-worst"));
-      let catalogo = leerCatalogoLocal(localStorage);
+      // P10-13: con tenant conocido se descarta la clave legada global (sin
+      // migrarla); sin tenant no se lee ni se escribe catálogo.
+      if (tenant) descartarCatalogoLegado(storage, tenant);
+      let catalogo = leerCatalogoLocal(storage, tenant);
       const fechaCatalogo = (iso) => {
         const partes = fechaAR(new Date(iso)).split("-");
         return (partes[2] ?? "") + "/" + (partes[1] ?? "") + " " + horaMinutoAR(new Date(iso));
@@ -141,14 +152,15 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
       });
       $("precio").addEventListener("input", () => { precioEditado = true; });
       const refrescarCatalogo = async () => {
-        if (esHarnessWorst) return;
+        if (esHarnessWorst || !tenant) return;
         if (!debeDescargar(catalogo, new Date(), navigator.onLine)) return;
         const r = await descargarCatalogo({
+          tenantId: tenant,
           fetch: async (url) => {
             const res = await fetch(url);
             return { ok: res.ok, status: res.status, desdeCache: res.headers.get("x-desde-cache") === "1", json: () => res.json() };
           },
-          storage: localStorage,
+          storage,
         });
         if (!r.ok) return;
         catalogo = r.snapshot;
@@ -214,8 +226,8 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
           localStorage.setItem(outboxKey, JSON.stringify(q));
           // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
           // desde el snapshot local en vez de volver a pedir el nombre.
-          if (linea.alta) {
-            catalogo = agregarProvisorio(localStorage, linea.product_id, linea.precio_centavos);
+          if (linea.alta && tenant) {
+            catalogo = agregarProvisorio(storage, tenant, linea.product_id, linea.precio_centavos);
             mostrarCatalogo();
           }
           estado("offline provisorio " + device_code + "-" + seq + " encolado " + op_id);
