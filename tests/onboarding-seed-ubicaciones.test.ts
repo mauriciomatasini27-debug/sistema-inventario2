@@ -10,6 +10,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { locations } from "../src/db/schema.js";
 import { POST as postAlta } from "../src/pages/api/onboarding/alta.js";
+import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 const KIOSCO = [
   "Mostrador",
@@ -109,11 +110,13 @@ describe("ON4.1/ON4.2 alta autoservicio siembra ubicaciones del rubro", () => {
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const tenantA = randomUUID();
 const tenantB = randomUUID();
+let basePrivA = "";
+let basePrivB = "";
 
 function fijarMulti() {
   process.env.TENANT_MODE = "multi";
-  process.env[`TENANT_DATABASE_URL_${tenantA}`] = process.env.PG_TEST_URL_A ?? "";
-  process.env[`TENANT_DATABASE_URL_${tenantB}`] = process.env.PG_TEST_URL_B ?? "";
+  process.env[`TENANT_DATABASE_URL_${tenantA}`] = basePrivA;
+  process.env[`TENANT_DATABASE_URL_${tenantB}`] = basePrivB;
 }
 
 async function borrarUbicaciones(tenantId: string) {
@@ -130,6 +133,8 @@ async function filas(tenantId: string) {
 
 describe.skipIf(!hayPG)("ON4 seed PG: siembra DB-first aislada por tenant e idempotente", () => {
   beforeAll(async () => {
+    basePrivA = await asegurarBasePrivada("on4_seed_ubic_a", process.env.PG_TEST_URL_A ?? "");
+    basePrivB = await asegurarBasePrivada("on4_seed_ubic_b", process.env.PG_TEST_URL_B ?? "");
     fijarMulti();
     resetStore();
     await borrarUbicaciones(tenantA);
@@ -137,6 +142,7 @@ describe.skipIf(!hayPG)("ON4 seed PG: siembra DB-first aislada por tenant e idem
   });
 
   afterAll(async () => {
+    if (!basePrivA) return;
     fijarMulti();
     await borrarUbicaciones(tenantA);
     await borrarUbicaciones(tenantB);
