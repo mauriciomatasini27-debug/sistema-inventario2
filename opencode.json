@@ -37,7 +37,7 @@
     },
     "pstack-judge": {
       "mode": "subagent",
-      "model": "opencode/space-bunny-free",
+      "model": "opencode/glm-5.3-flash-free",
       "description": "pstack judgment/prose role: synthesizers, explainers, judges, reviewers."
     }
   },
@@ -60,7 +60,7 @@
             "output": 32000
           }
         },
-        "space-bunny-free": {
+        "glm-5.3-flash-free": {
           "limit": {
             "context": 250000,
             "output": 32000
