@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
@@ -32,6 +32,9 @@ export interface LineaVentaInput {
   readonly product_id: string;
   readonly qty: number;
   readonly precio_centavos: number;
+  // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo. El SKU es product_id y
+  // el precio es el de la línea; acá solo llega el nombre.
+  readonly alta?: { readonly nombre: string } | undefined;
 }
 
 export interface PagoVentaInput {
@@ -74,6 +77,14 @@ export type RegistroVentaFallo =
   | { readonly ok: false; readonly codigo: "PAGOS_NO_SUMAN"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "FISCAL_RECHAZO"; readonly status: 422; readonly error: string }
   | { readonly ok: false; readonly codigo: "YA_VISTA_DB"; readonly status: 409; readonly original: unknown };
+
+// La tx ya insertó el alta antes de validar el núcleo; un rechazo tiene que
+// relanzar para que la tx revierta y no quede un producto sin venta.
+class VentaRechazada extends Error {
+  constructor(readonly fallo: RegistroVentaFallo) {
+    super("venta rechazada");
+  }
+}
 
 type TenantDb = ReturnType<typeof getTenantDb>;
 
@@ -185,7 +196,52 @@ function espejoMemoria(
   }
 }
 
+// ADR-0106: un producto dado de alta al vender sigue "sin stock inicial"
+// hasta su primer movimiento ALTA; mientras tanto no bloquea el mostrador en
+// línea (su faltante va como sobreventa), venga o no la línea con `alta`:
+// la segunda venta ya lo encuentra en el catálogo y no manda `alta`.
+function skusSinStockInicialMemoria(lineas: ReadonlyArray<LineaVentaInput>): Set<string> {
+  const conAlta = new Set(store.stockMoves.filter((m) => m.tipo === "ALTA").map((m) => m.sku));
+  const skus = new Set<string>();
+  for (const l of lineas) {
+    const sku = l.product_id;
+    const nuevo = Boolean(l.alta) && !store.productos.has(sku) && !store.stock.has(sku);
+    if ((nuevo || store.altasAlVender.has(sku)) && !conAlta.has(sku)) skus.add(sku);
+  }
+  return skus;
+}
+
+// ADR-0106: espejo del alta al vuelo sin DB, igual que el espejo de
+// altaProducto (productos, stock, precios y sector). Solo agrega lo que falta:
+// un SKU existente conserva nombre y precio (first-writer-wins por SKU).
+// Corre recién con la venta aprobada para no dejar productos de ventas fallidas.
+function espejarAltaMemoria(lineas: ReadonlyArray<LineaVentaInput>): void {
+  for (const l of lineas) {
+    if (!l.alta) continue;
+    const sku = l.product_id;
+    if (!store.productos.has(sku) && !store.stock.has(sku)) {
+      store.altasAlVender.add(sku);
+      store.productos.set(sku, {
+        sku,
+        nombre: l.alta.nombre,
+        precioCentavos: l.precio_centavos,
+        sector: "general",
+        locationId: null,
+        archivado: false,
+        controlaVencimiento: false,
+        estado: "activo",
+        minStock: null,
+        reorderQty: null,
+      });
+    }
+    if (!store.stock.has(sku)) store.stock.set(sku, 0);
+    if (!store.prices.has(sku)) store.prices.set(sku, l.precio_centavos);
+    if (!store.productSectores.has(sku)) store.productSectores.set(sku, "general");
+  }
+}
+
 function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
+  const skusSinStockInicial = skusSinStockInicialMemoria(i.lineas);
   const r = vender_mostrador({
     idempotencyKey: i.key,
     lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
@@ -197,6 +253,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
     vistos: new Map([...store.idempotency.entries()].map(([k, v]) => [k, aEmitido(v)] as const)),
     ultimoDefinitivo: store.nextTicket > 1 ? { n: store.nextTicket - 1 } : null,
     grant: { rol: "dueno" },
+    skusSinStockInicial,
   });
   if (!r.ok) return r;
   const e = r.efecto;
@@ -212,6 +269,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   const pagosEfectivos = i.pagos ?? [{ medio: i.medio, monto_centavos: Number(e.ticket.totalCentavos) }];
   const esDividido = Boolean(i.pagos);
   const pagosConId = pagosEfectivos.map((p) => ({ ...p, cashMovementId: crypto.randomUUID() }));
+  espejarAltaMemoria(i.lineas);
   espejoMemoria(i.key, saleId, i, e, pagosConId, esDividido);
   return { ok: true, venta: { saleId, efecto: e, pagosConId, fuente: "memoria" } };
 }
@@ -234,6 +292,38 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       // Lock de secuencia: correlativo sin huecos, revierte con la tx.
       const filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).for("update");
       const ultimo = filas[0]?.ultimo ?? 0;
+      // ADR-0106: el alta entra en la MISMA tx y antes del snapshot. Si el SKU
+      // ya existe no lo pisa; la línea con alta no bloquea por stock inicial 0.
+      const skusSinStockInicial = new Set<string>();
+      for (const linea of i.lineas) {
+        if (!linea.alta) continue;
+        const insertado = await tx
+          .insert(products)
+          .values({
+            sku: linea.product_id,
+            nombre: linea.alta.nombre,
+            precioCentavos: BigInt(linea.precio_centavos),
+            stockActual: 0,
+            origen: "alta_al_vender",
+          })
+          .onConflictDoNothing({ target: products.sku })
+          .returning({ id: products.id });
+        if (insertado.length > 0) skusSinStockInicial.add(linea.product_id);
+      }
+      // Provisorios ya creados (origen alta_al_vender) sin ALTA todavía.
+      const skusLinea = [...new Set(i.lineas.map((l) => l.product_id))];
+      const provisorios = await tx
+        .select({ sku: products.sku })
+        .from(products)
+        .where(and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender")));
+      if (provisorios.length > 0) {
+        const conAlta = await tx
+          .select({ sku: stockMovements.sku })
+          .from(stockMovements)
+          .where(and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA")));
+        const yaCargados = new Set(conAlta.map((m) => m.sku));
+        for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
+      }
       // Misma semántica que memoria: niveles por sku con la misma función.
       const prods = await tx.select({ id: products.id, sku: products.sku, stockActual: products.stockActual }).from(products);
       const niveles = new Map(prods.map((p) => [p.sku, p.stockActual] as const));
@@ -249,16 +339,19 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         vistos: new Map<string, TicketEmitido>(),
         ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
         grant: { rol: "dueno" },
+        skusSinStockInicial,
       });
-      if (!r.ok) return r;
+      if (!r.ok) throw new VentaRechazada(r);
       const e = r.efecto;
       if (i.gateFiscal) {
         const g = i.gateFiscal(e.ticket.totalCentavos);
-        if (!g.ok) return { ok: false, codigo: "FISCAL_RECHAZO", status: 422, error: g.error } as const;
+        if (!g.ok) throw new VentaRechazada({ ok: false, codigo: "FISCAL_RECHAZO", status: 422, error: g.error });
       }
       if (i.pagos) {
         const suma = i.pagos.reduce((a, p) => a + p.monto_centavos, 0);
-        if (BigInt(suma) !== e.ticket.totalCentavos) return { ok: false, codigo: "PAGOS_NO_SUMAN", status: 422 } as const;
+        if (BigInt(suma) !== e.ticket.totalCentavos) {
+          throw new VentaRechazada({ ok: false, codigo: "PAGOS_NO_SUMAN", status: 422 });
+        }
       }
       const saleId = crypto.randomUUID();
       const pagosEfectivos = i.pagos ?? [{ medio: i.medio, monto_centavos: Number(e.ticket.totalCentavos) }];
@@ -349,10 +442,10 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       }
       return { ok: true as const, saleId, efecto: e, pagosConId, esDividido };
     });
-    if (!salida.ok) return salida;
     espejoMemoria(i.key, salida.saleId, i, salida.efecto, salida.pagosConId, salida.esDividido);
     return { ok: true, venta: { saleId: salida.saleId, efecto: salida.efecto, pagosConId: salida.pagosConId, fuente: "db" } };
   } catch (e) {
+    if (e instanceof VentaRechazada) return e.fallo;
     // Carrera entre pre-check e insert: mismo 409 con relectura del original.
     if (esConflictoUnico(e)) {
       try {

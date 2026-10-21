@@ -85,6 +85,11 @@ export interface VenderMostradorInput {
   readonly descuentoTicket?: DescuentoSpec | null | undefined;
   /** TV5.8: true => ticket "Pago: A cuenta", ingresaACaja false (C18 Lane B). */
   readonly esAcuenta?: boolean | undefined;
+  /**
+   * PRD-STOCK-01 STOCK-S2 (ADR-0106): SKUs con alta al vuelo y stock inicial 0.
+   * Su faltante no bloquea el mostrador online; se registra como sobreventa.
+   */
+  readonly skusSinStockInicial?: ReadonlySet<string> | undefined;
 }
 
 export interface EfectoVenta {
@@ -134,6 +139,7 @@ export function vender_mostrador(input: VenderMostradorInput): VentaMostradorRes
     lineas: input.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad })),
     modo: input.offline ? "OFFLINE_PERMITIDO" : "ONLINE",
     idemKey: input.idempotencyKey,
+    ...(input.skusSinStockInicial !== undefined ? { sobreventaPermitida: input.skusSinStockInicial } : {}),
   });
   if (!d.ok) return { ok: false, codigo: d.codigo, status: 422 };
 

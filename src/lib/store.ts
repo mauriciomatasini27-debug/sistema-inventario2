@@ -150,6 +150,8 @@ function crearEstado() {
   creditMovs: [] as Array<{ customer_id: string; debe: string; haber: string; key: string; fecha_ms?: number }>,
   // Nivel 1: sector por sku + conteos por sector (append-only, inmutable).
   productSectores: new Map<string, string>(),
+  // ADR-0106: espejo de products.origen = 'alta_al_vender' (sin DB).
+  altasAlVender: new Set<string>(),
   // N1 CAT-S1: catálogo mínimo (sku -> ficha). Memoria manda sin DB; con DB
   // viva hay write-through best-effort a products/product_codes.
   productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo" | "pendiente_revision"; minStock: number | null; reorderQty: number | null }>(),

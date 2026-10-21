@@ -116,6 +116,10 @@ export function descontar(args: {
   readonly lineas: ReadonlyArray<LineaInventario>;
   readonly modo: ModoDescuento;
   readonly idemKey: string;
+  // PRD-STOCK-01 STOCK-S2 (ADR-0106): SKUs con alta al vuelo y stock inicial
+  // 0. En ONLINE no bloquean el mostrador: su faltante se registra como
+  // sobreventa, igual que el camino offline, en vez de devolver SIN_STOCK.
+  readonly sobreventaPermitida?: ReadonlySet<string> | undefined;
 }): Resultado<DescuentoOk, "SIN_STOCK" | "LINEA_INVALIDA"> {
   if (args.lineas.length === 0 || !args.idemKey) return { ok: false, codigo: "LINEA_INVALIDA" };
   for (const l of args.lineas) {
@@ -149,7 +153,9 @@ export function descontar(args: {
       resto -= toma;
     }
     if (resto > 0) {
-      if (args.modo === "ONLINE") return { ok: false, codigo: "SIN_STOCK" };
+      if (args.modo === "ONLINE" && !args.sobreventaPermitida?.has(sku)) {
+        return { ok: false, codigo: "SIN_STOCK" };
+      }
       sobreventa.push({ sku, faltante: resto });
     }
   }

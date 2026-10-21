@@ -239,6 +239,13 @@
       "when": 1792538873372,
       "tag": "0035_stock_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792586400000,
+      "tag": "0033_products_origen",
+      "breakpoints": true
     }
   ]
 }
