@@ -51,6 +51,10 @@ export function listarTodasLasLineasTicket(): LineaTicketMemoria[] {
   return store.ticketLineas;
 }
 
+export function listarAltasAlVender(): string[] {
+  return [...store.altasAlVender];
+}
+
 export function agregarDescuentoTicket(descuento: DescuentoTicketMemoria): void {
   store.ticketDescuentos.push(descuento);
 }

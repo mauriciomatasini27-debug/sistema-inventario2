@@ -1,0 +1,156 @@
+import { and, asc, count, desc, eq, gte, notExists, sql } from "drizzle-orm";
+import { products, sales, stockMovements, ticketLines } from "../../db/schema.js";
+import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
+import { listarAltasAlVender, listarTodasLasLineasTicket } from "../ticket-memoria.js";
+import { crearAlmacenProductos, crearListaMovimientosStock } from "./_almacen.js";
+import { aplicarMovimiento } from "./stock.js";
+
+// STOCK-S4 (ADR-0106): carga progresiva del stock inicial de los productos
+// creados al vender. Pendiente = origen "alta_al_vender" sin movimiento ALTA.
+
+const VENTANA_30_DIAS_MS = 30 * 24 * 60 * 60 * 1000;
+
+export interface PendienteStockInicial {
+  readonly sku: string;
+  readonly nombre: string;
+  readonly vendidas30d: number;
+}
+
+export interface PendientesStockInicial {
+  readonly items: PendienteStockInicial[];
+  readonly total: number;
+}
+
+export interface ListarPendientesStockInicialInput {
+  readonly limite?: number;
+  readonly ahora?: Date;
+}
+
+export type CargarStockInicialResultado =
+  | { ok: true }
+  | { ok: false; codigo: "NO_PENDIENTE" | "CANTIDAD_INVALIDA" };
+
+function listarPendientesMemoria(limite: number): PendientesStockInicial {
+  const movimientos = crearListaMovimientosStock().listar();
+  const conAlta = new Set(movimientos.filter((m) => m.tipo === "ALTA").map((m) => m.sku));
+  const productos = crearAlmacenProductos();
+  const vendidas = new Map<string, number>();
+  // En memoria no hay fecha de venta confiable: se cuentan todas las líneas.
+  for (const linea of listarTodasLasLineasTicket()) {
+    vendidas.set(linea.product_id, (vendidas.get(linea.product_id) ?? 0) + linea.qty);
+  }
+  const pendientes = listarAltasAlVender()
+    .filter((sku) => !conAlta.has(sku))
+    .map((sku) => ({
+      sku,
+      nombre: productos.obtener(sku)?.nombre ?? sku,
+      vendidas30d: vendidas.get(sku) ?? 0,
+    }))
+    .sort((a, b) => b.vendidas30d - a.vendidas30d || a.nombre.localeCompare(b.nombre));
+  return { items: pendientes.slice(0, limite), total: pendientes.length };
+}
+
+async function listarPendientesDb(
+  db: TenantDb,
+  limite: number,
+  desde: Date,
+): Promise<PendientesStockInicial> {
+  const ventas30d = db
+    .select({
+      productId: ticketLines.productId,
+      vendidas: sql<number>`sum(${ticketLines.qty})`.mapWith(Number).as("vendidas"),
+    })
+    .from(ticketLines)
+    .innerJoin(sales, eq(ticketLines.saleId, sales.id))
+    .where(gte(sales.createdAt, desde))
+    .groupBy(ticketLines.productId)
+    .as("ventas_30d");
+  const vendidas = sql<number>`coalesce(${ventas30d.vendidas}, 0)`.mapWith(Number);
+  const pendiente = and(
+    eq(products.origen, "alta_al_vender"),
+    notExists(
+      db
+        .select({ uno: sql`1` })
+        .from(stockMovements)
+        .where(and(eq(stockMovements.sku, products.sku), eq(stockMovements.tipo, "ALTA"))),
+    ),
+  );
+  const filas = await db
+    .select({ sku: products.sku, nombre: products.nombre, vendidas30d: vendidas })
+    .from(products)
+    .leftJoin(ventas30d, eq(ventas30d.productId, products.id))
+    .where(pendiente)
+    .orderBy(desc(vendidas), asc(products.nombre))
+    .limit(limite);
+  const totales = await db.select({ total: count() }).from(products).where(pendiente);
+  return {
+    items: filas.map((f) => ({ sku: f.sku, nombre: f.nombre, vendidas30d: f.vendidas30d })),
+    total: Number(totales[0]?.total ?? 0),
+  };
+}
+
+export async function listarPendientesStockInicial(
+  input: ListarPendientesStockInicialInput = {},
+): Promise<PendientesStockInicial> {
+  const limite = Math.max(0, Math.floor(input.limite ?? 5));
+  const ahora = input.ahora ?? new Date();
+  const desde = new Date(ahora.getTime() - VENTANA_30_DIAS_MS);
+  const deDb = await intentarLeer((db) => listarPendientesDb(db, limite, desde));
+  return deDb ?? listarPendientesMemoria(limite);
+}
+
+async function cargarStockInicialMemoria(
+  sku: string,
+  cantidad: number,
+): Promise<CargarStockInicialResultado> {
+  if (!listarAltasAlVender().includes(sku)) return { ok: false, codigo: "NO_PENDIENTE" };
+  if (crearListaMovimientosStock().listar().some((m) => m.sku === sku && m.tipo === "ALTA")) {
+    return { ok: false, codigo: "NO_PENDIENTE" };
+  }
+  await aplicarMovimiento({
+    idemKey: `stock-inicial:${sku}`,
+    sku,
+    loteId: null,
+    delta: cantidad,
+    tipo: "ALTA",
+    motivo: "stock inicial",
+  });
+  return { ok: true };
+}
+
+export async function cargarStockInicial(
+  sku: string,
+  cantidad: number,
+): Promise<CargarStockInicialResultado> {
+  if (!Number.isInteger(cantidad) || cantidad < 0 || cantidad > 99999) {
+    return { ok: false, codigo: "CANTIDAD_INVALIDA" };
+  }
+  const db = dbVivaTenant();
+  if (!db) return cargarStockInicialMemoria(sku, cantidad);
+  try {
+    const provisorio = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.sku, sku), eq(products.origen, "alta_al_vender")))
+      .limit(1);
+    if (!provisorio[0]) return { ok: false, codigo: "NO_PENDIENTE" };
+    const alta = await db
+      .select({ id: stockMovements.id })
+      .from(stockMovements)
+      .where(and(eq(stockMovements.sku, sku), eq(stockMovements.tipo, "ALTA")))
+      .limit(1);
+    if (alta[0]) return { ok: false, codigo: "NO_PENDIENTE" };
+  } catch (e) {
+    crearListaMovimientosStock().anteFalloPersistencia(e);
+    return cargarStockInicialMemoria(sku, cantidad);
+  }
+  await aplicarMovimiento({
+    idemKey: `stock-inicial:${sku}`,
+    sku,
+    loteId: null,
+    delta: cantidad,
+    tipo: "ALTA",
+    motivo: "stock inicial",
+  });
+  return { ok: true };
+}

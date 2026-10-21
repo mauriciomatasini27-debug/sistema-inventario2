@@ -6,6 +6,13 @@ import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
+  <section class="card" id="stock-inicial" hidden>
+    <h2>Cargá el stock inicial</h2>
+    <p>Estos productos los diste de alta al vender. Contá cuántos tenés y cargalos; te mostramos los más vendidos primero.</p>
+    <ul class="lista" id="stock-inicial-lista"></ul>
+    <div class="estado" id="estado-stock-inicial" role="status"></div>
+  </section>
+
   <div class="grid dos">
     <section class="card" data-harness={harness}>
       <h2>Catálogo</h2>
@@ -102,6 +109,15 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   #ubicaciones-lista li button {
     margin-left: 8px;
   }
+  #stock-inicial-lista li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  #stock-inicial-lista input {
+    width: 96px;
+  }
   .editor-ubicacion {
     display: flex;
     flex-wrap: wrap;
@@ -169,6 +185,87 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         $("stock-productos").textContent = "—";
         $("stock-umbral").textContent = "—";
         $("estado-stock").textContent = mensaje("error", "");
+      });
+  };
+
+  const guardarStockInicial = async (item, input) => {
+    const estado = $("estado-stock-inicial");
+    // Vacío no es 0: un clic sin cargar nada no saca el producto de pendientes.
+    const cantidad = input.value.trim() === "" ? NaN : Number(input.value);
+    if (!Number.isInteger(cantidad) || cantidad < 0 || cantidad > 99999) {
+      estado.textContent = "Escribí una cantidad entera entre 0 y 99999.";
+      input.focus();
+      return;
+    }
+    estado.textContent = "Guardando…";
+    try {
+      const r = await fetch("/api/stock/inicial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku: item.sku, cantidad }),
+      });
+      if (r.status === 409) {
+        estado.textContent = "Ese producto ya no está pendiente.";
+        cargarStockInicialPanel();
+        return;
+      }
+      if (!r.ok) {
+        estado.textContent = "No se guardó la cantidad inicial.";
+        return;
+      }
+      toast.success("Stock inicial guardado.");
+      estado.textContent = "Cantidad guardada.";
+      cargarStockInicialPanel();
+      cargarCatalogo();
+    } catch (error) {
+      console.warn("[panel/stock] guardar stock inicial", error);
+      estado.textContent = mensaje("error", "");
+    }
+  };
+
+  const pintarStockInicial = (items, total) => {
+    $("stock-inicial").hidden = total === 0;
+    const lista = $("stock-inicial-lista");
+    lista.textContent = "";
+    items.forEach((p) => {
+      const li = document.createElement("li");
+      const nombre = document.createElement("span");
+      nombre.textContent = p.nombre;
+      const vendidas = document.createElement("span");
+      vendidas.textContent = "vendidas en 30 días: " + p.vendidas30d;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = "99999";
+      input.step = "1";
+      input.inputMode = "numeric";
+      input.placeholder = "Cantidad";
+      input.setAttribute("aria-label", "Cantidad inicial de " + p.nombre);
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.textContent = "Guardar";
+      boton.addEventListener("click", () => guardarStockInicial(p, input));
+      li.append(nombre, vendidas, input, boton);
+      lista.appendChild(li);
+    });
+  };
+
+  const cargarStockInicialPanel = () => {
+    fetch("/api/stock/inicial")
+      .then((r) => {
+        if (r.status === 403) {
+          $("stock-inicial").hidden = true;
+          return null;
+        }
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        if (j) pintarStockInicial(j.items || [], j.total || 0);
+      })
+      .catch((error) => {
+        console.warn("[panel/stock] stock inicial", error);
+        $("estado-stock-inicial").textContent = mensaje("error", "");
       });
   };
 
@@ -455,6 +552,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   });
 
   cargarCatalogo();
+  cargarStockInicialPanel();
   buscarLotes();
   cargarUbicaciones();
 </script>
