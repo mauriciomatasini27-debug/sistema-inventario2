@@ -429,6 +429,10 @@
       "ruta": "docs/adr/0108-importacion-stock-csv-excel.md"
     },
     {
+      "id": "ADR-0109",
+      "ruta": "docs/adr/0109-modelo-free-por-skill-con-respaldo.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -751,6 +755,10 @@
     {
       "id": "PRD-OP-01",
       "ruta": "docs/diseno/PRD-OP-01-panel-cierre-landing.md"
+    },
+    {
+      "id": "PRD-OPENCODE-01",
+      "ruta": "docs/diseno/PRD-OPENCODE-01-modelos-por-skill.md"
     },
     {
       "id": "PRD-P0-VENTA-CAJA-FIADO-01",
@@ -2481,6 +2489,11 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0109",
+      "a": "PRD-PS-01",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -3393,6 +3406,16 @@
     {
       "de": "PRD-OP-01",
       "a": "ADR-0022",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OPENCODE-01",
+      "a": "ADR-0109",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-OPENCODE-01",
+      "a": "PRD-PS-01",
       "tipo": "depende_de"
     },
     {
