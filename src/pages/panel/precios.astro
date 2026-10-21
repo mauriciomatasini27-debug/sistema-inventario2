@@ -35,7 +35,8 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 </PanelShell>
 
 <script>
-  import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { formatearPesos } from "../../lib/pesos.js";
+  import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { PORCENTAJE, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
@@ -124,7 +125,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
       }
       const linea = (j.lineas || [])[0];
       estado.textContent = linea
-        ? producto.sku + ": " + formatearCentavos(producto.precioCentavos) + " → " + formatearCentavos(linea.nuevo_centavos) + "."
+        ? producto.sku + ": " + formatearPesos(producto.precioCentavos) + " → " + formatearPesos(linea.nuevo_centavos) + "."
         : "Sin líneas para previsualizar.";
     } catch (error) {
       console.warn("[panel/precios] preview", error);

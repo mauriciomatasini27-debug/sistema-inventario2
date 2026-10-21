@@ -6,23 +6,8 @@ export interface ProductoCatalogo {
   reorder_qty?: number | null;
 }
 
-export const LOCALE_PRECIO = "en-US";
-
-// Moneda con símbolo "$" en en-US y sin agrupar: reproduce formatearCentavos
-// ("$1234.56", "-$5.00") con el signo antes del símbolo, sin prefijo a mano.
+export const LOCALE_PRECIO = "es-AR";
 export const FORMATO_PRECIO = {
-  style: "currency",
-  currency: "USD",
-  currencyDisplay: "narrowSymbol",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  useGrouping: false,
-} as const;
-
-// P10-11: /panel/stock muestra pesos es-AR ("$ 1.234,50"); /panel/precios
-// conserva el formato histórico de arriba hasta que se decida migrarlo.
-export const LOCALE_PRECIO_AR = "es-AR";
-export const FORMATO_PRECIO_AR = {
   style: "currency",
   currency: "ARS",
   minimumFractionDigits: 2,
