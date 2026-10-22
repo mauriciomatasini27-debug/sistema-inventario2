@@ -1,0 +1,7 @@
+{
+  "tag": "0038_analytics_snapshot",
+  "fecha": "2026-10-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "0038 verificada aplicada en la base real; fila de journal id 39 con hash igual al archivo y created_at 1792845600000 (del journal); estructura de rotation_settings/rotation_snapshots/promo_intents verificada contra el archivo; aplicada junto con 0037 por drizzle-kit.",
+  "backup": "/home/mauri/backups/pre-0037-0038-schema-20261022-0058.sql"
+}

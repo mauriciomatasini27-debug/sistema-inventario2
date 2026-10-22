@@ -25,7 +25,7 @@ Windows nativo sirve solo para `npm run dev`, `npm test -- <archivo>` sin Postgr
 - WSL2 con Ubuntu 24.04 y una terminal moderna (Windows Terminal).
 - Node 22 (`verify` y Astro 7 piden 22.12 o más). El repo no trae `.nvmrc` ni `engines`.
 - Postgres 17 (el box usa 17; Ubuntu 24.04 trae 16 por defecto, así que se instala desde el repo PGDG).
-- `git`, `gh` (el gate usa `gh api`) y OpenCode **1.x** (el repo fija `@opencode-ai/plugin` 1.19; no instales OpenCode 2, que usa el mismo comando).
+- `git`, `gh` (el gate usa `gh api`) y OpenCode **1.x**. No instales OpenCode 2, que usa el mismo comando.
 
 ## Setup, una sola vez
 
@@ -118,10 +118,10 @@ tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál
 3. `git fetch && git rebase origin/main` y después `npm run verify`, que tiene que dar verde. Los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) los regenera `main`, no la rama, así el PR no queda CONFLICTING cuando otro se mergeó antes. Si la rama ya los trae, `verify` falla en la guarda `docs:generados` y te dice cómo quitarlos (`git checkout $(git merge-base origin/main HEAD) -- <archivo>`).
 4. Commiteá y `git push -u origin mauri/<tema>`, después `gh pr create`.
 5. PR visual (toca `src/**/*.astro|css|tsx|jsx`): el cuerpo lleva una sección `## interface-review` con `Veredicto: Approve` y ningún HIGH abierto. Chequealo antes de abrir el PR con `npm run review:gate -- --body-file <cuerpo.md>`.
-6. `node scripts/cadena/puede-mergear.mjs <PR>` tiene que dar exit 0. Bloquea por "No mergear"/"DO NOT MERGE", por migraciones `drizzle/*.sql` no registradas en `docs/roadmap/migraciones-aplicadas.md` de `main` y por el gate visual.
+6. `node scripts/cadena/puede-mergear.mjs <PR>` tiene que dar exit 0. Bloquea por "No mergear"/"DO NOT MERGE", por migraciones `drizzle/*.sql` sin `docs/roadmap/migraciones/<tag>.json` en `main` y por el gate visual.
 7. Squash-merge (`gh pr merge <PR> --squash --delete-branch`). GitHub Actions es manual-only (ADR-0086): no esperes checks.
 
-Migraciones: aplicalas vos sobre la base real y registralas en `docs/roadmap/migraciones-aplicadas.md` (PR aparte, antes del que trae el `.sql`).
+Migraciones: aplicalas vos sobre la base real y registrá `docs/roadmap/migraciones/<tag>.json` (PR aparte, antes del que trae el `.sql`). El `.md` lo regenera `main`.
 
 ## Convivir con la Cadena del box
 

@@ -1,0 +1,6 @@
+{
+  "tag": "0035_stock_imports",
+  "fecha": "2026-10-21",
+  "backup": "/home/mauri/backups/pre-0035-schema-20261021-0053.json",
+  "evidencia": "0035 aplicada vía conector Supabase (execute_sql); fila de journal id 37 agregada vía conector Supabase (hash sha256 del archivo, created_at 1792538873372 del journal; el migrador ordena por created_at, así que 0036 sigue siendo la última); backup de la fila en /home/mauri/backups/pre-0035row-schema-20261021-0247.json."
+}

@@ -33,6 +33,17 @@ describe("puede-mergear: migraciones", () => {
     expect(evaluar({ ...base, files: [{ filename: "drizzle/0023_cash_due_items.sql", status: "modified" }] }).ok).toBe(true);
     expect(evaluar({ ...base, files: [] }).ok).toBe(true);
   });
+  it("acepta el registro por ítem de la base", () => {
+    const r = evaluar({
+      titulo: "feat",
+      cuerpo: "ok",
+      registroMd: "",
+      migraciones: ["0024_nueva"],
+      files: [{ filename: "drizzle/0024_nueva.sql", status: "added" }],
+    });
+    expect(r.ok).toBe(true);
+  });
+
   it("junta ambos motivos", () => {
     const r = evaluar({ titulo: "x", cuerpo: "No mergear", registroMd: "", files: [{ filename: "drizzle/0024_a.sql", status: "added" }] });
     expect(r.motivos).toHaveLength(2);

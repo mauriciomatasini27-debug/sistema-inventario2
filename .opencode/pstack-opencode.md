@@ -15,6 +15,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 - Task `model` -> no soportado: elegí el rol (`pstack-worker` o `pstack-judge`); modelos distintos = cross-family judging.
 - `AskQuestion` -> `question` en la TUI interactiva; en `opencode run` (headless) no existe: elegí el default y seguí (principle-never-block-on-the-human).
 - `create-skill` -> `.agents/skills/<name>/SKILL.md` con frontmatter `name` = nombre de carpeta (lowercase-hyphen) y `description`. Verificá con `~/.local/bin/opencode debug skill`.
+- `control-ui`/`control-cli` (`cursor-team-kit`) no están instalados: donde una skill poteto pide "the matching control skill" para la PWA o la web, usá la skill local `/control-app` (`scripts/control-app/control-app.mjs`, ADR-0111).
 - Worktrees -> `git worktree add ../si-wt-<slug> -b wt/<slug>` y borralo al terminar.
 
 ## GitHub
@@ -54,7 +55,7 @@ Cada error tiene un guard estructural; la doc es el último recurso. E1: nunca e
 - El lock es `/workspace/.cadena.lock` (solo el PID dueño), administrado con `node scripts/cadena/lock.mjs acquire|release --pid <pid>`; nunca lo escribas a mano. Para un comando suelto, `scripts/cadena/con-lock.sh <cmd>`.
 - Dentro de la cadena el ORQUESTADOR ya tomó el lock: la sesión de OpenCode NO lo adquiere ni lo libera, y no hace push ni merge.
 - Gate de merge (lo corre el orquestador): `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0. GitHub Actions quedó manual-only (`workflow_dispatch`, ADR-0086); el gate real es `npm run verify`.
-- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones-aplicadas.md` antes del merge. Tests: `tests/cadena-lock.test.ts`, `tests/cadena-puede-mergear.test.ts`, `tests/cadena-con-lock.test.ts`.
+- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones/<tag>.json` antes del merge; el `.md` es derivado (`npm run docs:migraciones`). Tests: `tests/cadena-lock.test.ts`, `tests/cadena-puede-mergear.test.ts`, `tests/cadena-con-lock.test.ts`.
 
 ## Verificación formal
 

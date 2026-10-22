@@ -3,6 +3,7 @@ export const ARCHIVOS_GENERADOS = [
   "docs/ROADMAP.md",
   "docs/INDEX.md",
   "docs/graph.json",
+  "docs/roadmap/migraciones-aplicadas.md",
 ];
 
 export function normalizarRuta(ruta) {
