@@ -2,11 +2,14 @@
 import PanelShell from "../../components/panel/PanelShell.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
+import { tenantDeRequest } from "../../lib/tenant-context.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
+const tenant = tenantDeRequest(Astro.request);
+const tenantId = tenant.ok ? tenant.tenantId : null;
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
-  <section class="card" id="catalogo-sugerido" hidden>
+  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
@@ -191,8 +194,10 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
+  import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
 
   const $ = (id) => document.getElementById(id);
+  const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
@@ -398,9 +403,18 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     $("catalogo-sugerido").hidden = true;
   };
 
+  const catalogoSugeridoDescartado = () => {
+    try {
+      return avisoCatalogoDescartado(localStorage, tenantId);
+    } catch (error) {
+      console.warn("[panel/stock] aviso catálogo", error);
+      return false;
+    }
+  };
+
   const pintarCatalogoSugerido = (j) => {
     const productos = Array.isArray(j.productos) ? j.productos : [];
-    if (j.sembrado === true || productos.length === 0) {
+    if (j.sembrado === true || productos.length === 0 || catalogoSugeridoDescartado()) {
       ocultarCatalogoSugerido();
       return;
     }
@@ -442,7 +456,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 
   const sembrarCatalogoSugerido = async (nombres) => {
     const estado = $("estado-catalogo-sugerido");
-    estado.textContent = nombres.length === 0 ? "Descartando…" : "Creando productos…";
+    estado.textContent = "Creando productos…";
     try {
       const r = await fetch("/api/stock/plantilla", {
         method: "POST",
@@ -463,11 +477,8 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         console.warn("[panel/stock] respuesta sin JSON", r.status, error);
         return {};
       });
-      toast.success(
-        nombres.length === 0 ? "Listo, no te mostramos sugerencias." : "Productos creados sin precio.",
-      );
-      estado.textContent =
-        nombres.length === 0 ? "" : "Creados " + (j.cantidad ?? nombres.length) + " productos sin precio.";
+      toast.success("Productos creados sin precio.");
+      estado.textContent = "Creados " + (j.cantidad ?? nombres.length) + " productos sin precio.";
       ocultarCatalogoSugerido();
       cargarCatalogo();
     } catch (error) {
@@ -480,9 +491,20 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
     const nombres = [...document.querySelectorAll<HTMLInputElement>("#catalogo-sugerido-lista input:checked")].map(
       (input) => input.value,
     );
+    if (nombres.length === 0) {
+      $("estado-catalogo-sugerido").textContent = "Elegí al menos un producto o usá \"No, gracias\".";
+      return;
+    }
     sembrarCatalogoSugerido(nombres);
   });
-  $("catalogo-sugerido-no").addEventListener("click", () => sembrarCatalogoSugerido([]));
+  $("catalogo-sugerido-no").addEventListener("click", () => {
+    try {
+      descartarAvisoCatalogo(localStorage, tenantId);
+    } catch (error) {
+      console.warn("[panel/stock] aviso catálogo", error);
+    }
+    ocultarCatalogoSugerido();
+  });
 
   const buscarLotes = () => {
     const sku = $("lote-sku").value.trim().toUpperCase();

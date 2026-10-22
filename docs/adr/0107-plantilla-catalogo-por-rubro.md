@@ -14,7 +14,7 @@ resumen: |
 ---
 # ADR-0107 - Plantilla de catálogo por rubro, pantalla para destildar y registro de seeds
 
-Estado: aceptado (2026-10-21). Fecha: 2026-10-20. Fuentes: `src/modules/onboarding/plantillas-rubro.ts`, `src/modules/onboarding/ubicaciones-rubro.ts`, `src/modules/onboarding/ubicaciones-aviso.ts`, `src/lib/repos/siembra-ubicaciones.ts`, `drizzle/0032_tenant_location_seeds.sql`, `src/db/schema-planes.ts` (`tenantLocationSeeds`), `src/pages/api/onboarding/alta.ts`, `src/lib/repos/catalogo.ts` (`sembrarUbicacionesRubro`, `altaProducto`), `src/lib/repos/siembra-ubicaciones.ts` (`registrarSiembraUbicaciones`, `leerSembradasPorRubro`), `src/db/schema.ts` (`products`), ADR-0106.
+Estado: aceptado (2026-10-21). Fecha: 2026-10-20. Fuentes: `src/modules/onboarding/plantillas-rubro.ts`, `src/modules/onboarding/ubicaciones-rubro.ts`, `src/modules/onboarding/ubicaciones-aviso.ts`, `src/modules/onboarding/catalogo-aviso.ts`, `src/lib/repos/siembra-ubicaciones.ts`, `drizzle/0032_tenant_location_seeds.sql`, `src/db/schema-planes.ts` (`tenantLocationSeeds`), `src/pages/api/onboarding/alta.ts`, `src/lib/repos/catalogo.ts` (`sembrarUbicacionesRubro`, `altaProducto`), `src/lib/repos/siembra-ubicaciones.ts` (`registrarSiembraUbicaciones`, `leerSembradasPorRubro`), `src/db/schema.ts` (`products`), ADR-0106.
 
 ## Decisión
 
@@ -24,7 +24,7 @@ El registro de seeds es una tabla nueva `tenant_product_seeds`, espejo de `tenan
 
 El repositorio `src/lib/repos/siembra-productos.ts` espeja `siembra-ubicaciones.ts`: `registrarSiembraProductos` inserta una fila por tenant con `ON CONFLICT DO NOTHING` (idempotente) y `leerSiembraProductos` la lee, con el evento en memoria como fallback en single sin base.
 
-Los productos sembrados se crean con `products.precio_centavos = 0` y `products.origen = "plantilla_rubro"` (columna de ADR-0106), y se registran en `tenant_product_seeds`. La pantalla en `/panel/stock` lista la plantilla con checkbox, permite destildar y al confirmar crea solo los seleccionados y registra la siembra; el aviso se descarta al confirmar la siembra (incluso con cero productos). El registro es por tenant en `tenant_product_seeds`, no por dispositivo; si Mauri quiere descarte por dispositivo es un cambio chico aparte.
+Los productos sembrados se crean con `products.precio_centavos = 0` y `products.origen = "plantilla_rubro"` (columna de ADR-0106), y se registran en `tenant_product_seeds`. La pantalla en `/panel/stock` lista la plantilla con checkbox, permite destildar y al confirmar crea solo los seleccionados y registra la siembra. El descarte con "No, gracias" es local por dispositivo: `src/modules/onboarding/catalogo-aviso.ts` guarda `stock:aviso-catalogo:<tenantId>` en `localStorage`, así que el aviso se oculta solo en ese navegador y la siembra sigue disponible para el resto del tenant. El registro de productos es por tenant en `tenant_product_seeds`.
 
 El disparador es la pantalla, no el alta automática: el dueño elige qué quiere antes de crear. `POST /api/onboarding/alta` sigue sembrando ubicaciones como hoy y el catálogo de productos queda a confirmación.
 
@@ -42,4 +42,4 @@ Sembrar automáticamente en el alta: crea productos que el dueño no quiere y ob
 
 ## Pendientes
 
-Mauri aprobó el 2026-10-20 la migración `0034_tenant_product_seeds`; se aplicó el 2026-10-21. STOCK-E2 y STOCK-S9 están hechos. Queda definir si el descarte del aviso debe ser por dispositivo o queda por tenant como hoy.
+Mauri aprobó el 2026-10-20 la migración `0034_tenant_product_seeds`; se aplicó el 2026-10-21. STOCK-E2 y STOCK-S9 están hechos. El descarte del aviso quedó local por dispositivo (P10-18); `POST /api/stock/plantilla` conserva la siembra con `nombres: []` para otros clientes.
