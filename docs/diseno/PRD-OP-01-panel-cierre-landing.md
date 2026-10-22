@@ -18,7 +18,7 @@ Fuente: ADR-0006, ADR-0020, ADR-0022, `src/pages/admin.astro:4-6`, `src/pages/pa
 
 ## Épica OP-E1. Panel admin real
 
-- OP-S1. `GET /api/admin/tenants` + `suspender|reactivar` + `rollouts/:id/reintentar` + `GET /api/admin/audit`. AC: Given admin When listo Then sin badges `demo`; Infra deja `Próximamente (PA11)` solo si ADR lo fija. Tablas: `platform_admins`, `migration_rollouts`, `infra_hosts`, `tenant_daily_usage`. Depende de: PERS-S4.
+- OP-S1. `GET /api/admin/tenants` + `suspender|reactivar` + `rollouts/:id/reintentar` + `GET /api/admin/audit`. AC: Given admin When listo Then sin badges `demo`; Infra deja `Próximamente (PA11)` solo si ADR lo fija. Tablas: `platform_admins`, `migration_rollouts`, `infra_hosts`, `tenant_daily_usage`. Hoy `platform_admins`, `migration_rollouts` y `tenant_daily_usage` están declaradas en `src/db/schema-admin.ts` pero ningún `drizzle/*.sql` las crea; `infra_hosts` no existe. Depende de: PERS-S4.
 - OP-S2. Allowlist `google_sub` + `admin.<dominio>` + Ley 25.326 (solo gestión, nunca negocio). AC: Given no-admin When pide Then 403 + `admin_audit_log`. Depende de: OP-S1.
 
 ## Épica OP-E2. Panel comercio funcional

@@ -7,13 +7,13 @@ depende_de: [ADR-0003, ADR-0017]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Fuente: docs/01-fundacion/modo-offline.md (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Gap verificado
-  2026-10-11: solo existen src/pages/api/sync/push.ts + promote.ts; sin pull, heartbeat, offline-grants,
-  devices/register.
+  Fuente: docs/01-fundacion/modo-offline.md (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Implementado:
+  pull, heartbeat, offline-grants y devices/register además de push y promote. P10-13 aisló el catálogo offline
+  por tenant; la cola `slice0-outbox`/`slice0-seq` sigue global (P10-14).
 ---
 # PRD-SYNC-01 - Sync pull, heartbeat, grants y devices
 
-Fuente: `docs/01-fundacion/modo-offline.md` (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Gap verificado 2026-10-11: solo existen `src/pages/api/sync/push.ts` + `promote.ts`; sin `pull`, `heartbeat`, `offline-grants`, `devices/register`.
+Fuente: `docs/01-fundacion/modo-offline.md` (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Estado 2026-10-21: SYNC-S1 a S7 implementados en `src/pages/api/sync/{push,promote,pull,heartbeat,offline-grants}.ts` y `src/pages/api/devices/register.ts`. P10-13 aisló `offline:catalogo:<tenantId>`; la cola `slice0-outbox`/`slice0-seq` sigue global y es el ítem P10-14.
 
 ## Épica SYNC-E1. Pull incremental + cursor (OF3, OF4)
 
@@ -28,7 +28,7 @@ Fuente: `docs/01-fundacion/modo-offline.md` (OF3, OF4, OF5, OF9, OF14), ADR-0003
 ## Épica SYNC-E3. Offline grants + devices (OF9)
 
 - SYNC-S5. `POST /api/sync/offline-grants` (firmado: user/tenant/device/rol/permisos/vence, 72h def 24h-7d). AC: Given login online When pido grant Then recibo JWT verificable offline con mismos permisos. Given revocación When sincronizo Then cuarentena post-revocación. Tablas: `offline_grants`, `sessions`. Depende de: Auth AU8/AU9.
-- SYNC-S6. `POST /api/devices/register` + nombrar + revocar. AC: Given device nuevo When registro Then `device_id` único server + `offline_grant` inicial; login/invitación/nuevo device solo online. Existe `devices/nombrar.ts`, falta `register`. Depende de: SYNC-S5.
+- SYNC-S6. `POST /api/devices/register` + nombrar + revocar. AC: Given device nuevo When registro Then `device_id` único server + `offline_grant` inicial; login/invitación/nuevo device solo online. `devices/register.ts` existe; nombrar y revocar también. Depende de: SYNC-S5.
 - SYNC-S7. Sensibles solo online. AC: Given offline When intento tope/plazo/baja/ajuste/reversión/export Then `Necesita conexión` (OF16/FC13). Depende de: SYNC-S5.
 
 ## Estrategia prueba

@@ -1,7 +1,7 @@
 ---
 id: ADR-0033
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: []
 depende_de: [PRD-DS-01, PRD-UI-02]
 reemplaza: []

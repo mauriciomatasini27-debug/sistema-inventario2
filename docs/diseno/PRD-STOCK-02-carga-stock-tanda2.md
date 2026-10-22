@@ -1,14 +1,15 @@
 ---
 id: PRD-STOCK-02
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario, catalogo]
 depende_de: [ADR-0062, ADR-0106, ADR-0107, PRD-STOCK-01, ADR-0108]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
   Tanda 2 para cargar stock desde CSV o Excel: plantilla, vista previa sin escritura, errores por fila y
-  confirmación idempotente que suma cantidades como ALTA. La migración `0035_stock_imports` queda propuesta, no aplicada; el PR de código que la traiga la registra con aprobación de Mauri.
+  confirmación idempotente que suma cantidades como ALTA. La migración `0035_stock_imports` se aplicó el 2026-10-21 y quedó registrada.
+> Estado al 2026-10-21: hecho. STOCK-E3 implementado con vista previa, confirmación, plantilla CSV y errores por fila.
 ---
 # PRD-STOCK-02 - Carga de stock Tanda 2: importación desde CSV o Excel
 
@@ -48,17 +49,17 @@ Listas de precios de proveedor, costos, historial de costos, fotos, códigos de 
 
 ## Dependencias externas
 
-La importación depende de ADR-0108 y de la migración propuesta `0035_stock_imports` (el PR de código la trae y la registra con aprobación de Mauri en `docs/roadmap/migraciones-aplicadas.md`). Este PR no agrega `drizzle/*.sql`.
+La importación depende de ADR-0108 y de la migración `0035_stock_imports`, aplicada el 2026-10-21 y registrada en `docs/roadmap/migraciones-aplicadas.md`.
 
 El parseo de `.xlsx` necesita la dependencia de servidor `read-excel-file`. El CSV se parsea con un módulo local, sin dependencia nueva. El navegador no suma librerías de Excel.
 
-La tanda 1 y esta tanda comparten la tabla `products` y la meta de carga inicial, pero la importación no necesita las migraciones propuestas de la tanda 1 (`0033_products_origen` y `0034_tenant_product_seeds`, ninguna aplicada hoy). Si `products.origen` ya existe, la importación deja `origen` en null. La procedencia queda en `stock_movements.motivo`.
+La tanda 1 y esta tanda comparten la tabla `products` y la meta de carga inicial. `0033_products_origen` y `0034_tenant_product_seeds` están aplicadas; la importación no usa `products.origen` y lo deja en null. La procedencia queda en `stock_movements.motivo`.
 
-## Migraciones (propuestas, no aplicadas)
+## Migraciones (aplicadas el 2026-10-21)
 
 | Tag | Qué hace | Estado |
 |---|---|---|
-| `0035_stock_imports` | crea `stock_imports` (`id` uuid PK, `idem_key` text único, `archivo_nombre` text, `archivo_sha256` text, `formato` text, `filas_total` integer, `filas_importadas` integer, `filas_nuevas` integer, `filas_existentes` integer, `filas_error` integer, `movimientos` integer, `creado_por` text, `creado_en` timestamp) | propuesta, no aplicada |
+| `0035_stock_imports` | crea `stock_imports` (`id` uuid PK, `idem_key` text único, `archivo_nombre` text, `archivo_sha256` text, `formato` text, `filas_total` integer, `filas_importadas` integer, `filas_nuevas` integer, `filas_existentes` integer, `filas_error` integer, `movimientos` integer, `creado_por` text, `creado_en` timestamp) | aplicada |
 
 La tabla vive en la base del tenant, como `products` y `stock_movements`, así que no lleva `tenant_id` ni RLS. No se modifica el esquema de `products` ni de `stock_movements`.
 
@@ -98,12 +99,12 @@ Verificado contra el código el 2026-10-20.
 | `listarProductos` no devuelve `stock_actual` | `src/lib/repos/catalogo.ts:232-234` |
 | `POST /api/stock/ingreso` acepta un SKU por request y no crea productos | `src/pages/api/stock/ingreso.ts:8`, `src/lib/ingreso-lote.ts:6-13` |
 | `crearLote` inserta un lote con FK a `products.sku` | `src/lib/repos/lotes.ts:201-245` |
-| No hay parser CSV o XLSX ni ruta de importación hoy | `src/pages/api/stock` solo tiene `conteo.ts` e `ingreso.ts`; `package.json` no declara una librería de Excel |
+| Hay parser CSV/XLSX y rutas de importación | `src/modules/inventario/importacion.ts`, `src/lib/importacion-xlsx.ts`, `src/pages/api/stock/importar/{preview,confirmar,plantilla.csv}.ts`; `read-excel-file` en `package.json` |
 | El rol efectivo sale de la sesión y la membership | `src/lib/control.ts:77-85` |
 | `PERMISOS_EMPLEADO` incluye `crear_productos` | `src/lib/validation.ts:125-130` |
 | `estadoAltaDesdeRol` activa el alta con el permiso | `src/modules/inventario/escaneo.ts:23-26` |
 | El tope de sector es 40 y `products.ts` fija sku 64, nombre 200 | `src/pages/api/products.ts:20-23`, `src/modules/inventario/sectores.ts:10` |
 | El file gate de grant offline responde 403 `sensible_solo_online` | `src/lib/offline-gate.ts:33`, `src/lib/offline-gate.ts:61` |
 | Los repos ya usan `db.transaction` | `src/lib/repos/fiado.ts:140` |
-| `drizzle/` llega a `0032_tenant_location_seeds`; las migraciones de tanda 1 no existen en el repo | `drizzle/meta/_journal.json` |
+| Las migraciones 0033, 0034 y 0035 están en el journal y aplicadas | `drizzle/meta/_journal.json`, `docs/roadmap/migraciones-aplicadas.md` |
 | La importación masiva está en el roadmap P1 | `docs/03-inventario-precios/inventario-parte-1.md:665`, `docs/03-inventario-precios/inventario-parte-3.md:349` |

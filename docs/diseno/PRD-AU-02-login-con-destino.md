@@ -14,7 +14,7 @@ resumen: |
 
 Fuente: auditoría panel 3 workers sobre `src/pages/api/auth/login.ts` (sin `next`, solo `invitation_token` + `prompt`), `src/pages/api/auth/callback.ts:177` (redirect hardcodeado `tenantId ? "/" : "/?alta=pendiente"`), `src/lib/store.ts:361` (`pendingAuth` sin destino), `src/modules/admin/guard.ts` + `_guard.ts` (allowlist `ADMIN_ALLOWLIST_SUBS` sin presencia en `.env`/`.env.example`), `src/pages/api/tenants.ts:24` y `admin/onboarding/embudo.ts:13` (usan `SUPERADMIN_SUBS` en vez de `exigirAdmin`). Patrón a copiar: `continuar` de reauth (`reauth.ts:27,37`, `store.ts:363`, `reauth/callback.ts:133`). Restringido por ADR-0030, ADR-0031, PRD-AU-01 (fix login, no solapar), `docs/02-identidad-onboarding/autenticacion.md` (OIDC único, sin password).
 
-> Estado al 2026-10-20: en curso. `next` se acepta y se valida, pero con una allowlist de tres valores (`/panel`, `/admin`, `/`) en vez de cualquier path local como pide AU2-S1. AU2-S2 a AU2-S5 están hechos; AU2-S6 (allowlist dual de `POST /api/tenants`) sigue pendiente.
+> Estado al 2026-10-20: en curso. `next` se acepta y se valida, pero con una allowlist de tres valores (`/panel`, `/admin`, `/`) en vez de cualquier path local como pide AU2-S1. AU2-S2 a AU2-S7 están hechos; AU2-S6 quedó resuelto por la lista única `ADMIN_ALLOWLIST_SUBS` con `SUPERADMIN_SUBS` como fallback en `src/modules/admin/guard.ts:27-35`. Queda como divergencia menor AU2-S1: la allowlist de `next` acepta `/panel`, `/admin` y `/`, no cualquier path local validado.
 
 ## Épica AU2-E1. `next` en el login
 

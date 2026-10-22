@@ -1,7 +1,7 @@
 ---
 id: PRD-P0-VENTA-CAJA-FIADO-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [caja, ventas, credito, fiscal]
 depende_de: [ADR-0004, ADR-0024, ADR-0063, PRD-CAJA-01, PRD-PERS-01]
 reemplaza: []
@@ -12,7 +12,7 @@ resumen: |
 
 # PRD-P0-VENTA-CAJA-FIADO-01 - Corrección crítica de cobro, caja y fiado
 
-Fuente: `docs/roadmap/auditorias/2026-10-20.md` (hallazgos C8.8, FC2, FC5, FC10, TV1/TV2). Restringido por ADR-0004, ADR-0024, ADR-0063, PRD-CAJA-01 y PRD-PERS-01. Fecha extracción: 2026-10-20.
+Estado: hecho (2026-10-21). Fuente: `docs/roadmap/auditorias/2026-10-20.md` (hallazgos C8.8, FC2, FC5, FC10, TV1/TV2). Restringido por ADR-0004, ADR-0024, ADR-0063, PRD-CAJA-01 y PRD-PERS-01. Fecha extracción: 2026-10-20.
 
 ## Épica P0-E1. Signo correcto del cobro de venta en caja
 
@@ -25,8 +25,8 @@ Requisito P0-1: una venta suma dinero a caja (ingreso), nunca resta.
 
 Requisito P0-2: `ventaACuenta` de fiado persiste la venta completa igual que una venta al contado.
 
-- Historia P0-S3. `ventaACuenta` inserta `sales`, `tickets`, `ticket_lines`, `ticket_discounts` y `stock_movements` en la misma transacción que `customer_movements`. AC: Given un fiado de $10.000 con 2 líneas When se confirma Then existe una venta con ticket definitivo, líneas con precio/costo congelados y stock descontado. ADR: 0105. Talla M. Depende de: P0-S1, P0-S4.
-- Historia P0-S4. `ticket_lines` y `ticket_discounts` se insertan al emitir cualquier venta (contado o fiado). AC: Given una venta con descuento por línea When se consulta el ticket Then cada línea tiene `bruto` y `descuento` snapshot. ADR: 0105. Talla S. Depende de: nada.
+- Historia P0-S3. `ventaACuenta` inserta `sales`, `tickets`, `ticket_lines`, `ticket_discounts` y `stock_movements` en la misma transacción que `customer_movements`. AC: Given un fiado de $10.000 con 2 líneas When se confirma Then existe una venta con ticket definitivo, líneas con precio congelado (el costo no se guarda en `ticket_lines`) y stock descontado. ADR: 0105. Talla M. Depende de: P0-S1, P0-S4.
+- Historia P0-S4. `ticket_lines` y `ticket_discounts` se insertan al emitir una venta al contado; el fiado inserta `ticket_lines` pero todavía no `ticket_discounts`. AC: Given una venta al contado con descuento por línea When se consulta el ticket Then cada línea tiene `bruto` y `descuento` snapshot. ADR: 0105. Talla S. Depende de: nada.
 
 ## Épica P0-E3. Atomicidad del cobro de fiado
 
@@ -52,3 +52,10 @@ Requisito P0-4: una devolución pagada a cuenta abona al cliente.
 | Regresión | Suite Slice 0 | `tests/slice0-http.test.ts` | saldo positivo, sin egresos de venta |
 
 Arch-tests: AT1 las rutas de venta/fiado/caja no importan `src/pages/api` entre sí de forma cíclica; AT2 ningún test espera saldo negativo por una venta; AT3 toda escritura de venta/fiado/caja usa `dbVivaTenant()` con espejo memoria documentado.
+
+## Pendientes detectados en la auditoría 2026-10-21
+
+- El fallback de `cobroFiado` cuando la transacción falla escribe el crédito en memoria y después llama a `registrarIngresoCobro`, que puede escribir la caja en la base viva. Un fallo deja caja en DB y crédito solo en memoria (`src/lib/repos/fiado.ts:300-317`). Es el ítem P10-15.
+- `ticket_lines` no tiene columna de costo (`src/db/schema.ts:92-98`), así que la promesa de costo congelado no se cumple. Es el ítem P10-16.
+- `ventaACuenta` no inserta `ticket_discounts`; los descuentos del fiado no quedan persistidos. Es el ítem P10-16.
+- `ventaACuenta` y `cobroFiado` no tienen test contra Postgres vivo; los casos PG quedan skipped sin base. Es el ítem P10-16.

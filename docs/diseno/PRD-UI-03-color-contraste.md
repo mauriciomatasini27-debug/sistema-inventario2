@@ -16,17 +16,17 @@ Fuente: `.agents/skills/better-colors/SKILL.md`, `docs/diseno/PRD-DS-01-tokens-t
 
 ## Épica UI-E5. Un color igual un significado
 
-Requisito UI5: CTA primario siempre en llama, ember solo en secundarias y separación de tono mayor a 15 grados entre estados.
+Requisito UI5: CTA primario en `star-glow` (decisión DS-S1; el llama queda decorativo), ember solo en secundarias y separación de tono mayor a 15 grados entre estados.
 
 - Historia UI-S9. Roles y primitivo prohibido. AC: Given inspecciono componentes When verifico rampa neutral más acento más estados, primitivos `--mo-*` nunca directos en componente salvo token semántico, y una sola acción primaria rellena por vista Then no hay `hex` literal ni `var(--mo-*)` crudo en componentes. ADR: 0034, 0008. Talla M. Depende de: nada.
 - Historia UI-S10. Contraste medido en par real. AC: Given mido texto sobre fondo renderizado en light y dark con opacidad e imagen When comparo contra umbral AA Then cada par pasa y el valor medido queda registrado. ADR: 0034. Talla M. Depende de: UI-S9.
 
 ## Épica UI-E6. Dark real y compatibilidad
 
-Requisito UI6: dark no es light invertido y el email hereda papel con CTA llama.
+Requisito UI6: dark no es light invertido y el email hereda papel con CTA `star-glow`.
 
-- Historia UI-S11. Dark ambiente propio. AC: Given abro POS en dark When verifico fondo propio con ambiente radial más linear, `text-on-dark #ffffff`, muted `72%`, y que ningún token claro aparece invertido Then el dark es diseño propio. ADR: 0034, 0008. Talla S. Depende de: UI-S9.
-- Historia UI-S12. Email papel compatible. AC: Given abro email generado When verifico columna `600px` máximo, papel claro heredado, CTA llama, tablas a 360px y modo oscuro compatible sin imágenes pesadas salvo logo Then el email pasa en claro y oscuro. ADR: 0034, 0002. Talla S. Depende de: UI-S10, UI-S11.
+- Historia UI-S11. Dark ambiente propio. AC: Given abro POS en dark When verifico fondo propio sin ambiente radial (decisión DS-S4), `text-on-dark #ffffff`, muted `72%`, y que ningún token claro aparece invertido Then el dark es diseño propio. ADR: 0034, 0008. Talla S. Depende de: UI-S9.
+- Historia UI-S12. Email papel compatible. AC: Given abro email generado When verifico columna `600px` máximo, papel claro heredado, CTA `star-glow`, tablas a 360px y modo oscuro compatible sin imágenes pesadas salvo logo Then el email pasa en claro y oscuro. ADR: 0034, 0002. Talla S. Depende de: UI-S10, UI-S11.
 
 ## Dependencias externas
 

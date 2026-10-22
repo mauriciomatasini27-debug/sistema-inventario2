@@ -77,7 +77,7 @@ Requisito GGL-R4: la app conserva el original aunque Photos falle, se desconecte
 
 ## Migración
 
-La implementación necesita una migración nueva, que requiere aprobación de Mauri y registro en `docs/roadmap/migraciones-aplicadas.md` antes del merge.
+Las migraciones de esta implementación (`0030_google_integrations` y `0031_gmail_ingestion`) se aplicaron con aprobación de Mauri y están registradas en `docs/roadmap/migraciones-aplicadas.md`.
 
 - `google_connections` por tenant y tipo, con token cifrado, estado, consentimiento, `gmail_history_cursor`, `watch_history_id` y vencimiento del watch.
 - `gmail_watch_routes` en la base de control, solo con HMAC de la dirección con pepper, tenant y connection id, sin dirección en claro, tokens ni contenido. Índice único para que una casilla activa no se conecte a dos comercios en el MVP.

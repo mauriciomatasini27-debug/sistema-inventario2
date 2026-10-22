@@ -1,7 +1,7 @@
 ---
 id: PRD-OPENCODE-01
 tipo: prd
-estado: en curso
+estado: hecho
 modulos: []
 depende_de: [ADR-0109, PRD-PS-01]
 reemplaza: []

@@ -48,7 +48,7 @@ Requisito AD4: sin backend Odoo y sin Odoo en marketing.
 
 Requisito AD5: tres fases, cada una con demo y criterios.
 
-- Historia AD-S11. Entregar Fase 0 con landing Inventario de 8 secciones y contacto Formspree. AC: Given corro el build When navego Then las 8 secciones renderizan y el envío llega a Formspree. ADR: 0013. Talla M. Depende de: AD-S2, AD-S3.
+- Historia AD-S11. Entregar Fase 0 con landing Inventario y contacto Formspree. AC: Given corro el build When navego Then la landing renderiza (hoy 18 secciones; las 8 originales fueron ampliadas por PRD-LP-01/LANDING-01) y el envío llega a Formspree. ADR: 0013. Talla M. Depende de: AD-S2, AD-S3.
 - Historia AD-S12. Entregar Fase 1 con panel PA con tenants, mora de 14 días y logs. AC: Given suspendo un kiosco en mora When reviso auditoría Then figuran gracia de 14 días y el acto con resultado. ADR: 0013, 0006. Talla L. Depende de: AD-S5, AD-S11.
 - Historia AD-S13. Entregar Fase 2 con catálogo y configurador SaaS, con demo y criterios LP6, CP6 y NEG6 por fase. AC: Given cierro cada fase When pido su demo Then hay criterios LP6, CP6 y NEG6 verificados por escrito. ADR: 0013. Talla M. Depende de: AD-S8, AD-S12.
 
@@ -60,7 +60,7 @@ AD-S1 y AD-S9 no esperan a nadie. AD-S4 espera a la estructura copiada. Fase 1 e
 
 | Tipo | Caso | Entrada | Resultado esperado |
 |---|---|---|---|
-| Feliz | Fase 0 completa | Build landing más envío Formspree | 8 secciones en orden y lead visible en Formspree |
+| Feliz | Fase 0 completa | Build landing más envío Formspree | Landing renderiza y lead visible en Formspree |
 | Fallo | Propuesta fuera de catálogo | Alcance con módulo no validado | Bloqueo con mensaje de catálogo cerrado |
 | Regresión | Marca limpia | Grep en web y marketing | Nada de Odoo, `odoo-bin`, bases `modoops_*` ni GalaxyGroup fuera del anexo |
 

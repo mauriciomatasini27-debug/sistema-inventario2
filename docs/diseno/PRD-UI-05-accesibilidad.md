@@ -25,7 +25,7 @@ Requisito UI9: todo flujo completa solo con teclado y todo control anuncia nombr
 
 Requisito UI10: `prefers-reduced-motion` y zoom 200% sin pérdida de contenido a 360px.
 
-- Historia UI-S19. Motion reducido. AC: Given activo `prefers-reduced-motion: reduce` When navego listas, login, launcher, hub, rail y POS Then no hay transiciones ni animación de `width/margin` en rail y hub. ADR: 0036, 0002. Talla S. Depende de: UI-S17.
+- Historia UI-S19. Motion reducido. AC: Given activo `prefers-reduced-motion: reduce` When navego listas, login, panel, drawer del asistente y POS Then no hay transiciones ni animación de `width/margin`. ADR: 0036, 0002. Talla S. Depende de: UI-S17.
 - Historia UI-S20. Zoom y color. AC: Given aplico zoom 200% y vista a 360px When verifico contenido sin `maximum-scale=1`, significado nunca solo por color y contraste AA en cada par Then no hay pérdida ni dependencia solo de color. ADR: 0036. Talla M. Depende de: UI-S18, UI-S19.
 
 ## Dependencias externas

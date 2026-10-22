@@ -10,7 +10,7 @@ Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funciona
 Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales en `docs/_origen-docx/`).
 ADRs en `docs/adr/` y PRDs de diseño en `docs/diseno/` se referencian, no se duplican.
 Checklist de gaps 2026-10-11: `archivo/CHECKLIST-documentacion.md` (PRDs `PRD-SYNC-01`, `PRD-PERS-01`, `PRD-PWA-01`, `PRD-CAT-01`, `PRD-CAJA-01`, `PRD-CH-01`, `PRD-OP-01` + ADRs `0023`-`0031`).
-Estado de implementación y roadmap 2026-10-12: `ROADMAP.md` (reemplaza al checklist como fuente de estado).
+Estado de implementación y roadmap: `ROADMAP.md` (reemplaza al checklist como fuente de estado; última revisión 2026-10-21).
 
 ## 01-fundacion/ — Arquitectura, stack, costos y offline transversal
 Base técnica y restricciones que condicionan todo.
@@ -101,4 +101,5 @@ resumen: Resumen factual en un máximo de 3 líneas.
 - Divergencia conocida: el `.docx` suelto del Panel incluye ventas/deudas y está prohibido; vale Partes 1-3.
 - OCR Fase 0 definido: PaddleOCR PP-OCRv5 autohospedado como motor primario, Vision/Textract como fallback de baja confianza (ADR-0089 aceptado 2026-10-18; falta correr el benchmark de PRD-OCR-01).
 - Verificar en fuente oficial antes de implementar: Google OIDC, Gmail/Photos API, Cloud API Meta, ARCA, BarcodeDetector/OPFS iOS.
-- Auditoría 2026-10-20 del código contra los PRD/ADR: `docs/roadmap/auditorias/2026-10-20.md`. Se actualizaron 32 PRD/ADR y se abrieron 5 defectos P0 de venta/fiado/caja (ver `docs/ROADMAP.md`, sección Pendientes priorizados P0).
+- Auditoría 2026-10-20 del código contra los PRD/ADR: `docs/roadmap/auditorias/2026-10-20.md`. Sus 5 defectos P0 quedaron cerrados por P10-1 a P10-5 (ADR-0105).
+- Auditoría 2026-10-21: `docs/roadmap/auditorias/2026-10-21.md`. Se corrigieron estados, referencias de avances y guías. P10-14 y P10-15 quedaron cerrados por el PR #3; siguen abiertos P10-9 y P10-16 a P10-19 (parciales por los diferidos que documenta cada avance).

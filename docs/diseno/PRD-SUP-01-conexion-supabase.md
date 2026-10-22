@@ -19,10 +19,10 @@ Data shape: `SupabaseConnection = { ref, controlUrl, tenantUrl, poolMode }` con 
 
 ## Épica SUP-E1. Conectar una base Supabase Free
 
-- SUP-S1. Proyecto y URLs. AC: Given cuenta Supabase When creo proyecto `sistema-inventario` en `sa-east-1` Then obtengo connection strings de Session pooler y las guardo fuera de git. Depende de: nada.
+- SUP-S1. Proyecto y URLs. AC: Given cuenta Supabase When creo proyecto `sistema-inventario` en `ca-central-1` (desvío del plan original `sa-east-1`, ADR-0048) Then obtengo connection strings de Session pooler y las guardo fuera de git. Depende de: nada.
 - SUP-S2. Variables de entorno. AC: Given Session pooler When seteo `.env` Then `CONTROL_DATABASE_URL` y `TENANT_DATABASE_URL` usan la misma URL con `sslmode=require` y `.env` sigue ignorado por git. Depende de: SUP-S1.
 - SUP-S3. Driver con TLS y pooler. AC: Given URL con puerto When llamo `clientFor` Then usa `max 5` en nube, `prepare false` solo en 6543, y `ssl require` salvo localhost. Tablas: ninguna, solo `src/lib/db.ts`. Depende de: SUP-S2.
-- SUP-S4. Migraciones a Supabase. AC: Given Session pooler o directa When corro `drizzle-kit migrate` Then `Table Editor` muestra `sales`, `cash_movements`, `outbox`, `id_mappings`, `sync_state` y `drizzle.__drizzle_migrations` con una fila por migración 0000 a 0014. Nunca migrar por 6543. Depende de: SUP-S3.
+- SUP-S4. Migraciones a Supabase. AC: Given Session pooler o directa When corro `drizzle-kit migrate` Then `Table Editor` muestra `sales`, `cash_movements`, `outbox`, `id_mappings`, `sync_state` y `drizzle.__drizzle_migrations` con una fila por migración 0000 a 0036. Nunca migrar por 6543. Depende de: SUP-S3.
 
 ## Épica SUP-E2. Verificar corte a nube
 

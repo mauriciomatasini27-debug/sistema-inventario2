@@ -10,7 +10,7 @@ resumen: "Requisito SK-HW2: responder por qué X tiene esta forma, con evidencia
 ---
 # PRD-SK-01 - Skills de grounding: how + why (R2)
 
-Fuente: `~/.config/opencode/skills/how/SKILL.md`, `why/SKILL.md`. Uso en este sistema: antes de diseñar o tocar subsistemas heredados de ModoOps. Restringido por ADR-0014. Tipo proceso según ADR-0014.
+Fuente: `.agents/skills/how/SKILL.md`, `.agents/skills/why/SKILL.md`. Uso en este sistema: antes de diseñar o tocar subsistemas heredados de ModoOps. Restringido por ADR-0014. Tipo proceso según ADR-0014.
 
 ## Épica HW-E1. How, explicación arquitectónica
 

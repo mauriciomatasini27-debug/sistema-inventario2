@@ -19,9 +19,9 @@ Fuente: PRD-PLAN-01 (tabla de planes, PLAN-E6 embudo, PLAN-S15 prueba 14 días, 
 
 ## Estado actual de la landing
 
-`src/pages/index.astro` arma 19 secciones en este orden: Hero, Problema, Ejemplo, Contraste, Circuito, Solucion, Checklist, Descubrimiento, Camino, Planes, Migracion, Fiscal, Publico, ComoTrabajamos, Despues, Crecer, Garantia, Faq, Contacto, más `FloatingWhatsApp.astro`.
+`src/pages/index.astro` arma 18 secciones en este orden: Hero, Problema, Ejemplo, Contraste, Circuito, Solucion, Checklist, Descubrimiento, Camino, Planes, Migracion, Fiscal, Publico, ComoTrabajamos, Despues, Crecer, Garantia, Faq, Contacto, más el chat `ChatLanding.astro`.
 
-Ya existe una sección `Planes` (`Planes.astro`, `#planes`) que lee `business.planes`: Básico `Consultar`, Plus `$29.000 por mes` destacado, Pro `A medida`, con nota "Precios de lista en ARS + IVA, validez 20 días" (`business.ts:171`). Las features actuales (cajas, celular, reposición, soporte) no coinciden con la tabla de PRD-PLAN-01, y `$29.000` (~USD 19 a 1.535) no coincide con ningún rango de PRD-PLAN-02. Este PRD no crea la sección: la rediseña y le hace lugar.
+Ya existe una sección `Planes` (`Planes.astro`, `#planes`) que lee `business.planes`: Básico `Consultar`, Plus `Precio a confirmar` destacado, Pro `A medida`, con nota "Precios de lista en ARS + IVA, validez 20 días" (`business.ts:171`). El precio de Plus sigue pendiente de P9-5/PLAN-02. Las features actuales (cajas, celular, reposición, soporte) no coinciden con la tabla de PRD-PLAN-01, y `$29.000` (~USD 19 a 1.535) no coincide con ningún rango de PRD-PLAN-02. Este PRD no crea la sección: la rediseña y le hace lugar.
 
 ## Planes y funciones
 

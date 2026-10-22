@@ -1,7 +1,7 @@
 ---
 id: ADR-0035
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: []
 depende_de: [PRD-UI-04]
 reemplaza: []

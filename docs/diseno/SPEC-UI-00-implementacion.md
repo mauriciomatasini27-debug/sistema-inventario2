@@ -1,7 +1,7 @@
 ---
 id: SPEC-UI-00
 tipo: spec
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: [PRD-UI-07]
 reemplaza: []
@@ -36,12 +36,12 @@ Sin dependencias nuevas en esta tanda, las installs quedan en tickets.
 | Ticket | Alcance | Aceptación | Talla |
 |---|---|---|---|
 | T-UI-01 | Sonner más `Toaster` único en root, migrar `alert()` de `alta/estado` | Toast success/error/promise visible sobre modal, cero `alert()` | S |
-| T-UI-02 | Diálogos `base-ui` más confirm en destructivas | Destructiva crítica pide nombre, resto confirma o deshace | M |
+| T-UI-02 | Diálogos `<dialog>` nativo más `ConfirmDialog` y confirm en destructivas (no se adoptó `base-ui`) | Destructiva crítica pide nombre, resto confirma o deshace | M |
 | T-UI-03 | `Virtuoso` en listas largas más `NumberFlow` en precios con `.tnum` | 1000 filas fluidas a 360px gama baja, sin salto de ancho | M |
-| T-UI-04 | Inventario `locales/**/*.json` más errores con fix junto al campo | Cada error dice cómo arreglar, foco al primer inválido | M |
+| T-UI-04 | Errores con fix junto al campo desde `src/lib/errores-campo.ts`; el inventario `locales/**/*.json` sigue pendiente | Cada error dice cómo arreglar, foco al primer inválido | M |
 | T-UI-05 | Medición contraste AA light y dark registrada por par | Tabla par medido más valor más umbral, cero solo-color | S |
 | T-UI-06 | Primer harness `venta` con `?data=worst` a 360px, zoom, dark, RTL | Reporte `What broke` con fix por fila más `What held up` | M |
-| T-UI-07 | Gate `interface-review` por PR más guidelines con fetch fresco | PR visual no mergea con `HIGH` abierto | M |
+| T-UI-07 | Gate `interface-review` por PR; guidelines con fetch fresco quedó fuera de alcance | PR visual no mergea con `HIGH` abierto | M |
 
 ## Verificación
 

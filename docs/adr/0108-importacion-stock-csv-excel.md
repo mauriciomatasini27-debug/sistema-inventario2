@@ -1,7 +1,7 @@
 ---
 id: ADR-0108
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [inventario, catalogo]
 depende_de: [ADR-0062, ADR-0106, ADR-0107, PRD-STOCK-01]
 reemplaza: []
@@ -15,7 +15,7 @@ resumen: |
 ---
 # ADR-0108 - Importación de stock desde CSV o Excel con vista previa y errores por fila
 
-Estado: propuesto. Fecha: 2026-10-20. Fuentes: `docs/03-inventario-precios/inventario-parte-1.md` (F1), `docs/03-inventario-precios/inventario-parte-3.md` (Fase 2), `docs/diseno/PRD-STOCK-01-carga-stock-tanda1.md`, `docs/adr/0106-producto-provisorio-alta-al-vender.md`, `docs/adr/0107-plantilla-catalogo-por-rubro.md`, `src/db/schema.ts` (`products`, `stock_lots`, `stock_movements`), `src/lib/repos/catalogo.ts` (`altaProducto`, `listarProductos`), `src/lib/repos/stock.ts` (`aplicarMovimiento`, `movimientoDuplicado`), `src/lib/ingreso-lote.ts`, `src/pages/api/stock/ingreso.ts`, `src/pages/panel/stock.astro`, `src/lib/control.ts` (`resolverRolEfectivo`), `src/modules/inventario/escaneo.ts` (`estadoAltaDesdeRol`), `package.json`.
+Estado: aceptado (2026-10-21). Fecha: 2026-10-20. Fuentes: `docs/03-inventario-precios/inventario-parte-1.md` (F1), `docs/03-inventario-precios/inventario-parte-3.md` (Fase 2), `docs/diseno/PRD-STOCK-01-carga-stock-tanda1.md`, `docs/adr/0106-producto-provisorio-alta-al-vender.md`, `docs/adr/0107-plantilla-catalogo-por-rubro.md`, `src/db/schema.ts` (`products`, `stock_lots`, `stock_movements`), `src/lib/repos/catalogo.ts` (`altaProducto`, `listarProductos`), `src/lib/repos/stock.ts` (`aplicarMovimiento`, `movimientoDuplicado`), `src/lib/ingreso-lote.ts`, `src/pages/api/stock/ingreso.ts`, `src/pages/panel/stock.astro`, `src/lib/control.ts` (`resolverRolEfectivo`), `src/modules/inventario/escaneo.ts` (`estadoAltaDesdeRol`), `package.json`.
 
 ## Decisión
 
@@ -69,7 +69,7 @@ No tocar `nombre`, `precio_centavos` ni `sector` de un producto existente evita 
 - `src/lib/repos/catalogo.ts` suma `leerProductosPorSkus`, porque `listarProductos` no selecciona `stock_actual` (`src/lib/repos/catalogo.ts:232-234`) y la vista previa necesita el stock actual y el resultante.
 - `src/pages/api/stock/importar/preview.ts`, `confirmar.ts` y `plantilla.csv.ts` nuevos.
 - `src/pages/panel/stock/importar.astro` nuevo y un enlace desde `/panel/stock`.
-- Migración propuesta `0035_stock_imports`, no aplicada. El tag salta `0033`/`0034` porque ADR-0106 y ADR-0107 los reservan para el PR de código de la tanda 1.
+- Migración `0035_stock_imports`, aplicada el 2026-10-21. El journal la ordena por `when` antes de `0033`/`0034`, que ya estaban aplicadas.
 - No cambia el shape de `POST /api/products`, `POST /api/stock/ingreso`, `GET /api/sync/pull` ni `POST /api/sync/push`.
 
 ## Alternativa descartada
@@ -88,7 +88,7 @@ Mandar la importación por la outbox como una operación offline. Es una tarea d
 
 ## Pendientes
 
-Mauri debe aprobar la migración `0035_stock_imports` antes de aplicarla. El PR de código que la traiga agrega `drizzle/0035_stock_imports.sql` (el tag queda reservado para este cambio, no lo usa la tanda 1) y la registra en `docs/roadmap/migraciones-aplicadas.md` después de aplicarla. Este PR de docs no agrega `drizzle/*.sql`.
+Mauri aprobó y se aplicó `0035_stock_imports` el 2026-10-21; está registrada en `docs/roadmap/migraciones-aplicadas.md`. La importación quedó implementada en `src/pages/api/stock/importar/*`, `src/lib/repos/importaciones.ts` y `src/modules/inventario/importacion.ts`, con `read-excel-file` fijado en `package.json`.
 
 Fijar la versión de `read-excel-file` y confirmar que corre en el adaptador Node de Astro. La dependencia es solo del servidor.
 
@@ -100,7 +100,7 @@ No se importan costos ni fechas de vencimiento. La cantidad entra en un lote sin
 
 ## Evidencia de verificación
 
-Verificado contra el código el 2026-10-20.
+Verificado contra el código el 2026-10-21.
 
 | Afirmación | Evidencia |
 |---|---|
@@ -115,8 +115,8 @@ Verificado contra el código el 2026-10-20.
 | El gate exige online con `exigirOnlineParaSensible` y responde 403 `sensible_solo_online` | `src/lib/offline-gate.ts:33`, `src/lib/offline-gate.ts:61` |
 | Los repos ya usan `db.transaction` | `src/lib/fiscal-emitir.ts:123`, `src/lib/repos/fiado.ts:140` |
 | `users` vive en la base de control por URL, no por un esquema aparte | `src/lib/db.ts:35-37`, `src/lib/control-db.ts:2` |
-| El repo llega a `0032_tenant_location_seeds`; las migraciones de la tanda 1 no están en `drizzle/` | `drizzle/meta/_journal.json` |
+| Las migraciones 0033, 0034 y 0035 están aplicadas y registradas | `drizzle/meta/_journal.json`, `docs/roadmap/migraciones-aplicadas.md` |
 | `POST /api/stock/ingreso` acepta un SKU por request y no crea el producto | `src/pages/api/stock/ingreso.ts:8`, `src/lib/ingreso-lote.ts:6-13`, `src/lib/repos/lotes.ts:201-245` |
-| Hoy no hay parser CSV o XLSX ni ruta de importación | `src/pages/api/stock` solo tiene `conteo.ts` e `ingreso.ts`; `package.json` no declara una librería de Excel |
+| Hay parser CSV/XLSX y rutas de importación | `src/modules/inventario/importacion.ts`, `src/lib/importacion-xlsx.ts`, `src/pages/api/stock/importar/{preview,confirmar,plantilla.csv}.ts`; `read-excel-file` en `package.json` |
 | El rol efectivo sale de la sesión y la membership | `src/lib/control.ts:77-85` |
 | La importación masiva está en el roadmap P1 | `docs/03-inventario-precios/inventario-parte-1.md:665`, `docs/03-inventario-precios/inventario-parte-3.md:349` |

@@ -1,7 +1,7 @@
 ---
 id: ADR-0106
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [inventario, ventas, offline]
 depende_de: [ADR-0011, ADR-0024, ADR-0061, ADR-0062, ADR-0097, PRD-STOCK-01]
 reemplaza: []
@@ -15,24 +15,24 @@ resumen: |
 ---
 # ADR-0106 - Producto provisorio al vender y conflictos de sync offline
 
-Estado: propuesto. Fecha: 2026-10-20. Fuentes: `src/pages/venta.astro`, `src/pages/api/sales.ts`, `src/modules/sales/registro_venta.ts`, `src/modules/sales/vender_mostrador.ts`, `src/lib/repos/catalogo.ts`, `src/lib/repos/stock.ts`, `src/offline/cola-venta.ts`, `src/offline/sensibles.ts`, `src/lib/repos/sync.ts`, `src/db/schema.ts` (`products`), `docs/adr/0097-verificacion-formal.md` (VF-S2).
+Estado: aceptado (2026-10-21). Fecha: 2026-10-20. Fuentes: `src/pages/venta.astro`, `src/pages/api/sales.ts`, `src/modules/sales/registro_venta.ts`, `src/modules/sales/vender_mostrador.ts`, `src/lib/repos/catalogo.ts`, `src/lib/repos/stock.ts`, `src/offline/cola-venta.ts`, `src/offline/sensibles.ts`, `src/lib/repos/sync.ts`, `src/db/schema.ts` (`products`), `docs/adr/0097-verificacion-formal.md` (VF-S2).
 
 ## Decisión
 
-El producto provisorio es una fila de `products` (`id`, `sku`, `nombre`, `precio_centavos`, `stock_actual = 0`, `sector`) con `products.origen = "alta_al_vender"`. `products.origen` es una columna text nullable nueva (migración propuesta `0033_products_origen`, no aplicada). No hay tabla nueva para el alta al vuelo.
+El producto provisorio es una fila de `products` (`id`, `sku`, `nombre`, `precio_centavos`, `stock_actual = 0`, `sector`) con `products.origen = "alta_al_vender"`. `products.origen` es una columna text nullable nueva (migración `0033_products_origen`, aplicada el 2026-10-21). No hay tabla nueva para el alta al vuelo.
 
 El alta al vuelo viaja dentro del payload de la venta, no como op separada: el mismo `op_id` y el mismo `device_seq` llevan el producto nuevo (`alta: { sku, nombre, precio_centavos }` por línea) y la venta.
 
-Hay dos caminos y hoy se comportan distinto:
+Hay dos caminos:
 
 - En línea, `/venta` hace `POST /api/sales` (`src/pages/venta.astro`) y `registrar_venta` (`src/modules/sales/registro_venta.ts`) ya abre `db.transaction`. Ahí se suma la inserción del producto provisorio antes del descuento, así alta y venta son atómicos e idempotentes por `Idempotency-Key`.
-- Sin red, el `fetch` a `/api/sales` lanza y la venta queda en `localStorage["slice0-outbox"]`. El botón de sync la manda a `POST /api/sync/push` con `modulo: "sales"`. Verificado en el código: `empujarOperacion` (`src/lib/repos/sync.ts`) solo guarda la op en `outbox` e `id_mappings`; no llama a `registrar_venta` ni toca `sales`, `ticket_lines` ni `products.stock_actual`. `POST /api/sync/promote` solo asigna el ticket definitivo. Por eso, para el camino offline, el alta del producto provisorio se hace en el mismo lugar donde se materialice la venta de la outbox. Ese aplicador lo construye primero, como ítem propio, P10-6 (PR #224, decisión de Mauri del 2026-10-20): `empujarOperacion` aplica la op `sales` con `registrar_venta` (`key = op_id`, `offline: true`), y ahí se suma el alta del producto provisorio. Hasta que P10-6 se mergee, el alta viaja en el payload guardado en `outbox` y no se pierde, pero tampoco crea la fila de `products`.
+- Sin red, el `fetch` a `/api/sales` lanza y la venta queda en `localStorage["slice0-outbox"]`. El botón de sync la manda a `POST /api/sync/push` con `modulo: "sales"`. El camino offline lo materializa `aplicarVentaOutbox` (`src/modules/sync/aplicar-venta-outbox.ts`) con `registrar_venta` (`key = op_id`, `offline: true`), y el alta del producto provisorio se hace en la misma transacción (P10-6, PR #224, mergeado). `POST /api/sync/promote` solo asigna el ticket definitivo.
 
 Conflicto de sync: la regla es por SKU, no por `op_id`. Si dos devices venden el mismo SKU desconocido offline, el primer op que inserta el producto gana nombre y precio; el segundo lo encuentra por `products.sku` (único) y no lo sobrescribe, pero registra su venta. Si el SKU ya existe con `origen` distinto o nulo, el alta al vuelo no crea ni pisa: solo registra la venta. La inserción del producto provisorio usa `on conflict (sku) do nothing` en vez del `SKU_DUPLICADO` de `altaProducto` (`src/lib/repos/catalogo.ts`).
 
 "sin stock inicial" es `origen = "alta_al_vender"` con `stock_actual = 0`. Cargar una cantidad inicial por `/panel/stock` aplica un ALTA con `aplicarMovimiento` (`src/lib/repos/stock.ts`). `origen` no se limpia: queda como historial (decisión de Mauri); "pendiente de stock inicial" es `origen = "alta_al_vender"` sin ningún `stock_movements` tipo `ALTA` para ese SKU.
 
-Además, `offline:catalogo` (`src/offline/catalogo-local.ts`) guarda solo `stock` y `precioCentavos` por SKU, sin nombre. El producto provisorio creado sin red se suma a ese snapshot local (stock 0, precio cargado) para que la próxima venta del mismo SKU autocomplete el precio; el nombre vive solo en el payload encolado. El próximo pull lo pisa con lo que tenga el servidor.
+Además, `offline:catalogo:<tenantId>` (`src/offline/catalogo-local.ts`) guarda solo `stock` y `precioCentavos` por SKU, sin nombre, y se aísla por tenant desde P10-13. El producto provisorio creado sin red se suma a ese snapshot local (stock 0, precio cargado) para que la próxima venta del mismo SKU autocomplete el precio; el nombre vive solo en el payload encolado. El próximo pull lo pisa con lo que tenga el servidor.
 
 La cola offline sigue las leyes de VF-S2 y ADR-0097: `sincronizarColaVenta` (`src/offline/cola-venta.ts`) corta en el primer fallo (excepción o status fuera de 2xx) y `quitarConfirmados` solo saca lo confirmado; el push es idempotente por `op_id` y `empujarOperacion` (`src/lib/repos/sync.ts`) no duplica filas.
 
@@ -42,7 +42,7 @@ Un solo op evita el orden frágil entre dos ops (producto y venta) y hace que el
 
 ## Qué cambia
 
-`products.origen` nuevo (migración propuesta, no aplicada); `registrar_venta` crea el producto provisorio dentro de su transacción; `/venta` suma nombre y precio y encola el alta con la venta; `/panel/stock` suma la carga progresiva de cantidades iniciales. No cambia el shape de `POST /api/sync/push` ni de `GET /api/sync/pull`.
+`products.origen` nuevo (migración `0033_products_origen`, aplicada); `registrar_venta` crea el producto provisorio dentro de su transacción; `/venta` suma nombre y precio y encola el alta con la venta; `/panel/stock` suma la carga progresiva de cantidades iniciales. No cambia el shape de `POST /api/sync/push` ni de `GET /api/sync/pull`.
 
 ## Alternativa descartada
 
@@ -50,4 +50,4 @@ Op separada `alta_producto` con `modulo: "catalogo"`: obliga a ordenar dos ops y
 
 ## Pendientes
 
-Mauri aprobó el 2026-10-20 la migración `0033_products_origen` para el PR de código que la traiga; hoy sigue propuesta, no aplicada (este PR no agrega `drizzle/*.sql`). Depende de P10-6 (PR #224, aplicador de ventas de la outbox). Hoy `registrar_venta` descarta en silencio la línea de `ticket_lines` cuyo SKU no está en `products` (`if (!productId) return []`); el alta al vuelo lo cierra.
+Mauri aprobó el 2026-10-20 la migración `0033_products_origen`; se aplicó el 2026-10-21. P10-6 (PR #224) quedó mergeado y `registrar_venta` ya crea el producto provisorio en la misma transacción, así que la línea de `ticket_lines` con SKU desconocido no se descarta. Queda como refinamiento que `offline:catalogo:<tenantId>` guarde también el nombre, hoy solo guarda stock y precio (P10-13).

@@ -1,11 +1,11 @@
-import { execFileSync, spawn } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, existsSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, existsSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cargarConfig, overrides, perfilDe, resolver } from "../.opencode/modelos.mjs";
+import { buscarBin, cargarConfig, overrides, perfilDe, resolver } from "../.opencode/modelos.mjs";
 
 const config = cargarConfig();
 const todos = new Set<string>(Object.values(config.perfiles as Record<string, string[]>).flat());
@@ -137,12 +137,51 @@ describe("modelos por skill (ADR-0109)", () => {
     execFileSync("node", [".opencode/modelos.mjs", "caido", modelo, "rc=1"], { env, stdio: "ignore" });
     expect(JSON.parse(readFileSync(cache, "utf8")).caidos[modelo]).toBeDefined();
   });
+
+  it("encuentra opencode en el PATH o en ~/.opencode/bin, no solo en ~/.local/bin", () => {
+    const dir = mkdtempSync(join(tmpdir(), "opencode-bin-"));
+    const home = join(dir, "home");
+    const instalado = join(home, ".opencode", "bin", "opencode");
+    mkdirSync(join(home, ".opencode", "bin"), { recursive: true });
+    writeFileSync(instalado, "#!/bin/sh\n");
+    chmodSync(instalado, 0o755);
+    expect(buscarBin({ PATH: join(dir, "vacio"), HOME: home })).toBe(instalado);
+    const enPath = join(dir, "opencode");
+    writeFileSync(enPath, "#!/bin/sh\n");
+    chmodSync(enPath, 0o755);
+    expect(buscarBin({ PATH: dir, HOME: home })).toBe(enPath);
+    expect(buscarBin({ PATH: join(dir, "vacio"), HOME: join(dir, "sin-opencode") })).toBeNull();
+  });
+
+  it("CLI: sin binario de opencode avisa y NO marca modelos caídos", () => {
+    const dir = mkdtempSync(join(tmpdir(), "modelos-"));
+    const cache = join(dir, "estado.json");
+    const log = join(dir, "caidos.log");
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      PATH: join(dir, "vacio"),
+      HOME: join(dir, "home"),
+      PSTACK_MODELOS_CACHE: cache,
+      PSTACK_MODELOS_LOG: log,
+    };
+    delete env.OPENCODE_BIN;
+    delete env.PSTACK_MODELOS_DISPONIBLES;
+    const r = spawnSync(process.execPath, [".opencode/modelos.mjs", "lista", "codigo"], { env, encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim().split(" ")[0]).toBe(config.perfiles.codigo[0]);
+    expect(r.stderr).toContain("no encontré el binario de opencode");
+    expect(existsSync(cache)).toBe(false);
+    expect(existsSync(log)).toBe(false);
+  });
 });
 
 describe("pstack-run.sh usa el resolver", () => {
   const sh = readFileSync(".opencode/pstack-run.sh", "utf8");
 
-  async function correrConSalida(salida: string | string[]) {
+  async function correrConSalida(
+    salida: string | string[],
+    opciones: { rcs?: number[]; caerServerTras?: number } = {},
+  ) {
     const salidas = Array.isArray(salida) ? salida : [salida];
     const dir = mkdtempSync(join(tmpdir(), "pstack-run-"));
     const fake = join(dir, "opencode-fake.sh");
@@ -150,6 +189,7 @@ describe("pstack-run.sh usa el resolver", () => {
     mkdirSync(salidasDir);
     salidas.forEach((s, i) => writeFileSync(join(salidasDir, `salida-${i + 1}.txt`), `${s}\n`));
     writeFileSync(join(salidasDir, "salida-final.txt"), `${salidas[salidas.length - 1]}\n`);
+    if (opciones.rcs) writeFileSync(join(dir, "rcs"), opciones.rcs.join(" "));
     writeFileSync(
       fake,
       [
@@ -162,14 +202,22 @@ describe("pstack-run.sh usa el resolver", () => {
         '  archivo="$FAKE_OC_DIR/salidas/salida-$n.txt"',
         '  [ -f "$archivo" ] || archivo="$FAKE_OC_DIR/salidas/salida-final.txt"',
         '  cat "$archivo"',
-        '  exit "${FAKE_OC_RC:-0}"',
+        '  rcs=(); [ -f "$FAKE_OC_DIR/rcs" ] && read -ra rcs < "$FAKE_OC_DIR/rcs"',
+        '  exit "${rcs[$((n - 1))]:-${FAKE_OC_RC:-0}}"',
         "fi",
         "exit 0",
         "",
       ].join("\n"),
     );
     chmodSync(fake, 0o755);
+    let pedidos = 0;
     const server = createServer((_req, res) => {
+      pedidos += 1;
+      if (opciones.caerServerTras && pedidos > opciones.caerServerTras) {
+        res.destroy();
+        server.close();
+        return;
+      }
       res.statusCode = 200;
       res.end("ok");
     });
@@ -282,6 +330,58 @@ describe("pstack-run.sh usa el resolver", () => {
     expect(caidos).toEqual([]);
     expect(r.stdout).toContain("Error: permission denied by user");
     expect(r.stderr).toContain("done model=");
+  });
+
+  it("rc=1 con Error: Upstream al final también reintenta el mismo modelo", async () => {
+    const { r, caidos, modelos } = await correrConSalida([upstream, "OK al segundo intento"], { rcs: [1, 0] });
+    expect(r.status).toBe(0);
+    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/deepseek-v4.1-flash-free"]);
+    expect(caidos).toEqual([]);
+    expect(r.stderr).toContain("reintento 1/2");
+  });
+
+  it("rc=124 por timeout no marca caído y pasa al siguiente modelo", async () => {
+    const { r, caidos, modelos } = await correrConSalida("sesión colgada", { rcs: [124, 124] });
+    expect(r.status).toBe(1);
+    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/glm-5.3-flash-free"]);
+    expect(caidos).toEqual([]);
+    expect(r.stderr).toContain("no lo marco caído");
+  });
+
+  it("rc=137 por muerte del entorno corta sin marcar caído", async () => {
+    const { r, caidos, modelos } = await correrConSalida("proceso muerto", { rcs: [137] });
+    expect(r.status).toBe(137);
+    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free"]);
+    expect(caidos).toEqual([]);
+    expect(r.stderr).toContain("no pude ejecutar");
+  });
+
+  it("si el server deja de responder, no marca el modelo caído", async () => {
+    const { r, caidos } = await correrConSalida('Error: {"name":"UnknownError"}', { caerServerTras: 1 });
+    expect(r.status).toBe(1);
+    expect(caidos).toEqual([]);
+    expect(r.stderr).toContain("dejó de responder");
+  });
+
+  it("sin binario de opencode corta antes de probar modelos y no marca ninguno caído", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pstack-sin-oc-"));
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    symlinkSync("/bin/bash", join(bin, "bash"));
+    const cache = join(dir, "estado.json");
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      PATH: bin,
+      HOME: join(dir, "home"),
+      PSTACK_MODELOS_CACHE: cache,
+      PSTACK_MODELOS_LOG: join(dir, "caidos.log"),
+    };
+    delete env.OPENCODE_BIN;
+    const r = spawnSync("bash", [".opencode/pstack-run.sh", "hola"], { env, encoding: "utf8" });
+    expect(r.status).toBe(127);
+    expect(r.stderr).toContain("no encontré el binario de opencode");
+    expect(r.stderr).not.toContain("trying next");
+    expect(existsSync(cache)).toBe(false);
   });
 
   it("arranca el server con los modelos resueltos y marca caídos los que fallan", () => {

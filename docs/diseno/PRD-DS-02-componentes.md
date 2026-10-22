@@ -16,6 +16,8 @@ Fuente: `consultoria/modoops_core/static/src/scss/` launcher 414, rail 397, hub 
 
 ## Epica DS-E4. App shell launcher, rail y hub
 
+> Estado al 2026-10-21: en curso. Hechos DS-S12, S15 y S17 con los tokens `--color-*` de Tema Papel. Las clases `.mo-*`, `.pos` y `.o_*` que aparecen abajo son la referencia histórica de ModoOps, no el entregable; el inventario actual vive en `src/styles/global.css`, `src/styles/tema.css` y `src/components/panel/`.
+
 Requisito DS10, DS11 y DS12: base visual papel con navegacion fija y contenido centrado.
 
 - Historia DS-S10. Launcher papel. AC: Given abro `.mo-launcher-shell` When verifico flex columna `100%`, fondo `var(--mo-paper)`, `overflow hidden` mas `::before` con 2 radiales llama, variantes `root` (oculta toolbar, `padding-top 3.25rem`), `hub` (sin header, mismo padding), `compact` (header `padding-bottom .5rem`), clases `toolbar/body/grid/tile/flame-yellow/accent/metric/nav-btn/scroll/title/subtitle`, tiles ember solo en secundarias, shimmer en metricas y `safe-area area-inset-bottom` Then cada clase y variante existe y renderiza. ADR: 0009, 0008. Talla M. Depende de: DS-S7.
