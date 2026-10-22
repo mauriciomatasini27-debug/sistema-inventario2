@@ -17,26 +17,54 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   .venta-pendiente { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--tema-linea); }
   .venta-pendiente:last-child { border-bottom: 0; }
   .venta-pendiente .resumen { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; font-size: 13px; }
-  .venta-pendiente .motivo { font-weight: 600; }
+  .venta-pendiente .motivo { margin: 0; font-weight: 600; }
   .venta-pendiente .vp-formulario { display: grid; gap: 8px; }
   .venta-pendiente .vp-lineas, .venta-pendiente .vp-pagos { display: grid; gap: 8px; }
-  .venta-pendiente .vp-linea { display: grid; grid-template-columns: minmax(0, 1fr) 88px 130px; gap: 8px; align-items: center; }
-  .venta-pendiente .vp-pago { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 8px; align-items: center; }
-  .venta-pendiente .vp-linea input, .venta-pendiente .vp-pago input, .venta-pendiente .vp-pago select { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-size: 13px; }
+  .venta-pendiente .vp-linea { display: grid; grid-template-columns: minmax(0, 1fr) 88px 130px auto; gap: 8px; align-items: start; }
+  .venta-pendiente .vp-producto { display: grid; gap: 4px; min-width: 0; }
+  .venta-pendiente .vp-campo { display: grid; gap: 4px; min-width: 0; }
+  .venta-pendiente .vp-etiqueta { font-size: 12px; line-height: 1.2; color: var(--tema-texto-suave); }
+  .venta-pendiente .vp-pago { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 8px; align-items: start; }
+  .venta-pendiente .vp-linea input, .venta-pendiente .vp-pago input, .venta-pendiente .vp-pago select, .venta-pendiente .vp-pago-unico select { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-size: 13px; }
   .venta-pendiente .vp-sku { font-family: monospace; font-size: 13px; overflow-wrap: anywhere; }
-  .venta-pendiente .vp-total { font-size: 13px; font-variant-numeric: tabular-nums; }
-  .venta-pendiente .vp-aviso { font-size: 13px; font-weight: 600; }
+  .venta-pendiente .vp-subtotal { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--tema-texto-suave); }
+  .venta-pendiente .vp-total { margin: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .venta-pendiente .vp-ayuda { margin: 0; font-size: 12px; color: var(--tema-texto-suave); }
+  .venta-pendiente .vp-pago-unico { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+  .venta-pendiente .vp-pago-unico select { flex: 1 1 160px; }
+  .venta-pendiente .vp-error { margin: 4px 0 0; color: var(--estado-peligro); font-size: 12px; font-weight: 600; }
+  .venta-pendiente .vp-error::before { content: "⚠ "; }
   .venta-pendiente .avanzado { display: grid; gap: 8px; }
   .venta-pendiente .avanzado summary { cursor: pointer; font-size: 13px; }
   .venta-pendiente textarea { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 120px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-family: monospace; font-size: 13px; }
   .venta-pendiente .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+  .venta-pendiente [hidden] { display: none !important; }
+  @media (max-width: 480px) {
+    .venta-pendiente .vp-linea, .venta-pendiente .vp-pago { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 
 <script>
   import { confirmar } from "../../lib/confirmar-dom.js";
-  import { formatearCentavos, textoError } from "../../lib/panel-modulos.js";
-  import { MEDIOS, edicionDePayload, pagosSuman, payloadCorregido, totalCentavos } from "../../lib/ventas-pendientes-form.js";
-  import type { EdicionVenta, LineaEditable, PagoEditable } from "../../lib/ventas-pendientes-form.js";
+  import { textoError } from "../../lib/panel-modulos.js";
+  import { formatearPesos } from "../../lib/pesos.js";
+  import {
+    MAX_LINEAS,
+    MAX_PAGOS,
+    MEDIOS,
+    borradorDePayload,
+    conLineaNueva,
+    conPagoNuevo,
+    diferenciaCentavos,
+    payloadCorregido,
+    sinLinea,
+    sinPago,
+    sumaPagosCentavos,
+    totalCentavos,
+    validarBorrador,
+  } from "../../lib/ventas-pendientes-form.js";
+  import type { BorradorVenta, ErroresBorrador, ErroresLinea, LineaBorrador, PagoBorrador } from "../../lib/ventas-pendientes-form.js";
+  import type { Medio } from "../../lib/validation.js";
 
   interface VentaPendiente {
     op_id: string;
@@ -45,6 +73,17 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     created_at: string;
     motivo: string;
     payload: Record<string, unknown>;
+  }
+
+  interface FilaLinea {
+    linea: LineaBorrador;
+    subtotal: HTMLElement;
+    errores: HTMLElement;
+  }
+
+  interface FilaPago {
+    pago: PagoBorrador;
+    errores: HTMLElement;
   }
 
   const MOTIVOS: Record<string, string> = {
@@ -76,22 +115,81 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     return b;
   }
 
-  function campoNumero(etiqueta: string, valor: number, min: number, max: number): HTMLInputElement {
+  function campoTexto(
+    etiqueta: string,
+    valor: string,
+    modo: "numeric" | "decimal" | null,
+  ): HTMLInputElement {
     const input = document.createElement("input");
-    input.type = "number";
-    input.inputMode = "numeric";
-    input.min = String(min);
-    input.max = String(max);
-    input.step = "1";
-    input.value = String(valor);
+    input.type = "text";
+    if (modo !== null) input.inputMode = modo;
+    input.value = valor;
     input.setAttribute("aria-label", etiqueta);
     return input;
   }
 
-  function entero(input: HTMLInputElement, min: number, max: number): number {
-    const valor = input.valueAsNumber;
-    if (!Number.isFinite(valor)) return min;
-    return Math.min(max, Math.max(min, Math.trunc(valor)));
+  function selectorMedio(
+    etiqueta: string,
+    valor: Medio,
+    alCambiar: (medio: Medio) => void,
+  ): HTMLSelectElement {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", etiqueta);
+    for (const opcionMedio of MEDIOS) {
+      const opcion = document.createElement("option");
+      opcion.value = opcionMedio;
+      opcion.textContent = opcionMedio;
+      opcion.selected = opcionMedio === valor;
+      select.appendChild(opcion);
+    }
+    select.addEventListener("change", () => {
+      const elegido = MEDIOS.find((opcion) => opcion === select.value);
+      if (elegido) alCambiar(elegido);
+    });
+    return select;
+  }
+
+  function campo(etiqueta: string, control: HTMLElement): HTMLElement {
+    const contenedor = document.createElement("div");
+    contenedor.className = "vp-campo";
+    const texto = document.createElement("span");
+    texto.className = "vp-etiqueta";
+    texto.textContent = etiqueta;
+    contenedor.append(texto, control);
+    return contenedor;
+  }
+
+  function pintarErrores(contenedor: HTMLElement, mensajes: readonly string[]): void {
+    contenedor.textContent = "";
+    for (const mensaje of mensajes) {
+      if (!mensaje) continue;
+      const p = document.createElement("p");
+      p.className = "vp-error";
+      p.setAttribute("role", "alert");
+      p.textContent = mensaje;
+      contenedor.appendChild(p);
+    }
+  }
+
+  function mensajesDeLinea(errores: ErroresLinea | undefined): string[] {
+    if (!errores) return [];
+    return [errores.product_id, errores.nombre, errores.qty, errores.precio].filter(
+      (mensaje): mensaje is string => typeof mensaje === "string",
+    );
+  }
+
+  function hayErrores(errores: ErroresBorrador): boolean {
+    return (
+      Object.keys(errores.lineas).length > 0 ||
+      Object.keys(errores.pagos).length > 0 ||
+      errores.general.length > 0
+    );
+  }
+
+  function textoDiferencia(diferencia: number): string {
+    if (diferencia < 0) return "Diferencia: Falta " + formatearPesos(-diferencia);
+    if (diferencia > 0) return "Diferencia: Sobra " + formatearPesos(diferencia);
+    return "Diferencia " + formatearPesos(0);
   }
 
   async function enviar(venta: VentaPendiente, accion: "reintentar" | "descartar", payload?: unknown) {
@@ -110,26 +208,33 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         console.warn("[panel/ventas-pendientes] respuesta sin JSON", r.status, error);
       }
       if (!r.ok) {
+        if (r.status === 409) {
+          await cargar();
+          if (estado) estado.textContent = "La venta ya no estaba pendiente.";
+          return;
+        }
         if (estado) estado.textContent = "No se pudo: " + textoError(cuerpo["error"], r.status) + ".";
         return;
       }
       await cargar();
+      const resultado = cuerpo["resultado"];
+      if (accion === "descartar") {
+        if (estado) estado.textContent = "La venta se descartó.";
+      } else if (resultado === "aplicada") {
+        if (estado) estado.textContent = "La venta se aplicó.";
+      } else if (resultado === "no_aplicable") {
+        const motivo = cuerpo["motivo"];
+        if (estado) {
+          estado.textContent =
+            "La venta sigue pendiente: " +
+            textoMotivo(typeof motivo === "string" ? motivo : "") +
+            ".";
+        }
+      }
     } catch (error) {
       console.warn("[panel/ventas-pendientes] acción", error);
       if (estado) estado.textContent = "No hay conexión con el servidor.";
     }
-  }
-
-  async function reintentarJson(venta: VentaPendiente, area: HTMLTextAreaElement) {
-    let payload: unknown;
-    try {
-      payload = JSON.parse(area.value);
-    } catch {
-      const estado = $("estado-ventas");
-      if (estado) estado.textContent = "El JSON no es válido. Corregilo antes de reintentar.";
-      return;
-    }
-    await enviar(venta, "reintentar", payload);
   }
 
   async function descartar(venta: VentaPendiente) {
@@ -143,140 +248,329 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   }
 
   function editor(venta: VentaPendiente): HTMLElement {
-    const edicion = edicionDePayload(venta.payload);
+    let payloadBase: unknown = venta.payload;
+    let borrador = borradorDePayload(payloadBase);
+    let filasLineas: FilaLinea[] = [];
+    let filasPagos: FilaPago[] = [];
+    let contadorLineas = 0;
+    let contadorPagos = 0;
+    let reabriendo = false;
 
-    const lineas = document.createElement("div");
-    lineas.className = "vp-lineas";
-    const filas: { linea: LineaEditable; qty: HTMLInputElement; precio: HTMLInputElement }[] = [];
-    for (const linea of edicion.lineas) {
-      const fila = document.createElement("div");
-      fila.className = "vp-linea";
-      const sku = document.createElement("span");
-      sku.className = "vp-sku";
-      sku.textContent = linea.product_id;
-      const qty = campoNumero("Cantidad de " + linea.product_id, linea.qty, 1, 999);
-      const precio = campoNumero("Precio en centavos de " + linea.product_id, linea.precio_centavos, 0, 999_999_999);
-      qty.addEventListener("input", actualizar);
-      precio.addEventListener("input", actualizar);
-      fila.append(sku, qty, precio);
-      lineas.appendChild(fila);
-      filas.push({ linea, qty, precio });
-    }
-
-    const pagos = document.createElement("div");
-    pagos.className = "vp-pagos";
-
-    function edicionActual(): EdicionVenta {
-      return {
-        lineas: filas.map((fila) => ({
-          product_id: fila.linea.product_id,
-          qty: entero(fila.qty, 1, 999),
-          precio_centavos: entero(fila.precio, 0, 999_999_999),
-        })),
-        pagos: edicion.pagos.map((pago) => ({ medio: pago.medio, monto_centavos: pago.monto_centavos })),
-      };
-    }
-
-    function filaPago(pago: PagoEditable, indice: number): HTMLElement {
-      const fila = document.createElement("div");
-      fila.className = "vp-pago";
-      const medio = document.createElement("select");
-      medio.setAttribute("aria-label", "Medio del pago " + (indice + 1));
-      for (const opcionMedio of MEDIOS) {
-        const opcion = document.createElement("option");
-        opcion.value = opcionMedio;
-        opcion.textContent = opcionMedio;
-        opcion.selected = opcionMedio === pago.medio;
-        medio.appendChild(opcion);
+    function idLinea(): string {
+      let id = "nueva-" + contadorLineas++;
+      while (borrador.lineas.some((linea) => linea.id === id)) {
+        id = "nueva-" + contadorLineas++;
       }
-      medio.addEventListener("change", () => {
-        const elegido = MEDIOS.find((opcion) => opcion === medio.value);
-        if (elegido) pago.medio = elegido;
-        actualizar();
-      });
-      const monto = campoNumero("Monto del pago " + (indice + 1) + " en centavos", pago.monto_centavos, 1, 999_999_999);
-      monto.addEventListener("input", () => {
-        pago.monto_centavos = entero(monto, 1, 999_999_999);
-        actualizar();
-      });
-      const quitar = boton("Quitar", () => {
-        if (edicion.pagos.length <= 1) return;
-        edicion.pagos = edicion.pagos.filter((otro) => otro !== pago);
-        dibujarPagos();
-        actualizar();
-      });
-      quitar.disabled = edicion.pagos.length <= 1;
-      quitar.setAttribute("aria-label", "Quitar pago " + (indice + 1));
-      fila.append(medio, monto, quitar);
-      return fila;
+      return id;
     }
+
+    function idPago(): string {
+      let id = "nuevo-pago-" + contadorPagos++;
+      while (borrador.pagos.some((pago) => pago.id === id)) {
+        id = "nuevo-pago-" + contadorPagos++;
+      }
+      return id;
+    }
+
+    const resumen = document.createElement("div");
+    resumen.className = "resumen";
+    const fecha = document.createElement("span");
+    fecha.textContent = "Fecha " + fechaLegible(venta.created_at);
+    const caja = document.createElement("span");
+    caja.textContent = "Caja " + venta.device_code + "-" + venta.device_seq;
+    const ocurrida = document.createElement("span");
+    const ocurridaTexto = venta.payload["client_occurred_at"];
+    ocurrida.textContent =
+      "Ocurrida " + (typeof ocurridaTexto === "string" ? fechaLegible(ocurridaTexto) : "sin fecha");
+    const totalResumen = document.createElement("span");
+    totalResumen.className = "vp-total";
+    resumen.append(fecha, caja, ocurrida, totalResumen);
+
+    const motivo = document.createElement("p");
+    motivo.className = "motivo";
+    motivo.textContent = textoMotivo(venta.motivo);
+
+    const formulario = document.createElement("div");
+    formulario.className = "vp-formulario";
+
+    const lineasContenedor = document.createElement("div");
+    lineasContenedor.className = "vp-lineas";
+
+    const agregarLinea = boton("Agregar línea", () => {
+      borrador = conLineaNueva(borrador, idLinea());
+      dibujarLineas();
+      actualizar();
+    });
+    agregarLinea.disabled = borrador.lineas.length >= MAX_LINEAS;
+
+    const ayudaLineas = document.createElement("p");
+    ayudaLineas.className = "vp-ayuda";
+    ayudaLineas.textContent = "La venta necesita al menos una línea.";
+
+    const pagosContenedor = document.createElement("div");
+    pagosContenedor.className = "vp-pagos";
 
     const agregarPago = boton("Agregar pago", () => {
-      if (edicion.pagos.length >= 5) return;
-      edicion.pagos.push({ medio: "Efectivo", monto_centavos: 1 });
+      borrador = conPagoNuevo(borrador, idPago());
       dibujarPagos();
       actualizar();
     });
 
-    function dibujarPagos() {
-      pagos.textContent = "";
-      edicion.pagos.forEach((pago, indice) => pagos.appendChild(filaPago(pago, indice)));
-      agregarPago.disabled = edicion.pagos.length >= 5;
-    }
+    const generales = document.createElement("div");
+    generales.className = "vp-errores";
 
     const totales = document.createElement("p");
     totales.className = "vp-total";
     totales.setAttribute("role", "status");
 
-    const aviso = document.createElement("p");
-    aviso.className = "vp-aviso";
-    aviso.setAttribute("role", "alert");
-
-    function actualizar() {
-      const actual = edicionActual();
-      const total = totalCentavos(actual.lineas);
-      const suma = actual.pagos.reduce((acumulado, pago) => acumulado + pago.monto_centavos, 0);
-      totales.textContent =
-        "Total " + formatearCentavos(total) + " · Pagos " + formatearCentavos(suma);
-      aviso.textContent = pagosSuman(actual) ? "" : "Los pagos no suman el total.";
-    }
-
-    const formulario = document.createElement("div");
-    formulario.className = "vp-formulario";
-    formulario.append(lineas, pagos, agregarPago, totales, aviso);
-
     const reintentar = boton("Reintentar", () => {
-      const actual = edicionActual();
-      if (!pagosSuman(actual)) {
-        const estado = $("estado-ventas");
-        if (estado) estado.textContent = "Los pagos no suman el total.";
-        return;
-      }
-      void enviar(venta, "reintentar", payloadCorregido(venta.payload, actual));
+      void enviar(venta, "reintentar", payloadCorregido(payloadBase, borrador));
     });
+    reintentar.setAttribute(
+      "aria-label",
+      "Reintentar la venta de la caja " + venta.device_code + "-" + venta.device_seq,
+    );
+
+    const botonDescartar = boton("Descartar", () => void descartar(venta));
 
     const acciones = document.createElement("div");
     acciones.className = "acciones";
-    acciones.append(reintentar, boton("Descartar", () => void descartar(venta)));
+    acciones.append(reintentar, botonDescartar);
 
     const area = document.createElement("textarea");
-    area.value = JSON.stringify(venta.payload, null, 2);
-    area.setAttribute("aria-label", "JSON de la venta " + venta.op_id);
+    area.setAttribute("aria-label", "JSON avanzado de la venta " + venta.op_id);
+
+    const errorJson = document.createElement("div");
+    errorJson.className = "vp-errores";
 
     const avanzado = document.createElement("details");
     avanzado.className = "avanzado";
     const resumenJson = document.createElement("summary");
-    resumenJson.textContent = "Modo avanzado (JSON)";
-    avanzado.append(resumenJson, area, boton("Reintentar con JSON", () => void reintentarJson(venta, area)));
+    resumenJson.textContent = "JSON avanzado";
+    const reintentarJson = boton("Reintentar con JSON", () => {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(area.value);
+      } catch {
+        pintarErrores(errorJson, ["El JSON no es válido. Corregilo antes de reintentar."]);
+        return;
+      }
+      pintarErrores(errorJson, []);
+      void enviar(venta, "reintentar", payload);
+    });
+    avanzado.append(resumenJson, area, reintentarJson, errorJson);
+
+    avanzado.addEventListener("toggle", () => {
+      if (avanzado.open) {
+        if (!reabriendo) {
+          area.value = JSON.stringify(payloadCorregido(payloadBase, borrador), null, 2);
+          pintarErrores(errorJson, []);
+        }
+        reabriendo = false;
+        formulario.hidden = true;
+        reintentar.hidden = true;
+        return;
+      }
+
+      let payload: unknown;
+      try {
+        payload = JSON.parse(area.value);
+      } catch {
+        reabriendo = true;
+        pintarErrores(errorJson, ["El JSON no es válido. Corregilo antes de cerrar."]);
+        avanzado.open = true;
+        return;
+      }
+
+      payloadBase = payload;
+      borrador = borradorDePayload(payload);
+      formulario.hidden = false;
+      reintentar.hidden = false;
+      dibujarLineas();
+      dibujarPagos();
+      actualizar();
+    });
+
+    function actualizar(): void {
+      const errores = validarBorrador(borrador);
+      for (const fila of filasLineas) {
+        pintarErrores(fila.errores, mensajesDeLinea(errores.lineas[fila.linea.id]));
+        fila.subtotal.textContent = formatearPesos(
+          totalCentavos({ ...borrador, lineas: [fila.linea] }),
+        );
+      }
+      for (const fila of filasPagos) {
+        const monto = errores.pagos[fila.pago.id]?.monto;
+        pintarErrores(fila.errores, monto ? [monto] : []);
+      }
+      pintarErrores(generales, errores.general);
+
+      const total = totalCentavos(borrador);
+      const pagos = borrador.sinPagos ? total : sumaPagosCentavos(borrador);
+      const diferencia = diferenciaCentavos(borrador);
+      totales.textContent =
+        "Total " + formatearPesos(total) +
+        " · Pagos " + formatearPesos(pagos) +
+        " · " + textoDiferencia(diferencia);
+      totalResumen.textContent = "Total " + formatearPesos(total);
+      reintentar.disabled = hayErrores(errores) || diferencia !== 0;
+      ayudaLineas.hidden = borrador.lineas.length > 1;
+    }
+
+    function filaLinea(linea: LineaBorrador, indice: number): HTMLElement {
+      const item = document.createElement("div");
+      item.className = "vp-linea-item";
+      const fila = document.createElement("div");
+      fila.className = "vp-linea";
+
+      const producto = document.createElement("div");
+      producto.className = "vp-producto";
+
+      if (linea.origen === null) {
+        const sku = campoTexto("SKU de la línea " + (indice + 1), linea.product_id, null);
+        sku.addEventListener("input", () => {
+          linea.product_id = sku.value;
+          actualizar();
+        });
+        producto.appendChild(campo("SKU", sku));
+      } else {
+        const sku = document.createElement("span");
+        sku.className = "vp-sku";
+        sku.textContent = linea.product_id;
+        producto.appendChild(campo("SKU", sku));
+      }
+
+      if (linea.nombre !== null) {
+        const nombre = campoTexto(
+          "Nombre del producto de la línea " + (indice + 1),
+          linea.nombre,
+          null,
+        );
+        nombre.addEventListener("input", () => {
+          linea.nombre = nombre.value;
+          actualizar();
+        });
+        producto.appendChild(campo("Nombre", nombre));
+      }
+
+      const subtotal = document.createElement("span");
+      subtotal.className = "vp-subtotal";
+      producto.appendChild(subtotal);
+
+      const qty = campoTexto("Cantidad de la línea " + (indice + 1), linea.qtyTexto, "numeric");
+      qty.addEventListener("input", () => {
+        linea.qtyTexto = qty.value;
+        actualizar();
+      });
+
+      const precio = campoTexto(
+        "Precio unitario de la línea " + (indice + 1),
+        linea.precioTexto,
+        "decimal",
+      );
+      precio.addEventListener("input", () => {
+        linea.precioTexto = precio.value;
+        actualizar();
+      });
+
+      const quitar = boton("Quitar línea", () => {
+        borrador = sinLinea(borrador, linea.id);
+        dibujarLineas();
+        actualizar();
+      });
+      quitar.disabled = borrador.lineas.length <= 1;
+      quitar.setAttribute("aria-label", "Quitar la línea " + (indice + 1));
+
+      fila.append(producto, campo("Cantidad", qty), campo("Precio unitario", precio), quitar);
+      const errores = document.createElement("div");
+      errores.className = "vp-errores";
+      item.append(fila, errores);
+      filasLineas.push({ linea, subtotal, errores });
+      return item;
+    }
+
+    function filaPago(pago: PagoBorrador, indice: number): HTMLElement {
+      const item = document.createElement("div");
+      item.className = "vp-pago-item";
+      const fila = document.createElement("div");
+      fila.className = "vp-pago";
+
+      const medio = selectorMedio("Medio del pago " + (indice + 1), pago.medio, (elegido) => {
+        pago.medio = elegido;
+        actualizar();
+      });
+      const monto = campoTexto("Monto del pago " + (indice + 1), pago.montoTexto, "decimal");
+      monto.addEventListener("input", () => {
+        pago.montoTexto = monto.value;
+        actualizar();
+      });
+      const quitar = boton("Quitar pago", () => {
+        borrador = sinPago(borrador, pago.id);
+        dibujarPagos();
+        actualizar();
+      });
+      quitar.disabled = borrador.pagos.length <= 1;
+      quitar.setAttribute("aria-label", "Quitar el pago " + (indice + 1));
+
+      fila.append(campo("Medio", medio), campo("Monto", monto), quitar);
+      const errores = document.createElement("div");
+      errores.className = "vp-errores";
+      item.append(fila, errores);
+      filasPagos.push({ pago, errores });
+      return item;
+    }
+
+    function dibujarLineas(): void {
+      lineasContenedor.textContent = "";
+      filasLineas = [];
+      borrador.lineas.forEach((linea, indice) => {
+        lineasContenedor.appendChild(filaLinea(linea, indice));
+      });
+      agregarLinea.disabled = borrador.lineas.length >= MAX_LINEAS;
+    }
+
+    function dibujarPagos(): void {
+      pagosContenedor.textContent = "";
+      filasPagos = [];
+      if (borrador.sinPagos) {
+        const unico = document.createElement("div");
+        unico.className = "vp-pago-unico";
+        const texto = document.createElement("span");
+        texto.textContent = "Pago único por el total";
+        const medio = selectorMedio("Medio del pago único", borrador.medio, (elegido) => {
+          borrador = { ...borrador, medio: elegido };
+          actualizar();
+        });
+        unico.append(texto, campo("Medio", medio));
+        pagosContenedor.appendChild(unico);
+      } else {
+        borrador.pagos.forEach((pago, indice) => {
+          pagosContenedor.appendChild(filaPago(pago, indice));
+        });
+      }
+      agregarPago.hidden = borrador.sinPagos;
+      agregarPago.disabled = borrador.sinPagos || borrador.pagos.length >= MAX_PAGOS;
+    }
+
+    formulario.append(
+      lineasContenedor,
+      agregarLinea,
+      ayudaLineas,
+      pagosContenedor,
+      agregarPago,
+      totales,
+      generales,
+    );
 
     const contenedor = document.createElement("div");
-    contenedor.append(formulario, acciones, avanzado);
+    contenedor.append(resumen, motivo, formulario, acciones, avanzado);
+    dibujarLineas();
     dibujarPagos();
     actualizar();
     return contenedor;
   }
 
-  function render(items: VentaPendiente[]) {
+  function render(items: VentaPendiente[]): void {
     const contenedor = $("lista-ventas");
     const estado = $("estado-ventas");
     if (!contenedor || !estado) return;
@@ -289,22 +583,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     for (const venta of items) {
       const articulo = document.createElement("article");
       articulo.className = "venta-pendiente";
-
-      const resumen = document.createElement("div");
-      resumen.className = "resumen";
-      const fecha = document.createElement("span");
-      fecha.textContent = fechaLegible(venta.created_at);
-      const caja = document.createElement("span");
-      caja.textContent = "Caja " + venta.device_code + "-" + venta.device_seq;
-      const total = document.createElement("span");
-      total.textContent = formatearCentavos(totalCentavos(edicionDePayload(venta.payload).lineas));
-      resumen.append(fecha, caja, total);
-
-      const motivo = document.createElement("p");
-      motivo.className = "motivo";
-      motivo.textContent = textoMotivo(venta.motivo);
-
-      articulo.append(resumen, motivo, editor(venta));
+      articulo.appendChild(editor(venta));
       contenedor.appendChild(articulo);
     }
   }
