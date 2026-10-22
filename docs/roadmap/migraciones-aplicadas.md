@@ -49,3 +49,7 @@ Formato: una línea `- <tag>` por migración (tag = nombre del archivo sin `.sql
 - 0036_stock_inicial_unico
 <!-- 2026-10-21 (ART): 0036 aplicada vía conector Supabase (execute_sql); backup solo de esquema en /workspace/backups/pre-0036-schema-20261021-0227.json -->
 <!-- 2026-10-21 (ART): fila de drizzle.__drizzle_migrations para 0035_stock_imports agregada vía conector Supabase (id 37, hash sha256 del archivo, created_at 1792538873372 del journal; el migrador ordena por created_at, así que 0036 sigue siendo la última); backup solo de esquema en /workspace/backups/pre-0035row-schema-20261021-0247.json -->
+- 0037_admin_resumen
+<!-- 2026-10-22 (ART): 0037 verificada aplicada en la base real; fila de journal id 38 con hash igual al archivo y created_at 1792802400000 (del journal); estructura de platform_admins/migration_rollouts/tenant_daily_usage verificada contra el archivo (columnas, PKs, defaults); backup solo de esquema en /home/mauri/backups/pre-0037-0038-schema-20261022-0058.sql -->
+- 0038_analytics_snapshot
+<!-- 2026-10-22 (ART): 0038 verificada aplicada en la base real; fila de journal id 39 con hash igual al archivo y created_at 1792845600000 (del journal); estructura de rotation_settings/rotation_snapshots/promo_intents verificada contra el archivo; mismo backup que 0037 (aplicadas juntas por drizzle-kit); registro con aprobación de Mauri de 2026-10-22 -->

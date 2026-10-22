@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { auditar, exigirAdmin } from "./_guard.js";
+import { leerRolloutsAdmin, persistirRolloutAdmin } from "../../../lib/admin-db.js";
 
 export const prerender = false;
 
@@ -22,6 +23,9 @@ export const POST: APIRoute = async ({ request }) => {
   r.intentos += 1;
   r.estado = "reintentando";
   rollouts.set(r.id, r);
+  // P10-17: intento en migration_rollouts como copia durable best-effort; con
+  // tenant_id no uuid el insert se descarta y la memoria sigue siendo la verdad.
+  void persistirRolloutAdmin({ tenantId: r.tenantId, estado: r.estado, intentos: r.intentos });
   auditar({ kind: "rollout_reintentado", tenantId: r.tenantId }, (admin as { googleSub: string }).googleSub, "panel");
   return Response.json({ rollout_id: r.id, estado: r.estado, intentos: r.intentos }, { status: 202 });
 };
@@ -29,5 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
 export const GET: APIRoute = async ({ request }) => {
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;
-  return Response.json({ rollouts: [...rollouts.values()] });
+  // P10-17: la memoria sigue siendo la verdad en slice-0; la base agrega los intentos durables.
+  const db = await leerRolloutsAdmin();
+  return Response.json({ rollouts: [...rollouts.values(), ...db] });
 };

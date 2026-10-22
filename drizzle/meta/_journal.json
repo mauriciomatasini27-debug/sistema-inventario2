@@ -260,6 +260,20 @@
       "when": 1792759200000,
       "tag": "0036_stock_inicial_unico",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792802400000,
+      "tag": "0037_admin_resumen",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792845600000,
+      "tag": "0038_analytics_snapshot",
+      "breakpoints": true
     }
   ]
 }
