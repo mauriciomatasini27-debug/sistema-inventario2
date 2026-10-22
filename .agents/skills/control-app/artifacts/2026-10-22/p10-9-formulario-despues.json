@@ -1,0 +1,13 @@
+{
+  "accion": "captura",
+  "url": "http://localhost:4321/panel/ventas-pendientes",
+  "titulo": "Ventas pendientes · Panel",
+  "h1": "Ventas pendientes",
+  "estado": null,
+  "status": null,
+  "archivo": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-22/p10-9-formulario-despues.png",
+  "json": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-22/p10-9-formulario-despues.json",
+  "tomada_en": "2026-10-22T10:59:03.011Z",
+  "errores": 0,
+  "detalle_errores": []
+}

@@ -168,7 +168,7 @@ describe.skipIf(!hayPG)("CAJA-S3 review H3 PG", () => {
     const { crearAlmacenVencimientosCaja } = await import("../src/lib/repos/_almacen.js");
     modoSingle();
     resetStore();
-    process.env.TENANT_DATABASE_URL = "postgres://postgres:postgres@127.0.0.1:1/base_muerta";
+    process.env.TENANT_DATABASE_URL = "postgres://postgres:postgres@base.invalid:5432/base_muerta";
     try {
       const d = await crearVencimiento({ concepto: "H3-fallo", venceEl: iso(Date.now() + 2 * DIA_MS), montoCentavos: 1000 });
       expect(crearAlmacenVencimientosCaja().obtener(d.id)?.avisadoEl ?? null).toBeNull();

@@ -1,7 +1,7 @@
 ---
 id: PRD-VP-01
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [ventas, sync]
 depende_de: [ADR-0097, PRD-VF-01, ADR-0106, ADR-0110]
 reemplaza: []
@@ -14,6 +14,8 @@ resumen: |
 # PRD-VP-01 - Corrección por línea de ventas pendientes
 
 Fuente: `docs/roadmap/avances/P10-9.md`, `docs/roadmap/avances/P10-7.md`, `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md`, `docs/diseno/PRD-STOCK-01-carga-stock-tanda1.md`, `docs/adr/0106-producto-provisorio-alta-al-vender.md`, `src/pages/panel/ventas-pendientes.astro`, `src/pages/api/sync/no-aplicables.ts`, `src/lib/repos/sync.ts` (`reintentarVentaNoAplicable`), `src/modules/sync/aplicar-venta-outbox.ts`, `src/lib/validation.ts` (`postSalesSchema`, `salesLineSchema`), `src/lib/pesos.ts`, `src/lib/panel-modulos.ts`. Fecha de extracción: 2026-10-21. Restringido por ADR-0110, ADR-0097, PRD-VF-01 y ADR-0106.
+
+> Estado al 2026-10-22: en curso. El formulario por línea y por pago ya reemplaza al JSON como camino principal, el modo avanzado conserva el textarea y el payload corregido preserva los campos que el formulario no edita. Quedan fuera de esta entrega los agregados de VP-S1 a VP-S5: agregar o quitar líneas, precio tipeado en pesos con errores por campo, edición de `alta.nombre` y la ida y vuelta del modo avanzado sobre el formulario.
 
 ## Problema
 
