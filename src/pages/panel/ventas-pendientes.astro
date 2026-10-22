@@ -3,7 +3,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 ---
 <PanelShell
   titulo="Ventas pendientes"
-  subtitulo="Ventas offline que no se pudieron aplicar. Corregí el JSON o descartalas."
+  subtitulo="Ventas offline que no se pudieron aplicar. Corregí las líneas o descartalas."
   activo="ventas-pendientes"
 >
   <section class="card">
@@ -18,13 +18,25 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   .venta-pendiente:last-child { border-bottom: 0; }
   .venta-pendiente .resumen { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; font-size: 13px; }
   .venta-pendiente .motivo { font-weight: 600; }
-  .venta-pendiente textarea { box-sizing: border-box; width: 100%; min-height: 120px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-family: monospace; font-size: 13px; }
+  .venta-pendiente .vp-formulario { display: grid; gap: 8px; }
+  .venta-pendiente .vp-lineas, .venta-pendiente .vp-pagos { display: grid; gap: 8px; }
+  .venta-pendiente .vp-linea { display: grid; grid-template-columns: minmax(0, 1fr) 88px 130px; gap: 8px; align-items: center; }
+  .venta-pendiente .vp-pago { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 8px; align-items: center; }
+  .venta-pendiente .vp-linea input, .venta-pendiente .vp-pago input, .venta-pendiente .vp-pago select { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-size: 13px; }
+  .venta-pendiente .vp-sku { font-family: monospace; font-size: 13px; overflow-wrap: anywhere; }
+  .venta-pendiente .vp-total { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .venta-pendiente .vp-aviso { font-size: 13px; font-weight: 600; }
+  .venta-pendiente .avanzado { display: grid; gap: 8px; }
+  .venta-pendiente .avanzado summary { cursor: pointer; font-size: 13px; }
+  .venta-pendiente textarea { box-sizing: border-box; width: 100%; max-width: 100%; min-height: 120px; padding: 8px; border: 1px solid var(--tema-linea); border-radius: 8px; background: var(--tema-superficie); color: var(--tema-texto); font-family: monospace; font-size: 13px; }
   .venta-pendiente .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
 </style>
 
 <script>
   import { confirmar } from "../../lib/confirmar-dom.js";
   import { formatearCentavos, textoError } from "../../lib/panel-modulos.js";
+  import { MEDIOS, edicionDePayload, pagosSuman, payloadCorregido, totalCentavos } from "../../lib/ventas-pendientes-form.js";
+  import type { EdicionVenta, LineaEditable, PagoEditable } from "../../lib/ventas-pendientes-form.js";
 
   interface VentaPendiente {
     op_id: string;
@@ -56,24 +68,30 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     return new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "short" }).format(fecha);
   }
 
-  function totalCentavos(payload: Record<string, unknown>): number {
-    const lineas = payload["lineas"];
-    if (!Array.isArray(lineas)) return 0;
-    return lineas.reduce((total, linea) => {
-      if (typeof linea !== "object" || linea === null) return total;
-      const l = linea as { qty?: unknown; precio_centavos?: unknown };
-      const qty = typeof l.qty === "number" ? l.qty : 0;
-      const precio = typeof l.precio_centavos === "number" ? l.precio_centavos : 0;
-      return total + qty * precio;
-    }, 0);
-  }
-
   function boton(texto: string, alHacer: () => void): HTMLButtonElement {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = texto;
     b.addEventListener("click", alHacer);
     return b;
+  }
+
+  function campoNumero(etiqueta: string, valor: number, min: number, max: number): HTMLInputElement {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.inputMode = "numeric";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = "1";
+    input.value = String(valor);
+    input.setAttribute("aria-label", etiqueta);
+    return input;
+  }
+
+  function entero(input: HTMLInputElement, min: number, max: number): number {
+    const valor = input.valueAsNumber;
+    if (!Number.isFinite(valor)) return min;
+    return Math.min(max, Math.max(min, Math.trunc(valor)));
   }
 
   async function enviar(venta: VentaPendiente, accion: "reintentar" | "descartar", payload?: unknown) {
@@ -102,7 +120,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     }
   }
 
-  async function reintentar(venta: VentaPendiente, area: HTMLTextAreaElement) {
+  async function reintentarJson(venta: VentaPendiente, area: HTMLTextAreaElement) {
     let payload: unknown;
     try {
       payload = JSON.parse(area.value);
@@ -122,6 +140,140 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     });
     if (!confirmado) return;
     await enviar(venta, "descartar");
+  }
+
+  function editor(venta: VentaPendiente): HTMLElement {
+    const edicion = edicionDePayload(venta.payload);
+
+    const lineas = document.createElement("div");
+    lineas.className = "vp-lineas";
+    const filas: { linea: LineaEditable; qty: HTMLInputElement; precio: HTMLInputElement }[] = [];
+    for (const linea of edicion.lineas) {
+      const fila = document.createElement("div");
+      fila.className = "vp-linea";
+      const sku = document.createElement("span");
+      sku.className = "vp-sku";
+      sku.textContent = linea.product_id;
+      const qty = campoNumero("Cantidad de " + linea.product_id, linea.qty, 1, 999);
+      const precio = campoNumero("Precio en centavos de " + linea.product_id, linea.precio_centavos, 0, 999_999_999);
+      qty.addEventListener("input", actualizar);
+      precio.addEventListener("input", actualizar);
+      fila.append(sku, qty, precio);
+      lineas.appendChild(fila);
+      filas.push({ linea, qty, precio });
+    }
+
+    const pagos = document.createElement("div");
+    pagos.className = "vp-pagos";
+
+    function edicionActual(): EdicionVenta {
+      return {
+        lineas: filas.map((fila) => ({
+          product_id: fila.linea.product_id,
+          qty: entero(fila.qty, 1, 999),
+          precio_centavos: entero(fila.precio, 0, 999_999_999),
+        })),
+        pagos: edicion.pagos.map((pago) => ({ medio: pago.medio, monto_centavos: pago.monto_centavos })),
+      };
+    }
+
+    function filaPago(pago: PagoEditable, indice: number): HTMLElement {
+      const fila = document.createElement("div");
+      fila.className = "vp-pago";
+      const medio = document.createElement("select");
+      medio.setAttribute("aria-label", "Medio del pago " + (indice + 1));
+      for (const opcionMedio of MEDIOS) {
+        const opcion = document.createElement("option");
+        opcion.value = opcionMedio;
+        opcion.textContent = opcionMedio;
+        opcion.selected = opcionMedio === pago.medio;
+        medio.appendChild(opcion);
+      }
+      medio.addEventListener("change", () => {
+        const elegido = MEDIOS.find((opcion) => opcion === medio.value);
+        if (elegido) pago.medio = elegido;
+        actualizar();
+      });
+      const monto = campoNumero("Monto del pago " + (indice + 1) + " en centavos", pago.monto_centavos, 1, 999_999_999);
+      monto.addEventListener("input", () => {
+        pago.monto_centavos = entero(monto, 1, 999_999_999);
+        actualizar();
+      });
+      const quitar = boton("Quitar", () => {
+        if (edicion.pagos.length <= 1) return;
+        edicion.pagos = edicion.pagos.filter((otro) => otro !== pago);
+        dibujarPagos();
+        actualizar();
+      });
+      quitar.disabled = edicion.pagos.length <= 1;
+      quitar.setAttribute("aria-label", "Quitar pago " + (indice + 1));
+      fila.append(medio, monto, quitar);
+      return fila;
+    }
+
+    const agregarPago = boton("Agregar pago", () => {
+      if (edicion.pagos.length >= 5) return;
+      edicion.pagos.push({ medio: "Efectivo", monto_centavos: 1 });
+      dibujarPagos();
+      actualizar();
+    });
+
+    function dibujarPagos() {
+      pagos.textContent = "";
+      edicion.pagos.forEach((pago, indice) => pagos.appendChild(filaPago(pago, indice)));
+      agregarPago.disabled = edicion.pagos.length >= 5;
+    }
+
+    const totales = document.createElement("p");
+    totales.className = "vp-total";
+    totales.setAttribute("role", "status");
+
+    const aviso = document.createElement("p");
+    aviso.className = "vp-aviso";
+    aviso.setAttribute("role", "alert");
+
+    function actualizar() {
+      const actual = edicionActual();
+      const total = totalCentavos(actual.lineas);
+      const suma = actual.pagos.reduce((acumulado, pago) => acumulado + pago.monto_centavos, 0);
+      totales.textContent =
+        "Total " + formatearCentavos(total) + " · Pagos " + formatearCentavos(suma);
+      aviso.textContent = pagosSuman(actual) ? "" : "Los pagos no suman el total.";
+    }
+
+    const formulario = document.createElement("div");
+    formulario.className = "vp-formulario";
+    formulario.append(lineas, pagos, agregarPago, totales, aviso);
+
+    const reintentar = boton("Reintentar", () => {
+      const actual = edicionActual();
+      if (!pagosSuman(actual)) {
+        const estado = $("estado-ventas");
+        if (estado) estado.textContent = "Los pagos no suman el total.";
+        return;
+      }
+      void enviar(venta, "reintentar", payloadCorregido(venta.payload, actual));
+    });
+
+    const acciones = document.createElement("div");
+    acciones.className = "acciones";
+    acciones.append(reintentar, boton("Descartar", () => void descartar(venta)));
+
+    const area = document.createElement("textarea");
+    area.value = JSON.stringify(venta.payload, null, 2);
+    area.setAttribute("aria-label", "JSON de la venta " + venta.op_id);
+
+    const avanzado = document.createElement("details");
+    avanzado.className = "avanzado";
+    const resumenJson = document.createElement("summary");
+    resumenJson.textContent = "Modo avanzado (JSON)";
+    avanzado.append(resumenJson, area, boton("Reintentar con JSON", () => void reintentarJson(venta, area)));
+
+    const contenedor = document.createElement("div");
+    contenedor.append(formulario, acciones, avanzado);
+    dibujarPagos();
+    actualizar();
+    return contenedor;
   }
 
   function render(items: VentaPendiente[]) {
@@ -145,25 +297,14 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       const caja = document.createElement("span");
       caja.textContent = "Caja " + venta.device_code + "-" + venta.device_seq;
       const total = document.createElement("span");
-      total.textContent = formatearCentavos(totalCentavos(venta.payload));
+      total.textContent = formatearCentavos(totalCentavos(edicionDePayload(venta.payload).lineas));
       resumen.append(fecha, caja, total);
 
       const motivo = document.createElement("p");
       motivo.className = "motivo";
       motivo.textContent = textoMotivo(venta.motivo);
 
-      const area = document.createElement("textarea");
-      area.value = JSON.stringify(venta.payload, null, 2);
-      area.setAttribute("aria-label", "JSON de la venta " + venta.op_id);
-
-      const acciones = document.createElement("div");
-      acciones.className = "acciones";
-      acciones.append(
-        boton("Reintentar", () => void reintentar(venta, area)),
-        boton("Descartar", () => void descartar(venta)),
-      );
-
-      articulo.append(resumen, motivo, area, acciones);
+      articulo.append(resumen, motivo, editor(venta));
       contenedor.appendChild(articulo);
     }
   }
