@@ -14,6 +14,7 @@
 import { descontar, type DescuentoPorLote, type Faltante, type Lote, type MovimientoStock } from "../inventario/inventario.js";
 import { registrar_movimiento, type Movimiento, type Rol } from "../cash/caja.js";
 import { LEYENDA_NO_FISCAL, siguiente_numero, type TicketDefinitivo, type TicketSeq } from "../sales/vender_mostrador.js";
+import { aplicar_descuentos, type LineaConDescuento } from "../sales/descuentos.js";
 import type { Medio } from "../../lib/validation.js";
 import { crear_movimiento, type MovimientoCredito, type TipoMovCredito } from "./saldos.js";
 
@@ -79,6 +80,8 @@ export interface EfectoFiado {
   readonly movimientosStock: ReadonlyArray<MovimientoStock>;
   readonly faltantes: ReadonlyArray<Faltante>;
   readonly movimientoCredito: MovimientoCredito;
+  // P10-16: snapshot por línea congelado para ticket_lines + ticket_discounts.
+  readonly lineasConDescuento: ReadonlyArray<LineaConDescuento>;
   readonly ingresaACaja: false;
   // Dueño puede superar tope (queda marcado para auditoría).
   readonly superaTope: boolean;
@@ -118,7 +121,15 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
   });
   if (!d.ok) return { ok: false, codigo: d.codigo, status: 422 };
 
-  const total = input.lineas.reduce((acc, l) => acc + BigInt(l.cantidad) * l.precioCentavos, 0n);
+  // P10-16: snapshot por línea para ticket_discounts. Sin specs el neto
+  // == bruto y el snapshot sale por la vía rápida de aplicar_descuentos,
+  // la misma que usaría TV4 con specs.
+  const snap = aplicar_descuentos({
+    lineas: input.lineas.map((l) => ({ sku: l.sku as string, cantidad: l.cantidad, precioCentavos: l.precioCentavos })),
+  });
+  if (!snap.ok) return { ok: false, codigo: "LINEA_INVALIDA", status: 422 };
+
+  const total = snap.calculo.totalNetoCentavos;
   if (total <= 0n) return { ok: false, codigo: "LINEA_INVALIDA", status: 422 };
 
   // FC6: tope contra saldo vigente (local si offline). Superar solo Dueño.
@@ -161,6 +172,7 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
       movimientosStock: d.valor.movimientos,
       faltantes: d.valor.sobreventa,
       movimientoCredito: mov.movimiento,
+      lineasConDescuento: snap.calculo.lineas,
       ingresaACaja: C18_INGRESO_CAJA.venta_a_cuenta,
       superaTope,
       superaMora,

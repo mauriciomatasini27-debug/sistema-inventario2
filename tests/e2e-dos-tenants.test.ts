@@ -250,6 +250,9 @@ describe.skipIf(!hayPG)("P3-2d PRD-E2E-01: flujo demo de dos tenants aislados co
     ventas.push(jA.sale_id);
     ticketA = jA.ticket_definitivo ?? jA.ticket_provisorio;
     expect(ticketA.length).toBeGreaterThan(0);
+    // Los definitivos numeran por base: dos comercios pueden coincidir en
+    // T-0000NN. El aislamiento se prueba con el provisorio (device único).
+    const provA = jA.ticket_provisorio;
 
     const vB = await conTenant("tenant-b", () =>
       postSales(
@@ -268,16 +271,17 @@ describe.skipIf(!hayPG)("P3-2d PRD-E2E-01: flujo demo de dos tenants aislados co
     };
     ventas.push(jB.sale_id);
     ticketB = jB.ticket_definitivo ?? jB.ticket_provisorio;
+    const provB = jB.ticket_provisorio;
 
     const tAenA = await conTenant("tenant-a", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(ticketA)}`)));
     expect((tAenA as Response).status).toBe(200);
-    const tAenB = await conTenant("tenant-b", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(ticketA)}`)));
-    expect((tAenB as Response).status).toBe(404);
+    const provAenB = await conTenant("tenant-b", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(provA)}`)));
+    expect((provAenB as Response).status).toBe(404);
 
     const tBenB = await conTenant("tenant-b", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(ticketB)}`)));
     expect((tBenB as Response).status).toBe(200);
-    const tBenA = await conTenant("tenant-a", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(ticketB)}`)));
-    expect((tBenA as Response).status).toBe(404);
+    const provBenA = await conTenant("tenant-a", () => getTicket(ctx(`http://x/api/tickets?numero=${encodeURIComponent(provB)}`)));
+    expect((provBenA as Response).status).toBe(404);
   });
 
   it("caja: movimientos y lecturas aislados por tenant en ambas direcciones", async () => {

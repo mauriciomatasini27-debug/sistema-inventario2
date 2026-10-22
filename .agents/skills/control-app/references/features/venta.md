@@ -31,7 +31,7 @@ El clic en `#cobrar` devuelve 201 y deja un ticket en `#estado`. El `api` tiene 
 
 ## Offline
 
-La cola usa `localStorage.slice0-outbox` y `localStorage.slice0-seq`. Para cortar la red hace falta Playwright directo, porque la CLI no expone `setOffline`. El spec `tests/e2e/venta.spec.ts` ya cubre ese camino. Si tocás la cola, corré `/verify-venta-sync`.
+La cola usa `localStorage.slice0-outbox:<tenant>` y `localStorage.slice0-seq:<tenant>`; sin login quedan las legadas globales (P10-14). Para cortar la red hace falta Playwright directo, porque la CLI no expone `setOffline`. El spec `tests/e2e/venta.spec.ts` ya cubre ese camino. Si tocás la cola, corré `/verify-venta-sync`.
 
 ## APIs
 

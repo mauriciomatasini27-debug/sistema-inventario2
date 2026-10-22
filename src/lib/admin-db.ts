@@ -10,6 +10,8 @@ import type { ActoAdmin } from "../modules/admin/actos.js";
 import {
   adminAuditLog,
   billingLedgerEntries,
+  migrationRollouts,
+  platformAdmins,
   tenantFeatureOverrides,
   tenantHealthSignals,
   tenantLifecycleEvents,
@@ -199,5 +201,48 @@ export async function contarHealthAdmin(): Promise<{
     };
   } catch {
     return null;
+  }
+}
+
+// P10-17: un sub de la allowlist que usa el panel queda registrado como
+// admin de plataforma (google_sub es la clave, nunca el email).
+export function persistirAdminPlataforma(googleSub: string): Promise<boolean> {
+  return intentarAdmin((db) =>
+    db.insert(platformAdmins).values({ googleSub, estado: "activo" }).onConflictDoNothing(),
+  );
+}
+
+// P10-17: cada reintentar es un intento nuevo (id propio, la fila guarda el
+// snap de estado e intentos del momento).
+export function persistirRolloutAdmin(r: {
+  tenantId: string;
+  estado: string;
+  intentos: number;
+}): Promise<boolean> {
+  return intentarAdmin((db) =>
+    db.insert(migrationRollouts).values({
+      tenantId: r.tenantId,
+      estado: r.estado,
+      intentos: r.intentos,
+    }),
+  );
+}
+
+export async function leerRolloutsAdmin(): Promise<
+  Array<{ id: string; tenantId: string; estado: string; intentos: number }>
+> {
+  try {
+    const filas = await getControlDb()
+      .select()
+      .from(migrationRollouts)
+      .orderBy(migrationRollouts.creadoEn);
+    return filas.map((f) => ({
+      id: f.id,
+      tenantId: f.tenantId,
+      estado: f.estado,
+      intentos: f.intentos,
+    }));
+  } catch {
+    return [];
   }
 }

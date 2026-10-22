@@ -11,7 +11,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { registrar_acto, type ActoAdmin } from "../../../modules/admin/actos.js";
 import type { OrigenAdmin } from "../../../modules/admin/boundary.js";
 import { adminStore, ultimoHashAdmin, type AdminActoMem } from "../../../lib/admin-store.js";
-import { persistirActoAdmin } from "../../../lib/admin-db.js";
+import { persistirAdminPlataforma, persistirActoAdmin } from "../../../lib/admin-db.js";
 import { jsonError, resolverSesion } from "../../../lib/control.js";
 
 export interface AdminCtx {
@@ -29,6 +29,8 @@ export function exigirAdmin(request: Request): AdminCtx | Response {
     );
     return jsonError("No tenés permiso para ver el panel.", 403);
   }
+  // P10-17: el uso del panel registra al sub como admin de plataforma (copia durable best-effort; la verdad sigue en la allowlist).
+  void persistirAdminPlataforma(ctx.googleSub);
   return { googleSub: ctx.googleSub };
 }
 
