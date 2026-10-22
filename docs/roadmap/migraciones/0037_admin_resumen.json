@@ -1,0 +1,7 @@
+{
+  "tag": "0037_admin_resumen",
+  "fecha": "2026-10-22",
+  "aprobado_por": "Mauri",
+  "backup": "/home/mauri/backups/pre-0037-0038-schema-20261022-0058.sql",
+  "evidencia": "0037 verificada aplicada en la base real; fila de journal id 38 con hash igual al archivo y created_at 1792802400000 (del journal); estructura de platform_admins/migration_rollouts/tenant_daily_usage verificada contra el archivo (columnas, PKs, defaults)"
+}

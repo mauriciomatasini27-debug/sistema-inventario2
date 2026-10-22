@@ -24,6 +24,7 @@ describe("docs:generados lib", () => {
       "docs/INDEX.md",
     ]);
     expect(ARCHIVOS_GENERADOS).toContain("docs/graph.json");
+    expect(ARCHIVOS_GENERADOS).toContain("docs/roadmap/migraciones-aplicadas.md");
   });
 
   it("pasa en la rama principal aunque toque generados", () => {

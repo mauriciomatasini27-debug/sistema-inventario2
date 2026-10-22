@@ -1,0 +1,6 @@
+{
+  "tag": "0034_tenant_product_seeds",
+  "fecha": "2026-10-21",
+  "backup": "/workspace/backups/pre-0034-schema-20261021-0153.json",
+  "evidencia": "0034 aplicada vía conector Supabase (execute_sql)."
+}

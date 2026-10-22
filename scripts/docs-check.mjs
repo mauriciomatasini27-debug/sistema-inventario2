@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join, normalize } from "node:path";
 import { generarContenidos } from "./docs-index-lib.mjs";
 import { listarDocs } from "./docs-lib.mjs";
 import { aplicarBaseline, checkEnlaces, checkEsquema, checkIds, checkSimetria, formatoError } from "./docs-check-lib.mjs";
+import { validarRegistros } from "./docs-migraciones-lib.mjs";
 import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
 
 const enRamaDeTrabajo = esRamaDeTrabajo(ramaActual());
@@ -47,6 +48,19 @@ const { nuevos, obsoletas } = aplicarBaseline(rotos, baseline);
 for (const r of nuevos) errores.push(r);
 for (const k of obsoletas) {
   errores.push({ ruta: rutaBaseline, linea: 1, mensaje: `baseline obsoleta, quitar: ${k}` });
+}
+
+const dirMigraciones = join(raiz, "roadmap", "migraciones");
+const archivosMigraciones = [];
+try {
+  for (const nombre of readdirSync(dirMigraciones).sort()) {
+    archivosMigraciones.push({ nombre, texto: readFileSync(join(dirMigraciones, nombre), "utf8") });
+  }
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+}
+for (const e of validarRegistros(archivosMigraciones).errores) {
+  errores.push({ ruta: `${base}/roadmap/migraciones/${e.nombre}`, linea: 1, mensaje: e.mensaje });
 }
 
 const { index, grafo } = generarContenidos(raiz);

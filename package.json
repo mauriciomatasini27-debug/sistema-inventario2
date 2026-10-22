@@ -18,6 +18,7 @@
     "review:scope": "node scripts/review-scope.mjs",
     "review:gate": "node scripts/cadena/interface-review-gate.mjs",
     "evidencia": "node scripts/evidencia.mjs",
+    "docs:migraciones": "node scripts/docs-migraciones.mjs",
     "docs:estado": "node scripts/docs-estado.mjs",
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",

@@ -12,7 +12,7 @@ export function marcaNoMergear(...textos) {
   return null;
 }
 
-/** Tags de migraciones listadas en docs/roadmap/migraciones-aplicadas.md (líneas "- <tag>"). */
+/** Tags de migraciones listadas en el .md derivado (líneas "- <tag>"). */
 export function parsearRegistro(md) {
   const tags = new Set();
   for (const linea of (md ?? "").split(/\r?\n/)) {
@@ -29,15 +29,19 @@ export function migracionesDelPr(files) {
     .map((f) => f.filename.slice("drizzle/".length, -".sql".length));
 }
 
-/** Evalúa el PR. Devuelve { ok, motivos[] }. */
-export function evaluar({ titulo, cuerpo, files, registroMd }) {
+/**
+ * Evalúa el PR. Devuelve { ok, motivos[] }. `migraciones` son los tags de la carpeta de la base.
+ * @param {{ titulo?: string, cuerpo?: string, files?: any[], registroMd?: string, migraciones?: string[] }} input
+ */
+export function evaluar(input) {
+  const { titulo, cuerpo, files, registroMd, migraciones } = input ?? {};
   const motivos = [];
   const marca = marcaNoMergear(titulo, cuerpo);
   if (marca) motivos.push(`el título o cuerpo dice "${marca}"`);
-  const registradas = parsearRegistro(registroMd);
+  const registradas = new Set([...(migraciones ?? []), ...parsearRegistro(registroMd)]);
   for (const tag of migracionesDelPr(files)) {
     if (!registradas.has(tag)) {
-      motivos.push(`migración drizzle/${tag}.sql no figura en docs/roadmap/migraciones-aplicadas.md de la rama base (no aplicada en la base real)`);
+      motivos.push(`migración drizzle/${tag}.sql no tiene docs/roadmap/migraciones/${tag}.json en la rama base (no aplicada en la base real)`);
     }
   }
   motivos.push(...evaluarRevision({ cuerpo, files }).motivos);

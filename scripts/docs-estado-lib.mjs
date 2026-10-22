@@ -111,7 +111,7 @@ function seccionBloqueos(bloqueos) {
 const GATE = [
   "- `npm run verify` (Node 22, Postgres A/B) debe pasar, y `node scripts/cadena/puede-mergear.mjs <PR>` debe salir 0.",
   "- Squash-merge y borrar la rama.",
-  "- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones-aplicadas.md` antes del merge del PR que las trae.",
+  "- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones/<tag>.json` antes del merge del PR que las trae.",
 ];
 
 export function renderEstado(input = {}) {

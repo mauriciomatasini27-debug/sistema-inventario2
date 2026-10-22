@@ -1,0 +1,6 @@
+{
+  "tag": "0032_tenant_location_seeds",
+  "fecha": "2026-10-20",
+  "backup": "/workspace/backups/pre-0032-schema-20261020-1050.json",
+  "evidencia": "0032 aplicada vía conector Supabase (execute_sql)."
+}

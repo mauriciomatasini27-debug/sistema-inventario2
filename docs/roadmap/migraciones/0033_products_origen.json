@@ -1,0 +1,6 @@
+{
+  "tag": "0033_products_origen",
+  "fecha": "2026-10-21",
+  "backup": "/workspace/backups/pre-0033-schema-20261021-0144.json",
+  "evidencia": "0033 aplicada vía conector Supabase (execute_sql)."
+}

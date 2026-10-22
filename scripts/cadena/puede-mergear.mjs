@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { evaluar } from "./puede-mergear-lib.mjs";
 
 const REGISTRO = "docs/roadmap/migraciones-aplicadas.md";
+const DIR_REGISTROS = "docs/roadmap/migraciones";
 
 function gh(args) {
   return execFileSync("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
@@ -35,7 +36,19 @@ try {
   } catch (e) {
     console.error(`aviso: no pude leer ${REGISTRO} en ${datos.base.ref}; se trata como vacío`);
   }
-  const r = evaluar({ titulo: datos.title, cuerpo: datos.body, files, registroMd });
+  // Registro por ítem: cada migración es un archivo propio en la base.
+  let migraciones = [];
+  try {
+    const listado = JSON.parse(gh([`repos/${repo}/contents/${DIR_REGISTROS}?ref=${encodeURIComponent(datos.base.ref)}`]));
+    migraciones = listado
+      .filter((f) => f.type === "file" && String(f.name).endsWith(".json"))
+      .map((f) => String(f.name).slice(0, -".json".length));
+  } catch (e) {
+    if (!String(e?.stderr || e?.message || e).includes("404")) {
+      console.error(`aviso: no pude leer ${DIR_REGISTROS} en ${datos.base.ref}; uso solo el .md`);
+    }
+  }
+  const r = evaluar({ titulo: datos.title, cuerpo: datos.body, files, registroMd, migraciones });
   if (r.ok) {
     console.log(`puede-mergear #${pr}: OK`);
     process.exit(0);

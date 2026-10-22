@@ -1,0 +1,6 @@
+{
+  "tag": "0036_stock_inicial_unico",
+  "fecha": "2026-10-21",
+  "backup": "/workspace/backups/pre-0036-schema-20261021-0227.json",
+  "evidencia": "0036 aplicada vía conector Supabase (execute_sql)."
+}
