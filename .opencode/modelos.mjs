@@ -9,9 +9,9 @@
 //   node .opencode/modelos.mjs revivir <modelo>               -> le borra la marca de caído
 // Sin dependencias: solo node:*. Funciona en Ubuntu/WSL con Node 22.
 import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { accessSync, appendFileSync, constants, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -66,12 +66,41 @@ function leerCache() {
   }
 }
 function guardarCache(c) {
+  const ruta = rutaCache();
+  const temporal = `${ruta}.${process.pid}.tmp`;
   try {
-    mkdirSync(dirname(rutaCache()), { recursive: true });
-    writeFileSync(rutaCache(), JSON.stringify(c, null, 2));
+    mkdirSync(dirname(ruta), { recursive: true });
+    writeFileSync(temporal, JSON.stringify(c, null, 2));
+    renameSync(temporal, ruta);
   } catch (e) {
     process.stderr.write(`pstack-modelos: no pude guardar la cache (${e.code}); sigo sin cache\n`);
   }
+}
+
+// El binario puede estar en ~/.opencode/bin (instalador oficial), ~/.local/bin
+// (instalaciones viejas) o en cualquier directorio del PATH. Si no aparece, no
+// es un modelo caído: se avisa y se sigue sin filtrar.
+export function buscarBin(entorno = process.env) {
+  if (entorno.OPENCODE_BIN) return entorno.OPENCODE_BIN;
+  const candidatos = [];
+  for (const dir of (entorno.PATH ?? "").split(delimiter)) {
+    if (dir) candidatos.push(join(dir, "opencode"));
+  }
+  candidatos.push(
+    join(entorno.HOME || homedir(), ".opencode", "bin", "opencode"),
+    join(entorno.HOME || homedir(), ".local", "bin", "opencode"),
+    "/usr/local/bin/opencode",
+    "/usr/bin/opencode",
+  );
+  for (const c of candidatos) {
+    try {
+      accessSync(c, constants.X_OK);
+      return c;
+    } catch (e) {
+      if (e.code !== "ENOENT" && e.code !== "EACCES") throw e;
+    }
+  }
+  return null;
 }
 
 // `opencode models` no gasta tokens: detecta modelos que salieron de Zen.
@@ -80,7 +109,13 @@ function existentes(config, cache) {
   if (mock !== undefined) return new Set(mock.split(/[\s,]+/).filter(Boolean));
   const ahora = Date.now();
   if (cache.lista && ahora - cache.lista.en < ttlMs(config)) return new Set(cache.lista.modelos);
-  const bin = process.env.OPENCODE_BIN || join(homedir(), ".local", "bin", "opencode");
+  const bin = buscarBin();
+  if (!bin) {
+    process.stderr.write(
+      "pstack-modelos: no encontré el binario de opencode (miré OPENCODE_BIN, PATH y ~/.opencode/bin); sigo sin filtrar y no marco modelos caídos\n",
+    );
+    return null;
+  }
   let salida;
   try {
     salida = execFileSync(bin, ["models", "opencode"], { encoding: "utf8", timeout: 20_000, stdio: ["ignore", "pipe", "ignore"] });

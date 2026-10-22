@@ -9,6 +9,7 @@ describe("E1 pstack-run usa .pstack-tmp en vez de /tmp", () => {
     const mkdir = texto.indexOf(".pstack-tmp");
     const correr = texto.indexOf('"$OC" serve');
     expect(mkdir >= 0 && correr > mkdir, "mkdir debe ir antes de arrancar el servidor").toBe(true);
+    expect(texto, "el script no debe escribir rutas absolutas en /tmp").not.toMatch(/(^|[^A-Za-z0-9_.-])\/tmp\//m);
   });
 
   it(".gitignore cubre .pstack-tmp/", () => {

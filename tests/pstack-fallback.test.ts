@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,6 +25,8 @@ function armar(): { repo: string; oc: string } {
   const repo = join(base, "repo");
   mkdirSync(join(repo, ".opencode"), { recursive: true });
   copyFileSync(".opencode/pstack-run.sh", join(repo, ".opencode/pstack-run.sh"));
+  copyFileSync(".opencode/modelos.mjs", join(repo, ".opencode/modelos.mjs"));
+  copyFileSync(".opencode/modelos-por-skill.json", join(repo, ".opencode/modelos-por-skill.json"));
   writeFileSync(join(repo, ".gitignore"), ".pstack-tmp/\n");
   const oc = join(base, "fake-oc.sh");
   writeFileSync(oc, FAKE_OC);
@@ -36,25 +38,36 @@ function armar(): { repo: string; oc: string } {
   return { repo, oc };
 }
 
-function correr(repo: string, oc: string, toca: boolean) {
-  const port = String(20000 + Math.floor(Math.random() * 20000));
+function correr(
+  repo: string,
+  oc: string,
+  toca: boolean,
+  opciones: { ghToken?: string; port?: string } = {},
+) {
+  const port = opciones.port ?? String(20000 + Math.floor(Math.random() * 20000));
   const r = spawnSync("bash", [join(repo, ".opencode/pstack-run.sh"), "hacé algo", "-m", "fake/a"], {
     cwd: repo,
     encoding: "utf8",
     timeout: 60_000,
     env: {
       ...process.env,
-      GH_TOKEN: "",
+      GH_TOKEN: opciones.ghToken ?? "",
       OPENCODE_BIN: oc,
       PSTACK_PORT: port,
       PSTACK_SESSION_TIMEOUT: "20",
       PSTACK_FALLBACK_MODELS: "fake/b fake/c",
+      PSTACK_MODELOS_CACHE: join(repo, "..", "estado.json"),
+      PSTACK_MODELOS_LOG: join(repo, "..", "caidos.log"),
+      PSTACK_MODELOS_DISPONIBLES: "fake/a fake/b fake/c",
       FAKE_TOCA: toca ? "1" : "",
     },
   });
   spawnSync("bash", ["-c", `pkill -f "listen\\(${port}" || true`]);
   const intentos = readFileSync(join(repo, "..", "intentos.log"), "utf8").trim().split("\n");
-  return { status: r.status, stderr: r.stderr, intentos };
+  const cache = existsSync(join(repo, "..", "estado.json"))
+    ? JSON.parse(readFileSync(join(repo, "..", "estado.json"), "utf8"))
+    : { caidos: {} };
+  return { status: r.status, stderr: r.stderr, intentos, caidos: Object.keys(cache.caidos ?? {}) };
 }
 
 describe("pstack-run: sin fallback sobre árbol con cambios", () => {
@@ -63,13 +76,36 @@ describe("pstack-run: sin fallback sobre árbol con cambios", () => {
     const r = correr(repo, oc, true);
     expect(r.status).toBe(4);
     expect(r.intentos).toEqual(["fake/a"]);
+    expect(r.caidos).toEqual([]);
     expect(r.stderr).toContain("no relanzo");
   }, 90_000);
 
-  it("si el árbol quedó igual, sigue con el próximo modelo", () => {
+  it("si el árbol quedó igual, sigue con el próximo modelo y aísla cache y log", () => {
     const { repo, oc } = armar();
     const r = correr(repo, oc, false);
     expect(r.status).toBe(1);
     expect(r.intentos).toEqual(["fake/a", "fake/b", "fake/c"]);
+    expect(r.caidos.sort()).toEqual(["fake/a", "fake/b", "fake/c"]);
+    expect(existsSync(join(repo, "..", "caidos.log"))).toBe(true);
+  }, 90_000);
+
+  it("no mata un proceso ajeno que solo menciona opencode serve en su argv", () => {
+    const { repo, oc } = armar();
+    const port = String(20000 + Math.floor(Math.random() * 20000));
+    const decoy = spawn("bash", ["-c", `exec -a "opencode serve --port ${port}" sleep 60`], { stdio: "ignore" });
+    if (!decoy.pid) throw new Error("decoy sin pid");
+    const cmdline = `/proc/${decoy.pid}/cmdline`;
+    for (let i = 0; i < 40; i++) {
+      const actual = existsSync(cmdline) ? readFileSync(cmdline, "utf8").split("\0").join(" ") : "";
+      if (actual.includes(`opencode serve --port ${port}`)) break;
+      spawnSync("sleep", ["0.05"]);
+    }
+    try {
+      const r = correr(repo, oc, false, { ghToken: "token", port });
+      expect(decoy.exitCode).toBeNull();
+      expect(r.status).toBe(1);
+    } finally {
+      decoy.kill("SIGKILL");
+    }
   }, 90_000);
 });
