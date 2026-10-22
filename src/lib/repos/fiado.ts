@@ -10,7 +10,8 @@ import {
   ticketLines,
   tickets,
 } from "../../db/schema.js";
-import { agregarLineaTicket, agregarStockMoveMemoria, guardarTicketFiado } from "../ticket-memoria.js";
+import { agregarDescuentoTicket, agregarLineaTicket, agregarStockMoveMemoria, guardarTicketFiado } from "../ticket-memoria.js";
+import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { dbVivaTenant, intentarLeer } from "../server-db.js";
 import {
   crearAlmacenCreditoVistos,
@@ -113,6 +114,17 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         precio_centavos: String(l.precioCentavos),
       });
     }
+    for (const d of r.efecto.lineasConDescuento) {
+      agregarDescuentoTicket({
+        sale_id: saleId,
+        linea_idx: d.idx,
+        sku: d.sku,
+        bruto_centavos: d.brutoCentavos.toString(),
+        desc_linea_centavos: d.descLineaCentavos.toString(),
+        desc_ticket_centavos: d.descTicketCentavos.toString(),
+        neto_centavos: d.netoCentavos.toString(),
+      });
+    }
     const stock = almacenStock.mapaVivo();
     for (const d of r.efecto.descuentos) {
       stock.set(d.sku, (stock.get(d.sku) ?? 0) - d.cantidad);
@@ -185,6 +197,18 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos) }];
       });
       if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+      // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
+      await tx.insert(ticketDiscounts).values(
+        r.efecto.lineasConDescuento.map((l) => ({
+          saleId,
+          lineaIdx: l.idx,
+          sku: l.sku,
+          brutoCentavos: l.brutoCentavos,
+          descLineaCentavos: l.descLineaCentavos,
+          descTicketCentavos: l.descTicketCentavos,
+          netoCentavos: l.netoCentavos,
+        })),
+      );
       if (r.efecto.movimientosStock.length > 0) {
         await tx.insert(stockMovements).values(
           r.efecto.movimientosStock.map((m) => ({
@@ -242,7 +266,7 @@ export type CobroFiadoResultado =
   | { ok: false; codigo: string; status: number; error: string };
 
 // C18: cobro ingresa a caja (origen cobro_fiado). Clave repetida => 409 con
-// relectura; cobro e ingreso entran con espejo memoria.
+// relectura; con base viva, cobro e ingreso entran en la misma transacción.
 export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResultado> {
   const creditoVistos = crearAlmacenCreditoVistos();
   const movsCredito = crearListaMovimientosCredito();
@@ -298,23 +322,14 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
     espejoCredito();
     return { ok: true, customerId: input.customerId, haberCentavos: input.montoCentavos.toString(), fuente: "db" };
   } catch (e) {
-    if (esConflictoUnico(e)) {
-      try {
-        const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
-        if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-      } catch {
-        // Cae al espejo memoria de abajo.
-      }
-      creditoVistos.anteFalloPersistencia(e);
-    } else {
-      creditoVistos.anteFalloPersistencia(e);
-    }
-    if (creditoVistos.contiene(input.key)) {
-      return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    }
-    espejoCredito();
-    await registrarIngresoCobro({ key: input.key, montoCentavos: input.montoCentavos, medio: input.medio });
-    return { ok: true, customerId: input.customerId, haberCentavos: input.montoCentavos.toString(), fuente: "memoria" };
+    // P10-15: credito y caja entran en la misma tx. Si la tx no commitea, la
+    // unica salida es 409 por la clave ya persistida o propagar el error; un
+    // espejo de memoria con la caja escrita aparte deja las dos mitades
+    // separadas y responde 201 sin haber cobrado.
+    if (!esConflictoUnico(e)) throw e;
+    const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+    if (!previo[0]) throw e;
+    return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
 }
 

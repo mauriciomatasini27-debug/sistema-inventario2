@@ -7,9 +7,9 @@ export const prerender = false;
 
 // POST /api/credit/payments — C18: cobro ingresa a caja (origen cobro_fiado).
 // PERS2-S17: DB-first en el repo de fiado. Clave repetida responde 409 con
-// relectura; cobro e ingreso a caja entran con espejo memoria. Sin DB o ante
-// error, la vía memoria histórica resuelve igual que antes y el cobro no se
-// pierde.
+// relectura; cobro e ingreso a caja entran en la misma transacción (P10-15).
+// Sin DB en single cae a memoria; si la transacción falla, el error se propaga
+// y no se escribe una mitad sola.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
