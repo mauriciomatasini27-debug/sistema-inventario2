@@ -14,7 +14,7 @@ Usala si tu cambio toca alguno de estos archivos o funciones. Si no toca ninguno
 | Archivo | Qué mirar |
 |---|---|
 | `src/offline/cola-venta.ts` | `sincronizarColaVenta`, `quitarConfirmados`, `contarSensibles`, los tipos `ItemCola`, `DepsColaVenta`, `RespuestaPush` y `ResultadoColaVenta` |
-| `src/pages/venta.astro` | el `onclick` de `#sync` (arma `leer`, `escribir`, `enviar`), el `onclick` de `#cobrar` (encolado offline), `nextSeq`, las claves `slice0-outbox` y `slice0-seq` |
+| `src/pages/venta.astro` | el `onclick` de `#sync` (arma `leer`, `escribir`, `enviar`), el `onclick` de `#cobrar` (encolado offline), `nextSeq`, las claves `slice0-outbox:<tenant>` y `slice0-seq:<tenant>` (legadas globales solo sin tenant, P10-14) |
 | `src/lib/repos/sync.ts` | `empujarOperacion` y sus ramas: replay por `op_id`, chequeo de `device_seq` con 422, `INSERT` y relectura ante 23505 |
 | `src/db/schema.ts` | `outbox`, en particular `opId` como `primaryKey` y `device_seq` |
 | `tests/cola-venta.test.ts`, `tests/sync-worker-corte.test.ts` | si los cambiás, actualizá también el registro de cobertura de esta skill |

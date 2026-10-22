@@ -1,4 +1,5 @@
 import { almacenamientoLocal, borrarCatalogosLocales, type StorageCatalogo } from "./catalogo-local.js";
+import { borrarColasLocales } from "./cola-venta.js";
 import { resetDb } from "./db.js";
 import { hidratarFotos, resetFotos } from "./fotos.js";
 import { hidratarMappings, resetMappings } from "./id-mappings.js";
@@ -102,6 +103,8 @@ export async function revocarDispositivo(
   storage: StorageCatalogo | null = almacenamientoLocal(),
 ): Promise<RevocacionResult> {
   borrarCatalogosLocales(storage);
+  // P10-14: la cola de /venta y device_seq por tenant también se borran al revocar.
+  borrarColasLocales(storage);
   try {
     await resetOutbox();
   } catch {
