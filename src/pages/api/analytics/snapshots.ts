@@ -9,8 +9,9 @@ import {
   describir_snapshot,
   encolar_snapshot,
 } from "../../../modules/analytics/snapshots.js";
-import { DEFAULT_SETTINGS, type SnapshotRotacion, type SkuRot } from "../../../modules/analytics/tipos.js";
+import type { RotationSettings, SnapshotRotacion, SkuRot } from "../../../modules/analytics/tipos.js";
 import { intentarLeer, intentarPersistir, BaseNoDisponible } from "../../../lib/server-db.js";
+import { leerRotationSettings } from "../../../lib/repos/rotation-settings.js";
 import { tenantActual } from "../../../lib/tenant-mode.js";
 import { rotationSnapshots } from "../../../db/schema-analytics.js";
 
@@ -48,12 +49,19 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = snapshotSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "snapshot inválido" }, { status: 422 });
   const b = parsed.data;
+  let settings: RotationSettings;
+  try {
+    settings = await leerRotationSettings();
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   const { movimientos, catalogo } = fuente_memoria();
   const r = calcular_rotacion({
     movimientos,
     stockInicial: new Map<SkuRot, number>(),
     catalogo,
-    params: { desde: b.desde, hasta: b.hasta, hoy: b.hasta, ventanaCoberturaDias: 28 },
+    params: { desde: b.desde, hasta: b.hasta, hoy: b.hasta, ventanaCoberturaDias: settings.ventanaCoberturaDias },
   });
   if (!r.ok) return Response.json({ error: "ventana inválida" }, { status: 422 });
   const snap = describir_snapshot({
@@ -92,7 +100,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const { inmovilizadoCentavos, ...resumen } = construir_resumen({
     filas: r.valor,
-    settings: DEFAULT_SETTINGS,
+    settings,
     excluidos: new Set(),
   });
   return Response.json(

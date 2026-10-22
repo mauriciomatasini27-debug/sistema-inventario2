@@ -14,6 +14,17 @@ export const analyticsQuerySchema = z.object({
   cobertura_ventana_dias: z.enum(["14", "28", "56"]).default("28"),
 });
 
+export const rotationSettingsSchema = z.object({
+  ventana_cobertura_dias: z.union([z.literal(14), z.literal(28), z.literal(56)]),
+  dormido_n: z.number().int().min(1).max(365),
+  dormido_x: z.number().int().min(1).max(365),
+  cobertura_reponer_dias: z.number().int().min(1).max(90),
+  abc_corte_a_bp: z.number().int().min(0).max(10000),
+  abc_corte_b_bp: z.number().int().min(0).max(10000),
+  abc_min_dias: z.number().int().min(1).max(365),
+  markup_min_bp: z.number().int().min(0).max(10000),
+});
+
 export const snapshotSchema = z.object({
   desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
