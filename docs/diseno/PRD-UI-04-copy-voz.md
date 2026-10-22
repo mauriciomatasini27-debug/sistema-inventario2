@@ -18,7 +18,7 @@ Fuente: `.agents/skills/better-writing/SKILL.md`, `.agents/skills/writing-guidel
 
 Requisito UI7: inventario de strings único, mismo sustantivo y verbo en todo el flujo.
 
-- Historia UI-S13. Inventario de strings. AC: Given audito copy When listo `t()`, `i18n`, `FormattedMessage` y `locales/**/*.json` con un solo término por concepto (`Continuar` o `Seguir`, nunca ambos) y capitalización única Then no hay duplicados ni dobles términos. ADR: 0035. Talla S. Depende de: nada.
+- Historia UI-S13. Inventario de strings. AC: Given audito copy When listo el catálogo real (`src/lib/errores-campo.ts` y los textos de `src/components/`) con un solo término por concepto (`Continuar` o `Seguir`, nunca ambos) y capitalización única Then no hay duplicados ni dobles términos. El inventario i18n (`locales/**/*.json`) sigue pendiente: hoy no existe esa carpeta. ADR: 0035. Talla S. Depende de: nada.
 - Historia UI-S14. Botones y links. AC: Given recorro acciones When verifico botones verbo más objeto, links que describen destino nunca `Click aquí`, y toggles que describen estado ON Then cada control dice qué hace. ADR: 0035. Talla S. Depende de: UI-S13.
 
 ## Épica UI-E8. Errores que enseñan y destructivas que confirman

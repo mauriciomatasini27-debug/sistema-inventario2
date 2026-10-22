@@ -18,7 +18,7 @@ Fuente: `.agents/skills/better-typography/SKILL.md`, `docs/diseno/PRD-DS-01-toke
 
 Requisito UI3: mismos niveles DS6 con line-height unitless, medida y peso verificables.
 
-- Historia UI-S5. Niveles y ritmo. AC: Given reviso textos When comparo pila `Montserrat, Segoe UI, system-ui, sans-serif` con hub `1.5rem/700`, subtítulo `.875rem`, login brand `1.65rem/600`, listas `.875rem`, onboarding `20px/700` y body `14px`, más `line-height` display `1.1`, headings `1.2-1.3`, body `1.5-1.6` y peso mínimo `400` bajo `18px` Then cada nivel coincide. ADR: 0033, 0008. Talla S. Depende de: nada.
+- Historia UI-S5. Niveles y ritmo. AC: Given reviso textos When comparo pila del sistema (`--font-sans`: system-ui, Segoe UI, sans-serif) con hub `1.5rem/700`, subtítulo `.875rem`, login brand `1.65rem/600`, listas `.875rem`, onboarding `20px/700` y body `16px`, más `line-height` display `1.1`, headings `1.2-1.3`, body `1.5-1.6` y peso mínimo `400` bajo `18px` Then cada nivel coincide. ADR: 0033, 0008. Talla S. Depende de: nada.
 - Historia UI-S6. Medida y números cambiantes. AC: Given leo párrafos y precios When mido medida `60-75ch`, inputs `16px` en iOS y `tabular-nums` en valores que cambian Then no hay líneas fugadas ni saltos de ancho en precio. ADR: 0033. Talla S. Depende de: UI-S5.
 
 ## Épica UI-E4. Wrapping y truncado con retorno

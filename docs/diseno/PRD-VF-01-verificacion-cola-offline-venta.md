@@ -49,8 +49,8 @@ Requisito VF-R4: un segundo modelo entra con las mismas garantías y queda como 
 
 | Tipo | Caso | Entrada | Resultado esperado |
 |---|---|---|---|
-| Feliz | Modelo del código actual | `actual-perdida.cfg` | `NoVentaPerdida` violada en 4 estados |
-| Feliz | Modelo del arreglo | `fix-completo.cfg` | las tres leyes se cumplen, 1.326 estados distintos |
+| Feliz | Modelo del código actual | `venta-sync.cfg` | `NoVentaPerdida` se cumple; los `quiebre-*.cfg` violan su ley |
+| Feliz | Modelo del arreglo | `venta-sync.cfg` | las tres leyes se cumplen, 7.519 estados distintos |
 | Fallo | Pérdida por red | venta encolada, push falla | la venta sigue en la cola |
 | Fallo | 422 o 5xx | push responde error HTTP | el item sigue en la cola y el drenaje se detiene |
 | Fallo | Atasco | solo sacar 2xx y seguir el `for` | el modelo viola `NoAtascada` |

@@ -14,15 +14,15 @@ resumen: |
 
 # ADR-0105 - Corrección de signo de caja, fiado y atomicidad de cobro
 
-Estado: aceptado. Fecha: 2026-10-20. Fuentes: `docs/roadmap/auditorias/2026-10-20.md`, `src/modules/sales/registro_venta.ts:266`, `src/lib/repos/fiado.ts:100-132 y 199-207`, `src/lib/repos/ventas.ts:187 y 285`, `src/db/schema.ts:89`.
+Estado: aceptado. Fecha: 2026-10-20. Fuentes: `docs/roadmap/auditorias/2026-10-20.md`, `src/modules/sales/registro_venta.ts:405-408`, `src/lib/repos/fiado.ts:140-190 y 279-297`, `src/lib/repos/ventas.ts:86,223,333,402`, `src/db/schema.ts:92-98`.
 
 ## Decisión
 
-1. El cobro de una venta se registra en `cash_movements` con `tipo: "ingreso"` (no `"egreso"`), `origen: "venta"` y `categoriaId: "venta"`. Se corrige `registro_venta.ts`, `vender_mostrador.ts` y `confirmar_venta.ts`; se actualizan `tests/slice0-http.test.ts` para esperar saldo positivo.
-2. `ventaACuenta` de fiado persiste `sales`, `tickets`, `ticket_lines`, `ticket_discounts` y `stock_movements` en la misma transacción que `customer_movements`, con contador `ticket_counters` y 409 por idempotency key.
-3. `cobroFiado` escribe `customer_movements` y la entrada de caja (`registrarIngresoCobro`) dentro de una sola transacción; en modo memoria usa espejo atómico y falla todo o nada.
+1. El cobro de una venta se registra en `cash_movements` con `tipo: "ingreso"` (no `"egreso"`), `origen: "venta"` y `categoriaId: "venta"`. Se corrigió `registro_venta.ts`, `vender_mostrador.ts` y `confirmar_venta.ts`; `tests/slice0-http.test.ts` espera saldo positivo.
+2. `ventaACuenta` de fiado persiste `sales`, `tickets`, `ticket_lines` y `stock_movements` en la misma transacción que `customer_movements`, con contador `ticket_counters` y 409 por idempotency key. `ticket_discounts` del fiado queda pendiente (P10-16).
+3. `cobroFiado` escribe `customer_movements` y la entrada de caja dentro de una sola transacción; en modo memoria usa espejo atómico. El fallback del `catch` todavía puede escribir caja en la DB con el crédito solo en memoria: es el defecto P10-15.
 4. `registrar_devolucion` acepta `fueAcuenta` según el medio de pago; cuando es true, reintegra `customer_movements` del cliente con el monto devuelto. El valor por defecto para devoluciones no a cuenta sigue siendo false.
-5. `ticket_lines` y `ticket_discounts` se insertan al emitir cualquier venta con snapshot de precio y costo congelados (GP4), y se leen al consultar el ticket.
+5. `ticket_lines` y `ticket_discounts` se insertan al emitir una venta al contado; el fiado inserta `ticket_lines` pero no `ticket_discounts`. El snapshot es de precio; `ticket_lines` no tiene columna de costo (P10-16), así que el costo congelado de GP4 sigue pendiente.
 
 ## Por qué
 
@@ -38,6 +38,6 @@ El signo "egreso" en ventas deja la caja con saldo negativo y contradice C8.8 (e
 
 ## Pendientes
 
-- Aprobación de Mauri (afecta plata y datos).
-- Correr `npm run verify` verde tras el cambio.
-- Registrar avance en `docs/roadmap/avances/P10-1.md` a `P10-5.md`.
+- P10-15: cerrar el fallback de `cobroFiado` que puede dejar caja en DB y crédito en memoria.
+- P10-16: persistir `ticket_discounts` del fiado, agregar el costo a `ticket_lines` y cubrir `ventaACuenta`/`cobroFiado` con Postgres vivo.
+- P10-1 a P10-5 están mergeados y verificados.

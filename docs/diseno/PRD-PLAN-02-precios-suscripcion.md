@@ -19,16 +19,16 @@ Fuente: PRD-PLAN-01, ADR-0047 (no fija montos; cita 15/35/59 USD solo como refer
 
 ## Estado actual: nada cobrable todavía
 
-| Pieza | Estado al 2026-10-12 |
+| Pieza | Estado al 2026-10-21 |
 |---|---|
-| Inventario, ventas, caja, ticket, fiado | Hay código y rutas API, pero la fuente de verdad es `src/lib/store.ts` en memoria; sin persistencia productiva |
-| Bot de WhatsApp | Módulos en `src/modules/whatsapp/*` y adaptador Cloud API real; sin número central dado de alta en Meta (ADR-0041 pendiente) |
-| Alertas de stock bajo | Jobs de WhatsApp existen; umbrales (`min_stock`) sin código |
-| Asistente IA | Sin código (no hay `src/modules/asistente`) |
-| Chat de landing | Sin código (no hay `ChatLanding.astro` ni `api/landing-chat.ts`) |
-| Planes y cupos | Sin código (todo PRD-PLAN-01) |
-| Cobro | Solo `api/billing/webhooks/mercadopago.ts` (firma HMAC, idempotencia en memoria); sin suscripciones |
-| Factura ARCA | Núcleo y adaptador WSAA/WSFEv1 escritos y testeados contra fake homo; sin homologación real verificada |
+| Inventario, ventas, caja, ticket, fiado | DB-first con Drizzle y espejo en memoria; venta, fiado, cobro y devolución corregidos (ADR-0105) |
+| Bot de WhatsApp | Módulos por rubro y adaptador Cloud API; falta el número central en Meta (P9-3, ADR-0091) |
+| Alertas de stock bajo | `min_stock`/`reorder_qty` persistidos y editables; el envío por encargado y las claves durables siguen pendientes |
+| Asistente IA | Implementado con catálogo cerrado, 8 herramientas reales y cupo; IA-S2 sigue en despacho por intención, sin function calling |
+| Chat de landing | Implementado (`ChatLanding.astro` y `POST /api/landing-chat`, PRD-LP-04) |
+| Planes y cupos | Catálogo, suscripción, `/panel/plan`, upsell y contadores implementados (PRD-PLAN-01); el cobro automático sigue pendiente |
+| Cobro | Webhook de Mercado Pago con firma HMAC e idempotencia durable; sin suscripciones cobrables (PLAN-S3/S13) |
+| Factura ARCA | Núcleo WSAA/WSFEv1, QR, NC y padrón; corre contra `homo-fake`, sin homologación real (P9-2) |
 
 ## Precio sugerido por plan
 

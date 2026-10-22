@@ -27,8 +27,8 @@ Requisito UI11: radio exterior igual a interior más padding más borde, e icono
 Requisito UI12: mostrador cobra a una mano con feedback menor a 300ms y sin jank en gama baja.
 
 - Historia UI-S23. Presupuesto POS. AC: Given cobro y busco con teclado más de 100 veces por día When mido animaciones solo en `transform/opacity`, menores a `300ms`, `ease-out`, respuesta en `pointerdown` y `reduced-motion` más gateo `hover` incluidos Then el cobro nunca espera a motion. ADR: 0037, 0002. Talla M. Depende de: UI-S21.
-- Historia UI-S24. Librerías en vez de invento. AC: Given reviso `package.json` When confirmo `Sonner` para toasts, `base-ui` para diálogos, `Virtuoso` para listas de más de 1000 filas y `NumberFlow` para precios, sin librería nueva sin veredicto Then no hay motion casero donde hay librería probada. ADR: 0037. Talla S. Depende de: UI-S23.
-- Historia UI-S25. Auditoría y performance. AC: Given corro auditoría read-only When obtengo `recon` más `audit` más `plans/NNN-slug.md` con tabla `Elemento|Driver|Props`, `blur menor a 20px`, `overscroll-contain` en overlays y `will-change` al final Then cada hallazgo cita `file:line` con veredicto `Block/Approve`. ADR: 0037. Talla M. Depende de: UI-S23, UI-S24.
+- Historia UI-S24. Librerías en vez de invento. AC: Given reviso `package.json` When confirmo `Sonner` para toasts, `<dialog>` nativo más `ConfirmDialog` para diálogos, `Virtuoso` para listas de más de 1000 filas y `NumberFlow` para precios, sin librería nueva sin veredicto Then no hay motion casero donde hay librería probada. `base-ui` no se adoptó (ADR-0037). ADR: 0037. Talla S. Depende de: UI-S23.
+- Historia UI-S25. Auditoría y performance. AC: Given corro auditoría read-only When obtengo `recon` más `audit` con tabla `Elemento|Driver|Props`, `blur menor a 20px`, `overscroll-contain` en overlays y `will-change` al final Then cada hallazgo cita `file:line` con veredicto `Block/Approve`. Los archivos `plans/NNN-slug.md` no existen todavía; quedan pendientes. ADR: 0037. Talla M. Depende de: UI-S23, UI-S24.
 
 ## Dependencias externas
 

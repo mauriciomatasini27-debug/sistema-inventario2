@@ -1,7 +1,7 @@
 ---
 id: ADR-0109
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: []
 depende_de: [PRD-PS-01]
 reemplaza: []
@@ -15,7 +15,7 @@ resumen: |
 ---
 # ADR-0109 - Modelo free por skill con respaldo
 
-Estado: propuesto. Fecha: 2026-10-20. Fuentes: `.opencode/modelos-por-skill.json`, `.opencode/modelos.mjs`, `.opencode/pstack-run.sh`, `opencode.json`, `tests/opencode-modelos.test.ts`, `docs/diseno/PRD-OPENCODE-01-modelos-por-skill.md` (sección "Benchmark", copia verbatim del n=1 del 2026-10-20), `scripts/opencode/bench-modelos.mjs` y `opencode.ai/docs/zen` (clasificación de privacidad al 2026-10-20). Extiende el cableado de PRD-PS-01.
+Estado: aceptado (2026-10-21). Fecha: 2026-10-20. Fuentes: `.opencode/modelos-por-skill.json`, `.opencode/modelos.mjs`, `.opencode/pstack-run.sh`, `opencode.json`, `tests/opencode-modelos.test.ts`, `docs/diseno/PRD-OPENCODE-01-modelos-por-skill.md` (sección "Benchmark", copia verbatim del n=1 del 2026-10-20), `scripts/opencode/bench-modelos.mjs` y `opencode.ai/docs/zen` (clasificación de privacidad al 2026-10-20). Extiende el cableado de PRD-PS-01.
 
 ## Decisión
 
@@ -70,6 +70,6 @@ La solución no agrega dependencias. `modelos.mjs` usa solo módulos `node:` y e
 - Revisar la clasificación de privacidad cuando cambie `opencode.ai/docs/zen`. El test detecta un perfil que arranca con un modelo que entrena o retiene, pero no detecta que Zen cambió la retención de un modelo que el JSON sigue clasificando igual.
 - Resolver la TUI interactiva, que no recibe los overrides y usa los modelos fijos de `opencode.json`.
 - Evitar que el reinicio de `opencode serve` corte sesiones en curso, o drenarlas antes.
-- Agregar test para el exit 4 cuando el árbol cambió.
+- El test del exit 4 ya existe en `tests/pstack-fallback.test.ts`.
 - Revisar el TTL de 10 minutos y el uso manual de `PSTACK_MODELOS_DISPONIBLES`.
 - Registrar las preguntas abiertas y su avance en PRD-OPENCODE-01.

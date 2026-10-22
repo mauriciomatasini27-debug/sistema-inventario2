@@ -1,7 +1,7 @@
 ---
 id: EVIDENCIA-UI-00
 tipo: spec
-estado: propuesto
+estado: hecho
 modulos: []
 depende_de: []
 reemplaza: []
@@ -14,7 +14,7 @@ Fuente: corridas del 2026-10-12 con `check-contrast.mjs`, `review-scope.mjs` y g
 
 ## T-UI-05 Contraste medido
 
-5 de 7 pares pasan AA, medido con luminancia WCAG sobre tokens de `global.css`.
+Histórico 2026-10-12: 5 de 7 pares pasaban AA con luminancia WCAG sobre tokens de `global.css`. Estado 2026-10-21: `npm run check:contrast` da 70/70 pares en verde; la tabla vigente vive en `docs/diseno/contraste-aa.md`.
 
 | Par | Ratio | Veredicto |
 |---|---|---|

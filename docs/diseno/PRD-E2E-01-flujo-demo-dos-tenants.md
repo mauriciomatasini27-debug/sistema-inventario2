@@ -1,7 +1,7 @@
 ---
 id: PRD-E2E-01
 tipo: prd
-estado: en curso
+estado: hecho
 modulos: [onboarding, tenant]
 depende_de: [ADR-0001, ADR-0030, ADR-0031]
 reemplaza: []
@@ -33,7 +33,7 @@ Requisito E2E-2: el dueño crea su comercio por autoservicio tras el login.
 Requisito E2E-3: el segundo comercio nace por vía admin con dueño demo.
 
 - Historia E2E-S4. `POST /api/tenants` como superadmin `{nombre_comercio: "Almacén Don Pepe", plan: "demo", moneda: "ARS", owner_google_sub: "demo-almacen-01", request_key: "demo-e2e-t2"}`. AC: Given sesión superadmin When creo Then 201 con `membership_dueno` rol `dueno`; Given sesión común When creo Then 403. ADR: 0001. Talla S. Depende de: E2E-E1.
-- Historia E2E-S5. Endpoint temporal `GET /api/demo/quien-soy` que devuelve el `googleSub` propio, se usa una vez y se borra. AC: Given existe el archivo When pido con sesión Then 200 con el sub; Given borrado Then 404. ADR: 0001. Talla XS. Depende de: nada.
+- Historia E2E-S5 (cancelada el 2026-10-21). Endpoint temporal `GET /api/demo/quien-soy` que devuelve el `googleSub` propio, se usa una vez y se borra; no se implementó porque el E2E usa la sesión fake y `scripts/demo-dos-tenants.mjs`. AC: Given existe el archivo When pido con sesión Then 200 con el sub; Given borrado Then 404. ADR: 0001. Talla XS. Depende de: nada.
 
 ## Épica E2E-E4. Verificación punta a punta
 

@@ -8,8 +8,7 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Alertas automáticas de stock bajo con mínimo por producto, destinatarios con opt-in y armar pedido. ALR-S1
-  persistido y editable hecho 2026-10-16; el endpoint del job corre con JOBSSECRET. Pendientes: pg_cron real,
-  canal por encargado en DB y la migración de notification_events.
+  persistido y editable hecho 2026-10-16; el endpoint del job corre con JOBSSECRET. Pendientes: pg_cron real (vive fuera del repo), canal por encargado conectado desde la DB y claves de alerta durables (hoy son un Set en memoria; `notification_events` ya existe).
 ---
 # PRD-ALR-01 - Alertas automáticas de stock bajo (R2)
 

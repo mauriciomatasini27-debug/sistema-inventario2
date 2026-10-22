@@ -12,9 +12,9 @@ resumen: |
 ---
 # PRD-CAJA-01 - QR, vencimientos y ticket_payments
 
-Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Estado 2026-10-20: tablas `cash_qr_receipts`, `cash_due_items` y `ticket_payments` creadas (migraciones 0022, 0023 y 0008) y `/api/cash/qr` existe; falta la extracción real del QR desde bot/Gmail (C13).
+Fuente: `docs/04-ventas-caja-fiado/caja-digital-*.md` (C9, C13), `ticket-venta-*.md` (TV5.8 dividido P1). Estado 2026-10-21: tablas `cash_qr_receipts`, `cash_due_items` y `ticket_payments` creadas (migraciones 0022, 0023 y 0008) y `/api/cash/qr` existe; falta la extracción real del QR desde bot/Gmail (C13).
 
-## Estado por slice (2026-10-15)
+## Estado por slice (2026-10-21)
 
 Parte del bullet Nivel 1 de P3 (P3-1), separado de CAT (PRD-CAT-01, hecho), PWA (P1.8) y SYNC (PRD-SYNC-01). Avances propios en `docs/roadmap/avances/CAJA-S<n>.md`.
 

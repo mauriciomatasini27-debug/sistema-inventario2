@@ -1,7 +1,7 @@
 ---
 id: ADR-0032
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [offline]
 depende_de: [PRD-DS-02, PRD-UI-01]
 reemplaza: []
