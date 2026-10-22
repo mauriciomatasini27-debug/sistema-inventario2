@@ -1,0 +1,13 @@
+{
+  "accion": "captura",
+  "url": "http://localhost:4321/panel/stock",
+  "titulo": "Stock · Panel",
+  "h1": "Stock",
+  "estado": null,
+  "status": null,
+  "archivo": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-22/stock-aviso-antes.png",
+  "json": "/home/mauri/sistema-inventario/.agents/skills/control-app/artifacts/2026-10-22/stock-aviso-antes.json",
+  "tomada_en": "2026-10-22T10:57:53.538Z",
+  "errores": 0,
+  "detalle_errores": []
+}
