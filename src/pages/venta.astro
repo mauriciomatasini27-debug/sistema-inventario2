@@ -99,19 +99,22 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     </main>
     <PwaRegistro />
     <script>
-      import { sincronizarColaVenta } from "../offline/cola-venta.js";
+      import { claveOutboxCola, claveSeqCola, CLAVE_LEGADA_OUTBOX, CLAVE_LEGADA_SEQ, copiarSeqLegado, sincronizarColaVenta } from "../offline/cola-venta.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       const $ = (id) => document.getElementById(id);
-      const seqKey = "slice0-seq";
-      const outboxKey = "slice0-outbox";
       const tenant = document.querySelector("[data-tenant]")?.dataset.tenant ?? "";
       const storage = localStorage;
+      // P10-14: cola y separador por tenant; sin tenant (anónimo/harness) quedan las legadas.
+      const seqKey = claveSeqCola(tenant || null);
+      const outboxKey = claveOutboxCola(tenant || null);
       const nextSeq = () => {
-        const n = Number(localStorage.getItem(seqKey) ?? "0") + 1;
-        localStorage.setItem(seqKey, String(n));
+        const n = Number(storage.getItem(seqKey) ?? "0") + 1;
+        storage.setItem(seqKey, String(n));
         return n;
       };
+      // P10-14: el contador nuevo hereda el valor legado para no reusar device_seq ya confirmados.
+      copiarSeqLegado(storage, tenant || null);
       const estado = (t) => { $("estado").textContent = t; };
       const esHarnessWorst = Boolean(document.getElementById("lineas-worst"));
       // P10-13: con tenant conocido se descarta la clave legada global (sin
@@ -221,9 +224,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         } catch {
           // Por qué localStorage y no memoria: el corte de red en cobro (Slice-0 E2E)
           // exige provisorio DeviceCode-SeqLocal y reintento sin duplicar por op_id.
-          const q = JSON.parse(localStorage.getItem(outboxKey) ?? "[]");
+          const q = JSON.parse(storage.getItem(outboxKey) ?? "[]");
           q.push({ op_id, device_code, device_seq: seq, payload });
-          localStorage.setItem(outboxKey, JSON.stringify(q));
+          storage.setItem(outboxKey, JSON.stringify(q));
           // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
           // desde el snapshot local en vez de volver a pedir el nombre.
           if (linea.alta && tenant) {
@@ -234,19 +237,38 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         }
         balance();
       };
+      const enviar = async (item) => {
+        const res = await fetch("/api/sync/push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
+          body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
+        });
+        const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
+        return { status: res.status, cuerpo };
+      };
       $("sync").onclick = async () => {
+        // P10-14: primero se drena la cola legada global (sin migrarla); cuando
+        // queda vacía se borran sus claves. Después va la cola del tenant.
+        if (tenant) {
+          const pendientesLegadas = JSON.parse(storage.getItem(CLAVE_LEGADA_OUTBOX) ?? "[]");
+          if (Array.isArray(pendientesLegadas) && pendientesLegadas.length > 0) {
+            try {
+              const rl = await sincronizarColaVenta({
+                leer: () => JSON.parse(storage.getItem(CLAVE_LEGADA_OUTBOX) ?? "[]"),
+                escribir: (items) => storage.setItem(CLAVE_LEGADA_OUTBOX, JSON.stringify(items)),
+                enviar,
+              });
+              if (rl.confirmados > 0 && rl.pendientes === 0) {
+                storage.removeItem(CLAVE_LEGADA_OUTBOX);
+                storage.removeItem(CLAVE_LEGADA_SEQ);
+              }
+            } catch (error) { console.warn("[venta] cola legada", error); }
+          }
+        }
         const r = await sincronizarColaVenta({
-          leer: () => JSON.parse(localStorage.getItem(outboxKey) ?? "[]"),
-          escribir: (items) => localStorage.setItem(outboxKey, JSON.stringify(items)),
-          enviar: async (item) => {
-            const res = await fetch("/api/sync/push", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
-              body: JSON.stringify({ op_id: item.op_id, device_code: item.device_code, device_seq: item.device_seq, hlc: String(Date.now()) + ":0", modulo: "sales", payload: item.payload, client_occurred_at: new Date().toISOString() }),
-            });
-            const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
-            return { status: res.status, cuerpo };
-          },
+          leer: () => JSON.parse(storage.getItem(outboxKey) ?? "[]"),
+          escribir: (items) => storage.setItem(outboxKey, JSON.stringify(items)),
+          enviar,
         });
         // SYNC-S7: lo sensible solo va online; se avisa en vez de fallar.
         if (r.cortado) estado("sync cortado: " + r.pendientes + " pendiente(s)");

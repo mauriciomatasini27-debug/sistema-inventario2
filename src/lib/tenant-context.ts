@@ -61,6 +61,8 @@ export const PREFIJOS_DATOS = [
   "/api/panel",
   // IA-S4: lee plan y escribe ai_usage en la base del tenant.
   "/api/asistente",
+  // P10-19: snapshots y promos escriben en la base del tenant.
+  "/api/analytics",
   // ADR-0102: las rutas de integraciones escriben en la base del comercio.
   "/api/integrations",
   // Disparo manual del watch de Gmail: solo Dueño, tenant de la sesión.

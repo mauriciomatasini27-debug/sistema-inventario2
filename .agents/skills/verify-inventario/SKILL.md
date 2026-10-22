@@ -47,7 +47,7 @@ Recipe uses real handles only: `#sku #qty #precio #medio #cobrar #sync #estado #
 routes `/venta /panel /`, APIs `/api/sales /api/sync/push /api/cash/balance
 /api/fiscal/emitir /api/auth/sesion-actual /api/auth/login?prompt=select_account`.
 Offline: `context.setOffline(true)` -> `provisorio <device>-<seq> encolado` in
-`localStorage slice0-outbox` (`Idempotency-Key: op_id`); `setOffline(false)` + `#sync`
+`localStorage slice0-outbox:<tenant>` legada `slice0-outbox` solo anonima (`Idempotency-Key: op_id`); `setOffline(false)` + `#sync`
 -> `sync intentado (1)` without duplicating (`same op_id`). See `features/` map for
 per-feature steps.
 
@@ -70,7 +70,7 @@ Mocks only at the existing boundary: homo-fake (no `ARCA_*`).
 
 ## Cleanup
 
-Kill only the PID you started; clear `slice0-outbox`/`slice0-seq` localStorage in
+Kill only the PID you started; clear `slice0-outbox:*`/`slice0-seq:*` (y legadas) localStorage in
 the driven context; remove `/tmp/verify-inventario.pid`. Never delete `artifacts/`.
 
 ## Helpers
