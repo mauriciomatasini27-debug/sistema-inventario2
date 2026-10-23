@@ -6,6 +6,16 @@ import type { ResumenCierrePayload } from "../modules/email/resumen-cierre.js";
 // Todo append-only salvo intentos/estado de outbox (worker con lock por fila
 // en migración). Dinero siempre bigint centavos. Sin tracking en plantillas.
 
+// ALR-S2: alerta de stock bajo por tenant+producto+día.
+export interface AlertaStockPayload {
+  readonly sku: string;
+  readonly nombre: string;
+  readonly stock: number;
+  readonly umbral: number;
+  readonly urgente: boolean;
+  readonly fecha: string;
+}
+
 // NE11/§6.3: evento de dominio con dedupe. Un resumen_cierre por jornada.
 export const notificationEvents = pgTable("notification_events", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -14,7 +24,7 @@ export const notificationEvents = pgTable("notification_events", {
   version: integer("version").notNull().default(1),
   refTipo: text("ref_tipo"),
   refId: text("ref_id"),
-  payload: jsonb("payload").$type<ResumenCierrePayload>().notNull(),
+  payload: jsonb("payload").$type<ResumenCierrePayload | AlertaStockPayload>().notNull(),
   dedupeKey: text("dedupe_key").notNull().unique(),
   estado: text("estado").notNull().default("pendiente"),
   procesarDesde: timestamp("procesar_desde"),

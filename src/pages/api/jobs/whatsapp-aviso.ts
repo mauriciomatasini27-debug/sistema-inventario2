@@ -2,10 +2,12 @@ import type { APIRoute } from "astro";
 import { correrJob } from "../../../lib/jobs-tenant.js";
 import { esModoMulti } from "../../../lib/tenant-mode.js";
 import {
+  alertasPreviasDelDia,
   catalogoAvisoVivo,
   listarComerciosBot,
   marcarWaEnviado,
   obtenerComercioBot,
+  registrarAlertasStock,
   waEnviadosVivos,
 } from "../../../lib/repos/whatsapp.js";
 import { ejecutar_aviso_matutino_wa } from "../../../jobs/whatsapp-aviso-matutino.js";
@@ -31,17 +33,18 @@ export const POST: APIRoute = async ({ request }) => {
     const uno = obtenerComercioBot(tenantId);
     const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
     const porTenant = new Map(comercios.map((c) => [c.tenantId, c]));
-    const hayCred = cred_wa() !== null;
-    const { resultados } = ejecutar_aviso_matutino_wa({
-      comercios: comercios.map((c) => ({
+    const comerciosWa = await Promise.all(
+      comercios.map(async (c) => ({
         tenantId: c.tenantId,
         nombreComercio: c.nombreComercio,
         prefs: c.prefs,
         catalogoVivo: vivos,
-        // Slice-0: sin memoria de alertas previas (prod: enAlertaPrevia desde
-        // la última corrida en Drizzle). Toda alerta vigente es novedad.
-        enAlertaPrevia: new Set<string>(),
+        enAlertaPrevia: await alertasPreviasDelDia(c.tenantId, fecha),
       })),
+    );
+    const hayCred = cred_wa() !== null;
+    const { resultados } = ejecutar_aviso_matutino_wa({
+      comercios: comerciosWa,
       fecha,
       ahoraMs,
       yaEnviados: waEnviadosVivos(),
@@ -57,6 +60,12 @@ export const POST: APIRoute = async ({ request }) => {
         if (r.estado === "enviado") marcarWaEnviado(clave);
       },
     });
+    // ALR-S2 (ADR-0043): lo enviado queda en notification_events para que un
+    // reinicio o reintento del mismo día no repita lo no urgente; lo urgente
+    // vuelve a salir porque calcular_matutino lo trata siempre como novedad.
+    for (const r of resultados) {
+      if (r.estado === "enviado") await registrarAlertasStock(r.tenantId, fecha, r.alertas);
+    }
     return Response.json(
       {
         fecha,
