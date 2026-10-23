@@ -67,6 +67,8 @@ export const PREFIJOS_DATOS = [
   "/api/integrations",
   // Disparo manual del watch de Gmail: solo Dueño, tenant de la sesión.
   "/api/gmail/watch",
+  // DASH-S6: historial de alertas lee notification_events del comercio.
+  "/api/alertas",
 ];
 
 export function esRutaDatos(path: string): boolean {

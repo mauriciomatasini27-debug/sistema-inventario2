@@ -1,0 +1,42 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Historial de alertas" subtitulo="Alertas de stock bajo que salieron por día." activo="stock">
+  <section class="card">
+    <h2>Alertas enviadas</h2>
+    <table>
+      <thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Urgente</th></tr></thead>
+      <tbody id="hist-body"></tbody>
+    </table>
+    <div class="estado" id="estado-hist" role="status">Cargando…</div>
+  </section>
+</PanelShell>
+
+<script>
+  interface Fila { sku: string; nombre: string; stock: number; umbral: number; urgente: boolean; fecha: string }
+  const body = document.getElementById("hist-body");
+  const estado = document.getElementById("estado-hist");
+  async function cargar(): Promise<void> {
+    if (!body || !estado) return;
+    try {
+      const r = await fetch("/api/alertas/historial", { credentials: "same-origin" });
+      const j = (await r.json()) as { alertas?: Fila[]; error?: string };
+      if (!r.ok) { estado.textContent = j.error ?? "No se pudo cargar el historial."; return; }
+      const filas = j.alertas ?? [];
+      body.replaceChildren(...filas.map((f) => {
+        const tr = document.createElement("tr");
+        for (const v of [f.fecha, `${f.nombre} (${f.sku})`, String(f.stock), String(f.umbral), f.urgente ? "Sí" : "No"]) {
+          const td = document.createElement("td");
+          td.textContent = v;
+          tr.append(td);
+        }
+        return tr;
+      }));
+      estado.textContent = filas.length === 0 ? "Todavía no salió ninguna alerta." : "";
+    } catch (e) {
+      console.warn("[historial] no se pudo cargar", e);
+      estado.textContent = "No se pudo cargar el historial.";
+    }
+  }
+  void cargar();
+</script>
