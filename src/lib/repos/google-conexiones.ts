@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
-import { getTenantDb } from "../db.js";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { getControlDb, getTenantDb } from "../db.js";
 import {
   gmailConnectionEvents,
+  gmailIngestionJobs,
   googleConnections,
 } from "../../db/schema-google.js";
+import { emailIngestionLog } from "../../db/schema-servicios.js";
 import { kms_integraciones_desde_env, type Kms } from "../../modules/fiscal/kms.js";
 
 // Repositorio de conexiones Google (ADR-0102). La fila vive en la base del
@@ -43,11 +45,23 @@ export interface ConexionGmail {
   readonly cuentaEmail: string;
   readonly scopes: ReadonlyArray<string>;
   readonly estado: string;
+  readonly ultimoError: string | null;
   readonly consentimientoVersion: string;
   readonly createdAt: Date;
   readonly gmailHistoryCursor: string | null;
   readonly watchHistoryId: string | null;
   readonly watchExpiraAt: Date | null;
+}
+
+export interface SaludConexionGmail {
+  readonly estado: "sin_conexion" | "activa" | "revocada" | "error";
+  readonly cuentaEmail: string | null;
+  readonly requiereReconexion: boolean;
+  readonly avisoDueño: string | null;
+  readonly watchActivo: boolean;
+  readonly watchExpiraAt: string | null;
+  readonly ultimaIngestaAt: string | null;
+  readonly jobsPendientes: number;
 }
 
 export interface GuardarConexionGmailInput {
@@ -166,6 +180,7 @@ export async function guardarConexionGmail(
     cuentaEmail: input.cuentaEmail,
     scopes: [...input.scopes],
     estado: "activa",
+    ultimoError: null,
     consentimientoVersion: input.consentimientoVersion,
     createdAt: existente?.createdAt ?? new Date(),
     gmailHistoryCursor: existente?.gmailHistoryCursor ?? null,
@@ -195,11 +210,110 @@ function aConexion(fila: typeof googleConnections.$inferSelect): ConexionGmail {
     cuentaEmail: fila.cuentaEmail,
     scopes: fila.scopes,
     estado: fila.estado,
+    ultimoError: fila.ultimoError,
     consentimientoVersion: fila.consentimientoVersion,
     createdAt: fila.createdAt,
     gmailHistoryCursor: fila.gmailHistoryCursor,
     watchHistoryId: fila.watchHistoryId,
     watchExpiraAt: fila.watchExpiraAt,
+  };
+}
+
+function avisoReconexion(estado: string, ultimoError: string | null): string | null {
+  if (estado !== "revocada" && estado !== "error") return null;
+  const motivo = ultimoError ?? "";
+  if (motivo.includes("invalid_grant")) {
+    return "Google revocó el acceso (invalid_grant). Volvé a conectar Gmail para seguir leyendo facturas.";
+  }
+  if (estado === "revocada" && motivo === "usuario") {
+    return "Desconectaste Gmail. Podés volver a conectar cuando quieras.";
+  }
+  if (estado === "error") {
+    return "Hay un error transitorio con Gmail. Reintentamos solos; si persiste, desconectá y volvé a conectar.";
+  }
+  if (estado === "revocada") {
+    return "La conexión de Gmail ya no está activa. Volvé a conectar para retomar la ingesta.";
+  }
+  return null;
+}
+
+// GGL-PANEL: descarta la cola durable al desconectar (GGL-S4), sin tocar jobs ya cerrados.
+export async function descartarJobsIngestaGmail(input: {
+  readonly tenantId: string;
+  readonly connectionId: string;
+}): Promise<number> {
+  const descartados = await getControlDb()
+    .update(gmailIngestionJobs)
+    .set({
+      estado: "error",
+      ultimoError: "descartado_desconexion",
+      claimedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(gmailIngestionJobs.tenantId, input.tenantId),
+        eq(gmailIngestionJobs.connectionId, input.connectionId),
+        inArray(gmailIngestionJobs.estado, ["pendiente", "procesando"]),
+      ),
+    )
+    .returning({ id: gmailIngestionJobs.id });
+  return descartados.length;
+}
+
+export async function leerSaludConexionGmail(tenantId: string): Promise<SaludConexionGmail> {
+  const conexion = await leerConexionGmail(tenantId);
+  if (!conexion) {
+    return {
+      estado: "sin_conexion",
+      cuentaEmail: null,
+      requiereReconexion: false,
+      avisoDueño: null,
+      watchActivo: false,
+      watchExpiraAt: null,
+      ultimaIngestaAt: null,
+      jobsPendientes: 0,
+    };
+  }
+  const dbTenant = getTenantDb(tenantId);
+  const [ultimaLog] = await dbTenant
+    .select({ createdAt: emailIngestionLog.createdAt })
+    .from(emailIngestionLog)
+    .orderBy(desc(emailIngestionLog.createdAt))
+    .limit(1);
+  const [pendientes] = await getControlDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(gmailIngestionJobs)
+    .where(
+      and(
+        eq(gmailIngestionJobs.tenantId, tenantId),
+        eq(gmailIngestionJobs.connectionId, conexion.id),
+        inArray(gmailIngestionJobs.estado, ["pendiente", "procesando"]),
+      ),
+    );
+  const ahora = Date.now();
+  const watchActivo =
+    conexion.estado === "activa" &&
+    conexion.watchHistoryId !== null &&
+    (conexion.watchExpiraAt === null || conexion.watchExpiraAt.getTime() > ahora);
+  const estadoSalud =
+    conexion.estado === "activa"
+      ? "activa"
+      : conexion.estado === "error"
+        ? "error"
+        : "revocada";
+  const requiereReconexion =
+    conexion.estado === "revocada" ||
+    (conexion.estado === "error" && (conexion.ultimoError ?? "").includes("invalid_grant"));
+  return {
+    estado: estadoSalud,
+    cuentaEmail: conexion.cuentaEmail,
+    requiereReconexion,
+    avisoDueño: avisoReconexion(conexion.estado, conexion.ultimoError),
+    watchActivo,
+    watchExpiraAt: conexion.watchExpiraAt?.toISOString() ?? null,
+    ultimaIngestaAt: ultimaLog?.createdAt.toISOString() ?? null,
+    jobsPendientes: pendientes?.total ?? 0,
   };
 }
 

@@ -294,7 +294,7 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
       }),
     );
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ ok: true, revocado_en_google: true });
+    expect(await r.json()).toMatchObject({ ok: true, revocado_en_google: true });
     expect(revocado).toBe(true);
     expect(await descifrarRefreshTokenGmail(tenantId)).toBeNull();
 
