@@ -203,3 +203,16 @@ describe("Pstack fixtures rotas (PS-S3)", () => {
     }
   );
 });
+
+describe("Regla de Cursor poteto-mode (PS2-S3)", () => {
+  const RULE = ".cursor/rules/poteto-mode.mdc";
+
+  it("existe, se aplica siempre y pide poteto-mode", () => {
+    expect(existsSync(RULE)).toBe(true);
+    const text = readFileSync(RULE, "utf8");
+    const front = /^---\n([\s\S]*?)\n---\n/.exec(text);
+    expect(front).not.toBeNull();
+    expect(front![1]).toMatch(/^alwaysApply:\s*true\s*$/m);
+    expect(text.slice(front![0].length)).toMatch(/poteto-mode/);
+  });
+});

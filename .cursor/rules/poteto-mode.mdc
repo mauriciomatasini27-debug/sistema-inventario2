@@ -1,0 +1,6 @@
+---
+description: Usar poteto-mode en todo trabajo
+alwaysApply: true
+---
+Antes de empezar cualquier tarea, cargá y seguí el skill poteto-mode de pstack.
+Si el skill no está disponible, avisalo en la respuesta en vez de seguir sin él.
