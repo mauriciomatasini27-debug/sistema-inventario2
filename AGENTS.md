@@ -17,6 +17,15 @@ Reglas cortas para agentes en este repo.
 - Ítems chicos (sin decisión nueva de arquitectura): solo `docs/roadmap/avances/<id>.md` con id `P<n>-<m>` (p.ej. `P1-6`) y una sección `## Decisión` de 5–10 líneas, sin ADR ni PRD; PRD + ADR solo para decisiones reales de arquitectura o producto.
 - Antes de abrir el PR: `npm run roadmap -- --validate`.
 
+## Regla de cada PR
+
+- Una rama por ítem (`mauri/<tema>`), nunca commit ni push a `main`; el agente no mergea: el merge lo hace Mauri.
+- Documentá lo que hace el código según el estilo del repo: comentarios `//` con el id del ítem y el porqué (no JSDoc), el avance de Roadmap de arriba y la línea `> Estado al` del PRD que toca el ítem. Sin tocar los generados ni `docs/ROADMAP.md`.
+- La descripción del PR explica comportamiento, diseño, tests y cómo verificarlo (comandos concretos).
+- Tests de bordes sacados de los AC del PRD/ADR (cambio de día, otro tenant, fallo de base, permisos por rol, estado vacío), y comprobá que cada uno falla si rompés el comportamiento que cubre.
+- Antes del PR: `npm run typecheck`, `npm run check:arch` y `npm run verify` en verde. No hay ESLint/Biome/Prettier: esos pasos más el `astro build` de `verify` son el lint.
+- Sin `drizzle/*.sql` salvo pedido explícito de Mauri (ver migraciones abajo).
+
 ## Gate de merge
 
 - `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0; después squash-merge y borrar la rama.
