@@ -1,4 +1,4 @@
-import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // LANE WA — Bot WhatsApp slice mínimo (PRD Bot B1/B2, ADR-0001/0003).
 // Control: identidades ya existen mínimas en schema.ts (whatsappIdentities);
@@ -53,7 +53,9 @@ export const notificationPreferences = pgTable("notification_preferences", {
   pausadoHasta: timestamp("pausado_hasta"),
   zonaHoraria: text("zona_horaria").notNull().default("America/Argentina"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("notification_preferences_tenant_sub_uidx").on(t.tenantId, t.googleSub),
+]);
 
 export const botTurnos = pgTable("bot_turnos", {
   id: uuid("id").primaryKey().defaultRandom(),

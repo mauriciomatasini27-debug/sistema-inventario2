@@ -140,3 +140,8 @@ export function personasDelFiltro(args: {
 export function truncarParaGuardar(texto: string): string {
   return recortar(texto, TOPE_TEXTO);
 }
+
+export interface PaginaHistorial {
+  readonly filas: readonly FilaHistorial[];
+  readonly cursor: CursorHistorial | null;
+}

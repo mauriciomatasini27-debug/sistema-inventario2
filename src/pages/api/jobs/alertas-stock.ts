@@ -7,7 +7,8 @@ import {
   obtenerComercioBot,
 } from "../../../lib/repos/whatsapp.js";
 import { ejecutar_alertas_stock } from "../../../jobs/alertas-stock.js";
-import { en_ventana_quiebre } from "../../../modules/alertas/stock-bajo.js";
+import { en_ventana_quiebre, resolver_destinatarios } from "../../../modules/alertas/stock-bajo.js";
+import { cargarPersonasAlerta } from "../../../lib/repos/alerta-prefs.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
@@ -29,7 +30,7 @@ export const POST: APIRoute = async ({ request }) => {
     const modo = url.searchParams.get("modo") === "quiebre" ? "quiebre" : "matutino";
     const ahoraMs = Date.now();
     const fecha = url.searchParams.get("fecha") ?? fechaAR(new Date(ahoraMs));
-    const hora = url.searchParams.get("hora") ?? "";
+    const hora = url.searchParams.get("hora") ?? "08:00";
     if (modo === "quiebre" && hora !== "" && !en_ventana_quiebre(hora)) {
       return Response.json({ fecha, modo, omitido: "fuera_ventana", alertas: [] }, { status: 200 });
     }
@@ -39,6 +40,14 @@ export const POST: APIRoute = async ({ request }) => {
     const comercio = comercios.find((c) => c.tenantId === tenantId) ?? comercios[0];
     if (!comercio) return Response.json({ fecha, modo, alertas: [], enviadas: 0 }, { status: 200 });
     const hayCred = cred_wa() !== null;
+    const personas = await cargarPersonasAlerta(comercio.tenantId);
+    const destinatarios = resolver_destinatarios({
+      duenos: personas.duenos,
+      encargados: personas.encargados,
+      ahoraMs,
+      modo,
+      horaTick: hora,
+    });
     const r = ejecutar_alertas_stock({
       tenantId: comercio.tenantId,
       fecha,
@@ -52,13 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
         proveedor: v.proveedor,
         ...(v.reorderQty != null ? { reorderQty: v.reorderQty } : {}),
       })),
-      destinatarios: [
-        {
-          googleSub: comercio.googleSub,
-          rol: "dueno",
-          canales: comercio.prefs.optIn ? ["whatsapp", "email"] : ["email"],
-        },
-      ],
+      destinatarios,
       enviarWa: () => {
         if (!hayCred) return { ok: false, error: "sin_credenciales" };
         void enviar_texto_wa(comercio.numero, `Stock bajo (${fecha})`);

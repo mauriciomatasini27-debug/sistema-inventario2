@@ -250,6 +250,8 @@ describe("ALR-S2 endpoint POST /api/jobs/alertas-stock", () => {
     });
     control.botLinks.set(`+54911000090${String(n).padStart(2, "0")}`, { tenantId, googleSub: sub, estado: "verificado" });
     control.waPrefs.set(`${tenantId}:${sub}`, { optIn, avisoHora: "08:00", pausadoHastaMs: null });
+    control.memberships.set(`m-${sub}`, { id: `m-${sub}`, tenantId, googleSub: sub, rol: "dueno", permisos: [], estado: "activo" });
+    control.users.set(sub, { googleSub: sub, email: `dueno-${n}@test.com`, emailVerificado: true });
     return tenantId;
   }
 
