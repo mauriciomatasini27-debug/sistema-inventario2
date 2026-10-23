@@ -343,7 +343,7 @@ describe("parsearAvance chico P<n>-<m>", () => {
 
   it("detecta el id chico sin ruta ni extensión", () => {
     const a = parsearAvance(avanceChicoValido(), "docs/roadmap/avances/P1-6.md");
-    expect(a.chico).toBe(true);
+    expect((a as { chico?: boolean }).chico).toBe(true);
   });
 
   it("falla si la Decisión tiene 4 líneas", () => {
