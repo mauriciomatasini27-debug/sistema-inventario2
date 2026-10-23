@@ -60,7 +60,7 @@ describe("PLAN-S1/S10 memoria: catálogo, suscripción única y contadores", () 
     await registrarUso({ tenantId: tenant, mes: "2026-10", feature: "bot_consulta", cantidad: 3, costoCentavos: 8n });
     expect(await leerUso({ tenantId: tenant, mes: "2026-10", feature: "bot_consulta" })).toEqual({
       usado: 13,
-      costoCentavos: 34n,
+      costoCentavos: 0n,
     });
     expect(await leerUso({ tenantId: `${tenant}-otro`, mes: "2026-10", feature: "bot_consulta" })).toBe(null);
     expect(await leerUso({ tenantId: tenant, mes: "2026-09", feature: "bot_consulta" })).toBe(null);
@@ -161,7 +161,7 @@ describe.skipIf(!hayPG)("PLAN-S1/S10 PG: catálogo desde DB, una activa y contad
     await conTenant("tenant-a", async () => {
       expect(await leerUso({ tenantId: uuidA, mes: "2026-10", feature: "bot_consulta" })).toEqual({
         usado: 13,
-        costoCentavos: 34n,
+        costoCentavos: 0n,
       });
     });
     await conTenant("tenant-b", async () => {

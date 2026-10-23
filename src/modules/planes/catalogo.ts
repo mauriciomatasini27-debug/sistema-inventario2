@@ -36,6 +36,16 @@ export interface PlanEjemplo {
 
 export type Catalogo = ReadonlyArray<PlanEjemplo>;
 
+// TARIFA-META: la tarifa USD de WhatsApp/Meta no se publica ni se fija en el
+// catálogo de planes (confirmar contra Meta; ver costos-por-cliente). Evita
+// hardcodear la tarifa Meta como verdad de producto mientras el catálogo sigue ejemplo.
+export const TARIFA_META_USD_FIJADA_EN_PRODUCTO = false as const;
+
+/** Centavos USD a contabilizar por consulta bot; 0 hasta tarifa contractual. */
+export function costoContabilidadBotConsultaUsdCentavos(): bigint {
+  return 0n;
+}
+
 function plan(
   id: PlanId,
   nombre: string,

@@ -1,14 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import {
+  costoContabilidadBotConsultaUsdCentavos,
   planDe,
   resolverCatalogo,
+  TARIFA_META_USD_FIJADA_EN_PRODUCTO,
   type Catalogo,
   type Feature,
   type PlanEjemplo,
   type PlanId,
 } from "../../modules/planes/catalogo.js";
-import type { ProveedorCobro, Suscripcion } from "../../modules/planes/proveedor.js";
+import {
+  crearPreaprobacionMercadoPago,
+  type ProveedorCobro,
+  type ResultadoPreaprobacionMp,
+  type Suscripcion,
+} from "../../modules/planes/proveedor.js";
 import { planVigenteDe } from "../../modules/planes/ciclo.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -48,6 +55,51 @@ const FEATURES: ReadonlyArray<Feature> = [
   "bot_rubro",
   "asistente_ia",
 ];
+
+// MORA-14: módulos de pago se apagan tras 14 días de cobro rechazado (núcleo sigue).
+export const MORA_COBRO_DIAS = 14 as const;
+const MS_POR_DIA = 86_400_000;
+
+const FEATURES_MODULOS_PAGO: ReadonlySet<Feature> = new Set([
+  "alertas_email",
+  "bot_consulta",
+  "alertas_whatsapp",
+  "bot_rubro",
+  "asistente_ia",
+]);
+
+const preapprovalPorTenant = new Map<string, string>();
+const rechazoCobroPorTenant = new Map<string, string>();
+
+export function olvidarMoraCobroEnMemoria(): void {
+  preapprovalPorTenant.clear();
+  rechazoCobroPorTenant.clear();
+}
+
+export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: string): void {
+  preapprovalPorTenant.set(preapprovalId, tenantId);
+}
+
+export function registrarEstadoCobroMp(args: {
+  readonly preapprovalId: string;
+  readonly estado: "activo" | "gracia" | "suspendido";
+  readonly occurredAt?: string | undefined;
+}): void {
+  const tenantId = preapprovalPorTenant.get(args.preapprovalId);
+  if (!tenantId) return;
+  if (args.estado === "activo") {
+    rechazoCobroPorTenant.delete(tenantId);
+    return;
+  }
+  const cuando = args.occurredAt ?? new Date().toISOString();
+  if (!rechazoCobroPorTenant.has(tenantId)) rechazoCobroPorTenant.set(tenantId, cuando);
+}
+
+function modulosPagosEnMora(tenantId: string, ahoraMs: number): boolean {
+  const iso = rechazoCobroPorTenant.get(tenantId);
+  if (!iso) return false;
+  return ahoraMs - Date.parse(iso) >= MORA_COBRO_DIAS * MS_POR_DIA;
+}
 
 const RX_MES = /^\d{4}-\d{2}$/;
 
@@ -229,8 +281,16 @@ export async function planIncluye(tenantId: string, feature: Feature): Promise<I
   const catalogo = await leerCatalogo();
   const plan = catalogo.find((p) => p.id === activa.planId) ?? null;
   if (!plan) return { incluida: false, cupo: null, planId: activa.planId };
-  const incluida = plan.features[feature] === true;
-  return { incluida, cupo: incluida ? plan.cupos[feature] : null, planId: plan.id };
+  const incluidaPlan = plan.features[feature] === true;
+  if (!incluidaPlan) return { incluida: false, cupo: null, planId: plan.id };
+  if (
+    feature !== "nucleo" &&
+    FEATURES_MODULOS_PAGO.has(feature) &&
+    modulosPagosEnMora(tenantId, Date.now())
+  ) {
+    return { incluida: false, cupo: null, planId: plan.id };
+  }
+  return { incluida: true, cupo: plan.cupos[feature] ?? null, planId: plan.id };
 }
 
 export type ResultadoCupoConsultaBot =
@@ -439,6 +499,23 @@ export function crearProveedorCobro(): ProveedorCobro {
   return new ProveedorCobroDb();
 }
 
+// COBRO-EJEMPLO: punto único para alta de preaprobación MP respetando ejemplo.
+export async function solicitarPreaprobacionPlan(args: {
+  readonly tenantId: string;
+  readonly planId: PlanId;
+  readonly fetchImpl?: typeof fetch | undefined;
+}): Promise<ResultadoPreaprobacionMp> {
+  const catalogo = await leerCatalogo();
+  const r = await crearPreaprobacionMercadoPago({
+    tenantId: args.tenantId,
+    planId: args.planId,
+    catalogo,
+    fetchImpl: args.fetchImpl,
+  });
+  if (r.ok) vincularPreaprobacionTenant(r.preapprovalId, args.tenantId);
+  return r;
+}
+
 export interface UsoEntrada {
   readonly tenantId: string;
   readonly mes: string;
@@ -475,36 +552,50 @@ function sumarEnMemoria(e: UsoEntrada): UsoContado {
 
 // Upsert por (tenant, mes, feature): el choque de PK suma en vez de pisar,
 // así dos procesos que miden a la vez no pierden uso.
+// TARIFA-META: usage_counters guarda costo en centavos USD; bot_consulta usa 0
+// hasta que exista tarifa contractual (no 0.0260 fijo en producto).
+export function costoUsoFeatureCentavos(feature: string, costoPedido: bigint): bigint {
+  if (feature === "bot_consulta" && !TARIFA_META_USD_FIJADA_EN_PRODUCTO) {
+    return costoContabilidadBotConsultaUsdCentavos();
+  }
+  return costoPedido;
+}
+
 export async function registrarUso(e: UsoEntrada): Promise<UsoContado> {
   exigirUso(e);
+  const costoCentavos = costoUsoFeatureCentavos(e.feature, e.costoCentavos);
+  const entrada = costoCentavos === e.costoCentavos ? e : { ...e, costoCentavos };
   const db = dbVivaTenant();
-  if (!db) return sumarEnMemoria(e);
+  if (!db) return sumarEnMemoria(entrada);
   try {
     const filas = await db
       .insert(usageCounters)
       .values({
-        tenantId: e.tenantId,
-        mes: e.mes,
-        feature: e.feature,
-        usado: e.cantidad,
-        costoCentavos: e.costoCentavos,
+        tenantId: entrada.tenantId,
+        mes: entrada.mes,
+        feature: entrada.feature,
+        usado: entrada.cantidad,
+        costoCentavos: entrada.costoCentavos,
       })
       .onConflictDoUpdate({
         target: [usageCounters.tenantId, usageCounters.mes, usageCounters.feature],
         set: {
-          usado: sql`${usageCounters.usado} + ${e.cantidad}`,
-          costoCentavos: sql`${usageCounters.costoCentavos} + ${e.costoCentavos}`,
+          usado: sql`${usageCounters.usado} + ${entrada.cantidad}`,
+          costoCentavos: sql`${usageCounters.costoCentavos} + ${entrada.costoCentavos}`,
           updatedAt: new Date(),
         },
       })
       .returning({ usado: usageCounters.usado, costoCentavos: usageCounters.costoCentavos });
     const f = filas[0];
-    const vista: UsoContado = { usado: f?.usado ?? e.cantidad, costoCentavos: f?.costoCentavos ?? e.costoCentavos };
-    crearAlmacenUsoPlanes().guardar(claveUso(e.tenantId, e.mes, e.feature), { ...vista });
+    const vista: UsoContado = {
+      usado: f?.usado ?? entrada.cantidad,
+      costoCentavos: f?.costoCentavos ?? entrada.costoCentavos,
+    };
+    crearAlmacenUsoPlanes().guardar(claveUso(entrada.tenantId, entrada.mes, entrada.feature), { ...vista });
     return vista;
   } catch (err) {
     crearAlmacenUsoPlanes().anteFalloPersistencia(err);
-    return sumarEnMemoria(e);
+    return sumarEnMemoria(entrada);
   }
 }
 
@@ -546,5 +637,6 @@ export async function leerUso(args: {
 export function olvidarPlanesEnMemoria(): void {
   crearAlmacenSuscripciones().mapaVivo().clear();
   crearAlmacenUsoPlanes().mapaVivo().clear();
+  olvidarMoraCobroEnMemoria();
   proximoMem = 1;
 }
