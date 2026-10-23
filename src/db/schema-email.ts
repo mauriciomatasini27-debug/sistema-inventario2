@@ -14,6 +14,8 @@ export interface AlertaStockPayload {
   readonly umbral: number;
   readonly urgente: boolean;
   readonly fecha: string;
+  // DASH-S6: el job de WhatsApp escribe "whatsapp". Un payload viejo no trae canal.
+  readonly canal?: "whatsapp" | "email" | undefined;
 }
 
 // NE11/§6.3: evento de dominio con dedupe. Un resumen_cierre por jornada.
