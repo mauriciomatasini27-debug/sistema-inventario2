@@ -1,0 +1,7 @@
+{
+  "tag": "0039_ticket_lines_costo",
+  "fecha": "2026-10-23",
+  "aprobado_por": "Mauri",
+  "evidencia": "0039 aplicada con db:migrate el 2026-10-23. ticket_lines.costo_centavos es bigint, not null, default 0. Fila de journal id 40, created_at 1792888800000, hash sha256 5d6e625cfe8b794afcb89944476d719989fc66f3ab1a7a2a0b7ebb42ce2f364d igual al archivo.",
+  "backup": "/home/mauri/backups/pre-0039-schema-20261023-1857.sql"
+}
