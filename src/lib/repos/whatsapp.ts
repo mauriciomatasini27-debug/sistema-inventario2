@@ -501,3 +501,45 @@ export async function calculoSemanalVivo(tenantId?: string): Promise<CalculoSema
     return calculoSemanalMemoria(tenantId);
   }
 }
+
+// DASH-S6: historial de alertas de stock del comercio, una fila por
+// dedupe_key (los reintentos del job no duplican). Memoria + DB, más nuevas primero.
+export interface FilaHistorialAlerta extends AlertaStockPayload {
+  readonly clave: string;
+  readonly registradaAt: string | null;
+}
+
+export async function historialAlertasStock(tenantId: string, limite = 200): Promise<FilaHistorialAlerta[]> {
+  const prefijo = `alerta_stock:${tenantId}:`;
+  const porClave = new Map<string, FilaHistorialAlerta>();
+  for (const [clave, p] of alertasStockMemoria) {
+    if (clave.startsWith(prefijo)) porClave.set(clave, { ...p, clave, registradaAt: null });
+  }
+  let db: TenantDb | null = null;
+  try {
+    db = dbVivaTenant(tenantId);
+  } catch (e) {
+    console.warn("[alertas] historial sin DB, uso memoria", e);
+  }
+  if (db) {
+    try {
+      const filas = await db
+        .select({ dedupeKey: notificationEvents.dedupeKey, payload: notificationEvents.payload, createdAt: notificationEvents.createdAt })
+        .from(notificationEvents)
+        .where(and(eq(notificationEvents.tipo, "alerta_stock"), like(notificationEvents.dedupeKey, `${prefijo}%`)));
+      for (const f of filas) {
+        const p = f.payload as AlertaStockPayload;
+        porClave.set(f.dedupeKey, {
+          ...p,
+          clave: f.dedupeKey,
+          registradaAt: f.createdAt ? new Date(f.createdAt).toISOString() : null,
+        });
+      }
+    } catch (e) {
+      console.warn("[alertas] historial: fallo de DB, uso memoria", e);
+    }
+  }
+  return [...porClave.values()]
+    .sort((a, b) => (a.fecha === b.fecha ? a.sku.localeCompare(b.sku) : a.fecha < b.fecha ? 1 : -1))
+    .slice(0, limite);
+}
