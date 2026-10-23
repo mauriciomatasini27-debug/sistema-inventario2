@@ -1,0 +1,156 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Historial del bot" subtitulo="Consultas de stock y precio respondidas por WhatsApp.">
+  <section class="card">
+    <div class="hist-filtros">
+      <label id="hist-persona-label" hidden>Persona
+        <select id="hist-persona"></select>
+      </label>
+      <label>Desde <input id="hist-desde" type="date" /></label>
+      <label>Hasta <input id="hist-hasta" type="date" /></label>
+      <button id="hist-refrescar" type="button">Actualizar</button>
+    </div>
+    <div class="estado" id="hist-estado" role="status">Cargando…</div>
+    <div id="hist-scroll" class="hist-scroll" tabindex="0">
+      <div id="hist-spacer" class="hist-spacer"></div>
+      <div id="hist-lista" class="hist-lista"></div>
+    </div>
+    <p class="hist-volver"><a href="/panel/bot/config">Volver a configuración del bot</a></p>
+  </section>
+
+  <style is:global>
+    .hist-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
+    .hist-scroll { position: relative; overflow-y: auto; max-height: min(70vh, 640px); border: 1px solid var(--tema-linea); border-radius: 8px; }
+    .hist-spacer { width: 100%; }
+    .hist-lista { position: absolute; left: 0; right: 0; top: 0; }
+    .hist-fila { box-sizing: border-box; height: 88px; padding: 8px 12px; border-bottom: 1px solid var(--tema-linea); overflow: hidden; }
+    .hist-meta { font-size: 12px; color: var(--tema-texto-suave); }
+    .hist-preg { font-weight: 600; margin: 4px 0; }
+    .hist-resp { color: var(--tema-texto-suave); font-size: 14px; }
+    .hist-volver { margin-top: 12px; font-size: 14px; }
+  </style>
+</PanelShell>
+
+<script>
+  import { horaMinutoAR } from "../../../lib/fecha-ar.js";
+  import { ALTO_FILA_PX, ventanaVisible } from "../../../lib/historial-bot-panel.js";
+
+  interface FilaHist {
+    id: string;
+    creadoEnMs: number;
+    telefono: string;
+    pregunta: string;
+    respuesta: string;
+    fuente: string;
+  }
+
+  interface PersonaF {
+    googleSub: string;
+    nombre: string;
+    rol: string;
+  }
+
+  const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
+  let filas: FilaHist[] = [];
+  let cursor: string | null = null;
+  let cargandoMas = false;
+
+  const setEstado = (t: string): void => {
+    $("hist-estado").textContent = t;
+  };
+
+  const params = (): URLSearchParams => {
+    const p = new URLSearchParams();
+    const persona = ($("hist-persona") as HTMLSelectElement).value;
+    if (persona) p.set("persona", persona);
+    const d = ($("hist-desde") as HTMLInputElement).value;
+    const h = ($("hist-hasta") as HTMLInputElement).value;
+    if (d) p.set("desde", d);
+    if (h) p.set("hasta", h);
+    if (cursor) p.set("cursor", cursor);
+    return p;
+  };
+
+  const pintarVentana = (): void => {
+    const scroll = $("hist-scroll");
+    const v = ventanaVisible({ total: filas.length, scrollTop: scroll.scrollTop, altoVista: scroll.clientHeight });
+    ($("hist-spacer") as HTMLElement).style.height = `${v.altoTotal}px`;
+    const lista = $("hist-lista");
+    lista.style.transform = `translateY(${v.offsetY}px)`;
+    lista.textContent = "";
+    for (let i = v.desde; i < v.hasta; i++) {
+      const f = filas[i];
+      if (!f) continue;
+      const row = document.createElement("article");
+      row.className = "hist-fila";
+      row.style.height = `${ALTO_FILA_PX}px`;
+      const meta = document.createElement("p");
+      meta.className = "hist-meta";
+      meta.textContent = `${horaMinutoAR(f.creadoEnMs)} · ${f.telefono} · ${f.fuente === "db" ? "catálogo en base" : "memoria del proceso"}`;
+      const pre = document.createElement("p");
+      pre.className = "hist-preg";
+      pre.textContent = f.pregunta;
+      const res = document.createElement("p");
+      res.className = "hist-resp";
+      res.textContent = f.respuesta;
+      row.append(meta, pre, res);
+      lista.appendChild(row);
+    }
+  };
+
+  const cargar = async (mas = false): Promise<void> => {
+    if (cargandoMas) return;
+    cargandoMas = true;
+    if (!mas) {
+      cursor = null;
+      filas = [];
+    }
+    setEstado(mas ? "Cargando más…" : "Cargando…");
+    try {
+      const r = await fetch("/api/whatsapp/historial?" + params().toString(), { credentials: "same-origin" });
+      if (r.status === 503) {
+        setEstado("La base del comercio no está disponible. Probá más tarde.");
+        return;
+      }
+      if (!r.ok) {
+        setEstado("No pudimos cargar el historial.");
+        return;
+      }
+      const j = (await r.json()) as { filas: FilaHist[]; cursor: string | null; personas: PersonaF[] | null };
+      if (!mas && j.personas) {
+        const sel = $("hist-persona") as HTMLSelectElement;
+        const lbl = $("hist-persona-label");
+        lbl.hidden = false;
+        sel.textContent = "";
+        const vacio = document.createElement("option");
+        vacio.value = "";
+        vacio.textContent = "Todas";
+        sel.appendChild(vacio);
+        for (const p of j.personas) {
+          const o = document.createElement("option");
+          o.value = p.googleSub;
+          o.textContent = p.nombre;
+          sel.appendChild(o);
+        }
+      }
+      filas = mas ? [...filas, ...j.filas] : j.filas;
+      cursor = j.cursor;
+      setEstado(filas.length === 0 ? "Todavía no hay consultas registradas." : `${filas.length} consultas cargadas.`);
+      pintarVentana();
+    } finally {
+      cargandoMas = false;
+    }
+  };
+
+  $("hist-refrescar").addEventListener("click", () => void cargar(false));
+  $("hist-scroll").addEventListener("scroll", () => {
+    pintarVentana();
+    const scroll = $("hist-scroll");
+    if (cursor && scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - ALTO_FILA_PX * 2) {
+      void cargar(true);
+    }
+  });
+  window.addEventListener("resize", () => pintarVentana());
+  void cargar(false);
+</script>

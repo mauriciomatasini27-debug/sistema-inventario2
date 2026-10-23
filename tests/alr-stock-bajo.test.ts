@@ -9,6 +9,7 @@ import {
   en_ventana_quiebre,
   es_quiebre,
   filtrar_pendientes,
+  canalesEfectivos,
   resolver_destinatarios,
   umbral_efectivo,
 } from "../src/modules/alertas/stock-bajo.js";
@@ -61,9 +62,33 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
     const r1 = ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>() });
     expect(r1.enviadas).toBe(1);
     expect(r1.clavesRegistradas).toHaveLength(1);
+    expect(r1.clavesRegistradas[0]).toContain(":d1");
     const r2 = ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>(r1.clavesRegistradas) });
     expect(r2.enviadas).toBe(0);
     expect(r2.omitidasYa).toBe(1);
+  });
+  it("otra persona en un segundo tick todavía recibe la misma alerta", () => {
+    limpiar_claves_alertas();
+    const catalogo = [{ sku: "a", nombre: "Coca", stock: 0, minimo: 5, ventas7d: 0, proveedor: null as string | null }];
+    const base = {
+      tenantId: "t-a",
+      fecha: "2026-10-16",
+      modo: "matutino" as const,
+      catalogo,
+      enviarWa: () => ({ ok: true }),
+      enviarEmail: () => ({ ok: true }),
+    };
+    const r1 = ejecutar_alertas_stock({
+      ...base,
+      destinatarios: [{ googleSub: "d1", rol: "dueno" as const, canales: ["email"] as Array<"whatsapp" | "email"> }],
+      yaEnviados: new Set<string>(),
+    });
+    const r2 = ejecutar_alertas_stock({
+      ...base,
+      destinatarios: [{ googleSub: "e1", rol: "encargado" as const, canales: ["email"] as Array<"whatsapp" | "email"> }],
+      yaEnviados: new Set<string>(r1.clavesRegistradas),
+    });
+    expect(r2.enviadas).toBe(1);
   });
   it("modo quiebre solo avisa saldo 0", () => {
     limpiar_claves_alertas();
@@ -103,33 +128,74 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
 });
 
 describe("ALR-S3 destinatarios por rol y canal", () => {
-  it("encargado sin opt-in WA recibe solo email", () => {
-    const r = resolver_destinatarios(
-      {
-        dueno: { googleSub: "d", optInWa: true, pausaHastaMs: null },
-        encargados: [{ googleSub: "e1", optInWa: false, email: "e@x.com", pausaHastaMs: null }],
-        ahoraMs: 100,
-      },
-    );
+  const duenoBase = {
+    rol: "dueno" as const,
+    googleSub: "d",
+    optInWa: true,
+    avisoHora: "08:00",
+    pausaHastaMs: null as number | null,
+  };
+
+  it("encargado sin opt-in WA recibe solo email con canal ambos", () => {
+    const enc = {
+      rol: "encargado" as const,
+      googleSub: "e1",
+      optInWa: false,
+      email: "e@x.com",
+      canal: "ambos" as const,
+      avisoHora: "08:00",
+      pausaHastaMs: null,
+    };
+    expect(canalesEfectivos(enc)).toEqual(["email"]);
+    const r = resolver_destinatarios({
+      duenos: [duenoBase],
+      encargados: [enc],
+      ahoraMs: 100,
+      modo: "matutino",
+      horaTick: "08:00",
+    });
     const e1 = r.find((d) => d.googleSub === "e1");
     expect(e1?.canales).toEqual(["email"]);
   });
   it("canal pausado no recibe", () => {
     const r = resolver_destinatarios({
-      dueno: { googleSub: "d", optInWa: true, pausaHastaMs: 999 },
+      duenos: [{ ...duenoBase, pausaHastaMs: 999 }],
       encargados: [],
       ahoraMs: 100,
+      modo: "matutino",
+      horaTick: "08:00",
     });
     expect(r).toHaveLength(0);
   });
   it("dueño siempre incluido aunque el encargado no tenga opt-in", () => {
     const r = resolver_destinatarios({
-      dueno: { googleSub: "d", optInWa: true, pausaHastaMs: null },
-      encargados: [{ googleSub: "e1", optInWa: false, pausaHastaMs: 999 }],
+      duenos: [duenoBase],
+      encargados: [
+        {
+          rol: "encargado",
+          googleSub: "e1",
+          optInWa: false,
+          canal: "whatsapp",
+          avisoHora: "08:00",
+          pausaHastaMs: 999,
+        },
+      ],
       ahoraMs: 100,
+      modo: "matutino",
+      horaTick: "08:00",
     });
     expect(r.some((d) => d.googleSub === "d")).toBe(true);
     expect(r.some((d) => d.googleSub === "e1")).toBe(false);
+  });
+  it("matutino exige avisoHora igual al tick", () => {
+    const r = resolver_destinatarios({
+      duenos: [{ ...duenoBase, avisoHora: "09:00" }],
+      encargados: [],
+      ahoraMs: 100,
+      modo: "matutino",
+      horaTick: "08:00",
+    });
+    expect(r).toHaveLength(0);
   });
 });
 
@@ -184,6 +250,8 @@ describe("ALR-S2 endpoint POST /api/jobs/alertas-stock", () => {
     });
     control.botLinks.set(`+54911000090${String(n).padStart(2, "0")}`, { tenantId, googleSub: sub, estado: "verificado" });
     control.waPrefs.set(`${tenantId}:${sub}`, { optIn, avisoHora: "08:00", pausadoHastaMs: null });
+    control.memberships.set(`m-${sub}`, { id: `m-${sub}`, tenantId, googleSub: sub, rol: "dueno", permisos: [], estado: "activo" });
+    control.users.set(sub, { googleSub: sub, email: `dueno-${n}@test.com`, emailVerificado: true });
     return tenantId;
   }
 

@@ -70,6 +70,8 @@ import { listarClientesConSaldo } from "../../../lib/repos/fiado.js";
 import { texto_recordatorio } from "../../../jobs/bot-pyme.js";
 import { link_whatsapp } from "../../../modules/credit/fiado.js";
 import { registrarConsultaBot } from "../../../lib/repos/bot-consultas.js";
+import { registrarTurnoBot } from "../../../lib/repos/bot-turnos.js";
+import { guardarEleccion, guardarOptIn, prefsDe } from "../../../lib/repos/alerta-prefs.js";
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
 import {
@@ -93,6 +95,7 @@ import {
   guardarSesion,
   leerListaViernes,
   leerSesion,
+  listarCatalogoConFuente,
   listarCatalogoVivo,
   listarMovimientosVista,
   listarPedidosDia,
@@ -129,6 +132,28 @@ const dedup = new DeduplicadorWamid();
 // B2.3: reactivación por chat (el opt-out vive en preferencias; la ruta web
 // lo persiste, acá solo se responde).
 const RESPUESTA_ALTA = "Listo, volviste a activar los avisos por WhatsApp." as const;
+
+function registrarTurnoConsulta(input: {
+  tenantId: string;
+  wamid: string;
+  remitente: string;
+  googleSub: string;
+  pregunta: string;
+  respuesta: string;
+  fuente: "db" | "memoria";
+  ahoraMs: number;
+}): void {
+  void registrarTurnoBot({
+    tenantId: input.tenantId,
+    wamid: input.wamid,
+    numeroE164: input.remitente,
+    googleSub: input.googleSub,
+    pregunta: input.pregunta,
+    respuesta: input.respuesta,
+    fuente: input.fuente,
+    ahoraMs: input.ahoraMs,
+  }).catch((e: unknown) => console.error("[whatsapp] no se pudo registrar el turno", e));
+}
 
 interface CredencialesEnvio {
   readonly phoneNumberId: string;
@@ -885,15 +910,6 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: true, accion: "vincular_ok" });
   }
   const cred = credenciales_envio();
-  const cmd = parsear_comando_aviso(msg.texto);
-  if (cmd.kind === "baja") {
-    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_BAJA, cred });
-    return Response.json({ ok: true, accion: "opt_out", respuesta: RESPUESTA_BAJA, enviado });
-  }
-  if (cmd.kind === "alta") {
-    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_ALTA, cred });
-    return Response.json({ ok: true, accion: "opt_in", respuesta: RESPUESTA_ALTA, enviado });
-  }
   // El proveedor no está vinculado: va antes de la puerta de identidad.
   const proveedor = await atenderProveedor({ msg, ahoraMs, cred });
   if (proveedor) return proveedor;
@@ -939,6 +955,48 @@ export const POST: APIRoute = async ({ request }) => {
   if (!r.ok) {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_NO_VINCULADO, cred });
     return Response.json({ ok: true, accion: "consulta", respuesta: RESPUESTA_NO_VINCULADO, enviado });
+  }
+  const cmd = parsear_comando_aviso(msg.texto);
+  if (cmd.kind === "baja") {
+    void guardarOptIn({ tenantId: r.tenantId, googleSub: r.googleSub, alta: false, ahoraMs }).catch((e: unknown) =>
+      console.error("[whatsapp] opt-out", e),
+    );
+    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_BAJA, cred });
+    return Response.json({ ok: true, accion: "opt_out", respuesta: RESPUESTA_BAJA, enviado });
+  }
+  if (cmd.kind === "alta") {
+    void guardarOptIn({
+      tenantId: r.tenantId,
+      googleSub: r.googleSub,
+      alta: true,
+      ahoraMs,
+      optInTexto: msg.texto,
+    }).catch((e: unknown) => console.error("[whatsapp] opt-in", e));
+    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: RESPUESTA_ALTA, cred });
+    return Response.json({ ok: true, accion: "opt_in", respuesta: RESPUESTA_ALTA, enviado });
+  }
+  if (cmd.kind === "pausa") {
+    const prefs = await prefsDe(r.tenantId, r.googleSub);
+    const pausadoHastaMs = msg.timestampMs + cmd.dias * 86_400_000;
+    void guardarEleccion({
+      tenantId: r.tenantId,
+      googleSub: r.googleSub,
+      pedido: { canal: prefs.canal, avisoHora: prefs.avisoHora, pausadoHastaMs },
+    }).catch((e: unknown) => console.error("[whatsapp] pausa avisos", e));
+    const texto = `Listo, pausé los avisos por ${cmd.dias} días.`;
+    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto, cred });
+    return Response.json({ ok: true, accion: "pausa", respuesta: texto, enviado });
+  }
+  if (cmd.kind === "cambio_hora") {
+    const prefs = await prefsDe(r.tenantId, r.googleSub);
+    void guardarEleccion({
+      tenantId: r.tenantId,
+      googleSub: r.googleSub,
+      pedido: { canal: prefs.canal, avisoHora: cmd.hora, pausadoHastaMs: prefs.pausadoHastaMs },
+    }).catch((e: unknown) => console.error("[whatsapp] hora aviso", e));
+    const texto = `Quedó el aviso matutino a las ${cmd.hora}.`;
+    const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto, cred });
+    return Response.json({ ok: true, accion: "cambio_hora", respuesta: texto, enviado });
   }
   // OCR1-S5: el toque de un botón del borrador no es consulta. Descartar cierra
   // inline; Confirmar se deriva a la web y Editar abre la edición por texto del
@@ -1028,12 +1086,23 @@ export const POST: APIRoute = async ({ request }) => {
     const sku = resolver_seleccion(msg.texto, opciones);
     if (sku) {
       const membSel = membershipActiva(r.tenantId, r.googleSub);
+      const catSel = await listarCatalogoConFuente(r.tenantId);
       const sel = atender_seleccion({
         ctx: emitir_contexto(r, ahoraMs),
         sku,
-        catalogo: await listarCatalogoVivo(r.tenantId),
+        catalogo: catSel.items,
         comercio: control.tenants.get(r.tenantId)?.nombreComercio ?? "tu comercio",
         permisos: membSel?.permisos ?? [],
+      });
+      registrarTurnoConsulta({
+        tenantId: r.tenantId,
+        wamid: msg.wamid,
+        remitente: msg.remitente,
+        googleSub: r.googleSub,
+        pregunta: msg.texto,
+        respuesta: sel.texto,
+        fuente: catSel.fuente,
+        ahoraMs,
       });
       const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: sel.texto, cred });
       return Response.json({ ok: true, accion: "consulta", respuesta: sel.texto, enviado });
@@ -1094,10 +1163,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const ctx = emitir_contexto(r, ahoraMs);
   const tenant = control.tenants.get(r.tenantId);
+  const catConsulta = await listarCatalogoConFuente(r.tenantId);
   const atencion = atender_consulta({
     ctx,
     texto: msg.texto,
-    catalogo: await listarCatalogoVivo(r.tenantId),
+    catalogo: catConsulta.items,
     comercio: tenant?.nombreComercio ?? "tu comercio",
     permisos: membMsg?.permisos ?? [],
   });
@@ -1106,6 +1176,18 @@ export const POST: APIRoute = async ({ request }) => {
   // BOT2-S2: la lista numerada deja sus skus para la selección con 1-5.
   if (atencion.kind === "desambiguar") {
     await guardarSesion(msg.remitente, "desambiguar", { opciones: atencion.opciones.map((o) => o.sku) }, ahoraMs, r.tenantId);
+  }
+  if ((intencion === "stock" || intencion === "precio") && atencion.kind !== "desambiguar") {
+    registrarTurnoConsulta({
+      tenantId: r.tenantId,
+      wamid: msg.wamid,
+      remitente: msg.remitente,
+      googleSub: r.googleSub,
+      pregunta: msg.texto,
+      respuesta: atencion.texto,
+      fuente: catConsulta.fuente,
+      ahoraMs,
+    });
   }
   const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: atencion.texto, cred });
   return Response.json({ ok: true, accion: "consulta", intencion, respuesta: atencion.texto, enviado });

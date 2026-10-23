@@ -23,6 +23,7 @@ import { catalogo_vivo } from "../../modules/whatsapp/catalogo.js";
 import { crear_item_viernes, type ListaViernes } from "../../modules/whatsapp/lista-viernes.js";
 import type { MovimientoVista, PedidoDia } from "../../modules/whatsapp/dia-a-dia.js";
 import type { ItemVivo } from "../../modules/whatsapp/servicio.js";
+import type { FuenteTurno } from "../../modules/bot/historial.js";
 import type { Preferencias } from "../../modules/whatsapp/optin.js";
 import type { ItemStock } from "../../modules/email/stock-matutino.js";
 import { calcular_semanal, type CalculoSemanal, type FaltanteSemana, type VentaSemana } from "../../modules/email/resumen-semanal.js";
@@ -103,30 +104,35 @@ function filasConsultaMemoria(): FilaConsulta[] {
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
 // ALR-S1: el umbral sale de products.min_stock (DB primero); sin mínimo
 // vale 0 y el job usa el fallback de rotación 7d.
-export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]> {
+export async function listarCatalogoConFuente(tenantId?: string): Promise<{ items: ItemVivo[]; fuente: FuenteTurno }> {
   const db = dbVivaTenant(tenantId);
-  if (!db) return conParticion(tenantId, catalogoVivoMemoria);
+  if (!db) return { items: conParticion(tenantId, catalogoVivoMemoria), fuente: "memoria" };
   try {
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
       .from(products);
     const aliases = await aliasesPorSku(db, tenantId);
-    return filas.map((p) => ({
-      sku: p.sku,
-      nombre: p.nombre,
-      stock: p.stock,
-      umbral: p.minStock ?? 0,
-      precioCentavos: p.precio,
-      proveedor: null,
-      alias: aliases.get(p.sku) ?? [],
-      ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
-    }));
+    return {
+      items: filas.map((p) => ({
+        sku: p.sku,
+        nombre: p.nombre,
+        stock: p.stock,
+        umbral: p.minStock ?? 0,
+        precioCentavos: p.precio,
+        proveedor: null,
+        alias: aliases.get(p.sku) ?? [],
+        ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
+      })),
+      fuente: "db",
+    };
   } catch (e) {
-    // Por qué tolera 0027 ausente: una base sin min_stock/reorder_qty lee
-    // el resto igual y el umbral queda en 0 (fallback de rotación).
     if (!esUmbralFaltante(e)) conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
-    return conParticion(tenantId, catalogoVivoMemoria);
+    return { items: conParticion(tenantId, catalogoVivoMemoria), fuente: "memoria" };
   }
+}
+
+export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]> {
+  return (await listarCatalogoConFuente(tenantId)).items;
 }
 
 function esUmbralFaltante(e: unknown): boolean {
