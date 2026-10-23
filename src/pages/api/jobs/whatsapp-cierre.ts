@@ -7,6 +7,7 @@ import { derivar_balance, type Movimiento } from "../../../modules/cash/caja.js"
 import {
   clave_cierre_wa,
   decidir_envio_cierre,
+  PLANTILLA_CIERRE_CAJA,
   type TiendaCierreWa,
 } from "../../../modules/whatsapp/resumen-cierre.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
@@ -79,7 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
         rol: "dueno",
       });
       if (!d.ok) return Response.json({ error: d.motivo }, { status: 409 });
-      const enviado = await enviar_texto_wa(link[0], d.resumen.texto);
+      const enviado = await enviar_texto_wa(link[0], d.resumen.texto, { nombrePlantilla: PLANTILLA_CIERRE_CAJA });
       if (!enviado) {
         // No se marca: se puede reintentar (la clave se libera).
         avisadas.delete(clave_cierre_wa(tenantId, fechaJornada));
