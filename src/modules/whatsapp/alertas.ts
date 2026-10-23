@@ -1,3 +1,5 @@
+import { construir_botones, PLANTILLA_ALERTA_STOCK_BAJO, type PayloadBotones } from "./envio.js";
+
 // Núcleo puro Track1 Bot WA B4: alertas de stock bajo.
 // Sin IO, sin Drizzle, sin fetch, sin env. El adaptador arma el snapshot
 // vivo y este módulo solo calcula + redacta en rioplatense (vos, sin
@@ -180,4 +182,43 @@ export function botones_alertas(): ReadonlyArray<BotonAlerta> {
     Object.freeze({ id: "guardar_viernes", titulo: "Guardar viernes" }),
     Object.freeze({ id: "ver_detalle", titulo: "Ver detalle" }),
   ]);
+}
+
+export interface VariablesAlertaStockBajo {
+  readonly comercio: string;
+  readonly cantidad: number;
+  readonly urgentes: number;
+}
+
+export interface AlertaStockBajoWa {
+  readonly plantilla: typeof PLANTILLA_ALERTA_STOCK_BAJO;
+  readonly variables: VariablesAlertaStockBajo;
+  readonly cuerpo: string;
+  readonly payload: PayloadBotones;
+}
+
+// WA-PAYLOAD: builder puro de la plantilla Meta alerta_stock_bajo (3 variables +
+// botones Ver y pedir / Guardar p/ viernes / Pausar avisos). Sin fetch ni IO.
+export function builder_alerta_stock_bajo(args: {
+  readonly comercio: string;
+  readonly alertas: ReadonlyArray<{ readonly urgente: boolean }>;
+}): AlertaStockBajoWa {
+  const cantidad = args.alertas.length;
+  const urgentes = args.alertas.filter((a) => a.urgente).length;
+  const variables = Object.freeze({ comercio: args.comercio, cantidad, urgentes });
+  const cuerpo =
+    cantidad <= 0
+      ? `Buen día, ${variables.comercio}.\n\nNo te falta nada por ahora.`
+      : `Buen día, ${variables.comercio}.\n\nEn los últimos días quedaron ${cantidad} productos con stock bajo (${urgentes} urgentes, sin stock).\n\n¿Qué querés hacer?`;
+  const botones = Object.freeze([
+    Object.freeze({ id: "ver_pedir", titulo: "Ver y pedir" }),
+    Object.freeze({ id: "guardar_viernes", titulo: "Guardar p/ viernes" }),
+    Object.freeze({ id: "pausar_avisos", titulo: "Pausar avisos" }),
+  ]);
+  return Object.freeze({
+    plantilla: PLANTILLA_ALERTA_STOCK_BAJO,
+    variables,
+    cuerpo,
+    payload: construir_botones(cuerpo, botones),
+  });
 }
