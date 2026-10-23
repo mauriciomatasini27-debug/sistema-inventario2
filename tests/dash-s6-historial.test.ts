@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
-import { limpiarAlertasStockMemoria, registrarAlertasStock } from "../src/lib/repos/whatsapp.js";
+import { canalAlerta, limpiarAlertasStockMemoria, registrarAlertasStock } from "../src/lib/repos/whatsapp.js";
 import { GET } from "../src/pages/api/alertas/historial.js";
 
 function sesion(sub: string, tenantId: string, rol: "dueno" | "empleado"): string {
@@ -88,7 +88,7 @@ describe("DASH-S6 historial de alertas", () => {
     expect((await r.json()) as { alertas: unknown[] }).toEqual({ alertas: [] });
   });
 
-  it("las filas solo exponen sku, nombre, stock, umbral, urgente y fecha", async () => {
+  it("las filas exponen canal y estado, y no la clave interna", async () => {
     await registrarAlertasStock("t-1", "2026-10-23", [
       { sku: "yerba", nombre: "Yerba", stock: 2, umbral: 10, urgente: true },
     ]);
@@ -96,9 +96,30 @@ describe("DASH-S6 historial de alertas", () => {
     expect(r.status).toBe(200);
     const j = (await r.json()) as { alertas: Record<string, unknown>[] };
     expect(j.alertas).toHaveLength(1);
-    expect(Object.keys(j.alertas[0]!).sort()).toEqual(["fecha", "nombre", "sku", "stock", "umbral", "urgente"]);
+    expect(Object.keys(j.alertas[0]!).sort()).toEqual([
+      "canal",
+      "estado",
+      "fecha",
+      "nombre",
+      "sku",
+      "stock",
+      "umbral",
+      "urgente",
+    ]);
+    expect(j.alertas[0]).toMatchObject({ canal: "whatsapp", estado: "enviado" });
     expect(j.alertas[0]).not.toHaveProperty("clave");
     expect(j.alertas[0]).not.toHaveProperty("registradaAt");
+  });
+
+  it("un canal email se conserva y un valor desconocido queda en whatsapp", async () => {
+    expect(canalAlerta(undefined)).toBe("whatsapp");
+    expect(canalAlerta("otro")).toBe("whatsapp");
+    await registrarAlertasStock("t-1", "2026-10-23", [
+      { sku: "yerba", nombre: "Yerba", stock: 2, umbral: 10, urgente: true, canal: "email" },
+    ]);
+    const r = await pedir(sesion("canal", "t-1", "dueno"));
+    const j = (await r.json()) as { alertas: { canal: string; estado: string }[] };
+    expect(j.alertas[0]).toMatchObject({ canal: "email", estado: "enviado" });
   });
 
   it("responde con Cache-Control no-store", async () => {
