@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import {
+  costoContabilidadBotConsultaUsdCentavos,
   planDe,
   resolverCatalogo,
+  TARIFA_META_USD_FIJADA_EN_PRODUCTO,
   type Catalogo,
   type Feature,
   type PlanEjemplo,
@@ -475,36 +477,50 @@ function sumarEnMemoria(e: UsoEntrada): UsoContado {
 
 // Upsert por (tenant, mes, feature): el choque de PK suma en vez de pisar,
 // así dos procesos que miden a la vez no pierden uso.
+// TARIFA-META: usage_counters guarda costo en centavos USD; bot_consulta usa 0
+// hasta que exista tarifa contractual (no 0.0260 fijo en producto).
+export function costoUsoFeatureCentavos(feature: string, costoPedido: bigint): bigint {
+  if (feature === "bot_consulta" && !TARIFA_META_USD_FIJADA_EN_PRODUCTO) {
+    return costoContabilidadBotConsultaUsdCentavos();
+  }
+  return costoPedido;
+}
+
 export async function registrarUso(e: UsoEntrada): Promise<UsoContado> {
   exigirUso(e);
+  const costoCentavos = costoUsoFeatureCentavos(e.feature, e.costoCentavos);
+  const entrada = costoCentavos === e.costoCentavos ? e : { ...e, costoCentavos };
   const db = dbVivaTenant();
-  if (!db) return sumarEnMemoria(e);
+  if (!db) return sumarEnMemoria(entrada);
   try {
     const filas = await db
       .insert(usageCounters)
       .values({
-        tenantId: e.tenantId,
-        mes: e.mes,
-        feature: e.feature,
-        usado: e.cantidad,
-        costoCentavos: e.costoCentavos,
+        tenantId: entrada.tenantId,
+        mes: entrada.mes,
+        feature: entrada.feature,
+        usado: entrada.cantidad,
+        costoCentavos: entrada.costoCentavos,
       })
       .onConflictDoUpdate({
         target: [usageCounters.tenantId, usageCounters.mes, usageCounters.feature],
         set: {
-          usado: sql`${usageCounters.usado} + ${e.cantidad}`,
-          costoCentavos: sql`${usageCounters.costoCentavos} + ${e.costoCentavos}`,
+          usado: sql`${usageCounters.usado} + ${entrada.cantidad}`,
+          costoCentavos: sql`${usageCounters.costoCentavos} + ${entrada.costoCentavos}`,
           updatedAt: new Date(),
         },
       })
       .returning({ usado: usageCounters.usado, costoCentavos: usageCounters.costoCentavos });
     const f = filas[0];
-    const vista: UsoContado = { usado: f?.usado ?? e.cantidad, costoCentavos: f?.costoCentavos ?? e.costoCentavos };
-    crearAlmacenUsoPlanes().guardar(claveUso(e.tenantId, e.mes, e.feature), { ...vista });
+    const vista: UsoContado = {
+      usado: f?.usado ?? entrada.cantidad,
+      costoCentavos: f?.costoCentavos ?? entrada.costoCentavos,
+    };
+    crearAlmacenUsoPlanes().guardar(claveUso(entrada.tenantId, entrada.mes, entrada.feature), { ...vista });
     return vista;
   } catch (err) {
     crearAlmacenUsoPlanes().anteFalloPersistencia(err);
-    return sumarEnMemoria(e);
+    return sumarEnMemoria(entrada);
   }
 }
 
