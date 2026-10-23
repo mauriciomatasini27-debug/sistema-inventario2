@@ -44,6 +44,8 @@ import { CONSENTIMIENTO_GOOGLE_VERSION } from "../../modules/integraciones/googl
 </style>
 
 <script>
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+
   const form = document.getElementById("form-gmail");
   const aceptar = document.getElementById("acepto-gmail");
   const boton = document.getElementById("conectar-gmail");
@@ -55,14 +57,21 @@ import { CONSENTIMIENTO_GOOGLE_VERSION } from "../../modules/integraciones/googl
       boton.disabled = !(form.dataset.dueno === "1" && aceptar.checked);
     };
 
-    aceptar.addEventListener("change", puedeEnviar);
+    aceptar.addEventListener("change", () => {
+      limpiarErrores(form);
+      avisoEnvio.textContent = "";
+      puedeEnviar();
+    });
 
     form.addEventListener("submit", (evento) => {
       if (form.dataset.dueno !== "1" || !aceptar.checked) {
         evento.preventDefault();
-        avisoEnvio.textContent = form.dataset.dueno === "1"
-          ? "Aceptá el texto antes de conectar."
-          : "Solo el dueño del comercio puede conectar Gmail.";
+        if (form.dataset.dueno === "1") {
+          avisoEnvio.textContent = "";
+          mostrarErrores(form, { acepto: "Aceptá el texto antes de conectar." });
+        } else {
+          avisoEnvio.textContent = "Solo el dueño del comercio puede conectar Gmail.";
+        }
       }
     });
 

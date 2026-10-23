@@ -69,6 +69,8 @@ export const PREFIJOS_DATOS = [
   "/api/gmail/watch",
   // DASH-S6: historial de alertas lee notification_events del comercio.
   "/api/alertas",
+  // DASH-S2: historial del bot lee bot_turnos del comercio de la sesión.
+  "/api/whatsapp/historial",
 ];
 
 export function esRutaDatos(path: string): boolean {
