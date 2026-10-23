@@ -506,21 +506,14 @@ export async function solicitarPreaprobacionPlan(args: {
   readonly fetchImpl?: typeof fetch | undefined;
 }): Promise<ResultadoPreaprobacionMp> {
   const catalogo = await leerCatalogo();
-<<<<<<< HEAD
   const r = await crearPreaprobacionMercadoPago({
-=======
-  return crearPreaprobacionMercadoPago({
->>>>>>> origin/mauri/cobro-ejemplo
     tenantId: args.tenantId,
     planId: args.planId,
     catalogo,
     fetchImpl: args.fetchImpl,
   });
-<<<<<<< HEAD
   if (r.ok) vincularPreaprobacionTenant(r.preapprovalId, args.tenantId);
   return r;
-=======
->>>>>>> origin/mauri/cobro-ejemplo
 }
 
 export interface UsoEntrada {
