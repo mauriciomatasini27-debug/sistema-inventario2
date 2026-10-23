@@ -1,0 +1,7 @@
+{
+  "tag": "0040_bot_turnos_canal_alerta",
+  "fecha": "2026-10-23",
+  "aprobado_por": "Mauri",
+  "evidencia": "0040 aplicada en la base real por SQL directo, con aprobaci\u00f3n de Mauri el 2026-10-23. Tabla bot_turnos (id, tenant_id, wamid, numero_e164, google_sub, pregunta, respuesta, fuente, creado_en), checks bot_turnos_fuente_check y bot_turnos_wamid_unique, \u00edndices bot_turnos_tenant_creado_idx y bot_turnos_tenant_sub_creado_idx. notification_preferences.canal text not null default email, check notification_preferences_canal_check, \u00edndice \u00fanico notification_preferences_tenant_sub_uidx. Cero filas de preferencias, as\u00ed el backfill de ambos no toc\u00f3 datos. Hash sha256 del archivo 930fd69b02d244d361bd42f2daaa40d9f1ff73f7f72310a67df2a480b7a14faf. No se escribi\u00f3 drizzle.__drizzle_migrations: la \u00faltima fila sigue siendo 0038 (id 39, created_at 1792845600000) porque 0039 no est\u00e1 aplicada y un created_at 1792932000000 har\u00eda que el pr\u00f3ximo db:migrate se saltee 0039. El SQL de 0040 es idempotente y se reejecuta cuando 0039 entre.",
+  "backup": "/home/mauri/backups/pre-0040-schema-20261023-1817.sql"
+}
