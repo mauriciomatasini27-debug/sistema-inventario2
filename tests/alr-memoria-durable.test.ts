@@ -116,6 +116,41 @@ describe("ALR-S2 memoria durable", () => {
     expect(estadoDe(resultados, tenantId)).toBe("enviado");
   });
 
+  it("al día siguiente la misma alerta no urgente vuelve a salir", async () => {
+    const tenantId = comercio(true);
+    credencialesFake();
+    const ayer = fechaAR(new Date(Date.now() - 24 * 3600 * 1000));
+    await registrarAlertasStock(tenantId, ayer, [
+      { sku: "demo-sku-1", nombre: "Alfajor", stock: 10, umbral: 10, urgente: false },
+    ]);
+    expect(estadoDe(await correrAviso(), tenantId)).toBe("enviado");
+  });
+
+  it("la misma alerta registrada en otro comercio no frena a este", async () => {
+    const otro = comercio(false);
+    const tenantId = comercio(true);
+    credencialesFake();
+    await registrarAlertasStock(otro, fechaAR(new Date()), [
+      { sku: "demo-sku-1", nombre: "Alfajor", stock: 10, umbral: 10, urgente: false },
+    ]);
+    expect(estadoDe(await correrAviso(), tenantId)).toBe("enviado");
+  });
+
+  it("con la base caída el job no corta y la alerta queda en memoria", async () => {
+    const tenantId = comercio(true);
+    credencialesFake();
+    process.env.TENANT_DATABASE_URL = "postgres://postgres@127.0.0.1:1/caida";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(estadoDe(await correrAviso(), tenantId)).toBe("enviado");
+      // Sin DB la alerta queda en memoria: el próximo run del día la ve.
+      expect((await alertasPreviasDelDia(tenantId, fechaAR(new Date()))).has("demo-sku-1")).toBe(true);
+    } finally {
+      warn.mockRestore();
+      delete process.env.TENANT_DATABASE_URL;
+    }
+  });
+
   it("la clave incluye tenant, sku y fecha", () => {
     const k = clave_alerta_stock("t-a", "sku-1", "2026-10-16");
     expect(k).toContain("t-a");

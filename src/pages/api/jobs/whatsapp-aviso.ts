@@ -60,6 +60,9 @@ export const POST: APIRoute = async ({ request }) => {
         if (r.estado === "enviado") marcarWaEnviado(clave);
       },
     });
+    // ALR-S2 (ADR-0043): lo enviado queda en notification_events para que un
+    // reinicio o reintento del mismo día no repita lo no urgente; lo urgente
+    // vuelve a salir porque calcular_matutino lo trata siempre como novedad.
     for (const r of resultados) {
       if (r.estado === "enviado") await registrarAlertasStock(r.tenantId, fecha, r.alertas);
     }
