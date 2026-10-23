@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
 import { suppliers } from "../../db/schema-proveedores.js";
-import { whatsappSessions } from "../../db/schema-whatsapp.js";
+import { productAliases, whatsappSessions } from "../../db/schema-whatsapp.js";
 import { conTenant, tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
@@ -52,6 +52,27 @@ export interface FilaConsulta {
   nombre: string;
   stock: number;
   precio: bigint;
+  aliases: string[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// BOT2 alias: product_aliases es compartida por comercios, products no.
+// El tenant explícito manda; sin él vale el contexto del request. En single
+// el tenant legado ("slice0") no es uuid y los alias viven con tenant_id null.
+async function aliasesPorSku(db: TenantDb, tenantId?: string): Promise<Map<string, string[]>> {
+  const tenant = tenantId ?? tenantActual();
+  const filas = await db
+    .select({ sku: productAliases.sku, aliasNorm: productAliases.aliasNorm })
+    .from(productAliases)
+    .where(tenant && UUID.test(tenant) ? eq(productAliases.tenantId, tenant) : isNull(productAliases.tenantId));
+  const porSku = new Map<string, string[]>();
+  for (const f of filas) {
+    const lista = porSku.get(f.sku) ?? [];
+    lista.push(f.aliasNorm);
+    porSku.set(f.sku, lista);
+  }
+  return porSku;
 }
 
 // Catálogo para GET /api/whatsapp/consult: products del tenant con DB viva,
@@ -63,7 +84,8 @@ export async function listarProductosConsulta(tenantId?: string): Promise<{ fila
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos })
       .from(products);
-    return { filas, fuente: "db" };
+    const aliases = await aliasesPorSku(db, tenantId);
+    return { filas: filas.map((f) => ({ ...f, aliases: aliases.get(f.sku) ?? [] })), fuente: "db" };
   } catch (e) {
     conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
     return { filas: conParticion(tenantId, filasConsultaMemoria), fuente: "memoria" };
@@ -73,7 +95,7 @@ export async function listarProductosConsulta(tenantId?: string): Promise<{ fila
 function filasConsultaMemoria(): FilaConsulta[] {
   const stock = crearAlmacenStock().mapaVivo();
   const precios = crearAlmacenPrecios().mapaVivo();
-  return [...stock.entries()].map(([sku, cantidad]) => ({ sku, nombre: sku, stock: cantidad, precio: BigInt(precios.get(sku) ?? 0) }));
+  return [...stock.entries()].map(([sku, cantidad]) => ({ sku, nombre: sku, stock: cantidad, precio: BigInt(precios.get(sku) ?? 0), aliases: [] }));
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
@@ -86,6 +108,7 @@ export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]>
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
       .from(products);
+    const aliases = await aliasesPorSku(db, tenantId);
     return filas.map((p) => ({
       sku: p.sku,
       nombre: p.nombre,
@@ -93,6 +116,7 @@ export async function listarCatalogoVivo(tenantId?: string): Promise<ItemVivo[]>
       umbral: p.minStock ?? 0,
       precioCentavos: p.precio,
       proveedor: null,
+      alias: aliases.get(p.sku) ?? [],
       ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
     }));
   } catch (e) {
