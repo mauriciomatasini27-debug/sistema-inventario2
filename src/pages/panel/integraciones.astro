@@ -1,0 +1,91 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import { CONSENTIMIENTO_GOOGLE_VERSION } from "../../modules/integraciones/google-oauth.js";
+---
+<PanelShell titulo="Gmail" subtitulo="Conectá la casilla que recibe las facturas de servicios.">
+  <section class="card" id="consentimiento-gmail">
+    <h2>Qué permite esta conexión</h2>
+    <p>
+      Leemos los mails de la casilla que conectás, con permiso de solo lectura. El permiso de Google
+      alcanza a toda la casilla. La app filtra por remitente, pero el acceso técnico es amplio.
+    </p>
+    <p>
+      Guardamos la cuenta, los permisos otorgados y un token de renovación cifrado. No enviamos mail,
+      no borramos mail y no pedimos permiso para modificar la casilla.
+    </p>
+    <p>
+      Un adjunto que pases a lectura de factura puede verlo el servicio de OCR que use el comercio.
+      Podés desconectar después. Al desconectar se revoca el token en Google.
+    </p>
+    <p>
+      Mientras la app de Google esté en modo prueba, el token de renovación puede vencer a los 7 días
+      y hay que volver a conectar. La lista de prueba admite hasta 100 usuarios.
+    </p>
+
+    <form id="form-gmail" method="post" action="/api/integrations/start">
+      <input type="hidden" name="tipo" value="gmail" />
+      <input type="hidden" name="consentimiento_version" value={CONSENTIMIENTO_GOOGLE_VERSION} />
+      <label class="acepto" for="acepto-gmail">
+        <input id="acepto-gmail" name="acepto" type="checkbox" value="si" />
+        Leí el texto y acepto conectar Gmail.
+      </label>
+      <p id="aviso-rol" class="aviso" hidden>Solo el dueño del comercio puede conectar Gmail.</p>
+      <p id="aviso-envio" class="aviso" role="status"></p>
+      <button id="conectar-gmail" type="submit" disabled>Conectar Gmail</button>
+    </form>
+  </section>
+</PanelShell>
+
+<style>
+  .acepto { display: flex; gap: 12px; align-items: center; min-height: 44px; }
+  #acepto-gmail { width: 20px; min-width: 20px; height: 20px; min-height: 20px; padding: 0; flex: 0 0 auto; }
+  .aviso { color: var(--tema-texto-suave); margin: 0; }
+  #conectar-gmail:disabled { cursor: not-allowed; opacity: 0.45; }
+</style>
+
+<script>
+  const form = document.getElementById("form-gmail");
+  const aceptar = document.getElementById("acepto-gmail");
+  const boton = document.getElementById("conectar-gmail");
+  const avisoRol = document.getElementById("aviso-rol");
+  const avisoEnvio = document.getElementById("aviso-envio");
+
+  if (form instanceof HTMLFormElement && aceptar instanceof HTMLInputElement && boton instanceof HTMLButtonElement && avisoRol && avisoEnvio) {
+    const puedeEnviar = () => {
+      boton.disabled = !(form.dataset.dueno === "1" && aceptar.checked);
+    };
+
+    aceptar.addEventListener("change", puedeEnviar);
+
+    form.addEventListener("submit", (evento) => {
+      if (form.dataset.dueno !== "1" || !aceptar.checked) {
+        evento.preventDefault();
+        avisoEnvio.textContent = form.dataset.dueno === "1"
+          ? "Aceptá el texto antes de conectar."
+          : "Solo el dueño del comercio puede conectar Gmail.";
+      }
+    });
+
+    fetch("/api/panel/indice")
+      .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
+      .then((datos) => {
+        const dueno =
+          typeof datos === "object" &&
+          datos !== null &&
+          "rol" in datos &&
+          datos.rol === "dueno";
+        form.dataset.dueno = dueno ? "1" : "0";
+        if (!dueno) {
+          aceptar.disabled = true;
+          avisoRol.hidden = false;
+        }
+        puedeEnviar();
+      })
+      .catch(() => {
+        form.dataset.dueno = "0";
+        aceptar.disabled = true;
+        avisoRol.hidden = false;
+        puedeEnviar();
+      });
+  }
+</script>

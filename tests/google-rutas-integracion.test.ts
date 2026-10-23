@@ -130,6 +130,72 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
     expect(stateCookie).not.toBe("");
   });
 
+  it("el empleado no inicia el flujo", async () => {
+    const subEmpleado = "g-rutas-empleado";
+    control.memberships.set("m-integ-empleado", {
+      id: "m-integ-empleado",
+      tenantId,
+      googleSub: subEmpleado,
+      rol: "empleado",
+      permisos: [],
+      estado: "activo",
+    });
+    const sesion = crearSesion({ googleSub: subEmpleado, tenantId });
+    control.sessions.set(sesion.registro.idHash, {
+      idHash: sesion.registro.idHash,
+      googleSub: subEmpleado,
+      tenantId,
+      expiraAt: sesion.registro.expiraAt,
+      expiraAbsoluta: sesion.registro.expiraAbsoluta,
+      lastSeenAt: new Date().toISOString(),
+    });
+    const r = await postStart(
+      ctx("http://x/api/integrations/start", {
+        body: { tipo: "gmail", consentimiento_version: "2026-10-19-v1" },
+        headers: { cookie: `__Host-sesion=${sesion.idPlano}` },
+      }),
+    );
+    expect(r.status).toBe(403);
+  });
+
+  it("inicia el flujo desde el formulario de consentimiento", async () => {
+    const r = await postStart(
+      ctx("http://x/api/integrations/start", {
+        method: "POST",
+        body: new URLSearchParams({
+          tipo: "gmail",
+          consentimiento_version: "2026-10-19-v1",
+        }).toString(),
+        headers: {
+          ...conSesion(),
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      }),
+    );
+    expect(r.status).toBe(303);
+    expect(new URL(r.headers.get("location") ?? "").origin).toBe("https://accounts.google.com");
+    expect(r.headers.get("set-cookie") ?? "").toContain("__Host-integrations-state=");
+  });
+
+  it("rechaza el formulario si la versión del consentimiento no es la vigente", async () => {
+    const r = await postStart(
+      ctx("http://x/api/integrations/start", {
+        method: "POST",
+        body: new URLSearchParams({
+          tipo: "gmail",
+          consentimiento_version: "v0",
+        }).toString(),
+        headers: {
+          ...conSesion(),
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      }),
+    );
+    expect(r.status).toBe(422);
+    expect(r.headers.get("content-type") ?? "").toContain("text/html");
+    expect(await r.text()).toContain("El consentimiento no es la versión vigente.");
+  });
+
   it("rechaza iniciar sin aceptar la versión vigente del consentimiento", async () => {
     const r = await postStart(
       ctx("http://x/api/integrations/start", {
