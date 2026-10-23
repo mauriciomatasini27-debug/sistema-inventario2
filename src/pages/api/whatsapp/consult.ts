@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { resolverSesion } from "../../../lib/control.js";
-import { detectar_intencion, extraer_termino, decidir_respuesta, formatear_stock } from "../../../modules/whatsapp/consulta.js";
+import { detectar_intencion, extraer_termino, decidir_respuesta, formatear_stock, normalizar } from "../../../modules/whatsapp/consulta.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { listarProductosConsulta } from "../../../lib/repos/whatsapp.js";
 
@@ -33,12 +33,24 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
   if (fuente === "db") {
     const candidatos = filas
-      .filter((p) => !busqueda || p.sku.toLowerCase().includes(busqueda) || p.nombre.toLowerCase().includes(busqueda))
+      .filter(
+        (p) =>
+          !busqueda ||
+          p.sku.toLowerCase().includes(busqueda) ||
+          normalizar(p.nombre).includes(busqueda) ||
+          p.aliases.some((a) => normalizar(a).includes(normalizar(busqueda))),
+      )
       .slice(0, 20)
       .map((p) => ({
         sku: p.sku,
         nombre: p.nombre,
-        score: !busqueda || p.sku.toLowerCase() === busqueda || p.nombre.toLowerCase() === busqueda ? 1 : 0.5,
+        score:
+          !busqueda ||
+          p.sku.toLowerCase() === busqueda ||
+          normalizar(p.nombre) === busqueda ||
+          p.aliases.some((a) => normalizar(a) === normalizar(busqueda))
+            ? 1
+            : 0.5,
       }));
     const d = decidir_respuesta(candidatos);
     if (d.kind === "sin_resultados")

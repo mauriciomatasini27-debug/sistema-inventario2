@@ -6,7 +6,8 @@
 
 export type Intencion = "stock" | "precio" | "alertas" | "ninguna";
 
-const SIN_TILDES = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export const normalizar = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const SIN_TILDES = normalizar;
 
 export function detectar_intencion(texto: string): Intencion {
   const t = ` ${SIN_TILDES(texto)} `;
