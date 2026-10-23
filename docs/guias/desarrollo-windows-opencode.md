@@ -70,7 +70,7 @@ Copiá `.env.example` a `.env` y completalo vos; nunca subas ni pegues `.env` en
 
 1. `opencode` en la raíz del repo, `/connect`, elegí `opencode` (Zen) y pegá tu key.
 2. `opencode.json` ya fija el modelo `opencode/deepseek-v4.1-flash-free` y carga `AGENTS.md` y `.opencode/pstack-*.md`. Chequeá con `opencode debug config` y `opencode models opencode`.
-3. Skills del repo en `.agents/skills/` (`opencode debug skill`). Se invocan en el prompt: `/poteto-mode <tarea>`, `/tdd`, `/correct`, `/why`, `/interface-review`.
+3. Skills: las del proyecto en `.agents/skills/`; las de pstack vienen del plugin oficial (`cursor/plugins`, `pstack/skills`) instaladas en `~/.config/opencode/skills/` (ADR-0113). Chequeá con `opencode debug skill`. Se invocan en el prompt: `/poteto-mode <tarea>`, `/tdd`, `/correct`, `/why`, `/interface-review`.
 4. Sesiones headless: `.opencode/pstack-run.sh "prompt"`, que reintenta con otro modelo free si falla por cuota o timeout. Una sesión por vez (OpenCode usa SQLite; dos en paralelo dan "database is locked").
 5. Modelos: cada skill tiene su modelo free (ver "Modelo por skill" abajo); `big-pickle` es inestable (último respaldo); `space-bunny-free` y `muse-spark-1.3-contributor-free` ya no existen en Zen.
 

@@ -6,6 +6,7 @@ modulos: [caja]
 depende_de: [ADR-0084]
 reemplaza: []
 reemplazado_por: ""
+modificado_por: [ADR-0113]
 resumen: |
   Fuente: auditoria 2026-10-15 sobre opencode.json (agents poteto-agent, comment-sicko, pstack-worker,
   pstack-judge), .opencode/pstack-models.md (roles a agentes nombrados), .opencode/pstack-opencode.md y

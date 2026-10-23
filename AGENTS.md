@@ -47,6 +47,7 @@ Reglas cortas para agentes en este repo.
 
 ## OpenCode (modelos)
 
+- Skills (ADR-0113): pstack (`poteto-mode`, `principle-*`, `how`, `tdd`, …) viene del plugin oficial (`cursor/plugins`, `pstack/skills`), no del repo. `.agents/skills/` guarda solo skills del proyecto (`control-app`, `verify-*`, `prototype`, `state-machine`, diseño); no vuelvas a copiar skills pstack ahí. En OpenCode instalá pstack en `~/.config/opencode/skills/`.
 - Config en `opencode.json`: primario `opencode/deepseek-v4.1-flash-free`; agente `pstack-judge` usa `opencode/glm-5.3-flash-free` (cross-family), los primarios son modelos sin retención de datos (Zen); los que pueden entrenar solo quedan de último respaldo. Detalle y roles en `.opencode/pstack-models.md` / `.opencode/pstack-opencode.md`.
 - Modelo por skill (ADR-0109): `.opencode/modelos-por-skill.json` + `node .opencode/modelos.mjs elegir <skill>`. Si el asignado no está, cae al siguiente free, avisa por stderr y anota en `.opencode/modelos-caidos.log`; `pstack-run.sh` lo usa solo. Si cambiás un agente en `opencode.json`, cambiá su perfil en el JSON (lo chequea `tests/opencode-modelos.test.ts`).
 
