@@ -56,6 +56,51 @@ const FEATURES: ReadonlyArray<Feature> = [
   "asistente_ia",
 ];
 
+// MORA-14: módulos de pago se apagan tras 14 días de cobro rechazado (núcleo sigue).
+export const MORA_COBRO_DIAS = 14 as const;
+const MS_POR_DIA = 86_400_000;
+
+const FEATURES_MODULOS_PAGO: ReadonlySet<Feature> = new Set([
+  "alertas_email",
+  "bot_consulta",
+  "alertas_whatsapp",
+  "bot_rubro",
+  "asistente_ia",
+]);
+
+const preapprovalPorTenant = new Map<string, string>();
+const rechazoCobroPorTenant = new Map<string, string>();
+
+export function olvidarMoraCobroEnMemoria(): void {
+  preapprovalPorTenant.clear();
+  rechazoCobroPorTenant.clear();
+}
+
+export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: string): void {
+  preapprovalPorTenant.set(preapprovalId, tenantId);
+}
+
+export function registrarEstadoCobroMp(args: {
+  readonly preapprovalId: string;
+  readonly estado: "activo" | "gracia" | "suspendido";
+  readonly occurredAt?: string | undefined;
+}): void {
+  const tenantId = preapprovalPorTenant.get(args.preapprovalId);
+  if (!tenantId) return;
+  if (args.estado === "activo") {
+    rechazoCobroPorTenant.delete(tenantId);
+    return;
+  }
+  const cuando = args.occurredAt ?? new Date().toISOString();
+  if (!rechazoCobroPorTenant.has(tenantId)) rechazoCobroPorTenant.set(tenantId, cuando);
+}
+
+function modulosPagosEnMora(tenantId: string, ahoraMs: number): boolean {
+  const iso = rechazoCobroPorTenant.get(tenantId);
+  if (!iso) return false;
+  return ahoraMs - Date.parse(iso) >= MORA_COBRO_DIAS * MS_POR_DIA;
+}
+
 const RX_MES = /^\d{4}-\d{2}$/;
 
 function esPlanConocido(id: string): id is PlanId {
@@ -236,8 +281,16 @@ export async function planIncluye(tenantId: string, feature: Feature): Promise<I
   const catalogo = await leerCatalogo();
   const plan = catalogo.find((p) => p.id === activa.planId) ?? null;
   if (!plan) return { incluida: false, cupo: null, planId: activa.planId };
-  const incluida = plan.features[feature] === true;
-  return { incluida, cupo: incluida ? plan.cupos[feature] : null, planId: plan.id };
+  const incluidaPlan = plan.features[feature] === true;
+  if (!incluidaPlan) return { incluida: false, cupo: null, planId: plan.id };
+  if (
+    feature !== "nucleo" &&
+    FEATURES_MODULOS_PAGO.has(feature) &&
+    modulosPagosEnMora(tenantId, Date.now())
+  ) {
+    return { incluida: false, cupo: null, planId: plan.id };
+  }
+  return { incluida: true, cupo: plan.cupos[feature] ?? null, planId: plan.id };
 }
 
 export type ResultadoCupoConsultaBot =
@@ -453,12 +506,21 @@ export async function solicitarPreaprobacionPlan(args: {
   readonly fetchImpl?: typeof fetch | undefined;
 }): Promise<ResultadoPreaprobacionMp> {
   const catalogo = await leerCatalogo();
+<<<<<<< HEAD
+  const r = await crearPreaprobacionMercadoPago({
+=======
   return crearPreaprobacionMercadoPago({
+>>>>>>> origin/mauri/cobro-ejemplo
     tenantId: args.tenantId,
     planId: args.planId,
     catalogo,
     fetchImpl: args.fetchImpl,
   });
+<<<<<<< HEAD
+  if (r.ok) vincularPreaprobacionTenant(r.preapprovalId, args.tenantId);
+  return r;
+=======
+>>>>>>> origin/mauri/cobro-ejemplo
 }
 
 export interface UsoEntrada {
@@ -582,5 +644,6 @@ export async function leerUso(args: {
 export function olvidarPlanesEnMemoria(): void {
   crearAlmacenSuscripciones().mapaVivo().clear();
   crearAlmacenUsoPlanes().mapaVivo().clear();
+  olvidarMoraCobroEnMemoria();
   proximoMem = 1;
 }
