@@ -35,12 +35,13 @@ export const whatsappUsage = pgTable("whatsapp_usage", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// B2.1/B2.2: opt-in + preferencias. Canal fijo WhatsApp+email cuando la
-// notificación está activada (decisión dueña 9/10/2026); no se elige canal.
+// B2.1/B2.2: opt-in + preferencias. El encargado elige canal (WhatsApp,
+// email o ambos); el opt-in de WhatsApp sigue siendo aparte (ALTA/BAJA).
 export const notificationPreferences = pgTable("notification_preferences", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id"),
   googleSub: text("google_sub").notNull(),
+  canal: text("canal").notNull().default("email"),
   optIn: boolean("opt_in").notNull().default(false),
   optInAt: timestamp("opt_in_at"),
   optInTexto: text("opt_in_texto"),
@@ -52,6 +53,18 @@ export const notificationPreferences = pgTable("notification_preferences", {
   pausadoHasta: timestamp("pausado_hasta"),
   zonaHoraria: text("zona_horaria").notNull().default("America/Argentina"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const botTurnos = pgTable("bot_turnos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  wamid: text("wamid").notNull().unique(),
+  numeroE164: text("numero_e164").notNull(),
+  googleSub: text("google_sub").notNull(),
+  pregunta: text("pregunta").notNull(),
+  respuesta: text("respuesta").notNull(),
+  fuente: text("fuente").notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
 });
 
 // Estado de conversación corto por usuario (Flujos 2-4): paso actual,
