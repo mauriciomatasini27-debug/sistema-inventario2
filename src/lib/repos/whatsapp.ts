@@ -1,5 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
+import { notificationEvents, type AlertaStockPayload } from "../../db/schema-email.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
 import { suppliers } from "../../db/schema-proveedores.js";
 import { whatsappSessions } from "../../db/schema-whatsapp.js";
@@ -17,6 +18,7 @@ import {
   crearConjuntoWaEnviados,
   crearListaMovimientosStock,
 } from "./_almacen.js";
+import { clave_alerta_stock } from "../../modules/alertas/stock-bajo.js";
 import { catalogo_vivo } from "../../modules/whatsapp/catalogo.js";
 import { crear_item_viernes, type ListaViernes } from "../../modules/whatsapp/lista-viernes.js";
 import type { MovimientoVista, PedidoDia } from "../../modules/whatsapp/dia-a-dia.js";
@@ -326,6 +328,106 @@ export function marcarWaEnviado(clave: string, tenantId?: string): void {
   conParticion(tenantId, () => {
     crearConjuntoWaEnviados().agregar(clave);
   });
+}
+
+// ALR-S2: alertas de stock ya enviadas. La clave completa ya particiona por
+// tenant+fecha+sku, así que un solo mapa alcanza para todos los comercios.
+const alertasStockMemoria = new Map<string, AlertaStockPayload>();
+
+export function limpiarAlertasStockMemoria(): void {
+  alertasStockMemoria.clear();
+}
+
+function skuDesdeClaveAlerta(clave: string, prefijo: string, sufijo: string): string | null {
+  if (!clave.startsWith(prefijo) || !clave.endsWith(sufijo)) return null;
+  const sku = clave.slice(prefijo.length, clave.length - sufijo.length);
+  return sku.length > 0 ? sku : null;
+}
+
+// SKUs ya alertados hoy: memoria primero y notification_events cuando hay DB.
+// Un fallo de base no corta el job, solo deja la memoria como fuente.
+export async function alertasPreviasDelDia(tenantId: string, fecha: string): Promise<Set<string>> {
+  const prefijo = `alerta_stock:${tenantId}:`;
+  const sufijo = `:${fecha}`;
+  const out = new Set<string>();
+  for (const [clave, p] of alertasStockMemoria) {
+    if (clave.startsWith(prefijo) && clave.endsWith(sufijo)) out.add(p.sku);
+  }
+  let db: TenantDb | null = null;
+  try {
+    db = dbVivaTenant(tenantId);
+  } catch (e) {
+    console.warn("[whatsapp] alertas previas sin DB, uso memoria", e);
+  }
+  if (!db) return out;
+  try {
+    const filas = await db
+      .select({ dedupeKey: notificationEvents.dedupeKey, refId: notificationEvents.refId })
+      .from(notificationEvents)
+      .where(
+        and(
+          eq(notificationEvents.tipo, "alerta_stock"),
+          like(notificationEvents.dedupeKey, `${prefijo}%`),
+          like(notificationEvents.dedupeKey, `%${sufijo}`),
+        ),
+      );
+    for (const f of filas) {
+      const sku = f.refId ?? skuDesdeClaveAlerta(f.dedupeKey, prefijo, sufijo);
+      if (sku) out.add(sku);
+    }
+  } catch (e) {
+    console.warn("[whatsapp] alertas previas: fallo de DB, uso memoria", e);
+  }
+  return out;
+}
+
+// Escribe memoria primero y best-effort en notification_events (dedupeKey
+// único). Un fallo de DB no lanza: el job sigue con la memoria del proceso.
+export async function registrarAlertasStock(
+  tenantId: string,
+  fecha: string,
+  alertas: ReadonlyArray<Omit<AlertaStockPayload, "fecha">>,
+): Promise<void> {
+  if (alertas.length === 0) return;
+  const payloads: AlertaStockPayload[] = alertas.map((a) => ({
+    sku: a.sku,
+    nombre: a.nombre,
+    stock: a.stock,
+    umbral: a.umbral,
+    urgente: a.urgente,
+    fecha,
+  }));
+  for (const p of payloads) alertasStockMemoria.set(clave_alerta_stock(tenantId, p.sku, fecha), p);
+  let db: TenantDb | null = null;
+  try {
+    db = dbVivaTenant(tenantId);
+  } catch (e) {
+    console.warn("[whatsapp] registrar alertas stock sin DB, queda en memoria", e);
+    return;
+  }
+  if (!db) return;
+  try {
+    const tenantUuid = esUuid(tenantId) ? tenantId : null;
+    await db
+      .insert(notificationEvents)
+      .values(payloads.map((p) => ({
+        tenantId: tenantUuid,
+        tipo: "alerta_stock",
+        version: 1,
+        refTipo: "producto",
+        refId: p.sku,
+        payload: p,
+        dedupeKey: clave_alerta_stock(tenantId, p.sku, fecha),
+        estado: "enviado",
+      })))
+      .onConflictDoNothing({ target: notificationEvents.dedupeKey });
+  } catch (e) {
+    console.warn("[whatsapp] registrar alertas stock: fallo de DB, queda en memoria", e);
+  }
+}
+
+function esUuid(v: unknown): v is string {
+  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
 function ventasSemanalesEnMemoria(): { ventas: VentaSemana[]; faltantes: FaltanteSemana[] } {
