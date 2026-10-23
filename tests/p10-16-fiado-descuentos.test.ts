@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
-import { resetStore } from "../src/lib/store.js";
+import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { cashMovements, sales, ticketLines } from "../src/db/schema.js";
@@ -13,6 +13,7 @@ import { POST as POSTIngreso } from "../src/pages/api/stock/ingreso.js";
 import { GET as getDescription } from "../src/pages/api/tickets.js";
 import { GET as GETBalance } from "../src/pages/api/credit/balance.js";
 import { cobroFiado } from "../src/lib/repos/fiado.js";
+import { costoUnitarioPorSku } from "../src/modules/inventario/inventario.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 function req(key: string, body: unknown) {
@@ -36,6 +37,18 @@ function cuerpoCliente(cliente: string, sku = "demo-sku-1") {
     saldo_actual_centavos: 0,
   };
 }
+
+describe("P10-16 costo unitario por SKU", () => {
+  it("pondera por cantidad disponible e ignora SKUs sin stock", () => {
+    const costos = costoUnitarioPorSku([
+      { sku: "A", cantidad: 1, costoCentavos: 1000n },
+      { sku: "A", cantidad: 3, costoCentavos: 2000n },
+      { sku: "B", cantidad: 0, costoCentavos: 9999n },
+    ]);
+    expect(costos.get("A")).toBe(1750n);
+    expect(costos.has("B")).toBe(false);
+  });
+});
 
 describe("P10-16 memoria: venta a cuenta deja snapshot de descuentos consultable", () => {
   beforeEach(() => {
@@ -70,6 +83,32 @@ describe("P10-16 memoria: venta a cuenta deja snapshot de descuentos consultable
 
     const b = (await GETBalance(ctx("http://x/api/credit/balance?customer_id=cli-16"))) as Response;
     expect(((await b.json()) as Record<string, unknown>)["saldo_centavos"]).toBe("30000");
+  });
+
+  it("congela el costo del lote en la línea de la venta a cuenta", async () => {
+    const alta = (await POSTProducto(
+      ctx("http://x/api/products", { body: { sku: "COSTO-MEM", nombre: "Costo", precio_centavos: 10000 } }),
+    )) as Response;
+    expect([200, 201]).toContain(alta.status);
+    const ingreso = (await POSTIngreso(
+      ctx("http://x/api/stock/ingreso", { body: { sku: "COSTO-MEM", cantidad: 5, costo_centavos: 4000 } }),
+    )) as Response;
+    expect(ingreso.status).toBe(201);
+
+    const r = (await POSTSale(
+      req(`p10-16-costo-${Date.now()}`, {
+        customer_id: "cli-costo",
+        lineas: [{ product_id: "COSTO-MEM", qty: 2, precio_centavos: 10000 }],
+        device_code: "caja-01",
+        seq_local: 1,
+        tope_centavos: 100000,
+        saldo_actual_centavos: 0,
+      }),
+    )) as Response;
+    expect(r.status).toBe(201);
+
+    const lineas = store.ticketLineas.filter((l) => l.product_id === "COSTO-MEM");
+    expect(lineas.map((l) => l.costo_centavos)).toEqual(["4000"]);
   });
 });
 
@@ -129,6 +168,7 @@ describe.skipIf(!(URL_A && URL_B))("P10-16 PG vivo: venta a cuenta y cobro aisla
 
     const lineas = await dbA.select().from(ticketLines).where(eq(ticketLines.saleId, saleId));
     expect(lineas).toHaveLength(2);
+    expect(lineas.map((l) => l.costoCentavos)).toEqual([4000n, 4000n]);
 
     const snaps = await dbA
       .select()

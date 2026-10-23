@@ -5,6 +5,8 @@ export interface LineaTicketMemoria {
   product_id: string;
   qty: number;
   precio_centavos: string;
+  // P10-16 GP4: costo congelado del producto al momento de la venta.
+  costo_centavos?: string;
 }
 
 export interface DescuentoTicketMemoria {

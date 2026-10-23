@@ -13,6 +13,7 @@ import {
 } from "../../db/schema.js";
 import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { store, type StoredTicket } from "../../lib/store.js";
+import { costosVigentesMemoria, costosVigentesPorSku } from "../../lib/repos/lotes.js";
 import type { Medio } from "../../lib/validation.js";
 import { lotesDesdeStock, type Sku } from "../inventario/inventario.js";
 import {
@@ -138,6 +139,7 @@ function espejoMemoria(
   e: EfectoVenta,
   pagosConId: PagoConId[],
   esDividido: boolean,
+  costos: ReadonlyMap<string, bigint>,
 ): void {
   store.idempotency.set(key, {
     sale_id: saleId,
@@ -167,11 +169,13 @@ function espejoMemoria(
   for (const l of e.lineasConDescuento) {
     const linea = i.lineas[l.idx];
     if (!linea) continue;
+    const costo = costos.get(l.sku) ?? 0n;
     store.ticketLineas.push({
       sale_id: saleId,
       product_id: linea.product_id,
       qty: l.cantidad,
       precio_centavos: String(linea.precio_centavos),
+      costo_centavos: costo.toString(),
     });
     store.ticketDescuentos.push({
       sale_id: saleId,
@@ -242,6 +246,8 @@ function espejarAltaMemoria(lineas: ReadonlyArray<LineaVentaInput>): void {
 
 function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
   const skusSinStockInicial = skusSinStockInicialMemoria(i.lineas);
+  const lotes = lotesDesdeStock(store.stock);
+  const costos = costosVigentesMemoria();
   const r = vender_mostrador({
     idempotencyKey: i.key,
     lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
@@ -249,7 +255,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
     deviceCode: i.deviceCode,
     seqLocal: i.seqLocal,
     offline: i.offline,
-    lotes: lotesDesdeStock(store.stock),
+    lotes,
     vistos: new Map([...store.idempotency.entries()].map(([k, v]) => [k, aEmitido(v)] as const)),
     ultimoDefinitivo: store.nextTicket > 1 ? { n: store.nextTicket - 1 } : null,
     grant: { rol: "dueno" },
@@ -270,7 +276,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   const esDividido = Boolean(i.pagos);
   const pagosConId = pagosEfectivos.map((p) => ({ ...p, cashMovementId: crypto.randomUUID() }));
   espejarAltaMemoria(i.lineas);
-  espejoMemoria(i.key, saleId, i, e, pagosConId, esDividido);
+  espejoMemoria(i.key, saleId, i, e, pagosConId, esDividido, costos);
   return { ok: true, venta: { saleId, efecto: e, pagosConId, fuente: "memoria" } };
 }
 
@@ -285,6 +291,13 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
     return viaMemoria(i);
+  }
+
+  let costos: ReadonlyMap<string, bigint>;
+  try {
+    costos = await costosVigentesPorSku();
+  } catch {
+    costos = costosVigentesMemoria();
   }
 
   try {
@@ -328,6 +341,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       const prods = await tx.select({ id: products.id, sku: products.sku, stockActual: products.stockActual }).from(products);
       const niveles = new Map(prods.map((p) => [p.sku, p.stockActual] as const));
       const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
+      const lotes = lotesDesdeStock(niveles);
       const r = vender_mostrador({
         idempotencyKey: i.key,
         lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
@@ -335,7 +349,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         deviceCode: i.deviceCode,
         seqLocal: i.seqLocal,
         offline: i.offline,
-        lotes: lotesDesdeStock(niveles),
+        lotes,
         vistos: new Map<string, TicketEmitido>(),
         ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
         grant: { rol: "dueno" },
@@ -372,16 +386,19 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         definitivo: e.ticket.definitivo,
         provisorio: e.ticket.provisorio,
       });
+      // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
       const lineasDb = e.lineasConDescuento.flatMap((l) => {
         const linea = i.lineas[l.idx];
         if (!linea) return [];
         const productId = esUuid(linea.product_id) ? linea.product_id : idPorSku.get(linea.product_id);
         if (!productId) return [];
+        const costo = costos.get(l.sku) ?? 0n;
         return [{
           saleId,
           productId,
           qty: l.cantidad,
           precioCentavos: BigInt(linea.precio_centavos),
+          costoCentavos: costo,
         }];
       });
       if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
@@ -442,7 +459,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       }
       return { ok: true as const, saleId, efecto: e, pagosConId, esDividido };
     });
-    espejoMemoria(i.key, salida.saleId, i, salida.efecto, salida.pagosConId, salida.esDividido);
+    espejoMemoria(i.key, salida.saleId, i, salida.efecto, salida.pagosConId, salida.esDividido, costos);
     return { ok: true, venta: { saleId: salida.saleId, efecto: salida.efecto, pagosConId: salida.pagosConId, fuente: "db" } };
   } catch (e) {
     if (e instanceof VentaRechazada) return e.fallo;
