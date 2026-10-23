@@ -13,6 +13,7 @@ import {
 import { ejecutar_aviso_matutino_wa } from "../../../jobs/whatsapp-aviso-matutino.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
+import { PLANTILLA_ALERTA_STOCK_BAJO } from "../../../modules/whatsapp/envio.js";
 
 export const prerender = false;
 
@@ -51,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
       enviar: (tenantId, payload) => {
         const dest = porTenant.get(tenantId);
         if (!dest || !hayCred) return { ok: false, error: dest ? "sin_credenciales" : "sin_destino" };
-        void enviar_texto_wa(dest.numero, payload.texto);
+        void enviar_texto_wa(dest.numero, payload.texto, { nombrePlantilla: PLANTILLA_ALERTA_STOCK_BAJO });
         return { ok: true };
       },
       // Solo lo enviado bloquea la corrida del día: omitidos y fallos se

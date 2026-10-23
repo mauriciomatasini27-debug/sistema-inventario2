@@ -3,7 +3,7 @@ import { control } from "../../../lib/store.js";
 import { ejecutar_job_lunes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { comercios_con_bot, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
-import type { SnapshotLunes, TiendaLunes } from "../../../modules/whatsapp/resumen-semanal.js";
+import { PLANTILLA_RESUMEN_SEMANAL, type SnapshotLunes, type TiendaLunes } from "../../../modules/whatsapp/resumen-semanal.js";
 
 export const prerender = false;
 
@@ -23,7 +23,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const ahoraMs = Date.now();
   const hoy = fechaAR(new Date(ahoraMs));
-  const sender: Enviador = async ({ destino, texto }) => enviar_texto_wa(destino, texto);
+  const sender: Enviador = async ({ destino, texto }) =>
+    enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_RESUMEN_SEMANAL });
   const porTenant = new Map(comercios_con_bot().map((c) => [c.tenantId, c]));
   const resultados = [];
   for (const snapshot of tiendaLunes.values()) {

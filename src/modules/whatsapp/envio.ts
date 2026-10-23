@@ -87,3 +87,17 @@ export type ModoEnvio = "libre" | "requiere_plantilla";
 export function decidir_modo(dentroVentana24h: boolean): ModoEnvio {
   return dentroVentana24h ? "libre" : "requiere_plantilla";
 }
+
+export const VENTANA_ATENCION_MS = 86_400_000;
+
+export const PLANTILLA_ALERTA_STOCK_BAJO = "alerta_stock_bajo" as const;
+
+// WA-VENTANA: fuera de ventana 24h Meta solo acepta plantilla con id aprobado;
+// sin id el adaptador no debe llamar a Cloud API (PRD 6.4).
+export function puede_disparar_envio(opts: {
+  readonly dentroVentana24h: boolean;
+  readonly idPlantillaAprobada?: string | null | undefined;
+}): boolean {
+  if (decidir_modo(opts.dentroVentana24h) === "libre") return true;
+  return ((opts.idPlantillaAprobada ?? "").trim().length > 0);
+}

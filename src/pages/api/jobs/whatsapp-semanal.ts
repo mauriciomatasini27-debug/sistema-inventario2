@@ -5,6 +5,7 @@ import { esModoMulti } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
+import { PLANTILLA_RESUMEN_SEMANAL } from "../../../modules/whatsapp/resumen-semanal.js";
 import { encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
@@ -43,7 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
     const calculo = await calculoSemanalVivo();
     const baseWeb = process.env.PUBLIC_APP_URL ?? "https://app.local";
     const sender: Enviador = async ({ canal, destino, texto, idempotencyKey }) => {
-      if (canal === "wa") return enviar_texto_wa(destino, texto);
+      if (canal === "wa") return enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_RESUMEN_SEMANAL });
       return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
     };
     const uno = obtenerComercioBot(tenantId);
