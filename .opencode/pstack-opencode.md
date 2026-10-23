@@ -5,8 +5,8 @@ pstack skills were written for Cursor. Desde ADR-0113 el repo no trae copia de p
 ## Modelos
 
 - Modelo por skill y agente: `.opencode/modelos-por-skill.json` (perfiles `codigo`, `razon`, `juez`, `prosa`, `rapido`, `largo`, ADR-0109). `node .opencode/modelos.mjs elegir <skill>` da el primero disponible; si cae, avisa y anota en `.opencode/modelos-caidos.log`. `space-bunny-free` (2026-10-20) y `muse-spark-1.3-contributor-free` (2026-10-17) ya no existen en Zen.
-- Los roles son subagentes en `opencode.json` `agent` (`pstack-worker`, `pstack-judge`, `poteto-agent`, `comment-sicko`), cada uno con su `model`; la tabla rol→agente vive en `.opencode/pstack-models.md`.
-- `pstack-worker`/`poteto-agent` usan deepseek-v4.1-flash-free; `pstack-judge` usa glm-5.3-flash-free (otra familia = cross-family judging); `comment-sicko` usa deepseek. Privacidad: el primero de cada perfil es sin retención (glm, deepseek, minimax, longcat); beam retiene 30 días; mimo, big-pickle y nemotron pueden entrenar y quedan de último respaldo. big-pickle queda último respaldo por inestable.
+- Los roles son subagentes en `opencode.json` `agent` (`pstack-worker`, `pstack-judge`; `poteto-agent` y `comment-sicko` se quitaron, ADR-0113), cada uno con su `model`; la tabla rol→agente vive en `.opencode/pstack-models.md`.
+- `pstack-worker` usa deepseek-v4.1-flash-free; `pstack-judge` usa glm-5.3-flash-free (otra familia = cross-family judging). Privacidad: el primero de cada perfil es sin retención (glm, deepseek, minimax, longcat); beam retiene 30 días; mimo, big-pickle y nemotron pueden entrenar y quedan de último respaldo. big-pickle queda último respaldo por inestable.
 - Cada modelo tiene `limit.context = 250000` y `compaction.auto` on: partí tareas grandes por área. `.opencode/pstack-run.sh` reintenta una sesión fallida, trabada (`PSTACK_SESSION_TIMEOUT`, default 700 s) o con cuota con el siguiente modelo del perfil de la skill (marca el caído por 10 min para no gastar reintentos); reinicia `opencode serve` si le falta el token de GitHub.
 
 ## Tools
