@@ -10,7 +10,12 @@ import {
   type PlanEjemplo,
   type PlanId,
 } from "../../modules/planes/catalogo.js";
-import type { ProveedorCobro, Suscripcion } from "../../modules/planes/proveedor.js";
+import {
+  crearPreaprobacionMercadoPago,
+  type ProveedorCobro,
+  type ResultadoPreaprobacionMp,
+  type Suscripcion,
+} from "../../modules/planes/proveedor.js";
 import { planVigenteDe } from "../../modules/planes/ciclo.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -439,6 +444,21 @@ export class ProveedorCobroDb implements ProveedorCobro {
 export function crearProveedorCobro(): ProveedorCobro {
   dbVivaTenant();
   return new ProveedorCobroDb();
+}
+
+// COBRO-EJEMPLO: punto único para alta de preaprobación MP respetando ejemplo.
+export async function solicitarPreaprobacionPlan(args: {
+  readonly tenantId: string;
+  readonly planId: PlanId;
+  readonly fetchImpl?: typeof fetch | undefined;
+}): Promise<ResultadoPreaprobacionMp> {
+  const catalogo = await leerCatalogo();
+  return crearPreaprobacionMercadoPago({
+    tenantId: args.tenantId,
+    planId: args.planId,
+    catalogo,
+    fetchImpl: args.fetchImpl,
+  });
 }
 
 export interface UsoEntrada {

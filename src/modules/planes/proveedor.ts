@@ -5,7 +5,49 @@
 // quedan pendientes de decisión; este fake en memoria sostiene los tests y
 // el cableado hasta que exista la migración de subscriptions.
 
-import type { PlanId } from "./catalogo.js";
+import { planDe, type Catalogo, type PlanId } from "./catalogo.js";
+
+const MP_PREAPPROVAL_URL = "https://api.mercadopago.com/preapproval";
+
+export type ResultadoPreaprobacionMp =
+  | { readonly ok: true; readonly modo: "simulado"; readonly preapprovalId: string }
+  | { readonly ok: true; readonly modo: "mercadopago"; readonly preapprovalId: string }
+  | { readonly ok: false; readonly motivo: "sin_credenciales" | "red" | "http" };
+
+// COBRO-EJEMPLO: con catálogo/plan en modo ejemplo no se llama a Mercado Pago.
+export async function crearPreaprobacionMercadoPago(args: {
+  readonly tenantId: string;
+  readonly planId: PlanId;
+  readonly catalogo: Catalogo;
+  readonly accessToken?: string | undefined;
+  readonly fetchImpl?: typeof fetch | undefined;
+}): Promise<ResultadoPreaprobacionMp> {
+  if (!args.tenantId) throw new Error("tenantId requerido");
+  const plan = planDe(args.catalogo, args.planId);
+  if (plan.ejemplo) {
+    return {
+      ok: true,
+      modo: "simulado",
+      preapprovalId: `sim-${args.tenantId.slice(0, 8)}-${args.planId}`,
+    };
+  }
+  const token = args.accessToken ?? process.env.MP_ACCESS_TOKEN ?? "";
+  if (!token) return { ok: false, motivo: "sin_credenciales" };
+  const fetchFn = args.fetchImpl ?? fetch;
+  try {
+    const res = await fetchFn(MP_PREAPPROVAL_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ reason: `plan ${args.planId}`, external_reference: args.tenantId }),
+    });
+    if (!res.ok) return { ok: false, motivo: "http" };
+    const data = (await res.json()) as { id?: string };
+    if (!data.id) return { ok: false, motivo: "http" };
+    return { ok: true, modo: "mercadopago", preapprovalId: data.id };
+  } catch {
+    return { ok: false, motivo: "red" };
+  }
+}
 
 export type EstadoSuscripcion = "activa" | "cancelada";
 
