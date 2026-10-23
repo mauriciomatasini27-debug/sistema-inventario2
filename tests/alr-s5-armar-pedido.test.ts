@@ -154,12 +154,14 @@ describe("ALR-S5 armar pedido desde historial", () => {
         vistos: new Map(),
       });
       expect(base.status).toBe(201);
+      if (base.status !== 201) throw new Error("crearOrden debía devolver 201");
       const cerrada = cerrarOrden(
         { ...base.orden, esSemanal: true, origen: "web" },
         SUB,
         "2026-10-22T13:00:00.000Z",
       );
       expect(cerrada.ok).toBe(true);
+      if (!cerrada.ok) throw new Error("cerrarOrden debía cerrar la orden");
       store.orderVistos.set(clave, cerrada.orden);
       store.purchaseOrders.set(cerrada.orden.id, cerrada.orden);
     });

@@ -42,7 +42,9 @@ export type ResultadoArmarPedido =
       readonly error: string;
     };
 
-const ERRORES: Record<ResultadoArmarPedido extends { ok: false; codigo: infer C } ? C : never, string> = {
+type CodigoError = "FECHA_INVALIDA" | "SKU_INVALIDO" | CodigoDecision;
+
+const ERRORES: Record<CodigoError, string> = {
   FECHA_INVALIDA: "Fecha inválida.",
   SKU_INVALIDO: "SKU inválido.",
   ALERTA_INEXISTENTE: "No encontramos esa alerta.",
@@ -113,8 +115,7 @@ async function incorporarLinea(plan: PlanLinea): Promise<
     if (!reusado) espejarOrden(ordenDesdeEfecto(efecto));
     return { ok: true, reusado, orden: ordenDesdeEfecto(efecto) };
   }
-  let efecto: EfectoLinea = { tipo: "rechazar", codigo: "NO_VALIDA" };
-  await db.transaction(async (tx) => {
+  const efecto = await db.transaction(async (tx): Promise<EfectoLinea> => {
     const heads = await tx
       .select()
       .from(purchaseOrders)
@@ -131,8 +132,8 @@ async function incorporarLinea(plan: PlanLinea): Promise<
       const orden = ordenDeFilas(head, lineas);
       visto = orden.estado === "abierta" ? { estado: "abierta", orden: asOrdenBorrador(orden) } : { estado: "cerrada" };
     }
-    efecto = asegurarLinea(plan, visto, vistosMap);
-    if (efecto.tipo === "rechazar" || efecto.tipo === "ya_estaba") return;
+    const efecto = asegurarLinea(plan, visto, vistosMap);
+    if (efecto.tipo === "rechazar" || efecto.tipo === "ya_estaba") return efecto;
     if (efecto.tipo === "crear") {
       const ins = await tx
         .insert(purchaseOrders)
@@ -155,7 +156,7 @@ async function incorporarLinea(plan: PlanLinea): Promise<
           costoCentavos: plan.linea.costoCentavos,
         });
       }
-      return;
+      return efecto;
     }
     if (efecto.tipo === "agregar" && head) {
       await tx.insert(purchaseOrderLines).values({
@@ -169,6 +170,7 @@ async function incorporarLinea(plan: PlanLinea): Promise<
         .set({ totalCentavos: efecto.orden.totalCentavos })
         .where(eq(purchaseOrders.id, head.id));
     }
+    return efecto;
   });
   if (efecto.tipo === "rechazar") return { ok: false, codigo: efecto.codigo };
   const reusado = efecto.tipo === "ya_estaba";
