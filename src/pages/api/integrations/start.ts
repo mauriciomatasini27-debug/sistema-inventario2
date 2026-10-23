@@ -21,23 +21,52 @@ const bodySchema = z.object({
 
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 
-// POST /api/integrations/start — solo Dueño y con consentimiento versionado.
-// Devuelve un 303 a Google y deja en una cookie HttpOnly el state firmado.
+function esFormulario(request: Request): boolean {
+  const tipo = request.headers.get("content-type") ?? "";
+  return tipo.includes("application/x-www-form-urlencoded") || tipo.includes("multipart/form-data");
+}
+
+function responderError(request: Request, payload: Record<string, unknown>, status: number): Response {
+  if (!esFormulario(request)) return Response.json(payload, { status });
+  const codigo = String(payload.error ?? "error");
+  const texto =
+    codigo === "consentimiento_invalido"
+      ? "El consentimiento no es la versión vigente."
+      : codigo === "integracion_no_configurada"
+        ? "Gmail no está configurado en este servidor."
+        : "No se pudo iniciar la conexión.";
+  const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Gmail</title><p>${texto}</p><p><a href="/panel/integraciones">Volver</a></p></html>`;
+  return new Response(html, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+async function leerBody(request: Request): Promise<unknown> {
+  if (!esFormulario(request)) return request.json();
+  const form = await request.formData();
+  return {
+    tipo: form.get("tipo"),
+    consentimiento_version: form.get("consentimiento_version"),
+  };
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = await leerBody(request);
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json(
+    return responderError(
+      request,
       { error: "consentimiento_invalido", version: CONSENTIMIENTO_GOOGLE_VERSION },
-      { status: 422 },
+      422,
     );
   }
 
@@ -45,7 +74,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     config = leerConfigIntegracionGmail();
   } catch {
-    return Response.json({ error: "integracion_no_configurada" }, { status: 503 });
+    return responderError(request, { error: "integracion_no_configurada" }, 503);
   }
 
   const pkce = generarPKCE();
@@ -63,7 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
       exp: Date.now() + DIEZ_MINUTOS_MS,
     });
   } catch {
-    return Response.json({ error: "integracion_no_configurada" }, { status: 503 });
+    return responderError(request, { error: "integracion_no_configurada" }, 503);
   }
 
   const location = construirUrlAutorizacionGmail({
