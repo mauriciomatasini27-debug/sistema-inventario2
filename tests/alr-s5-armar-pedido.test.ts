@@ -208,7 +208,7 @@ describe("ALR-S5 armar pedido desde historial", () => {
       creadoEn: "2026-10-22T12:00:00.000Z",
       cerradoEn: null,
       esSemanal: true,
-      origen: "web",
+      origen: "web" as const,
     };
     const r = asegurarLinea(plan, { estado: "abierta", orden: abierta }, new Map<string, PurchaseOrder>());
     expect(r.tipo).toBe("ya_estaba");
