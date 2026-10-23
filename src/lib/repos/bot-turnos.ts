@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, lt, or } from "drizzle-orm";
 import { botTurnos } from "../../db/schema-whatsapp.js";
 import {
   alcanceHistorial,
@@ -13,8 +13,6 @@ import {
   type PaginaHistorial,
 } from "../../modules/bot/historial.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-
-export type { PaginaHistorial };
 
 export interface TurnoBot {
   readonly tenantId: string;
@@ -64,7 +62,7 @@ export async function listarHistorial(consulta: ConsultaHistorial): Promise<Pagi
   const alcance = alcanceHistorial(consulta);
   const condiciones = [eq(botTurnos.tenantId, consulta.tenantId)];
   if (alcance.tipo === "uno") condiciones.push(eq(botTurnos.googleSub, alcance.googleSub));
-  if (consulta.desdeMs != null) condiciones.push(gt(botTurnos.creadoEn, new Date(consulta.desdeMs)));
+  if (consulta.desdeMs != null) condiciones.push(gte(botTurnos.creadoEn, new Date(consulta.desdeMs)));
   if (consulta.hastaMsExcl != null) condiciones.push(lt(botTurnos.creadoEn, new Date(consulta.hastaMsExcl)));
   if (consulta.cursor) {
     const { t, id } = parseCursorInterno(consulta.cursor);

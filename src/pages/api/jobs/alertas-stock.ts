@@ -17,10 +17,9 @@ export const prerender = false;
 // POST /api/jobs/alertas-stock — alertas de stock bajo ALR-S2 (ADR-0043).
 // Solo con X-Job-Secret vía correrJob. ?modo=matutino|quiebre (defecto
 // matutino), ?fecha=AAAA-MM-DD (defecto hoy AR), ?hora=HH:MM para quiebre.
-// Matutino avisa todo bajo mínimo; quiebre solo saldo 0 de 10:00 a 20:00.
-// Idempotente por tenant+producto+día, clave registrada antes de enviar
-// (AT2); solo lee stock, nunca lo modifica (AT1). El Dueño siempre entra
-// (email si no hay opt-in WA); WA exige opt-in y pausa al día.
+// Matutino avisa bajo mínimo a quien tiene esa hora; quiebre solo saldo 0 de 10:00 a 20:00.
+// El envío no se repite por persona, producto y día. Solo lee stock (AT1).
+// El Dueño entra si no está pausado y la hora del tick coincide. WhatsApp exige opt-in.
 // Canales por interfaz inyectable: sin credenciales WA el envío queda como
 // fallo sin red real; el email queda registrado sin proveedor externo.
 // pg_cron no se configura acá: el cron vive fuera y pega a este endpoint.

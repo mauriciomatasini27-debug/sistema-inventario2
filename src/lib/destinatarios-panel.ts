@@ -1,3 +1,9 @@
+import { fechaAR, horaMinutoAR } from "./fecha-ar.js";
+
+export function valorPausaAR(ms: number): string {
+  return `${fechaAR(ms)}T${horaMinutoAR(ms)}`;
+}
+
 export function horasMatutinas(): readonly string[] {
   const out: string[] = [];
   for (let h = 6; h < 11; h++) {

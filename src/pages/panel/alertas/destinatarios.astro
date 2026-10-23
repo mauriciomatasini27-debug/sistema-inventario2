@@ -22,7 +22,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
 
 <script>
   import { toast } from "sonner";
-  import { horaVisible, horasMatutinas } from "../../../lib/destinatarios-panel.js";
+  import { horaVisible, horasMatutinas, valorPausaAR } from "../../../lib/destinatarios-panel.js";
 
   interface FilaDest {
     rol: "dueno" | "encargado";
@@ -68,7 +68,13 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
       const bloque = document.createElement("div");
       bloque.className = "dest-fila";
       const tit = document.createElement("p");
-      tit.innerHTML = `<span class="dest-nombre">${f.nombre}</span><span class="dest-rol">${f.rol === "dueno" ? "Dueño" : "Encargado"}</span>`;
+      const nom = document.createElement("span");
+      nom.className = "dest-nombre";
+      nom.textContent = f.nombre;
+      const rol = document.createElement("span");
+      rol.className = "dest-rol";
+      rol.textContent = f.rol === "dueno" ? "Dueño" : "Encargado";
+      tit.append(nom, rol);
       bloque.appendChild(tit);
       if (f.fijo) {
         const p = document.createElement("p");
@@ -104,7 +110,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
         pausa.textContent = "Pausa hasta ";
         const inpPausa = document.createElement("input");
         inpPausa.type = "datetime-local";
-        if (f.pausadoHastaMs) inpPausa.value = new Date(f.pausadoHastaMs).toISOString().slice(0, 16);
+        if (f.pausadoHastaMs) inpPausa.value = valorPausaAR(f.pausadoHastaMs);
         pausa.appendChild(inpPausa);
         const btn = document.createElement("button");
         btn.type = "button";

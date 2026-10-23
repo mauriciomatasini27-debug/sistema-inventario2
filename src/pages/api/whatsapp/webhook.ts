@@ -973,7 +973,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (cmd.kind === "pausa") {
     const prefs = await prefsDe(r.tenantId, r.googleSub);
-    const pausadoHastaMs = ahoraMs + cmd.dias * 86_400_000;
+    const pausadoHastaMs = msg.timestampMs + cmd.dias * 86_400_000;
     void guardarEleccion({
       tenantId: r.tenantId,
       googleSub: r.googleSub,
