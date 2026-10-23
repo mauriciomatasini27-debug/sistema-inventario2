@@ -15,21 +15,6 @@
     ".opencode/pstack-models.md"
   ],
   "agent": {
-    "poteto-agent": {
-      "mode": "subagent",
-      "model": "opencode/deepseek-v4.1-flash-free",
-      "description": "Routing target for /poteto-mode. Reads the poteto-mode SKILL.md in full before work.",
-      "prompt": "{file:./.opencode/poteto-agent.prompt.md}"
-    },
-    "comment-sicko": {
-      "mode": "subagent",
-      "model": "opencode/deepseek-v4.1-flash-free",
-      "description": "Comment-hater reviewer used by the no-comments skill. Flags comments, never writes application code.",
-      "prompt": "{file:./.opencode/comment-sicko.prompt.md}",
-      "permission": {
-        "edit": "deny"
-      }
-    },
     "pstack-worker": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4.1-flash-free",

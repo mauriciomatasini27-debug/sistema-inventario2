@@ -15,10 +15,12 @@ const MAIN_SUITE = "Pstack con agentes nombrados (PRD-PS-01, ADR-0085)";
 const MAIN_FILTER = "Pstack con agentes nombrados";
 const SHEET_POINTER = ".opencode/pstack-models.md";
 const RUNNER = ".opencode/pstack-run.sh";
-const AGENTS = ["pstack-worker", "pstack-judge", "poteto-agent", "comment-sicko"];
+const AGENTS = ["pstack-worker", "pstack-judge"];
+const REMOVED_AGENTS = ["poteto-agent", "comment-sicko"];
+const FILE_PROMPT = /^\{file:(.+)\}$/;
 const BANNED_MODELS = ["auto", "inherit-parent"];
 
-type AgentEntry = { mode?: string; model?: string };
+type AgentEntry = { mode?: string; model?: string; prompt?: string };
 type PstackConfig = {
   instructions?: unknown;
   agent?: Record<string, AgentEntry | undefined>;
@@ -37,6 +39,11 @@ function checkConfig(root: string): void {
     expect(cfg.agent?.[name]?.model ?? "").not.toBe("");
     expect(BANNED_MODELS).not.toContain(cfg.agent?.[name]?.model);
   }
+  for (const name of REMOVED_AGENTS) expect(cfg.agent?.[name], name).toBeUndefined();
+  for (const [name, entry] of Object.entries(cfg.agent ?? {})) {
+    const ref = FILE_PROMPT.exec(entry?.prompt ?? "")?.[1];
+    if (ref) expect(existsSync(join(root, ref)), `${name} -> ${ref}`).toBe(true);
+  }
 }
 
 function checkSheet(root: string): void {
@@ -46,8 +53,7 @@ function checkSheet(root: string): void {
   expect(sheet).toContain("feature, refactoring: pstack-worker");
   expect(sheet).toContain("judgment and prose: pstack-judge");
   expect(sheet).toContain("arena runners: pstack-worker, pstack-judge");
-  expect(sheet).toContain("poteto-mode routing target: poteto-agent");
-  expect(sheet).toContain("no-comments reviewer: comment-sicko");
+  for (const name of REMOVED_AGENTS) expect(sheet).not.toContain(name);
   for (const line of sheet.split("\n")) {
     if (line.trimStart().startsWith("#") || !line.includes(":")) continue;
     const values = line.split(":").slice(1).join(":");
@@ -70,7 +76,7 @@ function checkPstackWiring(root: string): void {
 describe(MAIN_SUITE, () => {
   const ROOT = process.env.PSTACK_TEST_ROOT ?? process.cwd();
 
-  it("opencode.json apunta al sheet y declara los 4 agentes pstack", () => {
+  it("opencode.json apunta al sheet y declara los agentes pstack y sus prompts existen", () => {
     checkConfig(ROOT);
   });
 
@@ -128,10 +134,38 @@ describe("Pstack fixtures rotas (PS-S3)", () => {
     expect(() => checkPstackWiring(dir)).toThrow();
   });
 
-  it("falla sin el agente comment-sicko", () => {
+  it("falla sin el agente pstack-judge", () => {
     const dir = makeFixture((d) =>
       rewriteConfig(d, (cfg) => {
-        delete cfg.agent["comment-sicko"];
+        delete cfg.agent["pstack-judge"];
+      })
+    );
+    expect(() => checkPstackWiring(dir)).toThrow();
+  });
+
+  it("falla si un agente apunta a un prompt que no existe", () => {
+    const dir = makeFixture((d) =>
+      rewriteConfig(d, (cfg) => {
+        cfg.agent["pstack-worker"] = { ...cfg.agent["pstack-worker"], prompt: "{file:./.opencode/no-existe.prompt.md}" };
+      })
+    );
+    expect(() => checkPstackWiring(dir)).toThrow(/no-existe/);
+  });
+
+  it("acepta un agente con prompt existente", () => {
+    const dir = makeFixture((d) => {
+      writeFileSync(join(d, ".opencode/existe.prompt.md"), "ok\n");
+      rewriteConfig(d, (cfg) => {
+        cfg.agent["pstack-worker"] = { ...cfg.agent["pstack-worker"], prompt: "{file:./.opencode/existe.prompt.md}" };
+      });
+    });
+    expect(() => checkPstackWiring(dir)).not.toThrow();
+  });
+
+  it("falla si vuelve un agente quitado (ADR-0113)", () => {
+    const dir = makeFixture((d) =>
+      rewriteConfig(d, (cfg) => {
+        cfg.agent["poteto-agent"] = { mode: "subagent", model: "opencode/deepseek-v4.1-flash-free" };
       })
     );
     expect(() => checkPstackWiring(dir)).toThrow();

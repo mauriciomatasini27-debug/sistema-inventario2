@@ -67,10 +67,8 @@
     ]
   },
   "agentes": {
-    "poteto-agent": "razon",
     "pstack-worker": "codigo",
-    "pstack-judge": "juez",
-    "comment-sicko": "rapido"
+    "pstack-judge": "juez"
   },
   "skills": {
     "poteto-mode": "razon",
