@@ -5,7 +5,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
   <section class="card">
     <h2>Alertas enviadas</h2>
     <table>
-      <thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Urgente</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Urgente</th><th>Canal</th><th>Estado</th></tr></thead>
       <tbody id="hist-body"></tbody>
     </table>
     <div class="estado" id="estado-hist" role="status">Cargando…</div>
@@ -13,7 +13,25 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
 </PanelShell>
 
 <script>
-  interface Fila { sku: string; nombre: string; stock: number; umbral: number; urgente: boolean; fecha: string }
+  interface Fila {
+    sku: string;
+    nombre: string;
+    stock: number;
+    umbral: number;
+    urgente: boolean;
+    fecha: string;
+    canal?: string;
+    estado?: string;
+  }
+  function textoCanal(canal: string | undefined): string {
+    if (canal === "email") return "Email";
+    if (canal === "whatsapp") return "WhatsApp";
+    return "WhatsApp";
+  }
+  function textoEstado(estado: string | undefined): string {
+    if (estado === "enviado") return "Enviado";
+    return estado && estado.length > 0 ? estado : "Enviado";
+  }
   const body = document.getElementById("hist-body");
   const estado = document.getElementById("estado-hist");
   async function cargar(): Promise<void> {
@@ -25,7 +43,15 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
       const filas = j.alertas ?? [];
       body.replaceChildren(...filas.map((f) => {
         const tr = document.createElement("tr");
-        for (const v of [f.fecha, `${f.nombre} (${f.sku})`, String(f.stock), String(f.umbral), f.urgente ? "Sí" : "No"]) {
+        for (const v of [
+          f.fecha,
+          `${f.nombre} (${f.sku})`,
+          String(f.stock),
+          String(f.umbral),
+          f.urgente ? "Sí" : "No",
+          textoCanal(f.canal),
+          textoEstado(f.estado),
+        ]) {
           const td = document.createElement("td");
           td.textContent = v;
           tr.append(td);
