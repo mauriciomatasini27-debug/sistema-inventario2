@@ -17,6 +17,20 @@ import {
   crearAlmacenUsoPlanes,
   type SuscripcionPlanes,
 } from "./_almacen.js";
+import { contarConsultasBotDelMes } from "./bot-consultas.js";
+import { fechaAR, type FechaAR } from "../fecha-ar.js";
+
+function primerDiaMesSiguienteAR(hoy: FechaAR): FechaAR {
+  const anio = Number(hoy.slice(0, 4));
+  const mes = Number(hoy.slice(5, 7));
+  const proximoAnio = mes === 12 ? anio + 1 : anio;
+  const proximoMes = mes === 12 ? 1 : mes + 1;
+  return `${proximoAnio}-${String(proximoMes).padStart(2, "0")}-01` as FechaAR;
+}
+
+function diaMesTextoAR(fecha: FechaAR): string {
+  return `${Number(fecha.slice(8, 10))}/${Number(fecha.slice(5, 7))}`;
+}
 
 // PLAN-S1/S10 (PRD-PLAN-01, ADR-0047): planes, suscripciones y contadores de
 // uso. DB primero via dbVivaTenant(); solo en single sin base usa la memoria
@@ -217,6 +231,27 @@ export async function planIncluye(tenantId: string, feature: Feature): Promise<I
   if (!plan) return { incluida: false, cupo: null, planId: activa.planId };
   const incluida = plan.features[feature] === true;
   return { incluida, cupo: incluida ? plan.cupos[feature] : null, planId: plan.id };
+}
+
+export type ResultadoCupoConsultaBot =
+  | { readonly permitido: true }
+  | { readonly permitido: false; readonly mensaje: string };
+
+// WA-CUPO: el cupo mensual de bot_consulta usa whatsapp_usage (misma fuente
+// que /panel/plan); sin techo (null) no corta. El mensaje coincide con el
+// medidor del panel para no contradecir al comercio.
+export async function evaluarCupoConsultaBot(args: {
+  readonly tenantId: string;
+  readonly ahoraMs: number;
+}): Promise<ResultadoCupoConsultaBot> {
+  exigirTenant(args.tenantId);
+  const inc = await planIncluye(args.tenantId, "bot_consulta");
+  if (!inc.incluida || inc.cupo === null) return { permitido: true };
+  const usado = await contarConsultasBotDelMes(args.tenantId, args.ahoraMs);
+  if (usado < inc.cupo) return { permitido: true };
+  const reinicia_el = primerDiaMesSiguienteAR(fechaAR(args.ahoraMs));
+  const mensaje = `Llegaste al cupo de WhatsApp del mes. Se reinicia el ${diaMesTextoAR(reinicia_el)}.`;
+  return { permitido: false, mensaje };
 }
 
 let proximoMem = 1;

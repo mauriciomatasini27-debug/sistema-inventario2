@@ -53,7 +53,7 @@ import { enrutar } from "../../../modules/whatsapp/router.js";
 import { preguntar_asistente_bot, reconoce_pregunta_ia } from "../../../modules/whatsapp/asistente.js";
 import { CUPO_ASISTENTE_POR_DEFECTO } from "../../../modules/ia/asistente.js";
 import { ProveedorLLMFake, crear_proveedor_llm_desde_env } from "../../../modules/ia/proveedor.js";
-import { planIncluye } from "../../../lib/repos/planes.js";
+import { evaluarCupoConsultaBot, planIncluye } from "../../../lib/repos/planes.js";
 import { crearRegistroUsoIA } from "../../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../../lib/repos/ia-lecturas.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
@@ -1042,6 +1042,23 @@ export const POST: APIRoute = async ({ request }) => {
         cred,
       });
     }
+  }
+  // WA-CUPO: antes de registrar la consulta y de cualquier respuesta por Cloud
+  // API, corta si el plan tiene techo mensual agotado (Básico 100).
+  try {
+    const cupoBot = await evaluarCupoConsultaBot({ tenantId: r.tenantId, ahoraMs });
+    if (!cupoBot.permitido) {
+      const enviado = await responder({
+        toE164: msg.remitente,
+        wamidEntrante: msg.wamid,
+        texto: cupoBot.mensaje,
+        cred,
+      });
+      return Response.json({ ok: true, accion: "cupo_bot_agotado", respuesta: cupoBot.mensaje, enviado });
+    }
+  } catch (e) {
+    if (!(e instanceof BaseNoDisponible)) throw e;
+    console.warn("[whatsapp] sin base para evaluar cupo del bot", e);
   }
   // DASH-S3 (ADR-0034): consulta del bot registrada best-effort. Un fallo de
   // DB nunca rompe el 200 ni cambia la respuesta; VINCULAR/BAJA/ALTA y los no
