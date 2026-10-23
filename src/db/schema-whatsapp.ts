@@ -35,8 +35,7 @@ export const whatsappUsage = pgTable("whatsapp_usage", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// B2.1/B2.2: opt-in + preferencias. El encargado elige canal (WhatsApp,
-// email o ambos); el opt-in de WhatsApp sigue siendo aparte (ALTA/BAJA).
+// El opt-in de WhatsApp no es el canal: ALTA y BAJA no escriben `canal`.
 export const notificationPreferences = pgTable("notification_preferences", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id"),

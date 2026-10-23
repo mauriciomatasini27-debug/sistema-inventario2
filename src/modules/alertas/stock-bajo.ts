@@ -76,7 +76,6 @@ export function canalesEfectivos(p: PersonaDueno | PersonaEncargado): CanalAlert
   });
 }
 
-// ALR-S3 / DASH-S5: Dueños fijos, encargado con canal elegido, matutino filtra hora.
 export function resolver_destinatarios(args: {
   readonly duenos: readonly PersonaDueno[];
   readonly encargados: readonly PersonaEncargado[];

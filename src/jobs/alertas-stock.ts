@@ -1,7 +1,3 @@
-// Job ALR-S2/S5 (PRD-ALR-01, ADR-0043). Orquestador puro con canales
-// inyectados: nunca toca red ni env. La clave por producto+día+persona se
-// registra en el loop del destinatario (AT2). El catálogo solo se lee (AT1).
-// Nunca crea un envío al proveedor: solo deja borrador (S5, enviosProveedor siempre 0).
 // pg_cron no se configura en este repo: el cron vive fuera y pega al endpoint.
 
 import { clave_alerta_stock, es_quiebre, umbral_efectivo, type CanalAlerta } from "../modules/alertas/stock-bajo.js";

@@ -49,8 +49,8 @@ export async function prefsDe(tenantId: string, googleSub: string): Promise<Elec
           optInAtMs: f.optInAt?.getTime() ?? null,
         };
       }
-    } catch {
-      // cae a memoria
+    } catch (e) {
+      console.warn("[alertas] preferencias sin DB, uso memoria", e);
     }
   }
   const p = prefsMem(tenantId, googleSub);
