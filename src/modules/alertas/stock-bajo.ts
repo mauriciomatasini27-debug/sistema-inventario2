@@ -5,6 +5,7 @@
 // La persistencia de min_stock/reorder_qty y pg_cron quedan pendientes.
 
 export type CanalAlerta = "whatsapp" | "email";
+export type CanalElegido = "whatsapp" | "email" | "ambos";
 
 // ALR-S1 AC: con mínimo se usa el mínimo; sin mínimo se usa la demanda de
 // rotación 7d como umbral; sin ninguno no hay alerta.
@@ -31,11 +32,23 @@ export function en_ventana_quiebre(horaHHMM: string): boolean {
   return min >= 10 * 60 && min <= 20 * 60;
 }
 
-export interface PersonaAlerta {
+export interface PersonaDueno {
+  readonly rol: "dueno";
   readonly googleSub: string;
   readonly optInWa: boolean;
+  readonly email?: string;
+  readonly avisoHora: string;
   readonly pausaHastaMs: number | null;
-  readonly email?: string | undefined;
+}
+
+export interface PersonaEncargado {
+  readonly rol: "encargado";
+  readonly googleSub: string;
+  readonly optInWa: boolean;
+  readonly email?: string;
+  readonly canal: CanalElegido;
+  readonly avisoHora: string;
+  readonly pausaHastaMs: number | null;
 }
 
 export interface DestinatarioAlerta {
@@ -44,24 +57,49 @@ export interface DestinatarioAlerta {
   readonly canales: ReadonlyArray<CanalAlerta>;
 }
 
-// ALR-S3 AC: el Dueño siempre entra; el encargado solo con opt-in de WA
-// (sin opt-in recibe solo email si dejó email); con canal pausado no recibe.
+function pausado(pausaHastaMs: number | null, ahoraMs: number): boolean {
+  return pausaHastaMs != null && ahoraMs < pausaHastaMs;
+}
+
+export function canalesEfectivos(p: PersonaDueno | PersonaEncargado): CanalAlerta[] {
+  if (p.rol === "dueno") {
+    const out: CanalAlerta[] = ["email"];
+    if (p.optInWa) out.unshift("whatsapp");
+    return out;
+  }
+  const base: CanalAlerta[] =
+    p.canal === "whatsapp" ? ["whatsapp"] : p.canal === "email" ? ["email"] : ["whatsapp", "email"];
+  return base.filter((c) => {
+    if (c === "whatsapp") return p.optInWa;
+    if (c === "email") return !!p.email;
+    return false;
+  });
+}
+
+// ALR-S3 / DASH-S5: Dueños fijos, encargado con canal elegido, matutino filtra hora.
 export function resolver_destinatarios(args: {
-  readonly dueno: PersonaAlerta;
-  readonly encargados: ReadonlyArray<PersonaAlerta & { readonly email?: string | undefined }>;
+  readonly duenos: readonly PersonaDueno[];
+  readonly encargados: readonly PersonaEncargado[];
   readonly ahoraMs: number;
+  readonly modo: "matutino" | "quiebre";
+  readonly horaTick: string;
 }): DestinatarioAlerta[] {
   const out: DestinatarioAlerta[] = [];
-  const pausado = (p: PersonaAlerta): boolean => p.pausaHastaMs != null && args.ahoraMs < p.pausaHastaMs;
-  if (!pausado(args.dueno)) {
-    const canales: CanalAlerta[] = ["email"];
-    if (args.dueno.optInWa) canales.unshift("whatsapp");
-    out.push({ googleSub: args.dueno.googleSub, rol: "dueno", canales: Object.freeze(canales) });
+  const horaOk = (avisoHora: string): boolean => args.modo === "quiebre" || avisoHora === args.horaTick;
+
+  for (const d of args.duenos) {
+    if (pausado(d.pausaHastaMs, args.ahoraMs)) continue;
+    if (!horaOk(d.avisoHora)) continue;
+    const canales = canalesEfectivos(d);
+    if (canales.length === 0) continue;
+    out.push({ googleSub: d.googleSub, rol: "dueno", canales: Object.freeze(canales) });
   }
   for (const e of args.encargados) {
-    if (pausado(e)) continue;
-    if (e.optInWa) out.push({ googleSub: e.googleSub, rol: "encargado", canales: Object.freeze(["whatsapp", "email"]) });
-    else if (e.email) out.push({ googleSub: e.googleSub, rol: "encargado", canales: Object.freeze(["email"]) });
+    if (pausado(e.pausaHastaMs, args.ahoraMs)) continue;
+    if (!horaOk(e.avisoHora)) continue;
+    const canales = canalesEfectivos(e);
+    if (canales.length === 0) continue;
+    out.push({ googleSub: e.googleSub, rol: "encargado", canales: Object.freeze(canales) });
   }
   return out;
 }
