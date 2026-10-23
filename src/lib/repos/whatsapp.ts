@@ -540,6 +540,34 @@ export function canalAlerta(canal: string | undefined): "whatsapp" | "email" {
   return canal === "email" ? "email" : "whatsapp";
 }
 
+export async function leerAlertaStock(
+  tenantId: string,
+  sku: string,
+  fecha: string,
+): Promise<AlertaStockPayload | null> {
+  const clave = clave_alerta_stock(tenantId, sku, fecha);
+  let payload: AlertaStockPayload | null = alertasStockMemoria.get(clave) ?? null;
+  let db: TenantDb | null = null;
+  try {
+    db = dbVivaTenant(tenantId);
+  } catch (e) {
+    console.warn("[alertas] leer alerta sin DB, uso memoria", e);
+  }
+  if (db) {
+    try {
+      const filas = await db
+        .select({ payload: notificationEvents.payload })
+        .from(notificationEvents)
+        .where(eq(notificationEvents.dedupeKey, clave))
+        .limit(1);
+      if (filas[0]) payload = filas[0].payload as AlertaStockPayload;
+    } catch (e) {
+      console.warn("[alertas] leer alerta: fallo de DB, uso memoria", e);
+    }
+  }
+  return payload;
+}
+
 export async function historialAlertasStock(tenantId: string, limite = 200): Promise<FilaHistorialAlerta[]> {
   const prefijo = `alerta_stock:${tenantId}:`;
   const porClave = new Map<string, FilaHistorialAlerta>();

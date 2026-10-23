@@ -14,7 +14,7 @@ resumen: |
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` (B4 alertas por umbral, B5 aviso matutino), `docs/07-canales-whatsapp-email/notificaciones-email.md` (NE2 matutino), `src/modules/email/stock-matutino.ts`, `src/modules/whatsapp/alertas.ts`, `src/jobs/whatsapp-aviso-matutino.ts`, `docs/migracion-supabase.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0024, ADR-0028, ADR-0039, ADR-0043. Gap: núcleo puro y tests existen; sin scheduler real ni mínimo editable persistido.
 
-> Estado al 2026-10-23: en curso. ALR-S1 (`min_stock`/`reorder_qty` persistidos y editables en el panel) hecho. ALR-S2 parcial: el endpoint con `JOBSSECRET` ya guarda cada alerta enviada en `notification_events` (clave `alerta_stock:tenant:sku:día`) y no repite la no urgente el mismo día (`docs/roadmap/avances/ALR-S2.md`, `tests/alr-memoria-durable.test.ts`); faltan el `pg_cron` real y el canal por encargado en DB.
+> Estado al 2026-10-23: en curso. ALR-S1 (`min_stock`/`reorder_qty` persistidos y editables en el panel) hecho. ALR-S2 parcial: el endpoint con `JOBSSECRET` ya guarda cada alerta enviada en `notification_events` (clave `alerta_stock:tenant:sku:día`) y no repite la no urgente el mismo día (`docs/roadmap/avances/ALR-S2.md`, `tests/alr-memoria-durable.test.ts`); faltan el `pg_cron` real y el canal por encargado en DB. ALR-S5 hecho: botón Armar pedido en el historial (`docs/roadmap/avances/ALR-S5.md`, `tests/alr-s5-armar-pedido.test.ts`).
 
 ## Épica ALR-E1. Detección bajo mínimo
 

@@ -5,7 +5,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
   <section class="card">
     <h2>Alertas enviadas</h2>
     <table>
-      <thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Urgente</th><th>Canal</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Urgente</th><th>Canal</th><th>Estado</th><th></th></tr></thead>
       <tbody id="hist-body"></tbody>
     </table>
     <div class="estado" id="estado-hist" role="status">Cargando…</div>
@@ -56,6 +56,42 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
           td.textContent = v;
           tr.append(td);
         }
+        const tdAcc = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "Armar pedido";
+        const estadoFila = document.createElement("div");
+        estadoFila.className = "estado-fila";
+        estadoFila.setAttribute("role", "status");
+        btn.addEventListener("click", async () => {
+          if (!confirm("¿Armás un borrador de pedido con este producto? No se envía nada al proveedor.")) return;
+          estadoFila.textContent = "Armando…";
+          try {
+            const pr = await fetch("/api/alertas/armar-pedido", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sku: f.sku, fecha: f.fecha }),
+            });
+            const pj = (await pr.json()) as { ok?: boolean; texto?: string; error?: string; ver_en?: string };
+            if (!pj.ok) {
+              estadoFila.textContent = pj.error ?? "No se pudo armar el pedido.";
+              return;
+            }
+            estadoFila.textContent = pj.texto ?? "";
+            if (pj.ver_en) {
+              const link = document.createElement("a");
+              link.href = pj.ver_en;
+              link.textContent = " Ver en Proveedores";
+              estadoFila.append(link);
+            }
+          } catch (e) {
+            console.warn("[historial] armar pedido", e);
+            estadoFila.textContent = "No se pudo armar el pedido.";
+          }
+        });
+        tdAcc.append(btn, estadoFila);
+        tr.append(tdAcc);
         return tr;
       }));
       estado.textContent = filas.length === 0 ? "Todavía no salió ninguna alerta." : "";
