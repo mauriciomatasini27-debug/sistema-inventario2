@@ -167,7 +167,7 @@ function crearEstado() {
   vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
   ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
   // TV1/TV2 (P10-5): líneas y descuentos congelados por venta.
-  ticketLineas: [] as Array<{ sale_id: string; product_id: string; qty: number; precio_centavos: string }>,
+  ticketLineas: [] as Array<{ sale_id: string; product_id: string; qty: number; precio_centavos: string; costo_centavos?: string }>,
   ticketDescuentos: [] as Array<{ sale_id: string; linea_idx: number; sku: string; bruto_centavos: string; desc_linea_centavos: string; desc_ticket_centavos: string; neto_centavos: string }>,
   // P10-2: ticket de venta a cuenta (no vive en idempotency de contado).
   fiadoTickets: new Map<string, { sale_id: string; ticket_definitivo: string | null; ticket_provisorio: string; total_centavos: string; medio: string; sobreventa: boolean; idempotency_key: string }>(),

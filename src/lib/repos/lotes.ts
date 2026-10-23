@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { stockLots } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
+import { costoUnitarioPorSku } from "../../modules/inventario/inventario.js";
 import { crearAlmacenLotes, crearListaMovimientosStock } from "./_almacen.js";
 import { aplicarMovimiento, movimientoDuplicado } from "./stock.js";
 
@@ -174,6 +175,22 @@ function ordenarFefo(lista: LoteDetalle[]): LoteDetalle[] {
     if (!b.venceEl) return -1;
     return a.venceEl < b.venceEl ? -1 : 1;
   });
+}
+
+// P10-16 GP4: costo unitario vigente por SKU (promedio ponderado por cantidad
+// restante) para congelarlo en la línea de venta.
+export async function costosVigentesPorSku(): Promise<Map<string, bigint>> {
+  const lotes = await listarLotesDetalle(null);
+  return costoUnitarioPorSku(
+    lotes.map((l) => ({ sku: l.sku, cantidad: l.cantidadRestante, costoCentavos: BigInt(l.costoCentavos) })),
+  );
+}
+
+export function costosVigentesMemoria(): Map<string, bigint> {
+  const lotes = [...crearAlmacenLotes().comoMapaSoloLectura().values()];
+  return costoUnitarioPorSku(
+    lotes.map((l) => ({ sku: l.sku, cantidad: l.cantidadRestante, costoCentavos: BigInt(l.costoCentavos) })),
+  );
 }
 
 // Invariante CAT-S3, pura: stock = suma de restantes de lotes = suma de

@@ -84,6 +84,32 @@ export function lotesDesdeStock(stock: ReadonlyMap<string, number>): Lote[] {
   return out;
 }
 
+export interface LoteConCosto {
+  readonly sku: string;
+  readonly cantidad: number;
+  readonly costoCentavos: bigint;
+}
+
+/**
+ * P10-16 GP4: costo unitario vigente por SKU, promedio ponderado por cantidad
+ * disponible. Es el valor que se congela en `ticket_lines.costo_centavos`.
+ */
+export function costoUnitarioPorSku(lotes: ReadonlyArray<LoteConCosto>): Map<string, bigint> {
+  const acumulado = new Map<string, { costo: bigint; cantidad: bigint }>();
+  for (const lote of lotes) {
+    if (!Number.isFinite(lote.cantidad) || lote.cantidad <= 0) continue;
+    const prev = acumulado.get(lote.sku) ?? { costo: 0n, cantidad: 0n };
+    prev.costo += lote.costoCentavos * BigInt(lote.cantidad);
+    prev.cantidad += BigInt(lote.cantidad);
+    acumulado.set(lote.sku, prev);
+  }
+  const out = new Map<string, bigint>();
+  for (const [sku, { costo, cantidad }] of acumulado) {
+    out.set(sku, cantidad > 0n ? costo / cantidad : 0n);
+  }
+  return out;
+}
+
 function esCantidadValida(n: number): boolean {
   return Number.isInteger(n) && n > 0 && n <= 999;
 }

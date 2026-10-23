@@ -95,6 +95,8 @@ export const ticketLines = pgTable("ticket_lines", {
   productId: uuid("product_id").notNull(),
   qty: integer("qty").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
+  // P10-16 GP4: costo congelado del producto al momento de la venta.
+  costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(sql`0`),
 });
 
 export const cashMovements = pgTable("cash_movements", {

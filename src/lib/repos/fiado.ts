@@ -26,6 +26,7 @@ import { siguiente_numero } from "../../modules/sales/vender_mostrador.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
 import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
 import { registrarIngresoCobro } from "./caja.js";
+import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
 
 // PERS2-S17 (ADR-0058): fiado (venta a cuenta, cobros, saldo por cliente).
 // DB primero via dbVivaTenant(); solo en single sin base usa la memoria
@@ -71,6 +72,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
   const nt = contadorTickets.leer();
+  const lotes = lotesDesdeStock(almacenStock.mapaVivo());
   const r = venta_a_cuenta({
     idempotencyKey: input.key,
     customerId: input.customerId,
@@ -79,7 +81,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     seqLocal: input.seqLocal,
     offline: false,
     // Ningun repo cubre lotes FIFO: se leen de la memoria particionada.
-    lotes: lotesDesdeStock(almacenStock.mapaVivo()),
+    lotes,
     vistos: new Map(),
     ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
     saldoActualCentavos: BigInt(input.saldoActualCentavos),
@@ -91,6 +93,9 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
   }
   const total = input.lineas.reduce((acc, l) => acc + BigInt(l.qty) * BigInt(l.precioCentavos), 0n);
+
+  // P10-16 GP4: costo unitario vigente por SKU para congelarlo en la línea.
+  const costos = costosVigentesMemoria();
 
   const espejoMemoria = (ticket: string | null, siguiente: number | null, saleId: string) => {
     // Sin tabla propia: vistos y movimientos en memoria (durable via UNIQUE).
@@ -107,11 +112,13 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       idempotency_key: input.key,
     });
     for (const l of input.lineas) {
+      const costo = costos.get(l.sku) ?? 0n;
       agregarLineaTicket({
         sale_id: saleId,
         product_id: l.sku,
         qty: l.qty,
         precio_centavos: String(l.precioCentavos),
+        costo_centavos: costo.toString(),
       });
     }
     for (const d of r.efecto.lineasConDescuento) {
@@ -146,6 +153,13 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     espejoMemoria(r.efecto.ticket.definitivo, null, crypto.randomUUID());
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
+  }
+
+  let costosDb: ReadonlyMap<string, bigint>;
+  try {
+    costosDb = await costosVigentesPorSku();
+  } catch {
+    costosDb = costos;
   }
 
   try {
@@ -191,10 +205,12 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         definitivo: ticket,
         provisorio: r.efecto.ticket.provisorio,
       });
+      // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
       const lineasDb = input.lineas.flatMap((l) => {
         const productId = idPorSku.get(l.sku);
         if (!productId) return [];
-        return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos) }];
+        const costo = costosDb.get(l.sku) ?? 0n;
+        return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos), costoCentavos: costo }];
       });
       if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
       // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
