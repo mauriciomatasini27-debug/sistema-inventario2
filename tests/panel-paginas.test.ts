@@ -20,13 +20,15 @@ const PANTALLAS = [
   "src/pages/panel/consumos.astro",
   "src/pages/panel/reportes.astro",
   "src/pages/panel/alertas/umbrales.astro",
+  "src/pages/panel/alertas/destinatarios.astro",
   "src/pages/panel/bot/config.astro",
+  "src/pages/panel/bot/historial.astro",
   "src/pages/panel/plan.astro",
   "src/pages/panel/ventas-pendientes.astro",
 ] as const;
 
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular))/;
+  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";

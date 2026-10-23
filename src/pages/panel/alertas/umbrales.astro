@@ -2,6 +2,7 @@
 import PanelShell from "../../../components/panel/PanelShell.astro";
 ---
 <PanelShell titulo="Umbrales de alerta" subtitulo="Stock mínimo y cantidad a reponer por producto." activo="stock">
+  <p class="umb-dest"><a href="/panel/alertas/destinatarios">Destinatarios de alertas</a></p>
   <section class="card">
     <h2>Edición masiva por categoría</h2>
     <div class="fila">
@@ -41,6 +42,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     .umb-error { display: block; min-height: 14px; color: var(--estado-peligro); font-size: 12px; }
     .umb-sugerido { display: block; color: var(--tema-texto-suave); font-size: 12px; }
     .umb-acciones { margin-top: 12px; }
+    .umb-dest { margin-bottom: 12px; font-size: 14px; }
   </style>
 </PanelShell>
 

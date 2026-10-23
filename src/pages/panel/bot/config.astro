@@ -28,6 +28,7 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
     <p class="vinc-optin">El opt-in lo da cada persona escribiendo ALTA al bot; el Dueño no lo cambia por otro.</p>
   </section>
 
+  <p class="vinc-historial"><a href="/panel/bot/historial">Ver historial de consultas</a></p>
   <BotModulosCard />
 </PanelShell>
 
@@ -44,6 +45,7 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
   .vinc-vencido { color: var(--tema-texto-suave); text-decoration: line-through; }
   .vinc-error { display: block; min-height: 14px; color: var(--estado-peligro); font-size: 12px; }
   .vinc-optin { color: var(--tema-texto-suave); font-size: 12px; }
+  .vinc-historial { margin-top: 8px; font-size: 14px; }
 </style>
 
 <script>

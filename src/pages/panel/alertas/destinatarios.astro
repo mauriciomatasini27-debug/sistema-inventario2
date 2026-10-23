@@ -1,0 +1,154 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Destinatarios de alertas" subtitulo="Quién recibe avisos de stock bajo y por qué canal." activo="stock">
+  <section class="card">
+    <div id="dest-lista" class="dest-lista"></div>
+    <div class="estado" id="dest-estado" role="status">Cargando…</div>
+    <p class="dest-volver"><a href="/panel/alertas/umbrales">Volver a umbrales</a></p>
+  </section>
+
+  <style is:global>
+    .dest-lista { display: grid; gap: 16px; }
+    .dest-fila { padding: 12px 0; border-bottom: 1px solid var(--tema-linea); }
+    .dest-nombre { font-weight: 600; }
+    .dest-rol { color: var(--tema-texto-suave); font-size: 12px; margin-left: 8px; }
+    .dest-grid { display: grid; gap: 8px; margin-top: 8px; max-width: 420px; }
+    .dest-fijo { color: var(--tema-texto-suave); font-size: 14px; }
+    .dest-explicacion { font-size: 14px; margin: 8px 0; }
+    .dest-volver { margin-top: 12px; font-size: 14px; }
+  </style>
+</PanelShell>
+
+<script>
+  import { toast } from "sonner";
+  import { horaVisible, horasMatutinas } from "../../../lib/destinatarios-panel.js";
+
+  interface FilaDest {
+    rol: "dueno" | "encargado";
+    googleSub: string;
+    nombre: string;
+    fijo?: boolean;
+    canal?: string;
+    canales: readonly string[];
+    avisoHora: string;
+    pausadoHastaMs: number | null;
+    ofrecerCodigo?: boolean;
+    explicacion?: string | null;
+    editable?: boolean;
+  }
+
+  const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
+  const horasOp = horasMatutinas();
+
+  const setEstado = (t: string): void => {
+    $("dest-estado").textContent = t;
+  };
+
+  const guardar = async (body: Record<string, unknown>): Promise<void> => {
+    const r = await fetch("/api/alertas/destinatarios", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const j = (await r.json()) as { error?: string };
+      toast.error(j.error ?? "No se pudo guardar.");
+      return;
+    }
+    toast.success("Preferencias guardadas.");
+    await cargar();
+  };
+
+  const pintar = (filas: FilaDest[]): void => {
+    const root = $("dest-lista");
+    root.textContent = "";
+    for (const f of filas) {
+      const bloque = document.createElement("div");
+      bloque.className = "dest-fila";
+      const tit = document.createElement("p");
+      tit.innerHTML = `<span class="dest-nombre">${f.nombre}</span><span class="dest-rol">${f.rol === "dueno" ? "Dueño" : "Encargado"}</span>`;
+      bloque.appendChild(tit);
+      if (f.fijo) {
+        const p = document.createElement("p");
+        p.className = "dest-fijo";
+        p.textContent = `Recibe por ${f.canales.join(" y ") || "ningún canal activo"}. Hora matutina ${f.avisoHora}.`;
+        bloque.appendChild(p);
+      } else if (f.editable) {
+        const grid = document.createElement("div");
+        grid.className = "dest-grid";
+        const canal = document.createElement("label");
+        canal.textContent = "Canal ";
+        const selCanal = document.createElement("select");
+        for (const c of ["whatsapp", "email", "ambos"] as const) {
+          const o = document.createElement("option");
+          o.value = c;
+          o.textContent = c === "whatsapp" ? "WhatsApp" : c === "email" ? "Email" : "WhatsApp y email";
+          if (f.canal === c) o.selected = true;
+          selCanal.appendChild(o);
+        }
+        canal.appendChild(selCanal);
+        const hora = document.createElement("label");
+        hora.textContent = "Hora matutina ";
+        const selHora = document.createElement("select");
+        for (const h of horaVisible(f.avisoHora, horasOp)) {
+          const o = document.createElement("option");
+          o.value = h;
+          o.textContent = h;
+          if (h === f.avisoHora) o.selected = true;
+          selHora.appendChild(o);
+        }
+        hora.appendChild(selHora);
+        const pausa = document.createElement("label");
+        pausa.textContent = "Pausa hasta ";
+        const inpPausa = document.createElement("input");
+        inpPausa.type = "datetime-local";
+        if (f.pausadoHastaMs) inpPausa.value = new Date(f.pausadoHastaMs).toISOString().slice(0, 16);
+        pausa.appendChild(inpPausa);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "Guardar";
+        btn.addEventListener("click", () => {
+          const pausado = inpPausa.value ? new Date(inpPausa.value).toISOString() : null;
+          void guardar({ canal: selCanal.value, aviso_hora: selHora.value, pausado_hasta: pausado });
+        });
+        grid.append(canal, hora, pausa, btn);
+        bloque.appendChild(grid);
+        if (f.ofrecerCodigo && f.explicacion) {
+          const ex = document.createElement("p");
+          ex.className = "dest-explicacion";
+          ex.textContent = f.explicacion;
+          bloque.appendChild(ex);
+          const vinc = document.createElement("button");
+          vinc.type = "button";
+          vinc.textContent = "Generar código de vinculación";
+          vinc.addEventListener("click", () => {
+            window.location.href = "/panel/bot/config";
+          });
+          bloque.appendChild(vinc);
+        }
+      } else {
+        const p = document.createElement("p");
+        p.className = "dest-fijo";
+        p.textContent = `Canal ${f.canal ?? ""}. Canales activos: ${f.canales.join(", ") || "ninguno"}.`;
+        bloque.appendChild(p);
+      }
+      root.appendChild(bloque);
+    }
+  };
+
+  const cargar = async (): Promise<void> => {
+    setEstado("Cargando…");
+    const r = await fetch("/api/alertas/destinatarios", { credentials: "same-origin" });
+    if (!r.ok) {
+      setEstado("No pudimos cargar destinatarios.");
+      return;
+    }
+    const j = (await r.json()) as { filas: FilaDest[] };
+    pintar(j.filas);
+    setEstado(j.filas.length === 0 ? "No hay destinatarios configurados." : "");
+  };
+
+  void cargar();
+</script>
