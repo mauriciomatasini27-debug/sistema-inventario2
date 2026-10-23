@@ -1,7 +1,9 @@
 import type { APIRoute } from "astro";
 import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 import {
+  descartarJobsIngestaGmail,
   descifrarRefreshTokenGmail,
+  leerConexionGmail,
   marcarConexionGmail,
 } from "../../../lib/repos/google-conexiones.js";
 import { revocarTokenGoogle } from "../../../modules/integraciones/google-oauth.js";
@@ -15,6 +17,8 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;
+
+  const conexion = await leerConexionGmail(dueno.tenantId);
 
   try {
     await detenerWatchGmail({ tenantId: dueno.tenantId });
@@ -48,6 +52,13 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
+  if (conexion) {
+    await descartarJobsIngestaGmail({
+      tenantId: dueno.tenantId,
+      connectionId: conexion.id,
+    });
+  }
+
   await marcarConexionGmail({
     tenantId: dueno.tenantId,
     estado: "revocada",
@@ -57,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
   });
 
   return Response.json(
-    { ok: true, revocado_en_google: revocadoEnGoogle },
+    { ok: true, revocado_en_google: revocadoEnGoogle, jobs_descartados: Boolean(conexion) },
     { status: 200, headers: { "Cache-Control": "no-store" } },
   );
 };
