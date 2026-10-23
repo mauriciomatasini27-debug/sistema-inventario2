@@ -12,6 +12,7 @@ import type { FacturaServicio } from "../modules/utilities/facturas_servicios.js
 import type { Payee } from "../modules/payments/beneficiarios.js";
 import type { PaymentOrder, PagoConfirmado } from "../modules/payments/ordenes.js";
 import type { EventoResumen, OutboxPendiente } from "../modules/email/resumen-cierre.js";
+import type { CanalElegido } from "../modules/alertas/stock-bajo.js";
 import type { ImportacionRegistrada } from "./repos/importaciones.js";
 import { esModoMulti, tenantActual } from "./tenant-mode.js";
 
@@ -512,7 +513,7 @@ export const control = {
   // Preferencias de notificación WA por usuario+tenant (B2.1/B2.2, prod:
   // notification_preferences con upsert). Clave `${tenantId}:${googleSub}`.
   // Ausente => optIn false (B2: sin opt-in no sale ninguna plantilla).
-  waPrefs: new Map<string, { optIn: boolean; avisoHora: string; pausadoHastaMs: number | null }>(),
+  waPrefs: new Map<string, { optIn: boolean; avisoHora: string; pausadoHastaMs: number | null; canal?: CanalElegido; optInAtMs?: number | null }>(),
   // ON5-ON12 sin UX: progreso por usuario y comercio, demos de ejemplo y
   // bienvenidas enviadas. Claves y formas en modules/onboarding/estado.ts.
   onboardingState: new Map<string, import("../modules/onboarding/estado.js").OnboardingState>(),
