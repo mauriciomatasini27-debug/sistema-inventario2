@@ -40,6 +40,41 @@ export interface LogIngestaInput {
   readonly accountId: string | null;
 }
 
+export interface RemitenteIngestaPanel {
+  readonly id: string;
+  readonly remitente: string;
+  readonly servicio: string | null;
+  readonly proveedor: string | null;
+  readonly activo: boolean;
+}
+
+// GGL-REMITENTES: pausar aplica al siguiente mensaje (activo=false en capa 1).
+export async function listarRemitentesIngesta(tenantId: string): Promise<ReadonlyArray<RemitenteIngestaPanel>> {
+  const db = getTenantDb(tenantId);
+  const filas = await db.select().from(emailIngestionFilters);
+  return filas.map((f) => ({
+    id: f.id,
+    remitente: f.remitente,
+    servicio: f.servicio,
+    proveedor: f.proveedor,
+    activo: f.activo,
+  }));
+}
+
+export async function actualizarActivoRemitenteIngesta(input: {
+  readonly tenantId: string;
+  readonly filtroId: string;
+  readonly activo: boolean;
+}): Promise<boolean> {
+  const db = getTenantDb(input.tenantId);
+  const actualizados = await db
+    .update(emailIngestionFilters)
+    .set({ activo: input.activo })
+    .where(eq(emailIngestionFilters.id, input.filtroId))
+    .returning({ id: emailIngestionFilters.id });
+  return actualizados.length > 0;
+}
+
 export async function leerFiltrosIngesta(tenantId: string): Promise<ReadonlyArray<FiltroIngesta>> {
   const db = getTenantDb(tenantId);
   const filas = await db.select().from(emailIngestionFilters);

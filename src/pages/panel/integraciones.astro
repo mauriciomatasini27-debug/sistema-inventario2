@@ -58,6 +58,9 @@ const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconex
         <button type="submit" id="desconectar-gmail">Desconectar Gmail</button>
       </form>
     ) : null}
+    {dueno && salud.estado !== "sin_conexion" ? (
+      <p class="nav-remitentes"><a href="/panel/integraciones-remitentes">Administrar remitentes</a></p>
+    ) : null}
     <p id="aviso-desconexion" class="aviso" role="status" hidden></p>
   </section>
 
@@ -103,6 +106,7 @@ const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconex
   .aviso { color: var(--tema-texto-suave); margin: 0; }
   .aviso-alerta { color: var(--tema-alerta, #b45309); margin: 0.5rem 0 0; }
   #conectar-gmail:disabled { cursor: not-allowed; opacity: 0.45; }
+  .nav-remitentes { margin-top: 0.75rem; }
 </style>
 
 <script>
