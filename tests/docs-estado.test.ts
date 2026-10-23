@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   clasificarAvances,
+  modoEstado,
   parsearAvances,
   parsearMigraciones,
   renderEstado,
@@ -158,6 +159,15 @@ describe("docs:estado render", () => {
       })),
     );
     expect(renderEstado({ ...base, avances }).length).toBeLessThanOrEqual(6000);
+  });
+});
+
+describe("modoEstado", () => {
+  it("elige imprimir, escribir o chequear según rama y flags", () => {
+    expect(modoEstado({ rama: "mauri/x", forzar: false, check: false })).toBe("imprimir");
+    expect(modoEstado({ rama: "main", forzar: false, check: false })).toBe("escribir");
+    expect(modoEstado({ rama: "mauri/x", forzar: true, check: false })).toBe("escribir");
+    expect(modoEstado({ rama: "mauri/x", forzar: false, check: true })).toBe("chequear");
   });
 });
 

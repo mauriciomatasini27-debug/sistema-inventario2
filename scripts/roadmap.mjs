@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { aplicarSeccion, guardaPR, parsearAvance, renderizarSeccion } from "./roadmap-lib.mjs";
+import {
+  aplicarSeccion,
+  guardaPR,
+  parsearAvance,
+  recortarPrologo,
+  renderizarSeccion,
+} from "./roadmap-lib.mjs";
 import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
 
 const INICIO = "<!-- roadmap:avances:inicio -->";
@@ -60,7 +66,7 @@ if (validate) {
 
 const rutaRoadmap = join(root, "docs", "ROADMAP.md");
 const roadmap = readFileSync(rutaRoadmap, "utf8");
-const nuevo = aplicarSeccion(roadmap, renderizarSeccion(avances));
+const nuevo = recortarPrologo(aplicarSeccion(roadmap, renderizarSeccion(avances)));
 
 if (check) {
   if (!roadmap.includes(INICIO)) {

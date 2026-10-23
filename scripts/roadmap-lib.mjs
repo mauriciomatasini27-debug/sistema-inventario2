@@ -1,5 +1,24 @@
 const INICIO = "<!-- roadmap:avances:inicio -->";
 const FIN = "<!-- roadmap:avances:fin -->";
+const PROLOGO_ROADMAP = `# Roadmap
+
+El estado vivo son los avances que no están en hecho. \`npm run roadmap\` en main regenera esta sección desde \`docs/roadmap/avances/\`.
+
+`;
+
+export function arranqueContradiceHecho(estado, texto) {
+  if (!/^hecho/i.test(estado)) return false;
+  const resto = String(texto).replace(/^[A-Za-z0-9][A-Za-z0-9_.-]*\s+/, "");
+  return /^(pendiente|parcial|propuesto|bloqueado)\b/i.test(resto);
+}
+
+function validarArranque(estado, texto, nombre) {
+  if (arranqueContradiceHecho(estado, texto)) {
+    throw new Error(
+      `avance inválido en ${nombre}: con estado hecho el texto no puede arrancar con pendiente, parcial, propuesto o bloqueado`,
+    );
+  }
+}
 const RX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const RX_CHICO = /^P\d+-\d+$/;
 const CAMPOS = ["item", "estado", "adr", "prd", "fecha"];
@@ -47,7 +66,7 @@ export function parsearAvance(texto, nombre) {
         `avance inválido en ${nombre}: la sección ## Decisión lleva entre 5 y 10 líneas no vacías`,
       );
     }
-    return {
+    const avanceChico = {
       item: datos.item,
       estado: datos.estado,
       adr: datos.adr ?? "",
@@ -57,6 +76,8 @@ export function parsearAvance(texto, nombre) {
       chico: true,
       decision: decision.map((l) => l.trim()),
     };
+    validarArranque(avanceChico.estado, avanceChico.texto, nombre);
+    return avanceChico;
   }
   for (const campo of CAMPOS) {
     if (!datos[campo]) {
@@ -70,7 +91,7 @@ export function parsearAvance(texto, nombre) {
   if (cuerpo.length !== 1) {
     throw new Error(`avance inválido en ${nombre}: se espera exactamente una línea de texto`);
   }
-  return {
+  const avance = {
     item: datos.item,
     estado: datos.estado,
     adr: datos.adr,
@@ -78,17 +99,26 @@ export function parsearAvance(texto, nombre) {
     fecha: datos.fecha,
     texto: cuerpo[0].trim(),
   };
+  validarArranque(avance.estado, avance.texto, nombre);
+  return avance;
 }
 
 export function renderizarSeccion(avances) {
-  const ordenados = [...avances].sort((a, b) =>
-    a.fecha !== b.fecha ? (a.fecha < b.fecha ? 1 : -1) : a.adr < b.adr ? -1 : a.adr > b.adr ? 1 : 0,
-  );
-  const lineas = [
+  const abiertos = avances.filter((a) => !/^hecho/i.test(a.estado));
+  const encabezado = [
     "## Avances por PR (generado)",
     "",
     "No se edita a mano: se regenera con `npm run roadmap` desde `docs/roadmap/avances/`.",
     "",
+  ];
+  if (abiertos.length === 0) {
+    return [...encabezado, "Sin avances abiertos."].join("\n");
+  }
+  const ordenados = [...abiertos].sort((a, b) =>
+    a.fecha !== b.fecha ? (a.fecha < b.fecha ? 1 : -1) : a.adr < b.adr ? -1 : a.adr > b.adr ? 1 : 0,
+  );
+  const lineas = [
+    ...encabezado,
     "| Fecha | Item | Estado | Avance | PRD / ADR |",
     "|---|---|---|---|---|",
   ];
@@ -99,6 +129,12 @@ export function renderizarSeccion(avances) {
     );
   }
   return lineas.join("\n");
+}
+
+export function recortarPrologo(roadmap) {
+  const iInicio = roadmap.indexOf(INICIO);
+  if (iInicio < 0) return roadmap;
+  return PROLOGO_ROADMAP + roadmap.slice(iInicio);
 }
 
 export function aplicarSeccion(roadmap, seccion) {

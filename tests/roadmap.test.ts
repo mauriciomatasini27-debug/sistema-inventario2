@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   aplicarSeccion,
+  arranqueContradiceHecho,
   guardaPR,
   parsearAvance,
+  recortarPrologo,
   renderizarSeccion,
 } from "../scripts/roadmap-lib.mjs";
 
@@ -112,10 +114,34 @@ describe("parsearAvance", () => {
     }
     expect(mensaje).toContain("0076.md");
   });
+
+  it("falla si estado hecho y el texto arranca con parcial", () => {
+    let mensaje = "";
+    try {
+      parsearAvance(avanceValido({ estado: "hecho", texto: "ROAD1-S1 parcial: falta algo." }), "bad-parcial.md");
+    } catch (e) {
+      mensaje = (e as Error).message;
+    }
+    expect(mensaje).toContain("bad-parcial.md");
+  });
+
+  it("acepta hecho con parcial entre paréntesis", () => {
+    expect(
+      parsearAvance(avanceValido({ estado: "hecho", texto: "DASH-S8 hecho (parcial: slice)." }), "dash.md"),
+    ).toMatchObject({ texto: "DASH-S8 hecho (parcial: slice)." });
+  });
+});
+
+describe("arranqueContradiceHecho", () => {
+  it("detecta parcial tras id y no dentro de paréntesis", () => {
+    expect(arranqueContradiceHecho("hecho", "ITEM parcial: x")).toBe(true);
+    expect(arranqueContradiceHecho("hecho", "DASH-S8 hecho (parcial: slice)")).toBe(false);
+    expect(arranqueContradiceHecho("pendiente", "ITEM parcial: x")).toBe(false);
+  });
 });
 
 describe("renderizarSeccion", () => {
-  it("genera tabla con dos filas ordenada por fecha descendente y ADR", () => {
+  it("genera tabla con filas abiertas ordenada por fecha descendente y ADR", () => {
     const seccion = renderizarSeccion([
       {
         item: "X-S1",
@@ -123,33 +149,42 @@ describe("renderizarSeccion", () => {
         adr: "ADR-0099",
         prd: "PRD-X",
         fecha: "2026-10-13",
-        texto: "Viejo.",
+        texto: "Cerrado.",
       },
       {
         item: "ROAD1-S1",
-        estado: "hecho",
+        estado: "pendiente",
         adr: "ADR-0076",
         prd: "PRD-ROAD-01",
         fecha: "2026-10-14",
-        texto: "Nuevo.",
+        texto: "Abierto.",
+      },
+      {
+        item: "Y-S2",
+        estado: "pendiente",
+        adr: "ADR-0080",
+        prd: "PRD-Y",
+        fecha: "2026-10-13",
+        texto: "También abierto.",
       },
     ]);
     expect(seccion).toContain("## Avances por PR (generado)");
     expect(seccion).toContain("npm run roadmap");
     expect(seccion).toContain("docs/roadmap/avances/");
     expect(seccion).toContain("| Fecha | Item | Estado | Avance | PRD / ADR |");
+    expect(seccion).not.toContain("X-S1");
     const iNuevo = seccion.indexOf("2026-10-14");
     const iViejo = seccion.indexOf("2026-10-13");
     expect(iNuevo).toBeGreaterThan(-1);
     expect(iViejo).toBeGreaterThan(iNuevo);
-    expect(seccion).toContain("| 2026-10-14 | ROAD1-S1 | hecho | Nuevo. | PRD-ROAD-01 / ADR-0076 |");
+    expect(seccion).toContain("| 2026-10-14 | ROAD1-S1 | pendiente | Abierto. | PRD-ROAD-01 / ADR-0076 |");
   });
 
-  it("desempata por ADR ascendente ante igual fecha", () => {
+  it("desempata por ADR ascendente ante igual fecha entre abiertos", () => {
     const seccion = renderizarSeccion([
       {
         item: "B",
-        estado: "hecho",
+        estado: "pendiente",
         adr: "ADR-0099",
         prd: "PRD-X",
         fecha: "2026-10-14",
@@ -157,7 +192,7 @@ describe("renderizarSeccion", () => {
       },
       {
         item: "A",
-        estado: "hecho",
+        estado: "pendiente",
         adr: "ADR-0076",
         prd: "PRD-X",
         fecha: "2026-10-14",
@@ -165,6 +200,40 @@ describe("renderizarSeccion", () => {
       },
     ]);
     expect(seccion.indexOf("ADR-0076")).toBeLessThan(seccion.indexOf("ADR-0099"));
+  });
+
+  it("sin abiertos muestra Sin avances abiertos y no lista hechos", () => {
+    const seccion = renderizarSeccion([
+      {
+        item: "CERRADO-1",
+        estado: "hecho",
+        adr: "ADR-0001",
+        prd: "PRD-1",
+        fecha: "2026-10-14",
+        texto: "Listo.",
+      },
+    ]);
+    expect(seccion).toContain("Sin avances abiertos.");
+    expect(seccion).not.toContain("CERRADO-1");
+    expect(seccion).not.toContain("| Fecha | Item | Estado | Avance | PRD / ADR |");
+  });
+});
+
+describe("recortarPrologo", () => {
+  it("reemplaza el preámbulo y conserva marcadores y cola", () => {
+    const tail = "tail line";
+    const roadmap = ["# Viejo", "basura", INICIO, "sección", FIN, "", tail].join("\n");
+    const out = recortarPrologo(roadmap);
+    expect(out.startsWith("# Roadmap\n\nEl estado vivo son los avances")).toBe(true);
+    expect(out).toContain(INICIO);
+    expect(out).toContain(FIN);
+    expect(out.endsWith(tail)).toBe(true);
+    expect(out).not.toContain("basura");
+  });
+
+  it("deja el roadmap igual si falta el marcador", () => {
+    const roadmap = "# Solo título\n";
+    expect(recortarPrologo(roadmap)).toBe(roadmap);
   });
 });
 
@@ -238,7 +307,7 @@ describe("guardaPR", () => {
 describe("roadmap: bordes de formato", () => {
   it("escapa | en el texto y acepta CRLF", async () => {
     const { parsearAvance, renderizarSeccion } = await import("../scripts/roadmap-lib.mjs");
-    const a = parsearAvance("---\r\nitem: X\r\nestado: hecho\r\nadr: ADR-1\r\nprd: PRD-1\r\nfecha: 2026-10-14\r\n---\r\na | b\r\n", "x.md");
+    const a = parsearAvance("---\r\nitem: X\r\nestado: pendiente\r\nadr: ADR-1\r\nprd: PRD-1\r\nfecha: 2026-10-14\r\n---\r\na | b\r\n", "x.md");
     expect(renderizarSeccion([a])).toContain("a \\| b");
   });
 });
@@ -341,11 +410,11 @@ describe("parsearAvance chico P<n>-<m>", () => {
 });
 
 describe("renderizarSeccion con avance chico", () => {
-  it("muestra — para adr/prd vacíos", () => {
+  it("muestra — para adr/prd vacíos en avances abiertos", () => {
     const seccion = renderizarSeccion([
       {
         item: "P1-6",
-        estado: "hecho",
+        estado: "pendiente",
         adr: "",
         prd: "",
         fecha: "2026-10-14",
@@ -353,6 +422,6 @@ describe("renderizarSeccion con avance chico", () => {
       },
     ]);
     expect(seccion).toContain("—");
-    expect(seccion).toContain("| 2026-10-14 | P1-6 | hecho | Chico. | — / — |");
+    expect(seccion).toContain("| 2026-10-14 | P1-6 | pendiente | Chico. | — / — |");
   });
 });

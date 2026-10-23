@@ -4,7 +4,7 @@ Reglas cortas para agentes en este repo.
 
 ## Estado y lectura de docs
 
-- Estado rápido: `docs/ESTADO.md` (autogenerado con `npm run docs:estado`; no editar a mano).
+- Estado rápido: `docs/ESTADO.md` (autogenerado con `npm run docs:estado`; no editar a mano). En rama de trabajo, `npm run docs:estado` imprime el estado en stdout y no escribe el archivo.
 - Para trabajar un PRD/ADR o un módulo: `npm run docs:context <tema|modulo|id>` y leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` para ubicar algo). No leas docs completos "por las dudas".
 - Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
 - Al crear o modificar un doc: frontmatter según `docs/README.md` (plantillas `docs/adr/_PLANTILLA-ADR.md`, `docs/diseno/_PLANTILLA-PRD.md`) y después `npm run docs:check`. Los generados (`docs/ESTADO.md`, `docs/INDEX.md`, `docs/graph.json`, `docs/roadmap/migraciones-aplicadas.md`) los regenera `main`, no la rama.

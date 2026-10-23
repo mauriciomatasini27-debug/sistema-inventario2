@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parsearAvances, parsearMigraciones, renderEstado } from "./docs-estado-lib.mjs";
-import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
+import { modoEstado, parsearAvances, parsearMigraciones, renderEstado } from "./docs-estado-lib.mjs";
+import { ramaActual } from "./rama-lib.mjs";
 
 const args = process.argv.slice(2);
 let raiz = "docs";
@@ -52,15 +52,16 @@ const contenido = renderEstado({
 });
 
 const rutaEstado = join(raiz, "ESTADO.md");
-if (check) {
+const modo = modoEstado({ rama: ramaActual(), forzar, check });
+if (modo === "chequear") {
   const viejo = existsSync(rutaEstado) ? readFileSync(rutaEstado, "utf8") : null;
   if (viejo !== contenido) {
     console.error(`${rutaEstado} desactualizado: corré npm run docs:estado`);
     process.exit(1);
   }
   console.log("docs:estado al día");
-} else if (!forzar && esRamaDeTrabajo(ramaActual())) {
-  console.log(`docs:estado: en rama de trabajo no se escribe ${rutaEstado}; lo regenera main (usá --forzar para previsualizar)`);
+} else if (modo === "imprimir") {
+  process.stdout.write(contenido);
 } else {
   writeFileSync(rutaEstado, contenido);
   console.log(`${rutaEstado} actualizado`);
