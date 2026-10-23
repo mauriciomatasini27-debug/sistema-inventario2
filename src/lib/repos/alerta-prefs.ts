@@ -8,7 +8,7 @@ import {
   type OptInGuardado,
 } from "../../modules/alertas/destinatarios.js";
 import type { CanalElegido, PersonaDueno, PersonaEncargado } from "../../modules/alertas/stock-bajo.js";
-import { control } from "../store.js";
+import { control } from "./_almacen.js";
 import { dbVivaTenant, intentarPersistir } from "../server-db.js";
 
 type WaPrefMem = {
