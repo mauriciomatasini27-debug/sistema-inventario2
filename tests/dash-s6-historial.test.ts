@@ -43,4 +43,67 @@ describe("DASH-S6 historial de alertas", () => {
     const j = (await r.json()) as { alertas: { sku: string; fecha: string }[] };
     expect(j.alertas.map((x) => `${x.fecha}/${x.sku}`)).toEqual(["2026-10-23/azucar", "2026-10-23/yerba", "2026-10-22/yerba"]);
   });
+
+  it("membership revocada en el comercio de la sesión da 403", async () => {
+    const cookie = sesion("revocado", "t-1", "dueno");
+    control.memberships.get("m-revocado")!.estado = "revocado";
+    expect((await pedir(cookie)).status).toBe(403);
+  });
+
+  it("dueño de otro comercio con sesión de t-1 da 403", async () => {
+    const cookie = sesion("ajeno", "t-1", "dueno");
+    control.memberships.set("m-ajeno", {
+      id: "m-ajeno", tenantId: "t-2", googleSub: "ajeno", rol: "dueno", permisos: [], estado: "activo",
+    });
+    expect((await pedir(cookie)).status).toBe(403);
+  });
+
+  it("ordena por fecha descendente y sku ascendente dentro del día", async () => {
+    await registrarAlertasStock("t-1", "2026-10-21", [
+      { sku: "zeta", nombre: "Zeta", stock: 1, umbral: 5, urgente: true },
+      { sku: "alfa", nombre: "Alfa", stock: 2, umbral: 5, urgente: false },
+    ]);
+    await registrarAlertasStock("t-1", "2026-10-23", [
+      { sku: "beta", nombre: "Beta", stock: 3, umbral: 5, urgente: true },
+      { sku: "alfa", nombre: "Alfa", stock: 4, umbral: 5, urgente: false },
+    ]);
+    await registrarAlertasStock("t-1", "2026-10-22", [
+      { sku: "omega", nombre: "Omega", stock: 5, umbral: 5, urgente: true },
+    ]);
+    const r = await pedir(sesion("orden", "t-1", "dueno"));
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { alertas: { sku: string; fecha: string }[] };
+    expect(j.alertas.map((x) => `${x.fecha}/${x.sku}`)).toEqual([
+      "2026-10-23/alfa",
+      "2026-10-23/beta",
+      "2026-10-22/omega",
+      "2026-10-21/alfa",
+      "2026-10-21/zeta",
+    ]);
+  });
+
+  it("sin alertas responde 200 con alertas vacías", async () => {
+    const r = await pedir(sesion("vacio", "t-1", "dueno"));
+    expect(r.status).toBe(200);
+    expect((await r.json()) as { alertas: unknown[] }).toEqual({ alertas: [] });
+  });
+
+  it("las filas solo exponen sku, nombre, stock, umbral, urgente y fecha", async () => {
+    await registrarAlertasStock("t-1", "2026-10-23", [
+      { sku: "yerba", nombre: "Yerba", stock: 2, umbral: 10, urgente: true },
+    ]);
+    const r = await pedir(sesion("claves", "t-1", "dueno"));
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { alertas: Record<string, unknown>[] };
+    expect(j.alertas).toHaveLength(1);
+    expect(Object.keys(j.alertas[0]!).sort()).toEqual(["fecha", "nombre", "sku", "stock", "umbral", "urgente"]);
+    expect(j.alertas[0]).not.toHaveProperty("clave");
+    expect(j.alertas[0]).not.toHaveProperty("registradaAt");
+  });
+
+  it("responde con Cache-Control no-store", async () => {
+    const r = await pedir(sesion("cache", "t-1", "dueno"));
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+  });
 });
