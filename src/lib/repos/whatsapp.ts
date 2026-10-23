@@ -420,6 +420,7 @@ export async function registrarAlertasStock(
     umbral: a.umbral,
     urgente: a.urgente,
     fecha,
+    canal: a.canal === "email" ? "email" : "whatsapp",
   }));
   for (const p of payloads) alertasStockMemoria.set(clave_alerta_stock(tenantId, p.sku, fecha), p);
   let db: TenantDb | null = null;
@@ -531,6 +532,12 @@ export async function calculoSemanalVivo(tenantId?: string): Promise<CalculoSema
 export interface FilaHistorialAlerta extends AlertaStockPayload {
   readonly clave: string;
   readonly registradaAt: string | null;
+  readonly estado: string;
+}
+
+// DASH-S6: el único escritor anterior a `canal` es el aviso de WhatsApp.
+export function canalAlerta(canal: string | undefined): "whatsapp" | "email" {
+  return canal === "email" ? "email" : "whatsapp";
 }
 
 export async function leerAlertaStock(
@@ -565,7 +572,9 @@ export async function historialAlertasStock(tenantId: string, limite = 200): Pro
   const prefijo = `alerta_stock:${tenantId}:`;
   const porClave = new Map<string, FilaHistorialAlerta>();
   for (const [clave, p] of alertasStockMemoria) {
-    if (clave.startsWith(prefijo)) porClave.set(clave, { ...p, clave, registradaAt: null });
+    if (clave.startsWith(prefijo)) {
+      porClave.set(clave, { ...p, canal: canalAlerta(p.canal), clave, registradaAt: null, estado: "enviado" });
+    }
   }
   let db: TenantDb | null = null;
   try {
@@ -576,15 +585,22 @@ export async function historialAlertasStock(tenantId: string, limite = 200): Pro
   if (db) {
     try {
       const filas = await db
-        .select({ dedupeKey: notificationEvents.dedupeKey, payload: notificationEvents.payload, createdAt: notificationEvents.createdAt })
+        .select({
+          dedupeKey: notificationEvents.dedupeKey,
+          payload: notificationEvents.payload,
+          createdAt: notificationEvents.createdAt,
+          estado: notificationEvents.estado,
+        })
         .from(notificationEvents)
         .where(and(eq(notificationEvents.tipo, "alerta_stock"), like(notificationEvents.dedupeKey, `${prefijo}%`)));
       for (const f of filas) {
         const p = f.payload as AlertaStockPayload;
         porClave.set(f.dedupeKey, {
           ...p,
+          canal: canalAlerta(p.canal),
           clave: f.dedupeKey,
           registradaAt: f.createdAt ? new Date(f.createdAt).toISOString() : null,
+          estado: f.estado,
         });
       }
     } catch (e) {

@@ -15,7 +15,18 @@ export const GET: APIRoute = async ({ request }) => {
   }
   const alertas = await historialAlertasStock(ctx.tenantId);
   return Response.json(
-    { alertas: alertas.map(({ sku, nombre, stock, umbral, urgente, fecha }) => ({ sku, nombre, stock, umbral, urgente, fecha })) },
+    {
+      alertas: alertas.map(({ sku, nombre, stock, umbral, urgente, fecha, canal, estado }) => ({
+        sku,
+        nombre,
+        stock,
+        umbral,
+        urgente,
+        fecha,
+        canal,
+        estado,
+      })),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 };

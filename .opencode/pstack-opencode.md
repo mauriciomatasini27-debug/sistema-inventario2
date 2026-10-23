@@ -1,6 +1,6 @@
 # pstack on OpenCode — adaptation layer (always loaded via opencode.json "instructions")
 
-pstack skills were written for Cursor. When a skill names a Cursor-only thing, use the OpenCode equivalent below.
+pstack skills were written for Cursor. Desde ADR-0113 el repo no trae copia de pstack: las skills pstack (`poteto-mode`, `principle-*`, `how`, `tdd`, etc.) vienen del plugin oficial (`cursor/plugins`, `pstack/skills`). En Cursor las carga el plugin; en OpenCode instalalas a nivel usuario en `~/.config/opencode/skills/` (p.ej. `git clone --depth 1 --filter=blob:none --sparse https://github.com/cursor/plugins && git -C plugins sparse-checkout set pstack/skills` y copiá/enlazá cada carpeta). `.agents/skills/` solo tiene skills del proyecto. When a skill names a Cursor-only thing, use the OpenCode equivalent below.
 
 ## Modelos
 
@@ -14,13 +14,13 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 - `Task` / `generalPurpose` -> `task` con `subagent_type`: `general`, `explore`, o un rol pstack.
 - Task `model` -> no soportado: elegí el rol (`pstack-worker` o `pstack-judge`); modelos distintos = cross-family judging.
 - `AskQuestion` -> `question` en la TUI interactiva; en `opencode run` (headless) no existe: elegí el default y seguí (principle-never-block-on-the-human).
-- `create-skill` -> `.agents/skills/<name>/SKILL.md` con frontmatter `name` = nombre de carpeta (lowercase-hyphen) y `description`. Verificá con `~/.local/bin/opencode debug skill`.
+- `create-skill` (skill del proyecto) -> `.agents/skills/<name>/SKILL.md` con frontmatter `name` = nombre de carpeta (lowercase-hyphen) y `description`. Verificá con `~/.local/bin/opencode debug skill`.
 - `control-ui`/`control-cli` (`cursor-team-kit`) no están instalados: donde una skill poteto pide "the matching control skill" para la PWA o la web, usá la skill local `/control-app` (`scripts/control-app/control-app.mjs`, ADR-0111).
 - Worktrees -> `git worktree add ../si-wt-<slug> -b wt/<slug>` y borralo al terminar.
 
 ## GitHub
 
-- `origin` = `mauriciosoyastor/sistema-inventario` (privado); `gh` autentica con `GH_TOKEN` del entorno (nunca imprimirlo).
+- `origin` = `mauriciomatasini27-debug/sistema-inventario2` (privado); `gh` autentica con `GH_TOKEN` del entorno (nunca imprimirlo).
 - `gh pr view/diff/checks` y `gh api` sirven para why, blast-radius y correct. Code scanning no está habilitado (CodeQL deja SARIF como artefacto): `gh api .../code-scanning` da 403, saltealo.
 - `gh pr view N` pelado falla (necesita scopes que el token no tiene): pasá `--json <fields>` o usá `gh pr diff N`.
 - MCP: `~/.local/bin/opencode mcp list </dev/null` (no hay carpeta `mcps/`). No llames MCP de Supabase desde skills pstack: es data viva, no historial. Registralo como "not used by policy".
@@ -30,7 +30,7 @@ pstack skills were written for Cursor. When a skill names a Cursor-only thing, u
 
 - `~/.cursor/rules/*.mdc` -> `.opencode/*.md` en `opencode.json` `instructions`, o `AGENTS.md`.
 - `~/.cursor/rules/pstack-models.mdc` -> `.opencode/pstack-models.md`.
-- `~/.cursor/skills/`, `~/.cursor/plugins/` -> `.agents/skills/` (proyecto) o `~/.config/opencode/skills/` (usuario).
+- `~/.cursor/skills/`, `~/.cursor/plugins/` -> `~/.config/opencode/skills/` (pstack del plugin oficial, usuario) o `.agents/skills/` (solo skills del proyecto).
 - Transcripts (`~/.cursor/projects/*/agent-transcripts/`, usados por reflect/recall/automate-me/show-me-your-work) -> sesiones OpenCode:
   - listar: `~/.local/bin/opencode session list --format json -n 20`
   - leer: `~/.local/bin/opencode export <id>` -> `{info, messages}` (cada mensaje con `parts`)
