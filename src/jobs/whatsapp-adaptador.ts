@@ -19,7 +19,11 @@ export interface ComercioWa {
 // B2: ausente => optIn false (sin opt-in no sale ninguna plantilla).
 export function prefs_wa_de(tenantId: string, googleSub: string): Preferencias {
   const p = control.waPrefs.get(`${tenantId}:${googleSub}`);
-  return { optIn: p?.optIn ?? false, avisoHora: p?.avisoHora ?? "08:00", pausadoHastaMs: p?.pausadoHastaMs ?? null };
+  return {
+    optIn: p?.optIn ?? false,
+    avisoHora: p?.avisoHora ?? "08:00",
+    pausadoHastaMs: p?.pausadoHastaMs ?? null,
+  };
 }
 
 // Comercios con número verificado y tenant activo o suspendido (B1.10: el
