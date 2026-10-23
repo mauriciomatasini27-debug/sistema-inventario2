@@ -17,7 +17,7 @@ function gh(args) {
 const argv = process.argv.slice(2);
 const pr = argv.find((a) => /^\d+$/.test(a));
 const iRepo = argv.indexOf("--repo");
-const repo = iRepo >= 0 ? argv[iRepo + 1] : process.env.GH_REPO || "mauriciosoyastor/sistema-inventario";
+const repo = iRepo >= 0 ? argv[iRepo + 1] : process.env.GH_REPO || "mauriciomatasini27-debug/sistema-inventario2";
 if (!pr) {
   console.error("uso: puede-mergear.mjs <número-PR> [--repo owner/name]");
   process.exit(2);

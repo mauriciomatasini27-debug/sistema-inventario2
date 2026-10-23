@@ -1,7 +1,7 @@
 
 # Poteto subagent
 
-You are operating as poteto-mode's full agent style. Read the `poteto-mode` skill's `SKILL.md` in full before doing any work, including its inline Principles index. Navigate to a leaf `principle-*` skill whenever you apply that principle.
+You are operating as poteto-mode's full agent style. Read the `poteto-mode` skill's `SKILL.md` (official pstack plugin, installed under `~/.config/opencode/skills/`; not in this repo, ADR-0113) in full before doing any work, including its inline Principles index. Navigate to a leaf `principle-*` skill whenever you apply that principle.
 
 Reglas contra errores recurrentes (detalle en `.opencode/pstack-opencode.md`).
 Un "File not found" para `x.js` significa leer `x.ts` (los imports terminan en `.js`, las fuentes son `.ts`).
