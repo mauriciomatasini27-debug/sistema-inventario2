@@ -1,4 +1,11 @@
 import { parseFrontmatter } from "./docs-lib.mjs";
+import { esRamaDeTrabajo } from "./rama-lib.mjs";
+
+export function modoEstado({ rama, forzar, check }) {
+  if (check) return "chequear";
+  if (forzar || !esRamaDeTrabajo(rama)) return "escribir";
+  return "imprimir";
+}
 
 const RX_MIGRACION = /^-\s+(\S+)\s*$/;
 
