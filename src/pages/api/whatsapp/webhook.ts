@@ -58,7 +58,13 @@ import { crearRegistroUsoIA } from "../../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../../lib/repos/ia-lecturas.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
 import { MENSAJE_MODULO_APAGADO } from "../../../modules/bot/modulos-rubro.js";
-import { cantidad_reponer, parsear_boton_accion, type TipoAccionPropuesta } from "../../../modules/bot/acciones-propuestas.js";
+import {
+  cantidad_reponer,
+  costoCentavosReponer,
+  parsear_boton_accion,
+  type TipoAccionPropuesta,
+} from "../../../modules/bot/acciones-propuestas.js";
+import { elegirProveedorUnico } from "../../../modules/purchases/proveedores.js";
 import { crearOrdenRepo } from "../../../lib/repos/proveedores.js";
 import { listarClientesConSaldo } from "../../../lib/repos/fiado.js";
 import { texto_recordatorio } from "../../../jobs/bot-pyme.js";
@@ -477,16 +483,14 @@ async function atenderAccionReponer(
   if (!item) return contestar(RESPUESTA_ACCION_INVALIDA, { accion: "accion_invalida" });
   const { proveedores } = await conTenant(opts.tenantId, () => listarProveedores());
   const activos = proveedores.filter((p) => p.activo);
-  const porNombre = item.proveedor ? activos.find((p) => p.nombre === item.proveedor || p.cuit === item.proveedor) : undefined;
-  const proveedor = porNombre ?? (activos.length === 1 ? activos[0] : undefined);
+  const proveedor = elegirProveedorUnico(item.proveedor, activos);
   if (!proveedor) {
     return contestar(`No sé a qué proveedor pedirle ${item.nombre}. Armá el pedido desde el panel de proveedores.`, {
       accion: "accion_sin_proveedor",
     });
   }
   const qty = cantidad_reponer({ sku: item.sku, nombre: item.nombre, stock: item.stock, umbral: item.umbral, reorderQty: item.reorderQty ?? null });
-  const bruto = item.costoCentavos != null && item.costoCentavos > 0n ? item.costoCentavos : item.precioCentavos > 0n ? item.precioCentavos : 1n;
-  const costo = bruto > 999_999_999n ? 999_999_999n : bruto;
+  const costo = costoCentavosReponer(item);
   const ahora = Date.now();
   const mes = mesAR(ahora);
   const r = await conTenant(opts.tenantId, () =>

@@ -64,6 +64,19 @@ function es_urgente(p: ProductoAccion): boolean {
 
 // Misma fórmula que sugerido_alerta/lista-viernes: faltante + medio umbral.
 // reorder_qty persistido manda; el tope de 9999 respeta la validación de OC.
+export function costoCentavosReponer(item: {
+  readonly costoCentavos?: bigint | undefined;
+  readonly precioCentavos: bigint;
+}): bigint {
+  const bruto =
+    item.costoCentavos != null && item.costoCentavos > 0n
+      ? item.costoCentavos
+      : item.precioCentavos > 0n
+        ? item.precioCentavos
+        : 1n;
+  return bruto > 999_999_999n ? 999_999_999n : bruto;
+}
+
 export function cantidad_reponer(p: ProductoAccion): number {
   const stock = Math.floor(p.stock);
   const umbral = Math.floor(p.umbral);

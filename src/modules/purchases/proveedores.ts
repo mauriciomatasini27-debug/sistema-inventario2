@@ -171,6 +171,17 @@ export interface PurchaseOrder {
 }
 
 // B6.2: marca un borrador como semanal sin mutar (el mismo que ve la web).
+export function elegirProveedorUnico(
+  referencia: string | null | undefined,
+  activos: readonly { readonly cuit: string; readonly nombre: string }[],
+): { readonly cuit: string; readonly nombre: string } | null {
+  const porNombre = referencia
+    ? activos.find((p) => p.nombre === referencia || p.cuit === referencia)
+    : undefined;
+  if (porNombre) return porNombre;
+  return activos.length === 1 ? activos[0]! : null;
+}
+
 export function marcarSemanal(actual: PurchaseOrder): PurchaseOrder {
   if (actual.estado !== "abierta") return actual;
   return Object.freeze({ ...actual, esSemanal: true, origen: actual.origen ?? "web" });

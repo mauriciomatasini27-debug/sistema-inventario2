@@ -141,6 +141,9 @@ export type CrearOrdenRepoResultado =
 // idempotency-key con cabecera+lineas en 1 tx y espejo memoria. En multi sin
 // base dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta es 503).
 export async function crearOrdenRepo(input: CrearOrdenRepoInput): Promise<CrearOrdenRepoResultado> {
+  if (input.key.startsWith("alerta-borrador:")) {
+    return { ok: false, codigo: "NO_VALIDA", error: "clave reservada para alertas" };
+  }
   const ordenes = crearAlmacenPurchaseOrders();
   const ordenVistos = crearAlmacenOrderVistos();
   const r = crearOrden({
@@ -270,6 +273,8 @@ function dominioDeFilas(
     creadoPor: head.creadoPor,
     creadoEn: head.createdAt.toISOString(),
     cerradoEn: head.cerradoEn ? head.cerradoEn.toISOString() : null,
+    esSemanal: head.esSemanal,
+    origen: head.origen,
   });
 }
 
