@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 source ~/.bashrc && nvm install 22 && nvm alias default 22
 sudo apt install -y gh && gh auth login            # HTTPS, cuenta mauriciosoyastor
 curl -fsSL https://opencode.ai/install | bash       # OpenCode 1.x
-git clone https://github.com/mauriciosoyastor/sistema-inventario.git ~/sistema-inventario
+git clone https://github.com/mauriciomatasini27-debug/sistema-inventario2.git ~/sistema-inventario
 cd ~/sistema-inventario && npm ci
 npx playwright install --with-deps chromium         # solo si vas a correr e2e
 ```

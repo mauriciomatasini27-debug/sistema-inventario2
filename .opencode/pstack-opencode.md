@@ -20,7 +20,7 @@ pstack skills were written for Cursor. Desde ADR-0113 el repo no trae copia de p
 
 ## GitHub
 
-- `origin` = `mauriciosoyastor/sistema-inventario` (privado); `gh` autentica con `GH_TOKEN` del entorno (nunca imprimirlo).
+- `origin` = `mauriciomatasini27-debug/sistema-inventario2` (privado); `gh` autentica con `GH_TOKEN` del entorno (nunca imprimirlo).
 - `gh pr view/diff/checks` y `gh api` sirven para why, blast-radius y correct. Code scanning no está habilitado (CodeQL deja SARIF como artefacto): `gh api .../code-scanning` da 403, saltealo.
 - `gh pr view N` pelado falla (necesita scopes que el token no tiene): pasá `--json <fields>` o usá `gh pr diff N`.
 - MCP: `~/.local/bin/opencode mcp list </dev/null` (no hay carpeta `mcps/`). No llames MCP de Supabase desde skills pstack: es data viva, no historial. Registralo como "not used by policy".
