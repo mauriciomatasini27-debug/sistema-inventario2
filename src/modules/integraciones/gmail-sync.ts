@@ -11,6 +11,10 @@ import {
 import { BORRADOR_MS, RECUERDO_MS, clasificar_capa1, extraer_comprobante, registrar_log_ingesta, type CuentaCatalogo, type FiltroIngesta, type LogIngesta } from "../utilities/ingesta_gmail.js";
 import type { MotorOcr } from "../ocr/motor.js";
 import type { ConfianzaCampo, OrigenExtraccion } from "../utilities/facturas_servicios.js";
+import {
+  extraer_texto_embebido_pdf,
+  type ExtractadorPdfDigital,
+} from "../utilities/extraer-pdf-digital.js";
 
 export interface BorradorSync {
   readonly connectionId: string;
@@ -45,7 +49,7 @@ export interface EntradaSyncGmail {
   readonly ventanaRecuperacionDias?: number;
   readonly labelId?: string;
   readonly motor?: MotorOcr | null;
-  readonly extraerPdfTexto?: (bytes: Buffer) => Promise<string | null> | string | null;
+  readonly extraerPdfTexto?: ExtractadorPdfDigital;
   readonly persistencia: PersistenciaSyncGmail;
 }
 
@@ -132,15 +136,16 @@ async function primerAdjuntoValido(
   return null;
 }
 
-async function extraerDeAdjunto(input: {
+export async function extraerDeAdjunto(input: {
   readonly mime: string;
   readonly bytes: Buffer;
   readonly cuerpo: string | null;
   readonly motor: MotorOcr | null;
-  readonly extraerPdfTexto?: (bytes: Buffer) => Promise<string | null> | string | null;
+  readonly extraerPdfTexto?: ExtractadorPdfDigital;
 }) {
   if (input.mime === "application/pdf") {
-    const pdfTexto = input.extraerPdfTexto ? await input.extraerPdfTexto(input.bytes) : null;
+    const extraer = input.extraerPdfTexto ?? extraer_texto_embebido_pdf;
+    const pdfTexto = await extraer(input.bytes);
     return extraer_comprobante({
       ...(pdfTexto !== null ? { pdfTexto } : {}),
       ...(input.cuerpo !== null ? { cuerpo: input.cuerpo } : {}),

@@ -28,12 +28,13 @@ import {
 import { marcarJobGmailError, marcarJobGmailHecho, type JobGmail } from "../lib/repos/gmail-cola.js";
 import { sincronizarGmail, type PersistenciaSyncGmail } from "../modules/integraciones/gmail-sync.js";
 import type { MotorOcr } from "../modules/ocr/motor.js";
+import type { ExtractadorPdfDigital } from "../modules/utilities/extraer-pdf-digital.js";
 
 export interface DepsJobGmail {
   readonly env?: NodeJS.ProcessEnv;
   readonly fetchImpl?: typeof fetch;
   readonly motor?: MotorOcr | null;
-  readonly extraerPdfTexto?: (bytes: Buffer) => Promise<string | null> | string | null;
+  readonly extraerPdfTexto?: ExtractadorPdfDigital;
   readonly ahoraMs?: number;
 }
 
@@ -155,7 +156,7 @@ export async function ejecutarJobGmail(
       catalogo,
       ahoraMs: deps?.ahoraMs ?? Date.now(),
       motor: deps?.motor ?? null,
-      ...(deps?.extraerPdfTexto ? { extraerPdfTexto: deps.extraerPdfTexto } : {}),
+      ...(deps?.extraerPdfTexto !== undefined ? { extraerPdfTexto: deps.extraerPdfTexto } : {}),
       persistencia: persistenciaDe(job.tenantId),
     });
     await marcarJobGmailHecho(job.id);
