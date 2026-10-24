@@ -6,6 +6,7 @@ import { BaseNoDisponible } from "../../lib/server-db.js";
 import { planIncluye } from "../../lib/repos/planes.js";
 import { MODULOS_BOT, rubrosAvanzadosHabilitados } from "../../modules/bot/modulos-rubro.js";
 import { cambiarModuloBot, leerModulosBot } from "../../lib/repos/bot-modulos.js";
+import { observarNivelBot } from "../../lib/repos/bot-turnos.js";
 
 export const prerender = false;
 
@@ -28,6 +29,7 @@ export const GET: APIRoute = async ({ request }) => {
   if (!tenantId) return jsonError("No tenés permiso en este comercio.", 403);
   const m = membershipActiva(tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
+  await observarNivelBot(tenantId, Date.now());
   return Response.json({
     tenant_id: tenantId,
     modulos: MODULOS_BOT,
@@ -57,6 +59,14 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Datos inválidos.", 422);
+  const nivel = await observarNivelBot(tenantId, Date.now());
+  if (!parsed.data.activo && (nivel.tipo === "congelado" || nivel.tipo === "vencido")) {
+    const activos = await leerModulosBot(tenantId);
+    return Response.json(
+      { error: "Los módulos del bot están en solo lectura.", codigo: "solo_lectura", activos },
+      { status: 409 },
+    );
+  }
   if (parsed.data.activo) {
     try {
       const inc = await planIncluye(tenantId, "bot_rubro");

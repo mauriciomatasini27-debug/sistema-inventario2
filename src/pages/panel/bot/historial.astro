@@ -120,7 +120,16 @@ import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
         setEstado("No pudimos cargar el historial.");
         return;
       }
-      const j = (await r.json()) as { filas: FilaHist[]; cursor: string | null; personas: PersonaF[] | null };
+      const j = (await r.json()) as {
+        filas: FilaHist[];
+        cursor: string | null;
+        personas: PersonaF[] | null;
+        soloLectura?: boolean;
+        aviso?: string;
+      };
+      if (j.soloLectura && j.aviso) {
+        setEstado(j.aviso);
+      }
       if (!mas && j.personas) {
         const sel = $("hist-persona") as HTMLSelectElement;
         const lbl = $("hist-persona-label");
@@ -139,7 +148,9 @@ import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
       }
       filas = mas ? [...filas, ...j.filas] : j.filas;
       cursor = j.cursor;
-      setEstado(filas.length === 0 ? "Todavía no hay consultas registradas." : `${filas.length} consultas cargadas.`);
+      if (!j.soloLectura) {
+        setEstado(filas.length === 0 ? "Todavía no hay consultas registradas." : `${filas.length} consultas cargadas.`);
+      }
       pintarVentana();
     } finally {
       cargandoMas = false;
