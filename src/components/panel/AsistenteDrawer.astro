@@ -1,9 +1,4 @@
----
-import { moduloIndice } from "../../lib/panel-modulos.js";
-
-const asistente = moduloIndice("asistente");
----
-<div class="asistente-trigger" data-modulo-indice={asistente.id}>
+<div class="asistente-trigger">
   <button type="button" id="asistente-abrir" class="asistente-abrir" hidden>
     Preguntale al negocio
   </button>
@@ -18,7 +13,7 @@ const asistente = moduloIndice("asistente");
         Cerrar
       </button>
     </header>
-    <div class="asistente-drawer-body">
+    <div class="asistente-drawer-body" id="asistente-chat">
       <p class="mini">Probá con una de estas preguntas o escribí la tuya.</p>
       <div class="asistente-chips" id="asistente-chips" role="group" aria-label="Preguntas sugeridas" hidden></div>
       <p class="asistente-chips-aviso" id="asistente-chips-aviso" hidden>Probá con una de estas.</p>
@@ -59,6 +54,14 @@ const asistente = moduloIndice("asistente");
         Reintentar
       </button>
     </div>
+    <div class="asistente-drawer-body" id="asistente-upsell" hidden>
+      <h3 id="asistente-upsell-titulo" data-asistente-upsell-titulo></h3>
+      <p data-asistente-upsell-hace></p>
+      <p data-asistente-upsell-actual></p>
+      <p data-asistente-upsell-modulo hidden></p>
+      <a class="asistente-upsell-ver" data-asistente-upsell-ver href="/panel/plan" hidden>Ver planes</a>
+      <p class="asistente-upsell-empleado" data-asistente-upsell-empleado hidden>Pedile al Dueño que lo active</p>
+    </div>
   </div>
 </dialog>
 
@@ -87,7 +90,8 @@ const asistente = moduloIndice("asistente");
   .asistente-cerrar:focus-visible,
   .asistente-fila button:focus-visible,
   .asistente-reintentar:focus-visible,
-  .asistente-reporte:focus-visible {
+  .asistente-reporte:focus-visible,
+  .asistente-upsell-ver:focus-visible {
     outline: 2px solid var(--texto);
     outline-offset: 2px;
   }
@@ -249,6 +253,22 @@ const asistente = moduloIndice("asistente");
   .asistente-reintentar {
     align-self: flex-start;
   }
+  .asistente-upsell-ver {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    min-height: 44px;
+    margin-top: 12px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: var(--llama);
+    color: var(--tinta);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .asistente-upsell-empleado {
+    color: var(--muted);
+  }
   .asistente-fila button:disabled,
   .asistente-reintentar:disabled {
     opacity: 0.6;
@@ -313,6 +333,7 @@ const asistente = moduloIndice("asistente");
     type EventoChat,
     type RespuestaChat,
   } from "../../lib/asistente-chat.js";
+  import { upsellDeRespuestaAsistente, type PantallaUpsell } from "../../lib/panel-upsell.js";
 
   interface Cifra {
     etiqueta: string;
@@ -367,6 +388,14 @@ const asistente = moduloIndice("asistente");
   const medidorBarra = document.getElementById("asistente-medidor-barra");
   const medidorRelleno = document.getElementById("asistente-medidor-relleno");
   const reintentar = document.getElementById("asistente-reintentar");
+  const chatCuerpo = document.getElementById("asistente-chat");
+  const upsell = document.getElementById("asistente-upsell");
+  const upsellTitulo = document.getElementById("asistente-upsell-titulo");
+  const upsellHace = document.querySelector("[data-asistente-upsell-hace]");
+  const upsellActual = document.querySelector("[data-asistente-upsell-actual]");
+  const upsellModulo = document.querySelector("[data-asistente-upsell-modulo]");
+  const upsellVer = document.querySelector("[data-asistente-upsell-ver]");
+  const upsellEmpleado = document.querySelector("[data-asistente-upsell-empleado]");
 
   if (
     !(abrir instanceof HTMLButtonElement) ||
@@ -386,7 +415,15 @@ const asistente = moduloIndice("asistente");
     !(medidorTexto instanceof HTMLElement) ||
     !(medidorBarra instanceof HTMLElement) ||
     !(medidorRelleno instanceof HTMLElement) ||
-    !(reintentar instanceof HTMLButtonElement)
+    !(reintentar instanceof HTMLButtonElement) ||
+    !(chatCuerpo instanceof HTMLElement) ||
+    !(upsell instanceof HTMLElement) ||
+    !(upsellTitulo instanceof HTMLElement) ||
+    !(upsellHace instanceof HTMLElement) ||
+    !(upsellActual instanceof HTMLElement) ||
+    !(upsellModulo instanceof HTMLElement) ||
+    !(upsellVer instanceof HTMLAnchorElement) ||
+    !(upsellEmpleado instanceof HTMLElement)
   ) {
     throw new Error("asistente: faltan elementos del drawer");
   }
@@ -394,6 +431,7 @@ const asistente = moduloIndice("asistente");
   let disparador: HTMLElement = abrir;
   let chat: EstadoChat = { tipo: "inactivo" };
   let cupoActual: CupoAPI | null = null;
+  let modoUpsell = false;
   const TIMEOUT_MS = 20_000;
 
   async function leerJson(r: Response): Promise<RespuestaAPI> {
@@ -418,6 +456,20 @@ const asistente = moduloIndice("asistente");
     abrir.hidden = false;
     triggerEstado.textContent = "";
     triggerEstado.hidden = true;
+  }
+
+  function prepararUpsell(pantalla: PantallaUpsell): void {
+    modoUpsell = true;
+    upsellTitulo.textContent = pantalla.titulo;
+    upsellHace.textContent = pantalla.queHace;
+    upsellActual.textContent = pantalla.planActualTexto;
+    upsellModulo.textContent = pantalla.planModuloTexto ?? "";
+    upsellModulo.hidden = pantalla.planModuloTexto === null;
+    const esDueno = pantalla.cta === "ver_planes";
+    upsellVer.hidden = !esDueno;
+    upsellEmpleado.hidden = esDueno;
+    chatCuerpo.hidden = true;
+    upsell.hidden = false;
   }
 
   function fechaReinicioTexto(reinicia_el: string | null | undefined): string {
@@ -589,6 +641,12 @@ const asistente = moduloIndice("asistente");
       if (!r.ok) throw new Error("http " + r.status);
       const j = await leerJson(r);
       if (!j.incluido) {
+        const pantalla = upsellDeRespuestaAsistente(j);
+        if (pantalla) {
+          prepararUpsell(pantalla);
+          mostrarBoton();
+          return;
+        }
         ocultarBoton(j.explicacion || "Tu plan no incluye el asistente IA.");
         return;
       }
@@ -694,6 +752,10 @@ const asistente = moduloIndice("asistente");
     if (drawer.open) return;
     disparador = document.activeElement instanceof HTMLElement ? document.activeElement : abrir;
     drawer.showModal();
+    if (modoUpsell) {
+      (upsellVer.hidden ? cerrar : upsellVer).focus();
+      return;
+    }
     // A 360 px el teclado taparía los chips: el foco queda en el primer control del drawer.
     if (window.matchMedia("(min-width: 481px)").matches) input.focus();
   });

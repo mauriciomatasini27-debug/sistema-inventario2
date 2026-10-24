@@ -1,7 +1,9 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
+import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
 ---
 <PanelShell titulo="Umbrales de alerta" subtitulo="Stock mínimo y cantidad a reponer por producto." activo="stock">
+  <UpsellPantalla superficie="alertas_whatsapp">
   <p class="umb-dest"><a href="/panel/alertas/destinatarios">Destinatarios de alertas</a></p>
   <section class="card">
     <h2>Edición masiva por categoría</h2>
@@ -44,6 +46,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     .umb-acciones { margin-top: 12px; }
     .umb-dest { margin-bottom: 12px; font-size: 14px; }
   </style>
+  </UpsellPantalla>
 </PanelShell>
 
 <script>

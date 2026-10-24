@@ -3,7 +3,8 @@ import { z } from "zod";
 import { control } from "../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "../../lib/control.js";
 import { BaseNoDisponible } from "../../lib/server-db.js";
-import { planIncluye } from "../../lib/repos/planes.js";
+import { leerCatalogo, planIncluye } from "../../lib/repos/planes.js";
+import { accesoSuperficie } from "../../lib/panel-upsell.js";
 import { crearRegistroUsoIA } from "../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../lib/repos/ia-lecturas.js";
 import { fechaAR, mesAR } from "../../lib/fecha-ar.js";
@@ -72,11 +73,22 @@ export const GET: APIRoute = async ({ request }) => {
         explicacion: medidor.explicacion,
       };
     }
+    // PLAN-S9: sin el módulo, el drawer abre la pantalla de upsell (plan actual
+    // y qué hace) en vez de esconder el botón.
+    const upsell = inc.incluida
+      ? null
+      : accesoSuperficie({
+          superficie: "asistente",
+          planId: inc.planId,
+          rol: membresia.rol,
+          catalogo: await leerCatalogo(),
+        });
     return Response.json({
       incluido: inc.incluida,
       explicacion: inc.incluida ? "" : explicacionFueraDePlan(inc.planId),
       preguntas,
       ...(cupo === null ? {} : { cupo }),
+      ...(upsell?.tipo === "upsell" ? { upsell: upsell.pantalla } : {}),
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });

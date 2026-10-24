@@ -131,3 +131,122 @@ export function ofertaUpsell(args: {
     ahora: args.ahora,
   });
 }
+
+// PLAN-S9: una ruta fuera de plan muestra esta pantalla (qué hace, plan actual,
+// plan que lo incluye y CTA según el rol). No es un 404. El mail de alertas
+// sigue en Básico, así que esa ruta no se reemplaza entera.
+export const SUPERFICIES_UPSELL = ["bot", "alertas_whatsapp", "asistente"] as const;
+export type SuperficieUpsell = (typeof SUPERFICIES_UPSELL)[number];
+export type CtaUpsell = "ver_planes" | "pedile_al_dueno";
+
+export interface PantallaUpsell {
+  readonly superficie: SuperficieUpsell;
+  readonly titulo: string;
+  readonly queHace: string;
+  readonly planActualId: PlanId | null;
+  readonly planActualNombre: string;
+  readonly planActualTexto: string;
+  readonly planDelModuloId: PlanId | null;
+  readonly planDelModuloNombre: string | null;
+  readonly planModuloTexto: string | null;
+  readonly cta: CtaUpsell;
+  readonly reemplazaPagina: boolean;
+}
+
+export type AccesoSuperficie =
+  | { readonly tipo: "incluido" }
+  | { readonly tipo: "upsell"; readonly pantalla: PantallaUpsell };
+
+const DEF_SUPERFICIE: Record<
+  SuperficieUpsell,
+  { readonly nombre: string; readonly queHace: string; readonly requisito: RequisitoIndice; readonly feature: "bot_consulta" | "alertas_whatsapp" | "asistente_ia" }
+> = {
+  bot: {
+    nombre: COPY.bot.nombre,
+    queHace: COPY.bot.texto,
+    requisito: { tipo: "feature", feature: "bot_consulta" },
+    feature: "bot_consulta",
+  },
+  alertas_whatsapp: {
+    nombre: "Alertas por WhatsApp",
+    queHace: "Avisos de stock bajo por WhatsApp y el resumen de la mañana.",
+    requisito: { tipo: "feature", feature: "alertas_whatsapp" },
+    feature: "alertas_whatsapp",
+  },
+  asistente: {
+    nombre: COPY.asistente.nombre,
+    queHace: COPY.asistente.texto,
+    requisito: { tipo: "feature", feature: "asistente_ia" },
+    feature: "asistente_ia",
+  },
+};
+
+export function esSuperficieUpsell(valor: unknown): valor is SuperficieUpsell {
+  return valor === "bot" || valor === "alertas_whatsapp" || valor === "asistente";
+}
+
+function esPlanIdONull(valor: unknown): valor is PlanId | null {
+  return valor === null || esPlanId(valor);
+}
+
+function esCtaUpsell(valor: unknown): valor is CtaUpsell {
+  return valor === "ver_planes" || valor === "pedile_al_dueno";
+}
+
+export function esPantallaUpsell(valor: unknown): valor is PantallaUpsell {
+  if (typeof valor !== "object" || valor === null) return false;
+  const o = valor as Record<string, unknown>;
+  return (
+    esSuperficieUpsell(o["superficie"]) &&
+    typeof o["titulo"] === "string" &&
+    o["titulo"].length > 0 &&
+    typeof o["queHace"] === "string" &&
+    o["queHace"].length > 0 &&
+    esPlanIdONull(o["planActualId"]) &&
+    typeof o["planActualNombre"] === "string" &&
+    o["planActualNombre"].length > 0 &&
+    typeof o["planActualTexto"] === "string" &&
+    o["planActualTexto"].length > 0 &&
+    esPlanIdONull(o["planDelModuloId"]) &&
+    (o["planDelModuloNombre"] === null ||
+      (typeof o["planDelModuloNombre"] === "string" && o["planDelModuloNombre"].length > 0)) &&
+    (o["planModuloTexto"] === null ||
+      (typeof o["planModuloTexto"] === "string" && o["planModuloTexto"].length > 0)) &&
+    esCtaUpsell(o["cta"]) &&
+    typeof o["reemplazaPagina"] === "boolean"
+  );
+}
+
+export function accesoSuperficie(args: {
+  readonly superficie: SuperficieUpsell;
+  readonly planId: PlanId | null;
+  readonly rol: "dueno" | "empleado";
+  readonly catalogo?: Catalogo;
+}): AccesoSuperficie {
+  const catalogo = args.catalogo ?? PLANES_EJEMPLO;
+  const def = DEF_SUPERFICIE[args.superficie];
+  const plan = args.planId === null ? null : (catalogo.find((p) => p.id === args.planId) ?? null);
+  if (plan?.features[def.feature] === true) return { tipo: "incluido" };
+  const destino = planMasBarato(catalogo, def.requisito);
+  const pantalla: PantallaUpsell = {
+    superficie: args.superficie,
+    titulo: destino ? `${def.nombre} en ${destino.nombre}` : def.nombre,
+    queHace: def.queHace,
+    planActualId: plan?.id ?? null,
+    planActualNombre: plan?.nombre ?? "Sin plan activo",
+    planActualTexto: plan ? `Tu plan actual es ${plan.nombre}.` : "No tenés un plan activo.",
+    planDelModuloId: destino?.id ?? null,
+    planDelModuloNombre: destino?.nombre ?? null,
+    planModuloTexto: destino ? `Está en el plan ${destino.nombre}.` : null,
+    cta: args.rol === "dueno" ? "ver_planes" : "pedile_al_dueno",
+    reemplazaPagina: args.superficie === "alertas_whatsapp" ? plan?.features.alertas_email !== true : true,
+  };
+  return { tipo: "upsell", pantalla };
+}
+
+export function upsellDeRespuestaAsistente(valor: unknown): PantallaUpsell | null {
+  if (typeof valor !== "object" || valor === null) return null;
+  const fila = valor as Record<string, unknown>;
+  if (fila["incluido"] !== false) return null;
+  return esPantallaUpsell(fila["upsell"]) ? fila["upsell"] : null;
+}

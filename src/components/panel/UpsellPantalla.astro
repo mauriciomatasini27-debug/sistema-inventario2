@@ -1,0 +1,84 @@
+---
+import { accesoUpsellDeRequest } from "../../lib/upsell-ruta.js";
+import { BaseNoDisponible } from "../../lib/server-db.js";
+import type { AccesoSuperficie } from "../../lib/panel-upsell.js";
+
+interface Props {
+  superficie: "bot" | "alertas_whatsapp";
+}
+const { superficie } = Astro.props;
+let acceso: AccesoSuperficie | null = null;
+try {
+  acceso = await accesoUpsellDeRequest(Astro.request, superficie);
+} catch (e) {
+  if (!(e instanceof BaseNoDisponible)) throw e;
+}
+const pantalla = acceso?.tipo === "upsell" ? acceso.pantalla : null;
+const reemplaza = pantalla?.reemplazaPagina === true;
+const verPlanes = pantalla?.cta === "ver_planes";
+---
+<section
+  class="upsell-pantalla card"
+  data-upsell-pantalla
+  data-superficie={superficie}
+  hidden={!pantalla}
+  aria-labelledby="upsell-pantalla-titulo"
+>
+  <h2 id="upsell-pantalla-titulo" data-upsell-pantalla-titulo>{pantalla?.titulo ?? ""}</h2>
+  <p data-upsell-pantalla-hace>{pantalla?.queHace ?? ""}</p>
+  <p data-upsell-pantalla-actual>{pantalla?.planActualTexto ?? ""}</p>
+  <p data-upsell-pantalla-modulo hidden={!pantalla?.planModuloTexto}>{pantalla?.planModuloTexto ?? ""}</p>
+  <p class="upsell-pantalla-acciones">
+    <a data-upsell-pantalla-ver href="/panel/plan" hidden={!verPlanes}>Ver planes</a>
+    <span data-upsell-pantalla-empleado hidden={pantalla === null || verPlanes}>Pedile al Dueño que lo active</span>
+  </p>
+</section>
+<div data-modulo-cuerpo hidden={reemplaza}>
+  <slot />
+</div>
+
+<style>
+  .upsell-pantalla[hidden],
+  .upsell-pantalla [hidden],
+  :global([data-modulo-cuerpo][hidden]) {
+    display: none !important;
+  }
+  .upsell-pantalla-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .upsell-pantalla a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--color-llama);
+    color: var(--color-void);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .upsell-pantalla a:hover {
+    background: var(--color-llama-hover);
+    color: var(--color-void);
+  }
+  .upsell-pantalla a:focus-visible {
+    outline: 2px solid var(--color-llama);
+    outline-offset: 2px;
+  }
+  .upsell-pantalla [data-upsell-pantalla-empleado] {
+    color: var(--tema-texto-suave);
+    font-size: 14px;
+  }
+</style>
+
+<script>
+  import { leerAccesoUpsell, pintarUpsellPantalla } from "../../lib/upsell-pantalla-cliente.js";
+
+  const raiz = document.querySelector("[data-upsell-pantalla]");
+  if (raiz instanceof HTMLElement) {
+    void leerAccesoUpsell(raiz.dataset["superficie"]).then((acceso) => pintarUpsellPantalla(raiz, acceso));
+  }
+</script>
