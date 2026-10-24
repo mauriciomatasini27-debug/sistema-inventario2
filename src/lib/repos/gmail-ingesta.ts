@@ -12,6 +12,7 @@ import type {
   FiltroIngesta,
 } from "../../modules/utilities/ingesta_gmail.js";
 import type { ConfianzaCampo, OrigenExtraccion } from "../../modules/utilities/facturas_servicios.js";
+import { confianzaParaGuardar } from "../../modules/utilities/cuerpo-factura.js";
 
 export interface BorradorIngestaInput {
   readonly tenantId: string;
@@ -27,6 +28,10 @@ export interface BorradorIngestaInput {
   readonly confianzaVencimiento: ConfianzaCampo;
   readonly venceEn: Date;
   readonly recordatorioEn: Date;
+  // GGL-S10b: el comprobante del cuerpo viaja con el borrador. Sin esto
+  // la imagen se arma y se pierde al guardar.
+  readonly pideRevision?: boolean;
+  readonly comprobanteCuerpo?: { readonly mime: "image/png"; readonly bytes: Buffer } | null;
 }
 
 export interface LogIngestaInput {
@@ -126,7 +131,12 @@ export async function guardarBorradorIngesta(
       vencimiento: input.vencimiento,
       montoCentavos: input.montoCentavos,
       origen: input.origen,
-      confianza: { monto: input.confianzaMonto, vencimiento: input.confianzaVencimiento },
+      confianza: confianzaParaGuardar({
+        monto: input.confianzaMonto,
+        vencimiento: input.confianzaVencimiento,
+        ...(input.pideRevision === true ? { pideRevision: true } : {}),
+        ...(input.comprobanteCuerpo ? { comprobante: input.comprobanteCuerpo } : {}),
+      }),
       estado: "pendiente",
       venceEn: input.venceEn,
       recordatorioEn: input.recordatorioEn,

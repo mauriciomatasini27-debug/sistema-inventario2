@@ -1,3 +1,5 @@
+import { sanearCuerpo } from "../utilities/cuerpo-factura.js";
+
 const GMAIL_BASE = "https://gmail.googleapis.com";
 
 export const MAX_ADJUNTO_BYTES = 10 * 1024 * 1024;
@@ -154,21 +156,6 @@ function decodificarBase64Url(valor: unknown): Buffer | null {
   }
 }
 
-function sinHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function recorrerPayload(
   payload: unknown,
   acumulado: { textoPlano: string[]; html: string[]; adjuntos: GmailAdjuntoRef[] },
@@ -206,8 +193,10 @@ function mensajeDesdeGmail(id: string, raw: MessageGmail): GmailMensaje {
     adjuntos: [],
   };
   recorrerPayload(payload, acumulado);
-  const plano = acumulado.textoPlano.join("\n").trim();
-  const html = acumulado.html.length > 0 ? sinHtml(acumulado.html.join("\n")) : "";
+  // GGL-S10b: el cuerpo que sale de Gmail ya no trae links ni formularios.
+  // Sanear acá evita abrir un href o un login mientras se lee el mensaje.
+  const plano = sanearCuerpo(acumulado.textoPlano.join("\n")).texto;
+  const html = acumulado.html.length > 0 ? sanearCuerpo(acumulado.html.join("\n")).texto : "";
   return {
     id,
     from: header(payload?.headers, "From"),

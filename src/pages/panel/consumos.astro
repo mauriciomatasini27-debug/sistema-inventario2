@@ -26,6 +26,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     <div class="estado" id="estado-borradores" role="status">Cargando…</div>
     <form id="borrador-form" hidden>
       <input type="hidden" id="borrador-id" />
+      <img id="borrador-comprobante" alt="Comprobante del cuerpo del correo" hidden />
       <div class="fila">
         <label>Cuenta <select id="borrador-cuenta" data-campo="account_id"></select></label>
         <label>Monto <input id="borrador-monto" data-campo="monto" inputmode="decimal" autocomplete="off" /></label>
@@ -195,6 +196,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
           ].join(" · ");
           if (b.vencido) texto += " · vencido";
           if (b.confianza_monto === "baja" || b.confianza_vencimiento === "baja") texto += " · confianza baja";
+          if (b.pide_revision) texto += " · pide revisión";
           span.textContent = texto;
           const button = document.createElement("button");
           button.type = "button";
@@ -238,9 +240,22 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     $("borrador-form").hidden = false;
     const estado = $("estado-borrador");
     const boton = $("borrador-confirmar");
+    // GGL-S10b: la imagen es el comprobante; el texto pide revisión porque la confianza es baja.
+    const comprobante = $("borrador-comprobante");
+    const png = typeof borrador.comprobante_cuerpo_png === "string" ? borrador.comprobante_cuerpo_png : "";
+    if (png && /^[A-Za-z0-9+/=]+$/.test(png)) {
+      comprobante.src = "data:image/png;base64," + png;
+      comprobante.hidden = false;
+    } else {
+      comprobante.removeAttribute("src");
+      comprobante.hidden = true;
+    }
     if (borrador.vencido) {
       estado.textContent = "Este borrador venció; descartalo y esperá el próximo correo.";
       boton.disabled = true;
+    } else if (borrador.pide_revision) {
+      estado.textContent = "Revisá este borrador: la factura está en el cuerpo del correo y la confianza es baja.";
+      boton.disabled = false;
     } else {
       estado.textContent = "";
       boton.disabled = false;
@@ -458,6 +473,16 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     border-top: 1px solid var(--tema-linea);
   }
   #borrador-form[hidden] {
+    display: none;
+  }
+  #borrador-comprobante {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 8px 0;
+    border: 1px solid var(--tema-linea);
+  }
+  #borrador-comprobante[hidden] {
     display: none;
   }
   #borrador-descartar {

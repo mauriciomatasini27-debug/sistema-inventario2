@@ -9,6 +9,7 @@ import {
   type GmailMensaje,
 } from "./gmail-cliente.js";
 import { BORRADOR_MS, RECUERDO_MS, clasificar_capa1, extraer_comprobante, registrar_log_ingesta, type CuentaCatalogo, type FiltroIngesta, type LogIngesta } from "../utilities/ingesta_gmail.js";
+import { borradorDeCuerpo, sanearCuerpo, type ImagenCuerpoSaneada } from "../utilities/cuerpo-factura.js";
 import type { MotorOcr } from "../ocr/motor.js";
 import type { ConfianzaCampo, OrigenExtraccion } from "../utilities/facturas_servicios.js";
 import {
@@ -29,6 +30,9 @@ export interface BorradorSync {
   readonly confianzaVencimiento: ConfianzaCampo;
   readonly venceEn: Date;
   readonly recordatorioEn: Date;
+  // GGL-S10b: solo el borrador de cuerpo. El adjunto no trae imagen propia acá.
+  readonly pideRevision?: boolean;
+  readonly comprobanteCuerpo?: ImagenCuerpoSaneada | null;
 }
 
 export interface PersistenciaSyncGmail {
@@ -278,7 +282,11 @@ export async function sincronizarGmail(input: EntradaSyncGmail): Promise<Resulta
       continue;
     }
 
-    const cuerpo = mensaje.bodyText;
+    // GGL-S10b: se clasifica el texto ya saneado. Un script o un link no
+    // cuenta como señal ni se abre.
+    const crudo = mensaje.bodyText;
+    const saneado = crudo !== null ? sanearCuerpo(crudo) : null;
+    const cuerpo = saneado !== null && saneado.texto !== "" ? saneado.texto : null;
     const clas = clasificar_capa1(
       {
         from: mensaje.from,
@@ -310,50 +318,65 @@ export async function sincronizarGmail(input: EntradaSyncGmail): Promise<Resulta
       adjunto = null;
     }
 
-    if (clas.decision === "necesita_revision" && adjunto === null) {
-      await input.persistencia.registrarLog(
-        registrar_log_ingesta({
-          messageId,
-          from: mensaje.from,
-          decision: "necesita_revision",
-          motivo: clas.motivo,
-        }),
-      );
-      ignorados++;
-      procesados++;
-      continue;
-    }
-
-    const extraccion = adjunto
-      ? await extraerDeAdjunto({
-          mime: adjunto.mime,
-          bytes: adjunto.adjunto.bytes,
-          cuerpo,
-          motor: input.motor ?? null,
-          ...(input.extraerPdfTexto ? { extraerPdfTexto: input.extraerPdfTexto } : {}),
-        })
-      : extraer_comprobante({ ...(cuerpo !== null ? { cuerpo } : {}) });
-
-    if (
-      adjunto === null &&
-      extraccion.montoCentavos === null &&
-      extraccion.vencimientoIso === null
-    ) {
-      await input.persistencia.registrarLog(
-        registrar_log_ingesta({
-          messageId,
-          from: mensaje.from,
-          decision: "necesita_revision",
-          motivo: "sin adjunto ni datos en el cuerpo",
-        }),
-      );
-      ignorados++;
-      procesados++;
-      continue;
-    }
-
     const venceEn = new Date(input.ahoraMs + BORRADOR_MS);
     const recordatorioEn = new Date(input.ahoraMs + RECUERDO_MS);
+
+    // GGL-S10b: sin adjunto válido el comprobante es la imagen del cuerpo.
+    // Si no hay monto ni vencimiento, no se inventa un borrador ni se sigue el link.
+    if (adjunto === null) {
+      const deCuerpo = crudo !== null ? borradorDeCuerpo(crudo) : null;
+      if (deCuerpo === null) {
+        await input.persistencia.registrarLog(
+          registrar_log_ingesta({
+            messageId,
+            from: mensaje.from,
+            decision: "necesita_revision",
+            motivo: clas.decision === "necesita_revision" ? clas.motivo : "sin adjunto ni datos en el cuerpo",
+          }),
+        );
+        ignorados++;
+        procesados++;
+        continue;
+      }
+      await input.persistencia.guardarBorrador({
+        connectionId: input.connectionId,
+        messageId,
+        gmailAttachmentId: null,
+        accountId: clas.accountId,
+        periodo: deCuerpo.vencimientoIso === null ? null : deCuerpo.vencimientoIso.slice(0, 7),
+        vencimiento: deCuerpo.vencimientoIso,
+        montoCentavos: deCuerpo.montoCentavos,
+        origen: deCuerpo.origen,
+        confianzaMonto: deCuerpo.confianzaMonto,
+        confianzaVencimiento: deCuerpo.confianzaVencimiento,
+        venceEn,
+        recordatorioEn,
+        pideRevision: true,
+        comprobanteCuerpo: deCuerpo.comprobante,
+      });
+      await input.persistencia.registrarLog(
+        registrar_log_ingesta({
+          messageId,
+          from: mensaje.from,
+          decision: "para_procesar",
+          motivo: "factura en el cuerpo; confianza baja; pide revisión",
+          ...(clas.filtroId !== null ? { filtroId: clas.filtroId } : {}),
+          ...(clas.accountId !== null ? { accountId: clas.accountId } : {}),
+        }),
+      );
+      borradores++;
+      procesados++;
+      continue;
+    }
+
+    const extraccion = await extraerDeAdjunto({
+      mime: adjunto.mime,
+      bytes: adjunto.adjunto.bytes,
+      cuerpo,
+      motor: input.motor ?? null,
+      ...(input.extraerPdfTexto ? { extraerPdfTexto: input.extraerPdfTexto } : {}),
+    });
+
     await input.persistencia.guardarBorrador({
       connectionId: input.connectionId,
       messageId,
