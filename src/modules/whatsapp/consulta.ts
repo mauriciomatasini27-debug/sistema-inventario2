@@ -70,3 +70,74 @@ export function formatear_stock(opts: {
   const sin = opts.stock <= 0 ? "sin stock" : `${opts.stock} u.`;
   return `${opts.nombre}: ${sin} (umbral ${opts.umbral}). Precio $${Number(opts.precioCentavos) / 100}. [${opts.comercio}]`;
 }
+
+// BOT2-S4: "detalle" es un pedido aparte del saldo. Puede ir solo (sigue al
+// último producto) o junto al término ("detalle de la leche").
+export function es_pedido_detalle(texto: string): boolean {
+  return /\bdetalle\b/.test(` ${normalizar(texto)} `);
+}
+
+export function consulta_con_detalle(texto: string): { detalle: true; texto: string } | null {
+  if (!es_pedido_detalle(texto)) return null;
+  const sin = normalizar(texto).replace(/\bver\s+detalle\b/g, " ").replace(/\bdetalle\b/g, " ");
+  const termino = extraer_termino(sin);
+  return { detalle: true, texto: termino ? `stock ${termino}` : "" };
+}
+
+export interface LoteCrudo {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly sku: string;
+  readonly venceEl: string | null;
+  readonly cantidad: number;
+}
+
+function fecha_de(venceEl: string | null): string | null {
+  if (!venceEl || venceEl.trim() === "") return null;
+  return venceEl;
+}
+
+function fecha_visible(venceEl: string | null): string {
+  const fecha = fecha_de(venceEl);
+  if (!fecha) return "sin vencimiento";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
+  if (!m) return fecha;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+// BOT2-S4: FEFO es vence_el ascendente y sin fecha al final. El filtro de
+// tenant y de sku vive acá para que un lote ajeno no se cuele aunque el
+// lector haya mezclado filas.
+export function preparar_detalle_lotes(opts: {
+  tenantId: string;
+  sku: string;
+  lotes: ReadonlyArray<LoteCrudo>;
+}): LoteCrudo[] {
+  const sku = opts.sku.trim().toUpperCase();
+  return opts.lotes
+    .filter((l) => l.tenantId === opts.tenantId && l.sku.trim().toUpperCase() === sku && l.cantidad > 0)
+    .sort((a, b) => {
+      const fa = fecha_de(a.venceEl);
+      const fb = fecha_de(b.venceEl);
+      if (fa === fb) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      if (!fa) return 1;
+      if (!fb) return -1;
+      return fa < fb ? -1 : 1;
+    });
+}
+
+// BOT2-S4: sin controla_vencimiento no hay líneas de lote. Con el flag, cada
+// línea lleva fecha y cantidad restante, en el orden que devolvió preparar.
+export function armarRespuestaDetalle(opts: {
+  tenantId: string;
+  sku: string;
+  nombre: string;
+  comercio: string;
+  controlaVencimiento: boolean;
+  lotes: ReadonlyArray<LoteCrudo>;
+}): string | null {
+  if (!opts.controlaVencimiento) return null;
+  const lineas = preparar_detalle_lotes(opts).map((l) => `${fecha_visible(l.venceEl)} — ${l.cantidad} u.`);
+  const cuerpo = lineas.length > 0 ? lineas.join("\n") : "sin lotes con stock.";
+  return `${opts.nombre}: lotes por vencimiento\n${cuerpo}\n[${opts.comercio}]`;
+}

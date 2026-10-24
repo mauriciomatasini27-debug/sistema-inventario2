@@ -8,13 +8,13 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Consulta de stock por WhatsApp en tiempo real leída de Postgres. BOT2-S2, S3, S5 y S6 hechos 2026-10-16; S1
-  parcial (product_aliases ya se lee por tenant; falta pg_trgm real) y S4 pendiente. El envío real espera el alta Meta (ADR-0041).
+  parcial (product_aliases ya se lee por tenant; falta pg_trgm real) y S4 hecho (detalle FEFO si controla vencimiento; el flag sigue en la ficha en memoria). El envío real espera el alta Meta (ADR-0041).
 ---
 # PRD-BOT-02 - Consulta de stock por WhatsApp en tiempo real (R2)
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` y `bot-whatsapp-parte-2.md` (B1 vinculación, B3 consulta texto libre), `src/modules/whatsapp/consulta.ts`, `src/modules/whatsapp/router.ts`, `src/pages/api/whatsapp/consult.ts` (lee `products` con fallback a memoria, `fuente: db|memoria`), `src/modules/whatsapp/cliente-cloud.ts`, `docs/01-fundacion/costos-por-cliente.md` (número central). Fecha extracción: 2026-10-12. Restringido por ADR-0007, ADR-0024, ADR-0039, ADR-0041, ADR-0042.
 
-> Estado al 2026-10-23: en curso. BOT2-S2, S3, S5 y S6 hechos; S1 parcial: `GET /api/whatsapp/consult` y el webhook ya buscan también por `product_aliases.alias_norm` filtrado por tenant (`src/lib/repos/whatsapp.ts`, avance `docs/roadmap/avances/BOT2-S1.md`, `tests/bot2-alias-consulta.test.ts`), pero no hay índice `pg_trgm` en `drizzle/` y la búsqueda difusa sigue siendo local. S4 pendiente (detalle por lote/FEFO). El envío real espera el alta Meta de ADR-0041.
+> Estado al 2026-10-24: en curso. BOT2-S2, S3, S4, S5 y S6 hechos; S1 parcial: `GET /api/whatsapp/consult` y el webhook ya buscan también por `product_aliases.alias_norm` filtrado por tenant (`src/lib/repos/whatsapp.ts`, avance `docs/roadmap/avances/BOT2-S1.md`, `tests/bot2-alias-consulta.test.ts`), pero no hay índice `pg_trgm` en `drizzle/` y la búsqueda difusa sigue siendo local. S4: si el producto controla vencimiento y el vendedor pide detalle, la consulta lista lotes FEFO con fecha y cantidad (`src/modules/whatsapp/consulta.ts`, `src/lib/repos/consulta-lotes.ts`, `tests/bot2-s4-fefo.test.ts`). El envío real espera el alta Meta de ADR-0041.
 
 ## Épica BOT2-E1. Consulta con saldo real
 

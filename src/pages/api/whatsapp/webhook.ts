@@ -16,7 +16,8 @@ import {
 } from "../../../modules/auth/bot.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
-import { detectar_intencion, extraer_termino } from "../../../modules/whatsapp/consulta.js";
+import { consulta_con_detalle, detectar_intencion, extraer_termino } from "../../../modules/whatsapp/consulta.js";
+import { textoDetalleSiCorresponde } from "../../../lib/repos/consulta-lotes.js";
 import { consultarNombre, leerFicha } from "../../../lib/repos/busqueda-nombre.js";
 import {
   cuerpo_pedir_edicion_ocr,
@@ -1095,7 +1096,11 @@ export const POST: APIRoute = async ({ request }) => {
     const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: ruta.texto, cred });
     return Response.json({ ok: true, accion: ruta.accion, respuesta: ruta.texto, enviado });
   }
-  const intencion = detectar_intencion(msg.texto);
+  const pedidoDetalle = consulta_con_detalle(msg.texto);
+  const intencionDetectada = detectar_intencion(msg.texto);
+  // BOT2-S4: "detalle de X" es consulta de stock aunque no diga cuántos/stock.
+  const intencion =
+    pedidoDetalle && pedidoDetalle.texto !== "" && intencionDetectada === "ninguna" ? "stock" : intencionDetectada;
   // BOT2-S2: "2" elige el segundo de la última lista numerada del bot.
   if (intencion !== "stock" && intencion !== "precio" && intencion !== "alertas" && sesion?.paso === "desambiguar") {
     const raw = sesion.contexto["opciones"];
@@ -1112,6 +1117,10 @@ export const POST: APIRoute = async ({ request }) => {
         textoSel = ficha
           ? redactarFicha({ ctx: ctxSel, ficha, comercio: comercioSel, permisos: membSel?.permisos ?? [] })
           : `No encontré esa opción en ${comercioSel}.`;
+        if (ficha) {
+          // BOT2-S4: el candidato elegido queda para el "detalle" siguiente.
+          await guardarSesion(msg.remitente, "stock", { sku }, ahoraMs, r.tenantId);
+        }
         registrarTurnoConsulta({
           tenantId: r.tenantId,
           wamid: msg.wamid,
@@ -1131,6 +1140,52 @@ export const POST: APIRoute = async ({ request }) => {
       }
       const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: textoSel, cred });
       return Response.json({ ok: true, accion: "consulta", respuesta: textoSel, enviado });
+    }
+  }
+  // BOT2-S4: "detalle" a secas pide los lotes del último producto consultado.
+  if (pedidoDetalle && pedidoDetalle.texto === "" && sesion?.paso === "stock") {
+    const skuRaw = sesion.contexto["sku"];
+    const sku = typeof skuRaw === "string" ? skuRaw : "";
+    if (sku) {
+      const comercioDet = control.tenants.get(r.tenantId)?.nombreComercio ?? "tu comercio";
+      let textoDet: string;
+      try {
+        const fuenteDet = dbVivaTenant(r.tenantId) ? "db" : "memoria";
+        const ficha = await leerFicha({ tenantId: r.tenantId, sku });
+        const detalle = ficha
+          ? await textoDetalleSiCorresponde({
+              tenantId: r.tenantId,
+              sku,
+              nombre: ficha.nombre,
+              comercio: comercioDet,
+            })
+          : null;
+        const ctxDet = emitir_contexto(r, ahoraMs);
+        const membDet = membershipActiva(r.tenantId, r.googleSub);
+        textoDet =
+          detalle ??
+          (ficha
+            ? redactarFicha({ ctx: ctxDet, ficha, comercio: comercioDet, permisos: membDet?.permisos ?? [] })
+            : `No encontré esa opción en ${comercioDet}.`);
+        registrarTurnoConsulta({
+          tenantId: r.tenantId,
+          wamid: msg.wamid,
+          remitente: msg.remitente,
+          googleSub: r.googleSub,
+          pregunta: msg.texto,
+          respuesta: textoDet,
+          fuente: fuenteDet,
+          ahoraMs,
+        });
+      } catch (e) {
+        if (e instanceof BaseNoDisponible) {
+          textoDet = "No pude consultar, probá en un rato.";
+        } else {
+          throw e;
+        }
+      }
+      const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: textoDet, cred });
+      return Response.json({ ok: true, accion: "consulta", intencion: "stock", respuesta: textoDet, enviado });
     }
   }
   if (!sensible && !posibleCosto && intencion !== "stock" && intencion !== "precio" && intencion !== "alertas") {
@@ -1196,9 +1251,23 @@ export const POST: APIRoute = async ({ request }) => {
     atencion = atender_alertas(await listarCatalogoVivo(r.tenantId), comercio);
   } else {
     try {
-      const { origen, resolucion } = await consultarNombre({ tenantId: r.tenantId, texto: msg.texto });
+      const textoConsulta = pedidoDetalle && pedidoDetalle.texto !== "" ? pedidoDetalle.texto : msg.texto;
+      const { origen, resolucion } = await consultarNombre({ tenantId: r.tenantId, texto: textoConsulta });
       fuenteConsulta = origen;
-      atencion = redactarConsulta({ ctx, resolucion, termino: extraer_termino(msg.texto), comercio, permisos });
+      atencion = redactarConsulta({ ctx, resolucion, termino: extraer_termino(textoConsulta), comercio, permisos });
+      if (resolucion.kind === "directo") {
+        // BOT2-S4: guarda el sku para que un "detalle" posterior liste los lotes.
+        await guardarSesion(msg.remitente, "stock", { sku: resolucion.ficha.sku }, ahoraMs, r.tenantId);
+        if (pedidoDetalle) {
+          const detalle = await textoDetalleSiCorresponde({
+            tenantId: r.tenantId,
+            sku: resolucion.ficha.sku,
+            nombre: resolucion.ficha.nombre,
+            comercio,
+          });
+          if (detalle) atencion = { kind: "respuesta", texto: detalle };
+        }
+      }
     } catch (e) {
       if (e instanceof BaseNoDisponible) {
         const texto = "No pude consultar, probá en un rato.";
