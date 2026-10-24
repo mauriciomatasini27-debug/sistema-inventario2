@@ -1,6 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { control } from "./lib/store.js";
 import { membershipActiva, resolverSesion } from "./lib/control.js";
+import { rehidratarMembresias } from "./lib/rehidratar-membresia.js";
 import { gateJob, gateTenantDatos } from "./lib/tenant-context.js";
 import { conTenant } from "./lib/tenant-mode.js";
 import { BaseNoDisponible } from "./lib/server-db.js";
@@ -28,6 +29,11 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
       throw e;
     }
   }
+
+  // Sesión creada en este proceso con el comercio todavía vacío (el login
+  // anterior no lo cargó). Hay que traerlo antes de que la ruta decida el 403.
+  const sesion = resolverSesion(request);
+  if (sesion) await rehidratarMembresias(sesion.googleSub);
 
   // Por qué el gate corre por request: fija el tenant una vez para todo el
   // plano de datos y corta 403 antes de tocar memoria o base (ADR-0051).

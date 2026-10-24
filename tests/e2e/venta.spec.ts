@@ -63,7 +63,7 @@ test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, 
   await expect
     .poll(() =>
       page.evaluate(async (urls) => {
-        const cache = await caches.open("inventario-v3");
+        const cache = await caches.open("inventario-v4");
         const hits = await Promise.all(urls.map((url) => cache.match(url)));
         return hits.length > 0 && hits.every(Boolean);
       }, assets),

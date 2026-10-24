@@ -11,6 +11,7 @@ import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitacio
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
 import { persistirUsuario } from "../../../lib/control-db.js";
+import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
@@ -91,6 +92,10 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       detalle: { anterior: previo.email },
     });
   }
+
+  // El reinicio vacía la memoria. Sin esta carga la sesión nace sin comercio
+  // y el panel responde 403 aunque la membership siga en la base.
+  await rehidratarMembresias(identidad.sub);
 
   // Resolución: invitación por token del login, o pendiente para este email, o
   // membership existente; si no hay nada, sesión sin tenant para el alta.
