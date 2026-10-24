@@ -14,6 +14,8 @@ resumen: |
 ---
 # PRD-GMAIL-01 - Conexión de Google, ingesta de Gmail y copia en Photos
 
+> Estado al 2026-10-24: en curso. GGL-S10b hecho (`docs/roadmap/avances/GGL-S10b.md`): un correo sin adjunto de un remitente filtrado deja un borrador con monto y vencimiento en confianza baja, una imagen PNG del cuerpo ya saneado y pedido de revisión. No se siguen links ni se abre sesión en sitios de terceros.
+
 Fuente: `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1), `docs/05-compras-servicios-pagos/facturas-proveedores.md` (FP2), `docs/diseno/PRD-OCR-01-motor-ocr-fase-0.md`, `src/modules/ocr`, `src/pages/api/gmail/*`, `src/db/schema-servicios.ts`. Restringido por ADR-0005, ADR-0089, ADR-0093, ADR-0102, ADR-0103 y ADR-0104. Fecha extracción: 2026-10-19.
 
 > Estado al 2026-10-24: en curso. GGL-S12 hecho. En modo testing, `/panel/integraciones` y `POST /api/integrations/start` abren el OAuth de Gmail solo si el mail del Dueño está en `GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA` (máximo 100). Fuera de la lista la pantalla explica el límite y no redirige a Google. En testing la pantalla avisa que el refresh vence a los 7 días y hay que reconectar. `GOOGLE_INTEGRATIONS_MODO=verificada` saca el límite y el aviso. Siguen pendientes el reenvío (GGL-S13) y Photos.

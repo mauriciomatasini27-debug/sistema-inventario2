@@ -74,6 +74,42 @@ describe("cliente Gmail", () => {
     ]);
   });
 
+  it("no sigue links ni login del HTML al leer el cuerpo", async () => {
+    const urls: string[] = [];
+    const html = [
+      "<a href=\"https://micuenta.edenor.com/login\">Entrar</a>",
+      "<img src=\"https://tracker.ejemplo/pixel.gif\">",
+      "<form action=\"https://micuenta.edenor.com/login\"><input type=\"password\" value=\"clave-secreta-ggl-s10b\"></form>",
+      "Total $ 2.500,00 vence 21/10/2026",
+      "https://micuenta.edenor.com/factura",
+    ].join(" ");
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      urls.push(url);
+      if (!url.includes("/messages/msg-html?format=full")) throw new Error(`url inesperada: ${url}`);
+      return respuesta({
+        id: "msg-html",
+        payload: {
+          mimeType: "text/html",
+          headers: [
+            { name: "From", value: "Edenor <facturas@edenor.com>" },
+            { name: "Subject", value: "Aviso" },
+          ],
+          body: { data: b64url(html) },
+        },
+      });
+    }) as typeof fetch;
+
+    const gmail = crearClienteGmail({ accessToken: "token", fetchImpl });
+    const mensaje = await gmail.getMessage({ id: "msg-html", format: "full" });
+    expect(urls).toEqual([expect.stringContaining("/messages/msg-html?format=full")]);
+    expect(mensaje.bodyText).toContain("2.500,00");
+    expect(mensaje.bodyText).not.toContain("micuenta.edenor.com");
+    expect(mensaje.bodyText).not.toContain("tracker.ejemplo");
+    expect(mensaje.bodyText).not.toContain("clave-secreta-ggl-s10b");
+    expect(mensaje.adjuntos).toEqual([]);
+  });
+
   it("decodifica el adjunto y el watch", async () => {
     const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

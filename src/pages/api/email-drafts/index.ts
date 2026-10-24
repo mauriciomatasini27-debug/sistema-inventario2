@@ -27,6 +27,9 @@ export const GET: APIRoute = async ({ request }) => {
           confianza_vencimiento: b.confianzaVencimiento,
           vence_en: b.venceEn.toISOString(),
           vencido: b.vencido,
+          // GGL-S10b: el Dueño ve que hay que revisar y el PNG del cuerpo.
+          pide_revision: b.pideRevision,
+          comprobante_cuerpo_png: b.comprobanteCuerpo?.bytes.toString("base64") ?? null,
         })),
       },
       { headers: SIN_CACHE },

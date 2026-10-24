@@ -8,6 +8,7 @@ import {
   descartarBorradorGmail,
   listarBorradoresPendientes,
 } from "../src/lib/repos/gmail-borradores.js";
+import { borradorDeCuerpo } from "../src/modules/utilities/cuerpo-factura.js";
 
 const URL_A = process.env.PG_TEST_URL_A;
 const hayPG = Boolean(URL_A);
@@ -266,5 +267,34 @@ describe.skipIf(!hayPG)("borradores Gmail: confirmar y descartar", () => {
 
     const r = await confirmarBorradorGmail({ tenantId, draftId, ahora: new Date(ahora) });
     expect(r).toMatchObject({ ok: false, codigo: "YA_RESUELTO", status: 409 });
+  });
+
+  it("persiste la imagen del cuerpo y la devuelve pidiendo revisión", async () => {
+    const deCuerpo = borradorDeCuerpo("Total $ 2.500,00 21/10/2026");
+    if (!deCuerpo) throw new Error("sin borrador de cuerpo");
+    const messageId = `msg-cuerpo-${randomUUID()}`;
+    const { id: draftId } = await guardarBorradorIngesta({
+      tenantId,
+      connectionId: randomUUID(),
+      messageId,
+      gmailAttachmentId: null,
+      accountId,
+      periodo: "2026-10",
+      vencimiento: deCuerpo.vencimientoIso,
+      montoCentavos: deCuerpo.montoCentavos,
+      origen: deCuerpo.origen,
+      confianzaMonto: deCuerpo.confianzaMonto,
+      confianzaVencimiento: deCuerpo.confianzaVencimiento,
+      venceEn,
+      recordatorioEn,
+      pideRevision: true,
+      comprobanteCuerpo: deCuerpo.comprobante,
+    });
+    const pendientes = await listarBorradoresPendientes(tenantId, new Date(ahora));
+    const borrador = pendientes.find((b) => b.id === draftId);
+    expect(borrador?.pideRevision).toBe(true);
+    expect(borrador?.confianzaMonto).toBe("baja");
+    expect(borrador?.confianzaVencimiento).toBe("baja");
+    expect(borrador?.comprobanteCuerpo?.bytes.equals(deCuerpo.comprobante.bytes)).toBe(true);
   });
 });

@@ -99,6 +99,9 @@ function persistenciaDe(tenantId: string): PersistenciaSyncGmail {
         confianzaVencimiento: borrador.confianzaVencimiento,
         venceEn: borrador.venceEn,
         recordatorioEn: borrador.recordatorioEn,
+        // GGL-S10b: sin este pase, el job guarda el monto y tira la imagen.
+        ...(borrador.pideRevision === true ? { pideRevision: true } : {}),
+        ...(borrador.comprobanteCuerpo ? { comprobanteCuerpo: borrador.comprobanteCuerpo } : {}),
       }),
     avanzarCursor: (cursor) => actualizarCursorGmail(tenantId, cursor),
   };

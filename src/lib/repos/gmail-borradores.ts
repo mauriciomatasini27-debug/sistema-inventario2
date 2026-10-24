@@ -13,6 +13,7 @@ import {
   type BorradorIngesta,
   type EstadoBorrador,
 } from "../../modules/utilities/ingesta_gmail.js";
+import { leerConfianzaGuardada } from "../../modules/utilities/cuerpo-factura.js";
 
 export interface BorradorPendiente {
   readonly id: string;
@@ -27,6 +28,8 @@ export interface BorradorPendiente {
   readonly confianzaVencimiento: ConfianzaCampo;
   readonly venceEn: Date;
   readonly vencido: boolean;
+  readonly pideRevision: boolean;
+  readonly comprobanteCuerpo: { readonly mime: "image/png"; readonly bytes: Buffer } | null;
 }
 
 export interface BorradorLeido extends BorradorPendiente {
@@ -59,10 +62,6 @@ export type DescartarBorradorGmailResultado =
 
 type FilaBorrador = typeof emailIngestionDrafts.$inferSelect;
 
-function confianzaDe(valor: unknown): ConfianzaCampo {
-  return valor === "alta" || valor === "media" || valor === "baja" ? valor : "baja";
-}
-
 function origenDe(valor: string): OrigenExtraccion {
   return valor === "pdf_digital" || valor === "ocr" || valor === "email_respaldo" ? valor : "pdf_digital";
 }
@@ -73,13 +72,8 @@ function estadoDe(valor: string): EstadoBorrador {
     : "pendiente";
 }
 
-function confianzaDeBorrador(confianza: unknown): { monto: ConfianzaCampo; vencimiento: ConfianzaCampo } {
-  const valor = typeof confianza === "object" && confianza !== null ? (confianza as Record<string, unknown>) : {};
-  return { monto: confianzaDe(valor.monto), vencimiento: confianzaDe(valor.vencimiento) };
-}
-
 function aBorradorPendiente(fila: FilaBorrador, remitenteDominio: string | null, ahora: Date): BorradorPendiente {
-  const confianza = confianzaDeBorrador(fila.confianza);
+  const confianza = leerConfianzaGuardada(fila.confianza);
   return {
     id: fila.id,
     messageId: fila.messageId,
@@ -93,6 +87,8 @@ function aBorradorPendiente(fila: FilaBorrador, remitenteDominio: string | null,
     confianzaVencimiento: confianza.vencimiento,
     venceEn: fila.venceEn,
     vencido: ahora.getTime() > fila.venceEn.getTime(),
+    pideRevision: confianza.pideRevision,
+    comprobanteCuerpo: confianza.comprobanteCuerpo,
   };
 }
 
