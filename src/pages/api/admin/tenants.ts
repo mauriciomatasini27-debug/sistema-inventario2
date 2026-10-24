@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { resumenUsoEnListadoTenants, sincronizarUsoDiarioDesdeContadores } from "../../../lib/admin-db.js";
+import { fechaAR } from "../../../lib/fecha-ar.js";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
 import { auditar, exigirAdmin, exigirConfirmacion, leerJson } from "./_guard.js";
@@ -12,15 +14,21 @@ export const GET: APIRoute = async ({ request }) => {
   if (admin instanceof Response) return admin;
   const url = new URL(request.url);
   const estado = url.searchParams.get("estado") ?? "";
-  let lista = [...control.tenants.values()].map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    estado: t.estado,
-    plan: t.plan,
-    vencimiento: (t as { trialHasta?: string }).trialHasta ?? null,
-    backup: "diario",
-    uso_wa: 0,
-  }));
+  const dia = fechaAR();
+  await sincronizarUsoDiarioDesdeContadores(dia);
+  let lista = [...control.tenants.values()].map((t) => {
+    const uso = resumenUsoEnListadoTenants(t.id, t.plan, dia);
+    return {
+      id: t.id,
+      slug: t.slug,
+      estado: t.estado,
+      plan: t.plan,
+      vencimiento: (t as { trialHasta?: string }).trialHasta ?? null,
+      backup: "diario",
+      uso_wa: uso.uso_wa,
+      costo_alto: uso.costo_alto,
+    };
+  });
   if (estado) lista = lista.filter((t) => t.estado === estado);
   return Response.json({ tenants: lista });
 };

@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { adminStore, resetAdmin } from "../src/lib/admin-store.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { fechaAR } from "../src/lib/fecha-ar.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { PLANES_EJEMPLO, planDe } from "../src/modules/planes/catalogo.js";
+import { registrarUso } from "../src/lib/repos/planes.js";
+import { GET as GETTenants } from "../src/pages/api/admin/tenants.js";
 import {
   estimarMargen,
   filasUsoMargen,
@@ -48,9 +50,15 @@ function req(url: string, plano: string) {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-24T15:00:00.000Z"));
   resetStore();
   resetAdmin();
   process.env.ADMIN_ALLOWLIST_SUBS = "admin-1";
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("ADMIN-USO-DIARIO umbral de margen", () => {
@@ -268,6 +276,68 @@ describe("ADMIN-USO-DIARIO GET /api/admin/uso", () => {
     const body = (await r.json()) as { dia: string; uso: unknown[] };
     expect(body.dia).toBe(fechaAR());
     expect(body.uso).toEqual([]);
+  });
+});
+
+describe("ADMIN-USO-DIARIO GET /api/admin/tenants", () => {
+  it("refleja uso_wa desde usage_counters, aísla tenants y marca costo alto", async () => {
+    const dia = fechaAR();
+    const mes = dia.slice(0, 7);
+    control.tenants.set("barato", {
+      id: "barato",
+      nombreComercio: "Kiosco Secreto",
+      slug: "barato",
+      estado: "activo",
+      plan: "plus",
+      moneda: "ARS",
+      ownerGoogleSub: "dueno-1",
+      esDemo: false,
+    });
+    control.tenants.set("caro", {
+      id: "caro",
+      nombreComercio: "Otro Secreto",
+      slug: "caro",
+      estado: "activo",
+      plan: "plus",
+      moneda: "ARS",
+      ownerGoogleSub: "dueno-2",
+      esDemo: false,
+    });
+    await registrarUso({
+      tenantId: "barato",
+      mes,
+      feature: "bot_consulta",
+      cantidad: 7,
+      costoCentavos: 1n,
+    });
+    await registrarUso({
+      tenantId: "caro",
+      mes,
+      feature: "asistente_ia",
+      cantidad: 3,
+      costoCentavos: MITAD_PLUS + 1n,
+    });
+    await registrarUso({
+      tenantId: "ajeno",
+      mes,
+      feature: "bot_consulta",
+      cantidad: 99,
+      costoCentavos: 50_000n,
+    });
+    const plano = adminSesion("admin-1");
+    const r = (await GETTenants(req("http://x/api/admin/tenants", plano))) as Response;
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { tenants: Array<Record<string, unknown>> };
+    const barato = body.tenants.find((t) => t["id"] === "barato");
+    const caro = body.tenants.find((t) => t["id"] === "caro");
+    expect(barato?.["uso_wa"]).toBe(7);
+    expect(barato?.["costo_alto"]).toBe(false);
+    expect(caro?.["uso_wa"]).toBe(0);
+    expect(caro?.["costo_alto"]).toBe(true);
+    expect(body.tenants.map((t) => t["id"])).not.toContain("ajeno");
+    const crudo = JSON.stringify(body);
+    expect(crudo).not.toContain("Kiosco Secreto");
+    expect(crudo).not.toContain("Otro Secreto");
   });
 });
 
