@@ -1,7 +1,14 @@
 import type { APIRoute } from "astro";
 import { postSalesSchema } from "../../lib/validation.js";
 import { determinar_clase, idempotency_key_for_sale_tipo, resolver_receptor } from "../../modules/fiscal/fiscal.js";
-import { desagregar_iva_21 } from "../../modules/fiscal/iva.js";
+import { z } from "zod";
+import {
+  calcular_fes12,
+  desagregar_iva_21,
+  debe_encolar_factura_fes12,
+  serializar_meta_fes12,
+  type EntradaCalculoFeS12,
+} from "../../modules/fiscal/iva.js";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { asegurarDoc, buscarDocPorKey } from "../../lib/repos/fiscal.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
@@ -9,6 +16,83 @@ import { registrar_venta } from "../../modules/sales/registro_venta.js";
 import type { TicketEmitido } from "../../modules/sales/vender_mostrador.js";
 
 export const prerender = false;
+
+// FE-S12: detalle opcional de promos/combos. No está en postSalesSchema hasta
+// ampliar validation.ts; se valida acá para no perder el total cobrado.
+const fiscalFeS12Schema = z.object({
+  productos: z
+    .array(
+      z.object({
+        etiqueta: z.string().min(1).max(120),
+        cantidad: z.number().int().min(1).max(999),
+        precio_lista_centavos: z.number().int().min(0),
+        alic_iva_id: z.number().int().min(1).max(9).optional(),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .optional(),
+  promo: z
+    .object({
+      etiqueta: z.string().min(1).max(120),
+      ahorro_centavos: z.number().int().positive(),
+    })
+    .optional(),
+  combo: z
+    .object({
+      nombre: z.string().min(1).max(120),
+      total_cobrado_centavos: z.number().int().positive(),
+      componentes: z
+        .array(
+          z.object({
+            etiqueta: z.string().min(1).max(120),
+            precio_lista_centavos: z.number().int().min(0),
+            alic_iva_id: z.number().int().min(1).max(9).optional(),
+          }),
+        )
+        .min(1)
+        .max(20),
+    })
+    .optional(),
+});
+
+function leerEntradaFeS12(body: unknown, totalCentavos: bigint): EntradaCalculoFeS12 | null {
+  if (!body || typeof body !== "object") return null;
+  const crudo = (body as { fiscal_fes12?: unknown }).fiscal_fes12;
+  const parsed = fiscalFeS12Schema.safeParse(crudo);
+  if (!parsed.success) return null;
+  const f = parsed.data;
+  const productos =
+    f.productos?.map((p) => ({
+      etiqueta: p.etiqueta,
+      cantidad: p.cantidad,
+      precioListaCentavos: BigInt(p.precio_lista_centavos),
+      alicIvaId: p.alic_iva_id ?? 5,
+    })) ?? [];
+  if (productos.length === 0 && !f.combo) return null;
+  return {
+    totalCobradoCentavos: totalCentavos,
+    productos,
+    ...(f.promo
+      ? { promo: { etiqueta: f.promo.etiqueta, ahorroCentavos: BigInt(f.promo.ahorro_centavos) } }
+      : {}),
+    ...(f.combo
+      ? {
+          combo: {
+            nombre: f.combo.nombre,
+            totalCobradoCentavos: BigInt(f.combo.total_cobrado_centavos),
+            componentes: f.combo.componentes.map((c) => ({
+              etiqueta: c.etiqueta,
+              precioListaCentavos: BigInt(c.precio_lista_centavos),
+              alicIvaId: c.alic_iva_id ?? 5,
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
+export { debe_encolar_factura_fes12 };
 
 // POST /api/sales — borde fino: valida, lee snapshots, delega al núcleo
 // vender_mostrador (único dueño del orden idempotencia→FEFO→número→egreso),
@@ -133,13 +217,33 @@ export const POST: APIRoute = async ({ request }) => {
   let fiscal_estado: string | null = null;
   const now = new Date();
   const fch = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  function ivaCampos(total: bigint): { imp_iva_centavos: string | null; alic_iva_id: string | null } {
-    if (clase !== 6 && clase !== 1) return { imp_iva_centavos: null, alic_iva_id: null };
+  function camposFiscales(total: bigint): {
+    imp_iva_centavos: string | null;
+    alic_iva_id: string | null;
+    venta_leyenda: string | null;
+  } {
+    const entradaFeS12 = leerEntradaFeS12(body, total);
+    if (entradaFeS12) {
+      const r = calcular_fes12(entradaFeS12);
+      if (r.ok) {
+        const alicId = r.desglose.alicIva.length === 1 ? String(r.desglose.alicIva[0]?.id ?? 5) : "multi";
+        return {
+          imp_iva_centavos: r.desglose.impIvaCentavos.toString(),
+          alic_iva_id: alicId,
+          venta_leyenda: serializar_meta_fes12(r.desglose),
+        };
+      }
+    }
+    if (clase !== 6 && clase !== 1) return { imp_iva_centavos: null, alic_iva_id: null, venta_leyenda: null };
     const alicId = b.fiscal_alicuota_id ?? 5;
-    if (alicId !== 5) return { imp_iva_centavos: null, alic_iva_id: String(alicId) };
+    if (alicId !== 5) return { imp_iva_centavos: null, alic_iva_id: String(alicId), venta_leyenda: null };
     const d = desagregar_iva_21(total);
-    if (!d) return { imp_iva_centavos: null, alic_iva_id: String(alicId) };
-    return { imp_iva_centavos: d.impIvaCentavos.toString(), alic_iva_id: String(d.alicId) };
+    if (!d) return { imp_iva_centavos: null, alic_iva_id: String(alicId), venta_leyenda: null };
+    return {
+      imp_iva_centavos: d.impIvaCentavos.toString(),
+      alic_iva_id: String(d.alicId),
+      venta_leyenda: null,
+    };
   }
   // PERS2-S26: fiscal doc idempotente por idempotency_key en el repo fiscal
   // (pre-check + onConflictDoNothing, carrera → existente). Espejo memoria
@@ -173,7 +277,7 @@ export const POST: APIRoute = async ({ request }) => {
   } else if (e.ticket.definitivo === null) {
     const fkey = idempotency_key_for_sale_tipo(saleId, clase ?? 11);
     if (!(await buscarDocPorKey(fkey)) && e.ticket.totalCentavos > 0n && clase !== null) {
-      const iva = ivaCampos(e.ticket.totalCentavos);
+      const fiscal = camposFiscales(e.ticket.totalCentavos);
       await asegurarDoc({
         id: crypto.randomUUID(),
         idempotency_key: fkey,
@@ -189,10 +293,10 @@ export const POST: APIRoute = async ({ request }) => {
         cae: null,
         cae_vto: null,
         qr_payload: null,
-        imp_iva_centavos: iva.imp_iva_centavos,
-        alic_iva_id: iva.alic_iva_id,
+        imp_iva_centavos: fiscal.imp_iva_centavos,
+        alic_iva_id: fiscal.alic_iva_id,
         client_ocurred_at: b.client_occurred_at,
-        venta_leyenda: null,
+        venta_leyenda: fiscal.venta_leyenda,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
       }, tenantId);
     }
@@ -200,7 +304,7 @@ export const POST: APIRoute = async ({ request }) => {
   } else if (e.ticket.definitivo && e.ticket.totalCentavos > 0n && clase !== null) {
     const fkey = idempotency_key_for_sale_tipo(saleId, clase);
     if (!(await buscarDocPorKey(fkey))) {
-      const iva = ivaCampos(e.ticket.totalCentavos);
+      const fiscal = camposFiscales(e.ticket.totalCentavos);
       await asegurarDoc({
         id: crypto.randomUUID(),
         idempotency_key: fkey,
@@ -216,10 +320,10 @@ export const POST: APIRoute = async ({ request }) => {
         cae: null,
         cae_vto: null,
         qr_payload: null,
-        imp_iva_centavos: iva.imp_iva_centavos,
-        alic_iva_id: iva.alic_iva_id,
+        imp_iva_centavos: fiscal.imp_iva_centavos,
+        alic_iva_id: fiscal.alic_iva_id,
         client_ocurred_at: b.client_occurred_at,
-        venta_leyenda: null,
+        venta_leyenda: fiscal.venta_leyenda,
         imp_total_centavos: e.ticket.totalCentavos.toString(),
       }, tenantId);
     }

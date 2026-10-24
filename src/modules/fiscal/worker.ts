@@ -3,7 +3,6 @@
 // serial por (cuit, ptoVta, tipo) vía con_lock_fiscal (C1 monoproceso; en
 // Postgres C2 es pg_advisory_xact_lock + fila fiscal_sequences).
 import {
-  armar_pedido_b,
   armar_pedido_con_receptor,
   armar_qr_payload,
   MARCA_PRUEBA,
@@ -14,7 +13,11 @@ import {
   type PedidoAutorizable,
 } from "./fiscal.js";
 import { clave_fiscal, con_lock_fiscal, liberar_en_vuelo, marcar_en_vuelo } from "./lock.js";
-import { desagregar_iva_21 } from "./iva.js";
+import {
+  armar_pedido_b_con_alicuotas,
+  desagregar_iva_21,
+  parsear_meta_fes12,
+} from "./iva.js";
 import { proximo_intento } from "./backoff.js";
 import { texto_castellano } from "./bandeja.js";
 import type { StoredFiscalDoc } from "../../lib/store.js";
@@ -56,6 +59,20 @@ function armar_pedido(input: WorkerInput, nro: number): PedidoAutorizable | null
   // vender/devolver; si falta (doc legacy) se deriva con 21%.
   // C, NC C (13) y ND C (12) van por con_receptor.
   if (cbteTipo === 6 || cbteTipo === 1 || cbteTipo === 8 || cbteTipo === 3 || cbteTipo === 7 || cbteTipo === 2) {
+    const basePedido = {
+      cbteTipo: cbteTipo as 6 | 1 | 8 | 3 | 7 | 2,
+      totalCentavos: input.totalCentavos,
+      ptoVta: Number(input.doc.pto_vta),
+      cbteNro: nro,
+      cbteFch: input.doc.cbte_fch,
+      docTipo: Number(input.doc.doc_tipo || "99"),
+      docNro: input.doc.doc_nro || "0",
+      condIvaReceptor: Number(input.doc.cond_iva_receptor || "5"),
+    };
+    const meta = parsear_meta_fes12(input.doc.venta_leyenda);
+    if (meta && meta.totalCobradoCentavos === input.totalCentavos) {
+      return armar_pedido_b_con_alicuotas(basePedido, meta);
+    }
     let neto: bigint | null = null;
     let iva: bigint | null = null;
     let alicId = Number(input.doc.alic_iva_id || "5");
@@ -76,18 +93,10 @@ function armar_pedido(input: WorkerInput, nro: number): PedidoAutorizable | null
       iva = d.impIvaCentavos;
       alicId = d.alicId;
     }
-    return armar_pedido_b({
-      cbteTipo: cbteTipo as 6 | 1 | 8 | 3 | 7 | 2,
-      totalCentavos: input.totalCentavos,
-      ptoVta: Number(input.doc.pto_vta),
-      cbteNro: nro,
-      cbteFch: input.doc.cbte_fch,
-      docTipo: Number(input.doc.doc_tipo || "99"),
-      docNro: input.doc.doc_nro || "0",
-      condIvaReceptor: Number(input.doc.cond_iva_receptor || "5"),
+    return armar_pedido_b_con_alicuotas(basePedido, {
       impNetoCentavos: neto,
       impIvaCentavos: iva,
-      alicId,
+      alicIva: [{ id: alicId, baseImpCentavos: neto, importeCentavos: iva }],
     });
   }
   // FE-S7/S8: el pedido sale de la clase + receptor guardados al vender.
