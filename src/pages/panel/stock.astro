@@ -54,7 +54,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           <input id="lote-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
         </label>
         <button id="lote-buscar" type="button">Buscar</button>
+        <button id="leer-camara" type="button">Leer con la cámara</button>
       </div>
+      <video id="camara-video" class="camara-video" hidden playsinline muted></video>
       <ul class="lista" id="lote-lista"></ul>
       <div class="estado" id="estado-lotes" role="status">Cargando…</div>
     </section>
@@ -114,6 +116,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
 </PanelShell>
 
 <style>
+  .camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
   .aviso {
     margin-bottom: 12px;
     padding: 12px;
@@ -195,6 +198,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
   import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
+  import {
+    efectoCodigoDesconocido,
+    efectoDeTecla,
+    resolverLectura,
+    sesionCamara,
+  } from "../../modules/stock/escaner.js";
 
   const $ = (id) => document.getElementById(id);
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
@@ -735,6 +744,70 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     $(id).addEventListener("input", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLInputElement).value)),
   );
   $("lote-buscar").addEventListener("click", buscarLotes);
+
+  // STOCK-E4: Enter es el cierre del lector. No abre la cámara ni crea el producto.
+  const resolverEnPantalla = (raw: string) => resolverLectura({
+    raw,
+    tenantId,
+    skusLocales: [],
+    fetch: (url) => fetch(url),
+  });
+  const avisarDesconocido = (estado: HTMLElement) => {
+    const efecto = efectoCodigoDesconocido();
+    estado.textContent = efecto.mensaje;
+  };
+  const alEnter = (input: HTMLInputElement, estado: HTMLElement, despues: (sku: string) => void) => {
+    input.addEventListener("keydown", async (ev) => {
+      const efecto = efectoDeTecla(ev.key);
+      if (!efecto.buscar || efecto.abrirCamara) return;
+      ev.preventDefault();
+      const res = await resolverEnPantalla(input.value);
+      if (res.estado === "encontrado") {
+        input.value = res.sku;
+        input.dispatchEvent(new Event("input"));
+        despues(res.sku);
+        return;
+      }
+      if (res.estado === "desconocido") avisarDesconocido(estado);
+    });
+  };
+  alEnter($("lote-sku"), $("estado-lotes"), () => { buscarLotes(); });
+  alEnter($("ingreso-sku"), $("estado-ingreso"), () => {});
+  let campoCamara = $("lote-sku");
+  for (const id of ["lote-sku", "ingreso-sku"]) {
+    $(id).addEventListener("focus", () => { campoCamara = $(id); });
+  }
+  let sesion: { cerrar: () => void } | null = null;
+  $("leer-camara").addEventListener("click", async () => {
+    const video = $("camara-video");
+    if (!(video instanceof HTMLVideoElement)) return;
+    if (sesion) {
+      sesion.cerrar();
+      sesion = null;
+      return;
+    }
+    const destino = campoCamara;
+    sesion = sesionCamara(video);
+    try {
+      const codigo = await sesion.leer();
+      sesion = null;
+      if (!codigo) return;
+      const estado = destino.id === "ingreso-sku" ? $("estado-ingreso") : $("estado-lotes");
+      const res = await resolverEnPantalla(codigo);
+      if (res.estado === "encontrado") {
+        destino.value = res.sku;
+        destino.dispatchEvent(new Event("input"));
+        if (destino.id === "lote-sku") buscarLotes();
+        return;
+      }
+      avisarDesconocido(estado);
+    } catch (error) {
+      console.warn("[panel/stock] cámara", error);
+      if (sesion) sesion.cerrar();
+      sesion = null;
+      $("estado-lotes").textContent = "No se pudo abrir la cámara.";
+    }
+  });
 
   $("ingreso-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();

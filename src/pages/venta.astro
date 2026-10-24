@@ -43,6 +43,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       button:not(.tema-toggle) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
+      #camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
       #catalogo-estado { margin: 0 4px 10px; font-size: 13px; color: var(--tema-texto-suave); text-align: start; overflow-wrap: anywhere; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
       .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }
@@ -62,6 +63,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <main data-tenant={tenantId ?? ""}>
       <div class="card vidrio-card">
         <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
+        <button id="leer-camara" type="button">Leer con la cámara</button>
+        <video id="camara-video" hidden playsinline muted></video>
         <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
         <label>Precio centavos <input id="precio" type="number" value={harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000} min="0" /></label>
         <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
@@ -102,6 +105,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { claveOutboxCola, claveSeqCola, CLAVE_LEGADA_OUTBOX, CLAVE_LEGADA_SEQ, copiarSeqLegado, sincronizarColaVenta } from "../offline/cola-venta.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
+      import {
+        efectoCodigoDesconocido,
+        efectoDeTecla,
+        resolverLectura,
+        sesionCamara,
+      } from "../modules/stock/escaner.js";
       const $ = (id) => document.getElementById(id);
       const tenant = document.querySelector("[data-tenant]")?.dataset.tenant ?? "";
       const storage = localStorage;
@@ -154,6 +163,58 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         mostrarAlta();
       });
       $("precio").addEventListener("input", () => { precioEditado = true; });
+      // STOCK-E4: Enter es el cierre del lector. No abre la cámara ni da de alta.
+      const avisarDesconocido = () => {
+        const efecto = efectoCodigoDesconocido();
+        $("alta-nombre-label").hidden = true;
+        estado(efecto.mensaje);
+      };
+      const aplicarSkuEncontrado = (sku) => {
+        $("sku").value = sku;
+        skuElegido = sku;
+        precioEditado = false;
+        completarPrecio();
+        mostrarAlta();
+        estado("Lista.");
+      };
+      const resolverEnPantalla = (raw) => resolverLectura({
+        raw,
+        tenantId: tenant,
+        skusLocales: catalogo ? Object.keys(catalogo.productos) : [],
+        fetch: (url) => fetch(url),
+      });
+      $("sku").addEventListener("keydown", async (ev) => {
+        const efecto = efectoDeTecla(ev.key);
+        if (!efecto.buscar || efecto.abrirCamara) return;
+        ev.preventDefault();
+        const res = await resolverEnPantalla($("sku").value);
+        if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
+        else if (res.estado === "desconocido") avisarDesconocido();
+      });
+      let sesion = null;
+      $("leer-camara").addEventListener("click", async () => {
+        const video = $("camara-video");
+        if (!(video instanceof HTMLVideoElement)) return;
+        if (sesion) {
+          sesion.cerrar();
+          sesion = null;
+          return;
+        }
+        sesion = sesionCamara(video);
+        try {
+          const codigo = await sesion.leer();
+          sesion = null;
+          if (!codigo) return;
+          const res = await resolverEnPantalla(codigo);
+          if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
+          else avisarDesconocido();
+        } catch (error) {
+          console.warn("[venta] cámara", error);
+          if (sesion) sesion.cerrar();
+          sesion = null;
+          estado("No se pudo abrir la cámara.");
+        }
+      });
       const refrescarCatalogo = async () => {
         if (esHarnessWorst || !tenant) return;
         if (!debeDescargar(catalogo, new Date(), navigator.onLine)) return;
