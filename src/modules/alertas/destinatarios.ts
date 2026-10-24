@@ -3,6 +3,11 @@ import type { RolPanel } from "../bot/historial.js";
 
 export type { CanalElegido };
 
+export interface DireccionAviso {
+  readonly email: string | null;
+  readonly numeroWa: string | null;
+}
+
 export interface EleccionGuardada {
   readonly canal: CanalElegido;
   readonly avisoHora: string;

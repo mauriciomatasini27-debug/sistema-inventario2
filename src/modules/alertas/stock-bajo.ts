@@ -67,13 +67,14 @@ export function canalesEfectivos(p: PersonaDueno | PersonaEncargado): CanalAlert
     if (p.optInWa) out.unshift("whatsapp");
     return out;
   }
-  const base: CanalAlerta[] =
-    p.canal === "whatsapp" ? ["whatsapp"] : p.canal === "email" ? ["email"] : ["whatsapp", "email"];
-  return base.filter((c) => {
-    if (c === "whatsapp") return p.optInWa;
-    if (c === "email") return !!p.email;
-    return false;
-  });
+  const quiereWa = p.canal === "whatsapp" || p.canal === "ambos";
+  const quiereEmail = p.canal === "email" || p.canal === "ambos";
+  const out: CanalAlerta[] = [];
+  if (quiereWa && p.optInWa) out.push("whatsapp");
+  // ALR-S3: sin opt-in de WhatsApp la alerta sale por email si hay casilla.
+  // Elegir solo WhatsApp no apaga el mail hasta que la persona escriba ALTA.
+  if (p.email && (quiereEmail || !p.optInWa)) out.push("email");
+  return out;
 }
 
 export function resolver_destinatarios(args: {

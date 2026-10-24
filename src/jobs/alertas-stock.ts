@@ -1,5 +1,6 @@
 // pg_cron no se configura en este repo: el cron vive fuera y pega al endpoint.
 
+import type { DireccionAviso } from "../modules/alertas/destinatarios.js";
 import { clave_alerta_stock, es_quiebre, umbral_efectivo, type CanalAlerta } from "../modules/alertas/stock-bajo.js";
 
 export interface ItemAlertaJob {
@@ -18,7 +19,19 @@ export interface DestinoJob {
   readonly canales: ReadonlyArray<CanalAlerta>;
 }
 
-export type EnvioCanal = (destino: string, texto: string) => { readonly ok: boolean; readonly error?: string | undefined };
+export interface MetaEnvioAlerta {
+  readonly googleSub: string;
+  readonly clave: string;
+  readonly canal: CanalAlerta;
+}
+
+export type ResultadoEnvioCanal = { readonly ok: boolean; readonly error?: string | undefined };
+
+export type EnvioCanal = (
+  destino: string,
+  texto: string,
+  meta?: MetaEnvioAlerta,
+) => ResultadoEnvioCanal | Promise<ResultadoEnvioCanal>;
 
 export interface AlertaDecidida {
   readonly sku: string;
@@ -48,17 +61,33 @@ function claveEnvio(tenantId: string, sku: string, fecha: string, googleSub: str
   return `${clave_alerta_stock(tenantId, sku, fecha)}:${googleSub}`;
 }
 
-export function ejecutar_alertas_stock(args: {
+// ALR-S3: con direcciones, el destino es la casilla o el número de esa persona.
+// Sin mapa el llamador ya puso el destino en el id. Si falta la dirección, no se usa el número del comercio.
+function destinoDe(
+  googleSub: string,
+  canal: CanalAlerta,
+  direcciones: ReadonlyMap<string, DireccionAviso> | undefined,
+): string | null {
+  if (!direcciones) return googleSub;
+  const dir = direcciones.get(googleSub);
+  if (!dir) return null;
+  const raw = canal === "whatsapp" ? dir.numeroWa : dir.email;
+  if (raw == null || raw.trim() === "") return null;
+  return raw;
+}
+
+export async function ejecutar_alertas_stock(args: {
   readonly tenantId: string;
   readonly fecha: string;
   readonly modo: "matutino" | "quiebre";
   readonly catalogo: ReadonlyArray<ItemAlertaJob>;
   readonly destinatarios: ReadonlyArray<DestinoJob>;
   readonly yaEnviados?: ReadonlySet<string> | undefined;
+  readonly direcciones?: ReadonlyMap<string, DireccionAviso> | undefined;
   readonly enviarWa: EnvioCanal;
   readonly enviarEmail: EnvioCanal;
   readonly registrar?: ((clave: string) => void) | undefined;
-}): ResultadoAlertas {
+}): Promise<ResultadoAlertas> {
   const alertas: AlertaDecidida[] = [];
   let omitidasYa = 0;
 
@@ -107,18 +136,25 @@ export function ejecutar_alertas_stock(args: {
       registradas.push(ck);
       args.registrar?.(ck);
       alguno = true;
+      const metaBase = { googleSub: d.googleSub, clave: ck };
       if (d.canales.includes("whatsapp")) {
-        try {
-          args.enviarWa(d.googleSub, texto);
-        } catch {
-          // Fallo de un canal no bloquea el resto.
+        const destino = destinoDe(d.googleSub, "whatsapp", args.direcciones);
+        if (destino) {
+          try {
+            await args.enviarWa(destino, texto, { ...metaBase, canal: "whatsapp" });
+          } catch {
+            // Fallo de un canal no bloquea el resto.
+          }
         }
       }
       if (d.canales.includes("email")) {
-        try {
-          args.enviarEmail(d.googleSub, texto);
-        } catch {
-          // Fallo de un canal no bloquea el resto.
+        const destino = destinoDe(d.googleSub, "email", args.direcciones);
+        if (destino) {
+          try {
+            await args.enviarEmail(destino, texto, { ...metaBase, canal: "email" });
+          } catch {
+            // Fallo de un canal no bloquea el resto.
+          }
         }
       }
     }
