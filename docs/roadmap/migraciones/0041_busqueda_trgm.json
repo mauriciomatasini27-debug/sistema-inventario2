@@ -1,0 +1,7 @@
+{
+  "tag": "0041_busqueda_trgm",
+  "fecha": "2026-10-23",
+  "aprobado_por": "Mauri",
+  "evidencia": "0041 aplicada con db:migrate el 2026-10-23. Fila de journal id 42, created_at 1792975200000, hash sha256 ebfe5f0163dd755d98d1090a8a8a116ec36336cc43d0db444e9d98a396c67730 igual al archivo. Quedaron public.f_norm, las extensiones pg_trgm y unaccent, y los índices products_nombre_trgm_idx y product_aliases_alias_trgm_idx.",
+  "backup": "/home/mauri/backups/pre-0041-schema-20261024-0012.sql"
+}
