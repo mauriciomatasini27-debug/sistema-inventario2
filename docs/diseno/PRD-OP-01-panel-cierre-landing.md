@@ -14,7 +14,7 @@ resumen: |
 
 Fuente: ADR-0006, ADR-0020, ADR-0022, `src/pages/admin.astro:4-6`, `src/pages/panel.astro:204-230`, `src/data/business.ts:36-39`. Gap: admin resto demo; panel comercio KPIs hardcodeados; landing placeholders E13.
 
-> Estado al 2026-10-20: en curso. OP-S1 y OP-S2 tienen rutas reales (`/api/admin/tenants`, `audit`, `rollouts`, guard por allowlist) pero PA3 a PA5, PA8 a PA11 y PA13 siguen sin implementación real; OP-S3 está parcial (pantallas de módulos, sin tarjetas de bot/alertas) y OP-S4 está parcial (OG real, faltan PDF espejo y guarda de placeholders). La ruta de reintento es `POST /api/admin/rollouts` con `rollout_id`, no `rollouts/:id/reintentar`.
+> Estado al 2026-10-24: en curso. OP-S1 y OP-S2 tienen rutas reales (`/api/admin/tenants`, `audit`, `rollouts`, guard por allowlist). PA8 está parcial: `GET /api/admin/uso` y la tarjeta de `/admin` muestran uso diario y margen estimado y marcan el costo técnico que supera el 50% del precio del plan, sin datos de negocio; cupo del número central, calidad Meta y conciliación siguen sin implementación. PA3 a PA5, PA9 a PA11 y PA13 siguen sin implementación real; OP-S3 está parcial (pantallas de módulos, sin tarjetas de bot/alertas) y OP-S4 está parcial (OG real, faltan PDF espejo y guarda de placeholders). La ruta de reintento es `POST /api/admin/rollouts` con `rollout_id`, no `rollouts/:id/reintentar`.
 
 ## Épica OP-E1. Panel admin real
 
