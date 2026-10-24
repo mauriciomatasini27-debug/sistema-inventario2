@@ -16,6 +16,8 @@ resumen: |
 
 Fuente: `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1), `docs/05-compras-servicios-pagos/facturas-proveedores.md` (FP2), `docs/diseno/PRD-OCR-01-motor-ocr-fase-0.md`, `src/modules/ocr`, `src/pages/api/gmail/*`, `src/db/schema-servicios.ts`. Restringido por ADR-0005, ADR-0089, ADR-0093, ADR-0102, ADR-0103 y ADR-0104. Fecha extracción: 2026-10-19.
 
+> Estado al 2026-10-24: en curso. GGL-S12 hecho. En modo testing, `/panel/integraciones` y `POST /api/integrations/start` abren el OAuth de Gmail solo si el mail del Dueño está en `GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA` (máximo 100). Fuera de la lista la pantalla explica el límite y no redirige a Google. En testing la pantalla avisa que el refresh vence a los 7 días y hay que reconectar. `GOOGLE_INTEGRATIONS_MODO=verificada` saca el límite y el aviso. Siguen pendientes el reenvío (GGL-S13) y Photos.
+
 ## Problema
 
 Las facturas de servicios llegan por email. El dueño tenía que abrir el correo, bajar el adjunto y cargarlo a mano. Desde el 2026-10-19 el flujo OAuth, la tabla `google_connections`, el token cifrado, `users.watch`, `history.list`, la cola durable y los borradores de Gmail están implementados (ADR-0102/0103, migraciones 0030/0031). Queda pendiente la UI de conexión y consentimiento, la desconexión que descarta jobs, el aviso por `invalid_grant`, la administración de remitentes, el modo prueba y Google Photos (ADR-0104, segunda ola). El scope `gmail.readonly` da acceso de lectura a toda la casilla: la app filtra, pero el permiso técnico es amplio y el consentimiento debe decirlo.
