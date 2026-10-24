@@ -36,6 +36,7 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
     process.env.GOOGLE_INTEGRATIONS_REDIRECT =
       "http://localhost:4321/api/integrations/callback";
     process.env.INTEGRATIONS_STATE_SECRET = "state-secreto-de-test";
+    process.env.GOOGLE_INTEGRATIONS_MODO = "verificada";
     process.env.INTEGRATIONS_KMS_KEY_B64 = secretoKms;
     process.env.INTEGRATIONS_KMS_KEY_ID = "kms-integracion-test";
 
@@ -101,6 +102,8 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
     delete process.env.INTEGRATIONS_STATE_SECRET;
     delete process.env.INTEGRATIONS_KMS_KEY_B64;
     delete process.env.INTEGRATIONS_KMS_KEY_ID;
+    delete process.env.GOOGLE_INTEGRATIONS_MODO;
+    delete process.env.GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA;
   });
 
   function conSesion(cookieExtra = ""): HeadersInit {

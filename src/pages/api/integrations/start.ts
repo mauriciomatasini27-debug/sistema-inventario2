@@ -1,15 +1,20 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { control } from "../../../lib/store.js";
 import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 import {
   CONSENTIMIENTO_GOOGLE_VERSION,
   construirUrlAutorizacionGmail,
   cookieEstado,
+  decidirInicioGmail,
   firmarEstado,
   generarPKCE,
   leerConfigIntegracionGmail,
+  normalizarEmailPrueba,
   nuevoNonce,
   nuevoState,
+  vistaModoPruebaGmail,
+  type DecisionInicioGmail,
 } from "../../../modules/integraciones/google-oauth.js";
 
 export const prerender = false;
@@ -24,6 +29,18 @@ const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 function esFormulario(request: Request): boolean {
   const tipo = request.headers.get("content-type") ?? "";
   return tipo.includes("application/x-www-form-urlencoded") || tipo.includes("multipart/form-data");
+}
+
+function responderBloqueo(request: Request, decision: Extract<DecisionInicioGmail, { iniciar: false }>): Response {
+  const vista = vistaModoPruebaGmail({ decision, hayConexion: false, esDueno: true });
+  const texto = vista.textoLimite ?? "No se pudo iniciar la conexión.";
+  const error = decision.motivo === "fuera_de_lista" ? "fuera_de_lista_prueba" : "lista_prueba_invalida";
+  if (!esFormulario(request)) return Response.json({ error }, { status: 403 });
+  const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Gmail</title><p id="limite-lista-prueba">${texto}</p><p><a href="/panel/integraciones">Volver</a></p></html>`;
+  return new Response(html, {
+    status: 403,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+  });
 }
 
 function responderError(request: Request, payload: Record<string, unknown>, status: number): Response {
@@ -70,6 +87,11 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
+  // GGL-S12: el gate corre antes del redirect. Fuera de la lista no hay OAuth.
+  const email = control.users.get(dueno.ctx.googleSub)?.email ?? "";
+  const decision = decidirInicioGmail({ email });
+  if (!decision.iniciar) return responderBloqueo(request, decision);
+
   let config;
   try {
     config = leerConfigIntegracionGmail();
@@ -100,6 +122,7 @@ export const POST: APIRoute = async ({ request }) => {
     state,
     nonce,
     codeChallenge: pkce.challenge,
+    loginHint: normalizarEmailPrueba(email) ?? undefined,
   });
   return new Response(null, {
     status: 303,

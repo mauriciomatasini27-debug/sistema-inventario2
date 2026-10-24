@@ -10,6 +10,104 @@ export const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 
 export const CONSENTIMIENTO_GOOGLE_VERSION = "2026-10-19-v1";
 
+// GGL-S12: sin GOOGLE_INTEGRATIONS_MODO la app sigue en testing. Google no
+// verificó gmail.readonly, el refresh vence a los 7 días y solo la lista abre OAuth.
+export const LIMITE_USUARIOS_PRUEBA_GMAIL = 100;
+
+export const TEXTO_FUERA_DE_LISTA_PRUEBA =
+  "Gmail está en modo prueba de Google. Solo las cuentas de la lista de prueba pueden conectar, y esa lista admite hasta 100 personas. Tu cuenta no está en la lista, así que no abrimos el permiso de Google. Pedile a quien administra la app que te agregue, o esperá a que Google verifique la app.";
+
+export const TEXTO_REFRESH_7_DIAS =
+  "Google está en modo Testing. El permiso para renovar la conexión vence a los 7 días. Cuando venza, volvé a conectar desde acá. Después de ese vencimiento la lectura de facturas no sigue sola.";
+
+export const TEXTO_LISTA_PRUEBA_INVALIDA =
+  "No podemos abrir el permiso de Google. La lista de prueba está mal configurada. Tiene que decir testing o verificada, y en testing no puede pasar de 100 cuentas.";
+
+export type ModoAppGmail =
+  | { readonly tipo: "verificada" }
+  | { readonly tipo: "testing"; readonly usuarios: ReadonlySet<string> };
+
+export type DecisionInicioGmail =
+  | { readonly iniciar: true; readonly modo: "testing" | "verificada" }
+  | { readonly iniciar: false; readonly motivo: "fuera_de_lista" | "config_invalida" };
+
+export interface VistaModoPruebaGmail {
+  readonly mostrarFormulario: boolean;
+  readonly textoLimite: string | null;
+  readonly textoRefresh7Dias: string | null;
+}
+
+export function normalizarEmailPrueba(crudo: string): string | null {
+  const email = crudo.trim().toLowerCase();
+  if (!email || /\s/.test(email) || !email.includes("@")) return null;
+  return email;
+}
+
+function emailsDeListaPrueba(crudo: string): Set<string> | null {
+  const usuarios = new Set<string>();
+  for (const parte of crudo.split(",")) {
+    const email = normalizarEmailPrueba(parte);
+    if (email) usuarios.add(email);
+  }
+  if (usuarios.size > LIMITE_USUARIOS_PRUEBA_GMAIL) return null;
+  return usuarios;
+}
+
+export function leerModoAppGmail(
+  env: NodeJS.ProcessEnv = process.env,
+): { readonly ok: true; readonly modo: ModoAppGmail } | { readonly ok: false; readonly motivo: "config_invalida" } {
+  const crudo = (env["GOOGLE_INTEGRATIONS_MODO"] ?? "").trim().toLowerCase();
+  const modo = crudo === "" ? "testing" : crudo;
+  if (modo === "verificada") return { ok: true, modo: { tipo: "verificada" } };
+  if (modo !== "testing") return { ok: false, motivo: "config_invalida" };
+  const usuarios = emailsDeListaPrueba(env["GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA"] ?? "");
+  if (!usuarios) return { ok: false, motivo: "config_invalida" };
+  return { ok: true, modo: { tipo: "testing", usuarios } };
+}
+
+export function decidirInicioGmail(input: {
+  readonly email: string;
+  readonly env?: NodeJS.ProcessEnv | undefined;
+}): DecisionInicioGmail {
+  const lectura = leerModoAppGmail(input.env);
+  if (!lectura.ok) return { iniciar: false, motivo: "config_invalida" };
+  if (lectura.modo.tipo === "verificada") return { iniciar: true, modo: "verificada" };
+  const email = normalizarEmailPrueba(input.email);
+  if (!email || !lectura.modo.usuarios.has(email)) {
+    return { iniciar: false, motivo: "fuera_de_lista" };
+  }
+  return { iniciar: true, modo: "testing" };
+}
+
+// GGL-S12: el límite se explica solo al Dueño. Al empleado ya lo frena el rol.
+export function vistaModoPruebaGmail(input: {
+  readonly decision: DecisionInicioGmail;
+  readonly hayConexion: boolean;
+  readonly esDueno: boolean;
+}): VistaModoPruebaGmail {
+  const decision = input.decision;
+  if (!decision.iniciar && input.esDueno) {
+    const enTesting = decision.motivo === "fuera_de_lista";
+    return {
+      mostrarFormulario: false,
+      textoLimite: enTesting ? TEXTO_FUERA_DE_LISTA_PRUEBA : TEXTO_LISTA_PRUEBA_INVALIDA,
+      textoRefresh7Dias: enTesting && input.hayConexion ? TEXTO_REFRESH_7_DIAS : null,
+    };
+  }
+  if (!decision.iniciar) {
+    return {
+      mostrarFormulario: true,
+      textoLimite: null,
+      textoRefresh7Dias: decision.motivo === "fuera_de_lista" ? TEXTO_REFRESH_7_DIAS : null,
+    };
+  }
+  return {
+    mostrarFormulario: true,
+    textoLimite: null,
+    textoRefresh7Dias: decision.modo === "testing" ? TEXTO_REFRESH_7_DIAS : null,
+  };
+}
+
 export const SCOPES_GMAIL = [
   "openid",
   "email",

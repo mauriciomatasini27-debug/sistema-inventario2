@@ -1,9 +1,14 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
-import { CONSENTIMIENTO_GOOGLE_VERSION } from "../../modules/integraciones/google-oauth.js";
 import { esDueno, resolverSesion } from "../../lib/control.js";
 import { leerSaludConexionGmail, type SaludConexionGmail } from "../../lib/repos/google-conexiones.js";
+import { control } from "../../lib/store.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
+import {
+  CONSENTIMIENTO_GOOGLE_VERSION,
+  decidirInicioGmail,
+  vistaModoPruebaGmail,
+} from "../../modules/integraciones/google-oauth.js";
 
 const tenant = tenantDeRequest(Astro.request);
 let salud: SaludConexionGmail = {
@@ -17,14 +22,23 @@ let salud: SaludConexionGmail = {
   jobsPendientes: 0,
 };
 let dueno = false;
+let emailDueno = "";
 if (tenant.ok) {
   salud = await leerSaludConexionGmail(tenant.tenantId);
   const sesion = resolverSesion(Astro.request);
-  if (sesion) dueno = esDueno(tenant.tenantId, sesion.googleSub);
+  if (sesion) {
+    dueno = esDueno(tenant.tenantId, sesion.googleSub);
+    emailDueno = control.users.get(sesion.googleSub)?.email ?? "";
+  }
 }
 
 const conectada = salud.estado === "activa";
 const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconexion;
+const vista = vistaModoPruebaGmail({
+  decision: decidirInicioGmail({ email: emailDueno }),
+  hayConexion: salud.estado !== "sin_conexion",
+  esDueno: dueno,
+});
 ---
 <PanelShell titulo="Gmail" subtitulo="Conectá la casilla que recibe las facturas de servicios.">
   <section class="card" id="salud-gmail" data-estado={salud.estado}>
@@ -51,6 +65,9 @@ const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconex
         {salud.avisoDueño ? (
           <p class="aviso-alerta" role="status">{salud.avisoDueño}</p>
         ) : null}
+        {!mostrarConectar && vista.textoRefresh7Dias ? (
+          <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
+        ) : null}
       </>
     )}
     {dueno && conectada ? (
@@ -64,7 +81,17 @@ const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconex
     <p id="aviso-desconexion" class="aviso" role="status" hidden></p>
   </section>
 
-  {mostrarConectar ? (
+  {mostrarConectar && vista.textoLimite ? (
+    <section class="card" id="limite-lista-prueba">
+      <h2>Modo prueba</h2>
+      <p>{vista.textoLimite}</p>
+      {vista.textoRefresh7Dias ? (
+        <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
+      ) : null}
+    </section>
+  ) : null}
+
+  {mostrarConectar && vista.mostrarFormulario ? (
     <section class="card" id="consentimiento-gmail">
       <h2>Qué permite esta conexión</h2>
       <p>
@@ -79,10 +106,9 @@ const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconex
         Un adjunto que pases a lectura de factura puede verlo el servicio de OCR que use el comercio.
         Podés desconectar después. Al desconectar se revoca el token en Google y se descarta la cola pendiente.
       </p>
-      <p>
-        Mientras la app de Google esté en modo prueba, el token de renovación puede vencer a los 7 días
-        y hay que volver a conectar. La lista de prueba admite hasta 100 usuarios.
-      </p>
+      {vista.textoRefresh7Dias ? (
+        <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
+      ) : null}
 
       <form id="form-gmail" method="post" action="/api/integrations/start">
         <input type="hidden" name="tipo" value="gmail" />
