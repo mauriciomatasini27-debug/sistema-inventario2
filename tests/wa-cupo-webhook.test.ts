@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
-import { control, resetStore } from "../src/lib/store.js";
+import { control, resetStore, store } from "../src/lib/store.js";
 import { crearProveedorCobro, olvidarPlanesEnMemoria } from "../src/lib/repos/planes.js";
 import { registrarConsultaBot } from "../src/lib/repos/bot-consultas.js";
 import { POST as postWebhook } from "../src/pages/api/whatsapp/webhook.js";
@@ -152,5 +152,60 @@ describe("WA-CUPO webhook bot_consulta", () => {
     const r = await mandar("5491100000001", "precio jorgito");
     expect(r.status).toBe(200);
     expect(((await r.json()) as { accion: string }).accion).not.toBe("cupo_bot_agotado");
+  });
+
+  it("Básico al 80% encola un mail al Dueño y sigue respondiendo", async () => {
+    comercioBasico();
+    control.users.set("g-1", { googleSub: "g-1", email: "dueno@kiosco.test", emailVerificado: true });
+    await suscripcion("basico");
+    for (let i = 0; i < 79; i++) {
+      await registrarConsultaBot({
+        tenantId: "t-wa",
+        numeroE164: "+5491100000001",
+        wamid: `80-${i}`,
+        ahoraMs: HOY_MS - i * 60_000,
+      });
+    }
+    const r1 = await mandar("5491100000001", "hola 80a");
+    const r2 = await mandar("5491100000001", "hola 80b");
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(((await r1.json()) as { accion: string }).accion).not.toBe("cupo_bot_agotado");
+    expect(((await r2.json()) as { accion: string }).accion).not.toBe("cupo_bot_agotado");
+    const keys80 = [...store.emailOutbox.keys()].filter((k) => k.includes("cuenta:cupo:t-wa:2026-10:80"));
+    expect(keys80).toHaveLength(1);
+  });
+
+  it("Básico al 100% avisa agotado con web, un mail y sin gastar cupo", async () => {
+    comercioBasico();
+    control.users.set("g-1", { googleSub: "g-1", email: "dueno@kiosco.test", emailVerificado: true });
+    await suscripcion("basico");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    for (let i = 0; i < 100; i++) {
+      await registrarConsultaBot({
+        tenantId: "t-wa",
+        numeroE164: "+5491100000001",
+        wamid: `100-${i}`,
+        ahoraMs: HOY_MS - i * 60_000,
+      });
+    }
+    const ag1 = await mandar("5491100000001", "hola 100a");
+    const ag2 = await mandar("5491100000001", "hola 100b");
+    expect(ag1.status).toBe(200);
+    expect(ag2.status).toBe(200);
+    const body1 = (await ag1.json()) as { accion: string; respuesta: string };
+    const body2 = (await ag2.json()) as { accion: string; respuesta: string };
+    expect(body1.accion).toBe("cupo_bot_agotado");
+    expect(body2.accion).toBe("cupo_bot_agotado");
+    for (const resp of [body1.respuesta, body2.respuesta]) {
+      expect(resp).toContain("Llegaste al cupo de WhatsApp");
+      expect(resp).toContain("wa.me");
+      expect(resp).toContain("web");
+    }
+    expect(control.botConsultas.size).toBe(100);
+    const keys100 = [...store.emailOutbox.keys()].filter((k) => k.includes("cuenta:cupo:t-wa:2026-10:100"));
+    expect(keys100).toHaveLength(1);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

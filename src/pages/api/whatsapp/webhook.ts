@@ -56,6 +56,10 @@ import { preguntar_asistente_bot, reconoce_pregunta_ia } from "../../../modules/
 import { CUPO_ASISTENTE_POR_DEFECTO } from "../../../modules/ia/asistente.js";
 import { ProveedorLLMFake, crear_proveedor_llm_desde_env } from "../../../modules/ia/proveedor.js";
 import { evaluarCupoConsultaBot, planIncluye } from "../../../lib/repos/planes.js";
+import { mesAR } from "../../../lib/fecha-ar.js";
+import { describir_cuenta } from "../../../modules/email/eventos-seguridad.js";
+import { encolar_email_simple } from "../../../jobs/whatsapp-adaptador.js";
+import { armar_link_wame } from "../../../modules/whatsapp/envio-proveedor.js";
 import { crearRegistroUsoIA } from "../../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../../lib/repos/ia-lecturas.js";
 import { leerModulosBot } from "../../../lib/repos/bot-modulos.js";
@@ -197,6 +201,29 @@ async function responderPayload(
   payload: PayloadEnvio,
 ): Promise<boolean> {
   return enviarSalida(opts, (t) => t.enviarPayload(opts.toE164, payload));
+}
+
+// PLAN-S11: un mail por umbral y mes; sin email del Dueño no encola ni llama al proveedor.
+function encolarEmailCupoCuenta(opts: {
+  readonly tenantId: string;
+  readonly porcentaje: 80 | 100;
+  readonly usado: number;
+  readonly cupo: number;
+  readonly ahoraMs: number;
+}): void {
+  const tenant = control.tenants.get(opts.tenantId);
+  if (!tenant?.ownerGoogleSub) return;
+  const email = control.users.get(tenant.ownerGoogleSub)?.email;
+  if (typeof email !== "string" || email === "") return;
+  const evento = describir_cuenta({
+    kind: "cupo",
+    porcentaje: opts.porcentaje,
+    usado: opts.usado,
+    cupo: opts.cupo,
+    tenantId: opts.tenantId,
+    mes: mesAR(opts.ahoraMs),
+  });
+  encolar_email_simple(evento.idempotencyKey, email, evento.asunto, evento.texto);
 }
 
 const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
@@ -539,12 +566,6 @@ async function atenderAccionReponer(
     `Armé un borrador de pedido a ${proveedor.nombre}: ${item.nombre} x ${qty} (quedan ${item.stock}). No se envió nada: revisalo y confirmalo desde el panel de proveedores.`,
     { accion: "accion_reponer_borrador", reusado: false, order_id: r.orderId },
   );
-}
-
-// Mes calendario en Argentina (AAAA-MM): acota la reutilización del borrador
-// al mes del resumen que trajo el botón.
-function mesAR(ms: number): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit" }).format(new Date(ms)).slice(0, 7);
 }
 
 // Cobrar X: devuelve al Dueño el recordatorio y el link wa.me del cliente. El
@@ -1044,18 +1065,43 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
   }
-  // WA-CUPO: antes de registrar la consulta y de cualquier respuesta por Cloud
-  // API, corta si el plan tiene techo mensual agotado (Básico 100).
+  // WA-CUPO: mora, aviso 80%, techo 100% y registro de consulta (PLAN-S6/S11).
   try {
     const cupoBot = await evaluarCupoConsultaBot({ tenantId: r.tenantId, ahoraMs });
-    if (!cupoBot.permitido) {
+    if (cupoBot.tipo === "suspendida") {
       const enviado = await responder({
         toE164: msg.remitente,
         wamidEntrante: msg.wamid,
         texto: cupoBot.mensaje,
         cred,
       });
-      return Response.json({ ok: true, accion: "cupo_bot_agotado", respuesta: cupoBot.mensaje, enviado });
+      return Response.json({ ok: true, accion: "cuenta_suspendida", respuesta: cupoBot.mensaje, enviado });
+    }
+    if (cupoBot.tipo === "agotado") {
+      encolarEmailCupoCuenta({
+        tenantId: r.tenantId,
+        porcentaje: 100,
+        usado: cupoBot.usado,
+        cupo: cupoBot.cupo,
+        ahoraMs,
+      });
+      const respuesta = `${cupoBot.mensaje}\nSeguí por la web: ${armar_link_wame(msg.remitente, "Seguí por la web")}`;
+      const enviado = await responder({
+        toE164: msg.remitente,
+        wamidEntrante: msg.wamid,
+        texto: respuesta,
+        cred,
+      });
+      return Response.json({ ok: true, accion: "cupo_bot_agotado", respuesta, enviado });
+    }
+    if (cupoBot.tipo === "aviso") {
+      encolarEmailCupoCuenta({
+        tenantId: r.tenantId,
+        porcentaje: 80,
+        usado: cupoBot.usado,
+        cupo: cupoBot.cupo,
+        ahoraMs,
+      });
     }
   } catch (e) {
     if (!(e instanceof BaseNoDisponible)) throw e;

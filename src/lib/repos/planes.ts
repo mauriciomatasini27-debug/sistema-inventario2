@@ -294,24 +294,36 @@ export async function planIncluye(tenantId: string, feature: Feature): Promise<I
 }
 
 export type ResultadoCupoConsultaBot =
-  | { readonly permitido: true }
-  | { readonly permitido: false; readonly mensaje: string };
+  | { readonly tipo: "seguir" }
+  | { readonly tipo: "aviso"; readonly usado: number; readonly cupo: number }
+  | { readonly tipo: "agotado"; readonly mensaje: string; readonly usado: number; readonly cupo: number }
+  | { readonly tipo: "suspendida"; readonly mensaje: string };
 
-// WA-CUPO: el cupo mensual de bot_consulta usa whatsapp_usage (misma fuente
-// que /panel/plan); sin techo (null) no corta. El mensaje coincide con el
-// medidor del panel para no contradecir al comercio.
+// WA-CUPO / PLAN-S6: mora suspende antes del techo mensual; PLAN-S11 avisa al
+// 80% y corta al 100% sin gastar cupo en el mensaje agotado.
 export async function evaluarCupoConsultaBot(args: {
   readonly tenantId: string;
   readonly ahoraMs: number;
 }): Promise<ResultadoCupoConsultaBot> {
   exigirTenant(args.tenantId);
+  if (modulosPagosEnMora(args.tenantId, args.ahoraMs)) {
+    return {
+      tipo: "suspendida",
+      mensaje: "La cuenta está suspendida. Regularizá la suscripción para seguir operando.",
+    };
+  }
   const inc = await planIncluye(args.tenantId, "bot_consulta");
-  if (!inc.incluida || inc.cupo === null) return { permitido: true };
+  if (!inc.incluida || inc.cupo === null) return { tipo: "seguir" };
   const usado = await contarConsultasBotDelMes(args.tenantId, args.ahoraMs);
-  if (usado < inc.cupo) return { permitido: true };
-  const reinicia_el = primerDiaMesSiguienteAR(fechaAR(args.ahoraMs));
-  const mensaje = `Llegaste al cupo de WhatsApp del mes. Se reinicia el ${diaMesTextoAR(reinicia_el)}.`;
-  return { permitido: false, mensaje };
+  const cupo = inc.cupo;
+  if (usado >= cupo) {
+    const reinicia_el = primerDiaMesSiguienteAR(fechaAR(args.ahoraMs));
+    const mensaje = `Llegaste al cupo de WhatsApp del mes. Se reinicia el ${diaMesTextoAR(reinicia_el)}.`;
+    return { tipo: "agotado", mensaje, usado, cupo };
+  }
+  const proximo = usado + 1;
+  if (proximo * 100 >= cupo * 80) return { tipo: "aviso", usado: proximo, cupo };
+  return { tipo: "seguir" };
 }
 
 let proximoMem = 1;

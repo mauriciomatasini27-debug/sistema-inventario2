@@ -62,7 +62,7 @@ export function describir_evento_seguridad(args: { kind: "sesion_revocada" | "em
 export function describir_cuenta(args:
   | { kind: "pago_rechazado"; limiteSoloLectura: string }
   | { kind: "paso_solo_lectura" }
-  | { kind: "cupo"; porcentaje: 80 | 100; usado: number; cupo: number }
+  | { kind: "cupo"; porcentaje: 80 | 100; usado: number; cupo: number; tenantId?: string; mes?: string }
   | { kind: "fin_prueba"; fecha: string }
 ): EventoEmail {
   if (args.kind === "pago_rechazado") {
@@ -82,10 +82,14 @@ export function describir_cuenta(args:
   }
   if (args.kind === "cupo") {
     const asunto = `Consumo del bot al ${args.porcentaje}% (${args.usado}/${args.cupo})`;
+    const dedupeKey =
+      args.tenantId !== undefined && args.mes !== undefined
+        ? `cuenta:cupo:${args.tenantId}:${args.mes}:${args.porcentaje}`
+        : `cuenta:cupo:${args.porcentaje}`;
     return {
       tipo: "cuenta",
-      dedupeKey: `cuenta:cupo:${args.porcentaje}`,
-      idempotencyKey: `cuenta:cupo:${args.porcentaje}:email`,
+      dedupeKey,
+      idempotencyKey: `${dedupeKey}:email`,
       asunto,
       html: base(asunto, `<p>Consumiste ${args.usado} de ${args.cupo} mensajes del bot.</p><a href="{{plan_url}}">Sumar un paquete</a>`),
       texto: `Consumiste ${args.usado} de ${args.cupo} mensajes del bot.\n[Sumar un paquete]`,
