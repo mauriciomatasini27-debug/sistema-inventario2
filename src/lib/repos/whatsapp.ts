@@ -50,14 +50,6 @@ function hayMemoria(tenantId?: string): boolean {
   }
 }
 
-export interface FilaConsulta {
-  sku: string;
-  nombre: string;
-  stock: number;
-  precio: bigint;
-  aliases: string[];
-}
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // BOT2 alias: product_aliases es compartida por comercios, products no.
@@ -76,29 +68,6 @@ async function aliasesPorSku(db: TenantDb, tenantId?: string): Promise<Map<strin
     porSku.set(f.sku, lista);
   }
   return porSku;
-}
-
-// Catálogo para GET /api/whatsapp/consult: products del tenant con DB viva,
-// memoria particionada en single sin base. En multi sin base propaga.
-export async function listarProductosConsulta(tenantId?: string): Promise<{ filas: FilaConsulta[]; fuente: "db" | "memoria" }> {
-  const db = dbVivaTenant(tenantId);
-  if (!db) return { filas: conParticion(tenantId, filasConsultaMemoria), fuente: "memoria" };
-  try {
-    const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos })
-      .from(products);
-    const aliases = await aliasesPorSku(db, tenantId);
-    return { filas: filas.map((f) => ({ ...f, aliases: aliases.get(f.sku) ?? [] })), fuente: "db" };
-  } catch (e) {
-    conParticion(tenantId, () => crearAlmacenStock()).anteFalloPersistencia(e);
-    return { filas: conParticion(tenantId, filasConsultaMemoria), fuente: "memoria" };
-  }
-}
-
-function filasConsultaMemoria(): FilaConsulta[] {
-  const stock = crearAlmacenStock().mapaVivo();
-  const precios = crearAlmacenPrecios().mapaVivo();
-  return [...stock.entries()].map(([sku, cantidad]) => ({ sku, nombre: sku, stock: cantidad, precio: BigInt(precios.get(sku) ?? 0), aliases: [] }));
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
