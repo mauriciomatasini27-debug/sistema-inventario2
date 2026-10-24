@@ -25,6 +25,7 @@ export interface WorkerInput {
   totalCentavos: bigint;
   cuit: number;
   provider: FiscalProvider;
+  ahoraMs?: number;
 }
 
 function link_token(): string {
@@ -104,16 +105,45 @@ function armar_pedido(input: WorkerInput, nro: number): PedidoAutorizable | null
   });
 }
 
+function programarReintento(doc: StoredFiscalDoc, intentosPrevios: number, ahoraMs: number): StoredFiscalDoc {
+  const intentos = intentosPrevios + 1;
+  // FE-S19: el primer paso del backoff es 30 s. Se cuenta el intento anterior,
+  // no el ya incrementado, para no saltar a los 2 minutos.
+  return {
+    ...doc,
+    estado: "pendiente",
+    intentos,
+    proximo_intento: new Date(proximo_intento(intentosPrevios, ahoraMs)).toISOString(),
+    ultimo_error_codigo: "timeout",
+    motivo_castellano: texto_castellano("timeout"),
+  };
+}
+
 export async function procesar_pendiente(input: WorkerInput): Promise<{ doc: StoredFiscalDoc; lastNumber: number }> {
   const cbteTipo = Number(input.doc.cbte_tipo || "11");
   const ptoVta = Number(input.doc.pto_vta);
   const clave = clave_fiscal(input.cuit, input.doc.pto_vta, input.doc.cbte_tipo);
+  const ahora = input.ahoraMs ?? Date.now();
 
   // D5: si otro doc retiene la secuencia (respuesta_incierta), retroceder a
   // pendiente sin consumir número. Llamadas concurrentes misma clave deben
   // usar procesar_pendiente_serializado (hace check+marca atómico).
   if (!marcar_en_vuelo(clave, input.doc.id)) {
     return { doc: { ...input.doc, estado: "pendiente" }, lastNumber: input.lastNumber };
+  }
+
+  // FE-S19: el 10016 ya reintentó una vez. Otra pasada no vuelve a ARCA.
+  if (input.doc.ultimo_error_codigo === "10016") {
+    liberar_en_vuelo(clave, input.doc.id);
+    return {
+      doc: { ...input.doc, estado: "rechazado", motivo_castellano: texto_castellano("10016") },
+      lastNumber: input.lastNumber,
+    };
+  }
+
+  const vence = input.doc.proximo_intento ? Date.parse(input.doc.proximo_intento) : Number.NaN;
+  if (input.doc.cbte_nro != null && Number.isFinite(vence) && vence > ahora) {
+    return { doc: input.doc, lastNumber: input.lastNumber };
   }
 
   // D5 retry: el doc ya numerado (respuesta_incierta retenida) reusa su nro;
@@ -149,6 +179,29 @@ export async function procesar_pendiente(input: WorkerInput): Promise<{ doc: Sto
     cbteFch: pedido.cbteFch,
   };
   const enviando: StoredFiscalDoc = { ...input.doc, cbte_nro: nro, estado: "respuesta_incierta" };
+
+  // FE-S19: el reintento a los 30 s consulta antes de reenviar el mismo número.
+  if (input.doc.cbte_nro != null && input.doc.ultimo_error_codigo === "timeout") {
+    let consulta: { existe: boolean; coincide: boolean; cae?: string };
+    try {
+      consulta = await input.provider.consultar(pedido.cbteTipo, ptoVta, nro, esperado);
+    } catch {
+      return { doc: programarReintento(enviando, input.doc.intentos ?? 0, ahora), lastNumber: input.lastNumber };
+    }
+    const decision = resolver_consulta(consulta.existe, consulta.coincide);
+    if (decision.decision === "tomar-cae" && consulta.cae) {
+      const doc = representar(enviando, consulta.cae, null, qr_para(input.doc, input.cuit, nro, input.totalCentavos, consulta.cae, pedido.cbteTipo));
+      liberar_en_vuelo(clave, input.doc.id);
+      return { doc, lastNumber: Math.max(input.lastNumber, nro) };
+    }
+    if (decision.decision === "pausar-alerta") {
+      return {
+        doc: { ...enviando, estado: "pendiente", ultimo_error_codigo: "difiere", motivo_castellano: texto_castellano("10016") },
+        lastNumber: input.lastNumber,
+      };
+    }
+  }
+
   try {
     const r = await input.provider.autorizar_c(pedido, String(input.cuit));
     const doc = representar(enviando, r.cae, r.caeVto, qr_para(input.doc, input.cuit, nro, input.totalCentavos, r.cae, pedido.cbteTipo));
@@ -156,8 +209,50 @@ export async function procesar_pendiente(input: WorkerInput): Promise<{ doc: Sto
     return { doc, lastNumber: Math.max(input.lastNumber, nro) };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Negocio (R: 10015/10016/IVA receptor): no reintenta, bandeja con castellano.
-    if (msg.includes("ARCA rechazo") || msg.includes("10015") || msg.includes("10016") || msg.includes("iva")) {
+    // FE-S19: 10016 resincroniza el último autorizado y reintenta una sola vez.
+    if (msg.includes("10016")) {
+      let nro2 = nro;
+      try {
+        const u = await input.provider.ultimo_autorizado(String(input.cuit), ptoVta, cbteTipo);
+        if (Number.isInteger(u)) nro2 = siguiente_numero(Math.max(input.lastNumber, u));
+      } catch {
+        nro2 = nro;
+      }
+      const pedido2 = armar_pedido(input, nro2);
+      if (!pedido2) {
+        liberar_en_vuelo(clave, input.doc.id);
+        return {
+          doc: { ...enviando, estado: "rechazado", ultimo_error_codigo: "10016", motivo_castellano: texto_castellano("10016") },
+          lastNumber: input.lastNumber,
+        };
+      }
+      try {
+        const r = await input.provider.autorizar_c(pedido2, String(input.cuit));
+        const doc = representar(
+          { ...enviando, cbte_nro: nro2 },
+          r.cae,
+          r.caeVto,
+          qr_para(input.doc, input.cuit, nro2, input.totalCentavos, r.cae, pedido2.cbteTipo),
+        );
+        liberar_en_vuelo(clave, input.doc.id);
+        return { doc, lastNumber: Math.max(input.lastNumber, nro2) };
+      } catch {
+        liberar_en_vuelo(clave, input.doc.id);
+        return {
+          doc: {
+            ...enviando,
+            cbte_nro: nro2,
+            estado: "rechazado",
+            intentos: (input.doc.intentos ?? 0) + 1,
+            ultimo_error_codigo: "10016",
+            motivo_castellano: texto_castellano("10016"),
+          },
+          lastNumber: input.lastNumber,
+        };
+      }
+    }
+    // Negocio (R: 10015/IVA receptor): no reintenta, bandeja con castellano.
+    if (msg.includes("ARCA rechazo") || msg.includes("10015") || msg.includes("iva")) {
       const codigo = msg.includes("10016") ? "10016" : msg.includes("iva") ? "iva-receptor" : "10015";
       liberar_en_vuelo(clave, input.doc.id);
       return {
@@ -195,17 +290,9 @@ export async function procesar_pendiente(input: WorkerInput): Promise<{ doc: Sto
           }
         }
       }
-      liberar_en_vuelo(clave, input.doc.id);
+      // El número queda reservado: el lock no se suelta hasta conciliar o reenviar.
       return {
-        doc: {
-          ...enviando,
-          estado: "pendiente",
-          cbte_nro: null,
-          intentos,
-          proximo_intento: new Date(proximo_intento(intentos, Date.now())).toISOString(),
-          ultimo_error_codigo: "timeout",
-          motivo_castellano: texto_castellano("timeout"),
-        },
+        doc: programarReintento(enviando, input.doc.intentos ?? 0, ahora),
         lastNumber: input.lastNumber,
       };
     }
@@ -222,4 +309,39 @@ export async function procesar_pendiente(input: WorkerInput): Promise<{ doc: Sto
 // (D4). Es la que cuenta N..N+9 sin huecos ante 10 ventas simultáneas.
 export function procesar_pendiente_serializado(input: WorkerInput): Promise<{ doc: StoredFiscalDoc; lastNumber: number }> {
   return con_lock_fiscal(clave_fiscal(input.cuit, input.doc.pto_vta, input.doc.cbte_tipo), () => procesar_pendiente(input));
+}
+
+export type HallazgoConciliacion =
+  | { readonly nro: number; readonly accion: "cae-recuperado"; readonly cae: string }
+  | { readonly nro: number; readonly accion: "emitido-fuera-del-sistema" }
+  | { readonly nro: number; readonly accion: "ausente" };
+
+// FE-S19: el job diario recorre lo que ARCA autorizó después del último local.
+export async function conciliarSerieDiaria(args: {
+  ultimoLocal: number;
+  cbteTipo: number;
+  ptoVta: number;
+  cuit: string;
+  provider: FiscalProvider;
+  esperadoPorNro: ReadonlyMap<number, ConsultaEsperada>;
+}): Promise<{ ultimoArca: number; hallazgos: HallazgoConciliacion[] }> {
+  const ultimoArca = await args.provider.ultimo_autorizado(args.cuit, args.ptoVta, args.cbteTipo);
+  const hallazgos: HallazgoConciliacion[] = [];
+  if (!Number.isInteger(ultimoArca) || ultimoArca <= args.ultimoLocal) return { ultimoArca, hallazgos };
+  for (let nro = args.ultimoLocal + 1; nro <= ultimoArca; nro += 1) {
+    const esperado = args.esperadoPorNro.get(nro);
+    const consulta = esperado
+      ? await args.provider.consultar(args.cbteTipo, args.ptoVta, nro, esperado)
+      : await args.provider.consultar(args.cbteTipo, args.ptoVta, nro);
+    if (!consulta.existe) {
+      hallazgos.push({ nro, accion: "ausente" });
+      continue;
+    }
+    if (esperado && consulta.coincide && consulta.cae) {
+      hallazgos.push({ nro, accion: "cae-recuperado", cae: consulta.cae });
+      continue;
+    }
+    hallazgos.push({ nro, accion: "emitido-fuera-del-sistema" });
+  }
+  return { ultimoArca, hallazgos };
 }
