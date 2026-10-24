@@ -45,3 +45,7 @@ export const fiscalJobs = pgTable("fiscal_jobs", {
   intentos: bigint("intentos", { mode: "number" }).notNull().default(0),
   proximoIntento: timestamp("proximo_intento"),
 });
+
+// FE-S21: pedido/respuesta ARCA sin token ni sign. Hoy el archivo vive en memoria
+// (`arca-provider`); una tabla inmutable en control quedará para cuando haya migración.
+export type FiscalArcaAuditoriaOperacion = "FECAESolicitar" | "FECompUltimoAutorizado" | "FECompConsultar";
