@@ -4,6 +4,7 @@
 // cuando hay CONTROL_DATABASE_URL viva. Solo gestión, nunca negocio.
 
 import type { ActoAdmin } from "../modules/admin/actos.js";
+import type { UsoDiarioContadores } from "../modules/admin/uso-margen.js";
 
 export interface AdminActoMem {
   id: string;
@@ -75,6 +76,9 @@ export const adminStore = {
   ]),
   auditoriaSana: true,
   moraRuns: new Map<string, { fecha: string; aplicados: string[]; corridoEn: string }>(),
+  // ADMIN-USO-DIARIO: espejo en memoria de contadores técnicos por día.
+  // No guarda montos de venta ni abre la base del comercio.
+  usoDiario: new Map<string, UsoDiarioContadores>(),
 };
 
 export function ultimoHashAdmin(): string | null {
@@ -89,5 +93,6 @@ export function resetAdmin(): void {
   adminStore.eventosVida = [];
   adminStore.overrides.clear();
   adminStore.moraRuns.clear();
+  adminStore.usoDiario = new Map<string, UsoDiarioContadores>();
   adminStore.auditoriaSana = true;
 }

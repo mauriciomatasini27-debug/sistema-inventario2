@@ -8,12 +8,15 @@ import TemaToggle from "../components/ui/TemaToggle.astro";
 // pills, segbar, bignums, cards, heatmap dark y SVG propios. Solo consume GET
 // /api/admin/salud y GET /api/admin/actos en vivo; el resto es demo marcado.
 // Sin datos de negocio jamás (Ley 25.326): solo contadores de gestión.
+// ADMIN-USO-DIARIO: la tarjeta Uso lee GET /api/admin/uso. La marca "Costo alto"
+// es texto, y el precio que muestra es el de referencia del catálogo de ejemplo.
 const pills = [
   { label: "Tenants", href: "/admin", active: true },
   { label: "Mora", href: "#mora", active: false },
   { label: "Señales", href: "#senales", active: false },
   { label: "Rollouts", href: "#rollouts", active: false },
   { label: "Auditoría", href: "#auditoria", active: false },
+  { label: "Uso", href: "#uso", active: false },
 ];
 ---
 <!doctype html>
@@ -207,12 +210,21 @@ const pills = [
         </section>
       </div>
 
+      <section class="card" id="uso" style="margin-top:16px;overflow-x:auto">
+        <h2>Uso y margen <span class="demo" id="b-uso">demo</span> <a href="#uso" aria-label="Ir a uso y margen">↗</a></h2>
+        <p class="mini">Contadores técnicos del día: mensajes de WhatsApp y consultas al asistente. Margen = precio del plan − costo técnico del mes. Se marca si ese costo supera la mitad del precio. El precio es de referencia del catálogo de ejemplo. Sin ventas, productos ni clientes.</p>
+        <ul id="uso-body" style="list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px">
+          <li>Cargando…</li>
+        </ul>
+        <div class="estado" id="uso-estado">Uso: cargando…</div>
+      </section>
+
       <div class="grid r3">
         <section class="card" id="tenants"><h2>Tenants <a href="#tenants">↗</a></h2><div class="mini">Directorio mínimo (PA5).<br /><span style="font-family:monospace">GET /api/admin/salud</span></div><div class="estado" id="tenants-estado">—</div></section>
         <section class="card" id="cobros"><h2>Cobros <a href="#cobros">↗</a></h2><div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div></section>
         <section class="card" id="flags"><h2>Flags <a href="#flags">↗</a></h2><div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div></section>
         <section class="card" id="infra"><h2>Infra <a href="#infra">↗</a></h2><div class="mini"><b>Próximamente</b> (PA11).<br />Re-ejecutar migración Drizzle.</div></section>
-        <section class="card" id="apis"><h2>APIs <a href="#apis">↗</a></h2><div class="mini">Índice JSON en vivo:<br /><a href="/api/admin/salud">/api/admin/salud</a><br /><a href="/api/admin/actos">/api/admin/actos</a></div></section>
+        <section class="card" id="apis"><h2>APIs <a href="#apis">↗</a></h2><div class="mini">Índice JSON en vivo:<br /><a href="/api/admin/salud">/api/admin/salud</a><br /><a href="/api/admin/actos">/api/admin/actos</a><br /><a href="/api/admin/uso">/api/admin/uso</a></div></section>
       </div>
     </div>
     <script>
@@ -265,6 +277,61 @@ const pills = [
         document.getElementById("n-senales").textContent = "5";
         document.getElementById("tenants-estado").textContent = "Sin conexión: mostrando demo.";
         document.getElementById("mora-estado").textContent = "Sin conexión: mostrando demo.";
+      });
+      const usd = (centavos) => {
+        if (centavos === null || centavos === undefined) return "—";
+        const n = Number(centavos);
+        if (!Number.isFinite(n)) return "—";
+        const sign = n < 0 ? "−" : "";
+        const abs = Math.abs(Math.trunc(n));
+        const ent = Math.floor(abs / 100);
+        const dec = String(abs % 100).padStart(2, "0");
+        return sign + "USD " + ent + "," + dec;
+      };
+      const filaUso = (f) => {
+        const li = document.createElement("li");
+        const head = document.createElement("div");
+        const nombre = document.createElement("b");
+        nombre.textContent = f.slug + " · " + f.plan;
+        head.appendChild(nombre);
+        head.appendChild(document.createTextNode(" "));
+        const pill = document.createElement("span");
+        // ADMIN-USO-DIARIO: el nodo nace en JS y no hereda el scope de Astro,
+        // así que el color va inline. El texto sigue siendo la marca.
+        pill.textContent = f.marcado ? "Costo alto" : (f.precioPlanCentavos === null ? "Sin precio" : "Dentro del margen");
+        pill.style.cssText = "border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;background:" + (f.marcado ? "var(--estado-aviso-tint)" : "var(--estado-ok-tint)") + ";color:" + (f.marcado ? "var(--estado-aviso)" : "var(--estado-ok)");
+        head.appendChild(pill);
+        const det = document.createElement("div");
+        det.className = "mini";
+        const precio = f.precioPlanCentavos === null ? "sin precio" : usd(f.precioPlanCentavos) + (f.ejemplo ? " (ejemplo)" : "");
+        const margen = f.margenCentavos === null ? "—" : usd(f.margenCentavos);
+        det.textContent = "WA " + f.mensajesWa + " · asistente " + f.consultasLlm + " · costo del mes " + usd(f.costoTecnicoCentavos) + " · precio " + precio + " · margen " + margen;
+        li.appendChild(head);
+        li.appendChild(det);
+        return li;
+      };
+      get("/api/admin/uso").then((b) => {
+        const tb = document.getElementById("uso-body");
+        tb.replaceChildren();
+        const filas = b.uso || [];
+        if (filas.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No hay tenants.";
+          tb.appendChild(li);
+        }
+        filas.forEach((f) => tb.appendChild(filaUso(f)));
+        const altos = filas.filter((f) => f.marcado).length;
+        document.getElementById("uso-estado").textContent = "En vivo: " + filas.length + " tenants, " + altos + " con costo alto. Día " + (b.dia || "—") + ".";
+        marca("b-uso", true);
+      }).catch((e) => {
+        document.getElementById("uso-estado").textContent = e && e.message === "forbidden"
+          ? "Sin permiso (403): iniciá sesión como admin."
+          : "Sin conexión: no hay contadores para mostrar.";
+        const tb = document.getElementById("uso-body");
+        tb.replaceChildren();
+        const li = document.createElement("li");
+        li.textContent = "Sin datos.";
+        tb.appendChild(li);
       });
       get("/api/admin/actos?limite=8").then((b) => {
         const tb = document.getElementById("actos-body");
