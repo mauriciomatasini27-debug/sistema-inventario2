@@ -13,6 +13,61 @@ import {
   type PaginaHistorial,
 } from "../../modules/bot/historial.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { planIncluye } from "./planes.js";
+import { guardarModulosBot } from "./bot-modulos.js";
+
+const GRACIA_MS = 90 * 86_400_000;
+
+export type NivelBot =
+  | { readonly tipo: "pleno" }
+  | { readonly tipo: "congelado" }
+  | { readonly tipo: "vencido" };
+
+export type ModoHistorial =
+  | { readonly tipo: "escribir" }
+  | { readonly tipo: "solo-lectura"; readonly aviso: string };
+
+export type ResultadoTurno =
+  | { readonly tipo: "escrito" }
+  | { readonly tipo: "solo-lectura" }
+  | { readonly tipo: "sin-base" };
+
+const vioPlenoEnProceso = new Map<string, boolean>();
+const inicioCongeladoMs = new Map<string, number>();
+
+export function olvidarNivelBot(): void {
+  vioPlenoEnProceso.clear();
+  inicioCongeladoMs.clear();
+}
+
+export async function observarNivelBot(tenantId: string, ahoraMs: number): Promise<NivelBot> {
+  const inc = await planIncluye(tenantId, "bot_rubro");
+  // Sin suscripción no es una baja. No marca al comercio como si hubiera tenido Plus.
+  if (inc.planId === null) return { tipo: "pleno" };
+  if (inc.incluida === true) {
+    const congeladoPrevio = inicioCongeladoMs.get(tenantId);
+    if (vioPlenoEnProceso.get(tenantId) && congeladoPrevio != null && ahoraMs - congeladoPrevio >= GRACIA_MS) {
+      await guardarModulosBot(tenantId, []);
+    }
+    inicioCongeladoMs.delete(tenantId);
+    vioPlenoEnProceso.set(tenantId, true);
+    return { tipo: "pleno" };
+  }
+  // PLAN-S5: comercio siempre en Básico nunca pasó por Plus en este proceso → pleno de historial.
+  if (!vioPlenoEnProceso.get(tenantId)) return { tipo: "pleno" };
+  if (!inicioCongeladoMs.has(tenantId)) inicioCongeladoMs.set(tenantId, ahoraMs);
+  const inicio = inicioCongeladoMs.get(tenantId)!;
+  return ahoraMs - inicio < GRACIA_MS ? { tipo: "congelado" } : { tipo: "vencido" };
+}
+
+export async function modoHistorial(tenantId: string, ahoraMs: number): Promise<ModoHistorial> {
+  const nivel = await observarNivelBot(tenantId, ahoraMs);
+  if (nivel.tipo === "pleno") return { tipo: "escribir" };
+  return {
+    tipo: "solo-lectura",
+    aviso: "Bajaste de plan. El historial del bot queda en solo lectura.",
+  };
+}
 
 export interface TurnoBot {
   readonly tenantId: string;
@@ -39,9 +94,11 @@ function parseCursorInterno(cursor: CursorHistorial): { t: number; id: string } 
   return { t: o.t, id: o.i };
 }
 
-export async function registrarTurnoBot(input: TurnoBot): Promise<void> {
+export async function registrarTurnoBot(input: TurnoBot): Promise<ResultadoTurno> {
+  const modo = await modoHistorial(input.tenantId, input.ahoraMs);
+  if (modo.tipo === "solo-lectura") return { tipo: "solo-lectura" };
   const db = dbVivaTenant(input.tenantId);
-  if (!db) return;
+  if (!db) return { tipo: "sin-base" };
   await db
     .insert(botTurnos)
     .values({
@@ -55,6 +112,7 @@ export async function registrarTurnoBot(input: TurnoBot): Promise<void> {
       creadoEn: new Date(input.ahoraMs),
     })
     .onConflictDoNothing({ target: botTurnos.wamid });
+  return { tipo: "escrito" };
 }
 
 export async function listarHistorial(consulta: ConsultaHistorial): Promise<PaginaHistorial> {

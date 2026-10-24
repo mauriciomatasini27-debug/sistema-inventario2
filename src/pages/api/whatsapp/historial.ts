@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
-import { listarHistorial } from "../../../lib/repos/bot-turnos.js";
+import { listarHistorial, modoHistorial, type PaginaHistorial } from "../../../lib/repos/bot-turnos.js";
 import { parsearConsultaHistorial, personasDelFiltro } from "../../../modules/bot/historial.js";
 
 export const prerender = false;
@@ -35,13 +35,8 @@ export const GET: APIRoute = async ({ request }) => {
   );
   if (!parsed.ok) return jsonError("Revisá la fecha o el cursor.", 400);
 
-  let pagina;
-  try {
-    pagina = await listarHistorial(parsed.consulta);
-  } catch (e) {
-    if (e instanceof BaseNoDisponible) return jsonError("La base del comercio no está disponible.", 503);
-    throw e;
-  }
+  const ahoraMs = Date.now();
+  const modo = await modoHistorial(tenantId, ahoraMs);
 
   const memberships = [...control.memberships.values()]
     .filter((x) => x.tenantId === tenantId)
@@ -51,10 +46,36 @@ export const GET: APIRoute = async ({ request }) => {
       estado: x.estado,
       nombre: control.users.get(x.googleSub)?.nombre ?? control.users.get(x.googleSub)?.email ?? x.googleSub,
     }));
+  const personas = personasDelFiltro({ rol: m.rol, memberships });
+
+  if (modo.tipo === "solo-lectura") {
+    let pagina: PaginaHistorial = { filas: Object.freeze([]), cursor: null };
+    try {
+      pagina = await listarHistorial(parsed.consulta);
+    } catch (e) {
+      if (!(e instanceof BaseNoDisponible)) throw e;
+    }
+    return Response.json({
+      soloLectura: true,
+      aviso: modo.aviso,
+      filas: pagina.filas,
+      cursor: pagina.cursor,
+      personas,
+    });
+  }
+
+  let pagina;
+  try {
+    pagina = await listarHistorial(parsed.consulta);
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return jsonError("La base del comercio no está disponible.", 503);
+    throw e;
+  }
 
   return Response.json({
+    soloLectura: false,
     filas: pagina.filas,
     cursor: pagina.cursor,
-    personas: personasDelFiltro({ rol: m.rol, memberships }),
+    personas,
   });
 };
