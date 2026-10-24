@@ -288,6 +288,13 @@
       "when": 1792932000000,
       "tag": "0040_bot_turnos_canal_alerta",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792975200000,
+      "tag": "0041_busqueda_trgm",
+      "breakpoints": true
     }
   ]
 }

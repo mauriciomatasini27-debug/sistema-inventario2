@@ -5,14 +5,17 @@ import { normalizar_ar, parsear_vincular, verificar_vincular } from "../src/modu
 import { DeduplicadorWamid, verificar_firma_meta } from "../src/modules/whatsapp/webhook.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../src/modules/whatsapp/resolucion.js";
 import { puede_enviar_respaldo, verificar_respaldo } from "../src/modules/whatsapp/codigo-respaldo.js";
+import { puntuarMemoria } from "../src/modules/whatsapp/puntaje-memoria.js";
 import {
-  atender_consulta,
+  atender_alertas,
   autorizar_operacion,
-  buscar_en_catalogo,
   emitir_contexto,
+  redactarConsulta,
+  redactarFicha,
   type ContextoBot,
   type ItemVivo,
 } from "../src/modules/whatsapp/servicio.js";
+import type { ResolucionNombre } from "../src/lib/repos/busqueda-nombre.js";
 
 describe("bot wa minimo B1 vincular", () => {
   it("normaliza AR sin 0 ni 15 a E.164", () => {
@@ -206,32 +209,69 @@ describe("bot wa slice C stock en vivo", () => {
     expect(autorizar_operacion(dueno, "consultar_stock", [], 20000)).toEqual({ ok: false, motivo: "no_resuelto" });
   });
 
-  it("alias resuelve y respuesta directa trae stock+precio+proveedor", () => {
-    expect(buscar_en_catalogo(catalogo, "jorjito")[0]?.sku).toBe("j1");
-    const r = atender_consulta({ ctx: dueno, texto: "me quedan jorjitos?", catalogo, comercio: "Kiosco" });
-    expect(r.kind).toBe("respuesta");
-    if (r.kind === "respuesta") {
-      expect(r.texto).toContain("14 u.");
-      expect(r.texto).toContain("Proveedor: Golosinas Sur");
-      expect(r.texto).toContain("Costo $600");
-      expect(r.texto).toContain("[Kiosco]");
+  function resolucionMemoria(cat: ReadonlyArray<ItemVivo>, texto: string): ResolucionNombre {
+    const filas = puntuarMemoria(cat, extraer_termino(texto));
+    const d = decidir_respuesta(filas.map((f) => ({ sku: f.sku, nombre: f.nombre, score: f.score })));
+    const porSku = new Map(filas.map((f) => [f.sku, f]));
+    if (d.kind === "sin_resultados") {
+      return {
+        kind: "sin_resultados",
+        ...(d.sugerencia ? { sugerencia: { sku: d.sugerencia.sku, nombre: d.sugerencia.nombre } } : {}),
+      };
     }
+    if (d.kind === "precisar") return { kind: "precisar", total: d.total };
+    if (d.kind === "desambiguar") {
+      return {
+        kind: "desambiguar",
+        opciones: d.opciones.map((o) => ({ sku: o.sku, nombre: o.nombre, stock: porSku.get(o.sku)?.stock ?? 0 })),
+      };
+    }
+    const f = porSku.get(d.sku)!;
+    return {
+      kind: "directo",
+      ficha: {
+        sku: f.sku,
+        nombre: f.nombre,
+        stock: f.stock,
+        umbral: f.umbral,
+        precioCentavos: f.precioCentavos,
+        ...(f.costoCentavos != null ? { costoCentavos: f.costoCentavos } : {}),
+        ...(f.proveedor != null ? { proveedor: f.proveedor } : {}),
+      },
+    };
+  }
+
+  it("alias resuelve y respuesta directa trae stock+precio+proveedor", () => {
+    expect(puntuarMemoria(catalogo, "jorjito")[0]?.sku).toBe("j1");
+    const res = resolucionMemoria(catalogo, "me quedan jorjitos?");
+    expect(res.kind).toBe("directo");
+    if (res.kind !== "directo") return;
+    const r = redactarFicha({ ctx: dueno, ficha: res.ficha, comercio: "Kiosco" });
+    expect(r).toContain("14 u.");
+    expect(r).toContain("Proveedor: Golosinas Sur");
+    expect(r).toContain("Costo $600");
+    expect(r).toContain("[Kiosco]");
   });
 
   it("empleado ve precio pero nunca costo ni margen", () => {
-    const r = atender_consulta({ ctx: empleado, texto: "precio del Jorgito", catalogo, comercio: "Kiosco" });
-    expect(r.kind).toBe("respuesta");
-    if (r.kind === "respuesta") {
-      expect(r.texto).toContain("$900");
-      expect(r.texto).not.toContain("Costo");
-      expect(r.texto).not.toContain("margen");
-    }
+    const res = resolucionMemoria(catalogo, "precio del Jorgito");
+    expect(res.kind).toBe("directo");
+    if (res.kind !== "directo") return;
+    const r = redactarFicha({ ctx: empleado, ficha: res.ficha, comercio: "Kiosco" });
+    expect(r).toContain("$900");
+    expect(r).not.toContain("Costo");
+    expect(r).not.toContain("margen");
   });
 
   it("ambiguedad desambigua y alertas listan stock bajo", () => {
-    const d = atender_consulta({ ctx: dueno, texto: "cuantos Milka tengo", catalogo, comercio: "Kiosco" });
+    const d = redactarConsulta({
+      ctx: dueno,
+      resolucion: resolucionMemoria(catalogo, "cuantos Milka tengo"),
+      termino: extraer_termino("cuantos Milka tengo"),
+      comercio: "Kiosco",
+    });
     expect(d.kind).toBe("desambiguar");
-    const a = atender_consulta({ ctx: dueno, texto: "que me falta", catalogo, comercio: "Kiosco" });
+    const a = atender_alertas(catalogo, "Kiosco");
     expect(a.kind).toBe("respuesta");
     if (a.kind === "respuesta") expect(a.texto).toContain("Milka oreo 100 g");
   });

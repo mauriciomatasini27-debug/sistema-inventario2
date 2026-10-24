@@ -16,7 +16,8 @@ import {
 } from "../../../modules/auth/bot.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { parsear_comando_aviso, RESPUESTA_BAJA } from "../../../modules/whatsapp/optin.js";
-import { detectar_intencion } from "../../../modules/whatsapp/consulta.js";
+import { detectar_intencion, extraer_termino } from "../../../modules/whatsapp/consulta.js";
+import { consultarNombre, leerFicha } from "../../../lib/repos/busqueda-nombre.js";
 import {
   cuerpo_pedir_edicion_ocr,
   es_comprobante_desde_mime,
@@ -40,12 +41,12 @@ import {
   type EdicionOcrTexto,
 } from "../../../modules/whatsapp/ocr-borrador.js";
 import { RESPUESTA_NO_VINCULADO, resolver_comercio } from "../../../modules/whatsapp/resolucion.js";
-import { atender_consulta, atender_seleccion, emitir_contexto, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
+import { atender_alertas, emitir_contexto, redactarConsulta, redactarFicha, resolver_seleccion } from "../../../modules/whatsapp/servicio.js";
 import { crearTransporteCloud, marcarLeidoCloud, normalizarAdjuntoEntrada, normalizarBotonEntrada, normalizarEntrada, type ResultadoEnvioTransporte, type WhatsAppTransport } from "../../../modules/whatsapp/transport.js";
 import type { PayloadEnvio } from "../../../modules/whatsapp/envio.js";
 import { ingerirOcr } from "../../../lib/ocr-ingesta.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
-import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { BaseNoDisponible, dbVivaTenant } from "../../../lib/server-db.js";
 import { conTenant } from "../../../lib/tenant-mode.js";
 import { descartarBorradorOcrRepo, editarBorradorOcrRepo, leerBorradorOcrRepo } from "../../../lib/repos/facturas-proveedor.js";
 import { registrarEventoOcr } from "../../../lib/repos/ocr.js";
@@ -95,7 +96,6 @@ import {
   guardarSesion,
   leerListaViernes,
   leerSesion,
-  listarCatalogoConFuente,
   listarCatalogoVivo,
   listarMovimientosVista,
   listarPedidosDia,
@@ -1103,26 +1103,34 @@ export const POST: APIRoute = async ({ request }) => {
     const sku = resolver_seleccion(msg.texto, opciones);
     if (sku) {
       const membSel = membershipActiva(r.tenantId, r.googleSub);
-      const catSel = await listarCatalogoConFuente(r.tenantId);
-      const sel = atender_seleccion({
-        ctx: emitir_contexto(r, ahoraMs),
-        sku,
-        catalogo: catSel.items,
-        comercio: control.tenants.get(r.tenantId)?.nombreComercio ?? "tu comercio",
-        permisos: membSel?.permisos ?? [],
-      });
-      registrarTurnoConsulta({
-        tenantId: r.tenantId,
-        wamid: msg.wamid,
-        remitente: msg.remitente,
-        googleSub: r.googleSub,
-        pregunta: msg.texto,
-        respuesta: sel.texto,
-        fuente: catSel.fuente,
-        ahoraMs,
-      });
-      const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: sel.texto, cred });
-      return Response.json({ ok: true, accion: "consulta", respuesta: sel.texto, enviado });
+      const ctxSel = emitir_contexto(r, ahoraMs);
+      const comercioSel = control.tenants.get(r.tenantId)?.nombreComercio ?? "tu comercio";
+      let textoSel: string;
+      try {
+        const fuenteSel = dbVivaTenant(r.tenantId) ? "db" : "memoria";
+        const ficha = await leerFicha({ tenantId: r.tenantId, sku });
+        textoSel = ficha
+          ? redactarFicha({ ctx: ctxSel, ficha, comercio: comercioSel, permisos: membSel?.permisos ?? [] })
+          : `No encontré esa opción en ${comercioSel}.`;
+        registrarTurnoConsulta({
+          tenantId: r.tenantId,
+          wamid: msg.wamid,
+          remitente: msg.remitente,
+          googleSub: r.googleSub,
+          pregunta: msg.texto,
+          respuesta: textoSel,
+          fuente: fuenteSel,
+          ahoraMs,
+        });
+      } catch (e) {
+        if (e instanceof BaseNoDisponible) {
+          textoSel = "No pude consultar, probá en un rato.";
+        } else {
+          throw e;
+        }
+      }
+      const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto: textoSel, cred });
+      return Response.json({ ok: true, accion: "consulta", respuesta: textoSel, enviado });
     }
   }
   if (!sensible && !posibleCosto && intencion !== "stock" && intencion !== "precio" && intencion !== "alertas") {
@@ -1180,21 +1188,33 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const ctx = emitir_contexto(r, ahoraMs);
   const tenant = control.tenants.get(r.tenantId);
-  const catConsulta = await listarCatalogoConFuente(r.tenantId);
-  const atencion = atender_consulta({
-    ctx,
-    texto: msg.texto,
-    catalogo: catConsulta.items,
-    comercio: tenant?.nombreComercio ?? "tu comercio",
-    permisos: membMsg?.permisos ?? [],
-  });
+  const comercio = tenant?.nombreComercio ?? "tu comercio";
+  const permisos = membMsg?.permisos ?? [];
+  let atencion: ReturnType<typeof redactarConsulta>;
+  let fuenteConsulta: "db" | "memoria" | null = null;
+  if (intencion === "alertas") {
+    atencion = atender_alertas(await listarCatalogoVivo(r.tenantId), comercio);
+  } else {
+    try {
+      const { origen, resolucion } = await consultarNombre({ tenantId: r.tenantId, texto: msg.texto });
+      fuenteConsulta = origen;
+      atencion = redactarConsulta({ ctx, resolucion, termino: extraer_termino(msg.texto), comercio, permisos });
+    } catch (e) {
+      if (e instanceof BaseNoDisponible) {
+        const texto = "No pude consultar, probá en un rato.";
+        const enviado = await responder({ toE164: msg.remitente, wamidEntrante: msg.wamid, texto, cred });
+        return Response.json({ ok: true, accion: "consulta", intencion, respuesta: texto, enviado });
+      }
+      throw e;
+    }
+  }
   // B4: la lista de alertas deja sesión para el "ver más" paginado.
   if (intencion === "alertas") await guardarSesion(msg.remitente, "alertas", { pagina: 1 }, ahoraMs, r.tenantId);
   // BOT2-S2: la lista numerada deja sus skus para la selección con 1-5.
   if (atencion.kind === "desambiguar") {
     await guardarSesion(msg.remitente, "desambiguar", { opciones: atencion.opciones.map((o) => o.sku) }, ahoraMs, r.tenantId);
   }
-  if ((intencion === "stock" || intencion === "precio") && atencion.kind !== "desambiguar") {
+  if ((intencion === "stock" || intencion === "precio") && atencion.kind !== "desambiguar" && fuenteConsulta) {
     registrarTurnoConsulta({
       tenantId: r.tenantId,
       wamid: msg.wamid,
@@ -1202,7 +1222,7 @@ export const POST: APIRoute = async ({ request }) => {
       googleSub: r.googleSub,
       pregunta: msg.texto,
       respuesta: atencion.texto,
-      fuente: catConsulta.fuente,
+      fuente: fuenteConsulta,
       ahoraMs,
     });
   }

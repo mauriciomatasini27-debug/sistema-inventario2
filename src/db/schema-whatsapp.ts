@@ -85,8 +85,7 @@ export const whatsappSessions = pgTable("whatsapp_sessions", {
 });
 
 // Alias de producto por comercio para la búsqueda del bot (PRD 6.5, F1.5):
-// `pg_trgm + unaccent` sobre nombre + aliasNorm, índice GIN en migración.
-// El slice C usa búsqueda en memoria con la misma forma (buscar_en_catalogo).
+// GIN `f_norm(alias)` en migración 0041; aliasNorm se mantiene para otros usos.
 export const productAliases = pgTable("product_aliases", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id"),
