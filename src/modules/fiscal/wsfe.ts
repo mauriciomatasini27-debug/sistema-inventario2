@@ -151,6 +151,12 @@ export async function fe_param_get_condicion_iva_receptor(
   return parsed;
 }
 
+export interface DepsProbarDelegacion {
+  readonly fe_dummy?: typeof fe_dummy;
+  readonly fe_param_get_ptos_venta?: typeof fe_param_get_ptos_venta;
+  readonly fe_ultimo?: typeof fe_ultimo;
+}
+
 // Prueba técnica delegación (FE-S5): FEDummy + PtosVenta + Ultimo con Auth.Cuit=comercio.
 // 601 = falta delegación, nunca "Error 601".
 export async function probar_delegacion(
@@ -158,12 +164,16 @@ export async function probar_delegacion(
   a: WsfeAuth,
   ptoVta: number,
   cbteTipo: number,
+  deps: DepsProbarDelegacion = {},
 ): Promise<{ ok: boolean; motivo: string }> {
+  const dummyFn = deps.fe_dummy ?? fe_dummy;
+  const ptosFn = deps.fe_param_get_ptos_venta ?? fe_param_get_ptos_venta;
+  const ultimoFn = deps.fe_ultimo ?? fe_ultimo;
   try {
-    const d = await fe_dummy(ambiente);
+    const d = await dummyFn(ambiente);
     if (!dummy_ok(d)) return { ok: false, motivo: "FEDummy caído" };
-    await fe_param_get_ptos_venta(ambiente, a);
-    await fe_ultimo(ambiente, a, ptoVta, cbteTipo);
+    await ptosFn(ambiente, a);
+    await ultimoFn(ambiente, a, ptoVta, cbteTipo);
     return { ok: true, motivo: "delegación activa" };
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
