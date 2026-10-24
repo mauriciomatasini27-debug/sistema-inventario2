@@ -3,6 +3,7 @@ import { notificationPreferences } from "../../db/schema-whatsapp.js";
 import {
   aplicarEleccion,
   aplicarOptIn,
+  type DireccionAviso,
   type EleccionGuardada,
   type EleccionPedida,
   type OptInGuardado,
@@ -147,6 +148,27 @@ export async function guardarOptIn(input: {
         },
       });
   }, input.tenantId);
+}
+
+// ALR-S3: el número es el vínculo verificado de esta persona en este comercio.
+// El de otro tenant no sirve: el mismo googleSub puede estar en los dos.
+export function numeroVerificadoDe(tenantId: string, googleSub: string): string | null {
+  for (const [numero, link] of control.botLinks) {
+    if (link.tenantId !== tenantId) continue;
+    if (link.googleSub !== googleSub) continue;
+    if (link.estado !== "verificado") continue;
+    return numero;
+  }
+  return null;
+}
+
+export function direccionesAviso(tenantId: string, googleSubs: readonly string[]): Map<string, DireccionAviso> {
+  const out = new Map<string, DireccionAviso>();
+  for (const sub of googleSubs) {
+    const email = control.users.get(sub)?.email?.trim() || null;
+    out.set(sub, { email, numeroWa: numeroVerificadoDe(tenantId, sub) });
+  }
+  return out;
 }
 
 export async function cargarPersonasAlerta(tenantId: string): Promise<{

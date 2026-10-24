@@ -8,9 +8,10 @@ import {
 } from "../../../lib/repos/whatsapp.js";
 import { ejecutar_alertas_stock } from "../../../jobs/alertas-stock.js";
 import { en_ventana_quiebre, resolver_destinatarios } from "../../../modules/alertas/stock-bajo.js";
-import { cargarPersonasAlerta } from "../../../lib/repos/alerta-prefs.js";
+import { cargarPersonasAlerta, direccionesAviso } from "../../../lib/repos/alerta-prefs.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
-import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
+import { cred_wa, encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
+import { PLANTILLA_ALERTA_STOCK_BAJO } from "../../../modules/whatsapp/envio.js";
 
 export const prerender = false;
 
@@ -19,9 +20,9 @@ export const prerender = false;
 // matutino), ?fecha=AAAA-MM-DD (defecto hoy AR), ?hora=HH:MM para quiebre.
 // Matutino avisa bajo mínimo a quien tiene esa hora; quiebre solo saldo 0 de 10:00 a 20:00.
 // El envío no se repite por persona, producto y día. Solo lee stock (AT1).
-// El Dueño entra si no está pausado y la hora del tick coincide. WhatsApp exige opt-in.
-// Canales por interfaz inyectable: sin credenciales WA el envío queda como
-// fallo sin red real; el email queda registrado sin proveedor externo.
+// ALR-S3: el Dueño entra siempre que no esté pausado y la hora coincida.
+// El encargado sin opt-in de WhatsApp recibe solo email. Un canal pausado no sale.
+// El número es el vínculo de esa persona en este comercio, no el de otro tenant.
 // pg_cron no se configura acá: el cron vive fuera y pega a este endpoint.
 export const POST: APIRoute = async ({ request }) => {
   return correrJob(request, async (tenantId) => {
@@ -47,7 +48,11 @@ export const POST: APIRoute = async ({ request }) => {
       modo,
       horaTick: hora,
     });
-    const r = ejecutar_alertas_stock({
+    const direcciones = direccionesAviso(
+      comercio.tenantId,
+      destinatarios.map((d) => d.googleSub),
+    );
+    const r = await ejecutar_alertas_stock({
       tenantId: comercio.tenantId,
       fecha,
       modo,
@@ -61,12 +66,16 @@ export const POST: APIRoute = async ({ request }) => {
         ...(v.reorderQty != null ? { reorderQty: v.reorderQty } : {}),
       })),
       destinatarios,
-      enviarWa: () => {
+      direcciones,
+      enviarWa: async (destino, texto) => {
         if (!hayCred) return { ok: false, error: "sin_credenciales" };
-        void enviar_texto_wa(comercio.numero, `Stock bajo (${fecha})`);
-        return { ok: true };
+        const ok = await enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_ALERTA_STOCK_BAJO });
+        return ok ? { ok: true } : { ok: false, error: "envio_wa" };
       },
-      enviarEmail: () => ({ ok: true }),
+      enviarEmail: (destino, texto, meta) => {
+        const key = meta?.clave ? `${meta.clave}:email` : `alerta-email:${destino}`;
+        return { ok: encolar_email_simple(key, destino, "Stock bajo", texto) };
+      },
     });
     return Response.json(
       {

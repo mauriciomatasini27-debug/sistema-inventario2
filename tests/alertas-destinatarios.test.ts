@@ -81,7 +81,7 @@ describe("armarPantallaDestinatarios", () => {
     if (!f || f.rol !== "encargado") return;
     expect(f.ofrecerCodigo).toBe(true);
     expect(f.explicacion).toBe(TEXTO_VINCULAR);
-    expect(f.canales).toEqual([]);
+    expect(f.canales).toEqual(["email"]);
     expect(
       canalesEfectivos({
         rol: "encargado",
