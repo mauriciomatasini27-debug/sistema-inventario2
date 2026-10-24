@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { guardarWizardEstado, leerWizard } from "../../../lib/repos/fiscal.js";
 import { esModoMulti, tenantActual } from "../../../lib/tenant-mode.js";
-import { confirmar_delegacion, wizard_inicial } from "../../../modules/fiscal/wizard.js";
+import { confirmar_delegacion, enriquecer_vista_wizard, wizard_inicial } from "../../../modules/fiscal/wizard.js";
 
 export const prerender = false;
 
@@ -50,5 +50,14 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     /* sin control viva la clave derivada manda */
   }
-  return Response.json({ delegacion: "pendiente_proveedor", tarea: clave }, { status: 201 });
+  const vista = enriquecer_vista_wizard(tenantId, next);
+  return Response.json(
+    {
+      delegacion: "pendiente_proveedor",
+      tarea: clave,
+      mensaje_dueno: vista.mensaje_dueno,
+      esperando_proveedor: true,
+    },
+    { status: 201 },
+  );
 };

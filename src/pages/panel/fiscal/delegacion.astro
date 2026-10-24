@@ -1,0 +1,105 @@
+---
+import PanelShell from "../../../components/panel/PanelShell.astro";
+---
+<PanelShell titulo="Facturación ARCA" subtitulo="Delegación con el proveedor fiscal.">
+  <section class="card card-ember card-ember--ambar" id="fiscal-delegacion">
+    <h2>Estado de la delegación</h2>
+    <p class="estado" id="delegacion-mensaje" role="status">Cargando…</p>
+    <p class="nota" id="delegacion-detalle" hidden></p>
+    <p class="aviso" id="delegacion-aviso" hidden role="alert"></p>
+
+    <div id="delegacion-acciones" hidden>
+      <button type="button" class="btn-primario" id="btn-ya-lo-hice">Ya lo hice en ARCA</button>
+    </div>
+
+    <div id="delegacion-activa" hidden>
+      <h3>Primera factura</h3>
+      <p class="nota">Elegí cómo querés probar la emisión cuando activemos tu delegación.</p>
+      <div class="botones">
+        <button type="button" data-modo="cae">Primera venta con CAE</button>
+        <button type="button" data-modo="prueba_nc">Venta de prueba + nota de crédito</button>
+      </div>
+      <p class="nota" id="modo-elegido" aria-live="polite"></p>
+    </div>
+  </section>
+</PanelShell>
+
+<style>
+  .nota { color: var(--tema-texto-suave); font-size: 14px; }
+  .aviso { color: var(--estado-alerta); font-weight: 600; }
+  .botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+</style>
+
+<script>
+  import { toast } from "sonner";
+
+  const $ = (id) => document.getElementById(id);
+
+  async function cargar() {
+    const res = await fetch("/api/fiscal/wizard");
+    if (!res.ok) {
+      toast.error("No pudimos cargar el estado fiscal.");
+      return;
+    }
+    const w = await res.json();
+    const msg = $("delegacion-mensaje");
+    if (msg) msg.textContent = w.mensaje_dueno ?? "Sin datos";
+    const det = $("delegacion-detalle");
+    if (det) {
+      det.hidden = false;
+      det.textContent = `Estado: ${w.delegacion}${w.cola_pausada ? " · cola pausada" : ""}`;
+    }
+    const aviso = $("delegacion-aviso");
+    if (aviso && w.aviso_revocacion) {
+      aviso.hidden = false;
+      aviso.textContent = w.aviso_revocacion;
+    }
+    const acciones = $("delegacion-acciones");
+    if (acciones) acciones.hidden = w.delegacion !== "pendiente" && w.delegacion !== "pendiente_proveedor";
+    const activa = $("delegacion-activa");
+    if (activa) activa.hidden = w.delegacion !== "activa";
+    const modo = $("modo-elegido");
+    if (modo && w.modo_primera_factura) {
+      modo.textContent =
+        w.modo_primera_factura === "cae"
+          ? "Modo elegido: primera venta con CAE."
+          : "Modo elegido: venta de prueba con nota de crédito inmediata.";
+    }
+  }
+
+  $("btn-ya-lo-hice")?.addEventListener("click", async () => {
+    const cuit = window.prompt("CUIT del comercio (solo dígitos)");
+    if (!cuit) return;
+    const res = await fetch("/api/fiscal/delegacion-confirmada", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cuit }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? "No se pudo confirmar");
+      return;
+    }
+    toast.success(data.mensaje_dueno ?? "Esperando confirmación del proveedor");
+    await cargar();
+  });
+
+  document.querySelectorAll("[data-modo]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const modo = btn.getAttribute("data-modo");
+      const res = await fetch("/api/fiscal/wizard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "primera_factura", modo_primera_factura: modo }),
+      });
+      if (!res.ok) {
+        toast.error("No se pudo guardar la preferencia");
+        return;
+      }
+      toast.success("Preferencia guardada");
+      await cargar();
+    });
+  });
+
+  cargar();
+</script>

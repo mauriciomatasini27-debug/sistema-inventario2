@@ -1,16 +1,28 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { fiscalWizardSchema } from "../../../lib/validation.js";
 import { guardarWizardEstado, leerWizard } from "../../../lib/repos/fiscal.js";
 import { esModoMulti, tenantActual } from "../../../lib/tenant-mode.js";
-import { wizard_avanzar, wizard_inicial, wizard_pausar, wizard_resumir, type DelegacionEstado } from "../../../modules/fiscal/wizard.js";
+import {
+  elegir_modo_primera_factura,
+  enriquecer_vista_wizard,
+  wizard_avanzar,
+  wizard_inicial,
+  wizard_pausar,
+  wizard_resumir,
+  type ModoPrimeraFactura,
+} from "../../../modules/fiscal/wizard.js";
 
 const E5 = "No tenés permiso para ver este comercio.";
 
-const flexible = z.object({
+const wizardBodySchema = z.object({
   tenant_id: z.string().min(1).max(128).optional(),
-  accion: z.enum(["avanzar", "pausar", "resumir"]),
+  accion: z.enum(["avanzar", "pausar", "resumir", "primera_factura"]),
   paso: z.number().int().min(0).max(6).optional(),
+  modo_primera_factura: z.enum(["cae", "prueba_nc"]).optional(),
+});
+
+const wizardBodySingle = wizardBodySchema.extend({
+  tenant_id: z.string().min(1).max(128),
 });
 
 // En multi el tenant lo fija el servidor por request; el pedido distinto se corta.
@@ -33,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = esModoMulti() ? flexible.safeParse(body) : fiscalWizardSchema.safeParse(body);
+  const parsed = esModoMulti() ? wizardBodySchema.safeParse(body) : wizardBodySingle.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   let tenantId: string;
   if (esModoMulti()) {
@@ -49,17 +61,27 @@ export const POST: APIRoute = async ({ request }) => {
   if (b.accion === "avanzar" && b.paso !== undefined) next = { ...wizard_avanzar({ ...wizard_inicial(), ...cur }, b.paso) };
   else if (b.accion === "pausar") next = { ...wizard_pausar({ ...wizard_inicial(), ...cur }) };
   else if (b.accion === "resumir") next = { ...wizard_resumir({ ...wizard_inicial(), ...cur }) };
+  else if (b.accion === "primera_factura") {
+    const modo = (b as { modo_primera_factura?: ModoPrimeraFactura }).modo_primera_factura;
+    if (!modo) return Response.json({ error: "falta modo_primera_factura" }, { status: 422 });
+    if (next.delegacion !== "activa") {
+      return Response.json({ error: "delegacion_no_activa" }, { status: 422 });
+    }
+    elegir_modo_primera_factura(tenantId, modo);
+  }
   const final = await guardarWizardEstado(tenantId, next);
-  return Response.json(final, { status: 200 });
+  return Response.json(enriquecer_vista_wizard(tenantId, final), { status: 200 });
 };
 
 export const GET: APIRoute = async ({ url }) => {
   const pedido = url.searchParams.get("tenant_id");
   if (!esModoMulti()) {
     if (!pedido) return Response.json({ error: "falta tenant_id" }, { status: 422 });
-    return Response.json(await leerWizard(pedido), { status: 200 });
+    const w = await leerWizard(pedido);
+    return Response.json(enriquecer_vista_wizard(pedido, w), { status: 200 });
   }
   const t = tenantFiscal(pedido ?? undefined);
   if (!t.ok) return t.respuesta;
-  return Response.json(await leerWizard(t.tenantId), { status: 200 });
+  const w = await leerWizard(t.tenantId);
+  return Response.json(enriquecer_vista_wizard(t.tenantId, w), { status: 200 });
 };
