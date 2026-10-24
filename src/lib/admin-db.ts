@@ -4,7 +4,7 @@
 // agrega copia durable cuando hay CONTROL_DATABASE_URL viva. Nunca lanza:
 // sin env/tabla/conexión el caller sigue con memoria.
 
-import { desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getControlDb } from "./db.js";
 import type { ActoAdmin } from "../modules/admin/actos.js";
 import {
@@ -12,10 +12,21 @@ import {
   billingLedgerEntries,
   migrationRollouts,
   platformAdmins,
+  tenantDailyUsage,
   tenantFeatureOverrides,
   tenantHealthSignals,
   tenantLifecycleEvents,
 } from "../db/schema-admin.js";
+import { usageCounters } from "../db/schema-planes.js";
+import { adminStore } from "./admin-store.js";
+import { fechaAR } from "./fecha-ar.js";
+import { crearAlmacenUsoPlanes } from "./repos/_almacen.js";
+import { control } from "./store.js";
+import {
+  estimarMargen,
+  guardarUsoDiario,
+  type UsoDiarioContadores,
+} from "../modules/admin/uso-margen.js";
 
 type AdminDb = ReturnType<typeof getControlDb>;
 
@@ -245,4 +256,99 @@ export async function leerRolloutsAdmin(): Promise<
   } catch {
     return [];
   }
+}
+
+const FEATURE_BOT = "bot_consulta";
+const FEATURE_ASISTENTE = "asistente_ia";
+const RX_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function claveContadorUso(tenantId: string, mes: string, feature: string): string {
+  return `${tenantId}|${mes}|${feature}`;
+}
+
+function leerContadorMemoria(tenantId: string, mes: string, feature: string): { usado: number; costoCentavos: bigint } {
+  const v = crearAlmacenUsoPlanes().obtener(claveContadorUso(tenantId, mes, feature));
+  return { usado: v?.usado ?? 0, costoCentavos: v?.costoCentavos ?? 0n };
+}
+
+async function leerContadorDb(
+  tenantId: string,
+  mes: string,
+  feature: string,
+): Promise<{ usado: number; costoCentavos: bigint } | null> {
+  try {
+    const [fila] = await getControlDb()
+      .select({ usado: usageCounters.usado, costoCentavos: usageCounters.costoCentavos })
+      .from(usageCounters)
+      .where(
+        and(
+          eq(usageCounters.tenantId, tenantId),
+          eq(usageCounters.mes, mes),
+          eq(usageCounters.feature, feature),
+        ),
+      )
+      .limit(1);
+    if (!fila) return null;
+    return { usado: fila.usado, costoCentavos: fila.costoCentavos };
+  } catch {
+    return null;
+  }
+}
+
+async function leerContadorPlanes(
+  tenantId: string,
+  mes: string,
+  feature: string,
+): Promise<{ usado: number; costoCentavos: bigint }> {
+  const memoria = leerContadorMemoria(tenantId, mes, feature);
+  const db = await leerContadorDb(tenantId, mes, feature);
+  if (!db) return memoria;
+  if (db.usado > memoria.usado || db.costoCentavos > memoria.costoCentavos) return db;
+  return memoria;
+}
+
+function persistirUsoWaDiario(tenantId: string, dia: string, usoWa: number): Promise<boolean> {
+  if (!RX_UUID.test(tenantId)) return Promise.resolve(false);
+  return intentarAdmin((db) =>
+    db
+      .insert(tenantDailyUsage)
+      .values({ tenantId, dia, tickets: 0, usoWa })
+      .onConflictDoUpdate({
+        target: [tenantDailyUsage.tenantId, tenantDailyUsage.dia],
+        set: { usoWa },
+      }),
+  );
+}
+
+// P10-17 / PLAN-S12: usage_counters ya acumula bot y asistente; acá se
+// proyecta a adminStore.usoDiario y, si el id es uuid, a tenant_daily_usage.
+export async function sincronizarUsoDiarioDesdeContadores(dia: string = fechaAR()): Promise<void> {
+  const mes = dia.slice(0, 7);
+  for (const t of control.tenants.values()) {
+    const bot = await leerContadorPlanes(t.id, mes, FEATURE_BOT);
+    const llm = await leerContadorPlanes(t.id, mes, FEATURE_ASISTENTE);
+    const uso: UsoDiarioContadores = {
+      tenantId: t.id,
+      dia,
+      mensajesWa: bot.usado,
+      consultasLlm: llm.usado,
+      costoWaCentavos: bot.costoCentavos,
+      costoLlmCentavos: llm.costoCentavos,
+    };
+    guardarUsoDiario(adminStore.usoDiario, uso);
+    await persistirUsoWaDiario(t.id, dia, bot.usado);
+  }
+}
+
+export function resumenUsoEnListadoTenants(
+  tenantId: string,
+  plan: string,
+  dia: string = fechaAR(),
+): { uso_wa: number; costo_alto: boolean } {
+  const usos = [...adminStore.usoDiario.values()];
+  const fila = usos.find((u) => u.tenantId === tenantId && u.dia === dia);
+  const mes = dia.slice(0, 7);
+  const marcado = estimarMargen({ tenantId, plan, mes, usos }).marcado;
+  return { uso_wa: fila?.mensajesWa ?? 0, costo_alto: marcado };
 }
