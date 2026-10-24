@@ -1,8 +1,10 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
 import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
+import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
 ---
 <PanelShell titulo="Bot de WhatsApp" subtitulo="Vinculá el WhatsApp del comercio y elegí qué puede hacer el bot.">
+  <UpsellPantalla superficie="bot">
   <section class="card">
     <h2>Teléfonos vinculados</h2>
     <div id="vinc-lista" class="vinc-lista"></div>
@@ -30,6 +32,7 @@ import BotModulosCard from "../../../components/panel/BotModulosCard.astro";
 
   <p class="vinc-historial"><a href="/panel/bot/historial">Ver historial de consultas</a></p>
   <BotModulosCard />
+  </UpsellPantalla>
 </PanelShell>
 
 <style is:global>

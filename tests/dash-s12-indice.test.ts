@@ -152,10 +152,12 @@ describe("DASH-S12 modelo del índice", () => {
       .map((m) => m[1])
       .filter((id): id is string => id !== undefined);
     for (const id of literales) expect(conocidos.has(id), id).toBe(true);
-    for (const id of ["bot", "alertas", "asistente"] as const) {
+    for (const id of ["bot", "alertas"] as const) {
       expect(fuentes).toContain(`data-modulo-indice={${id}.id}`);
       expect(fuentes).toContain(`moduloIndice("${id}")`);
     }
+    // PLAN-S9: el drawer no se esconde con el índice. Fuera de plan se abre y muestra upsell.
+    expect(fuentes).not.toContain("data-modulo-indice={asistente.id}");
   });
 });
 

@@ -1,7 +1,9 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
+import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
 ---
 <PanelShell titulo="Historial del bot" subtitulo="Consultas de stock y precio respondidas por WhatsApp.">
+  <UpsellPantalla superficie="bot">
   <section class="card">
     <div class="hist-filtros">
       <label id="hist-persona-label" hidden>Persona
@@ -18,6 +20,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     </div>
     <p class="hist-volver"><a href="/panel/bot/config">Volver a configuración del bot</a></p>
   </section>
+  </UpsellPantalla>
 
   <style is:global>
     .hist-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }

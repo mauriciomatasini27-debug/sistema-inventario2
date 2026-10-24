@@ -1,7 +1,9 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
+import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
 ---
 <PanelShell titulo="Historial de alertas" subtitulo="Alertas de stock bajo que salieron por día." activo="stock">
+  <UpsellPantalla superficie="alertas_whatsapp">
   <section class="card">
     <h2>Alertas enviadas</h2>
     <table>
@@ -10,6 +12,7 @@ import PanelShell from "../../../components/panel/PanelShell.astro";
     </table>
     <div class="estado" id="estado-hist" role="status">Cargando…</div>
   </section>
+  </UpsellPantalla>
 </PanelShell>
 
 <script>

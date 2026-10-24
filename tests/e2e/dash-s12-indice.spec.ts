@@ -29,15 +29,14 @@ function asistenteIncluido(page: Page) {
   );
 }
 
-test("sin bot ni asistente en el plan oculta la tarjeta, su pill y el botón", async ({ page }) => {
+test("sin bot ni asistente en el índice oculta Bot y deja el botón del asistente al API", async ({ page }) => {
   await indice(page, SIN_BOT_NI_ASISTENTE);
   await asistenteIncluido(page);
   await page.goto("/panel");
 
   await expect(page.locator('#bot[data-modulo-indice="bot"]')).toBeHidden();
   await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeHidden();
-  await expect(page.locator('[data-modulo-indice="asistente"]')).toBeHidden();
-  await expect(page.locator("#asistente-abrir")).toBeHidden();
+  await expect(page.locator("#asistente-abrir")).toBeVisible();
   await expect(page.locator('#alertas[data-modulo-indice="alertas"]')).toBeVisible();
   await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
 });
@@ -51,7 +50,6 @@ test("con todo encendido aparecen Bot, Alertas y Asistente", async ({ page }) =>
   await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeVisible();
   await expect(page.locator('#alertas[data-modulo-indice="alertas"]')).toBeVisible();
   await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
-  await expect(page.locator('[data-modulo-indice="asistente"]')).toBeVisible();
   await expect(page.locator("#asistente-abrir")).toBeVisible();
 });
 
