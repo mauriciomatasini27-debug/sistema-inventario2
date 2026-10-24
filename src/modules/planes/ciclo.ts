@@ -1,6 +1,29 @@
 import { fechaAR, type FechaAR } from "../../lib/fecha-ar.js";
 import type { PlanId } from "./catalogo.js";
 
+// PLAN-S3: el prorrateo cobra días restantes sobre un ciclo de 30 anclado en
+// `desde` (fecha civil AR), no sobre el mes calendario. El día 10 de 30 deja
+// 20/30, la fracción que ya usa cambioDePlan.
+const DIA_MS = 86_400_000;
+export const DIAS_CICLO_PRORRATEO = 30;
+
+function diasCiviles(desde: FechaAR, hasta: FechaAR): number {
+  const a = Date.parse(`${desde}T00:00:00Z`);
+  const b = Date.parse(`${hasta}T00:00:00Z`);
+  return Math.round((b - a) / DIA_MS);
+}
+
+export function posicionProrrateo(args: {
+  readonly desde?: Date | null | undefined;
+  readonly ahora: Date;
+}): { readonly diaDelCiclo: number; readonly diasCiclo: number } {
+  const diasCiclo = DIAS_CICLO_PRORRATEO;
+  if (!args.desde) return { diaDelCiclo: 1, diasCiclo };
+  const transcurridos = diasCiviles(fechaAR(args.desde), fechaAR(args.ahora));
+  if (!Number.isFinite(transcurridos) || transcurridos < 0) return { diaDelCiclo: 1, diasCiclo };
+  return { diaDelCiclo: (transcurridos % diasCiclo) + 1, diasCiclo };
+}
+
 // PLAN-S4 (PRD-PLAN-01, ADR-0047): cuándo un cambio programado de plan pasa a
 // ser el plan vigente. Puro, sin IO ni reloj implícito: `ahora` se inyecta.
 

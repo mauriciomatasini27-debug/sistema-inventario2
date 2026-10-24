@@ -350,6 +350,54 @@ function programarEnMemoria(args: {
   return memoriaASuscripcion(next);
 }
 
+function upgradeEnMemoria(args: {
+  readonly tenantId: string;
+  readonly suscripcionId: string;
+  readonly planId: PlanId;
+}): Suscripcion {
+  const mapa = crearAlmacenSuscripciones();
+  const actual = mapa.obtener(args.suscripcionId);
+  if (!actual || actual.tenantId !== args.tenantId || actual.estado !== "activa") {
+    throw new Error(`suscripción desconocida: ${args.suscripcionId}`);
+  }
+  const next: SuscripcionPlanes = { ...actual, planId: args.planId, planProgramado: null };
+  mapa.guardar(args.suscripcionId, next);
+  return memoriaASuscripcion(next);
+}
+
+// PLAN-S3: el plan vigente pasa al destino en el acto. La ruta solo lo llama
+// con un cobro confirmado. Limpia plan_programado para que una baja agendada
+// no pise el upgrade. El update filtra por tenantId.
+export async function aplicarUpgradeInmediato(args: {
+  readonly tenantId: string;
+  readonly suscripcionId: string;
+  readonly planId: PlanId;
+}): Promise<Suscripcion> {
+  exigirTenant(args.tenantId);
+  const db = dbVivaTenant();
+  if (!db) return upgradeEnMemoria(args);
+  try {
+    const filas = await db
+      .select()
+      .from(subscriptions)
+      .where(and(eq(subscriptions.id, args.suscripcionId), eq(subscriptions.tenantId, args.tenantId)))
+      .limit(1);
+    const f = filas[0];
+    if (!f || f.estado !== "activa") throw new Error(`suscripción desconocida: ${args.suscripcionId}`);
+    await db
+      .update(subscriptions)
+      .set({ planId: args.planId, planProgramado: null })
+      .where(and(eq(subscriptions.id, args.suscripcionId), eq(subscriptions.tenantId, args.tenantId)));
+    const sub: Suscripcion = { ...filaASuscripcion(f), planId: args.planId, planProgramado: null };
+    crearAlmacenSuscripciones().guardar(sub.id, { ...sub });
+    return sub;
+  } catch (e) {
+    if (esErrorPropio(e)) throw e;
+    crearAlmacenSuscripciones().anteFalloPersistencia(e);
+    return upgradeEnMemoria(args);
+  }
+}
+
 // PLAN-S4: guarda (o cancela, con null) el cambio de plan programado en la
 // suscripción activa junto con `hasta`, la fecha en que rige, para que el
 // rollover no dependa de cuándo se lea. DB primero con el mismo patrón

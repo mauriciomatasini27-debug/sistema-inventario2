@@ -4,15 +4,17 @@ import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { cambioDePlan, planDe, type PlanId } from "../../../modules/planes/catalogo.js";
-import { fechaCambioDePlan, inicioDiaAR } from "../../../modules/planes/ciclo.js";
-import { leerCatalogo, leerSuscripcionActiva, programarCambioPlan } from "../../../lib/repos/planes.js";
+import { fechaCambioDePlan, inicioDiaAR, posicionProrrateo } from "../../../modules/planes/ciclo.js";
+import { billingProviderActual } from "../../../modules/planes/proveedor.js";
+import { aplicarUpgradeInmediato, leerCatalogo, leerSuscripcionActiva, programarCambioPlan } from "../../../lib/repos/planes.js";
 
 export const prerender = false;
 
 // PLAN-S4 (PRD-PLAN-01, ADR-0047): el Dueño pide cambiar de plan. Bajar se
-// programa a fin de período sin reintegro; subir espera al proveedor de cobro
-// (PLAN-S3) y responde 409; el mismo plan cancela un cambio programado. El
-// tenant y el rol salen de la sesión + membership activa, nunca del body.
+// programa a fin de período sin reintegro; el mismo plan cancela un cambio
+// programado. PLAN-S3: subir es inmediato solo si el BillingProvider confirma
+// el prorrateo; sin confirmación sigue 409 requiere_cobro. El body no puede
+// confirmar el cobro. El tenant y el rol salen de la sesión, nunca del body.
 
 function tenantDeSesion(ctx: ContextoAuth): string | null {
   if (ctx.tenantId && control.tenants.has(ctx.tenantId)) return ctx.tenantId;
@@ -66,9 +68,48 @@ export const POST: APIRoute = async ({ request }) => {
       return Response.json({ efecto: "sin_cambio", plan_actual: activa.planId, plan_programado: null, fecha_cambio: null });
     }
 
-    // El prorrateo de subida lo calcula PLAN-S3 con el proveedor de cobro;
-    // acá solo se decide el efecto (sin_cambio ya se cortó arriba).
-    const efecto = cambioDePlan({ actualId: activa.planId, destinoId, diaDelCiclo: 1, diasCiclo: 30 });
+    // PLAN-S3: el día sale de `desde` en fecha AR (ciclo de 30). El cobro se
+    // pide antes de escribir: pendiente no toca esta suscripción ni la de otro tenant.
+    const posicion = posicionProrrateo({ desde: activa.desde ?? null, ahora });
+    const efecto = cambioDePlan({
+      catalogo,
+      actualId: activa.planId,
+      destinoId,
+      diaDelCiclo: posicion.diaDelCiclo,
+      diasCiclo: posicion.diasCiclo,
+    });
+    if (efecto.efecto === "inmediato") {
+      const cobro = await billingProviderActual().cobrarProrrateo({
+        tenantId,
+        suscripcionId: activa.id,
+        planDestino: destinoId,
+        montoCentavos: efecto.montoProrrateoCentavos,
+      });
+      if (cobro.estado !== "confirmado") return jsonError("requiere_cobro", 409);
+      await aplicarUpgradeInmediato({ tenantId, suscripcionId: activa.id, planId: destinoId });
+      control.events.push({
+        tenantId,
+        tipo: "plan_upgrade",
+        actor: ctx.googleSub,
+        detalle: {
+          plan_anterior: activa.planId,
+          plan_actual: destinoId,
+          cobro: "confirmado",
+          monto_prorrateo_centavos: efecto.montoProrrateoCentavos.toString(),
+          referencia: cobro.referencia,
+        },
+        creadoEn: ahora.toISOString(),
+      });
+      return Response.json({
+        efecto: "inmediato",
+        plan_actual: destinoId,
+        plan_programado: null,
+        fecha_cambio: null,
+        cobro: "confirmado",
+        monto_prorrateo_centavos: efecto.montoProrrateoCentavos.toString(),
+        referencia: cobro.referencia,
+      });
+    }
     if (efecto.efecto !== "fin_de_ciclo") return jsonError("requiere_cobro", 409);
 
     const fechaCambio = fechaCambioDePlan({ desde: activa.desde ?? null, hasta: activa.hasta ?? null, ahora });
