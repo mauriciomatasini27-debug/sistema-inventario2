@@ -47,7 +47,7 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
     expect(en_ventana_quiebre("20:00")).toBe(true);
     expect(en_ventana_quiebre("20:01")).toBe(false);
   });
-  it("segunda corrida el mismo día no reenvía (AT2)", () => {
+  it("segunda corrida el mismo día no reenvía (AT2)", async () => {
     limpiar_claves_alertas();
     const catalogo = [{ sku: "a", nombre: "Coca", stock: 0, minimo: 5, ventas7d: 0, proveedor: null as string | null }];
     const base = {
@@ -59,15 +59,15 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
       enviarWa: () => ({ ok: true }),
       enviarEmail: () => ({ ok: true }),
     };
-    const r1 = ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>() });
+    const r1 = await ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>() });
     expect(r1.enviadas).toBe(1);
     expect(r1.clavesRegistradas).toHaveLength(1);
     expect(r1.clavesRegistradas[0]).toContain(":d1");
-    const r2 = ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>(r1.clavesRegistradas) });
+    const r2 = await ejecutar_alertas_stock({ ...base, yaEnviados: new Set<string>(r1.clavesRegistradas) });
     expect(r2.enviadas).toBe(0);
     expect(r2.omitidasYa).toBe(1);
   });
-  it("otra persona en un segundo tick todavía recibe la misma alerta", () => {
+  it("otra persona en un segundo tick todavía recibe la misma alerta", async () => {
     limpiar_claves_alertas();
     const catalogo = [{ sku: "a", nombre: "Coca", stock: 0, minimo: 5, ventas7d: 0, proveedor: null as string | null }];
     const base = {
@@ -78,25 +78,25 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
       enviarWa: () => ({ ok: true }),
       enviarEmail: () => ({ ok: true }),
     };
-    const r1 = ejecutar_alertas_stock({
+    const r1 = await ejecutar_alertas_stock({
       ...base,
       destinatarios: [{ googleSub: "d1", rol: "dueno" as const, canales: ["email"] as Array<"whatsapp" | "email"> }],
       yaEnviados: new Set<string>(),
     });
-    const r2 = ejecutar_alertas_stock({
+    const r2 = await ejecutar_alertas_stock({
       ...base,
       destinatarios: [{ googleSub: "e1", rol: "encargado" as const, canales: ["email"] as Array<"whatsapp" | "email"> }],
       yaEnviados: new Set<string>(r1.clavesRegistradas),
     });
     expect(r2.enviadas).toBe(1);
   });
-  it("modo quiebre solo avisa saldo 0", () => {
+  it("modo quiebre solo avisa saldo 0", async () => {
     limpiar_claves_alertas();
     const catalogo = [
       { sku: "a", nombre: "Coca", stock: 0, minimo: 5, ventas7d: 0, proveedor: null as string | null },
       { sku: "b", nombre: "Sprite", stock: 4, minimo: 6, ventas7d: 0, proveedor: null as string | null },
     ];
-    const r = ejecutar_alertas_stock({
+    const r = await ejecutar_alertas_stock({
       tenantId: "t-a",
       fecha: "2026-10-16",
       modo: "quiebre",
@@ -108,11 +108,11 @@ describe("ALR-S2 idempotencia tenant+producto+día y ventana quiebre", () => {
     });
     expect(r.alertas.map((a) => a.sku)).toEqual(["a"]);
   });
-  it("el job solo lee: no muta el catálogo (AT1)", () => {
+  it("el job solo lee: no muta el catálogo (AT1)", async () => {
     limpiar_claves_alertas();
     const item = Object.freeze({ sku: "a", nombre: "Coca", stock: 2, minimo: 5, ventas7d: 0, proveedor: null as string | null });
     const catalogo = Object.freeze([item]);
-    ejecutar_alertas_stock({
+    await ejecutar_alertas_stock({
       tenantId: "t-a",
       fecha: "2026-10-16",
       modo: "matutino",
@@ -293,9 +293,9 @@ describe("ALR-S2 endpoint POST /api/jobs/alertas-stock", () => {
 });
 
 describe("ALR-S5 armar pedido queda borrador sin enviar", () => {
-  it("el job nunca marca enviado al proveedor: solo borrador", () => {
+  it("el job nunca marca enviado al proveedor: solo borrador", async () => {
     limpiar_claves_alertas();
-    const r = ejecutar_alertas_stock({
+    const r = await ejecutar_alertas_stock({
       tenantId: "t-a",
       fecha: "2026-10-16",
       modo: "matutino",

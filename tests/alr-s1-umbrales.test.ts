@@ -157,9 +157,9 @@ describe("ALR-S1 solo Dueño y encargado editan umbrales", () => {
 });
 
 describe("ALR-S1 el job usa min_stock antes que el fallback de rotación", () => {
-  it("ejecutar_alertas_stock prefiere minimo sobre ventas7d", () => {
+  it("ejecutar_alertas_stock prefiere minimo sobre ventas7d", async () => {
     limpiar_claves_alertas();
-    const r = ejecutar_alertas_stock({
+    const r = await ejecutar_alertas_stock({
       tenantId: "t-alr-s1",
       fecha: "2026-10-16",
       modo: "matutino",
