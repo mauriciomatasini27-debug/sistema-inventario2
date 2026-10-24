@@ -8,8 +8,9 @@
 //   HTML con datos del panel en el dispositivo. Sin red sirve la misma página
 //   cacheada (o "/" si esa no está).
 // - Solo GET; nunca intercepta POST (push/promote/sales) ni cross-origin.
-// Bumpeá CACHE al cambiar precacheados.
-const CACHE = "inventario-v3";
+// Bumpeá CACHE al cambiar precacheados. v4 tira la v3: ahí quedaron 403 de
+// /api/whatsapp/vinculos de antes del login, y el panel no volvía a pedirlos.
+const CACHE = "inventario-v4";
 const PAGINAS_OFFLINE = new Set(["/", "/venta"]);
 const PRECACHE = [
   "/",
@@ -62,6 +63,10 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  // El resto de /api es de sesión. Cache-first dejaba pegado un 403 y
+  // /panel/bot/config no volvía a preguntar después del login.
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return;
 
   if (req.mode === "navigate") {
     event.respondWith(

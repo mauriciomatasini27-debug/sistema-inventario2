@@ -38,7 +38,8 @@ describe("PWA instalable PWA-S1/S2 (PRD-PWA-01)", () => {
 
   it("sw.js cachea estático y /venta, hace network-first en sync/pull y nunca toca POST", () => {
     const sw = readFileSync(join(ROOT, "public/sw.js"), "utf8");
-    expect(sw).toContain("inventario-v3");
+    expect(sw).toContain("inventario-v4");
+    expect(sw).toContain('url.pathname.startsWith("/api/")');
     expect(sw).toContain("/api/sync/pull");
     expect(sw).toContain('"/venta"');
     expect(sw).toContain('req.method !== "GET"');
