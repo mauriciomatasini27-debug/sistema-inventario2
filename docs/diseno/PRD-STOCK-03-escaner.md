@@ -1,7 +1,7 @@
 ---
 id: PRD-STOCK-03
 tipo: prd
-estado: propuesto
+estado: hecho
 modulos: [inventario]
 depende_de: [ADR-0114, ADR-0002, PRD-STOCK-02]
 reemplaza: []
@@ -13,6 +13,8 @@ resumen: |
   La cámara es respaldo y zxing-wasm entra solo si no hay BarcodeDetector.
 ---
 # PRD-STOCK-03 - Escáner de código de barras
+
+> Estado al 2026-10-24: hecho. STOCK-S16, STOCK-S17 y STOCK-S18 leen en `/venta` y `/panel/stock`. El lector cierra con Enter y no abre la cámara. La cámara usa BarcodeDetector, o zxing-wasm si el navegador no lo trae. Un código desconocido avisa y no crea el producto.
 
 Fuente: [ADR-0114](../adr/0114-escaner-codigo-barras.md), [ADR-0002](../adr/0002-stack-desarrollo.md), [PRD-STOCK-02](PRD-STOCK-02-carga-stock-tanda2.md). Restringido por ADR-0114.
 
@@ -43,4 +45,4 @@ Requisito STOCK-R4. El dueño o el empleado lee un código y el sistema busca el
 
 ## Fuera de esta entrega
 
-No se escribe código del lector en el PR que propone este texto. La implementación arranca cuando Mauri acepta ADR-0114. No se cambia ADR-0110. No hay migración.
+No se cambia ADR-0110. No hay migración.
