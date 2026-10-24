@@ -68,6 +68,71 @@ export interface ProveedorCobro {
   estado(suscripcionId: string): Promise<Suscripcion>;
 }
 
+// PLAN-S3: cobro del prorrateo. "confirmado" habilita el upgrade inmediato;
+// "pendiente" no toca la suscripción (la ruta responde 409 requiere_cobro).
+// El body del pedido no puede fabricar un confirmado: solo este puerto.
+export type EstadoCobro = "confirmado" | "pendiente";
+
+export type CobroProrrateo =
+  | { readonly estado: "pendiente"; readonly montoCentavos: bigint }
+  | { readonly estado: "confirmado"; readonly montoCentavos: bigint; readonly referencia: string };
+
+export interface PedidoCobroProrrateo {
+  readonly tenantId: string;
+  readonly suscripcionId: string;
+  readonly planDestino: PlanId;
+  readonly montoCentavos: bigint;
+}
+
+export interface BillingProvider {
+  cobrarProrrateo(args: PedidoCobroProrrateo): Promise<CobroProrrateo>;
+}
+
+export class BillingProviderFalso implements BillingProvider {
+  private confirmar = false;
+  private seq = 0;
+  readonly llamados: PedidoCobroProrrateo[] = [];
+
+  fijarConfirmacion(confirmado: boolean): void {
+    this.confirmar = confirmado;
+  }
+
+  reiniciar(): void {
+    this.confirmar = false;
+    this.seq = 0;
+    this.llamados.length = 0;
+  }
+
+  async cobrarProrrateo(args: PedidoCobroProrrateo): Promise<CobroProrrateo> {
+    if (!args.tenantId) throw new Error("tenantId requerido");
+    if (args.montoCentavos < 0n) throw new Error("monto inválido");
+    this.llamados.push(args);
+    if (!this.confirmar) return { estado: "pendiente", montoCentavos: args.montoCentavos };
+    this.seq += 1;
+    return {
+      estado: "confirmado",
+      montoCentavos: args.montoCentavos,
+      referencia: `fake-${args.suscripcionId}-${this.seq}`,
+    };
+  }
+}
+
+const billingPorDefecto = new BillingProviderFalso();
+let billingActual: BillingProvider = billingPorDefecto;
+
+export function billingProviderActual(): BillingProvider {
+  return billingActual;
+}
+
+export function usarBillingProvider(provider: BillingProvider): void {
+  billingActual = provider;
+}
+
+export function reiniciarBillingProvider(): void {
+  billingPorDefecto.reiniciar();
+  billingActual = billingPorDefecto;
+}
+
 export class ProveedorCobroFake implements ProveedorCobro {
   private readonly subs = new Map<string, Suscripcion>();
   private proximo = 1;

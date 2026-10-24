@@ -12,7 +12,11 @@ export {
   type PlanId,
 } from "./catalogo.js";
 export {
+  BillingProviderFalso,
   ProveedorCobroFake,
+  type BillingProvider,
+  type CobroProrrateo,
+  type EstadoCobro,
   type EstadoSuscripcion,
   type ProveedorCobro,
   type Suscripcion,

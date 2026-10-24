@@ -8,14 +8,14 @@ reemplaza: []
 reemplazado_por: ""
 resumen: |
   Planes mensuales que definen módulos y cupos (Básico, Plus, Pro), sin venta por módulo. Catálogo, planes,
-  suscripciones, usage_counters, gating y /panel/plan hechos; pendientes upgrade con prorrateo, cupos, cobro y
-  embudo. Precios y cobro bloqueados por decisión de Mauri (PLAN-02/PLAN-03).
+  suscripciones, usage_counters, gating, /panel/plan y upgrade con prorrateo (solo cobro confirmado) hechos;
+  pendientes cupos, cobro real y embudo. Precios y Mercado Pago bloqueados (PLAN-02/PLAN-03).
 ---
 # PRD-PLAN-01 - Planes de suscripción mensual, cupos y estrategia comercial (R2)
 
 Fuente: `docs/01-fundacion/costos-por-cliente.md` (precios de referencia Básico 15 / Plus 35 / Pro 59 USD, número central WABA, ~USD 0,026 por mensaje AR a verificar, WhatsApp dentro del precio del plan, "cupo y cobrar el excedente"), `docs/03-inventario-precios/inventario-parte-1.md:49` (suscripción mensual ARS con ajuste o USD, Mercado Pago o transferencia), `docs/03-inventario-precios/inventario-parte-2.md` (F8.4 prueba gratis, mora 14 días), `docs/02-identidad-onboarding/onboarding-parte-1.md` (prueba sin tarjeta) y `onboarding-parte-2.md` (cupo Básico 100 mensajes, ON5.8 mensajes de onboarding fuera del cupo), PRD-BOT-01, PRD-BOT-02, PRD-ALR-01, PRD-IA-01 (IA-S5 `ai_usage`), PRD-LP-04, PRD-DASH-01 (DASH-S8, DASH-S12), PRD-CP-01 (mora, CP-S8 sin billing automático en MVP), PRD-NEG-01, `src/pages/panel.astro`, `C:\Users\mauri\ModoOpsVideoTools\README-INSTALACION.md` (stack de video IA local con MoneyPrinterTurbo). Fecha extracción: 2026-10-12. Restringido por ADR-0047, ADR-0003, ADR-0006, ADR-0039, ADR-0041, ADR-0045, ADR-0046.
 
-> Estado al 2026-10-20: en curso. Hechos PLAN-S1, S2, S4, S7 (`/panel/plan` solo Dueño, renovación y cupo de WhatsApp), S8 (upsell en el índice) y S13 parcial. PLAN-S3 tiene el núcleo de prorrateo (`catalogo.ts:175-196`) pero `POST /api/plan/cambiar` todavía responde 409 `requiere_cobro`; S10 es parcial (`usage_counters` alimenta IA, WhatsApp se cuenta desde `whatsapp_usage`). Pendientes S3 (cablear el upgrade), S5/S6 (más cambios de plan), S9/S11/S12 (embudo y cupos) y S14 a S19 (cupos y cobro). Precios y cobro siguen bloqueados por P9-5/PLAN-02/PLAN-03.
+> Estado al 2026-10-24: en curso. Hechos PLAN-S1, S2, S3 (upgrade inmediato solo con cobro `confirmado` del BillingProvider falso; sin confirmación `POST /api/plan/cambiar` sigue en 409 `requiere_cobro`; prorrateo día 10 de 30), S4, S7 (`/panel/plan` solo Dueño, renovación y cupo de WhatsApp), S8 (upsell en el índice) y S13 parcial. S10 es parcial (`usage_counters` alimenta IA, WhatsApp se cuenta desde `whatsapp_usage`). Pendientes S5/S6 (más cambios de plan), S9/S11/S12 (embudo y cupos) y S14 a S19 (cupos y cobro real). Precios y Mercado Pago real siguen bloqueados por P9-5/PLAN-02/PLAN-03.
 
 ## Planes y funciones
 
