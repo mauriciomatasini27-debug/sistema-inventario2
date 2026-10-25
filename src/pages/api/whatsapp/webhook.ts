@@ -81,7 +81,14 @@ import { guardarEleccion, guardarOptIn, prefsDe } from "../../../lib/repos/alert
 import { registrarEnvioCloud } from "../../../lib/whatsapp-salud.js";
 import { editarBorrador, type Borrador, type OrigenIngesta } from "../../../modules/purchases/facturas.js";
 import {
-  contacto_por_numero,
+  contactoPorNumero,
+  guardarContacto,
+  guardarCupo,
+  guardarInvitacion,
+  invitacionPorHash,
+  leerCupo,
+} from "../../../lib/repos/proveedor-wa.js";
+import {
   evaluar_cupo_proveedor,
   numero_dueno_verificado,
   parsear_invitar,
@@ -682,36 +689,38 @@ async function atenderProveedor(opts: {
   cred: CredencialesEnvio | null;
 }): Promise<Response | null> {
   const { msg, ahoraMs, cred } = opts;
-  const contacto = contacto_por_numero(control.proveedorContactos, msg.remitente);
+  const contacto = await contactoPorNumero(msg.remitente);
   // PROV-E4: el cupo corre antes de cualquier respuesta u OCR. Un revocado no
   // consume cupo y sigue a la puerta de identidad.
   if (contacto && contacto.estado !== "revocado") {
+    const previo = await leerCupo(msg.remitente, contacto.tenantId);
     const cupo = evaluar_cupo_proveedor({
-      marcasMs: control.proveedorCupo.get(msg.remitente) ?? [],
+      marcasMs: previo.marcasMs,
       ahoraMs,
     });
-    control.proveedorCupo.set(msg.remitente, [...cupo.marcasMs]);
     if (!cupo.permitido) {
       // Solo el primer corte de cada racha responde; los siguientes callan
-      // para no amplificar el spam.
+      // para no amplificar el spam. Las marcas quedan antes del envío: un
+      // mensaje concurrente del mismo número tiene que ver el corte ya contado.
+      await guardarCupo(msg.remitente, contacto.tenantId, cupo.marcasMs, previo.aviso);
       let enviado = false;
-      if (!control.proveedorCupoAviso.has(msg.remitente)) {
+      if (!previo.aviso) {
         enviado = await responder({
           toE164: msg.remitente,
           wamidEntrante: msg.wamid,
           texto: RESPUESTA_PROV_CUPO,
           cred,
         });
-        control.proveedorCupoAviso.set(msg.remitente, true);
+        await guardarCupo(msg.remitente, contacto.tenantId, cupo.marcasMs, true);
       }
       return Response.json({ ok: true, accion: "prov_cupo_excedido", enviado });
     }
-    control.proveedorCupoAviso.delete(msg.remitente);
+    await guardarCupo(msg.remitente, contacto.tenantId, cupo.marcasMs, false);
   }
   const codigo = parsear_invitar(msg.texto);
   if (codigo !== null) {
     const hash = sha256Hex(codigo);
-    const inv = control.proveedorInvitaciones.get(hash) ?? null;
+    const inv = await invitacionPorHash(hash);
     const v = verificar_invitacion({
       textoEntrante: msg.texto,
       codigoIngresadoHash: hash,
@@ -729,8 +738,7 @@ async function atenderProveedor(opts: {
     }
     // Un número ata a un comercio: si ya es proveedor verificado de otro, no
     // se reasigna y se responde el genérico de código inválido.
-    const existente = contacto_por_numero(control.proveedorContactos, msg.remitente);
-    if (existente?.estado === "verificado" && existente.tenantId !== inv.tenantId) {
+    if (contacto?.estado === "verificado" && contacto.tenantId !== inv.tenantId) {
       const enviado = await responder({
         toE164: msg.remitente,
         wamidEntrante: msg.wamid,
@@ -739,14 +747,14 @@ async function atenderProveedor(opts: {
       });
       return Response.json({ ok: true, accion: "prov_codigo_invalido", motivo: "numero_ocupado", enviado });
     }
-    control.proveedorContactos.set(msg.remitente, {
+    await guardarContacto({
       numeroE164: msg.remitente,
       tenantId: inv.tenantId,
       supplierCuit: inv.supplierCuit,
       estado: "pendiente",
       creadoEn: new Date(ahoraMs).toISOString(),
     });
-    control.proveedorInvitaciones.set(hash, { ...inv, usado: true });
+    await guardarInvitacion({ ...inv, usado: true });
     const enviado = await responder({
       toE164: msg.remitente,
       wamidEntrante: msg.wamid,
@@ -785,7 +793,7 @@ async function atenderProveedor(opts: {
         alCrearBorrador: async (borrador) => {
           const { proveedores } = await conTenant(contacto.tenantId, () => listarProveedores());
           const resultado = vincular_cuit_contacto({ contacto, cuitLeido: borrador.cuit, proveedores });
-          if (resultado.cambio) control.proveedorContactos.set(contacto.numeroE164, resultado.contacto);
+          if (resultado.cambio) await guardarContacto(resultado.contacto);
           vinculo.r = resultado;
         },
       });

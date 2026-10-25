@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { control } from "../../../../lib/store.js";
+import { contactoPorNumero, guardarContacto, limpiarCupo } from "../../../../lib/repos/proveedor-wa.js";
 import { exigirDuenoDeRequest } from "../../../../lib/tenant-context.js";
 
 export const prerender = false;
@@ -25,14 +25,13 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const { numero, estado } = parsed.data;
-  const actual = control.proveedorContactos.get(numero);
+  const actual = await contactoPorNumero(numero);
   if (!actual || actual.tenantId !== dueno.tenantId) {
     return Response.json({ error: "contacto inexistente" }, { status: 404 });
   }
-  control.proveedorContactos.set(numero, { ...actual, estado });
+  await guardarContacto({ ...actual, estado });
   // PROV-E4: aprobar (o re-aprobar) habilita de nuevo al proveedor; revocar
   // también limpia. El cupo se reconstruye solo desde el próximo mensaje.
-  control.proveedorCupo.delete(numero);
-  control.proveedorCupoAviso.delete(numero);
+  await limpiarCupo(numero, dueno.tenantId);
   return Response.json({ numero, estado });
 };

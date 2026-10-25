@@ -522,15 +522,12 @@ export const control = {
   // PRD-STOCK-01 STOCK-S8 (ADR-0107): tenants con la plantilla de productos
   // ya confirmada. Espejo en memoria de tenant_product_seeds.
   semillasProductos: new Set<string>(),
-  // PRD-PROV-01 (ADR-0096): contactos de proveedor por número (clave E.164) e
-  // invitaciones por hash del código (clave codigoHash). En memoria hasta que
-  // haya migración aprobada.
+  // #68 PROV-durable: espejo de `proveedor-wa`. La fila vive en la base del
+  // comercio; sin base estos mapas son la copia. `resetStore` los tira.
   proveedorContactos: new Map<string, import("../modules/whatsapp/proveedor.js").ContactoProveedor>(),
   proveedorInvitaciones: new Map<string, import("../modules/whatsapp/proveedor.js").InvitacionProveedor>(),
-  // PROV-E4: marcas de mensajes por número para el cupo (ventana móvil). En
-  // memoria como proveedorContactos, hasta que haya migración aprobada.
+  // PROV-E4: marcas de la ventana móvil y el aviso del corte, misma clave E.164.
   proveedorCupo: new Map<string, number[]>(),
-  // PROV-E4: números ya avisados del corte actual. Se borra al reponerse.
   proveedorCupoAviso: new Map<string, true>(),
 };
 

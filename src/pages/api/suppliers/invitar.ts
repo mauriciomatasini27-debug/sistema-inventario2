@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { control } from "../../../lib/store.js";
+import { guardarInvitacion } from "../../../lib/repos/proveedor-wa.js";
 import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 import { sha256Hex } from "../../../modules/auth/sesiones.js";
 import { generar_codigo_vincular } from "../../../modules/whatsapp/vincular.js";
@@ -36,7 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
   const codigo = generar_codigo_vincular();
   const codigoHash = sha256Hex(codigo);
   const expiraEn = Date.now() + INVITAR_TTL_MIN * 60_000;
-  control.proveedorInvitaciones.set(codigoHash, {
+  await guardarInvitacion({
     tenantId: dueno.tenantId,
     supplierCuit: cuit,
     codigoHash,

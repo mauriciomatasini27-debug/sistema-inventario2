@@ -17,7 +17,7 @@ resumen: |
 
 Fuente: ADR-0096. Restringido por ADR-0096.
 
-> Estado al 2026-10-20: en curso. PROV-E1 a PROV-E4 implementadas y probadas (alta por invitación, CUIT leído, aviso al Dueño, alta al confirmar y cupo/revocado). Pendiente durable: invitaciones, contactos y cupo viven en memoria (`src/lib/store.ts`) hasta aprobar la migración.
+> Estado al 2026-10-25: en curso. PROV-E1 a PROV-E4 implementadas y probadas (alta por invitación, CUIT leído, aviso al Dueño, alta al confirmar y cupo/revocado). Invitaciones, contactos y cupo persisten en la base del comercio (tag `0042_proveedores_durable`, `src/lib/repos/proveedor-wa.ts`) y quedan en memoria cuando no hay base.
 
 ## Problema
 

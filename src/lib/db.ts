@@ -30,6 +30,18 @@ function dbFor(url: string) {
   return d;
 }
 
+// #68: el webhook busca un número sin saber el comercio. La URL vive acá
+// (ISO AT4); el repo solo recibe el id.
+const PREFIJO_BASE_TENANT = "TENANT_DATABASE_URL_";
+
+export function idsConBasePropia(env: NodeJS.ProcessEnv = process.env): string[] {
+  return Object.keys(env)
+    .filter((k) => k.startsWith(PREFIJO_BASE_TENANT) && env[k])
+    .map((k) => k.slice(PREFIJO_BASE_TENANT.length))
+    .filter((id) => id.length > 0)
+    .sort();
+}
+
 // Por qué lazy: Astro importa este módulo en build sin env/DB; conectar a nivel
 // superior rompería `astro build` y mezclaría pools entre tenants.
 export function getControlDb() {
