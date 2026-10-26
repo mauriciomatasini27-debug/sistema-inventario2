@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -121,4 +122,32 @@ export const supplierMatchLog = pgTable("supplier_match_log", {
   coincide: boolean("coincide").notNull(),
   motivo: text("motivo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// #68 PROV-durable: el número (o el hash) es global y la fila vive en la base
+// del comercio. El CHECK de estado queda en la migración 0042.
+export const proveedorContactos = pgTable(
+  "proveedor_contactos",
+  {
+    numeroE164: text("numero_e164").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    supplierCuit: text("supplier_cuit"),
+    estado: text("estado").notNull(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("proveedor_contactos_tenant_idx").on(t.tenantId)],
+);
+
+export const proveedorInvitaciones = pgTable("proveedor_invitaciones", {
+  codigoHash: text("codigo_hash").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  supplierCuit: text("supplier_cuit"),
+  expiraEnMs: bigint("expira_en_ms", { mode: "number" }).notNull(),
+  usado: boolean("usado").notNull().default(false),
+});
+
+export const proveedorCupo = pgTable("proveedor_cupo", {
+  numeroE164: text("numero_e164").primaryKey(),
+  marcasMs: jsonb("marcas_ms").$type<number[]>().notNull().default([]),
+  aviso: boolean("aviso").notNull().default(false),
 });

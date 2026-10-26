@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { control } from "../../../lib/store.js";
+import { listarContactos } from "../../../lib/repos/proveedor-wa.js";
 import { exigirDuenoDeRequest } from "../../../lib/tenant-context.js";
 
 export const prerender = false;
@@ -9,6 +9,6 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;
-  const items = [...control.proveedorContactos.values()].filter((c) => c.tenantId === dueno.tenantId);
+  const items = await listarContactos(dueno.tenantId);
   return Response.json({ items });
 };
