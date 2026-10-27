@@ -29,7 +29,7 @@ describe("registro de venta fail-closed en modo multi", () => {
   it("no confirma ni escribe en memoria si falta la base del tenant", async () => {
     fijarMultiSinBase();
     resetStore();
-    const antes = store.idempotency.size;
+    const antes = await conTenant("tenant-a", () => store.idempotency.size);
 
     await expect(
       conTenant("tenant-a", () =>
