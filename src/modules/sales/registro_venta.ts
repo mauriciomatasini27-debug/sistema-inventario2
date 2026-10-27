@@ -299,7 +299,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
   try {
     costos = await costosVigentesPorSku();
   } catch {
-    // PERS2: en multi no se confirma una venta con snapshots de memoria si
+    // P10-20: en multi no se confirma una venta con snapshots de memoria si
     // PostgreSQL no pudo entregar los costos vigentes.
     if (esModoMulti()) throw new BaseNoDisponible();
     costos = costosVigentesMemoria();
