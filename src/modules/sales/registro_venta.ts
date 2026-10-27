@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
-import { dbVivaTenant } from "../../lib/server-db.js";
+import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
+import { esModoMulti } from "../../lib/tenant-mode.js";
 import {
   cashMovements,
   products,
@@ -290,6 +291,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
+    if (esModoMulti()) throw new BaseNoDisponible();
     return viaMemoria(i);
   }
 
@@ -297,6 +299,9 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
   try {
     costos = await costosVigentesPorSku();
   } catch {
+    // PERS2: en multi no se confirma una venta con snapshots de memoria si
+    // PostgreSQL no pudo entregar los costos vigentes.
+    if (esModoMulti()) throw new BaseNoDisponible();
     costos = costosVigentesMemoria();
   }
 
@@ -470,10 +475,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const fila = previo[0];
         return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: fila ? filaVentaJson(fila) : null };
       } catch {
+        if (esModoMulti()) throw new BaseNoDisponible();
         return viaMemoria(i);
       }
-    }
-    // Caída de DB a mitad de camino: la tx revirtió; la venta no se pierde.
+    // La transacción revierte, pero en multi no se debe simular éxito en memoria.
+    if (esModoMulti()) throw new BaseNoDisponible();
     return viaMemoria(i);
   }
 }
