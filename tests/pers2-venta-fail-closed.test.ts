@@ -44,8 +44,10 @@ describe("registro de venta fail-closed en modo multi", () => {
       ),
     ).rejects.toBeInstanceOf(BaseNoDisponible);
 
-    expect(store.idempotency.size).toBe(antes);
-    expect(store.movements).toHaveLength(0);
-    expect(store.stock.get("demo-sku-1")).toBe(10);
+    await conTenant("tenant-a", () => {
+      expect(store.idempotency.size).toBe(antes);
+      expect(store.movements).toHaveLength(0);
+      expect(store.stock.get("demo-sku-1")).toBe(10);
+    });
   });
 });
