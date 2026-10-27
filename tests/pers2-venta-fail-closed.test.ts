@@ -19,13 +19,14 @@ function fijarMultiDbCaida() {
 }
 
 afterEach(() => {
+  // Limpiar las particiones de tenant mientras el modo sigue siendo multi.
+  resetStore();
   for (const key of vars) {
     const value = previas.get(key);
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
   previas.clear();
-  resetStore();
 });
 
 describe("registro de venta fail-closed en modo multi", () => {
