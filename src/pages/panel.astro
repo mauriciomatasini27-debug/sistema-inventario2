@@ -5,6 +5,9 @@ import { Toaster } from "../components/ui/Toaster";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
+import BienvenidaDialog from "../components/panel/BienvenidaDialog.astro";
+import { esDueno, resolverSesion } from "../lib/control.js";
+import { tenantDeRequest } from "../lib/tenant-context.js";
 import TopPills from "../components/panel/TopPills.astro";
 import KpiStrip from "../components/panel/KpiStrip.astro";
 import ShiftTimeline from "../components/panel/ShiftTimeline.astro";
@@ -24,6 +27,16 @@ import BotModulosCard from "../components/panel/BotModulosCard.astro";
 import AsistenteDrawer from "../components/panel/AsistenteDrawer.astro";
 import BotCard from "../components/panel/BotCard.astro";
 import AjustesCard from "../components/panel/AjustesCard.astro";
+
+// BIEN-S2 (ADR-0115): tenant y sub en servidor; el diálogo solo para Dueño.
+const tenantRes = tenantDeRequest(Astro.request);
+const sesion = resolverSesion(Astro.request);
+const mostrarBienvenida =
+  tenantRes.ok &&
+  sesion !== null &&
+  esDueno(tenantRes.tenantId, sesion.googleSub);
+const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
+const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
 ---
 <!doctype html>
 <html lang="es">
@@ -308,6 +321,9 @@ import AjustesCard from "../components/panel/AjustesCard.astro";
         renderResumenError();
       });
     </script>
+    {mostrarBienvenida ? (
+      <BienvenidaDialog tenantId={bienvenidaTenantId} googleSub={bienvenidaGoogleSub} />
+    ) : null}
     <Toaster client:idle />
     <ConfirmDialog />
   </body>

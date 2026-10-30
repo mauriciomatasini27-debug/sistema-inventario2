@@ -1,0 +1,264 @@
+---
+interface Props {
+  tenantId: string;
+  googleSub: string;
+}
+
+const { tenantId, googleSub } = Astro.props;
+---
+<dialog
+  id="bienvenida-panel-dialogo"
+  class="bienvenida-panel"
+  data-bienvenida-panel
+  aria-labelledby="bienvenida-panel-titulo"
+  aria-describedby="bienvenida-panel-progreso"
+>
+  <form method="dialog" class="bienvenida-panel__caja">
+    <header class="bienvenida-panel__encabezado">
+      <h2 id="bienvenida-panel-titulo" class="bienvenida-panel__titulo">Tu comercio</h2>
+      <p id="bienvenida-panel-progreso" class="bienvenida-panel__progreso" data-bienvenida-progreso>Cargando…</p>
+    </header>
+    <ol class="bienvenida-panel__pasos" data-bienvenida-pasos></ol>
+    <p class="bienvenida-panel__error" data-bienvenida-error role="alert" hidden></p>
+    <footer class="bienvenida-panel__acciones">
+      <button type="button" class="bienvenida-panel__secundario" data-bienvenida-sin-empleados hidden>
+        No tengo empleados
+      </button>
+      <button type="submit" class="bienvenida-panel__primario" value="cerrar">Entendido</button>
+    </footer>
+  </form>
+</dialog>
+
+<style>
+  .bienvenida-panel {
+    width: min(480px, calc(100vw - 24px));
+    max-height: min(85vh, 640px);
+    padding: 0;
+    margin: auto;
+    border: 1px solid var(--tema-linea, var(--color-linen));
+    border-radius: 16px;
+    background: var(--tema-superficie, var(--color-star-white));
+    color: var(--tema-texto, var(--color-void));
+  }
+  .bienvenida-panel::backdrop {
+    background: color-mix(in srgb, var(--color-void) 40%, transparent);
+  }
+  .bienvenida-panel__caja {
+    display: grid;
+    gap: 12px;
+    padding: 20px;
+    margin: 0;
+    max-height: min(85vh, 640px);
+    overflow: auto;
+  }
+  .bienvenida-panel__titulo {
+    margin: 0;
+    font-size: clamp(20px, 4vw, 24px);
+    font-weight: 600;
+  }
+  .bienvenida-panel__progreso {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--tema-texto-suave, var(--color-ash));
+  }
+  .bienvenida-panel__pasos {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 10px;
+    font-size: 14px;
+  }
+  .bienvenida-panel__pasos li {
+    display: grid;
+    gap: 2px;
+  }
+  .bienvenida-panel__pasos span {
+    font-size: 12px;
+    color: var(--tema-texto-suave, var(--color-ash));
+  }
+  .bienvenida-panel__error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-star-glow);
+  }
+  .bienvenida-panel__error[hidden] {
+    display: none;
+  }
+  .bienvenida-panel__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .bienvenida-panel__primario,
+  .bienvenida-panel__secundario {
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .bienvenida-panel__primario {
+    border: 0;
+    background: var(--color-llama, var(--color-ember-coral));
+    color: var(--color-void);
+    font-weight: 700;
+  }
+  .bienvenida-panel__secundario {
+    border: 1px solid var(--tema-linea, var(--color-linen));
+    background: transparent;
+    color: var(--tema-texto, var(--color-void));
+  }
+  .bienvenida-panel__secundario[hidden] {
+    display: none;
+  }
+</style>
+
+<script define:vars={{ tenantId, googleSub }}>
+  import {
+    debe_mostrar_bienvenida_panel,
+    marcar_bienvenida_panel,
+    ya_vio_bienvenida_panel,
+  } from "../../modules/onboarding/bienvenida-panel.js";
+  import { estado_paso_dialogo, progreso_checklist } from "../../lib/panel-bienvenida.js";
+
+  const dialogo = document.querySelector("[data-bienvenida-panel]");
+  if (!(dialogo instanceof HTMLDialogElement) || !tenantId || !googleSub) {
+    // Empleado u otro contexto: el componente no debería montarse; por las dudas no hacemos nada.
+  } else {
+    const pasosEl = dialogo.querySelector("[data-bienvenida-pasos]");
+    const progresoEl = dialogo.querySelector("[data-bienvenida-progreso]");
+    const errorEl = dialogo.querySelector("[data-bienvenida-error]");
+    const sinEmpleadosBtn = dialogo.querySelector("[data-bienvenida-sin-empleados]");
+    const tituloEl = dialogo.querySelector("#bienvenida-panel-titulo");
+    const saltados = new Set();
+
+    function mostrarError(msg) {
+      if (!(errorEl instanceof HTMLElement)) return;
+      errorEl.textContent = msg;
+      errorEl.hidden = msg === "";
+    }
+
+    function renderPasos(pasos) {
+      if (!(pasosEl instanceof HTMLOListElement)) return;
+      pasosEl.replaceChildren();
+      for (const paso of pasos) {
+        if (typeof paso !== "object" || paso === null) continue;
+        const id = paso.id;
+        const titulo = paso.titulo;
+        if (typeof id !== "string" || typeof titulo !== "string") continue;
+        const li = document.createElement("li");
+        const strong = document.createElement("strong");
+        strong.textContent = titulo;
+        const meta = document.createElement("span");
+        meta.textContent = estado_paso_dialogo(
+          {
+            id,
+            titulo,
+            contador: typeof paso.contador === "string" ? paso.contador : null,
+            listo: paso.listo === true,
+          },
+          saltados.has(id),
+        );
+        li.append(strong, meta);
+        pasosEl.append(li);
+      }
+      if (sinEmpleadosBtn instanceof HTMLButtonElement) {
+        const empleado = pasos.find((p) => p && p.id === "empleado");
+        const ocultar =
+          !empleado || empleado.listo === true || saltados.has("empleado");
+        sinEmpleadosBtn.hidden = ocultar;
+      }
+    }
+
+    async function cargarYMostrar() {
+      if (
+        !debe_mostrar_bienvenida_panel({
+          esDueno: true,
+          tenantId,
+          googleSub,
+          yaVio: ya_vio_bienvenida_panel(localStorage, tenantId, googleSub),
+        })
+      ) {
+        return;
+      }
+      try {
+        const r = await fetch(
+          "/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId),
+        );
+        const j = await r.json();
+        if (!r.ok) {
+          mostrarError(typeof j.error === "string" ? j.error : "No pudimos cargar tus primeros pasos.");
+          return;
+        }
+        if (tituloEl instanceof HTMLElement && j.comercio?.nombre) {
+          tituloEl.textContent = j.comercio.nombre;
+        }
+        const checklist = j.checklist;
+        if (progresoEl instanceof HTMLElement && checklist) {
+          progresoEl.textContent = progreso_checklist(
+            Number(checklist.listos) || 0,
+            Number(checklist.total) || 0,
+          );
+        }
+        const pasos = Array.isArray(checklist?.pasos) ? checklist.pasos : [];
+        renderPasos(pasos);
+        if (typeof dialogo.showModal === "function") dialogo.showModal();
+      } catch (error) {
+        console.warn("[bienvenida-panel] falló la carga", error);
+        mostrarError("No pudimos cargar tus primeros pasos. Reintentá en un rato.");
+      }
+    }
+
+    dialogo.addEventListener("close", () => {
+      try {
+        marcar_bienvenida_panel(localStorage, tenantId, googleSub);
+      } catch (error) {
+        console.warn("[bienvenida-panel] no pudimos guardar la marca", error);
+      }
+    });
+
+    sinEmpleadosBtn?.addEventListener("click", async () => {
+      mostrarError("");
+      try {
+        const r = await fetch("/api/onboarding/checklist", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            paso: "empleado",
+            accion: "saltar",
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          mostrarError(typeof j.error === "string" ? j.error : "No pudimos marcar el paso.");
+          return;
+        }
+        saltados.add("empleado");
+        const estadoR = await fetch(
+          "/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId),
+        );
+        const estado = await estadoR.json();
+        if (estadoR.ok && Array.isArray(estado.checklist?.pasos)) {
+          renderPasos(estado.checklist.pasos);
+          if (progresoEl instanceof HTMLElement) {
+            progresoEl.textContent = progreso_checklist(
+              Number(estado.checklist.listos) || 0,
+              Number(estado.checklist.total) || 0,
+            );
+          }
+        } else {
+          renderPasos([{ id: "empleado", titulo: "Invitá a un empleado", contador: null, listo: false }]);
+        }
+      } catch (error) {
+        console.warn("[bienvenida-panel] saltar empleado", error);
+        mostrarError("No pudimos marcar el paso. Reintentá.");
+      }
+    });
+
+    void cargarYMostrar();
+  }
+</script>
