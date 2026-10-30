@@ -87,6 +87,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
     const rCb = await getCallback(cb);
     expect(rCb.status).toBe(302);
     expect(cb.cookies.has("__Host-sesion")).toBe(true);
+    expect(setCookies(rCb).some((c) => c.includes("__Host-sesion="))).toBe(true);
     expect([...control.sessions.values()].some((s) => s.googleSub === "juan")).toBe(true);
     expect(control.events.some((e) => e.tipo === "login" && e.actor === "juan")).toBe(true);
     expect(control.pendingAuth.has(state)).toBe(false);
@@ -111,6 +112,16 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
     const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(ctx(`http://x/api/auth/callback?code=CODE&state=${state}`));
     expect(rCb.status).toBe(403);
+  });
+});
+
+describe("P1-25 login no navega en el mismo tick que Set-Cookie", () => {
+  it("el HTML demora el salto a Google (setTimeout) para persistir cookies", async () => {
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    const html = await rLogin.clone().text();
+    expect(html).toContain("setTimeout");
+    expect(html).not.toMatch(/<script>location\.replace/);
+    expect(html).toMatch(/content="1;url=/);
   });
 });
 

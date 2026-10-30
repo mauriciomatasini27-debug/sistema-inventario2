@@ -236,9 +236,9 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     // Google cuenta como reauth fresca.
     reauthAt: ahora.toISOString(),
   });
-  // P1-23: sin persistir, el siguiente request en otra instancia de Vercel
-  // no encuentra la sesión en el Map y el login parece no haber pasado.
-  void persistirSesion({
+  // P1-25: await — si redirigimos antes de que la fila exista, la otra
+  // instancia de Vercel no rehidrata y el 1er login parece fallar (landing).
+  await persistirSesion({
     idHash: creada.registro.idHash,
     googleSub: identidad.sub,
     tenantId,
@@ -251,12 +251,13 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   if (agente && agentesPrevios.size > 0 && !agentesPrevios.has(agente)) {
     void notificarAlertaSeguridad({ evento: "login_nuevo", tenantId, googleSubDestino: identidad.sub, detalle: agente });
   }
+  const maxAgeSesion = 30 * 24 * 3600;
   cookies.set("__Host-sesion", creada.idPlano, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 30 * 24 * 3600,
+    maxAge: maxAgeSesion,
   });
   const next = pendiente.next;
   // AU2-S3: next validado gana; sin next, la allowlist admin termina en
@@ -266,5 +267,11 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const destino = nextOk ?? (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente");
   const r = redirect(destino, 302);
   borrarCookiesOauth(r.headers);
+  // P1-25: Set-Cookie en el Response del redirect (no solo cookies.set):
+  // en Vercel el jar de Astro a veces no viaja con el 302 mutado a mano.
+  r.headers.append(
+    "Set-Cookie",
+    `__Host-sesion=${encodeURIComponent(creada.idPlano)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSesion}`,
+  );
   return r;
 }
