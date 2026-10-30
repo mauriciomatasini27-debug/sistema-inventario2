@@ -1,8 +1,7 @@
-// Núcleo puro ALR-S1 a S4 (PRD-ALR-01, ADR-0043). Sin IO, sin red, sin env.
-// Cierra los huecos que no piden migración: umbral efectivo con fallback de
-// rotación 7d (S1), clave tenant+producto+día y ventana de quiebre (S2),
-// destinatarios por rol y canal con pausa (S3) y pie ver-todo + cobertura (S4).
-// La persistencia de min_stock/reorder_qty y pg_cron quedan pendientes.
+// Núcleo puro ALR-S1 a S4 (PRD-ALR-01, ADR-0043). Sin IO, red ni env.
+// Umbral efectivo (S1), clave tenant+producto+día y ventana quiebre (S2),
+// destinatarios por rol/canal (S3) y pie ver-todo + cobertura (S4).
+// pg_cron del job queda fuera del repo (issue #69).
 
 export type CanalAlerta = "whatsapp" | "email";
 export type CanalElegido = "whatsapp" | "email" | "ambos";
