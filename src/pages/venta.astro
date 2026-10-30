@@ -36,8 +36,16 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         padding-right: env(safe-area-inset-right, 0px);
         padding-bottom: env(safe-area-inset-bottom, 0px);
       }
-      .barra { display: flex; align-items: center; gap: 8px; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+      .barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
       .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+      /* P1-29: el texto ámbar no entra al lado del título en 320px. El chip
+         baja de línea y --estado-* ya cambia con el tema. */
+      #indicador-sync { flex: 1 0 100%; font-size: 12px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 8px; }
+      #indicador-sync:empty { display: none; }
+      #indicador-sync[data-tono="verde"] { background: var(--estado-ok-tint); color: var(--estado-ok); }
+      #indicador-sync[data-tono="ambar"] { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
+      #indicador-sync[data-tono="azul"] { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
+      #indicador-sync[data-tono="rojo"] { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
       input, select, button:not(.tema-toggle) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
       button:not(.tema-toggle) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
@@ -59,6 +67,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
       <TemaToggle />
+      <span id="indicador-sync" role="status"></span>
     </header>
     <main data-tenant={tenantId ?? ""}>
       <div class="card vidrio-card">
@@ -104,6 +113,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <script>
       import { claveOutboxCola, claveSeqCola, copiarSeqLegado } from "../offline/cola-venta.js";
       import { drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
+      import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import {
@@ -127,6 +137,21 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       copiarSeqLegado(storage, tenant || null);
       const estado = (t) => { $("estado").textContent = t; };
       const esHarnessWorst = Boolean(document.getElementById("lineas-worst"));
+      // P1-29: online y #sync pueden esperar el mismo vuelo. Un booleano se
+      // apaga cuando vuelve el primero y la barra deja de decir Sincronizando.
+      let vuelosIndicador = 0;
+      let cortadoIndicador = false;
+      const refrescarIndicador = () => {
+        const vista = reducirIndicadorSync({
+          online: navigator.onLine,
+          pendientes: contarPendientesCola(storage, tenant || null),
+          sincronizando: vuelosIndicador > 0,
+          cortado: cortadoIndicador,
+        });
+        const chip = $("indicador-sync");
+        chip.textContent = vista.etiqueta;
+        chip.dataset.tono = vista.tono;
+      };
       // P10-13: con tenant conocido se descarta la clave legada global (sin
       // migrarla); sin tenant no se lee ni se escribe catálogo.
       if (tenant) descartarCatalogoLegado(storage, tenant);
@@ -288,6 +313,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           const q = JSON.parse(storage.getItem(outboxKey) ?? "[]");
           q.push({ op_id, device_code, device_seq: seq, payload });
           storage.setItem(outboxKey, JSON.stringify(q));
+          refrescarIndicador();
           // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
           // desde el snapshot local en vez de volver a pedir el nombre.
           if (linea.alta && tenant) {
@@ -310,18 +336,36 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       // P1-28: online y Reintentar sync comparten drenadoUnico (un vuelo).
       const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar });
       async function aplicarDrenado(origen) {
-        const resultado = await drenado.drenar();
-        const texto = textoDeDrenado(origen, resultado);
-        if (texto === null) return;
-        estado(texto);
-        balance();
+        const hayCola = contarPendientesCola(storage, tenant || null) > 0;
+        if (hayCola) {
+          vuelosIndicador += 1;
+          refrescarIndicador();
+        }
+        try {
+          const resultado = await drenado.drenar();
+          cortadoIndicador = resultado.tenant.cortado || (resultado.legado !== null && resultado.legado.cortado);
+          const texto = textoDeDrenado(origen, resultado);
+          if (texto !== null) {
+            estado(texto);
+            balance();
+          }
+        } finally {
+          if (hayCola) vuelosIndicador -= 1;
+          refrescarIndicador();
+        }
       }
       $("sync").onclick = () => {
         void aplicarDrenado("boton");
       };
+      window.addEventListener("offline", () => {
+        refrescarIndicador();
+      });
       window.addEventListener("online", () => {
         void refrescarCatalogo();
-        if (esHarnessWorst) return;
+        if (esHarnessWorst) {
+          refrescarIndicador();
+          return;
+        }
         void aplicarDrenado("linea");
       });
       // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.
@@ -393,6 +437,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           else estado("BT falló; usá Imprimir");
         }
       };
+      refrescarIndicador();
       if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) balance();
     </script>
   </body>
