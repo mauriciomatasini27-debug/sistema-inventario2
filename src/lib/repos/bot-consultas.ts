@@ -1,9 +1,13 @@
 import { and, eq, max, sql } from "drizzle-orm";
 import { whatsappUsage } from "../../db/schema-whatsapp.js";
+import { usageCounters } from "../../db/schema-planes.js";
+import { costoContabilidadBotConsultaUsdCentavos } from "../../modules/planes/catalogo.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { crearAlmacenBotConsultas } from "./_almacen.js";
+import { crearAlmacenBotConsultas, crearAlmacenUsoPlanes } from "./_almacen.js";
 import { resumenConsultas, type ResumenConsultas } from "../../modules/whatsapp/tarjeta-bot.js";
 import { fechaAR, mesAR } from "../fecha-ar.js";
+
+const FEATURE_BOT_CONSULTA = "bot_consulta";
 
 // DASH-S3 (ADR-0034): registro y resumen de las consultas del bot para la
 // tarjeta `Bot` de /panel. DB primero via dbVivaTenant(tenantId); sin base
@@ -32,21 +36,39 @@ export interface ConsultaBot {
 // y el mapa en memoria no pisa el primer registro. La memoria solo se usa sin
 // base (o ante un fallo tolerado en single): con base viva no se acumula nada
 // en el proceso.
-function guardarEnMemoria(input: ConsultaBot): void {
-  const almacen = crearAlmacenBotConsultas();
-  if (!almacen.contiene(input.wamid)) {
-    almacen.guardar(input.wamid, { tenantId: input.tenantId, creadoEnMs: input.ahoraMs });
-  }
+function claveContadorUso(tenantId: string, mes: string, feature: string): string {
+  return `${tenantId}|${mes}|${feature}`;
 }
 
-export async function registrarConsultaBot(input: ConsultaBot): Promise<void> {
-  const db = dbDeConsultas(input.tenantId);
-  if (!db) {
-    guardarEnMemoria(input);
-    return;
-  }
-  try {
-    await db
+// PLAN-S10: el detalle vive en whatsapp_usage; usage_counters alimenta admin y
+// margen (P10-17). Misma transacción que IA-S5: si el wamid ya existía, no suma.
+function sumarContadorBotEnMemoria(tenantId: string, ahoraMs: number): void {
+  const mes = mesAR(ahoraMs);
+  const costoCentavos = costoContabilidadBotConsultaUsdCentavos();
+  const mapa = crearAlmacenUsoPlanes();
+  const clave = claveContadorUso(tenantId, mes, FEATURE_BOT_CONSULTA);
+  const previo = mapa.obtener(clave) ?? { usado: 0, costoCentavos: 0n };
+  mapa.guardar(clave, {
+    usado: previo.usado + 1,
+    costoCentavos: previo.costoCentavos + costoCentavos,
+  });
+}
+
+function guardarEnMemoria(input: ConsultaBot): boolean {
+  const almacen = crearAlmacenBotConsultas();
+  if (almacen.contiene(input.wamid)) return false;
+  almacen.guardar(input.wamid, { tenantId: input.tenantId, creadoEnMs: input.ahoraMs });
+  return true;
+}
+
+async function incrementarContadorBotConsulta(
+  db: TenantDb,
+  input: ConsultaBot,
+): Promise<boolean> {
+  const mes = mesAR(input.ahoraMs);
+  const costoCentavos = costoContabilidadBotConsultaUsdCentavos();
+  return db.transaction(async (tx) => {
+    const insertados = await tx
       .insert(whatsappUsage)
       .values({
         tenantId: input.tenantId,
@@ -57,10 +79,49 @@ export async function registrarConsultaBot(input: ConsultaBot): Promise<void> {
         estado: "recibido",
         createdAt: new Date(input.ahoraMs),
       })
-      .onConflictDoNothing({ target: whatsappUsage.wamid });
+      .onConflictDoNothing({ target: whatsappUsage.wamid })
+      .returning({ wamid: whatsappUsage.wamid });
+    if (insertados.length === 0) return false;
+    const filas = await tx
+      .insert(usageCounters)
+      .values({
+        tenantId: input.tenantId,
+        mes,
+        feature: FEATURE_BOT_CONSULTA,
+        usado: 1,
+        costoCentavos,
+      })
+      .onConflictDoUpdate({
+        target: [usageCounters.tenantId, usageCounters.mes, usageCounters.feature],
+        set: {
+          usado: sql`${usageCounters.usado} + 1`,
+          costoCentavos: sql`${usageCounters.costoCentavos} + ${costoCentavos}`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ usado: usageCounters.usado, costoCentavos: usageCounters.costoCentavos });
+    const f = filas[0];
+    if (f) {
+      crearAlmacenUsoPlanes().guardar(claveContadorUso(input.tenantId, mes, FEATURE_BOT_CONSULTA), {
+        usado: f.usado,
+        costoCentavos: f.costoCentavos,
+      });
+    }
+    return true;
+  });
+}
+
+export async function registrarConsultaBot(input: ConsultaBot): Promise<void> {
+  const db = dbDeConsultas(input.tenantId);
+  if (!db) {
+    if (guardarEnMemoria(input)) sumarContadorBotEnMemoria(input.tenantId, input.ahoraMs);
+    return;
+  }
+  try {
+    await incrementarContadorBotConsulta(db, input);
   } catch (e) {
     crearAlmacenBotConsultas().anteFalloPersistencia(e);
-    guardarEnMemoria(input);
+    if (guardarEnMemoria(input)) sumarContadorBotEnMemoria(input.tenantId, input.ahoraMs);
   }
 }
 
@@ -101,8 +162,8 @@ export async function leerResumenConsultasBot(tenantId: string, ahoraMs: number)
 }
 
 // PLAN-S7: consultas del bot del mes civil AR, para el cupo de WhatsApp de
-// /panel/plan. Misma fuente que la tarjeta `Bot` (whatsapp_usage tipo
-// consulta); el mes arranca el día 1 a las 00:00 -03:00.
+// /panel/plan. Fuente operativa: whatsapp_usage tipo consulta (detalle por wamid).
+// PLAN-S10: el agregado mensual también vive en usage_counters (bot_consulta).
 function inicioMesARMs(ahoraMs: number): number {
   return Date.parse(`${mesAR(ahoraMs)}-01T00:00:00-03:00`);
 }

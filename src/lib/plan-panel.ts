@@ -28,8 +28,8 @@ export const ETIQUETAS_FEATURE: Readonly<Record<Feature, string>> = {
 };
 
 // El cupo de WhatsApp del plan es el de la feature del bot: las consultas del
-// mes salen de whatsapp_usage (contarConsultasBotDelMes), no de usage_counters,
-// que todavía nadie alimenta.
+// mes salen de whatsapp_usage (contarConsultasBotDelMes). PLAN-S10 suma el
+// mismo uso en usage_counters para admin y margen (P10-17).
 export const FEATURE_WHATSAPP: Feature = "bot_consulta";
 
 export interface FeatureVista {
