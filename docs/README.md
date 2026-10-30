@@ -102,4 +102,4 @@ resumen: Resumen factual en un máximo de 3 líneas.
 - OCR Fase 0 definido: PaddleOCR PP-OCRv5 autohospedado como motor primario, Vision/Textract como fallback de baja confianza (ADR-0089 aceptado 2026-10-18; falta correr el benchmark de PRD-OCR-01).
 - Verificar en fuente oficial antes de implementar: Google OIDC, Gmail/Photos API, Cloud API Meta, ARCA, BarcodeDetector/OPFS iOS.
 - Auditoría 2026-10-20 del código contra los PRD/ADR: `docs/roadmap/auditorias/2026-10-20.md`. Sus 5 defectos P0 quedaron cerrados por P10-1 a P10-5 (ADR-0105).
-- Auditoría 2026-10-21: `docs/roadmap/auditorias/2026-10-21.md`. Se corrigieron estados, referencias de avances y guías. P10-14 y P10-15 quedaron cerrados por el PR #3; siguen abiertos P10-9 y P10-16 a P10-19 (parciales por los diferidos que documenta cada avance).
+- Auditoría 2026-10-21: `docs/roadmap/auditorias/2026-10-21.md`. Se corrigieron estados, referencias de avances y guías. P10-14, P10-15, P10-9 y P10-19 cerrados; P10-16 sigue parcial (diferidos en su avance).
