@@ -1,7 +1,7 @@
 ---
 id: PRD-GMAIL-01
 tipo: prd
-estado: en curso
+estado: hecho
 modulos: [compras, pagos, auth, ocr, media]
 depende_de: [ADR-0102, ADR-0103, ADR-0104, ADR-0005, ADR-0089, ADR-0093, PRD-OCR-01, MOD-05-CONSUMOS-SERVICIOS, MOD-05-FACTURAS-PROVEEDORES]
 reemplaza: []
@@ -9,20 +9,18 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Conecta Gmail una vez, con consentimiento explícito y token cifrado, y convierte los adjuntos de
-  servicios en borradores de factura con el OCR existente. Google Photos queda como copia opcional.
+  Gmail: conexión, ingesta y borradores implementados en app (GGL-S1, panel, remitentes, S10b, S12).
+  E2E verificado, Pub/Sub/KMS y Google Photos bloqueados por credenciales/decisiones externas; reenvío GGL-S13 es P1.
 ---
 # PRD-GMAIL-01 - Conexión de Google, ingesta de Gmail y copia en Photos
 
-> Estado al 2026-10-24: en curso. GGL-S10b hecho (`docs/roadmap/avances/GGL-S10b.md`): un correo sin adjunto de un remitente filtrado deja un borrador con monto y vencimiento en confianza baja, una imagen PNG del cuerpo ya saneado y pedido de revisión. No se siguen links ni se abre sesión en sitios de terceros.
+> Estado al 2026-10-30: hecho en aplicación para Gmail P0 (épica GGL-E1–E3 en código y tests; avances `GGL-S1`, `GGL-PANEL`, `GGL-REMITENTES`, `GGL-S10b`, `GGL-S12`, `GGL-CRED`, `GGL-PDF`). El epic `0102.md` queda **bloqueado (externo)** hasta E2E con Google verificado, topic Pub/Sub + KMS en producción (Mauri; ver `docs/ESTADO.md`) y segunda ola Photos (GGL-E4 / ADR-0104). GGL-S13 (reenvío sin OAuth) sigue P1 sin ADR. Modo prueba: lista `GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA` y refresh 7 días en testing (`GGL-S12`).
 
 Fuente: `docs/05-compras-servicios-pagos/consumos-servicios.md` (CS1), `docs/05-compras-servicios-pagos/facturas-proveedores.md` (FP2), `docs/diseno/PRD-OCR-01-motor-ocr-fase-0.md`, `src/modules/ocr`, `src/pages/api/gmail/*`, `src/db/schema-servicios.ts`. Restringido por ADR-0005, ADR-0089, ADR-0093, ADR-0102, ADR-0103 y ADR-0104. Fecha extracción: 2026-10-19.
 
-> Estado al 2026-10-24: en curso. GGL-S12 hecho. En modo testing, `/panel/integraciones` y `POST /api/integrations/start` abren el OAuth de Gmail solo si el mail del Dueño está en `GOOGLE_INTEGRATIONS_USUARIOS_PRUEBA` (máximo 100). Fuera de la lista la pantalla explica el límite y no redirige a Google. En testing la pantalla avisa que el refresh vence a los 7 días y hay que reconectar. `GOOGLE_INTEGRATIONS_MODO=verificada` saca el límite y el aviso. Siguen pendientes el reenvío (GGL-S13) y Photos.
-
 ## Problema
 
-Las facturas de servicios llegan por email. El dueño tenía que abrir el correo, bajar el adjunto y cargarlo a mano. Desde el 2026-10-19 el flujo OAuth, la tabla `google_connections`, el token cifrado, `users.watch`, `history.list`, la cola durable y los borradores de Gmail están implementados (ADR-0102/0103, migraciones 0030/0031). Queda pendiente la UI de conexión y consentimiento, la desconexión que descarta jobs, el aviso por `invalid_grant`, la administración de remitentes, el modo prueba y Google Photos (ADR-0104, segunda ola). El scope `gmail.readonly` da acceso de lectura a toda la casilla: la app filtra, pero el permiso técnico es amplio y el consentimiento debe decirlo.
+Las facturas de servicios llegan por email. El dueño tenía que abrir el correo, bajar el adjunto y cargarlo a mano. En repo ya están OAuth, token cifrado, `users.watch`, `history.list`, cola durable, borradores, UI de integraciones/consentimiento, desconexión, salud de conexión, remitentes y modo prueba (migraciones 0030/0031). Lo que no cierra el epic en producción es correr el flujo de punta a punta con credenciales Google reales (consentimiento verificado, Pub/Sub, KMS) y la segunda ola Photos. El scope `gmail.readonly` alcanza técnicamente a toda la casilla aunque la app filtre; el consentimiento propio lo documenta.
 
 El objetivo es que el dueño conecte su email una vez, elija de qué remitentes leer y reciba borradores de factura en la web. El sistema nunca envía, modifica ni borra correo. Google Photos es una copia opcional, no la fuente de verdad.
 
@@ -70,6 +68,8 @@ Requisito GGL-R4: la app conserva el original aunque Photos falle, se desconecte
 - Historia GGL-S17. Borrado en Photos. AC: Given el Dueño borra la copia en Photos When abre la factura Then el original del almacenamiento propio sigue visible. La app no borra media items de Google; el Dueño los administra desde Photos. ADR: 0104. Talla S. Depende de: GGL-S15.
 
 ## Dependencias externas
+
+Bloqueo de cierre del epic (`docs/roadmap/avances/0102.md`): credenciales y despliegue en producción, no código pendiente del núcleo Gmail.
 
 - Proyecto de Google Cloud, pantalla de consentimiento y app OAuth separada de la de login.
 - Verificación de la app y evaluación CASA para `gmail.readonly`, con costo y plazo a confirmar.
