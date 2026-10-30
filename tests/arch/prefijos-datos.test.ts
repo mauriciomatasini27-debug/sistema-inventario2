@@ -66,6 +66,7 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/jobs/gmail-ingesta",
   "/api/jobs/gmail-poll",
   "/api/jobs/gmail-watch",
+  "/api/admin/fiscal/certificados-vencimiento",
 ]);
 
 describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", () => {
@@ -81,7 +82,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(24);
+    expect(EXCEPCIONES_CONTROL.size).toBe(25);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

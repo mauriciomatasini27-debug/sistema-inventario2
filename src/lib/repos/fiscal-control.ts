@@ -1,4 +1,5 @@
 import { kms_desde_env, type Envelope, type Kms } from "../../modules/fiscal/kms.js";
+import { notAfterDesdeCertPem } from "../../modules/fiscal/cert-pem.js";
 import {
   storeFiscalControl,
   storeFiscalControlMemoria,
@@ -82,6 +83,7 @@ export async function guardarComputadorFiscal(
 ): Promise<string> {
   const almacen = deps.almacen ?? almacenPorDefecto();
   const kms = deps.kms ?? kmsPorDefecto();
+  const notAfter = input.notAfter ?? notAfterDesdeCertPem(input.certPem) ?? null;
   return almacen.guardarComputador({
     id: crypto.randomUUID(),
     ambiente: input.ambiente,
@@ -90,7 +92,7 @@ export async function guardarComputadorFiscal(
     certPem: input.certPem,
     keyCiphertext: await cifrar(kms, input.keyPem),
     kmsKeyId: kms.keyId,
-    notAfter: input.notAfter ?? null,
+    notAfter,
   });
 }
 
@@ -108,9 +110,37 @@ export async function asegurarComputadorFiscal(
       cuitProveedor: cfg.cuitProveedor,
       certPem: cfg.certPem,
       keyPem: cfg.keyPem,
+      notAfter: notAfterDesdeCertPem(cfg.certPem),
     },
     deps,
   );
+}
+
+export interface ResumenComputadorFiscal {
+  readonly id: string;
+  readonly ambiente: AmbienteFiscal;
+  readonly alias: string;
+  readonly cuitProveedor: string;
+  readonly notAfter: Date | null;
+}
+
+export async function listarResumenComputadoresFiscal(
+  deps: FiscalControlDeps = {},
+): Promise<readonly ResumenComputadorFiscal[]> {
+  const almacen = deps.almacen ?? almacenPorDefecto();
+  const filas = await almacen.listarComputadores();
+  const out: ResumenComputadorFiscal[] = [];
+  for (const fila of filas) {
+    if (!esAmbienteFiscal(fila.ambiente)) continue;
+    out.push({
+      id: fila.id,
+      ambiente: fila.ambiente,
+      alias: fila.alias,
+      cuitProveedor: fila.cuitProveedor,
+      notAfter: fila.notAfter,
+    });
+  }
+  return out;
 }
 
 export async function leerComputadorFiscal(

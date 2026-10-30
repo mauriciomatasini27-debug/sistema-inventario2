@@ -62,6 +62,16 @@ export interface AdminOverrideMem {
   creadoEn: string;
 }
 
+export interface AlertaCertificadoAdminMem {
+  fiscalComputerId: string;
+  ambiente: string;
+  alias: string;
+  diasRestantes: number;
+  severidad: string;
+  umbralActivo: number | null;
+  actualizadoEn: string;
+}
+
 export const adminStore = {
   actos: [] as AdminActoMem[],
   health: new Map<string, AdminHealthMem>(),
@@ -79,6 +89,7 @@ export const adminStore = {
   // ADMIN-USO-DIARIO: espejo en memoria de contadores técnicos por día.
   // No guarda montos de venta ni abre la base del comercio.
   usoDiario: new Map<string, UsoDiarioContadores>(),
+  alertasCertificadoFiscal: [] as AlertaCertificadoAdminMem[],
 };
 
 export function ultimoHashAdmin(): string | null {
@@ -94,5 +105,6 @@ export function resetAdmin(): void {
   adminStore.overrides.clear();
   adminStore.moraRuns.clear();
   adminStore.usoDiario = new Map<string, UsoDiarioContadores>();
+  adminStore.alertasCertificadoFiscal = [];
   adminStore.auditoriaSana = true;
 }
