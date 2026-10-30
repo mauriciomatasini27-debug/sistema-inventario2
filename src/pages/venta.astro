@@ -112,6 +112,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <PwaRegistro />
     <script>
       import { claveOutboxCola, claveSeqCola, copiarSeqLegado } from "../offline/cola-venta.js";
+      import { codigoDispositivoLocal } from "../offline/device-code-local.js";
       import { debeDrenarPorVisibilidad, drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
       import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
@@ -269,7 +270,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       }
       $("cobrar").onclick = async () => {
         const seq = nextSeq();
-        const device_code = "caja-01";
+        // P1-31: el perfil persiste su código. Dos teléfonos no comparten seq.
+        const device_code = codigoDispositivoLocal(storage);
         const op_id = crypto.randomUUID();
         const nombreNuevo = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
         const linea = {
