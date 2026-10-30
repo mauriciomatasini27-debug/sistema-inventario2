@@ -102,7 +102,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     </main>
     <PwaRegistro />
     <script>
-      import { claveOutboxCola, claveSeqCola, CLAVE_LEGADA_OUTBOX, CLAVE_LEGADA_SEQ, copiarSeqLegado, sincronizarColaVenta } from "../offline/cola-venta.js";
+      import { claveOutboxCola, claveSeqCola, copiarSeqLegado } from "../offline/cola-venta.js";
+      import { drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import {
@@ -231,7 +232,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         mostrarCatalogo();
       };
       refrescarCatalogo();
-      window.addEventListener("online", refrescarCatalogo);
       // 8.Ticket salida: último sale_id para compartir (TV11) + snapshot
       // térmico para BT (TV15 P2: el navegador no importa .ts, se guarda acá).
       let lastSaleId = null;
@@ -307,36 +307,23 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
         return { status: res.status, cuerpo };
       };
-      $("sync").onclick = async () => {
-        // P10-14: primero se drena la cola legada global (sin migrarla); cuando
-        // queda vacía se borran sus claves. Después va la cola del tenant.
-        if (tenant) {
-          const pendientesLegadas = JSON.parse(storage.getItem(CLAVE_LEGADA_OUTBOX) ?? "[]");
-          if (Array.isArray(pendientesLegadas) && pendientesLegadas.length > 0) {
-            try {
-              const rl = await sincronizarColaVenta({
-                leer: () => JSON.parse(storage.getItem(CLAVE_LEGADA_OUTBOX) ?? "[]"),
-                escribir: (items) => storage.setItem(CLAVE_LEGADA_OUTBOX, JSON.stringify(items)),
-                enviar,
-              });
-              if (rl.confirmados > 0 && rl.pendientes === 0) {
-                storage.removeItem(CLAVE_LEGADA_OUTBOX);
-                storage.removeItem(CLAVE_LEGADA_SEQ);
-              }
-            } catch (error) { console.warn("[venta] cola legada", error); }
-          }
-        }
-        const r = await sincronizarColaVenta({
-          leer: () => JSON.parse(storage.getItem(outboxKey) ?? "[]"),
-          escribir: (items) => storage.setItem(outboxKey, JSON.stringify(items)),
-          enviar,
-        });
-        // SYNC-S7: lo sensible solo va online; se avisa en vez de fallar.
-        if (r.cortado) estado("sync cortado: " + r.pendientes + " pendiente(s)");
-        else if (r.sensibles > 0) estado("Necesita conexión (" + r.sensibles + " sensible(s) solo online)");
-        else estado("sync intentado (" + r.confirmados + ")");
+      // P1-28: online y Reintentar sync comparten drenadoUnico (un vuelo).
+      const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar });
+      async function aplicarDrenado(origen) {
+        const resultado = await drenado.drenar();
+        const texto = textoDeDrenado(origen, resultado);
+        if (texto === null) return;
+        estado(texto);
         balance();
+      }
+      $("sync").onclick = () => {
+        void aplicarDrenado("boton");
       };
+      window.addEventListener("online", () => {
+        void refrescarCatalogo();
+        if (esHarnessWorst) return;
+        void aplicarDrenado("linea");
+      });
       // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.
       $("compartir").onclick = async () => {
         if (!lastSaleId) { estado("sin venta para compartir (cobrá primero)"); return; }
