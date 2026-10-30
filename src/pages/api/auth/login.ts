@@ -11,10 +11,31 @@ import { jsonError } from "../../../lib/control.js";
 
 export const prerender = false;
 
+const COOKIE_BASE = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600";
+
+function cookieHost(nombre: string, valor: string): string {
+  // P1-24: encode evita que un next=/panel u otros caracteres rompan Set-Cookie.
+  return `${nombre}=${encodeURIComponent(valor)}; ${COOKIE_BASE}`;
+}
+
+// P1-24: 200 + HTML en vez de 302 directo a Google. Algunos Chrome no
+// persisten Set-Cookie en un 302 cross-site; sin esas cookies el callback
+// responde «Sesión de ingreso inválida o vencida».
+function respuestaHaciaGoogle(destino: string, setCookies: string[]): Response {
+  const safe = destino.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><title>Ingresando…</title></head><body><p>Redirigiendo a Google…</p><p><a href="${safe}">Continuar</a></p><script>location.replace(${JSON.stringify(destino)})</script></body></html>`;
+  const headers = new Headers({
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  for (const c of setCookies) headers.append("Set-Cookie", c);
+  return new Response(html, { status: 200, headers });
+}
+
 // GET /api/auth/login — redirige a Google con PKCE S256 + nonce + state.
 // El verifier/nonce viajan en cookies HttpOnly de un solo uso, nunca en el
 // ID token; el intercambio del código lo hace el callback en el servidor.
-export const GET: APIRoute = async ({ request, redirect }) => {
+export const GET: APIRoute = async ({ request }) => {
   let config;
   try {
     config = leerConfigLogin();
@@ -44,14 +65,12 @@ export const GET: APIRoute = async ({ request, redirect }) => {
     codeChallenge: challenge,
     prompt,
   });
-  // P1-23: nonce/invite/next también en cookies. En Vercel login y callback
-  // suelen caer en instancias distintas y el Map `pendingAuth` no viaja.
-  const r = redirect(destino, 302);
-  const base = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600";
-  r.headers.append("Set-Cookie", `__Host-oauth-state=${state}; ${base}`);
-  r.headers.append("Set-Cookie", `__Host-oauth-pkce=${verifier}; ${base}`);
-  r.headers.append("Set-Cookie", `__Host-oauth-nonce=${nonce}; ${base}`);
-  if (invitationToken) r.headers.append("Set-Cookie", `__Host-oauth-invite=${invitationToken}; ${base}`);
-  if (next) r.headers.append("Set-Cookie", `__Host-oauth-next=${next}; ${base}`);
-  return r;
+  const setCookies = [
+    cookieHost("__Host-oauth-state", state),
+    cookieHost("__Host-oauth-pkce", verifier),
+    cookieHost("__Host-oauth-nonce", nonce),
+  ];
+  if (invitationToken) setCookies.push(cookieHost("__Host-oauth-invite", invitationToken));
+  if (next) setCookies.push(cookieHost("__Host-oauth-next", next));
+  return respuestaHaciaGoogle(destino, setCookies);
 };
