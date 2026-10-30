@@ -307,8 +307,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
         return { status: res.status, cuerpo };
       };
-      // P1-28: botón y online comparten un vuelo. Dos pasadas a la vez
-      // reescriben localStorage y pueden devolver un op_id ya confirmado.
+      // P1-28: online y Reintentar sync comparten drenadoUnico (un vuelo).
       const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar });
       async function aplicarDrenado(origen) {
         const resultado = await drenado.drenar();
@@ -320,8 +319,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       $("sync").onclick = () => {
         void aplicarDrenado("boton");
       };
-      // P1-28: al volver la red se drena la cola sin apretar el botón. El harness
-      // worst no drena solo. El catálogo no espera al push.
       window.addEventListener("online", () => {
         void refrescarCatalogo();
         if (esHarnessWorst) return;

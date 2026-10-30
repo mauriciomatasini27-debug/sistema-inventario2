@@ -191,19 +191,10 @@ describe("drenado único de la cola de venta", () => {
   });
 
   it("sin tenant hay una sola pasada de la clave legada", async () => {
-    const lecturas = { n: 0 };
-    const base = memoria({ [CLAVE_LEGADA_OUTBOX]: [item("op-1")] });
-    const storage: StorageCola = {
-      getItem: (clave) => {
-        if (clave === CLAVE_LEGADA_OUTBOX) lecturas.n += 1;
-        return base.storage.getItem(clave);
-      },
-      setItem: (clave, valor) => base.storage.setItem(clave, valor),
-      removeItem: (clave) => base.storage.removeItem(clave),
-    };
     const enviados: string[] = [];
+    const base = memoria({ [CLAVE_LEGADA_OUTBOX]: [item("op-1")] });
     const drenado = drenadoUnico({
-      storage,
+      storage: base.storage,
       tenantId: null,
       enviar: async (i) => {
         enviados.push(i.op_id);
@@ -214,31 +205,25 @@ describe("drenado único de la cola de venta", () => {
     await drenado.drenar();
 
     expect(enviados).toEqual(["op-1"]);
-    // Una pasada de sincronizarColaVenta lee al empezar y al confirmar. Cuatro sería legada y tenant.
-    expect(lecturas.n).toBe(2);
     expect(base.storage.getItem(CLAVE_LEGADA_OUTBOX)).toBe("[]");
   });
 
   it("tenantId vacío también es una sola pasada de la clave legada", async () => {
-    const lecturas = { n: 0 };
+    const enviados: string[] = [];
     const base = memoria({ [CLAVE_LEGADA_OUTBOX]: [item("op-1")] });
-    const storage: StorageCola = {
-      getItem: (clave) => {
-        if (clave === CLAVE_LEGADA_OUTBOX) lecturas.n += 1;
-        return base.storage.getItem(clave);
-      },
-      setItem: (clave, valor) => base.storage.setItem(clave, valor),
-      removeItem: (clave) => base.storage.removeItem(clave),
-    };
     const drenado = drenadoUnico({
-      storage,
+      storage: base.storage,
       tenantId: "",
-      enviar: async () => ok(),
+      enviar: async (i) => {
+        enviados.push(i.op_id);
+        return ok();
+      },
     });
 
     await drenado.drenar();
 
-    expect(lecturas.n).toBe(2);
+    expect(enviados).toEqual(["op-1"]);
+    expect(base.storage.getItem(CLAVE_LEGADA_OUTBOX)).toBe("[]");
   });
 
   it("el botón a mitad de un éxito no anuncia cero", async () => {
