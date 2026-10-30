@@ -34,6 +34,9 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // PRD-SYNC-01); no corre bajo el middleware de datos.
 // /api/onboarding/alta: alta ON1 con sesión que crea el comercio en control y
 // activa sus módulos de bot (BOT-S1, ADR-0039); no toca la base del tenant.
+// /api/onboarding/estado: P1-26 cuenta el catálogo del comercio autorizado
+// por membership en la query. No entra a PREFIJOS_DATOS porque ese gate usa
+// X-Tenant-Id, no tenant_id, y el handler fija conTenant él mismo.
 // /api/bot-modulos: módulos del bot por tenant en control, solo Dueño, a partir
 // de la sesión + membership (BOT-S1, ADR-0039).
 // /api/whatsapp/resumen: resumen read-only de la tarjeta `Bot` del panel, con
@@ -57,6 +60,7 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/jobs/whatsapp-cierre",
   "/api/jobs/whatsapp-semanal",
   "/api/onboarding/alta",
+  "/api/onboarding/estado",
   "/api/whatsapp/webhook",
   "/api/gmail/webhook",
   "/api/jobs/gmail-ingesta",
@@ -77,7 +81,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(23);
+    expect(EXCEPCIONES_CONTROL.size).toBe(24);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

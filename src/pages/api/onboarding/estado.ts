@@ -1,14 +1,65 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { conTenant } from "../../../lib/tenant-mode.js";
+import { listarProductos } from "../../../lib/repos/catalogo.js";
+import { listarProveedores } from "../../../lib/repos/proveedores.js";
+import { crearAlmacenProductos, crearAlmacenSuppliers } from "../../../lib/repos/_almacen.js";
 import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
 import { pasos_para_rol } from "../../../modules/onboarding/tour.js";
 import { calcular_checklist } from "../../../modules/onboarding/checklist.js";
 
 export const prerender = false;
 
-// GET /api/onboarding/estado?tenant_id= — tour más checklist más video.
-// Barato y cacheable del lado cliente. Sin datos de negocio.
+// P1-26: listarProductos inventa demo-sku-1 cuando el catálogo está vacío
+// y el stock de slice-0 sigue cargado. Esa fila no es un producto del comercio.
+function esDemoInyectado(sku: string, nombre: string, mapa: ReadonlyMap<string, unknown>): boolean {
+  return sku === "demo-sku-1" && nombre === "Demo" && !mapa.has("demo-sku-1") && !mapa.has("DEMO-SKU-1");
+}
+
+async function filasProducto(): Promise<Array<{ minStock: number | null }>> {
+  const mapa = crearAlmacenProductos().comoMapaSoloLectura();
+  try {
+    const { fichas } = await listarProductos("");
+    return fichas.filter((f) => !esDemoInyectado(f.sku, f.nombre, mapa));
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return [...mapa.values()];
+    throw e;
+  }
+}
+
+async function contarProveedores(): Promise<number> {
+  try {
+    return (await listarProveedores()).proveedores.length;
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return crearAlmacenSuppliers().comoMapaSoloLectura().size;
+    throw e;
+  }
+}
+
+function contarInvitaciones(tenantId: string): number {
+  let n = 0;
+  for (const inv of control.invitations.values()) {
+    if (inv.tenantId === tenantId) n += 1;
+  }
+  return n;
+}
+
+// P1-26: /api/onboarding no está en PREFIJOS_DATOS, así que el middleware
+// no fija el comercio. El tenant autorizado es el de la query.
+async function conteosDelComercio(tenantId: string) {
+  return conTenant(tenantId, async () => {
+    const filas = await filasProducto();
+    return {
+      productos: filas.length,
+      productosConUmbral: filas.filter((f) => f.minStock !== null).length,
+      proveedores: await contarProveedores(),
+      invitaciones: contarInvitaciones(tenantId),
+    };
+  });
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
@@ -24,11 +75,9 @@ export const GET: APIRoute = async ({ request }) => {
   const whatsappVerificado = [...control.botLinks.values()].some(
     (l) => l.tenantId === tenantId && l.googleSub === ctx.googleSub && l.estado === "verificado",
   );
+  const conteos = await conteosDelComercio(tenantId);
   const checklist = calcular_checklist({
-    productos: 0,
-    productosConUmbral: 0,
-    proveedores: 0,
-    invitaciones: 0,
+    ...conteos,
     whatsappVerificado,
   });
   const ejemplo = [...control.ejemplos.values()].find((e) => e.tenantRealId === tenantId) ?? null;
