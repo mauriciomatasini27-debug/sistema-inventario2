@@ -98,6 +98,42 @@ export function persistirSesion(s: {
   );
 }
 
+// P1-23: lee una sesión por hash para rehidratar el Map en otra instancia.
+export async function leerSesionDb(idHash: string): Promise<{
+  idHash: string;
+  googleSub: string;
+  tenantId: string | null;
+  expiraAt: string;
+  expiraAbsoluta?: string | undefined;
+  lastSeenAt?: string | undefined;
+  revocadaAt?: string | undefined;
+  motivo?: string | undefined;
+  reauthAt?: string | undefined;
+} | null> {
+  try {
+    const rows = await getControlDb()
+      .select()
+      .from(sessions)
+      .where(eq(sessions.idHash, idHash))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.googleSub) return null;
+    return {
+      idHash: row.idHash,
+      googleSub: row.googleSub,
+      tenantId: row.tenantId ?? null,
+      expiraAt: row.expiraAt.toISOString(),
+      ...(row.expiraAbsoluta ? { expiraAbsoluta: row.expiraAbsoluta.toISOString() } : {}),
+      ...(row.lastSeenAt ? { lastSeenAt: row.lastSeenAt.toISOString() } : {}),
+      ...(row.revocadaAt ? { revocadaAt: row.revocadaAt.toISOString() } : {}),
+      ...(row.motivoRevocacion ? { motivo: row.motivoRevocacion } : {}),
+      ...(row.reauthAt ? { reauthAt: row.reauthAt.toISOString() } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function revocarSesionDb(idHash: string, motivo: string): Promise<boolean> {
   return intentarControl((db) =>
     db.update(sessions).set({ revocadaAt: new Date(), motivoRevocacion: motivo }).where(eq(sessions.idHash, idHash)),

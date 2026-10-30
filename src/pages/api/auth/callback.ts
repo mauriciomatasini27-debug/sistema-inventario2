@@ -10,11 +10,19 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
-import { persistirUsuario } from "../../../lib/control-db.js";
+import { persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
 import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
+
+const COOKIES_OAUTH = [
+  "__Host-oauth-state",
+  "__Host-oauth-pkce",
+  "__Host-oauth-nonce",
+  "__Host-oauth-invite",
+  "__Host-oauth-next",
+] as const;
 
 function leerCookie(header: string | null, nombre: string): string | null {
   if (!header) return null;
@@ -24,6 +32,18 @@ function leerCookie(header: string | null, nombre: string): string | null {
     if (parte.slice(0, i).trim() === nombre) return parte.slice(i + 1).trim() || null;
   }
   return null;
+}
+
+function borrarCookiesOauth(headers: Headers): void {
+  for (const n of COOKIES_OAUTH) {
+    headers.append("Set-Cookie", `${n}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`);
+  }
+}
+
+function jsonOauth(error: string, status: number): Response {
+  const r = Response.json({ error }, { status });
+  borrarCookiesOauth(r.headers);
+  return r;
 }
 
 // GET /api/auth/callback — valida el código, upsertea el usuario, resuelve
@@ -38,14 +58,32 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const header = request.headers.get("cookie");
   const stateCookie = leerCookie(header, "__Host-oauth-state");
   const verifier = leerCookie(header, "__Host-oauth-pkce");
-  const pendiente = state ? control.pendingAuth.get(state) : undefined;
-  if (!code || !state || !pendiente || stateCookie !== state || !verifier) {
+  const nonceCookie = leerCookie(header, "__Host-oauth-nonce");
+  const inviteCookie = leerCookie(header, "__Host-oauth-invite") ?? undefined;
+  const nextCookieRaw = leerCookie(header, "__Host-oauth-next");
+  const nextCookie =
+    nextCookieRaw && ["/panel", "/admin", "/"].includes(nextCookieRaw) ? nextCookieRaw : undefined;
+  const enMapa = state ? control.pendingAuth.get(state) : undefined;
+  // P1-23: cookies son la fuente durable (Vercel multi-instancia). El Map
+  // sigue como caché monoproceso; si no está, armamos el pendiente desde cookies.
+  const pendiente = enMapa
+    ? enMapa
+    : nonceCookie && verifier
+      ? {
+          nonce: nonceCookie,
+          verifier,
+          expiraEnMs: Date.now() + 10 * 60_000,
+          ...(inviteCookie ? { invitationToken: inviteCookie } : {}),
+          ...(nextCookie ? { next: nextCookie } : {}),
+        }
+      : undefined;
+  if (!code || !state || !pendiente || stateCookie !== state || !verifier || !pendiente.nonce) {
     if (state) control.pendingAuth.delete(state);
-    return Response.json({ error: "Sesión de ingreso inválida o vencida. Volvé a intentarlo." }, { status: 403 });
+    return jsonOauth("Sesión de ingreso inválida o vencida. Volvé a intentarlo.", 403);
   }
-  if (pendiente.expiraEnMs < Date.now()) {
+  if (enMapa && pendiente.expiraEnMs < Date.now()) {
     control.pendingAuth.delete(state);
-    return Response.json({ error: "Sesión de ingreso vencida. Volvé a intentarlo." }, { status: 403 });
+    return jsonOauth("Sesión de ingreso vencida. Volvé a intentarlo.", 403);
   }
   control.pendingAuth.delete(state);
 
@@ -53,7 +91,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   try {
     config = leerConfigLogin();
   } catch {
-    return Response.json({ error: "Falta configurar GOOGLE_LOGIN_CLIENT_ID/SECRET/REDIRECT" }, { status: 500 });
+    return jsonOauth("Falta configurar GOOGLE_LOGIN_CLIENT_ID/SECRET/REDIRECT", 500);
   }
 
   let identidad;
@@ -65,7 +103,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       nonceEsperado: pendiente.nonce,
     });
   } catch {
-    return Response.json({ error: "No se pudo validar tu cuenta de Google. Volvé a intentarlo." }, { status: 403 });
+    return jsonOauth("No se pudo validar tu cuenta de Google. Volvé a intentarlo.", 403);
   }
 
   const email = normalizarEmail(identidad.email);
@@ -175,6 +213,17 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     // Google cuenta como reauth fresca.
     reauthAt: ahora.toISOString(),
   });
+  // P1-23: sin persistir, el siguiente request en otra instancia de Vercel
+  // no encuentra la sesión en el Map y el login parece no haber pasado.
+  void persistirSesion({
+    idHash: creada.registro.idHash,
+    googleSub: identidad.sub,
+    tenantId,
+    expiraAt: creada.registro.expiraAt,
+    expiraAbsoluta: creada.registro.expiraAbsoluta,
+    lastSeenAt: ahora.toISOString(),
+    reauthAt: ahora.toISOString(),
+  });
   control.events.push({ tenantId, tipo: "login", actor: identidad.sub });
   if (agente && agentesPrevios.size > 0 && !agentesPrevios.has(agente)) {
     void notificarAlertaSeguridad({ evento: "login_nuevo", tenantId, googleSubDestino: identidad.sub, detalle: agente });
@@ -186,11 +235,13 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     path: "/",
     maxAge: 30 * 24 * 3600,
   });
-  const next = (pendiente as { next?: string }).next;
+  const next = pendiente.next;
   // AU2-S3: next validado gana; sin next, la allowlist admin termina en
   // /admin; el defecto para el resto queda intacto. El corte de permisos lo
   // hace exigirAdmin en cada API, no este redirect.
   const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
   const destino = nextOk ?? (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente");
-  return redirect(destino, 302);
+  const r = redirect(destino, 302);
+  borrarCookiesOauth(r.headers);
+  return r;
 }

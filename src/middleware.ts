@@ -2,6 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { control } from "./lib/store.js";
 import { membershipActiva, resolverSesion } from "./lib/control.js";
 import { rehidratarMembresias } from "./lib/rehidratar-membresia.js";
+import { rehidratarSesion } from "./lib/rehidratar-sesion.js";
 import { gateJob, gateTenantDatos } from "./lib/tenant-context.js";
 import { conTenant } from "./lib/tenant-mode.js";
 import { BaseNoDisponible } from "./lib/server-db.js";
@@ -30,6 +31,9 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
     }
   }
 
+  // P1-23: primero la sesión desde la base (cookie → hash → fila), después
+  // membresías. Sin esto un login en otra instancia de Vercel queda huérfano.
+  await rehidratarSesion(request);
   // Sesión creada en este proceso con el comercio todavía vacío (el login
   // anterior no lo cargó). Hay que traerlo antes de que la ruta decida el 403.
   const sesion = resolverSesion(request);
