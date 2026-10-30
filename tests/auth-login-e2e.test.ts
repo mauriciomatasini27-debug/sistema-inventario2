@@ -98,11 +98,11 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   });
 });
 
-describe("P3-2a flags de cookies y fin de la nonce-cookie (AU-FIX-S1/S4)", () => {
-  it("las 2 cookies traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600; sin nonce-cookie", async () => {
+describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {
+  it("las 3 cookies traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     const cookies = setCookies(rLogin);
-    expect(cookies).toHaveLength(2);
+    expect(cookies).toHaveLength(3);
     for (const c of cookies) {
       expect(c).toContain("HttpOnly");
       expect(c).toContain("Secure");
@@ -110,7 +110,24 @@ describe("P3-2a flags de cookies y fin de la nonce-cookie (AU-FIX-S1/S4)", () =>
       expect(c).toContain("Path=/");
       expect(c).toContain("Max-Age=600");
     }
-    expect(cookies.join("; ")).not.toContain("__Host-oauth-nonce=");
+    const jar = cookies.join("; ");
+    expect(jar).toContain("__Host-oauth-state=");
+    expect(jar).toContain("__Host-oauth-pkce=");
+    expect(jar).toContain("__Host-oauth-nonce=");
+  });
+
+  it("callback sin pendingAuth en memoria (otra instancia) sigue con cookies", async () => {
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    expect(control.pendingAuth.has(state)).toBe(true);
+    control.pendingAuth.clear();
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
+        headers: { cookie: setCookies(rLogin).join("; ") },
+      }),
+    );
+    expect(rCb.status).toBe(302);
+    expect([...control.sessions.values()].some((s) => s.googleSub === "juan")).toBe(true);
   });
 });
 

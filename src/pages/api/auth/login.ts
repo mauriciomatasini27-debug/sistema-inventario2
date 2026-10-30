@@ -34,8 +34,8 @@ export const GET: APIRoute = async ({ request, redirect }) => {
   control.pendingAuth.set(state, { nonce, verifier, invitationToken, expiraEnMs: Date.now() + 10 * 60_000, ...(next ? { next } : {}) });
   // Por qué cookies y no query persistente: el state/nonce no deben quedar en
   // el historial ni en logs; se consumen en el callback y se borran.
-  // El nonce vive solo en el mapa (el callback lo valida contra el ID token):
-  // no viaja en cookie para no sumar superficie.
+  // P1-23: nonce también viaja en cookie porque el Map no sobrevive entre
+  // instancias de Vercel; el callback lo valida contra el ID token.
   const destino = buildAuthorizationUrl({
     clientId: config.clientId,
     redirectUri: config.redirectUri,
@@ -44,8 +44,14 @@ export const GET: APIRoute = async ({ request, redirect }) => {
     codeChallenge: challenge,
     prompt,
   });
+  // P1-23: nonce/invite/next también en cookies. En Vercel login y callback
+  // suelen caer en instancias distintas y el Map `pendingAuth` no viaja.
   const r = redirect(destino, 302);
-  r.headers.append("Set-Cookie", `__Host-oauth-state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
-  r.headers.append("Set-Cookie", `__Host-oauth-pkce=${verifier}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
+  const base = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600";
+  r.headers.append("Set-Cookie", `__Host-oauth-state=${state}; ${base}`);
+  r.headers.append("Set-Cookie", `__Host-oauth-pkce=${verifier}; ${base}`);
+  r.headers.append("Set-Cookie", `__Host-oauth-nonce=${nonce}; ${base}`);
+  if (invitationToken) r.headers.append("Set-Cookie", `__Host-oauth-invite=${invitationToken}; ${base}`);
+  if (next) r.headers.append("Set-Cookie", `__Host-oauth-next=${next}; ${base}`);
   return r;
 };
