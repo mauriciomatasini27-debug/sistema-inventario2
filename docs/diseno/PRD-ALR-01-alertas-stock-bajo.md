@@ -1,20 +1,19 @@
 ---
 id: PRD-ALR-01
 tipo: prd
-estado: en curso
+estado: hecho
 modulos: [bot, email, inventario]
 depende_de: [ADR-0024, ADR-0028, ADR-0039, ADR-0043]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Alertas automáticas de stock bajo con mínimo por producto, destinatarios con opt-in y armar pedido. ALR-S1
-  persistido y editable hecho 2026-10-16; el endpoint del job corre con JOBSSECRET. ALR-S3 manda al canal de notification_preferences. Pendientes: pg_cron real (vive fuera del repo) y claves de alerta durables (hoy son un Set en memoria; `notification_events` ya existe).
+  Alertas automáticas de stock bajo con mínimo por producto, destinatarios con opt-in y armar pedido. ALR-S1 a S5 hechos en app; la programación pg_cron real vive fuera del repo (issue #69).
 ---
 # PRD-ALR-01 - Alertas automáticas de stock bajo (R2)
 
 Fuente: `docs/07-canales-whatsapp-email/bot-whatsapp-parte-1.md` (B4 alertas por umbral, B5 aviso matutino), `docs/07-canales-whatsapp-email/notificaciones-email.md` (NE2 matutino), `src/modules/email/stock-matutino.ts`, `src/modules/whatsapp/alertas.ts`, `src/jobs/whatsapp-aviso-matutino.ts`, `docs/migracion-supabase.md`. Fecha extracción: 2026-10-12. Restringido por ADR-0024, ADR-0028, ADR-0039, ADR-0043. Gap: núcleo puro y tests existen; sin scheduler real ni mínimo editable persistido.
 
-> Estado al 2026-10-24: en curso. ALR-S1 (`min_stock`/`reorder_qty` persistidos y editables en el panel) hecho. ALR-S2 parcial: el endpoint con `JOBSSECRET` ya guarda cada alerta enviada en `notification_events` (clave `alerta_stock:tenant:sku:día`) y no repite la no urgente el mismo día (`docs/roadmap/avances/ALR-S2.md`, `tests/alr-memoria-durable.test.ts`); falta el `pg_cron` real. ALR-S3 hecho: el job manda al canal de `notification_preferences` (WhatsApp, email o ambos); sin opt-in de WhatsApp el encargado recibe solo email, el canal pausado no recibe, el Dueño entra igual y otro tenant no se mezcla (`docs/roadmap/avances/ALR-S3.md`, `tests/alr-s3-canal.test.ts`). ALR-S5 hecho: botón Armar pedido en el historial (`docs/roadmap/avances/ALR-S5.md`, `tests/alr-s5-armar-pedido.test.ts`).
+> Estado al 2026-10-30: hecho en aplicación. ALR-S1 a S5 cerrados (`docs/roadmap/avances/ALR-S1.md` … `ALR-S5.md`, más `ALR-S4.md`); S2 incluye idempotencia durable y job con `JOBS_SECRET` (`tests/alr-memoria-durable.test.ts`, `alr-stock-bajo.test.ts`). La programación automática con `pg_cron`/`pg_net` no está en este repo: issue #69 (ops / Supabase).
 
 ## Épica ALR-E1. Detección bajo mínimo
 
