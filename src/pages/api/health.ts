@@ -8,17 +8,25 @@ export const prerender = false;
 // Flags env (solo presencia, sin valores): diagnostican deploy Vercel sin
 // filtrar secretos. Quitar cuando Production lea las vars.
 export const GET: APIRoute = async () => {
-  const tieneGoogle = Boolean(
-    leerVarEntorno("GOOGLE_LOGIN_CLIENT_ID") &&
-      leerVarEntorno("GOOGLE_LOGIN_CLIENT_SECRET") &&
-      leerVarEntorno("GOOGLE_LOGIN_REDIRECT"),
-  );
+  const tieneGoogleId = Boolean(leerVarEntorno("GOOGLE_LOGIN_CLIENT_ID"));
+  const tieneGoogleSecret = Boolean(leerVarEntorno("GOOGLE_LOGIN_CLIENT_SECRET"));
+  const tieneGoogleRedirect = Boolean(leerVarEntorno("GOOGLE_LOGIN_REDIRECT"));
+  const tieneGoogle = tieneGoogleId && tieneGoogleSecret && tieneGoogleRedirect;
   const tieneDb = Boolean(
     leerVarEntorno("CONTROL_DATABASE_URL") && leerVarEntorno("TENANT_DATABASE_URL"),
   );
   const tieneJobs = Boolean(leerVarEntorno("JOBS_SECRET"));
   return Response.json(
-    { ok: true, ahora: new Date().toISOString(), tieneGoogle, tieneDb, tieneJobs },
+    {
+      ok: true,
+      ahora: new Date().toISOString(),
+      tieneGoogle,
+      tieneGoogleId,
+      tieneGoogleSecret,
+      tieneGoogleRedirect,
+      tieneDb,
+      tieneJobs,
+    },
     { status: 200 },
   );
 };

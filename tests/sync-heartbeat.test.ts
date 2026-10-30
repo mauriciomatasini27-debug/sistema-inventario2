@@ -14,6 +14,9 @@ describe("sync heartbeat SYNC-S3/S4 (PRD-SYNC-01)", () => {
     expect(j["ok"]).toBe(true);
     expect(typeof j["ahora"]).toBe("string");
     expect(typeof j["tieneGoogle"]).toBe("boolean");
+    expect(typeof j["tieneGoogleId"]).toBe("boolean");
+    expect(typeof j["tieneGoogleSecret"]).toBe("boolean");
+    expect(typeof j["tieneGoogleRedirect"]).toBe("boolean");
     expect(typeof j["tieneDb"]).toBe("boolean");
     expect(typeof j["tieneJobs"]).toBe("boolean");
   });
