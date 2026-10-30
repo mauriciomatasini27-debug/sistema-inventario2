@@ -25,6 +25,7 @@ export interface FilaTa {
 export interface FiscalControlStore {
   guardarComputador(fila: FilaComputador): Promise<string>;
   buscarComputador(ambiente: string, alias: string): Promise<FilaComputador | null>;
+  listarComputadores(): Promise<readonly FilaComputador[]>;
   guardarTa(fila: FilaTa): Promise<void>;
   buscarTa(fiscalComputerId: string, servicio: string, ambiente: string): Promise<FilaTa | null>;
 }
@@ -79,6 +80,20 @@ export function storeFiscalControl(): FiscalControlStore {
         kmsKeyId: f.kmsKeyId,
         notAfter: f.notAfter,
       };
+    },
+
+    async listarComputadores() {
+      const filas = await db.select().from(fiscalComputers);
+      return filas.map((f) => ({
+        id: f.id,
+        ambiente: f.ambiente,
+        alias: f.alias,
+        cuitProveedor: f.cuitProveedor,
+        certPem: f.certPem,
+        keyCiphertext: f.keyCiphertext,
+        kmsKeyId: f.kmsKeyId,
+        notAfter: f.notAfter,
+      }));
     },
 
     async guardarTa(f) {
@@ -142,6 +157,9 @@ export function storeFiscalControlMemoria(): FiscalControlStore {
     },
     async buscarComputador(ambiente, alias) {
       return computadores.get(claveComputador(ambiente, alias)) ?? null;
+    },
+    async listarComputadores() {
+      return [...computadores.values()];
     },
     async guardarTa(f) {
       tas.set(claveTa(f.fiscalComputerId, f.servicio, f.ambiente), f);

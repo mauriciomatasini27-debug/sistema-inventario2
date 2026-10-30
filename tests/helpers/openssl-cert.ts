@@ -12,10 +12,11 @@ export function opensslDisponible(): boolean {
   }
 }
 
-export function generarCertificadoPrueba(): { certPem: string; keyPem: string } {
+export function generarCertificadoPrueba(opciones?: { diasValidez?: number }): { certPem: string; keyPem: string } {
   const dir = mkdtempSync(join(tmpdir(), "fiscal-cert-"));
   const key = join(dir, "key.pem");
   const cert = join(dir, "cert.pem");
+  const dias = String(opciones?.diasValidez ?? 2);
   execFileSync("openssl", [
     "req",
     "-x509",
@@ -26,7 +27,7 @@ export function generarCertificadoPrueba(): { certPem: string; keyPem: string } 
     "-out",
     cert,
     "-days",
-    "2",
+    dias,
     "-nodes",
     "-subj",
     "/CN=fiscal-test",

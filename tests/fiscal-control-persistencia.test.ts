@@ -90,6 +90,9 @@ describe("persistencia fiscal control", () => {
       async buscarComputador() {
         return fila;
       },
+      async listarComputadores() {
+        return [fila];
+      },
       async guardarTa() {},
       async buscarTa() {
         return null;
