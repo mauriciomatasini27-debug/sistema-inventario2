@@ -7,12 +7,15 @@ import { resetStore, store } from "../src/lib/store.js";
 describe("sync heartbeat SYNC-S3/S4 (PRD-SYNC-01)", () => {
   beforeEach(() => resetStore());
 
-  it("GET /api/health responde ok + ahora", async () => {
+  it("GET /api/health responde ok + ahora y flags de env (solo booleans)", async () => {
     const res = (await GETHealth(ctx("http://x/api/health"))) as Response;
     expect(res.status).toBe(200);
     const j = (await res.json()) as Record<string, unknown>;
     expect(j["ok"]).toBe(true);
     expect(typeof j["ahora"]).toBe("string");
+    expect(typeof j["tieneGoogle"]).toBe("boolean");
+    expect(typeof j["tieneDb"]).toBe("boolean");
+    expect(typeof j["tieneJobs"]).toBe("boolean");
   });
 
   it("heartbeat sin pendientes queda verde y registra device_sync", async () => {
