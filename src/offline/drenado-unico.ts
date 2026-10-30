@@ -12,6 +12,11 @@ import {
 
 export type OrigenDrenado = "boton" | "linea";
 
+// P1-30: la vuelta a la pestaña drena como online, salvo el harness worst.
+export function debeDrenarPorVisibilidad(visibilityState: string, esHarnessWorst: boolean): boolean {
+  return visibilityState === "visible" && !esHarnessWorst;
+}
+
 export interface DepsDrenado {
   storage: StorageCola;
   tenantId: string | null;

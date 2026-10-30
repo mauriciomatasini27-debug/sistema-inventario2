@@ -13,7 +13,7 @@ resumen: |
 ---
 # PRD-SYNC-01 - Sync pull, heartbeat, grants y devices
 
-> Estado al 2026-10-30: SYNC-S1 a S7 siguen hechos. P1-28 cubre el disparador OF4.5 de conexión recuperada para la cola de `/venta` (`drenadoUnico` en `src/offline/drenado-unico.ts`, avance `docs/roadmap/avances/P1-28.md`). El botón Reintentar sync queda como reintento opcional (OF4.6). P1-29 muestra en la barra de `/venta` verde, ámbar, azul o rojo (`reducirIndicadorSync` en `src/offline/indicador-sync.ts`, avance `docs/roadmap/avances/P1-29.md`) sin ping a `/api/health`.
+> Estado al 2026-10-30: SYNC-S1 a S7 siguen hechos. P1-28 cubre el disparador OF4.5 de conexión recuperada para la cola de `/venta` (`drenadoUnico` en `src/offline/drenado-unico.ts`, avance `docs/roadmap/avances/P1-28.md`). El botón Reintentar sync queda como reintento opcional (OF4.6). P1-29 muestra en la barra de `/venta` verde, ámbar, azul o rojo (`reducirIndicadorSync` en `src/offline/indicador-sync.ts`, avance `docs/roadmap/avances/P1-29.md`) sin ping a `/api/health`. P1-30 drena la cola de `/venta` al volver a la pestaña (`debeDrenarPorVisibilidad`, avance `docs/roadmap/avances/P1-30.md`), mismo origen `linea` y sin temporizador.
 
 Fuente: `docs/01-fundacion/modo-offline.md` (OF3, OF4, OF5, OF9, OF14), ADR-0003, ADR-0017. Estado 2026-10-21: SYNC-S1 a S7 implementados en `src/pages/api/sync/{push,promote,pull,heartbeat,offline-grants}.ts` y `src/pages/api/devices/register.ts`. P10-13 aisló `offline:catalogo:<tenantId>`; la cola `slice0-outbox`/`slice0-seq` sigue global y es el ítem P10-14.
 
