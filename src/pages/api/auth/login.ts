@@ -21,9 +21,12 @@ function cookieHost(nombre: string, valor: string): string {
 // P1-24: 200 + HTML en vez de 302 directo a Google. Algunos Chrome no
 // persisten Set-Cookie en un 302 cross-site; sin esas cookies el callback
 // responde «Sesión de ingreso inválida o vencida».
+// P1-25: no navegar en el mismo tick (meta 0 / location.replace inmediato):
+// el browser a veces sale a Google antes de guardar Set-Cookie → 1er login
+// vuelve a la landing y el 2º ya funciona.
 function respuestaHaciaGoogle(destino: string, setCookies: string[]): Response {
   const safe = destino.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><title>Ingresando…</title></head><body><p>Redirigiendo a Google…</p><p><a href="${safe}">Continuar</a></p><script>location.replace(${JSON.stringify(destino)})</script></body></html>`;
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1;url=${safe}"><title>Ingresando…</title></head><body><p>Redirigiendo a Google…</p><p><a href="${safe}">Continuar</a></p><script>setTimeout(function(){location.replace(${JSON.stringify(destino)})},200)</script></body></html>`;
   const headers = new Headers({
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store",

@@ -239,6 +239,23 @@ const pills = [
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
       };
+      // P1-25: distinguir "sin sesión" vs "logueado pero fuera de allowlist".
+      let msgSinAdmin = "Sin permiso (403): iniciá sesión como admin.";
+      fetch("/api/auth/sesion-actual")
+        .then((r) => r.json())
+        .then((s) => {
+          if (!s || !s.logueado) {
+            msgSinAdmin = "Sin sesión: entrá con Admin desde la landing.";
+            return;
+          }
+          if (s.es_admin) return;
+          msgSinAdmin =
+            "Tu cuenta está logueada pero no está en ADMIN_ALLOWLIST_SUBS. Sub: " +
+            (s.google_sub || "(desconocido)");
+          const banner = document.getElementById("tenants-estado");
+          if (banner) banner.textContent = msgSinAdmin;
+        })
+        .catch(() => {});
       get("/api/admin/salud").then((b) => {
         const filas = b.salud || [];
         const activos = filas.filter((f) => f.estadoVisto === "activo").length;
@@ -265,10 +282,9 @@ const pills = [
           document.getElementById("n-activos").textContent = "—";
           document.getElementById("n-mora").textContent = "—";
           document.getElementById("n-senales").textContent = "—";
-          const msg = "Sin permiso (403): iniciá sesión como admin.";
-          document.getElementById("tenants-estado").textContent = msg;
-          document.getElementById("mora-estado").textContent = msg;
-          document.getElementById("actos-estado").textContent = msg;
+          document.getElementById("tenants-estado").textContent = msgSinAdmin;
+          document.getElementById("mora-estado").textContent = msgSinAdmin;
+          document.getElementById("actos-estado").textContent = msgSinAdmin;
           return;
         }
         // Demo marcados: mientras no haya agregados reales.
@@ -325,7 +341,7 @@ const pills = [
         marca("b-uso", true);
       }).catch((e) => {
         document.getElementById("uso-estado").textContent = e && e.message === "forbidden"
-          ? "Sin permiso (403): iniciá sesión como admin."
+          ? msgSinAdmin
           : "Sin conexión: no hay contadores para mostrar.";
         const tb = document.getElementById("uso-body");
         tb.replaceChildren();
@@ -349,7 +365,7 @@ const pills = [
         document.getElementById("actos-estado").textContent = "En vivo: últimos " + (b.actos || []).length + " actos.";
       }).catch((e) => {
         document.getElementById("actos-estado").textContent = e && e.message === "forbidden"
-          ? "Sin permiso (403): iniciá sesión como admin."
+          ? msgSinAdmin
           : "Sin conexión: mostrando demo.";
       });
       // Heatmap demo 5x12. Estilo inline: Astro scopa el <style> y los <i>
