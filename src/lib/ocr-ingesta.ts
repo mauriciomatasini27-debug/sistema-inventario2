@@ -20,12 +20,9 @@ import { crear_job, type EstadoOcrJob, type FallbackNubeApi } from "../modules/o
 import type { ImagenOcr } from "../modules/ocr/imagen.js";
 import { parseMontoAR, type Borrador, type ConfianzaCampo, type ConfianzaPorCampo, type ItemBorrador } from "../modules/purchases/facturas.js";
 
-// Ingesta OCR (ADR-0005, PRD-OCR-01) en una sola implementación: la usan
-// `POST /api/ocr/jobs` (Gmail y callers de API) y el webhook de WhatsApp.
-// Idempotente por clave (wamid o message-id): la clave repetida devuelve el
-// job existente sin reprocesar. El job se procesa inline (en_cola → listo)
-// para poder ofrecer el borrador en la misma respuesta; una cola que mantenga
-// este contrato puede ponerse abajo sin tocar los llamadores.
+// OCR1-S5 / ADR-0005: ingesta única para `POST /api/ocr/jobs` y webhook WA;
+// idempotente por wamid o message-id; inline en la misma respuesta. E2E Gmail
+// verificado y número Meta (#60) quedan fuera del repo (avance OCR1-S5.md).
 
 export interface EntradaIngestaOcr {
   /** Idempotency-Key: wamid de WhatsApp o message-id de Gmail. */

@@ -18,7 +18,7 @@ Fuente: ADR-0005, ADR-0089, `docs/05-compras-servicios-pagos/facturas-proveedore
 
 ## Problema
 
-El pipeline de OCR y el job existen y el cliente PaddleOCR ya está cableado (`src/modules/ocr/motor.ts`, `src/lib/ocr-ingesta.ts`). Falta la medición real de Fase 0 sobre el set del piloto: sin tiempo por imagen y tasa de acierto no se sabe si PaddleOCR cumple lo que prometió ADR-0089. OCR1-S3 tiene un benchmark determinista (`tests/ocr-benchmark.test.ts`) y OCR1-S4 está hecho; OCR1-S5 está parcial (WhatsApp y Gmail cableados, falta E2E con proveedores reales).
+El pipeline de OCR y el job existen y el cliente PaddleOCR ya está cableado (`src/modules/ocr/motor.ts`, `src/lib/ocr-ingesta.ts`). OCR1-S4 y OCR1-S5 (canal WhatsApp en app) están hechos en repo; OCR1-S3 sigue parcial hasta corpus/endpoints del piloto (issue #70). E2E con Meta (#60) y Gmail verificado en producción dependen de credenciales externas.
 
 ## Épica OCR1-E1. Benchmark de Fase 0
 
@@ -37,7 +37,7 @@ Requisito OCR1-2: con el benchmark verde, el borrador y la confirmación de un t
 
 ## Dependencias externas
 
-Mauri aporta el set de comprobantes desde los comercios del piloto. La máquina CX22 o CX33 está disponible para el benchmark.
+Mauri aporta el set de comprobantes desde los comercios del piloto (issue #70). La máquina CX22 o CX33 está disponible para el benchmark. E2E del borrador por WhatsApp con el número central Meta (issue #60) y Gmail OAuth verificado (PRD-GMAIL-01 / credenciales Mauri) no bloquean el cierre del slice en código; ver `docs/roadmap/avances/OCR1-S5.md`.
 
 ## Estrategia prueba
 
