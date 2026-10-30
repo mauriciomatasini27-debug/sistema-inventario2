@@ -29,7 +29,14 @@ function leerCookie(header: string | null, nombre: string): string | null {
   for (const parte of header.split(";")) {
     const i = parte.indexOf("=");
     if (i < 0) continue;
-    if (parte.slice(0, i).trim() === nombre) return parte.slice(i + 1).trim() || null;
+    if (parte.slice(0, i).trim() !== nombre) continue;
+    const crudo = parte.slice(i + 1).trim();
+    if (!crudo) return null;
+    try {
+      return decodeURIComponent(crudo);
+    } catch {
+      return crudo;
+    }
   }
   return null;
 }
@@ -44,6 +51,22 @@ function jsonOauth(error: string, status: number): Response {
   const r = Response.json({ error }, { status });
   borrarCookiesOauth(r.headers);
   return r;
+}
+
+function falloIngreso(
+  request: Request,
+  redirect: (path: string, status?: 302) => Response,
+  error: string,
+  status = 403,
+): Response {
+  // P1-24: el navegador (Accept: text/html) vuelve a la landing en vez de JSON crudo.
+  const acepta = request.headers.get("accept") ?? "";
+  if (acepta.includes("text/html")) {
+    const r = redirect(`/?ingreso=error&mensaje=${encodeURIComponent(error)}`, 302);
+    borrarCookiesOauth(r.headers);
+    return r;
+  }
+  return jsonOauth(error, status);
 }
 
 // GET /api/auth/callback — valida el código, upsertea el usuario, resuelve
@@ -79,11 +102,11 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       : undefined;
   if (!code || !state || !pendiente || stateCookie !== state || !verifier || !pendiente.nonce) {
     if (state) control.pendingAuth.delete(state);
-    return jsonOauth("Sesión de ingreso inválida o vencida. Volvé a intentarlo.", 403);
+    return falloIngreso(request, redirect, "Sesión de ingreso inválida o vencida. Volvé a intentarlo.");
   }
   if (enMapa && pendiente.expiraEnMs < Date.now()) {
     control.pendingAuth.delete(state);
-    return jsonOauth("Sesión de ingreso vencida. Volvé a intentarlo.", 403);
+    return falloIngreso(request, redirect, "Sesión de ingreso vencida. Volvé a intentarlo.");
   }
   control.pendingAuth.delete(state);
 
@@ -91,7 +114,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   try {
     config = leerConfigLogin();
   } catch {
-    return jsonOauth("Falta configurar GOOGLE_LOGIN_CLIENT_ID/SECRET/REDIRECT", 500);
+    return falloIngreso(request, redirect, "Falta configurar GOOGLE_LOGIN_CLIENT_ID/SECRET/REDIRECT", 500);
   }
 
   let identidad;
@@ -103,7 +126,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       nonceEsperado: pendiente.nonce,
     });
   } catch {
-    return jsonOauth("No se pudo validar tu cuenta de Google. Volvé a intentarlo.", 403);
+    return falloIngreso(request, redirect, "No se pudo validar tu cuenta de Google. Volvé a intentarlo.");
   }
 
   const email = normalizarEmail(identidad.email);

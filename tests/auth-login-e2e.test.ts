@@ -30,6 +30,21 @@ function setCookies(r: Response): string[] {
   return typeof h.getSetCookie === "function" ? h.getSetCookie() : [];
 }
 
+// P1-24: login responde 200 HTML (cookies) + link a Google, no 302 cross-site.
+async function urlGoogle(r: Response): Promise<string> {
+  const loc = r.headers.get("Location");
+  if (loc) return loc;
+  const html = await r.clone().text();
+  const m = html.match(/https:\/\/accounts\.google\.com[^"'\s<]+/);
+  return m ? m[0].replace(/&amp;/g, "&") : "";
+}
+
+function stateDeCookies(cookies: string[]): string {
+  const jar = cookies.join("; ");
+  const m = jar.match(/__Host-oauth-state=([^;]+)/);
+  return m ? decodeURIComponent(m[1]!) : "";
+}
+
 function sesion(sub: string, tenantId: string | null) {
   const ahora = new Date();
   const c = crearSesion({ googleSub: sub, tenantId, ahora });
@@ -55,14 +70,15 @@ beforeEach(() => {
 describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   it("login entrega state+PKCE en cookies y el callback crea sesión", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    expect(rLogin.status).toBe(302);
-    const loc = rLogin.headers.get("Location") ?? "";
+    expect(rLogin.status).toBe(200);
+    const loc = await urlGoogle(rLogin);
     expect(loc).toContain("accounts.google.com");
-    const state = new URL(loc).searchParams.get("state") ?? "";
-    expect(state).not.toBe("");
     const cookies = setCookies(rLogin);
+    const state = stateDeCookies(cookies);
+    expect(state).not.toBe("");
+    expect(new URL(loc).searchParams.get("state")).toBe(state);
     const jar = cookies.join("; ");
-    expect(jar).toContain(`__Host-oauth-state=${state}`);
+    expect(jar).toContain("__Host-oauth-state=");
     expect(jar).toContain("__Host-oauth-pkce=");
 
     const cb = ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
@@ -78,7 +94,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
 
   it("state vencido da 403 y borra la entrada", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     const p = control.pendingAuth.get(state)!;
     control.pendingAuth.set(state, { ...p, expiraEnMs: Date.now() - 1000 });
     const rCb = await getCallback(
@@ -92,7 +108,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
 
   it("sin cookies el callback sigue 403", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(ctx(`http://x/api/auth/callback?code=CODE&state=${state}`));
     expect(rCb.status).toBe(403);
   });
@@ -101,6 +117,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
 describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {
   it("las 3 cookies traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    expect(rLogin.status).toBe(200);
     const cookies = setCookies(rLogin);
     expect(cookies).toHaveLength(3);
     for (const c of cookies) {
@@ -118,7 +135,7 @@ describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {
 
   it("callback sin pendingAuth en memoria (otra instancia) sigue con cookies", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     expect(control.pendingAuth.has(state)).toBe(true);
     control.pendingAuth.clear();
     const rCb = await getCallback(
@@ -135,7 +152,7 @@ describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:17
   async function flujoConNext(next: string | null): Promise<{ destino: string | null; pendienteNext: string | undefined }> {
     const qs = next === null ? "" : `?next=${encodeURIComponent(next)}`;
     const rLogin = await getLogin(ctx(`http://x/api/auth/login${qs}`));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     const pendienteNext = control.pendingAuth.get(state)?.next;
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
@@ -175,7 +192,7 @@ describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:17
 describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => {
   async function callbackSinNext(): Promise<string | null> {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
         headers: { cookie: setCookies(rLogin).join("; ") },
@@ -204,7 +221,7 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
   it("next validado gana sobre la allowlist admin", async () => {
     process.env.ADMIN_ALLOWLIST_SUBS = "juan";
     const rLogin = await getLogin(ctx("http://x/api/auth/login?next=/panel"));
-    const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+    const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
         headers: { cookie: setCookies(rLogin).join("; ") },
@@ -217,6 +234,8 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
 describe("AU-FIX-S6 regresión: redirects siempre con Set-Cookie", () => {
   it("login adjunta state+pkce; reauth adjunta reauth-state+pkce", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    expect(rLogin.status).toBe(200);
+    expect(await urlGoogle(rLogin)).toContain("accounts.google.com");
     const jarLogin = setCookies(rLogin).join("; ");
     expect(jarLogin).toContain("__Host-oauth-state=");
     expect(jarLogin).toContain("__Host-oauth-pkce=");
