@@ -20,6 +20,11 @@ import Faq from '../components/sections/Faq.astro';
 import Contacto from '../components/sections/Contacto.astro';
 import { seo } from '../data/business';
 
+// P1-27: el callback deja /?alta=pendiente (PRD-AU-02) y esta página abre el alta.
+if (Astro.url.searchParams.get("alta") === "pendiente") {
+  return Astro.redirect("/alta");
+}
+
 const title = seo.title;
 const description = seo.description;
 ---
