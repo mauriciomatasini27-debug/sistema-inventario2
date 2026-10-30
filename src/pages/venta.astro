@@ -113,7 +113,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <script>
       import { claveOutboxCola, claveSeqCola, copiarSeqLegado } from "../offline/cola-venta.js";
       import { codigoDispositivoLocal } from "../offline/device-code-local.js";
-      import { drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
+      import { debeDrenarPorVisibilidad, drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
       import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
@@ -368,6 +368,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           refrescarIndicador();
           return;
         }
+        void aplicarDrenado("linea");
+      });
+      // P1-30: volver a la pestaña usa el mismo vuelo que online. Origen "linea"
+      // para que una cola vacía no pise #estado.
+      document.addEventListener("visibilitychange", () => {
+        if (!debeDrenarPorVisibilidad(document.visibilityState, esHarnessWorst)) return;
         void aplicarDrenado("linea");
       });
       // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.
