@@ -21,16 +21,17 @@ export interface EntregaSinFactura {
   readonly emite: false;
 }
 
-// FE-S28 / #45: la fila de la venta y SQL quedan fuera de este ítem, así que el aviso dura lo que dura el proceso.
-const avisosPorTenant = new Map<string, Map<string, readonly AvisoRegimen[]>>();
+type AvisosEntregaEnMemoria = Map<string, Map<string, readonly AvisoRegimen[]>>;
+
+const avisosEntregaEnMemoria: AvisosEntregaEnMemoria = new Map();
 
 export function registrar_entrega(input: RegistrarEntregaInput): EntregaSinFactura {
   const evaluado = evaluar_cuestionario(input.cuestionario);
   const avisos = evaluado.avisos.slice();
-  let porVenta = avisosPorTenant.get(input.tenantId);
+  let porVenta = avisosEntregaEnMemoria.get(input.tenantId);
   if (porVenta === undefined) {
     porVenta = new Map();
-    avisosPorTenant.set(input.tenantId, porVenta);
+    avisosEntregaEnMemoria.set(input.tenantId, porVenta);
   }
   porVenta.set(input.saleId, avisos);
   return {
@@ -41,5 +42,5 @@ export function registrar_entrega(input: RegistrarEntregaInput): EntregaSinFactu
 }
 
 export function leer_avisos_entrega(clave: ClaveEntrega): readonly AvisoRegimen[] | undefined {
-  return avisosPorTenant.get(clave.tenantId)?.get(clave.saleId)?.slice();
+  return avisosEntregaEnMemoria.get(clave.tenantId)?.get(clave.saleId)?.slice();
 }
