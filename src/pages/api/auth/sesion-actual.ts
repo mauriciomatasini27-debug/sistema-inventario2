@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { resolverSesion } from "../../../lib/control.js";
 import { enmascararEmail, etiquetaAtendiendo, TEXTO_AYUDA_CUENTAS } from "../../../modules/auth/auditoria.js";
+import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js";
 
 export const prerender = false;
 
@@ -13,6 +14,9 @@ export const GET: APIRoute = async ({ request }) => {
   if (!ctx) return Response.json({ logueado: false }, { status: 200 });
   const u = control.users.get(ctx.googleSub);
   const nombre = u?.nombre?.trim() || (u?.email ? enmascararEmail(u.email) : "Miembro");
+  // P1-25: es_admin + google_sub propios para el panel admin (allowlist en
+  // Vercel) y para copiar el sub a ADMIN_ALLOWLIST_SUBS sin adivinar.
+  const esAdmin = esAdminAllowlist(ctx.googleSub, leerAllowlist());
   return Response.json(
     {
       logueado: true,
@@ -20,6 +24,8 @@ export const GET: APIRoute = async ({ request }) => {
       etiqueta: etiquetaAtendiendo(nombre),
       cambiar_usuario_url: "/api/auth/login?prompt=select_account",
       ayuda: TEXTO_AYUDA_CUENTAS,
+      es_admin: esAdmin,
+      google_sub: ctx.googleSub,
     },
     { status: 200 },
   );
