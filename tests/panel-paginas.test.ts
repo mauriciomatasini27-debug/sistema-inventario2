@@ -179,6 +179,27 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(src.slice(Math.max(0, inicio - 700), inicio)).toContain("confirmar(");
   });
 
+  it("proveedores registra el pago desde la cuenta del proveedor", () => {
+    const src = leer("src/pages/panel/proveedores.astro");
+    expect(src).toContain('id="pago-form"');
+    for (const campo of ["supplier_cuit", "monto_centavos", "metodo", "fecha_iso", "creado_por", "factura_id"]) {
+      expect(src).toContain(`data-campo="${campo}"`);
+    }
+    const desdeCuenta = src.indexOf("const cargarCuenta");
+    const hastaBuscar = src.indexOf('$("cta-buscar")', desdeCuenta);
+    expect(hastaBuscar).toBeGreaterThan(desdeCuenta);
+    expect(src.slice(desdeCuenta, hastaBuscar)).toContain('$("pago-cuit").value = cuit');
+    const inicio = src.indexOf('fetch("/api/supplier-invoices/payments"');
+    expect(inicio).toBeGreaterThan(-1);
+    const bloque = src.slice(inicio, inicio + 520);
+    expect(bloque).toContain('"Content-Type": "application/json"');
+    expect(bloque).toContain("Idempotency-Key");
+    expect(src.slice(Math.max(0, inicio - 900), inicio)).toContain("confirmar(");
+    expect(src).toContain("El pago supera el saldo de la factura.");
+    const despues = src.slice(inicio, inicio + 1400);
+    expect(despues).toContain("cargarCuenta(");
+  });
+
   it("ajustes enlaza a /panel/plan y la pantalla muestra el medidor en texto", () => {
     const destino = "/panel/plan";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/plan.astro");

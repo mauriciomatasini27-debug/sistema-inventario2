@@ -44,6 +44,13 @@ describe("T-UI-04: cada formulario del panel y alta usa errores-campo", () => {
     }
   });
 
+  it("proveedores marca los campos del pago a proveedor", () => {
+    const src = leer("src/pages/panel/proveedores.astro");
+    for (const campo of ["supplier_cuit", "monto_centavos", "metodo", "fecha_iso", "creado_por", "factura_id"]) {
+      expect(src, campo).toContain(`data-campo="${campo}"`);
+    }
+  });
+
   it("ninguna otra página del panel con <form> queda sin el helper", () => {
     const faltantes = paginas("src/pages/panel").filter((p) => {
       const src = leer(p);
