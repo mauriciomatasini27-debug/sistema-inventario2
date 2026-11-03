@@ -20,6 +20,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         <tbody id="mov-body"></tbody>
       </table>
       <div class="estado" id="estado-movs" role="status">Cargando…</div>
+      <button id="export-enviar" type="button">Exportar CSV</button>
+      <div class="estado" id="estado-export" role="status">Descargá el historial de caja.</div>
     </section>
   </div>
 
@@ -177,6 +179,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 <style>
   #drop-sorpresa { width: 44px; justify-self: start; }
   #mov-body td:first-child { overflow-wrap: anywhere; }
+  #export-enviar { margin-top: 8px; }
 </style>
 
 <script>
@@ -411,6 +414,40 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       console.warn("[panel/caja] respuesta sin JSON", r.status, error);
       return {};
     });
+
+  // P1-51: la tarjeta no filtra, así que el GET va sin query. Revocar el object URL en el acto corta la descarga.
+  $("export-enviar").addEventListener("click", async () => {
+    const estado = $("estado-export");
+    const boton = $("export-enviar");
+    boton.disabled = true;
+    estado.textContent = "Descargando…";
+    try {
+      const r = await fetch("/api/cash/export");
+      if (!r.ok) {
+        const j = await leerJson(r);
+        estado.textContent = "No se exportó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "caja-historial.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      estado.textContent = "Historial descargado.";
+    } catch (error) {
+      console.warn("[panel/caja] export", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
 
   $("drop-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
