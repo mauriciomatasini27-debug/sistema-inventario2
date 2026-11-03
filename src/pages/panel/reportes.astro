@@ -14,6 +14,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
     <section class="card">
       <h2>Snapshot de rotación</h2>
+      <button id="snapshot-generar" type="button" disabled style="margin: 0 0 8px">Generar snapshot</button>
       <ul class="lista" id="snapshot-lista"></ul>
       <div class="estado" id="estado-snapshot" role="status">Cargando…</div>
     </section>
@@ -32,6 +33,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
   import { fechaAR } from "../../lib/fecha-ar.js";
+  import { cuerpoSnapshotManual, leerEfectoSnapshot } from "../../lib/reportes-snapshot.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -103,6 +105,38 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         $("estado-snapshot").textContent = mensaje("error", "");
       });
 
+  const botonSnapshot = $("snapshot-generar");
+  const marcarSnapshot = (ocupado) => {
+    if (botonSnapshot instanceof HTMLButtonElement) botonSnapshot.disabled = ocupado;
+  };
+
+  const generarSnapshot = async () => {
+    marcarSnapshot(true);
+    $("estado-snapshot").textContent = "Generando…";
+    try {
+      const r = await fetch("/api/analytics/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoSnapshotManual(desde, hasta)),
+      });
+      const efecto = await leerEfectoSnapshot(r);
+      if (efecto.tipo === "recargar") {
+        await cargarSnapshot();
+        return;
+      }
+      $("estado-snapshot").textContent = efecto.texto;
+    } catch (error) {
+      console.warn("[panel/reportes] generar snapshot", error);
+      $("estado-snapshot").textContent = mensaje("error", "");
+    } finally {
+      marcarSnapshot(false);
+    }
+  };
+
+  if (botonSnapshot) botonSnapshot.addEventListener("click", () => {
+    void generarSnapshot();
+  });
+
   const cargarHistorial = () =>
     fetch("/api/cash/history?limit=10")
       .then((r) => {
@@ -126,6 +160,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       });
 
   cargarTablero();
-  cargarSnapshot();
+  marcarSnapshot(true);
+  void cargarSnapshot().finally(() => marcarSnapshot(false));
   cargarHistorial();
 </script>

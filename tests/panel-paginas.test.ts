@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pillsPanel, moduloIndice } from "../src/lib/panel-modulos.js";
+import { pillsPanel, moduloIndice, MODULOS_INDICE } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
@@ -121,6 +121,27 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 
+  it("el historial de alertas se enlaza desde la tarjeta y desde umbrales", () => {
+    const destino = "/panel/alertas/historial";
+    expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/historial.astro");
+    expect(leer("src/components/panel/AlertasCard.astro")).toContain(`href="${destino}"`);
+    expect(leer("src/pages/panel/alertas/umbrales.astro")).toContain(`href="${destino}"`);
+    expect(MODULOS_INDICE.map((m) => m.href)).not.toContain(destino);
+  });
+
+  it("ajustes enlaza Gmail y la delegación ARCA fuera del índice de plan", () => {
+    const gmail = "/panel/integraciones";
+    const arca = "/panel/fiscal/delegacion";
+    expect(archivoDeHref(gmail)).toBe("src/pages/panel/integraciones.astro");
+    expect(archivoDeHref(arca)).toBe("src/pages/panel/fiscal/delegacion.astro");
+    const ajustes = leer("src/components/panel/AjustesCard.astro");
+    expect(ajustes).toContain(`href="${gmail}"`);
+    expect(ajustes).toContain(`href="${arca}"`);
+    const hrefs = MODULOS_INDICE.map((m) => m.href);
+    expect(hrefs).not.toContain(gmail);
+    expect(hrefs).not.toContain(arca);
+  });
+
   it("stock.astro no muestra la palabra centavos al usuario", () => {
     const src = leer("src/pages/panel/stock.astro");
     const markup = src.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]*>/g, " ");
@@ -144,6 +165,20 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(src).toContain("formatearPesos");
   });
 
+  it("proveedores cierra la orden creada en la misma pantalla", () => {
+    const src = leer("src/pages/panel/proveedores.astro");
+    expect(src).toContain('id="oc-cerrar-form"');
+    expect(src).toContain('data-campo="order_id"');
+    expect(src).toContain('data-campo="quien"');
+    expect(src).toContain('$("oc-cerrar-id").value = j.order_id');
+    const inicio = src.indexOf('fetch("/api/purchase-orders/close"');
+    expect(inicio).toBeGreaterThan(-1);
+    const bloque = src.slice(inicio, inicio + 450);
+    expect(bloque).toContain('"Content-Type": "application/json"');
+    expect(bloque).not.toContain("Idempotency-Key");
+    expect(src.slice(Math.max(0, inicio - 700), inicio)).toContain("confirmar(");
+  });
+
   it("ajustes enlaza a /panel/plan y la pantalla muestra el medidor en texto", () => {
     const destino = "/panel/plan";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/plan.astro");
@@ -153,6 +188,18 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(pantalla).toContain("aria-valuenow");
     expect(pantalla).toContain("tabular-nums");
     expect(pantalla).toContain("fetch(\"/api/plan/resumen\")");
+  });
+
+  it("caja lee y cierra la jornada en /api/cash/close", () => {
+    const caja = leer("src/pages/panel/caja.astro");
+    expect(caja).toContain('fetch("/api/cash/close?fecha="');
+    expect(caja).toContain("fechaAR");
+    expect(caja).toContain("Cerrar jornada");
+    const bloque = caja.slice(caja.indexOf('$("cierre-enviar").addEventListener'));
+    expect(bloque).toContain('fetch("/api/cash/close"');
+    expect(bloque).toContain('close_type: "manual"');
+    expect(bloque).toContain("Idempotency-Key");
+    expect(bloque).toContain('"Content-Type": "application/json"');
   });
 
   it("la tarjeta de bot enlaza a /panel/bot/config y la pantalla ofrece vincular", () => {

@@ -53,6 +53,23 @@ test("con todo encendido aparecen Bot, Alertas y Asistente", async ({ page }) =>
   await expect(page.locator("#asistente-abrir")).toBeVisible();
 });
 
+test("en /panel/caja el índice oculta la pill Bot y deja Alertas", async ({ page }) => {
+  await indice(page, SIN_BOT_NI_ASISTENTE);
+  await page.goto("/panel/caja");
+
+  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeHidden();
+  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
+  await expect(page.locator('nav.pills a[data-modulo-indice="caja"]')).toBeVisible();
+});
+
+test("si el índice falla en /panel/caja las pills siguen visibles", async ({ page }) => {
+  await page.route("**/api/panel/indice", (r) => r.fulfill({ status: 500, json: { error: "falló" } }));
+  await page.goto("/panel/caja");
+
+  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeVisible();
+  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
+});
+
 test("si el índice falla el panel muestra todos los módulos", async ({ page }) => {
   await page.route("**/api/panel/indice", (r) => r.fulfill({ status: 500, json: { error: "falló" } }));
   await asistenteIncluido(page);

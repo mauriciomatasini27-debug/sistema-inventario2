@@ -1,10 +1,11 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
 import UpsellPantalla from "../../../components/panel/UpsellPantalla.astro";
+// P1-45: desde umbrales el dueño abre el historial sin tipear la URL.
 ---
 <PanelShell titulo="Umbrales de alerta" subtitulo="Stock mínimo y cantidad a reponer por producto." activo="stock">
   <UpsellPantalla superficie="alertas_whatsapp">
-  <p class="umb-dest"><a href="/panel/alertas/destinatarios">Destinatarios de alertas</a></p>
+  <p class="umb-dest"><a href="/panel/alertas/destinatarios">Destinatarios de alertas</a> · <a href="/panel/alertas/historial">Historial</a></p>
   <section class="card">
     <h2>Edición masiva por categoría</h2>
     <div class="fila">

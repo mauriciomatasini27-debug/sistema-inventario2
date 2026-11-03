@@ -46,6 +46,8 @@ const ETIQUETAS_CAMPO: Readonly<Record<string, string>> = {
   min_stock: "el stock mínimo",
   reorder_qty: "la cantidad a reponer",
   bill_id: "la factura",
+  order_id: "el id de la orden",
+  quien: "quién cierra",
   servicio: "el servicio",
   proveedor: "el proveedor",
   titular: "el titular",
