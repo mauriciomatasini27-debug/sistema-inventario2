@@ -81,7 +81,34 @@ describe("cola de venta offline", () => {
     const r = await sincronizarColaVenta(sim.deps);
 
     expect(sim.cola()).toEqual([]);
-    expect(r).toMatchObject({ confirmados: 2, pendientes: 0, cortado: false });
+    expect(r).toMatchObject({ confirmados: 2, pendientes: 0, cortado: false, tickets: [] });
+  });
+
+  it("P1-38: tras push OK llama promover y junta los T-*", async () => {
+    const promovidos: string[] = [];
+    const sim = simulacion([item(1), item(2)], async () => ({ status: 201, cuerpo: {} }));
+    sim.deps.promover = async (i) => {
+      promovidos.push(i.op_id);
+      return { ticket_definitivo: "T-" + i.device_seq };
+    };
+
+    const r = await sincronizarColaVenta(sim.deps);
+
+    expect(promovidos).toEqual(["op-1", "op-2"]);
+    expect(sim.cola()).toEqual([]);
+    expect(r.tickets).toEqual(["T-1", "T-2"]);
+  });
+
+  it("P1-38: si promover falla la venta igual sale de la cola", async () => {
+    const sim = simulacion([item(1)], async () => ({ status: 201, cuerpo: {} }));
+    sim.deps.promover = async () => {
+      throw new Error("promote caído");
+    };
+
+    const r = await sincronizarColaVenta(sim.deps);
+
+    expect(sim.cola()).toEqual([]);
+    expect(r).toMatchObject({ confirmados: 1, pendientes: 0, tickets: [] });
   });
 
   it("una venta encolada durante el await del push no se borra", async () => {

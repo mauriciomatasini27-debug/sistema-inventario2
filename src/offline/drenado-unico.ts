@@ -21,6 +21,7 @@ export interface DepsDrenado {
   storage: StorageCola;
   tenantId: string | null;
   enviar(item: ItemCola): Promise<RespuestaPush>;
+  promover?: (item: ItemCola) => Promise<{ ticket_definitivo?: string }>;
 }
 
 export interface ResultadoDrenado {
@@ -41,11 +42,12 @@ function tenantNormalizado(tenantId: string | null): string | null {
   return tenantId ? tenantId : null;
 }
 
-function depsDeClave(storage: StorageCola, clave: string, enviar: DepsDrenado["enviar"]) {
+function depsDeClave(deps: DepsDrenado, clave: string) {
   return {
-    leer: () => JSON.parse(storage.getItem(clave) ?? "[]") as ItemCola[],
-    escribir: (items: ItemCola[]) => storage.setItem(clave, JSON.stringify(items)),
-    enviar,
+    leer: () => JSON.parse(deps.storage.getItem(clave) ?? "[]") as ItemCola[],
+    escribir: (items: ItemCola[]) => deps.storage.setItem(clave, JSON.stringify(items)),
+    enviar: deps.enviar,
+    ...(deps.promover ? { promover: deps.promover } : {}),
   };
 }
 
@@ -57,6 +59,7 @@ function plegar(acumulado: ResultadoDrenado, paso: ResultadoDrenado): ResultadoD
           sensibles: acumulado.legado.sensibles + paso.legado.sensibles,
           pendientes: paso.legado.pendientes,
           cortado: paso.legado.cortado,
+          tickets: [...acumulado.legado.tickets, ...paso.legado.tickets],
         }
       : paso.legado
     : acumulado.legado;
@@ -66,6 +69,7 @@ function plegar(acumulado: ResultadoDrenado, paso: ResultadoDrenado): ResultadoD
       sensibles: acumulado.tenant.sensibles + paso.tenant.sensibles,
       pendientes: paso.tenant.pendientes,
       cortado: paso.tenant.cortado,
+      tickets: [...acumulado.tenant.tickets, ...paso.tenant.tickets],
     },
     legado,
   };
@@ -74,7 +78,7 @@ function plegar(acumulado: ResultadoDrenado, paso: ResultadoDrenado): ResultadoD
 async function pasada(deps: DepsDrenado): Promise<ResultadoDrenado> {
   const tenantId = tenantNormalizado(deps.tenantId);
   if (!tenantId) {
-    const tenant = await sincronizarColaVenta(depsDeClave(deps.storage, claveOutboxCola(null), deps.enviar));
+    const tenant = await sincronizarColaVenta(depsDeClave(deps, claveOutboxCola(null)));
     return { tenant, legado: null };
   }
 
@@ -82,7 +86,7 @@ async function pasada(deps: DepsDrenado): Promise<ResultadoDrenado> {
   try {
     const crudo = JSON.parse(deps.storage.getItem(CLAVE_LEGADA_OUTBOX) ?? "[]") as unknown;
     if (Array.isArray(crudo) && crudo.length > 0) {
-      const rl = await sincronizarColaVenta(depsDeClave(deps.storage, CLAVE_LEGADA_OUTBOX, deps.enviar));
+      const rl = await sincronizarColaVenta(depsDeClave(deps, CLAVE_LEGADA_OUTBOX));
       legado = rl;
       if (rl.confirmados > 0 && rl.pendientes === 0) {
         deps.storage.removeItem(CLAVE_LEGADA_OUTBOX);
@@ -93,7 +97,7 @@ async function pasada(deps: DepsDrenado): Promise<ResultadoDrenado> {
     console.warn("[venta] cola legada", error);
   }
 
-  const tenant = await sincronizarColaVenta(depsDeClave(deps.storage, claveOutboxCola(tenantId), deps.enviar));
+  const tenant = await sincronizarColaVenta(depsDeClave(deps, claveOutboxCola(tenantId)));
   return { tenant, legado };
 }
 
@@ -141,7 +145,9 @@ function sinMovimiento(r: ResultadoColaVenta): boolean {
 function textoTenant(r: ResultadoColaVenta): string {
   if (r.cortado) return `sync cortado: ${r.pendientes} pendiente(s)`;
   if (r.sensibles > 0) return `Necesita conexión (${r.sensibles} sensible(s) solo online)`;
-  return `sync intentado (${r.confirmados})`;
+  const base = `sync intentado (${r.confirmados})`;
+  if (r.tickets.length === 0) return base;
+  return `${base} · ${r.tickets.join(" · ")}`;
 }
 
 export function textoDeDrenado(origen: OrigenDrenado, resultado: ResultadoDrenado): string | null {
