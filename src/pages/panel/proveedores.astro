@@ -74,8 +74,19 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     </section>
 
     <section class="card">
-      <h2>Órdenes de compra</h2>
-      <p class="estado">Una orden nace abierta y se cierra al matchear la factura del proveedor. El cierre lo hace <span style="font-family:monospace">POST /api/purchase-orders/close</span>.</p>
+      <h2>Cerrar orden</h2>
+      <form id="oc-cerrar-form">
+        <div class="fila">
+          <label>Orden
+            <input id="oc-cerrar-id" data-campo="order_id" type="text" maxlength="128" placeholder="Se completa al crear" autocomplete="off" />
+          </label>
+          <label>Cerrada por
+            <input id="oc-cerrar-quien" data-campo="quien" type="text" maxlength="128" value="panel-web" autocomplete="off" />
+          </label>
+        </div>
+        <button id="oc-cerrar-enviar" type="submit">Cerrar orden</button>
+        <div class="estado" id="estado-oc-cerrar" role="status">Se completa con la orden que acabás de crear.</div>
+      </form>
     </section>
   </div>
 
@@ -101,6 +112,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
   import { CUIT, EMAIL, REQUERIDO, TELEFONO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -394,8 +406,57 @@ import PanelShell from "../../components/panel/PanelShell.astro";
         return;
       }
       estado.textContent = "Orden " + j.order_id + " creada por " + formatearCentavos(j.total_centavos) + ".";
+      if (j.order_id) $("oc-cerrar-id").value = j.order_id;
     } catch (error) {
       console.warn("[panel/proveedores] orden", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  // P1-44: el dueño cierra acá la OC que acaba de crear. El cierre es terminal
+  // y la ruta no lee Idempotency-Key.
+  $("oc-cerrar-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
+    const estado = $("estado-oc-cerrar");
+    const form = $("oc-cerrar-form");
+    const orderId = $("oc-cerrar-id").value.trim();
+    const quien = $("oc-cerrar-quien").value.trim() || "panel-web";
+    if (!$("oc-cerrar-quien").value.trim()) $("oc-cerrar-quien").value = quien;
+    if (!orderId) {
+      mostrarErrores(form, { order_id: mensajeCampo("order_id", REQUERIDO) });
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Cerrar orden de compra",
+      mensaje: "Vas a cerrar " + orderId + ". No se puede reabrir.",
+      accion: "Cerrar orden",
+    });
+    if (!confirmado) return;
+    estado.textContent = "Cerrando orden…";
+    try {
+      const r = await fetch("/api/purchase-orders/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: orderId, quien }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/proveedores] cierre sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        estado.textContent = "No se cerró: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Orden " + (j.order_id || orderId) + " cerrada.";
+      $("oc-cerrar-id").value = "";
+    } catch (error) {
+      console.warn("[panel/proveedores] cierre", error);
       estado.textContent = mensaje("error", "");
     }
   });

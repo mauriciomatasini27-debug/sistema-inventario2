@@ -144,6 +144,20 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(src).toContain("formatearPesos");
   });
 
+  it("proveedores cierra la orden creada en la misma pantalla", () => {
+    const src = leer("src/pages/panel/proveedores.astro");
+    expect(src).toContain('id="oc-cerrar-form"');
+    expect(src).toContain('data-campo="order_id"');
+    expect(src).toContain('data-campo="quien"');
+    expect(src).toContain('$("oc-cerrar-id").value = j.order_id');
+    const inicio = src.indexOf('fetch("/api/purchase-orders/close"');
+    expect(inicio).toBeGreaterThan(-1);
+    const bloque = src.slice(inicio, inicio + 450);
+    expect(bloque).toContain('"Content-Type": "application/json"');
+    expect(bloque).not.toContain("Idempotency-Key");
+    expect(src.slice(Math.max(0, inicio - 700), inicio)).toContain("confirmar(");
+  });
+
   it("ajustes enlaza a /panel/plan y la pantalla muestra el medidor en texto", () => {
     const destino = "/panel/plan";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/plan.astro");
