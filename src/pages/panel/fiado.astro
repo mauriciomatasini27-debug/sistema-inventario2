@@ -99,10 +99,13 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     cargarSaldo(cliente);
   });
 
+  // P1-37: el pick llena consulta y cobro; sin esto había que reescribir el id.
   const elegirCliente = (item) => {
     $("fiado-cliente").value = item.customer_id;
+    $("pago-cliente").value = item.customer_id;
     $("fiado-cliente").focus();
     $("estado-fiado-q").textContent = "Elegido: " + item.nombre + ".";
+    cargarSaldo(item.customer_id);
   };
 
   let temporizador = null;
@@ -196,7 +199,11 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         return;
       }
       estado.textContent = "Cobro registrado: " + formatearCentavos(j.haber_centavos) + ".";
+      // P1-37: refrescar saldo del cliente cobrado antes de limpiar el form.
+      await cargarSaldo(cliente);
+      $("fiado-cliente").value = cliente;
       $("pago-form").reset();
+      $("pago-cliente").value = cliente;
     } catch (error) {
       console.warn("[panel/fiado] cobro", error);
       estado.textContent = mensaje("error", "");
