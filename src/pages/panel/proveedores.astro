@@ -1,5 +1,6 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 ---
 <PanelShell titulo="Proveedores" subtitulo="Alta, órdenes de compra y cuenta corriente." activo="proveedores">
   <div class="grid dos">
@@ -42,6 +43,35 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       </div>
       <ul class="lista" id="cta-lista"></ul>
       <div class="estado" id="estado-cta" role="status">Cargá un CUIT para ver el saldo.</div>
+      <h3>Pagar al proveedor</h3>
+      <form id="pago-form">
+        <div class="fila">
+          <label>CUIT
+            <input id="pago-cuit" data-campo="supplier_cuit" type="text" inputmode="numeric" placeholder="Se completa al consultar" autocomplete="off" />
+          </label>
+          <label>Monto en centavos
+            <input id="pago-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Medio
+            <select id="pago-metodo" data-campo="metodo">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+          </label>
+          <label>Fecha
+            <input id="pago-fecha" data-campo="fecha_iso" type="date" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Registrado por
+            <input id="pago-creado-por" data-campo="creado_por" type="text" maxlength="128" value="panel-web" autocomplete="off" />
+          </label>
+          <label>Factura opcional
+            <input id="pago-factura" data-campo="factura_id" type="text" maxlength="128" autocomplete="off" />
+          </label>
+        </div>
+        <button id="pago-enviar" type="submit">Registrar pago</button>
+        <div class="estado" id="estado-pago" role="status">Sin factura, el pago queda a cuenta.</div>
+      </form>
     </section>
   </div>
 
@@ -110,15 +140,17 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
-  import { CUIT, EMAIL, REQUERIDO, TELEFONO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { CUIT, EMAIL, FECHA, REQUERIDO, TELEFONO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
+  import { fechaAR } from "../../lib/fecha-ar.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
   const cargarCuenta = (cuit) => {
+    $("pago-cuit").value = cuit;
     $("estado-cta").textContent = "Cargando…";
     return fetch("/api/supplier-invoices/account?cuit=" + encodeURIComponent(cuit))
       .then((r) => {
@@ -457,6 +489,77 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       $("oc-cerrar-id").value = "";
     } catch (error) {
       console.warn("[panel/proveedores] cierre", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  // P1-54: el dueño paga desde la misma tarjeta de la cuenta. Sin factura_id
+  // el pago queda a cuenta y el 422 de saldo solo sale si hay factura.
+  $("pago-fecha").value = fechaAR(Date.now());
+  $("pago-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
+    const estado = $("estado-pago");
+    const form = $("pago-form");
+    const cuit = $("pago-cuit").value.trim();
+    const monto = Number($("pago-monto").value);
+    const metodo = $("pago-metodo").value;
+    const fecha = $("pago-fecha").value.trim();
+    const creadoPor = $("pago-creado-por").value.trim() || "panel-web";
+    if (!$("pago-creado-por").value.trim()) $("pago-creado-por").value = creadoPor;
+    const facturaId = $("pago-factura").value.trim();
+    const errores = {};
+    if (!cuit) errores.supplier_cuit = mensajeCampo("supplier_cuit", REQUERIDO);
+    else if (cuit.replace(/\D/g, "").length !== 11) errores.supplier_cuit = mensajeCampo("supplier_cuit", CUIT);
+    if (!Number.isInteger(monto) || monto < 1) errores.monto_centavos = mensajeCampo("monto_centavos", enteroMin(1));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errores.fecha_iso = mensajeCampo("fecha_iso", FECHA);
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Pagar al proveedor",
+      mensaje: "Vas a registrar un pago de " + formatearCentavos(monto) + " por " + metodo + ".",
+      accion: "Registrar pago",
+    });
+    if (!confirmado) return;
+    estado.textContent = "Registrando pago…";
+    try {
+      const r = await fetch("/api/supplier-invoices/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          supplier_cuit: cuit,
+          monto_centavos: monto,
+          metodo,
+          fecha_iso: fecha,
+          creado_por: creadoPor,
+          ...(facturaId ? { factura_id: facturaId } : {}),
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/proveedores] pago sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        if (r.status === 422 && j.error === "pago excede saldo de la factura") {
+          estado.textContent = "El pago supera el saldo de la factura.";
+          return;
+        }
+        estado.textContent = "No se registró: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Pago registrado.";
+      $("pago-monto").value = "";
+      $("cta-cuit").value = cuit;
+      cargarCuenta(cuit);
+    } catch (error) {
+      console.warn("[panel/proveedores] pago", error);
       estado.textContent = mensaje("error", "");
     }
   });
