@@ -6,6 +6,31 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   <div class="grid dos">
     <section class="card">
       <h2>Cuentas de servicio</h2>
+      <form id="cuenta-form">
+        <div class="fila">
+          <label>Servicio
+            <select id="cuenta-servicio" data-campo="servicio">
+              <option value="">Elegí un servicio</option>
+              <option value="luz">Luz</option>
+              <option value="gas">Gas</option>
+              <option value="agua">Agua</option>
+              <option value="internet">Internet</option>
+              <option value="telefono">Teléfono</option>
+              <option value="tasas">Tasas</option>
+              <option value="arca">ARCA</option>
+              <option value="otro">Otro</option>
+            </select>
+          </label>
+          <label>Proveedor
+            <input id="cuenta-proveedor" data-campo="proveedor" autocomplete="off" />
+          </label>
+          <label>Titular
+            <input id="cuenta-titular" data-campo="titular" autocomplete="off" />
+          </label>
+        </div>
+        <button id="cuenta-enviar" type="submit">Crear cuenta</button>
+        <div class="estado" id="estado-cuenta" role="status"></div>
+      </form>
       <ul class="lista" id="consumos-cuentas"></ul>
       <div class="estado" id="estado-cuentas" role="status">Cargando…</div>
     </section>
@@ -388,6 +413,55 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       cargarBorradores();
     } catch (error) {
       console.warn("[panel/consumos] descartar borrador", error);
+      estado.textContent = "Sin conexión con el servidor.";
+    }
+  });
+
+  $("cuenta-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("cuenta-form") as HTMLFormElement;
+    limpiarErrores(form);
+    const estado = $("estado-cuenta");
+    const servicio = ($("cuenta-servicio") as HTMLSelectElement).value;
+    const proveedor = ($("cuenta-proveedor") as HTMLInputElement).value.trim();
+    const titular = ($("cuenta-titular") as HTMLInputElement).value.trim();
+    const errores = {
+      ...(!servicio ? { servicio: mensajeCampo("servicio", REQUERIDO) } : {}),
+      ...(proveedor.length < 2 ? { proveedor: mensajeCampo("proveedor", REQUERIDO) } : {}),
+      ...(titular.length < 2 ? { titular: mensajeCampo("titular", REQUERIDO) } : {}),
+    };
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    estado.textContent = "Creando…";
+    try {
+      const r = await fetch("/api/service-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ servicio, proveedor, titular }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/consumos] respuesta sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        if (r.status === 422 && mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        estado.textContent = textoError(j.error, r.status);
+        return;
+      }
+      // P1-48: cuentasPromesa cachea el GET. Sin anularla, la cuenta nueva no entra a la lista ni al selector.
+      cuentasPromesa = null;
+      limpiarErrores(form);
+      form.reset();
+      estado.textContent = "Cuenta creada. Ya aparece en la lista.";
+      await cargarCuentas();
+      cargarVencimientos();
+    } catch (error) {
+      console.warn("[panel/consumos] alta cuenta", error);
       estado.textContent = "Sin conexión con el servidor.";
     }
   });

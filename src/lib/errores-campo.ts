@@ -48,6 +48,9 @@ const ETIQUETAS_CAMPO: Readonly<Record<string, string>> = {
   bill_id: "la factura",
   order_id: "el id de la orden",
   quien: "quién cierra",
+  servicio: "el servicio",
+  proveedor: "el proveedor",
+  titular: "el titular",
 };
 
 export function etiquetaDe(campo: string): string {
