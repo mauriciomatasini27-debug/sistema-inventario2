@@ -8,6 +8,7 @@ import TemaToggle from "../components/ui/TemaToggle.astro";
 import CerrarSesion from "../components/ui/CerrarSesion.astro";
 import BienvenidaDialog from "../components/panel/BienvenidaDialog.astro";
 import { esDueno, resolverSesion } from "../lib/control.js";
+import { control } from "../lib/store.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 import TopPills from "../components/panel/TopPills.astro";
 import KpiStrip from "../components/panel/KpiStrip.astro";
@@ -30,6 +31,7 @@ import BotCard from "../components/panel/BotCard.astro";
 import AjustesCard from "../components/panel/AjustesCard.astro";
 
 // BIEN-S2 (ADR-0115): tenant y sub en servidor; el diálogo solo para Dueño.
+// P1-35: el nombre del comercio activo va en el saludo (antes era genérico).
 const tenantRes = tenantDeRequest(Astro.request);
 const sesion = resolverSesion(Astro.request);
 const mostrarBienvenida =
@@ -38,6 +40,14 @@ const mostrarBienvenida =
   esDueno(tenantRes.tenantId, sesion.googleSub);
 const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
 const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
+const nombreComercio = tenantRes.ok
+  ? (control.tenants.get(tenantRes.tenantId)?.nombreComercio?.trim() || null)
+  : null;
+const tituloPanel = nombreComercio ? `Panel · ${nombreComercio}` : "Panel del comercio";
+const subPanel = nombreComercio
+  ? `${nombreComercio} · todo lo hecho, visible de un vistazo`
+  : "Panel del comercio · todo lo hecho, visible de un vistazo";
+const inicialAvatar = nombreComercio ? nombreComercio.slice(0, 1).toUpperCase() : "C";
 ---
 <!doctype html>
 <html lang="es">
@@ -45,7 +55,7 @@ const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Panel del comercio</title>
+    <title>{tituloPanel}</title>
     <TemaInicial />
     <style is:global>
       :root {
@@ -148,14 +158,14 @@ const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
         <TopPills activo="dashboard" />
         <span class="top-right">
           <input id="q" type="search" placeholder="Buscar" aria-label="Buscar en movimientos" />
-          <span class="avatar" title="Comercio">C</span>
+          <span class="avatar" title={nombreComercio ?? "Comercio"}>{inicialAvatar}</span>
           <CerrarSesion />
           <TemaToggle />
         </span>
       </div>
 
-      <h1 class="hello">Hola</h1>
-      <div class="sub">Panel del comercio · todo lo hecho, visible de un vistazo</div>
+      <h1 class="hello">Hola{nombreComercio ? ` · ${nombreComercio}` : ""}</h1>
+      <div class="sub">{subPanel}</div>
 
       <KpiStrip />
 
