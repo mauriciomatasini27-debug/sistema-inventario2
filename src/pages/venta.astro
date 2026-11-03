@@ -117,6 +117,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
+      import { formatearCentavos } from "../lib/panel-modulos.js";
       import {
         efectoCodigoDesconocido,
         efectoDeTecla,
@@ -262,10 +263,22 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       // térmico para BT (TV15 P2: el navegador no importa .ts, se guarda acá).
       let lastSaleId = null;
       let lastTicket = null;
+      // P1-36: mismo contrato que /panel/caja (JSON por_medio), no el body crudo.
       async function balance() {
         try {
           const r = await fetch("/api/cash/balance");
-          $("balance").textContent = "Balance: " + (await r.text());
+          if (!r.ok) {
+            $("balance").textContent = "Balance: no disponible";
+            return;
+          }
+          const b = await r.json();
+          const entradas = Object.entries(b.por_medio || {}).map(([m, c]) => [m, Number(c)]);
+          const total = entradas.reduce((a, par) => a + par[1], 0);
+          const detalle =
+            entradas.length > 0
+              ? entradas.map(([m, c]) => m + " " + formatearCentavos(c)).join(" · ")
+              : "Sin movimientos por medio.";
+          $("balance").textContent = "Balance: " + formatearCentavos(total) + " · " + detalle;
         } catch { /* sin red: se reintenta en sync */ }
       }
       $("cobrar").onclick = async () => {
