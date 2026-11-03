@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pillsPanel, moduloIndice } from "../src/lib/panel-modulos.js";
+import { pillsPanel, moduloIndice, MODULOS_INDICE } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
@@ -119,6 +119,27 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     expect(leer("src/pages/panel/stock.astro")).toContain(`href="${destino}"`);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
+  });
+
+  it("el historial de alertas se enlaza desde la tarjeta y desde umbrales", () => {
+    const destino = "/panel/alertas/historial";
+    expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/historial.astro");
+    expect(leer("src/components/panel/AlertasCard.astro")).toContain(`href="${destino}"`);
+    expect(leer("src/pages/panel/alertas/umbrales.astro")).toContain(`href="${destino}"`);
+    expect(MODULOS_INDICE.map((m) => m.href)).not.toContain(destino);
+  });
+
+  it("ajustes enlaza Gmail y la delegación ARCA fuera del índice de plan", () => {
+    const gmail = "/panel/integraciones";
+    const arca = "/panel/fiscal/delegacion";
+    expect(archivoDeHref(gmail)).toBe("src/pages/panel/integraciones.astro");
+    expect(archivoDeHref(arca)).toBe("src/pages/panel/fiscal/delegacion.astro");
+    const ajustes = leer("src/components/panel/AjustesCard.astro");
+    expect(ajustes).toContain(`href="${gmail}"`);
+    expect(ajustes).toContain(`href="${arca}"`);
+    const hrefs = MODULOS_INDICE.map((m) => m.href);
+    expect(hrefs).not.toContain(gmail);
+    expect(hrefs).not.toContain(arca);
   });
 
   it("stock.astro no muestra la palabra centavos al usuario", () => {
