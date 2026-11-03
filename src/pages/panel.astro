@@ -215,6 +215,7 @@ const inicialAvatar = nombreComercio ? nombreComercio.slice(0, 1).toUpperCase() 
     </div>
     <script>
       import { renderResumen, renderResumenError } from "../lib/panel-dashboard.js";
+      import { aplicarFiltroIndice } from "../lib/panel-indice-cliente.js";
       import { textoVentasPendientes } from "../lib/panel-modulos.js";
       import {
         CLAVE_DESCARTES_UPSELL,
@@ -244,20 +245,7 @@ const inicialAvatar = nombreComercio ? nombreComercio.slice(0, 1).toUpperCase() 
       }
 
       function aplicarIndice(crudo: unknown): void {
-        if (typeof crudo !== "object" || crudo === null) return;
-        const modulos = (crudo as { modulos?: unknown }).modulos;
-        if (!Array.isArray(modulos)) return;
-        const ids = new Set<string>();
-        for (const modulo of modulos) {
-          if (typeof modulo === "object" && modulo !== null) {
-            const id = (modulo as { id?: unknown }).id;
-            if (typeof id === "string") ids.add(id);
-          }
-        }
-        for (const el of document.querySelectorAll<HTMLElement>("[data-modulo-indice]")) {
-          const id = el.dataset["moduloIndice"];
-          if (id) el.hidden = !ids.has(id);
-        }
+        if (!aplicarFiltroIndice(crudo, document)) return;
         const cuenta = document.querySelector<HTMLElement>("[data-ventas-pendientes-cuenta]");
         if (!cuenta) return;
         const pendientes = (crudo as { ventas_pendientes?: unknown }).ventas_pendientes;

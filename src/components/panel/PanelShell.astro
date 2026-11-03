@@ -37,6 +37,8 @@ const logoTexto = comercio.trim() || "Inventario";
       .panel-shell .logo { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--tema-linea); border-radius: 999px; background: var(--tema-superficie); color: inherit; font-weight: 700; text-decoration: none; }
       .panel-shell nav.pills { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--tema-linea); max-width: 100%; overflow-x: auto; }
       .panel-shell nav.pills a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border-radius: 999px; color: var(--tema-texto-suave); font-size: 14px; text-decoration: none; white-space: nowrap; }
+      /* P1-46: inline-flex de la pill gana al atributo hidden. Sin esto el módulo fuera de plan sigue en la barra. */
+      [data-modulo-indice][hidden] { display: none !important; }
       .panel-shell nav.pills a:hover, .panel-shell nav.pills a.active { background: var(--color-void); color: var(--color-star-white); }
       :root[data-tema="oscuro"] .panel-shell nav.pills a:hover, :root[data-tema="oscuro"] .panel-shell nav.pills a.active { background: var(--color-star-white); color: var(--color-void); }
       .panel-shell nav.pills a:focus-visible { outline: 2px solid var(--tema-acento); outline-offset: 2px; }
@@ -98,5 +100,17 @@ const logoTexto = comercio.trim() || "Inventario";
     </div>
     <Toaster client:idle />
     <ConfirmDialog />
+    <script>
+      import { aplicarFiltroIndice } from "../../lib/panel-indice-cliente.js";
+
+      fetch("/api/panel/indice")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((crudo) => {
+          aplicarFiltroIndice(crudo, document);
+        })
+        .catch((error) => {
+          console.warn("[panel] no pudimos leer el índice de módulos", error);
+        });
+    </script>
   </body>
 </html>
