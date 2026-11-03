@@ -72,6 +72,18 @@ describe("T-UI-02: las 5 acciones destructivas pasan por confirmar", () => {
     expect(caja.indexOf("confirmar(")).toBeGreaterThan(caja.indexOf('"egreso"'));
   });
 
+  it("cerrar jornada confirma antes del POST /api/cash/close", () => {
+    const caja = leer("src/pages/panel/caja.astro");
+    const marca = caja.indexOf('$("cierre-enviar").addEventListener');
+    const bloque = caja.slice(marca);
+    const confirmarEn = bloque.indexOf("confirmar(");
+    const postEn = bloque.indexOf('fetch("/api/cash/close"');
+    expect(marca).toBeGreaterThan(-1);
+    expect(confirmarEn).toBeGreaterThan(-1);
+    expect(postEn).toBeGreaterThan(confirmarEn);
+    expect(bloque).toContain('close_type: "manual"');
+  });
+
   it("cada layout que monta las acciones incluye ConfirmDialog una vez", () => {
     expect(leer("src/components/panel/PanelShell.astro")).toContain("<ConfirmDialog />");
     expect(leer("src/pages/panel.astro")).toContain("<ConfirmDialog />");

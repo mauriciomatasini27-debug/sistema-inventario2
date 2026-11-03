@@ -59,6 +59,12 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       </form>
     </section>
   </div>
+
+  <section class="card">
+    <h2>Cerrar jornada</h2>
+    <button id="cierre-enviar" type="button" hidden>Cerrar jornada</button>
+    <div class="estado" id="estado-cierre" role="status">Cargando…</div>
+  </section>
 </PanelShell>
 
 <script>
@@ -66,6 +72,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   import { MONTO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
+  import { fechaAR } from "../../lib/fecha-ar.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
@@ -205,7 +212,78 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     }
   });
 
+  // P1-42: el corte de caja es el día civil de Buenos Aires, no el día UTC.
+  const fechaJornada = fechaAR(Date.now());
+
+  const pintarCierreAbierto = () => {
+    const boton = $("cierre-enviar");
+    boton.hidden = false;
+    boton.disabled = false;
+    $("estado-cierre").textContent = "La jornada del " + fechaJornada + " sigue abierta.";
+  };
+
+  const pintarCierreCerrado = (total) => {
+    $("cierre-enviar").hidden = true;
+    $("estado-cierre").textContent = "Jornada cerrada. Total " + formatearCentavos(total) + ".";
+  };
+
+  const cargarCierre = () =>
+    fetch("/api/cash/close?fecha=" + fechaJornada)
+      .then(async (r) => {
+        if (r.status === 404) {
+          pintarCierreAbierto();
+          return;
+        }
+        if (!r.ok) throw new Error("http " + r.status);
+        const j = await r.json();
+        pintarCierreCerrado(j.total_centavos);
+      })
+      .catch((error) => {
+        console.warn("[panel/caja] cierre", error);
+        $("cierre-enviar").hidden = true;
+        $("estado-cierre").textContent = mensaje("error", "");
+      });
+
+  $("cierre-enviar").addEventListener("click", async () => {
+    const estado = $("estado-cierre");
+    const boton = $("cierre-enviar");
+    const confirmado = await confirmar({
+      titulo: "Cerrar jornada",
+      mensaje: "Vas a cerrar la caja del " + fechaJornada + ". El día queda cerrado.",
+      accion: "Cerrar jornada",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Cerrando jornada…";
+    try {
+      const r = await fetch("/api/cash/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ fecha_jornada: fechaJornada, close_type: "manual" }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/caja] cierre sin JSON", r.status, error);
+        return {};
+      });
+      if (r.status === 201 || (r.status === 409 && j.error === "jornada ya cerrada")) {
+        cargarCierre();
+        return;
+      }
+      boton.disabled = false;
+      if (r.status === 422 && j.error === "cierre con turno en disputa") {
+        estado.textContent = "No se cerró: hay un turno en disputa. Resolvé ese turno y volvé a cerrar.";
+        return;
+      }
+      estado.textContent = "No se cerró: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] cerrar", error);
+      boton.disabled = false;
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
   cargarBalance();
   cargarMovimientos();
   cargarVencimientos();
+  cargarCierre();
 </script>

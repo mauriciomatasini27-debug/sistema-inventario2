@@ -155,6 +155,18 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(pantalla).toContain("fetch(\"/api/plan/resumen\")");
   });
 
+  it("caja lee y cierra la jornada en /api/cash/close", () => {
+    const caja = leer("src/pages/panel/caja.astro");
+    expect(caja).toContain('fetch("/api/cash/close?fecha="');
+    expect(caja).toContain("fechaAR");
+    expect(caja).toContain("Cerrar jornada");
+    const bloque = caja.slice(caja.indexOf('$("cierre-enviar").addEventListener'));
+    expect(bloque).toContain('fetch("/api/cash/close"');
+    expect(bloque).toContain('close_type: "manual"');
+    expect(bloque).toContain("Idempotency-Key");
+    expect(bloque).toContain('"Content-Type": "application/json"');
+  });
+
   it("la tarjeta de bot enlaza a /panel/bot/config y la pantalla ofrece vincular", () => {
     const destino = moduloIndice("bot").href;
     expect(destino).toBe("/panel/bot/config");
