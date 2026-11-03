@@ -335,8 +335,29 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         const cuerpo = await res.json().catch((error) => { console.warn("[venta] sync sin JSON", res.status, error); return {}; });
         return { status: res.status, cuerpo };
       };
+      // P1-38: tras push OK pide el T-* (ADR-0017). Fallo no re-encola.
+      const promover = async (item) => {
+        const res = await fetch("/api/sync/promote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": item.op_id },
+          body: JSON.stringify({
+            op_id: item.op_id,
+            device_code: item.device_code,
+            device_seq: item.device_seq,
+          }),
+        });
+        const cuerpo = await res.json().catch((error) => {
+          console.warn("[venta] promote sin JSON", res.status, error);
+          return {};
+        });
+        if (!res.ok) throw new Error("promote http " + res.status);
+        return {
+          ticket_definitivo:
+            typeof cuerpo.ticket_definitivo === "string" ? cuerpo.ticket_definitivo : undefined,
+        };
+      };
       // P1-28: online y Reintentar sync comparten drenadoUnico (un vuelo).
-      const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar });
+      const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar, promover });
       async function aplicarDrenado(origen) {
         const hayCola = contarPendientesCola(storage, tenant || null) > 0;
         if (hayCola) {

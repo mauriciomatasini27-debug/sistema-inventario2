@@ -44,7 +44,7 @@ function ok(): RespuestaPush {
   return { status: 201, cuerpo: {} };
 }
 
-const ceros = { confirmados: 0, pendientes: 0, sensibles: 0, cortado: false };
+const ceros = { confirmados: 0, pendientes: 0, sensibles: 0, cortado: false, tickets: [] as string[] };
 
 describe("drenado único de la cola de venta", () => {
   it("un drenar vacía la cola del tenant sin el botón", async () => {
@@ -64,7 +64,7 @@ describe("drenado único de la cola de venta", () => {
 
     expect(enviados).toEqual(["op-1"]);
     expect(mem.json(clave)).toEqual([]);
-    expect(resultado.tenant).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false });
+    expect(resultado.tenant).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false, tickets: [] });
   });
 
   it("con el push caído la venta sigue en la cola y no hay otra pasada", async () => {
@@ -106,7 +106,7 @@ describe("drenado único de la cola de venta", () => {
     expect(vuelo.enviados).toEqual(["A", "B"]);
     expect(mem.json(clave)).toEqual([]);
     expect(mem.anidada()).toBe(false);
-    expect(a.tenant).toEqual({ confirmados: 2, pendientes: 0, sensibles: 0, cortado: false });
+    expect(a.tenant).toEqual({ confirmados: 2, pendientes: 0, sensibles: 0, cortado: false, tickets: [] });
   });
 
   it("un alta durante el vuelo sale en la pasada extra", async () => {
@@ -161,7 +161,7 @@ describe("drenado único de la cola de venta", () => {
     expect(enviados).toEqual(["leg", "ten"]);
     expect(mem.storage.getItem(CLAVE_LEGADA_OUTBOX)).toBeNull();
     expect(mem.storage.getItem(CLAVE_LEGADA_SEQ)).toBeNull();
-    expect(resultado.legado).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false });
+    expect(resultado.legado).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false, tickets: [] });
     expect(resultado.tenant.confirmados).toBe(1);
   });
 
@@ -187,7 +187,7 @@ describe("drenado único de la cola de venta", () => {
     expect(mem.json(CLAVE_LEGADA_OUTBOX)).toEqual([item("leg", 1)]);
     expect(mem.storage.getItem(CLAVE_LEGADA_SEQ)).toBe("4");
     expect(resultado.legado?.cortado).toBe(true);
-    expect(resultado.tenant).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false });
+    expect(resultado.tenant).toEqual({ confirmados: 1, pendientes: 0, sensibles: 0, cortado: false, tickets: [] });
   });
 
   it("sin tenant hay una sola pasada de la clave legada", async () => {
@@ -251,14 +251,14 @@ describe("drenado único de la cola de venta", () => {
     expect(textoDeDrenado("boton", quieto)).toBe("sync intentado (0)");
 
     const cortado: ResultadoDrenado = {
-      tenant: { confirmados: 0, pendientes: 2, sensibles: 0, cortado: true },
+      tenant: { confirmados: 0, pendientes: 2, sensibles: 0, cortado: true, tickets: [] },
       legado: null,
     };
     expect(textoDeDrenado("linea", cortado)).toBe("sync cortado: 2 pendiente(s)");
     expect(textoDeDrenado("boton", cortado)).toBe("sync cortado: 2 pendiente(s)");
 
     const sensibles: ResultadoDrenado = {
-      tenant: { confirmados: 0, pendientes: 0, sensibles: 1, cortado: false },
+      tenant: { confirmados: 0, pendientes: 0, sensibles: 1, cortado: false, tickets: [] },
       legado: null,
     };
     expect(textoDeDrenado("linea", sensibles)).toBe("Necesita conexión (1 sensible(s) solo online)");
@@ -266,7 +266,7 @@ describe("drenado único de la cola de venta", () => {
 
     const soloLegada: ResultadoDrenado = {
       tenant: ceros,
-      legado: { confirmados: 1, pendientes: 0, sensibles: 0, cortado: false },
+      legado: { confirmados: 1, pendientes: 0, sensibles: 0, cortado: false, tickets: [] },
     };
     expect(textoDeDrenado("linea", soloLegada)).toBe("sync intentado (0)");
   });

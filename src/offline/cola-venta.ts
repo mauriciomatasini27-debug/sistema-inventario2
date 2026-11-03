@@ -81,10 +81,17 @@ export interface RespuestaPush {
   cuerpo: unknown;
 }
 
+export interface ResultadoPromote {
+  ticket_definitivo?: string;
+}
+
 export interface DepsColaVenta {
   leer(): ItemCola[];
   escribir(items: ItemCola[]): void;
   enviar(item: ItemCola): Promise<RespuestaPush>;
+  // P1-38: opcional. Tras push OK pide el T-*. Si falla, la venta ya está aplicada
+  // y no se re-encola (ADR-0017).
+  promover?(item: ItemCola): Promise<ResultadoPromote>;
 }
 
 export interface ResultadoColaVenta {
@@ -92,6 +99,7 @@ export interface ResultadoColaVenta {
   pendientes: number;
   sensibles: number;
   cortado: boolean;
+  tickets: string[];
 }
 
 function esRecord(v: unknown): v is Record<string, unknown> {
@@ -115,6 +123,7 @@ export function quitarConfirmados(cola: ItemCola[], confirmados: ItemCola[]): It
 export async function sincronizarColaVenta(deps: DepsColaVenta): Promise<ResultadoColaVenta> {
   const cola = deps.leer();
   const confirmados: ItemCola[] = [];
+  const tickets: string[] = [];
   let sensibles = 0;
   let cortado = false;
   for (const item of cola) {
@@ -133,8 +142,24 @@ export async function sincronizarColaVenta(deps: DepsColaVenta): Promise<Resulta
     }
     confirmados.push(item);
     sensibles += contarSensibles(r.cuerpo);
+    if (deps.promover) {
+      try {
+        const p = await deps.promover(item);
+        if (typeof p.ticket_definitivo === "string" && p.ticket_definitivo.length > 0) {
+          tickets.push(p.ticket_definitivo);
+        }
+      } catch (error) {
+        console.warn("[cola-venta] promote falló (venta ya aplicada)", item.op_id, error);
+      }
+    }
   }
   const restantes = quitarConfirmados(deps.leer(), confirmados);
   deps.escribir(restantes);
-  return { confirmados: confirmados.length, pendientes: restantes.length, sensibles, cortado };
+  return {
+    confirmados: confirmados.length,
+    pendientes: restantes.length,
+    sensibles,
+    cortado,
+    tickets,
+  };
 }
