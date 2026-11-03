@@ -61,6 +61,33 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   </div>
 
   <section class="card">
+    <h2>Retiro a caja fuerte</h2>
+    <form id="drop-form">
+      <div class="fila">
+        <label>Fecha de la jornada
+          <input id="drop-fecha" data-campo="fecha_jornada" type="date" required />
+        </label>
+        <label>Monto en centavos
+          <input id="drop-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Motivo
+          <input id="drop-motivo" data-campo="motivo" type="text" maxlength="280" />
+        </label>
+        <label>Registrado por
+          <input id="drop-creado" data-campo="creado_por" type="text" maxlength="128" value="panel-web" autocomplete="name" />
+        </label>
+      </div>
+      <label>Conteo sorpresa
+        <input id="drop-sorpresa" type="checkbox" />
+      </label>
+      <button id="drop-enviar" type="submit">Registrar retiro</button>
+      <div class="estado" id="estado-drop" role="status">Indicá la fecha y el monto del retiro.</div>
+    </form>
+  </section>
+
+  <section class="card">
     <h2>Cerrar jornada</h2>
     <button id="cierre-enviar" type="button" hidden>Cerrar jornada</button>
     <div class="estado" id="estado-cierre" role="status">Cargando…</div>
@@ -128,9 +155,13 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   </section>
 </PanelShell>
 
+<style>
+  #drop-sorpresa { width: 44px; justify-self: start; }
+</style>
+
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
-  import { MONTO, REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { FECHA, MONTO, REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
   import { fechaAR } from "../../lib/fecha-ar.js";
@@ -275,6 +306,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
   // P1-42: el corte de caja es el día civil de Buenos Aires, no el día UTC.
   const fechaJornada = fechaAR(Date.now());
+  // P1-49: el retiro cae en la misma jornada que el cierre.
+  $("drop-fecha").value = fechaJornada;
 
   const pintarCierreAbierto = () => {
     const boton = $("cierre-enviar");
@@ -357,6 +390,65 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       console.warn("[panel/caja] respuesta sin JSON", r.status, error);
       return {};
     });
+
+  $("drop-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("drop-form");
+    limpiarErrores(form);
+    const estado = $("estado-drop");
+    const boton = $("drop-enviar");
+    const fecha = $("drop-fecha").value.trim();
+    const monto = Number($("drop-monto").value);
+    const motivo = $("drop-motivo").value.trim();
+    const creado = $("drop-creado").value.trim();
+    const sorpresa = ($("drop-sorpresa") as HTMLInputElement).checked;
+    const errores: Record<string, string> = {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errores.fecha_jornada = mensajeCampo("fecha_jornada", FECHA);
+    if (!Number.isInteger(monto) || monto <= 0) errores.monto_centavos = mensajeCampo("monto_centavos", MONTO);
+    if (creado.length < 1 || creado.length > 128) errores.creado_por = mensajeCampo("creado_por", REQUERIDO);
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Retiro a caja fuerte",
+      mensaje: "Vas a retirar " + formatearCentavos(monto) + " de la caja del " + fecha + ".",
+      accion: "Registrar retiro",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Registrando retiro…";
+    try {
+      const r = await fetch("/api/cash/drops", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          fecha_jornada: fecha,
+          monto_centavos: monto,
+          motivo: motivo || undefined,
+          creado_por: creado,
+          sorpresa,
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 201) {
+        estado.textContent = j.drop_id ? "Retiro registrado. " + j.drop_id : "Retiro registrado.";
+        cargarBalance();
+        cargarMovimientos();
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se registró el retiro: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] retiro", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
 
   // P1-43: el conteo es a ciegas. El esperado viaja solo en este POST y se borra de la pantalla.
   $("turno-form").addEventListener("submit", async (evento) => {
