@@ -1,0 +1,34 @@
+---
+// P1-34: el POST /api/auth/logout existía sin UI; AU13/AU8.7 piden salir a mano.
+---
+<button type="button" class="cerrar-sesion" id="btn-cerrar-sesion">Cerrar sesión</button>
+<style>
+  .cerrar-sesion {
+    min-height: 44px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--tema-linea, #ccc);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .cerrar-sesion:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+</style>
+<script>
+  document.getElementById("btn-cerrar-sesion")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-cerrar-sesion");
+    if (btn instanceof HTMLButtonElement) btn.disabled = true;
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    } catch (err) {
+      console.warn("P1-34 logout falló", err);
+    }
+    location.href = "/";
+  });
+</script>
