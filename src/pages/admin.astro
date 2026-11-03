@@ -93,6 +93,13 @@ const pills = [
       .mini { font-size: 13px; color: var(--tema-texto-suave); }
       .mini a { color: var(--tema-texto); font-weight: 600; }
       .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
+      /* P1-32: mismo CTA amarillo del banner, como <button> en la card Tenants. */
+      .cta-piloto {
+        background: var(--llama); color: var(--tinta); font-weight: 700; border: 0;
+        border-radius: 999px; padding: 10px 18px; min-height: 44px; cursor: pointer;
+        display: inline-flex; align-items: center; margin-top: 10px; font: inherit;
+      }
+      .cta-piloto:disabled { opacity: 0.55; cursor: wait; }
       :target { outline: 2px solid var(--llama); outline-offset: 4px; }
       /* En oscuro, .dark y .banner quedan void sobre void: un borde los separa.
          El primer segmento y el avatar invierten como en el panel. */
@@ -220,7 +227,12 @@ const pills = [
       </section>
 
       <div class="grid r3">
-        <section class="card" id="tenants"><h2>Tenants <a href="#tenants">↗</a></h2><div class="mini">Directorio mínimo (PA5).<br /><span style="font-family:monospace">GET /api/admin/salud</span></div><div class="estado" id="tenants-estado">—</div></section>
+        <section class="card" id="tenants">
+          <h2>Tenants <a href="#tenants">↗</a></h2>
+          <div class="mini">Directorio mínimo (PA5).<br /><span style="font-family:monospace">GET /api/admin/salud</span></div>
+          <button type="button" class="cta-piloto" id="btn-piloto-dos">Cargar 2 comercios piloto</button>
+          <div class="estado" id="tenants-estado">—</div>
+        </section>
         <section class="card" id="cobros"><h2>Cobros <a href="#cobros">↗</a></h2><div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div></section>
         <section class="card" id="flags"><h2>Flags <a href="#flags">↗</a></h2><div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div></section>
         <section class="card" id="infra"><h2>Infra <a href="#infra">↗</a></h2><div class="mini"><b>Próximamente</b> (PA11).<br />Re-ejecutar migración Drizzle.</div></section>
@@ -255,8 +267,10 @@ const pills = [
           const banner = document.getElementById("tenants-estado");
           if (banner) banner.textContent = msgSinAdmin;
         })
-        .catch(() => {});
-      get("/api/admin/salud").then((b) => {
+        .catch(() => {
+          msgSinAdmin = "Sin sesión: entrá con Admin desde la landing.";
+        });
+      const pintarSalud = (b) => {
         const filas = b.salud || [];
         const activos = filas.filter((f) => f.estadoVisto === "activo").length;
         const mora = filas.filter((f) => f.estadoVisto === "suspendido").length;
@@ -277,7 +291,8 @@ const pills = [
         document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
         document.getElementById("mora-estado").textContent = "En vivo: " + activos + " al día, " + mora + " suspendidos.";
         marca("b-activos", true); marca("b-mora", true); marca("b-senales", true);
-      }).catch((e) => {
+      };
+      const cargarSalud = () => get("/api/admin/salud").then(pintarSalud).catch((e) => {
         if (e.message === "forbidden") {
           document.getElementById("n-activos").textContent = "—";
           document.getElementById("n-mora").textContent = "—";
@@ -293,6 +308,61 @@ const pills = [
         document.getElementById("n-senales").textContent = "5";
         document.getElementById("tenants-estado").textContent = "Sin conexión: mostrando demo.";
         document.getElementById("mora-estado").textContent = "Sin conexión: mostrando demo.";
+      });
+      cargarSalud();
+      // P1-32: un comercio por google_sub (decidirAlta). Primer alta = sesión;
+      // el segundo usa owner distinto. 201|409 con tenant_id es éxito idempotente.
+      document.getElementById("btn-piloto-dos").addEventListener("click", async () => {
+        const btn = document.getElementById("btn-piloto-dos");
+        const estado = document.getElementById("tenants-estado");
+        btn.disabled = true;
+        estado.textContent = "Cargando 2 comercios piloto…";
+        const postJson = async (url, body) => {
+          const r = await fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const texto = await r.text();
+          let json = {};
+          try {
+            json = texto ? JSON.parse(texto) : {};
+          } catch (err) {
+            console.warn("P1-32 respuesta no JSON", url, r.status, err);
+          }
+          return { status: r.status, json };
+        };
+        try {
+          const a1 = await postJson("/api/onboarding/alta", {
+            nombre_comercio: "Kiosco Lo de Mauri",
+            rubro: "kiosco",
+            request_key: "piloto-basico-t1",
+          });
+          const t1 = a1.json && a1.json.tenant_id;
+          const ok1 = (a1.status === 201 || a1.status === 409) && typeof t1 === "string";
+          const a2 = await postJson("/api/tenants", {
+            nombre_comercio: "Almacén Don Pepe",
+            plan: "base",
+            moneda: "ARS",
+            owner_google_sub: "piloto-basico-t2",
+            request_key: "piloto-basico-t2",
+          });
+          const t2 = a2.json && a2.json.tenant_id;
+          const ok2 = (a2.status === 201 || a2.status === 409) && typeof t2 === "string";
+          if (ok1 && ok2) {
+            estado.textContent = "Piloto OK: t1=" + t1 + " t2=" + t2 + " (status " + a1.status + "/" + a2.status + ").";
+            await cargarSalud();
+          } else {
+            const e1 = a1.json && a1.json.error ? a1.json.error : ("http " + a1.status);
+            const e2 = a2.json && a2.json.error ? a2.json.error : ("http " + a2.status);
+            estado.textContent = "Piloto falló: t1 " + e1 + "; t2 " + e2;
+          }
+        } catch (err) {
+          estado.textContent = "Piloto falló: " + (err && err.message ? err.message : "red");
+        } finally {
+          btn.disabled = false;
+        }
       });
       const usd = (centavos) => {
         if (centavos === null || centavos === undefined) return "—";
