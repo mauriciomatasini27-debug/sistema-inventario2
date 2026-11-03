@@ -78,6 +78,27 @@ describe("CS7 panel de consumos (vista)", () => {
     expect(panel.toLowerCase()).not.toContain("ops_outbox");
   });
 
+  it("el dueño crea una cuenta y el 201 recarga la lista y el selector", () => {
+    const consumos = readFileSync(join(process.cwd(), "src", "pages", "panel", "consumos.astro"), "utf8");
+    expect(consumos).toContain('id="cuenta-form"');
+    for (const campo of ["servicio", "proveedor", "titular"]) {
+      expect(consumos).toContain(`data-campo="${campo}"`);
+    }
+    for (const valor of ["luz", "gas", "agua", "internet", "telefono", "tasas", "arca", "otro"]) {
+      expect(consumos).toContain(`value="${valor}"`);
+    }
+    const post = consumos.indexOf('fetch("/api/service-accounts",');
+    expect(post).toBeGreaterThan(-1);
+    const despues = consumos.slice(post, post + 1400);
+    expect(despues).toContain('method: "POST"');
+    expect(despues).toContain("servicio, proveedor, titular");
+    expect(despues).toContain("mostrarErrores(");
+    expect(despues).toContain("textoError(");
+    expect(despues).toContain("cuentasPromesa = null");
+    expect(despues).toContain("cargarCuentas()");
+    expect(consumos).not.toMatch(/fetch\(\s*"\/api\/utility-bills"\s*,/);
+  });
+
   it("la página de consumos integra los borradores de email", () => {
     const consumos = readFileSync(join(process.cwd(), "src", "pages", "panel", "consumos.astro"), "utf8");
     expect(consumos).toContain('id="consumos-borradores"');

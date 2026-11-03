@@ -46,6 +46,9 @@ const ETIQUETAS_CAMPO: Readonly<Record<string, string>> = {
   min_stock: "el stock mínimo",
   reorder_qty: "la cantidad a reponer",
   bill_id: "la factura",
+  servicio: "el servicio",
+  proveedor: "el proveedor",
+  titular: "el titular",
 };
 
 export function etiquetaDe(campo: string): string {
