@@ -2,11 +2,14 @@
 import PanelShell from "../../components/panel/PanelShell.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
+import { tenantDeRequest } from "../../lib/tenant-context.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
+const tenant = tenantDeRequest(Astro.request);
+const tenantId = tenant.ok ? tenant.tenantId : "";
 ---
 <PanelShell titulo="Precios" subtitulo="Precios vigentes y previsualización de ajustes." activo="precios">
-  <div class="grid dos">
+  <div class="grid dos" data-tenant={tenantId}>
     <section class="card" data-harness={harness}>
       <h2>Precios vigentes</h2>
       <TablaCatalogo client:visible columnas="precios" etiqueta="Precios vigentes" />
@@ -28,6 +31,7 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
           </label>
         </div>
         <button id="preview-enviar" type="submit">Previsualizar</button>
+        <button id="ajuste-confirmar" type="button" hidden>Confirmar ajuste</button>
         <div class="estado" id="estado-preview" role="status">Elegí un producto y previsualizá el ajuste.</div>
       </form>
     </section>
@@ -40,11 +44,15 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { PORCENTAJE, REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
   let vigentes = [];
+  // P1-40: último preview listo para POST /api/prices/adjustments.
+  let pendienteAjuste = null;
+  const tenantId = document.querySelector("[data-tenant]")?.dataset.tenant ?? "";
 
   const pintarCatalogo = (items) => {
     vigentes = items;
@@ -124,11 +132,91 @@ const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
         return;
       }
       const linea = (j.lineas || [])[0];
-      estado.textContent = linea
-        ? producto.sku + ": " + formatearPesos(producto.precioCentavos) + " → " + formatearPesos(linea.nuevo_centavos) + "."
-        : "Sin líneas para previsualizar.";
+      if (!linea) {
+        pendienteAjuste = null;
+        $("ajuste-confirmar").hidden = true;
+        estado.textContent = "Sin líneas para previsualizar.";
+        return;
+      }
+      pendienteAjuste = {
+        direccion: $("preview-direccion").value,
+        porcentaje: Number($("preview-porcentaje").value),
+        sku: producto.sku,
+        vigente_centavos: Number(producto.precioCentavos),
+        nuevo_centavos: Number(linea.nuevo_centavos),
+      };
+      $("ajuste-confirmar").hidden = false;
+      estado.textContent =
+        producto.sku +
+        ": " +
+        formatearPesos(producto.precioCentavos) +
+        " → " +
+        formatearPesos(linea.nuevo_centavos) +
+        ". Confirmá para aplicar.";
     } catch (error) {
       console.warn("[panel/precios] preview", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  // P1-40: aplica el preview con confirmación de dueño (GP1).
+  $("ajuste-confirmar").addEventListener("click", async () => {
+    const estado = $("estado-preview");
+    if (!pendienteAjuste) {
+      estado.textContent = "Previsualizá un ajuste antes de confirmar.";
+      return;
+    }
+    if (!tenantId) {
+      estado.textContent = "No hay comercio en la sesión para aplicar el ajuste.";
+      return;
+    }
+    const ok = await confirmar({
+      titulo: "Confirmar ajuste de precio",
+      mensaje:
+        "Vas a " +
+        pendienteAjuste.direccion +
+        " " +
+        pendienteAjuste.porcentaje +
+        "% en " +
+        pendienteAjuste.sku +
+        " (" +
+        formatearPesos(pendienteAjuste.vigente_centavos) +
+        " → " +
+        formatearPesos(pendienteAjuste.nuevo_centavos) +
+        ").",
+      accion: "Aplicar",
+    });
+    if (!ok) return;
+    estado.textContent = "Aplicando ajuste…";
+    try {
+      const r = await fetch("/api/prices/adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          direccion: pendienteAjuste.direccion,
+          porcentaje: pendienteAjuste.porcentaje,
+          vigencia_tipo: "ahora",
+          aplica_en: null,
+          confirmado: true,
+          creado_por: "panel",
+          tenant_id: tenantId,
+          items: [{ sku: pendienteAjuste.sku, vigente_centavos: pendienteAjuste.vigente_centavos }],
+        }),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/precios] ajuste sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        estado.textContent = "No se aplicó: " + textoError(j.error, r.status) + ".";
+        return;
+      }
+      estado.textContent = "Ajuste aplicado en " + pendienteAjuste.sku + ".";
+      pendienteAjuste = null;
+      $("ajuste-confirmar").hidden = true;
+      cargarPrecios();
+    } catch (error) {
+      console.warn("[panel/precios] ajuste", error);
       estado.textContent = mensaje("error", "");
     }
   });
