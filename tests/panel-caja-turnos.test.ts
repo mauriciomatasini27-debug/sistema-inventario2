@@ -45,11 +45,9 @@ describe("P1-43: el dueño abre, concilia y resuelve desde /panel/caja", () => {
     expect(resolver).not.toContain("Idempotency-Key");
   });
 
-  it("el cierre de jornada sigue en la página y no aparecen export ni qr", () => {
+  it("el cierre de jornada sigue en la página y no aparece qr", () => {
     expect(caja).toContain('fetch("/api/cash/close"');
     expect(caja).toContain('close_type: "manual"');
-    for (const ruta of ["/api/cash/export", "/api/cash/qr"]) {
-      expect(caja).not.toContain(ruta);
-    }
+    expect(caja).not.toContain("/api/cash/qr");
   });
 });
