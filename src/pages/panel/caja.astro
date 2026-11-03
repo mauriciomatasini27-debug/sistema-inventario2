@@ -65,11 +65,72 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     <button id="cierre-enviar" type="button" hidden>Cerrar jornada</button>
     <div class="estado" id="estado-cierre" role="status">Cargando…</div>
   </section>
+
+  <div class="grid dos">
+    <section class="card">
+      <h2>Abrir turno</h2>
+      <form id="turno-form">
+        <div class="fila">
+          <label>Turno
+            <input id="turno-nombre" data-campo="turno" type="text" maxlength="32" autocomplete="off" />
+          </label>
+          <label>Entregado por
+            <input id="turno-entregado" data-campo="entregado_por" type="text" maxlength="128" autocomplete="name" />
+          </label>
+        </div>
+        <label>Esperado en centavos
+          <input id="turno-esperado" data-campo="esperado_centavos" type="number" min="0" step="1" inputmode="numeric" value="0" />
+        </label>
+        <button id="turno-enviar" type="submit">Abrir turno</button>
+        <div class="estado" id="estado-turno" role="status">Indicá el turno, quién entrega y el efectivo esperado.</div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Conciliar turno</h2>
+      <form id="conciliar-form">
+        <label>Turno
+          <input id="conciliar-turno" data-campo="turno_id" type="text" maxlength="36" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>Contado en centavos
+          <input id="conciliar-contado" data-campo="contado_centavos" type="number" min="0" step="1" inputmode="numeric" value="0" />
+        </label>
+        <div class="fila">
+          {medios.map((m) => (
+            <label>{m}
+              <input data-medio={m} data-campo="conteos_por_medio" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            </label>
+          ))}
+        </div>
+        <button id="conciliar-enviar" type="submit">Conciliar</button>
+        <div class="estado" id="estado-conciliar" role="status">Sumá cada medio. El esperado no se muestra acá.</div>
+      </form>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Resolver disputa</h2>
+    <form id="resolver-form">
+      <div class="fila">
+        <label>Turno
+          <input id="resolver-turno" data-campo="turno_id" type="text" maxlength="36" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>Resuelto por
+          <input id="resolver-quien" data-campo="resuelto_por" type="text" maxlength="128" autocomplete="name" />
+        </label>
+      </div>
+      <label>Nota
+        <input id="resolver-nota" data-campo="nota" type="text" maxlength="280" />
+      </label>
+      <button id="resolver-enviar" type="submit">Resolver disputa</button>
+      <div class="estado" id="estado-resolver" role="status">Si el turno quedó en disputa, dejá la nota y cerrala.</div>
+    </form>
+  </section>
 </PanelShell>
 
 <script>
   import { derivarEstado, formatearCentavos, textoError } from "../../lib/panel-modulos.js";
-  import { MONTO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { MONTO, REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
   import { fechaAR } from "../../lib/fecha-ar.js";
@@ -279,6 +340,200 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       console.warn("[panel/caja] cerrar", error);
       boton.disabled = false;
       estado.textContent = mensaje("error", "");
+    }
+  });
+
+  const esUuid = (valor) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(valor);
+
+  const recordarTurno = (id) => {
+    if (!esUuid(id)) return;
+    $("conciliar-turno").value = id;
+    $("resolver-turno").value = id;
+  };
+
+  const leerJson = async (r) =>
+    r.json().catch((error) => {
+      console.warn("[panel/caja] respuesta sin JSON", r.status, error);
+      return {};
+    });
+
+  // P1-43: el conteo es a ciegas. El esperado viaja solo en este POST y se borra de la pantalla.
+  $("turno-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("turno-form");
+    limpiarErrores(form);
+    const estado = $("estado-turno");
+    const boton = $("turno-enviar");
+    const turno = $("turno-nombre").value.trim();
+    const entregado = $("turno-entregado").value.trim();
+    const esperado = Number($("turno-esperado").value);
+    const errores: Record<string, string> = {};
+    if (turno.length < 1 || turno.length > 32) errores.turno = mensajeCampo("turno", REQUERIDO);
+    if (entregado.length < 1 || entregado.length > 128) errores.entregado_por = mensajeCampo("entregado_por", REQUERIDO);
+    if (!Number.isInteger(esperado) || esperado < 0) errores.esperado_centavos = mensajeCampo("esperado_centavos", enteroMin(0));
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    boton.disabled = true;
+    estado.textContent = "Abriendo turno…";
+    try {
+      const r = await fetch("/api/cash/shifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          fecha_jornada: fechaJornada,
+          turno,
+          entregado_por: entregado,
+          esperado_centavos: esperado,
+        }),
+      });
+      const j = await leerJson(r);
+      const turnoId = r.status === 201 ? j.turno_id : j.original && j.original.turno_id;
+      if (r.status === 201 || (r.status === 409 && esUuid(turnoId))) {
+        recordarTurno(turnoId);
+        $("turno-esperado").value = "";
+        estado.textContent =
+          r.status === 201
+            ? "Turno abierto. Contá la caja al lado, sin el esperado."
+            : "Ese envío ya había abierto el turno. Seguí con el conteo.";
+        $("conciliar-contado").focus();
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se abrió: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] abrir turno", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  $("conciliar-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("conciliar-form");
+    limpiarErrores(form);
+    const estado = $("estado-conciliar");
+    const boton = $("conciliar-enviar");
+    const turnoId = $("conciliar-turno").value.trim();
+    const contado = Number($("conciliar-contado").value);
+    const conteos = Array.from(form.querySelectorAll("[data-medio]")).map((nodo) => {
+      const input = nodo as HTMLInputElement;
+      return { medio: input.dataset.medio ?? "", monto_centavos: Number(input.value) };
+    });
+    const errores: Record<string, string> = {};
+    if (!esUuid(turnoId)) errores.turno_id = "Pegá el identificador del turno.";
+    if (!Number.isInteger(contado) || contado < 0) errores.contado_centavos = mensajeCampo("contado_centavos", enteroMin(0));
+    if (conteos.some((c) => !c.medio || !Number.isInteger(c.monto_centavos) || c.monto_centavos < 0)) {
+      errores.conteos_por_medio = "Revisá el desglose por medio.";
+    }
+    const suma = conteos.reduce((total, c) => total + (Number.isInteger(c.monto_centavos) ? c.monto_centavos : 0), 0);
+    if (!errores.contado_centavos && !errores.conteos_por_medio && suma !== contado) {
+      errores.contado_centavos = "La suma de los medios tiene que dar el contado.";
+    }
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Conciliar turno",
+      mensaje: "Vas a registrar " + formatearCentavos(contado) + " contados. Si no cierra, el turno queda en disputa.",
+      accion: "Conciliar",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Conciliando…";
+    try {
+      const r = await fetch("/api/cash/shifts/conciliate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          turno_id: turnoId,
+          contado_centavos: contado,
+          conteos_por_medio: conteos,
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 201) {
+        recordarTurno(j.turno_id || turnoId);
+        const diferencia = formatearCentavos(j.diferencia_centavos ?? 0);
+        if (j.estado === "en_disputa") {
+          estado.textContent = "Quedó en disputa. Diferencia " + diferencia + ". Dejá una nota para cerrarla.";
+          $("resolver-nota").focus();
+          return;
+        }
+        estado.textContent = "Turno conciliado. Diferencia " + diferencia + ".";
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se concilió: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] conciliar", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  // P1-43: el rol lo toma el servidor de la sesión. Este body no lo incluye.
+  $("resolver-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("resolver-form");
+    limpiarErrores(form);
+    const estado = $("estado-resolver");
+    const boton = $("resolver-enviar");
+    const turnoId = $("resolver-turno").value.trim();
+    const nota = $("resolver-nota").value.trim();
+    const quien = $("resolver-quien").value.trim();
+    const errores: Record<string, string> = {};
+    if (!esUuid(turnoId)) errores.turno_id = "Pegá el identificador del turno.";
+    if (nota.length < 1 || nota.length > 280) errores.nota = mensajeCampo("nota", REQUERIDO);
+    if (quien.length < 1 || quien.length > 128) errores.resuelto_por = mensajeCampo("resuelto_por", REQUERIDO);
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Resolver disputa",
+      mensaje: "Vas a cerrar la disputa de este turno con la nota que escribiste.",
+      accion: "Resolver disputa",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Resolviendo disputa…";
+    try {
+      const r = await fetch("/api/cash/shifts/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          turno_id: turnoId,
+          nota,
+          resuelto_por: quien,
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 200 && j.estado === "resuelto") {
+        estado.textContent = "Disputa resuelta. Ya podés cerrar la jornada.";
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se resolvió: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] resolver", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
     }
   });
 
