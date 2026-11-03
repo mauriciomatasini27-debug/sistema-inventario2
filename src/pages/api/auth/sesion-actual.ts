@@ -17,6 +17,11 @@ export const GET: APIRoute = async ({ request }) => {
   // P1-25: es_admin + google_sub propios para el panel admin (allowlist en
   // Vercel) y para copiar el sub a ADMIN_ALLOWLIST_SUBS sin adivinar.
   const esAdmin = esAdminAllowlist(ctx.googleSub, leerAllowlist());
+  // P1-35: el cliente (y el panel) necesitan saber qué comercio está activo.
+  const tenantId = ctx.tenantId;
+  const nombreComercio = tenantId
+    ? (control.tenants.get(tenantId)?.nombreComercio ?? null)
+    : null;
   return Response.json(
     {
       logueado: true,
@@ -26,6 +31,8 @@ export const GET: APIRoute = async ({ request }) => {
       ayuda: TEXTO_AYUDA_CUENTAS,
       es_admin: esAdmin,
       google_sub: ctx.googleSub,
+      tenant_id: tenantId,
+      nombre_comercio: nombreComercio,
     },
     { status: 200 },
   );

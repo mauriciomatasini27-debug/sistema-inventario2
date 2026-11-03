@@ -13,8 +13,11 @@ interface Props {
   titulo: string;
   subtitulo?: string;
   activo?: DestinoPanel;
+  // P1-35: nombre del comercio activo cuando la página lo conoce.
+  comercio?: string;
 }
-const { titulo, subtitulo = "", activo } = Astro.props;
+const { titulo, subtitulo = "", activo, comercio = "" } = Astro.props;
+const logoTexto = comercio.trim() || "Inventario";
 ---
 <!doctype html>
 <html lang="es">
@@ -82,7 +85,7 @@ const { titulo, subtitulo = "", activo } = Astro.props;
   <body>
     <div class="panel-shell">
       <header class="topbar vidrio-barra">
-        <a class="logo" href="/panel">Inventario</a>
+        <a class="logo" href="/panel" title={comercio.trim() || "Panel del comercio"}>{logoTexto}</a>
         <TopPills activo={activo} />
         <CerrarSesion />
         <TemaToggle />
