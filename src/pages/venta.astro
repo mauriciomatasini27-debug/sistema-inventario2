@@ -1,5 +1,6 @@
 ---
-// UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos/fiados/devoluciones.
+// UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos ni devoluciones.
+// P1-41: medio "A cuenta" llama POST /api/credit/sales-on-account (solo online).
 // (Movida desde / a /venta por ADR-0020: el home pasa a ser el dashboard índice.)
 import "../styles/tokens-papel.css";
 import "../styles/tema.css";
@@ -9,7 +10,7 @@ import PwaRegistro from "../components/ui/PwaRegistro.astro";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 
-const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);
 // P10-13: el catálogo offline es por tenant. El servidor resuelve con
 // tenantDeRequest (valida la membership como el resto de rutas) y lo inyecta
@@ -81,6 +82,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           <select id="medio">
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
           </select>
+        </label>
+        <label id="cliente-fiado-label" hidden>Cliente (fiado)
+          <input id="cliente-fiado" type="text" autocomplete="off" placeholder="customer_id" />
         </label>
         <button id="cobrar">Cobrar</button>
         <button id="sync" type="button">Reintentar sync</button>
@@ -281,6 +285,13 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           $("balance").textContent = "Balance: " + formatearCentavos(total) + " · " + detalle;
         } catch { /* sin red: se reintenta en sync */ }
       }
+      const syncClienteFiado = () => {
+        const aCuenta = $("medio").value === "A cuenta";
+        $("cliente-fiado-label").hidden = !aCuenta;
+      };
+      $("medio").addEventListener("change", syncClienteFiado);
+      syncClienteFiado();
+
       $("cobrar").onclick = async () => {
         const seq = nextSeq();
         // P1-31: el perfil persiste su código. Dos teléfonos no comparten seq.
@@ -293,9 +304,72 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           precio_centavos: Number($("precio").value),
           ...(nombreNuevo ? { alta: { nombre: nombreNuevo } } : {}),
         };
+        const medio = $("medio").value;
+
+        // P1-41: venta a cuenta solo online vía /api/credit/sales-on-account.
+        if (medio === "A cuenta") {
+          const customerId = $("cliente-fiado").value.trim();
+          if (!customerId) {
+            estado("Para fiado escribí el customer_id del cliente.");
+            return;
+          }
+          if (!navigator.onLine) {
+            estado("La venta a cuenta necesita conexión.");
+            return;
+          }
+          try {
+            const bal = await fetch("/api/credit/balance?customer_id=" + encodeURIComponent(customerId));
+            const bj = await bal.json().catch(() => ({}));
+            const saldoActual = bal.ok ? Number(bj.saldo_centavos ?? 0) : 0;
+            // Balance no expone tope; el API valida con el valor enviado (piloto alto).
+            const r = await fetch("/api/credit/sales-on-account", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Idempotency-Key": op_id },
+              body: JSON.stringify({
+                customer_id: customerId,
+                lineas: [{ product_id: linea.product_id, qty: linea.qty, precio_centavos: linea.precio_centavos }],
+                device_code,
+                seq_local: seq,
+                tope_centavos: 999_999_999,
+                saldo_actual_centavos: Number.isFinite(saldoActual) ? Math.max(0, saldoActual) : 0,
+              }),
+            });
+            const j = await r.json().catch((error) => {
+              console.warn("[venta] fiado sin JSON", r.status, error);
+              return {};
+            });
+            if (!r.ok) {
+              estado(r.status + " " + (j.error || "venta a cuenta falló"));
+              return;
+            }
+            lastSaleId = null;
+            lastTicket = {
+              definitivo: j.ticket_definitivo ?? null,
+              provisorio: device_code + "-" + seq,
+              total: String(j.total_centavos ?? linea.qty * linea.precio_centavos),
+              medio: "A cuenta",
+              lineas: [{ sku: linea.product_id, cantidad: linea.qty, precio: String(linea.precio_centavos) }],
+            };
+            estado(
+              r.status +
+                " fiado " +
+                customerId +
+                " ticket " +
+                (j.ticket_definitivo || device_code + "-" + seq) +
+                " total " +
+                (j.total_centavos ?? ""),
+            );
+          } catch (error) {
+            console.warn("[venta] fiado", error);
+            estado("La venta a cuenta necesita conexión.");
+          }
+          balance();
+          return;
+        }
+
         const payload = {
           lineas: [linea],
-          medio: $("medio").value,
+          medio,
           device_code,
           seq_local: seq,
           client_occurred_at: new Date().toISOString(),
