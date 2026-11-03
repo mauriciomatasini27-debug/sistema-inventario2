@@ -84,6 +84,18 @@ describe("T-UI-02: las 5 acciones destructivas pasan por confirmar", () => {
     expect(bloque).toContain('close_type: "manual"');
   });
 
+  it("conciliar y resolver confirman antes del POST", () => {
+    const caja = leer("src/pages/panel/caja.astro");
+    for (const accion of [
+      { marca: '$("conciliar-form").addEventListener', post: 'fetch("/api/cash/shifts/conciliate"' },
+      { marca: '$("resolver-form").addEventListener', post: 'fetch("/api/cash/shifts/resolve"' },
+    ]) {
+      const bloque = caja.slice(caja.indexOf(accion.marca));
+      expect(bloque.indexOf("confirmar("), accion.marca).toBeGreaterThan(-1);
+      expect(bloque.indexOf(accion.post), accion.marca).toBeGreaterThan(bloque.indexOf("confirmar("));
+    }
+  });
+
   it("cada layout que monta las acciones incluye ConfirmDialog una vez", () => {
     expect(leer("src/components/panel/PanelShell.astro")).toContain("<ConfirmDialog />");
     expect(leer("src/pages/panel.astro")).toContain("<ConfirmDialog />");
