@@ -5,6 +5,7 @@ import { Toaster } from "../ui/Toaster";
 import ConfirmDialog from "../ui/ConfirmDialog.astro";
 import TemaInicial from "../ui/TemaInicial.astro";
 import TemaToggle from "../ui/TemaToggle.astro";
+import CerrarSesion from "../ui/CerrarSesion.astro";
 import TopPills from "./TopPills.astro";
 import type { DestinoPanel } from "../../lib/panel-modulos.js";
 
@@ -83,6 +84,7 @@ const { titulo, subtitulo = "", activo } = Astro.props;
       <header class="topbar vidrio-barra">
         <a class="logo" href="/panel">Inventario</a>
         <TopPills activo={activo} />
+        <CerrarSesion />
         <TemaToggle />
       </header>
       <main>

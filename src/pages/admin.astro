@@ -3,6 +3,7 @@ import "../styles/tokens-papel.css";
 import "../styles/tema.css";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
+import CerrarSesion from "../components/ui/CerrarSesion.astro";
 // Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
 // craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
 // pills, segbar, bignums, cards, heatmap dark y SVG propios. Solo consume GET
@@ -128,6 +129,7 @@ const pills = [
         <span class="top-right">
           <input id="q" type="search" placeholder="Buscar tenant o acto" aria-label="Buscar en auditoría" />
           <span class="avatar" title="Operador plataforma">A</span>
+          <CerrarSesion />
           <TemaToggle />
         </span>
       </div>

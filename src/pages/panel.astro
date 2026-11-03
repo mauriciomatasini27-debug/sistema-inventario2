@@ -5,6 +5,7 @@ import { Toaster } from "../components/ui/Toaster";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
+import CerrarSesion from "../components/ui/CerrarSesion.astro";
 import BienvenidaDialog from "../components/panel/BienvenidaDialog.astro";
 import { esDueno, resolverSesion } from "../lib/control.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
@@ -148,6 +149,7 @@ const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
         <span class="top-right">
           <input id="q" type="search" placeholder="Buscar" aria-label="Buscar en movimientos" />
           <span class="avatar" title="Comercio">C</span>
+          <CerrarSesion />
           <TemaToggle />
         </span>
       </div>
