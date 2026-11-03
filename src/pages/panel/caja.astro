@@ -16,7 +16,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     <section class="card">
       <h2>Últimos movimientos</h2>
       <table>
-        <thead><tr><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th></tr></thead>
+        <thead><tr><th>Id</th><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th></tr></thead>
         <tbody id="mov-body"></tbody>
       </table>
       <div class="estado" id="estado-movs" role="status">Cargando…</div>
@@ -84,6 +84,25 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       </label>
       <button id="drop-enviar" type="submit">Registrar retiro</button>
       <div class="estado" id="estado-drop" role="status">Indicá la fecha y el monto del retiro.</div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Revertir movimiento</h2>
+    <form id="rev-form">
+      <label>Id del movimiento
+        <input id="rev-id" data-campo="revierte_a" type="text" maxlength="128" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="fila">
+        <label>Motivo
+          <input id="rev-motivo" data-campo="motivo" type="text" maxlength="280" />
+        </label>
+        <label>Registrado por
+          <input id="rev-actor" data-campo="actor" type="text" maxlength="128" value="panel-web" autocomplete="name" />
+        </label>
+      </div>
+      <button id="rev-enviar" type="submit">Revertir movimiento</button>
+      <div class="estado" id="estado-rev" role="status">Pegá el id de la tabla. El motivo es opcional.</div>
     </form>
   </section>
 
@@ -157,6 +176,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <style>
   #drop-sorpresa { width: 44px; justify-self: start; }
+  #mov-body td:first-child { overflow-wrap: anywhere; }
 </style>
 
 <script>
@@ -212,7 +232,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         const items = j.items || [];
         const tb = $("mov-body");
         tb.textContent = "";
-        items.forEach((m) => tb.appendChild(celdas([m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])));
+        // P1-50: el id queda en la fila para copiarlo en revierte_a.
+        items.forEach((m) => tb.appendChild(celdas([m.id, m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])));
         $("estado-movs").textContent = mensaje(
           derivarEstado({ cargando: false, error: false, items: items.length }),
           "Sin movimientos registrados.",
@@ -623,6 +644,61 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       estado.textContent = "No se resolvió: " + textoError(j.error, r.status) + ".";
     } catch (error) {
       console.warn("[panel/caja] resolver", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  // P1-50: el compensatorio es inmutable. El panel solo publica el POST.
+  $("rev-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("rev-form");
+    limpiarErrores(form);
+    const estado = $("estado-rev");
+    const boton = $("rev-enviar");
+    const revierte = $("rev-id").value.trim();
+    const motivo = $("rev-motivo").value.trim();
+    const actor = $("rev-actor").value.trim();
+    const errores: Record<string, string> = {};
+    if (revierte.length < 1 || revierte.length > 128) errores.revierte_a = "Pegá el id del movimiento.";
+    if (actor.length < 1 || actor.length > 128) errores.actor = mensajeCampo("actor", REQUERIDO);
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Revertir movimiento",
+      mensaje: "Vas a compensar el movimiento " + revierte + ". El original no se edita.",
+      accion: "Revertir",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Revirtiendo…";
+    try {
+      const r = await fetch("/api/cash/reversals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          revierte_a: revierte,
+          motivo: motivo || undefined,
+          actor,
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 201) {
+        estado.textContent = j.movimiento_id ? "Movimiento revertido. " + j.movimiento_id : "Movimiento revertido.";
+        cargarMovimientos();
+        cargarBalance();
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se revirtió: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] reversa", error);
       estado.textContent = mensaje("error", "");
     } finally {
       boton.disabled = false;
