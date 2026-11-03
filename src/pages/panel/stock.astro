@@ -109,8 +109,23 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
 
     <section class="card">
       <h2>Conteo ciego</h2>
-      <p class="estado">El conteo por sector suma su propia pantalla en la próxima iteración.</p>
-      <p><a href="/api/stock/conteo">/api/stock/conteo</a> ya está disponible para el conteo por sector.</p>
+      <p class="estado">Creá un conteo CAT-S6 y confirmalo como dueño para ajustar stock.</p>
+      <form id="conteo-form">
+        <label>SKU
+          <input id="conteo-sku" data-campo="sku" type="text" autocomplete="off" />
+        </label>
+        <label>Cantidad física
+          <input id="conteo-fisico" data-campo="fisico" type="number" min="0" max="9999" step="1" value="0" />
+        </label>
+        <label>Contado por
+          <input id="conteo-por" data-campo="contado_por" type="text" value="panel" autocomplete="off" />
+        </label>
+        <label>Motivo (dueño)
+          <input id="conteo-motivo" data-campo="motivo" type="text" maxlength="280" placeholder="Ajuste por conteo" autocomplete="off" />
+        </label>
+        <button id="conteo-enviar" type="submit">Crear y confirmar conteo</button>
+        <div class="estado" id="estado-conteo" role="status">Completá SKU y cantidad física.</div>
+      </form>
     </section>
   </div>
 </PanelShell>
@@ -857,6 +872,66 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       if ($("lote-sku").value.trim()) buscarLotes();
     } catch (error) {
       console.warn("[panel/stock] ingreso", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
+  // P1-39: formulario CAT-S6 (POST /api/counts + PATCH confirmar dueño).
+  $("conteo-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    limpiarErrores(evento.currentTarget as HTMLElement);
+    const estado = $("estado-conteo");
+    const form = $("conteo-form");
+    const sku = $("conteo-sku").value.trim();
+    const fisico = Number($("conteo-fisico").value);
+    const contadoPor = $("conteo-por").value.trim() || "panel";
+    const motivo = $("conteo-motivo").value.trim() || "Ajuste por conteo";
+    const errores = {};
+    if (!sku) errores.sku = mensajeCampo("sku", REQUERIDO);
+    if (!Number.isInteger(fisico) || fisico < 0) errores.fisico = mensajeCampo("fisico", REQUERIDO);
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    estado.textContent = "Creando conteo…";
+    try {
+      const crear = await fetch("/api/counts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ contado_por: contadoPor, lineas: [{ sku, fisico }] }),
+      });
+      const creado = await crear.json().catch((error) => {
+        console.warn("[panel/stock] conteo sin JSON", crear.status, error);
+        return {};
+      });
+      if (!crear.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(creado.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        estado.textContent = "No se creó el conteo: " + textoError(creado.error, crear.status) + ".";
+        return;
+      }
+      estado.textContent = "Confirmando ajuste…";
+      const conf = await fetch("/api/counts?id=" + encodeURIComponent(creado.id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rol: "dueno", confirmado_por: contadoPor, motivo }),
+      });
+      const j = await conf.json().catch((error) => {
+        console.warn("[panel/stock] confirmar conteo sin JSON", conf.status, error);
+        return {};
+      });
+      if (!conf.ok) {
+        estado.textContent =
+          "Conteo " + creado.id + " creado, pero no se confirmó: " + textoError(j.error, conf.status) + ".";
+        return;
+      }
+      estado.textContent = "Conteo confirmado: " + creado.id + " · " + (j.estado || "confirmado") + ".";
+      cargarCatalogo();
+    } catch (error) {
+      console.warn("[panel/stock] conteo", error);
       estado.textContent = mensaje("error", "");
     }
   });
