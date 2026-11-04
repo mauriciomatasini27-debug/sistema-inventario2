@@ -35,7 +35,7 @@ describe("P1-43: el dueño abre, concilia y resuelve desde /panel/caja", () => {
   });
 
   it("resolver confirma y el body no trae rol", () => {
-    const resolver = bloque('$("resolver-form").addEventListener');
+    const resolver = bloque('$("resolver-form").addEventListener', '$("rev-form").addEventListener');
     const post = resolver.indexOf('fetch("/api/cash/shifts/resolve"');
     expect(resolver.indexOf("confirmar(")).toBeGreaterThan(-1);
     expect(post).toBeGreaterThan(resolver.indexOf("confirmar("));
@@ -45,11 +45,10 @@ describe("P1-43: el dueño abre, concilia y resuelve desde /panel/caja", () => {
     expect(resolver).not.toContain("Idempotency-Key");
   });
 
-  it("el cierre de jornada sigue en la página y no aparecen reversas, export ni qr", () => {
-    expect(caja).toContain('fetch("/api/cash/close"');
-    expect(caja).toContain('close_type: "manual"');
-    for (const ruta of ["/api/cash/reversals", "/api/cash/export", "/api/cash/qr"]) {
-      expect(caja).not.toContain(ruta);
-    }
+  it("el cierre de jornada sigue en la página y no llama a qr", () => {
+    const cierre = bloque('$("cierre-enviar").addEventListener', "const esUuid");
+    expect(cierre).toContain('fetch("/api/cash/close"');
+    expect(cierre).toContain('close_type: "manual"');
+    expect(cierre).not.toContain("/api/cash/qr");
   });
 });
