@@ -63,6 +63,27 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   </div>
 
   <section class="card">
+    <h2>Comprobantes QR</h2>
+    <table>
+      <thead><tr><th>Operación</th><th>Importe</th><th>Estado</th><th>Origen</th><th>Acción</th></tr></thead>
+      <tbody id="qr-body"></tbody>
+    </table>
+    <div class="estado" id="estado-qr-lista" role="status">Cargando…</div>
+    <form id="qr-form">
+      <div class="fila">
+        <label>Número de operación
+          <input id="qr-numero" data-campo="numero_operacion" type="text" maxlength="64" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>Monto en centavos
+          <input id="qr-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <button id="qr-enviar" type="submit">Cargar comprobante</button>
+      <div class="estado" id="estado-qr" role="status">El origen queda como carga manual.</div>
+    </form>
+  </section>
+
+  <section class="card">
     <h2>Retiro a caja fuerte</h2>
     <form id="drop-form">
       <div class="fila">
@@ -178,7 +199,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <style>
   #drop-sorpresa { width: 44px; justify-self: start; }
-  #mov-body td:first-child { overflow-wrap: anywhere; }
+  #mov-body td:first-child, #qr-body td:first-child { overflow-wrap: anywhere; }
   #export-enviar { margin-top: 8px; }
 </style>
 
@@ -742,8 +763,126 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     }
   });
 
+  // P1-52: el esquema acepta bot y gmail. Esta pantalla la usa una persona, así que el POST manda origen manual.
+  const cargarQr = () =>
+    fetch("/api/cash/qr")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then((j) => {
+        const items = j.recibos || [];
+        const tb = $("qr-body");
+        tb.textContent = "";
+        items.forEach((q) => {
+          const tr = celdas([q.numeroOperacion, formatearCentavos(q.montoCentavos), q.estado, q.origen || ""]);
+          const td = document.createElement("td");
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.textContent = "Deshacer";
+          boton.addEventListener("click", () => deshacerComprobante(q.numeroOperacion, boton));
+          td.appendChild(boton);
+          tr.appendChild(td);
+          tb.appendChild(tr);
+        });
+        $("estado-qr-lista").textContent = mensaje(
+          derivarEstado({ cargando: false, error: false, items: items.length }),
+          "Sin comprobantes QR.",
+        );
+      })
+      .catch((error) => {
+        console.warn("[panel/caja] qr", error);
+        $("estado-qr-lista").textContent = mensaje("error", "");
+      });
+
+  const deshacerComprobante = async (numero, boton) => {
+    const confirmado = await confirmar({
+      titulo: "Deshacer comprobante",
+      mensaje: "Vas a deshacer el comprobante " + numero + ".",
+      accion: "Deshacer",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    const estado = $("estado-qr");
+    estado.textContent = "Deshaciendo…";
+    try {
+      const r = await fetch("/api/cash/qr?numero_operacion=" + encodeURIComponent(numero), { method: "DELETE" });
+      const j = await leerJson(r);
+      if (r.status === 200) {
+        estado.textContent = j.estado === "pendiente" ? "El comprobante volvió a pendiente." : "Comprobante deshecho.";
+        cargarQr();
+        return;
+      }
+      estado.textContent = "No se deshizo: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] deshacer qr", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  };
+
+  $("qr-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("qr-form");
+    limpiarErrores(form);
+    const estado = $("estado-qr");
+    const boton = $("qr-enviar");
+    const numero = $("qr-numero").value.trim();
+    const monto = Number($("qr-monto").value);
+    const errores: Record<string, string> = {};
+    if (numero.length < 1 || numero.length > 64) errores.numero_operacion = "Poné el número de operación.";
+    if (!Number.isInteger(monto) || monto <= 0) errores.monto_centavos = mensajeCampo("monto_centavos", MONTO);
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Cargar comprobante QR",
+      mensaje: "Vas a cargar el comprobante " + numero + " por " + formatearCentavos(monto) + ". El origen queda como manual.",
+      accion: "Cargar comprobante",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    estado.textContent = "Cargando comprobante…";
+    try {
+      const r = await fetch("/api/cash/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({
+          numero_operacion: numero,
+          monto_centavos: monto,
+          origen: "manual",
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 201) {
+        estado.textContent = "Comprobante cargado.";
+        $("qr-numero").value = "";
+        $("qr-monto").value = "";
+        cargarQr();
+        return;
+      }
+      if (r.status === 409 && j.error === "ya registrado") {
+        estado.textContent = "Ese número de operación ya está cargado.";
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se cargó: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] cargar qr", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
   cargarBalance();
   cargarMovimientos();
   cargarVencimientos();
   cargarCierre();
+  cargarQr();
 </script>
