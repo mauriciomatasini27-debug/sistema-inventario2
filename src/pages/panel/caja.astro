@@ -30,6 +30,21 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       <h2>Vencimientos de caja</h2>
       <ul class="lista" id="venc-lista"></ul>
       <div class="estado" id="estado-venc" role="status">Cargando…</div>
+      <form id="venc-form">
+        <label>Concepto
+          <input id="venc-concepto" data-campo="concepto" type="text" maxlength="200" autocomplete="off" />
+        </label>
+        <div class="fila">
+          <label>Vence
+            <input id="venc-vence" data-campo="vence_el" type="datetime-local" />
+          </label>
+          <label>Monto en centavos
+            <input id="venc-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" />
+          </label>
+        </div>
+        <button id="venc-enviar" type="submit">Agregar vencimiento</button>
+        <div class="estado" id="estado-venc-form" role="status">Indicá el concepto, cuándo vence y el monto.</div>
+      </form>
     </section>
 
     <section class="card">
@@ -201,6 +216,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   #drop-sorpresa { width: 44px; justify-self: start; }
   #mov-body td:first-child, #qr-body td:first-child { overflow-wrap: anywhere; }
   #export-enviar { margin-top: 8px; }
+  #venc-form { margin-top: 12px; }
+  #venc-lista button { margin-left: 8px; }
 </style>
 
 <script>
@@ -268,6 +285,13 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         $("estado-movs").textContent = mensaje("error", "");
       });
 
+  // P1-53: el pago no hace GET ?id=. El ítem ya está en la lista y el PATCH sin metodo usa Efectivo.
+  const isoDesdeLocal = (valor) => {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(valor)) return "";
+    const fecha = new Date(valor);
+    return Number.isNaN(fecha.getTime()) ? "" : fecha.toISOString();
+  };
+
   const cargarVencimientos = () =>
     fetch("/api/cash/due-items")
       .then((r) => {
@@ -281,6 +305,13 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         items.forEach((v) => {
           const li = document.createElement("li");
           li.textContent = v.concepto + " · " + formatearCentavos(v.montoCentavos) + " · " + v.estado + (v.avisa ? " · avisa" : "");
+          if (v.id && v.estado !== "pagada") {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.textContent = "Pagar";
+            boton.addEventListener("click", () => pagarVencimiento(v, boton));
+            li.appendChild(boton);
+          }
           ul.appendChild(li);
         });
         $("estado-venc").textContent = mensaje(
@@ -292,6 +323,94 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         console.warn("[panel/caja] vencimientos", error);
         $("estado-venc").textContent = mensaje("error", "");
       });
+
+  const pagarVencimiento = async (v, boton) => {
+    const confirmado = await confirmar({
+      titulo: "Pagar vencimiento",
+      mensaje: "Vas a pagar " + v.concepto + " por " + formatearCentavos(v.montoCentavos) + " en efectivo.",
+      accion: "Pagar",
+    });
+    if (!confirmado) return;
+    boton.disabled = true;
+    const estado = $("estado-venc-form");
+    estado.textContent = "Pagando…";
+    try {
+      const r = await fetch("/api/cash/due-items?id=" + encodeURIComponent(v.id), {
+        method: "PATCH",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      });
+      const j = await leerJson(r);
+      if (r.status === 200) {
+        estado.textContent = "Vencimiento pagado.";
+        cargarVencimientos();
+        cargarMovimientos();
+        cargarBalance();
+        return;
+      }
+      if (r.status === 409 && j.error === "ya pagada") {
+        estado.textContent = "Ese vencimiento ya está pagado.";
+        cargarVencimientos();
+        return;
+      }
+      estado.textContent = "No se pagó: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] pagar vencimiento", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  };
+
+  $("venc-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = $("venc-form");
+    limpiarErrores(form);
+    const estado = $("estado-venc-form");
+    const boton = $("venc-enviar");
+    const concepto = $("venc-concepto").value.trim();
+    const vence = isoDesdeLocal($("venc-vence").value);
+    const monto = Number($("venc-monto").value);
+    const errores: Record<string, string> = {};
+    if (concepto.length < 1 || concepto.length > 200) errores.concepto = "Poné el concepto.";
+    if (!vence) errores.vence_el = "Elegí fecha y hora.";
+    if (!Number.isInteger(monto) || monto <= 0) errores.monto_centavos = mensajeCampo("monto_centavos", MONTO);
+    if (mostrarErrores(form, errores)) {
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    boton.disabled = true;
+    estado.textContent = "Agregando vencimiento…";
+    try {
+      const r = await fetch("/api/cash/due-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          concepto,
+          vence_el: vence,
+          monto_centavos: monto,
+        }),
+      });
+      const j = await leerJson(r);
+      if (r.status === 201) {
+        estado.textContent = "Vencimiento agregado.";
+        $("venc-concepto").value = "";
+        $("venc-vence").value = "";
+        $("venc-monto").value = "";
+        cargarVencimientos();
+        return;
+      }
+      if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+        estado.textContent = "Revisá los campos marcados.";
+        return;
+      }
+      estado.textContent = "No se agregó: " + textoError(j.error, r.status) + ".";
+    } catch (error) {
+      console.warn("[panel/caja] alta vencimiento", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      boton.disabled = false;
+    }
+  });
 
   $("mov-form").addEventListener("submit", async (evento) => {
     evento.preventDefault();
