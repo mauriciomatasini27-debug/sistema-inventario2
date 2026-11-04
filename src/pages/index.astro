@@ -19,11 +19,16 @@ import Garantia from '../components/sections/Garantia.astro';
 import Faq from '../components/sections/Faq.astro';
 import Contacto from '../components/sections/Contacto.astro';
 import { seo } from '../data/business';
+import { mensajeIngresoLanding } from '../modules/auth/mensaje-ingreso';
 
 // P1-27: el callback deja /?alta=pendiente (PRD-AU-02) y esta página abre el alta.
 if (Astro.url.searchParams.get("alta") === "pendiente") {
   return Astro.redirect("/alta");
 }
+
+// P1-55: fallo/cancelación de Google llegan con ingreso+mensaje; sin banner
+// el usuario cree que "a veces no funciona".
+const avisoIngreso = mensajeIngresoLanding(Astro.url.searchParams);
 
 const title = seo.title;
 const description = seo.description;
@@ -31,6 +36,17 @@ const description = seo.description;
 
 <BaseLayout {title} {description} canonical={`${seo.site}/`} ogImage={seo.ogImage}>
   <main>
+    {
+      avisoIngreso && (
+        <p
+          role="alert"
+          class="mx-auto max-w-[var(--width-content)] px-6 pt-6 text-[length:var(--text-body)] text-void md:px-10"
+          data-ingreso-aviso
+        >
+          {avisoIngreso}
+        </p>
+      )
+    }
     <Hero />
     <Problema />
     <Ejemplo />

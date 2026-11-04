@@ -30,14 +30,26 @@ beforeEach(() => {
   process.env.GOOGLE_LOGIN_REDIRECT = "http://x/api/auth/callback";
 });
 
+function setCookies(r: Response): string[] {
+  const h = r.headers as Headers & { getSetCookie?: () => string[] };
+  return typeof h.getSetCookie === "function" ? h.getSetCookie() : [];
+}
+
+function destinoDeCookies(cookies: string[]): string {
+  const jar = cookies.join("; ");
+  const m = jar.match(/__Host-oauth-destino=([^;]+)/);
+  return m ? decodeURIComponent(m[1]!) : "";
+}
+
 describe("AU13 login con selector de cuenta", () => {
+  // P1-55: login 302 al hop; prompt viaja en la URL de Google (cookie destino).
   it("prompt=select_account viaja a Google; otros valores se ignoran", async () => {
     const r = await getLogin(ctx("http://x/api/auth/login?prompt=select_account"));
     expect(r.status).toBe(302);
-    const loc = r.headers.get("Location") ?? "";
-    expect(loc).toContain("prompt=select_account");
+    expect(r.headers.get("Location")).toBe("/api/auth/hacia-google");
+    expect(destinoDeCookies(setCookies(r))).toContain("prompt=select_account");
     const r2 = await getLogin(ctx("http://x/api/auth/login?prompt=consent"));
-    expect(r2.headers.get("Location") ?? "").not.toContain("prompt=");
+    expect(destinoDeCookies(setCookies(r2))).not.toContain("prompt=");
   });
 });
 

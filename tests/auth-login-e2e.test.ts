@@ -3,6 +3,7 @@ import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as getLogin } from "../src/pages/api/auth/login.js";
+import { GET as getHaciaGoogle } from "../src/pages/api/auth/hacia-google.js";
 import { GET as getCallback } from "../src/pages/api/auth/callback.js";
 import { GET as getReauth } from "../src/pages/api/auth/reauth.js";
 
@@ -30,19 +31,34 @@ function setCookies(r: Response): string[] {
   return typeof h.getSetCookie === "function" ? h.getSetCookie() : [];
 }
 
-// P1-24: login responde 200 HTML (cookies) + link a Google, no 302 cross-site.
-async function urlGoogle(r: Response): Promise<string> {
-  const loc = r.headers.get("Location");
-  if (loc) return loc;
-  const html = await r.clone().text();
-  const m = html.match(/https:\/\/accounts\.google\.com[^"'\s<]+/);
-  return m ? m[0].replace(/&amp;/g, "&") : "";
+function jarDeCookies(cookies: string[]): string {
+  return cookies
+    .map((c) => c.split(";")[0]!.trim())
+    .filter(Boolean)
+    .join("; ");
 }
 
 function stateDeCookies(cookies: string[]): string {
   const jar = cookies.join("; ");
   const m = jar.match(/__Host-oauth-state=([^;]+)/);
   return m ? decodeURIComponent(m[1]!) : "";
+}
+
+function destinoDeCookies(cookies: string[]): string {
+  const jar = cookies.join("; ");
+  const m = jar.match(/__Host-oauth-destino=([^;]+)/);
+  return m ? decodeURIComponent(m[1]!) : "";
+}
+
+// P1-55: login 302 same-origin; el hop entrega la URL de Google.
+async function loginYHop(): Promise<{ rLogin: Response; rHop: Response; state: string; jar: string }> {
+  const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+  const cookies = setCookies(rLogin);
+  const jar = jarDeCookies(cookies);
+  const rHop = await getHaciaGoogle(
+    ctx("http://x/api/auth/hacia-google", { headers: { cookie: jar } }),
+  );
+  return { rLogin, rHop, state: stateDeCookies(cookies), jar };
 }
 
 function sesion(sub: string, tenantId: string | null) {
@@ -62,6 +78,7 @@ function sesion(sub: string, tenantId: string | null) {
 
 beforeEach(() => {
   resetStore();
+  delete process.env.CONTROL_DATABASE_URL;
   process.env.GOOGLE_LOGIN_CLIENT_ID = "login-client";
   process.env.GOOGLE_LOGIN_CLIENT_SECRET = "shh";
   process.env.GOOGLE_LOGIN_REDIRECT = "http://x/api/auth/callback";
@@ -69,15 +86,14 @@ beforeEach(() => {
 
 describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   it("login entrega state+PKCE en cookies y el callback crea sesión", async () => {
-    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    expect(rLogin.status).toBe(200);
-    const loc = await urlGoogle(rLogin);
+    const { rLogin, rHop, state, jar } = await loginYHop();
+    expect(rLogin.status).toBe(302);
+    expect(rLogin.headers.get("Location")).toBe("/api/auth/hacia-google");
+    expect(rHop.status).toBe(302);
+    const loc = rHop.headers.get("Location") ?? "";
     expect(loc).toContain("accounts.google.com");
-    const cookies = setCookies(rLogin);
-    const state = stateDeCookies(cookies);
     expect(state).not.toBe("");
     expect(new URL(loc).searchParams.get("state")).toBe(state);
-    const jar = cookies.join("; ");
     expect(jar).toContain("__Host-oauth-state=");
     expect(jar).toContain("__Host-oauth-pkce=");
 
@@ -100,7 +116,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
     control.pendingAuth.set(state, { ...p, expiraEnMs: Date.now() - 1000 });
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: setCookies(rLogin).join("; ") },
+        headers: { cookie: jarDeCookies(setCookies(rLogin)) },
       }),
     );
     expect(rCb.status).toBe(403);
@@ -115,22 +131,36 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   });
 });
 
-describe("P1-25 login no navega en el mismo tick que Set-Cookie", () => {
-  it("el HTML demora el salto a Google (setTimeout) para persistir cookies", async () => {
+describe("P1-55 login hop same-origin antes de Google", () => {
+  it("login 302 al hop con cookies oauth+destino; hop 302 a Google", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    const html = await rLogin.clone().text();
-    expect(html).toContain("setTimeout");
-    expect(html).not.toMatch(/<script>location\.replace/);
-    expect(html).toMatch(/content="1;url=/);
+    expect(rLogin.status).toBe(302);
+    expect(rLogin.headers.get("Location")).toBe("/api/auth/hacia-google");
+    const cookies = setCookies(rLogin);
+    expect(cookies.some((c) => c.startsWith("__Host-oauth-destino="))).toBe(true);
+    const destino = destinoDeCookies(cookies);
+    expect(destino).toContain("accounts.google.com");
+    const rHop = await getHaciaGoogle(
+      ctx("http://x/api/auth/hacia-google", { headers: { cookie: jarDeCookies(cookies) } }),
+    );
+    expect(rHop.status).toBe(302);
+    expect(rHop.headers.get("Location")).toBe(destino);
+    expect(setCookies(rHop).some((c) => c.includes("__Host-oauth-destino=") && c.includes("Max-Age=0"))).toBe(true);
+  });
+
+  it("hop sin destino cookie vuelve a la landing con error", async () => {
+    const rHop = await getHaciaGoogle(ctx("http://x/api/auth/hacia-google"));
+    expect(rHop.status).toBe(302);
+    expect(rHop.headers.get("Location")).toMatch(/^\/\?ingreso=error/);
   });
 });
 
 describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {
-  it("las 3 cookies traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600", async () => {
+  it("las cookies oauth traen HttpOnly, Secure, SameSite=Lax, Path=/ y Max-Age=600", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    expect(rLogin.status).toBe(200);
-    const cookies = setCookies(rLogin);
-    expect(cookies).toHaveLength(3);
+    expect(rLogin.status).toBe(302);
+    const cookies = setCookies(rLogin).filter((c) => !c.startsWith("__Host-oauth-destino="));
+    expect(cookies.length).toBeGreaterThanOrEqual(3);
     for (const c of cookies) {
       expect(c).toContain("HttpOnly");
       expect(c).toContain("Secure");
@@ -151,7 +181,7 @@ describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {
     control.pendingAuth.clear();
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: setCookies(rLogin).join("; ") },
+        headers: { cookie: jarDeCookies(setCookies(rLogin)) },
       }),
     );
     expect(rCb.status).toBe(302);
@@ -167,7 +197,7 @@ describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:17
     const pendienteNext = control.pendingAuth.get(state)?.next;
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: setCookies(rLogin).join("; ") },
+        headers: { cookie: jarDeCookies(setCookies(rLogin)) },
       }),
     );
     return { destino: rCb.headers.get("Location"), pendienteNext };
@@ -206,7 +236,7 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: setCookies(rLogin).join("; ") },
+        headers: { cookie: jarDeCookies(setCookies(rLogin)) },
       }),
     );
     return rCb.headers.get("Location");
@@ -235,7 +265,7 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(
       ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-        headers: { cookie: setCookies(rLogin).join("; ") },
+        headers: { cookie: jarDeCookies(setCookies(rLogin)) },
       }),
     );
     expect(rCb.headers.get("Location")).toBe("/panel");
@@ -244,9 +274,9 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
 });
 describe("AU-FIX-S6 regresión: redirects siempre con Set-Cookie", () => {
   it("login adjunta state+pkce; reauth adjunta reauth-state+pkce", async () => {
-    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-    expect(rLogin.status).toBe(200);
-    expect(await urlGoogle(rLogin)).toContain("accounts.google.com");
+    const { rLogin, rHop } = await loginYHop();
+    expect(rLogin.status).toBe(302);
+    expect(rHop.headers.get("Location") ?? "").toContain("accounts.google.com");
     const jarLogin = setCookies(rLogin).join("; ");
     expect(jarLogin).toContain("__Host-oauth-state=");
     expect(jarLogin).toContain("__Host-oauth-pkce=");
