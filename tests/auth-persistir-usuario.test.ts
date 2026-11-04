@@ -33,12 +33,27 @@ function fijarLogin() {
   process.env.GOOGLE_LOGIN_REDIRECT = "http://x/api/auth/callback";
 }
 
+function jarDeCookies(cookies: string[]): string {
+  return cookies
+    .map((c) => c.split(";")[0]!.trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+function stateDeCookies(cookies: string[]): string {
+  const jar = cookies.join("; ");
+  const m = jar.match(/__Host-oauth-state=([^;]+)/);
+  return m ? decodeURIComponent(m[1]!) : "";
+}
+
 async function loginYCallback(): Promise<Response> {
+  // P1-55: state viene de la cookie, no del Location (login salta al hop).
   const rLogin = await getLogin(ctx("http://x/api/auth/login"));
-  const state = new URL(rLogin.headers.get("Location") ?? "").searchParams.get("state") ?? "";
+  const cookies = setCookies(rLogin);
+  const state = stateDeCookies(cookies);
   return (await getCallback(
     ctx(`http://x/api/auth/callback?code=CODE&state=${state}`, {
-      headers: { cookie: setCookies(rLogin).join("; ") },
+      headers: { cookie: jarDeCookies(cookies) },
     }),
   )) as Response;
 }

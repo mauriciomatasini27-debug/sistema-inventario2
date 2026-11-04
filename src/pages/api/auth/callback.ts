@@ -20,6 +20,7 @@ const COOKIES_OAUTH = [
   "__Host-oauth-state",
   "__Host-oauth-pkce",
   "__Host-oauth-nonce",
+  "__Host-oauth-destino",
   "__Host-oauth-invite",
   "__Host-oauth-next",
 ] as const;
@@ -238,7 +239,9 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   });
   // P1-25: await — si redirigimos antes de que la fila exista, la otra
   // instancia de Vercel no rehidrata y el 1er login parece fallar (landing).
-  await persistirSesion({
+  // P1-55: con CONTROL_DATABASE_URL, false no es best-effort silencioso:
+  // sin fila durable el hop a otra instancia deja al usuario "deslogueado".
+  const sesionPersistida = await persistirSesion({
     idHash: creada.registro.idHash,
     googleSub: identidad.sub,
     tenantId,
@@ -247,6 +250,15 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     lastSeenAt: ahora.toISOString(),
     reauthAt: ahora.toISOString(),
   });
+  if (!sesionPersistida && process.env.CONTROL_DATABASE_URL) {
+    control.sessions.delete(creada.registro.idHash);
+    return falloIngreso(
+      request,
+      redirect,
+      "No pudimos guardar tu sesión. Volvé a intentarlo.",
+      503,
+    );
+  }
   control.events.push({ tenantId, tipo: "login", actor: identidad.sub });
   if (agente && agentesPrevios.size > 0 && !agentesPrevios.has(agente)) {
     void notificarAlertaSeguridad({ evento: "login_nuevo", tenantId, googleSubDestino: identidad.sub, detalle: agente });
