@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore } from "../src/lib/store.js";
+import { crearAlmacenCodigos } from "../src/lib/repos/_almacen.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { products, stockLots, stockMovements, productCodes } from "../src/db/schema.js";
@@ -20,7 +21,7 @@ interface PullJson {
   movimientos: unknown[];
   cursor_nuevo: string;
   mappings: unknown[];
-  catalogo: { stock: Record<string, number>; prices: Record<string, number> };
+  catalogo: { stock: Record<string, number>; prices: Record<string, number>; codes: Record<string, string> };
   total: number;
   fuente?: string;
 }
@@ -37,9 +38,20 @@ describe("PERS6-S1 single sin DB: catalogo del pull sale de memoria como hoy", (
     const j = (await res.json()) as PullJson;
     expect(j.catalogo).toHaveProperty("stock");
     expect(j.catalogo).toHaveProperty("prices");
+    expect(j.catalogo).toHaveProperty("codes");
     expect(j.catalogo.prices["demo-sku-1"]).toBe(15000);
     expect(j.catalogo.stock["demo-sku-1"]).toBe(10);
+    expect(j.catalogo.codes).toEqual({});
     expect("fuente" in j).toBe(false);
+  });
+
+  it("el pull de memoria incluye el código de barras y omite un SKU que no está en stock", async () => {
+    crearAlmacenCodigos().guardar("ean-abc", "demo-sku-1");
+    crearAlmacenCodigos().guardar("7799999", "NO-ESTA");
+    const res = (await GETPull(ctx("http://localhost/api/sync/pull?cursor=0&limite=50"))) as Response;
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as PullJson;
+    expect(j.catalogo.codes).toEqual({ "EAN-ABC": "demo-sku-1" });
   });
 });
 
@@ -54,6 +66,7 @@ function fijarMulti() {
 
 describe.skipIf(!hayPG)("PERS6-S1 multi con PG local: catalogo del pull sale de products (ADR-0081)", () => {
   const skuPG = `P6C${sufijoPG}`.toUpperCase().slice(0, 32);
+  const codigoPG = `EAN${sufijoPG}`.toUpperCase();
   const loteKey = `pers6-lote-${sufijoPG}`;
   const precioPG = 7750;
   const cantidadPG = 6;
@@ -94,7 +107,7 @@ describe.skipIf(!hayPG)("PERS6-S1 multi con PG local: catalogo del pull sale de 
   it("pull de A refleja precio y stock del producto dado de alta en A; B no lo ve", async () => {
     fijarMulti();
     const rp = (await conTenant("tenant-a", () =>
-      postProducts(post("http://x/api/products", { sku: skuPG, nombre: "Producto P6", precio_centavos: precioPG })),
+      postProducts(post("http://x/api/products", { sku: skuPG, nombre: "Producto P6", precio_centavos: precioPG, codigo: codigoPG })),
     )) as Response;
     expect(rp.status).toBe(201);
     const rl = (await conTenant("tenant-a", () =>
@@ -116,11 +129,13 @@ describe.skipIf(!hayPG)("PERS6-S1 multi con PG local: catalogo del pull sale de 
     expect(enA.fuente).toBe("db");
     expect(enA.catalogo.prices[skuPG]).toBe(precioPG);
     expect(enA.catalogo.stock[skuPG]).toBe(filas[0]?.stockActual ?? cantidadPG);
+    expect(enA.catalogo.codes[codigoPG]).toBe(skuPG);
 
     const enB = await pullDe("tenant-b");
     expect(enB.fuente).toBe("db");
     expect(enB.catalogo.prices[skuPG]).toBeUndefined();
     expect(enB.catalogo.stock[skuPG]).toBeUndefined();
+    expect(enB.catalogo.codes[codigoPG]).toBeUndefined();
   });
 
   it("tras resetStore el pull de A sigue mostrando el catalogo de la base", async () => {
@@ -130,5 +145,6 @@ describe.skipIf(!hayPG)("PERS6-S1 multi con PG local: catalogo del pull sale de 
     expect(enA.fuente).toBe("db");
     expect(enA.catalogo.prices[skuPG]).toBe(precioPG);
     expect(enA.catalogo.stock[skuPG]).toBe(cantidadPG);
+    expect(enA.catalogo.codes[codigoPG]).toBe(skuPG);
   });
 });

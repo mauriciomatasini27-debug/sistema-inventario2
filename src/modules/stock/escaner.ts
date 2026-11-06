@@ -63,13 +63,25 @@ export function resolverEscaneo(
   return { estado: "encontrado", sku };
 }
 
-export function codigosDesdeCatalogoLocal(skus: readonly string[], tenantId: string): CodigoDeTenant[] {
+export function codigosDesdeCatalogoLocal(
+  skus: readonly string[],
+  tenantId: string,
+  codigos: Readonly<Record<string, string>> = {},
+): CodigoDeTenant[] {
   if (!tenantId) return [];
   const out: CodigoDeTenant[] = [];
   for (const sku of skus) {
     const limpio = sku.trim();
     if (!limpio) continue;
     out.push({ codigo: limpio, sku: limpio, tenantId });
+  }
+  // P1-58: el SKU sigue siendo código de sí mismo y va primero. El EAN no pisa
+  // un SKU que coincida con el texto leído.
+  for (const [codigo, sku] of Object.entries(codigos)) {
+    const c = codigo.trim();
+    const s = sku.trim();
+    if (!c || !s) continue;
+    out.push({ codigo: c, sku: s, tenantId });
   }
   return out;
 }
@@ -123,10 +135,13 @@ export async function resolverLectura(args: {
   raw: string;
   tenantId: string;
   skusLocales: readonly string[];
+  codigosLocales?: Readonly<Record<string, string>>;
   fetch: (url: string) => Promise<RespuestaLectura>;
 }): Promise<ResolucionEscaneo> {
+  // P1-58: el EAN del snapshot se resuelve antes del fetch. Sin esa entrada
+  // el lector sigue pidiendo GET /api/products?codigo=.
   const local = resolverEscaneo(
-    codigosDesdeCatalogoLocal(args.skusLocales, args.tenantId),
+    codigosDesdeCatalogoLocal(args.skusLocales, args.tenantId, args.codigosLocales),
     args.tenantId,
     args.raw,
   );

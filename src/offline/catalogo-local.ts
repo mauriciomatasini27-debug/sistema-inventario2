@@ -3,7 +3,8 @@
 // `offline:catalogo` se descarta al arrancar con tenant conocido, sin migrarla.
 export const CLAVE_CATALOGO = "offline:catalogo";
 export const PREFIJO_CLAVE_CATALOGO = "offline:catalogo:";
-export const VERSION_CATALOGO = 1 as const;
+// P1-58: solo la versión 2 se lee. Trae el mapa código→SKU. Una versión anterior queda ausente hasta la próxima descarga con red.
+export const VERSION_CATALOGO = 2 as const;
 export const MAX_EDAD_CATALOGO_MS = 15 * 60_000;
 export const URL_CATALOGO = "/api/sync/pull?cursor=0&limite=1";
 
@@ -16,6 +17,8 @@ export interface SnapshotCatalogoLocal {
   version: typeof VERSION_CATALOGO;
   descargadoEl: string;
   productos: Record<string, ProductoCatalogoLocal>;
+  // P1-58: el código vive aparte del producto para reemplazar el mapa entero en cada pull.
+  codigos: Record<string, string>;
 }
 
 export interface StorageCatalogo {
@@ -82,6 +85,35 @@ function productosDesdeCatalogo(catalogo: unknown): Record<string, ProductoCatal
   return productos;
 }
 
+function codigosLimpios(
+  crudo: Record<string, unknown>,
+  productos: Record<string, ProductoCatalogoLocal>,
+): Record<string, string> {
+  const codigos: Record<string, string> = {};
+  for (const [clave, sku] of Object.entries(crudo)) {
+    const codigo = clave.trim().toUpperCase();
+    if (codigo === "" || CLAVES_PELIGROSAS.has(clave) || CLAVES_PELIGROSAS.has(codigo)) continue;
+    if (typeof sku !== "string") continue;
+    const destino = sku.trim();
+    if (destino === "" || !Object.hasOwn(productos, destino)) continue;
+    if (Object.hasOwn(codigos, codigo)) continue;
+    codigos[codigo] = destino;
+  }
+  return codigos;
+}
+
+// P1-58: sin `codes` el pull viejo sigue siendo válido. Si `codes` viene y no es
+// un objeto, no se pisa un snapshot que sí tenía EAN.
+function codigosDesdePull(
+  catalogo: Record<string, unknown>,
+  productos: Record<string, ProductoCatalogoLocal>,
+): Record<string, string> | null {
+  if (!Object.hasOwn(catalogo, "codes")) return {};
+  const codes = catalogo["codes"];
+  if (!esRecord(codes)) return null;
+  return codigosLimpios(codes, productos);
+}
+
 function snapshotDesdeValor(valor: unknown): SnapshotCatalogoLocal | null {
   if (!esRecord(valor)) return null;
   if (valor["version"] !== VERSION_CATALOGO) return null;
@@ -99,7 +131,10 @@ function snapshotDesdeValor(valor: unknown): SnapshotCatalogoLocal | null {
     if (!esEnteroNoNegativo(stock) || !esEnteroNoNegativo(precio)) return null;
     productos[sku] = { stock, precioCentavos: precio };
   }
-  return { version: VERSION_CATALOGO, descargadoEl, productos };
+  const crudosCodigos = valor["codigos"];
+  if (!esRecord(crudosCodigos)) return null;
+  const codigos = codigosLimpios(crudosCodigos, productos);
+  return { version: VERSION_CATALOGO, descargadoEl, productos, codigos };
 }
 
 /**
@@ -132,8 +167,14 @@ export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<Re
     return { ok: false, motivo: "respuesta_invalida" };
   }
 
-  const productos = productosDesdeCatalogo(esRecord(cuerpo) ? cuerpo["catalogo"] : undefined);
-  if (!productos) {
+  const catalogo = esRecord(cuerpo) ? cuerpo["catalogo"] : undefined;
+  if (!esRecord(catalogo)) {
+    console.warn("[catalogo-local] forma de catálogo inválida");
+    return { ok: false, motivo: "respuesta_invalida" };
+  }
+  const productos = productosDesdeCatalogo(catalogo);
+  const codigos = productos ? codigosDesdePull(catalogo, productos) : null;
+  if (!productos || !codigos) {
     console.warn("[catalogo-local] forma de catálogo inválida");
     return { ok: false, motivo: "respuesta_invalida" };
   }
@@ -143,6 +184,7 @@ export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<Re
     version: VERSION_CATALOGO,
     descargadoEl: fecha.toISOString(),
     productos,
+    codigos,
   };
   try {
     deps.storage.setItem(clave, JSON.stringify(snapshot));
@@ -160,7 +202,7 @@ export async function descargarCatalogo(deps: DepsDescargarCatalogo): Promise<Re
 const EPOCH_CATALOGO = "1970-01-01T00:00:00.000Z";
 
 function snapshotVacio(): SnapshotCatalogoLocal {
-  return { version: VERSION_CATALOGO, descargadoEl: EPOCH_CATALOGO, productos: {} };
+  return { version: VERSION_CATALOGO, descargadoEl: EPOCH_CATALOGO, productos: {}, codigos: {} };
 }
 
 export function agregarProvisorio(
@@ -176,10 +218,12 @@ export function agregarProvisorio(
   if (Object.hasOwn(previo.productos, sku)) return previo;
   if (!esEnteroNoNegativo(precioCentavos)) return previo;
 
+  // P1-58: el alta no inventa un EAN. El mapa queda como estaba.
   const snapshot: SnapshotCatalogoLocal = {
     version: VERSION_CATALOGO,
     descargadoEl: previo.descargadoEl,
     productos: { ...previo.productos, [sku]: { stock: 0, precioCentavos } },
+    codigos: { ...previo.codigos },
   };
   try {
     storage.setItem(clave, JSON.stringify(snapshot));

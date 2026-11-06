@@ -56,7 +56,7 @@ interface PullJson {
   movimientos: Array<{ op_id: string; payload: unknown }>;
   cursor_nuevo: string;
   mappings: unknown[];
-  catalogo: { stock: Record<string, number>; prices: Record<string, number> };
+  catalogo: { stock: Record<string, number>; prices: Record<string, number>; codes: Record<string, string> };
   total: number;
   fuente?: string;
 }
@@ -133,6 +133,7 @@ describe("SYNC-S2 pull completo con 10k productos en memoria", () => {
       const movs = p.json.movimientos;
       expect(movs.length).toBeLessThanOrEqual(50);
       tamCatalogo = Object.keys(p.json.catalogo.stock).length;
+      expect(p.json.catalogo).toHaveProperty("codes");
       vistos.push(...opIdsDe(p.json));
       paginas += 1;
       const nuevo = p.json.cursor_nuevo as string;

@@ -226,10 +226,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         mostrarAlta();
         estado("Lista.");
       };
+      // P1-58: el EAN sale del mapa del snapshot. Sin esa entrada el lector pide la red.
       const resolverEnPantalla = (raw) => resolverLectura({
         raw,
         tenantId: tenant,
         skusLocales: catalogo ? Object.keys(catalogo.productos) : [],
+        codigosLocales: catalogo ? catalogo.codigos : {},
         fetch: (url) => fetch(url),
       });
       const textoCarrito = (codigo) => {

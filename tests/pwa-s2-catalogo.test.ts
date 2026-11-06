@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLAVE_CATALOGO,
   PREFIJO_CLAVE_CATALOGO,
+  VERSION_CATALOGO,
   borrarCatalogosLocales,
   claveCatalogo,
   debeDescargar,
@@ -45,9 +46,10 @@ function k(tenant: string): string {
 
 function snapshotJson(descargadoEl = AHORA.toISOString()): string {
   return JSON.stringify({
-    version: 1,
+    version: 2,
     descargadoEl,
     productos: { "yerba-1": { stock: 3, precioCentavos: 1234 } },
+    codigos: { "7790001": "yerba-1" },
   });
 }
 
@@ -70,9 +72,10 @@ describe("PWA-S2 descarga proactiva del catálogo por tenant", () => {
     expect(r).toEqual({
       ok: true,
       snapshot: {
-        version: 1,
+        version: 2,
         descargadoEl: "2026-10-20T12:00:00.000Z",
         productos: { "yerba-1": { stock: 5, precioCentavos: 1234 } },
+        codigos: {},
       },
     });
     expect(JSON.parse(storage.getItem(k(T1)) ?? "null")).toEqual(r.ok ? r.snapshot : null);
@@ -176,11 +179,55 @@ describe("PWA-S2 descarga proactiva del catálogo por tenant", () => {
     expect(JSON.parse(storage.getItem(k(T1)) ?? "null").descargadoEl).toBe("2026-10-01T10:00:00.000Z");
   });
 
+  it("guarda el mapa de códigos y descarta filas que no apuntan a un producto", async () => {
+    const storage = storageMemoria();
+    const r = await descargarCatalogo({
+      tenantId: T1,
+      fetch: async () =>
+        respuesta(200, {
+          catalogo: {
+            stock: { YERBA: 2, AZUCAR: 1 },
+            prices: { YERBA: 100, AZUCAR: 50 },
+            codes: {
+              "7790001": "YERBA",
+              " abc ": "YERBA",
+              "": "YERBA",
+              "7790002": "NO-ESTA",
+              "7790003": 4,
+              "7790004": "",
+            },
+          },
+        }),
+      storage,
+      ahora: () => AHORA,
+    });
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.snapshot.codigos).toEqual({ "7790001": "YERBA", ABC: "YERBA" });
+    expect(leerCatalogoLocal(storage, T1)?.codigos).toEqual({ "7790001": "YERBA", ABC: "YERBA" });
+    expect(precioLocal(r.snapshot, "YERBA")).toBe(100);
+  });
+
+  it("codes que no es un objeto no pisa el snapshot anterior", async () => {
+    const storage = storageMemoria({ [k(T1)]: snapshotJson("2026-10-01T10:00:00.000Z") });
+    const r = await descargarCatalogo({
+      tenantId: T1,
+      fetch: async () =>
+        respuesta(200, { catalogo: { stock: { "yerba-1": 1 }, prices: { "yerba-1": 1 }, codes: "779" } }),
+      storage,
+      ahora: () => AHORA,
+    });
+    expect(r).toEqual({ ok: false, motivo: "respuesta_invalida" });
+    expect(JSON.parse(storage.getItem(k(T1)) ?? "null").descargadoEl).toBe("2026-10-01T10:00:00.000Z");
+  });
+
   it("debeDescargar a los 14:59 no refresca y a los 15:00 sí", () => {
     const snapshot = {
-      version: 1 as const,
+      version: VERSION_CATALOGO,
       descargadoEl: AHORA.toISOString(),
       productos: {},
+      codigos: {},
     };
     expect(debeDescargar(snapshot, new Date(AHORA.getTime() + 14 * 60_000 + 59_000), true)).toBe(false);
     expect(debeDescargar(snapshot, new Date(AHORA.getTime() + 15 * 60_000), true)).toBe(true);
@@ -201,15 +248,59 @@ describe("PWA-S2 descarga proactiva del catálogo por tenant", () => {
 
   it("snapshot corrupto o de otra versión devuelve null", () => {
     expect(leerCatalogoLocal(storageMemoria({ [k(T1)]: "{no-json" }), T1)).toBeNull();
-    expect(leerCatalogoLocal(storageMemoria({ [k(T1)]: JSON.stringify({ version: 2, productos: {} }) }), T1)).toBeNull();
     expect(
       leerCatalogoLocal(
         storageMemoria({
-          [k(T1)]: JSON.stringify({ version: 1, descargadoEl: AHORA.toISOString(), productos: { x: { stock: -1, precioCentavos: 2 } } }),
+          [k(T1)]: JSON.stringify({
+            version: 1,
+            descargadoEl: AHORA.toISOString(),
+            productos: { "yerba-1": { stock: 3, precioCentavos: 1234 } },
+          }),
         }),
         T1,
       ),
     ).toBeNull();
+    expect(
+      leerCatalogoLocal(
+        storageMemoria({
+          [k(T1)]: JSON.stringify({
+            version: 2,
+            descargadoEl: AHORA.toISOString(),
+            productos: { x: { stock: -1, precioCentavos: 2 } },
+            codigos: {},
+          }),
+        }),
+        T1,
+      ),
+    ).toBeNull();
+    expect(
+      leerCatalogoLocal(
+        storageMemoria({
+          [k(T1)]: JSON.stringify({
+            version: 2,
+            descargadoEl: AHORA.toISOString(),
+            productos: { YERBA: { stock: 1, precioCentavos: 10 } },
+          }),
+        }),
+        T1,
+      ),
+    ).toBeNull();
+  });
+
+  it("al leer descarta códigos vacíos, sku no texto y sku que no está en productos", () => {
+    const leido = leerCatalogoLocal(
+      storageMemoria({
+        [k(T1)]: JSON.stringify({
+          version: 2,
+          descargadoEl: AHORA.toISOString(),
+          productos: { YERBA: { stock: 1, precioCentavos: 10 } },
+          codigos: { "7790001": "YERBA", "7790002": "NO-ESTA", "7790003": 5, "": "YERBA" },
+        }),
+      }),
+      T1,
+    );
+    expect(leido?.codigos).toEqual({ "7790001": "YERBA" });
+    expect(precioLocal(leido, "YERBA")).toBe(10);
   });
 
   it("la clave legada global se descarta con tenant conocido y no se migra", () => {

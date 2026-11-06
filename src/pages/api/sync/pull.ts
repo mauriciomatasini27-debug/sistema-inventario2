@@ -7,7 +7,7 @@ export const prerender = false;
 
 // GET /api/sync/pull?cursor=0&limite=50 — SYNC-S1 (PRD-SYNC-01, ADR-0023).
 // PERS-S2: DB-first sobre outbox con el mismo paginado por offset; con base
-// viva el catálogo (stock/prices) sale de products del tenant (ADR-0081).
+// viva el catálogo (stock, prices y codes) sale de products y product_codes (ADR-0081, P1-58).
 // Sin DB o ante error, la vía memoria histórica resuelve igual que antes.
 // cursor = offset de inserción; limite cap 50 por PRD aunque el schema admite 200.
 // Responde lote + cursor_nuevo + mappings provisorio->definitivo + catálogo mínimo.
