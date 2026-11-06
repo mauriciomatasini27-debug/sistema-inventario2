@@ -1,0 +1,158 @@
+---
+id: GUIA-DEPLOY-PILOTO
+tipo: spec
+estado: propuesto
+modulos: [auth, onboarding]
+depende_de: [ADR-0017, ADR-0048, ADR-0049]
+reemplaza: []
+reemplazado_por: ""
+modifica: []
+modificado_por: []
+resumen: |
+  How-to para poner en producción el corte piloto (login Google HTTPS, Postgres,
+  Vercel, altas reales y recorrido de mostrador). No despliega por vos.
+---
+# Cómo desplegar el piloto (1–2 comercios)
+
+Goal: un host HTTPS donde cada dueño entra con Google, da de alta su comercio, carga stock y vende con carrito online u offline.
+
+Inventario de variables: [destrabe-credenciales.md](destrabe-credenciales.md) y `npm run credenciales`. Postgres: [migracion-supabase.md](../migracion-supabase.md). Verificación local sin Google: skill `control-app`.
+
+Fuera de este corte: factura ARCA, bot WhatsApp, OCR real, Mercado Pago automático, alertas Resend.
+
+## 0. Precondiciones
+
+1. Confirmá que `main` ya trae el carrito (P1-56). En el historial tiene que aparecer el merge de `mauri/venta-carrito`.
+2. Tené a mano el dominio HTTPS del deploy (ejemplo `https://tu-app.vercel.app`). Las cookies de sesión usan el prefijo `__Host-` con `Secure`. Sin HTTPS el login no cierra.
+3. No uses solo el botón de laboratorio “2 comercios piloto”. El segundo comercio lleva `owner_google_sub: "piloto-basico-t2"` y no puede loguearse. Cada dueño real entra con Google y hace su propia alta.
+
+## 1. Google Login en producción
+
+1. En Google Cloud Console, abrí la app OAuth de login (solo scopes `openid email profile`).
+2. En Authorized redirect URIs agregá exactamente:
+   `https://<tu-host>/api/auth/callback`
+3. Copiá client id y secret.
+4. Definí estas tres variables (local `.env` o panel de Vercel):
+
+   ```env
+   GOOGLE_LOGIN_CLIENT_ID=...
+   GOOGLE_LOGIN_CLIENT_SECRET=...
+   GOOGLE_LOGIN_REDIRECT=https://<tu-host>/api/auth/callback
+   ```
+
+5. Dejá vacías las de Gmail/Photos/Meta/ARCA/OCR. El piloto no las necesita.
+
+Comprobación: `npm run credenciales` marca “Google login: presente”.
+
+## 2. Postgres y migraciones
+
+1. Seguí [migracion-supabase.md](../migracion-supabase.md) hasta tener un proyecto Free en `ca-central-1`.
+2. Para el piloto usá **una sola base** y la misma URL Session pooler (`:5432`) en ambas variables:
+
+   ```env
+   CONTROL_DATABASE_URL=postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+   TENANT_DATABASE_URL=postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+
+3. Aplicá el journal con la URL de Session pooler o directa (`:5432`). Nunca migres por Transaction pooler (`:6543`):
+
+   ```bash
+   npm run db:migrate
+   ```
+
+4. En Supabase → Table Editor tienen que aparecer tablas de negocio (`sales`, `outbox`, `cash_movements`, …) y `drizzle.__drizzle_migrations`.
+
+5. No setees `TENANT_MODE=multi` en este corte. El piloto corre en modo single con las dos URLs iguales.
+
+Comprobación rápida:
+
+```bash
+node -e "const p=require('postgres');const s=p(process.env.TENANT_DATABASE_URL,{ssl:'require'});s\`select now()\`.then(r=>{console.log(r);return s.end()})"
+```
+
+## 3. Secretos mínimos del host
+
+Además de Google y las dos URLs de Postgres, cargá:
+
+| Variable | Para qué |
+|---|---|
+| `JOBS_SECRET` | Jobs del middleware como Sistema; flag `tieneJobs` en `/api/health` |
+| `ADMIN_ALLOWLIST_SUBS` | Subs de Google (nunca email) que entran a `/admin` y `POST /api/tenants` |
+| `PUBLIC_SITE_URL` | Origen canónico del sitio (Astro `site`) |
+| `SESSION_TTL_HOURS` | Opcional; default 720 |
+
+Generá `JOBS_SECRET` con un valor largo al azar. Después del primer login propio, leé el `google_sub` desde la UI admin o desde `/api/auth/sesion-actual` y copialo a `ADMIN_ALLOWLIST_SUBS` si necesitás panel admin.
+
+No hace falta `MP_WEBHOOK_SECRET`, `RESEND_API_KEY`, `WHATSAPP_*`, `ARCA_*` ni `OCR_PADDLE_ENDPOINT` para el mostrador.
+
+## 4. Deploy en Vercel
+
+El repo ya usa `@astrojs/vercel` en `astro.config.mjs` con `output: "server"`.
+
+1. Creá el proyecto Vercel apuntando a este repo y a la rama `main`.
+2. En Environment Variables (Production) cargá las variables de los pasos 1–3. Marcá Production.
+3. Si el host definitivo no es el preview de Vercel, actualizá `GOOGLE_LOGIN_REDIRECT` y el redirect URI de Google al dominio final **antes** de probar el login.
+4. Dispará un deploy. Esperá el build verde.
+5. Abrí `https://<tu-host>/api/health`. Tiene que responder JSON con `ok: true` y:
+
+   - `tieneGoogle: true`
+   - `tieneDb: true`
+   - `tieneJobs: true`
+
+Si algún flag queda en `false`, falta esa variable en el entorno de Production. No hace falta mirar valores: solo presencia.
+
+## 5. Altas reales de dueños
+
+1. Abrí `https://<tu-host>/api/auth/login` (o el botón de login de la landing).
+2. Completá Google. Si no hay tenant, el callback deja `/?alta=pendiente` y la home redirige a `/alta`.
+3. Completá el alta del comercio con ese Google. Repetí con el segundo dueño en otra cuenta.
+4. No dependas del seed admin “2 comercios piloto” para usuarios de campo.
+
+Comprobación: cada dueño ve `/panel` de su comercio y no ve datos del otro.
+
+## 6. Recorrido de mostrador
+
+Hacé este camino una vez por comercio, en el host HTTPS:
+
+1. Cargá ~20 productos (SKU o EAN) con precio y stock.
+2. En `/venta`, armá un carrito de varias líneas y cobrá online. Tiene que aparecer la tarjeta de ticket.
+3. Poné el dispositivo offline (DevTools → Offline), cobrá otra venta multiproducto y confirmá ticket provisorio.
+4. Volvé online, sincronizá la cola y confirmá que el número provisorio pasa a definitivo cuando corresponde.
+5. En `/panel/caja`, cerrá o conciliá la jornada según el flujo vigente.
+6. Si algo de la cola falla al sync, revisá ventas pendientes; no borres la outbox a mano.
+
+Atajo local sin Google (laboratorio, no piloto real):
+
+```bash
+node scripts/control-app/control-app.mjs levantar
+node scripts/control-app/control-app.mjs seed
+node scripts/control-app/control-app.mjs login --rol duenio
+node scripts/control-app/control-app.mjs ir /panel
+node scripts/control-app/control-app.mjs login --rol empleado
+node scripts/control-app/control-app.mjs ir /venta
+node scripts/control-app/control-app.mjs apagar
+```
+
+`control-app` limpia URLs de producción a propósito. No lo apuntes al Postgres de Supabase ni al deploy Vercel.
+
+## 7. Límites a decirle al piloto
+
+- Sin factura electrónica.
+- Sin bot WhatsApp ni alertas de email reales.
+- Offline fuerte en **venta**. No prometas caja, stock ni carga de mercadería offline completa.
+- FEFO en el cobro es agregado sobre stock visible, no descuento fila a fila de `stock_lots`.
+- Mercado Pago QR: registrá el medio a mano. No hay conciliación automática del webhook.
+- Cobro de suscripción: a mano. El webhook MP del repo no valida el `x-signature` real.
+
+## 8. Orden de fallo típico
+
+| Síntoma | Qué mirar primero |
+|---|---|
+| Login vuelve con error de config | `GOOGLE_LOGIN_*` y redirect URI exacto HTTPS |
+| Login “anda” pero no queda sesión | El host no es HTTPS, o falta cookie `Secure`/`__Host-` |
+| `/api/health` con `tieneDb: false` | `CONTROL_DATABASE_URL` / `TENANT_DATABASE_URL` en Vercel Production |
+| 503 o datos solo en memoria | Migraciones no aplicadas, o URLs apuntan a otra base |
+| Admin 403 | `ADMIN_ALLOWLIST_SUBS` sin el `google_sub` de esa cuenta |
+| Segundo comercio del botón piloto no entra | Esperado: usar alta real por Google |
+
+Cuando este how-to esté corrido de punta a punta en un host real, pasá el frontmatter a `estado: aceptado` y anotá fecha y host (sin secretos) en el avance del ítem.

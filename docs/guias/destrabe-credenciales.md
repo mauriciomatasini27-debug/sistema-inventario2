@@ -16,6 +16,8 @@ resumen: |
 
 Cada fila dice qué variable leer, qué parte del código la usa y qué queda habilitado cuando está. Los valores se cargan en `.env` local o en el gestor de secretos del servidor. Nunca se commitean.
 
+Para el orden de deploy del piloto (login HTTPS, Postgres, Vercel, altas), usá [deploy-piloto.md](deploy-piloto.md). Esta página sigue siendo el inventario por integración.
+
 Comando de control: `npm run credenciales`. Lee el entorno, informa qué falta por integración y no imprime valores. Con `--json` devuelve el reporte para otro script.
 
 Carga guiada: `npm run cargar:credenciales`. Lee `.env`, pregunta solo por las variables que faltan y las escribe sin mostrarlas en una terminal interactiva. En modo no interactivo (pipe) la entrada no se oculta y hay que pasar una línea por variable. Enter vacío omite una variable. Para un PEM, escribir `@ruta/al/archivo.pem` en lugar del contenido.
