@@ -53,6 +53,47 @@ describe("STOCK-E4 escáner", () => {
     })).resolves.toEqual({ estado: "desconocido" });
   });
 
+  it("un EAN del catálogo local resuelve el SKU sin llamar a la red", async () => {
+    let llamadas = 0;
+    await expect(resolverLectura({
+      raw: "7790001",
+      tenantId: "t-a",
+      skusLocales: ["YERBA"],
+      codigosLocales: { "7790001": "YERBA" },
+      fetch: async () => {
+        llamadas += 1;
+        throw new Error("offline");
+      },
+    })).resolves.toEqual({ estado: "encontrado", sku: "YERBA" });
+    expect(llamadas).toBe(0);
+  });
+
+  it("sin el mapa de códigos el EAN sigue yendo a la red", async () => {
+    const urls: string[] = [];
+    await expect(resolverLectura({
+      raw: "7790001",
+      tenantId: "t-a",
+      skusLocales: ["YERBA"],
+      fetch: async (url) => {
+        urls.push(url);
+        return { ok: true, json: async () => ({ productos: [{ sku: "YERBA" }] }) };
+      },
+    })).resolves.toEqual({ estado: "encontrado", sku: "YERBA" });
+    expect(urls[0]).toContain("/api/products?codigo=");
+  });
+
+  it("un EAN desconocido con la red caída queda desconocido", async () => {
+    await expect(resolverLectura({
+      raw: "7799999",
+      tenantId: "t-a",
+      skusLocales: ["YERBA"],
+      codigosLocales: {},
+      fetch: async () => {
+        throw new Error("offline");
+      },
+    })).resolves.toEqual({ estado: "desconocido" });
+  });
+
   it("Enter busca y no abre la cámara", () => {
     expect(efectoDeTecla("Enter")).toEqual({ buscar: true, abrirCamara: false });
     expect(efectoDeTecla("a").abrirCamara).toBe(false);

@@ -35,9 +35,10 @@ function k(tenant: string): string {
 
 function snapshotJson(): string {
   return JSON.stringify({
-    version: 1,
+    version: 2,
     descargadoEl: "2026-10-20T11:00:00.000Z",
     productos: { "yerba-1": { stock: 3, precioCentavos: 1234 } },
+    codigos: { "7790001": "yerba-1" },
   });
 }
 
@@ -47,9 +48,10 @@ describe("STOCK-S1 agregarProvisorio: snapshot local por tenant", () => {
     const snapshot = agregarProvisorio(storage, T1, "nuevo-1", 7000);
 
     expect(snapshot).toEqual({
-      version: 1,
+      version: 2,
       descargadoEl: EPOCH,
       productos: { "nuevo-1": { stock: 0, precioCentavos: 7000 } },
+      codigos: {},
     });
     expect(leerCatalogoLocal(storage, T1)).toEqual(snapshot);
     expect(debeDescargar(snapshot, AHORA, true)).toBe(true);
@@ -61,13 +63,15 @@ describe("STOCK-S1 agregarProvisorio: snapshot local por tenant", () => {
     const snapshot = agregarProvisorio(storage, T1, "nuevo-1", 7000);
 
     expect(snapshot).toEqual({
-      version: 1,
+      version: 2,
       descargadoEl: "2026-10-20T11:00:00.000Z",
       productos: {
         "yerba-1": { stock: 3, precioCentavos: 1234 },
         "nuevo-1": { stock: 0, precioCentavos: 7000 },
       },
+      codigos: { "7790001": "yerba-1" },
     });
+    expect(snapshot.codigos["nuevo-1"]).toBeUndefined();
     expect(leerCatalogoLocal(storage, T1)).toEqual(snapshot);
   });
 
@@ -95,6 +99,22 @@ describe("STOCK-S1 agregarProvisorio: snapshot local por tenant", () => {
     expect(leerCatalogoLocal(storage, T1)?.productos["nuevo-2"]).toBeUndefined();
     expect(leerCatalogoLocal(storage, T2)?.productos["nuevo-2"]).toEqual({ stock: 0, precioCentavos: 5000 });
     expect(storage.getItem(CLAVE_CATALOGO)).toBeNull();
+  });
+
+  it("un snapshot v1 no se mezcla con el alta provisorio", () => {
+    const storage = storageMemoria({
+      [k(T1)]: JSON.stringify({
+        version: 1,
+        descargadoEl: "2026-10-20T11:00:00.000Z",
+        productos: { "yerba-1": { stock: 3, precioCentavos: 1234 } },
+      }),
+    });
+    const snapshot = agregarProvisorio(storage, T1, "nuevo-1", 7000);
+
+    expect(snapshot.version).toBe(2);
+    expect(snapshot.productos["yerba-1"]).toBeUndefined();
+    expect(snapshot.productos["nuevo-1"]).toEqual({ stock: 0, precioCentavos: 7000 });
+    expect(snapshot.codigos).toEqual({});
   });
 
   it("sin tenant no escribe nada", () => {

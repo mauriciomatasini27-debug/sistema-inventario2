@@ -1,5 +1,5 @@
 import { and, eq, like, sql } from "drizzle-orm";
-import { idMappings, outbox, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
+import { idMappings, outbox, productCodes, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState, offlineGrants } from "../../db/schema-sync.js";
 import {
   CODIGO_NECESITA_CONEXION,
@@ -11,6 +11,7 @@ import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
+  crearAlmacenCodigos,
   crearAlmacenDeviceSeq,
   crearAlmacenDeviceSync,
   crearAlmacenDevices,
@@ -248,9 +249,33 @@ export interface LoteSync {
   readonly movimientos: Array<{ op_id: string; payload: unknown }>;
   readonly cursorNuevo: string;
   readonly mappings: Array<{ op_id: string; prov: string; def: string }>;
-  readonly catalogo: { stock: Record<string, number>; prices: Record<string, number> };
+  readonly catalogo: {
+    stock: Record<string, number>;
+    prices: Record<string, number>;
+    codes: Record<string, string>;
+  };
   readonly total: number;
   readonly fuente: "db" | "memoria";
+}
+
+const CLAVES_PELIGROSAS_CODIGO: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
+
+// P1-58: la clave va en mayúsculas para coincidir con resolverCodigo. Un SKU
+// que no está en stock y precio no entra, igual que al guardar el snapshot.
+function mapaCodigos(
+  filas: Iterable<readonly [string, string]>,
+  stock: Record<string, number>,
+  prices: Record<string, number>,
+): Record<string, string> {
+  const codes: Record<string, string> = {};
+  for (const [crudo, sku] of filas) {
+    const codigo = crudo.trim().toUpperCase();
+    if (codigo === "" || CLAVES_PELIGROSAS_CODIGO.has(crudo) || CLAVES_PELIGROSAS_CODIGO.has(codigo)) continue;
+    if (!Object.hasOwn(stock, sku) || !Object.hasOwn(prices, sku)) continue;
+    if (Object.hasOwn(codes, codigo)) continue;
+    codes[codigo] = sku;
+  }
+  return codes;
 }
 
 // PERS6-S1 (ADR-0081): catálogo del delta desde products del tenant.
@@ -266,14 +291,18 @@ async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
     stock[f.sku] = f.stockActual;
     prices[f.sku] = Number(f.precioCentavos);
   }
-  return { stock, prices };
+  const filasCodigos = await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes);
+  return { stock, prices, codes: mapaCodigos(filasCodigos.map((f) => [f.codigo, f.sku] as const), stock, prices) };
 }
 
 // Catálogo del delta en memoria: solo para single sin base y fallback single.
 function catalogoMemoria(stock: AlmacenVivo<number>, precios: AlmacenVivo<number>): LoteSync["catalogo"] {
+  const stockMap = Object.fromEntries(stock.comoMapaSoloLectura().entries());
+  const prices = Object.fromEntries(precios.comoMapaSoloLectura().entries());
   return {
-    stock: Object.fromEntries(stock.comoMapaSoloLectura().entries()),
-    prices: Object.fromEntries(precios.comoMapaSoloLectura().entries()),
+    stock: stockMap,
+    prices,
+    codes: mapaCodigos(crearAlmacenCodigos().comoMapaSoloLectura(), stockMap, prices),
   };
 }
 
