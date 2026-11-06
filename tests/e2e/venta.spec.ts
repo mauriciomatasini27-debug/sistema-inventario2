@@ -6,6 +6,8 @@ test("cobro feliz crea ticket definitivo y balance cuadra", async ({ page }) => 
   await page.goto("/venta");
   await page.fill("#sku", "demo-sku-1");
   await page.fill("#qty", "1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
   await page.selectOption("#medio", "Efectivo");
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("201", { timeout: 10_000 });
@@ -19,8 +21,11 @@ test("corte de red: provisorio encolado y sync no duplica", async ({ page, conte
   await page.evaluate(() => localStorage.setItem("slice0-seq", String(Date.now())));
   await context.setOffline(true);
   await page.fill("#sku", "demo-sku-1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
+  await expect(page.locator("#tarjeta-ticket")).toContainText("demo-sku-1");
   await context.setOffline(false);
   await expect(page.locator("#estado")).toContainText("sync intentado (1)", { timeout: 10_000 });
   await page.click("#sync");
@@ -77,6 +82,8 @@ test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, 
   await page.fill("#sku", "demo-sku-2");
   await page.fill("#qty", "2");
   await page.fill("#precio", "500");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-2", { timeout: 10_000 });
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
 });
@@ -91,6 +98,8 @@ test("sync con push caído deja la venta en la cola y la sube después", async (
   });
   await context.setOffline(true);
   await page.fill("#sku", "demo-sku-1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
   await page.route("**/api/sync/push", (route) => route.abort("failed"));

@@ -62,6 +62,16 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       li { padding-block: 4px; }
       :root[data-tema="oscuro"] input, :root[data-tema="oscuro"] select { background: var(--color-charcoal); color: var(--color-star-white); border: 1px solid var(--color-ash); }
       :root[data-tema="oscuro"] button:not(.tema-toggle) { background: var(--color-star-white); color: var(--color-void); }
+      #lista-carrito .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; }
+      #carrito-total, #ticket-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+      #tarjeta-ticket h2 { margin: 0 0 6px; font-size: 18px; }
+      #ticket-leyenda { font-size: 12px; font-weight: 700; }
+      @media print {
+        body * { visibility: hidden; }
+        #tarjeta-ticket, #tarjeta-ticket * { visibility: visible; }
+        #tarjeta-ticket { position: absolute; left: 0; top: 0; width: 100%; }
+      }
     </style>
   </head>
   <body>
@@ -86,6 +96,10 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         <label id="cliente-fiado-label" hidden>Cliente (fiado)
           <input id="cliente-fiado" type="text" autocomplete="off" placeholder="customer_id" />
         </label>
+        <section id="panel-carrito" aria-label="Carrito">
+          <ul id="lista-carrito"></ul>
+          <p id="carrito-total">Total: —</p>
+        </section>
         <button id="cobrar">Cobrar</button>
         <button id="sync" type="button">Reintentar sync</button>
         <button id="compartir" type="button">Compartir por WhatsApp</button>
@@ -94,6 +108,14 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       </div>
       <p id="catalogo-estado">Sin catálogo descargado</p>
       <div class="card vidrio-card"><div id="estado" role="status">{harness.data === "worst" ? VENTA_WORST.errorApi : "Lista."}</div></div>
+      <section id="tarjeta-ticket" class="card vidrio-card" hidden aria-label="Ticket">
+        <h2 id="ticket-numero"></h2>
+        <p id="ticket-medio"></p>
+        <ul id="ticket-lineas"></ul>
+        <p id="ticket-total"></p>
+        <p id="ticket-leyenda">DOCUMENTO NO VÁLIDO COMO FACTURA</p>
+        <p id="ticket-modo" hidden>Sin conexión — número provisorio</p>
+      </section>
       <div class="card vidrio-card"><div id="balance" role="status">{harness.data === "worst" ? VENTA_WORST.balanceTexto : "Balance: —"}</div></div>
       {harness.data === "worst" && (
         <div class="card vidrio-card">
@@ -122,8 +144,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import { formatearCentavos } from "../lib/panel-modulos.js";
+      import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
+      import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
       import {
-        efectoCodigoDesconocido,
         efectoDeTecla,
         resolverLectura,
         sesionCamara,
@@ -195,12 +218,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         mostrarAlta();
       });
       $("precio").addEventListener("input", () => { precioEditado = true; });
-      // STOCK-E4: Enter es el cierre del lector. No abre la cámara ni da de alta.
-      const avisarDesconocido = () => {
-        const efecto = efectoCodigoDesconocido();
-        $("alta-nombre-label").hidden = true;
-        estado(efecto.mensaje);
-      };
       const aplicarSkuEncontrado = (sku) => {
         $("sku").value = sku;
         skuElegido = sku;
@@ -215,13 +232,137 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         skusLocales: catalogo ? Object.keys(catalogo.productos) : [],
         fetch: (url) => fetch(url),
       });
+      const textoCarrito = (codigo) => {
+        if (codigo === "demasiadas_lineas") return "máximo 50 productos";
+        if (codigo === "qty_invalida") return "la cantidad tiene que ser un entero de 1 a 999";
+        if (codigo === "precio_invalido") return "el precio tiene que ser centavos enteros, de 0 para arriba";
+        if (codigo === "sku_invalido") return "el código tiene que tener entre 1 y 64 caracteres";
+        if (codigo === "nombre_invalido") return "el nombre tiene que tener entre 1 y 120 caracteres";
+        return "carrito vacío";
+      };
+      let carrito = [];
+      let cobrando = false;
+      // P1-56: un 5xx no cierra el cobro. El segundo tap reusa op_id y seq
+      // para no emitir otro ticket de la misma venta.
+      let cobroEnVuelo = null;
+      const pintarCarrito = () => {
+        const ul = $("lista-carrito");
+        ul.replaceChildren();
+        if (carrito.length === 0) {
+          const vacio = document.createElement("li");
+          vacio.textContent = "Carrito vacío";
+          ul.appendChild(vacio);
+        } else {
+          for (const linea of carrito) {
+            const li = document.createElement("li");
+            li.className = "fila";
+            const nombre = document.createElement("span");
+            nombre.className = "nombre";
+            nombre.textContent = (linea.alta ? linea.alta.nombre + " · " : "") + linea.product_id;
+            const qty = document.createElement("span");
+            qty.textContent = String(linea.qty);
+            const monto = document.createElement("span");
+            monto.className = "monto";
+            monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
+            const menos = document.createElement("button");
+            menos.type = "button";
+            menos.textContent = "−";
+            menos.setAttribute("aria-label", "Bajar cantidad " + linea.product_id);
+            menos.addEventListener("click", () => cambiarQty(linea.product_id, -1));
+            const mas = document.createElement("button");
+            mas.type = "button";
+            mas.textContent = "+";
+            mas.setAttribute("aria-label", "Subir cantidad " + linea.product_id);
+            mas.addEventListener("click", () => cambiarQty(linea.product_id, 1));
+            const quitar = document.createElement("button");
+            quitar.type = "button";
+            quitar.textContent = "Quitar";
+            quitar.setAttribute("aria-label", "Quitar " + linea.product_id);
+            quitar.addEventListener("click", () => quitarLinea(linea.product_id));
+            li.append(nombre, menos, qty, mas, monto, quitar);
+            ul.appendChild(li);
+          }
+        }
+        const total = carrito.reduce((acc, l) => acc + l.qty * l.precio_centavos, 0);
+        $("carrito-total").textContent = carrito.length === 0 ? "Total: —" : "Total: " + formatearCentavos(total);
+      };
+      const cobroTomado = () => {
+        if (!cobrando && !cobroEnVuelo) return false;
+        estado("hay un cobro sin cerrar, tocá Cobrar de nuevo");
+        return true;
+      };
+      const quitarLinea = (product_id) => {
+        if (cobroTomado()) return;
+        carrito = carrito.filter((l) => l.product_id !== product_id);
+        pintarCarrito();
+      };
+      const cambiarQty = (product_id, delta) => {
+        if (cobroTomado()) return;
+        const idx = carrito.findIndex((l) => l.product_id === product_id);
+        const linea = carrito[idx];
+        if (!linea) return;
+        const qty = linea.qty + delta;
+        if (qty < 1) {
+          carrito = carrito.filter((l) => l.product_id !== product_id);
+          pintarCarrito();
+          return;
+        }
+        if (qty > 999) {
+          estado("la cantidad tiene que ser un entero de 1 a 999");
+          return;
+        }
+        const next = carrito.slice();
+        next[idx] = { ...linea, qty };
+        carrito = next;
+        pintarCarrito();
+      };
+      const agregarLineaDesdeFormulario = () => {
+        if (cobroTomado()) return;
+        const product_id = $("sku").value.trim();
+        const qty = Number($("qty").value);
+        const precio_centavos = Number($("precio").value);
+        const nombre = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
+        const linea = {
+          product_id,
+          qty,
+          precio_centavos,
+          ...(nombre ? { alta: { nombre } } : {}),
+        };
+        const r = fusionarLinea(carrito, linea);
+        if (!r.ok) {
+          estado(textoCarrito(r.codigo));
+          return;
+        }
+        carrito = r.carrito;
+        pintarCarrito();
+        $("qty").value = "1";
+        $("alta-nombre").value = "";
+        $("sku").focus();
+        $("sku").select();
+        estado("Lista.");
+      };
+      // P1-56: Cobrar ya no lee el formulario. Enter y la cámara suman al carrito,
+      // también si el código no está en el catálogo. El alta viaja solo si hay nombre.
+      const incorporarLectura = async (raw) => {
+        const texto = String(raw ?? "").trim();
+        if (!texto) return;
+        const res = await resolverEnPantalla(texto);
+        if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
+        else if (res.estado === "desconocido") {
+          $("sku").value = texto;
+          skuElegido = texto;
+          mostrarAlta();
+        } else {
+          return;
+        }
+        agregarLineaDesdeFormulario();
+      };
+      pintarCarrito();
       $("sku").addEventListener("keydown", async (ev) => {
         const efecto = efectoDeTecla(ev.key);
         if (!efecto.buscar || efecto.abrirCamara) return;
         ev.preventDefault();
-        const res = await resolverEnPantalla($("sku").value);
-        if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
-        else if (res.estado === "desconocido") avisarDesconocido();
+        await incorporarLectura($("sku").value);
       });
       let sesion = null;
       $("leer-camara").addEventListener("click", async () => {
@@ -237,9 +378,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           const codigo = await sesion.leer();
           sesion = null;
           if (!codigo) return;
-          const res = await resolverEnPantalla(codigo);
-          if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
-          else avisarDesconocido();
+          await incorporarLectura(codigo);
         } catch (error) {
           console.warn("[venta] cámara", error);
           if (sesion) sesion.cerrar();
@@ -263,10 +402,52 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         mostrarCatalogo();
       };
       refrescarCatalogo();
-      // 8.Ticket salida: último sale_id para compartir (TV11) + snapshot
-      // térmico para BT (TV15 P2: el navegador no importa .ts, se guarda acá).
+      // 8.Ticket salida: snapshot para la tarjeta y para BT (TV15 P2).
       let lastSaleId = null;
       let lastTicket = null;
+      const pintarTicket = () => {
+        const card = $("tarjeta-ticket");
+        if (!lastTicket) {
+          card.hidden = true;
+          return;
+        }
+        card.hidden = false;
+        $("ticket-numero").textContent = lastTicket.definitivo || lastTicket.provisorio;
+        $("ticket-medio").textContent = lastTicket.medio;
+        const ul = $("ticket-lineas");
+        ul.replaceChildren();
+        for (const l of lastTicket.lineas) {
+          const li = document.createElement("li");
+          li.className = "producto";
+          const nombre = document.createElement("span");
+          nombre.className = "nombre";
+          nombre.textContent = l.sku + " × " + l.cantidad;
+          const monto = document.createElement("span");
+          monto.className = "monto";
+          const unit = Number(l.precio);
+          monto.textContent = formatearCentavos(Number.isFinite(unit) ? unit * l.cantidad : 0);
+          li.append(nombre, monto);
+          ul.appendChild(li);
+        }
+        $("ticket-total").textContent = "Total: " + formatearCentavos(lastTicket.total);
+        $("ticket-modo").hidden = Boolean(lastTicket.sale_id);
+      };
+      const publicarTicket = (ticket) => {
+        lastTicket = ticket;
+        lastSaleId = ticket.sale_id;
+        pintarTicket();
+        carrito = [];
+        pintarCarrito();
+        cobroEnVuelo = null;
+        $("sku").focus();
+      };
+      const aplicarTicketDefinitivoSiVisible = (item, ticket_definitivo) => {
+        if (!ticket_definitivo || !lastTicket) return;
+        const provisorio = item.device_code + "-" + item.device_seq;
+        if (lastTicket.op_id !== item.op_id && lastTicket.provisorio !== provisorio) return;
+        lastTicket = { ...lastTicket, definitivo: ticket_definitivo };
+        pintarTicket();
+      };
       // P1-36: mismo contrato que /panel/caja (JSON por_medio), no el body crudo.
       async function balance() {
         try {
@@ -292,24 +473,42 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       $("medio").addEventListener("change", syncClienteFiado);
       syncClienteFiado();
 
-      $("cobrar").onclick = async () => {
-        const seq = nextSeq();
+      const armarVuelo = (medioCobro, offline) => {
         // P1-31: el perfil persiste su código. Dos teléfonos no comparten seq.
         const device_code = codigoDispositivoLocal(storage);
-        const op_id = crypto.randomUUID();
-        const nombreNuevo = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
-        const linea = {
-          product_id: $("sku").value,
-          qty: Number($("qty").value),
-          precio_centavos: Number($("precio").value),
-          ...(nombreNuevo ? { alta: { nombre: nombreNuevo } } : {}),
-        };
+        // El primer armado solo valida. El seq se gasta después, si el carrito entra.
+        const previo = armarCobroDesdeCarrito({
+          carrito,
+          medio: medioCobro,
+          device_code,
+          seq_local: 1,
+          offline,
+          occurredAtIso: new Date().toISOString(),
+        });
+        if (!previo.ok) return previo;
+        const seq = nextSeq();
+        const armado = armarCobroDesdeCarrito({
+          carrito,
+          medio: medioCobro,
+          device_code,
+          seq_local: seq,
+          offline,
+          occurredAtIso: new Date().toISOString(),
+        });
+        if (!armado.ok) return armado;
+        return { ok: true, armado, op_id: crypto.randomUUID() };
+      };
+      $("cobrar").onclick = async () => {
+        if (cobrando) return;
         const medio = $("medio").value;
-
-        // P1-41: venta a cuenta solo online vía /api/credit/sales-on-account.
-        if (medio === "A cuenta") {
-          const customerId = $("cliente-fiado").value.trim();
-          if (!customerId) {
+        const fiado = medio === "A cuenta";
+        if (!cobroEnVuelo && carrito.length === 0) {
+          estado("carrito vacío");
+          return;
+        }
+        // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
+        if (fiado && !cobroEnVuelo) {
+          if (!$("cliente-fiado").value.trim()) {
             estado("Para fiado escribí el customer_id del cliente.");
             return;
           }
@@ -317,101 +516,178 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
             estado("La venta a cuenta necesita conexión.");
             return;
           }
-          try {
-            const bal = await fetch("/api/credit/balance?customer_id=" + encodeURIComponent(customerId));
-            const bj = await bal.json().catch(() => ({}));
-            const saldoActual = bal.ok ? Number(bj.saldo_centavos ?? 0) : 0;
-            // Balance no expone tope; el API valida con el valor enviado (piloto alto).
-            const r = await fetch("/api/credit/sales-on-account", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Idempotency-Key": op_id },
-              body: JSON.stringify({
-                customer_id: customerId,
-                lineas: [{ product_id: linea.product_id, qty: linea.qty, precio_centavos: linea.precio_centavos }],
-                device_code,
-                seq_local: seq,
-                tope_centavos: 999_999_999,
-                saldo_actual_centavos: Number.isFinite(saldoActual) ? Math.max(0, saldoActual) : 0,
-              }),
-            });
-            const j = await r.json().catch((error) => {
-              console.warn("[venta] fiado sin JSON", r.status, error);
-              return {};
-            });
-            if (!r.ok) {
-              estado(r.status + " " + (j.error || "venta a cuenta falló"));
+        }
+        cobrando = true;
+        try {
+          if (!cobroEnVuelo) {
+            let saldoActual = 0;
+            if (fiado) {
+              const customerId = $("cliente-fiado").value.trim();
+              try {
+                const bal = await fetch("/api/credit/balance?customer_id=" + encodeURIComponent(customerId));
+                const bj = await bal.json().catch((error) => {
+                  console.warn("[venta] fiado balance sin JSON", error);
+                  return {};
+                });
+                saldoActual = bal.ok ? Number(bj.saldo_centavos ?? 0) : 0;
+              } catch (error) {
+                console.warn("[venta] fiado", error);
+                estado("La venta a cuenta necesita conexión.");
+                return;
+              }
+            }
+            const preparado = armarVuelo(fiado ? "A cuenta" : medio, fiado ? false : !navigator.onLine);
+            if (!preparado.ok) {
+              estado(textoCarrito(preparado.codigo));
               return;
             }
-            lastSaleId = null;
-            lastTicket = {
-              definitivo: j.ticket_definitivo ?? null,
-              provisorio: device_code + "-" + seq,
-              total: String(j.total_centavos ?? linea.qty * linea.precio_centavos),
-              medio: "A cuenta",
-              lineas: [{ sku: linea.product_id, cantidad: linea.qty, precio: String(linea.precio_centavos) }],
-            };
-            estado(
-              r.status +
-                " fiado " +
-                customerId +
-                " ticket " +
-                (j.ticket_definitivo || device_code + "-" + seq) +
-                " total " +
-                (j.total_centavos ?? ""),
-            );
-          } catch (error) {
-            console.warn("[venta] fiado", error);
-            estado("La venta a cuenta necesita conexión.");
-          }
-          balance();
-          return;
-        }
-
-        const payload = {
-          lineas: [linea],
-          medio,
-          device_code,
-          seq_local: seq,
-          client_occurred_at: new Date().toISOString(),
-          offline: !navigator.onLine,
-        };
-        try {
-          const r = await fetch("/api/sales", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Idempotency-Key": op_id },
-            body: JSON.stringify(payload),
-          });
-          const txt = await r.text();
-          estado(r.status + " " + txt);
-          try {
-            const j = JSON.parse(txt);
-            if (j.sale_id) {
-              lastSaleId = j.sale_id;
-              lastTicket = {
-                definitivo: j.ticket_definitivo ?? null,
-                provisorio: j.ticket_provisorio,
-                total: String(j.total_centavos),
-                medio: payload.medio,
-                lineas: payload.lineas.map((l) => ({ sku: l.product_id, cantidad: l.qty, precio: String(l.precio_centavos) })),
+            const { armado, op_id } = preparado;
+            if (fiado) {
+              cobroEnVuelo = {
+                op_id,
+                fiado: true,
+                payload: {
+                  customer_id: $("cliente-fiado").value.trim(),
+                  lineas: armado.payload.lineas,
+                  device_code: armado.payload.device_code,
+                  seq_local: armado.payload.seq_local,
+                  tope_centavos: 999_999_999,
+                  saldo_actual_centavos: Number.isFinite(saldoActual) ? Math.max(0, saldoActual) : 0,
+                },
+                ticketBase: armado.ticketBase,
               };
+            } else {
+              cobroEnVuelo = { op_id, fiado: false, payload: armado.payload, ticketBase: armado.ticketBase };
             }
-          } catch { /* no json */ }
-        } catch {
-          // Por qué localStorage y no memoria: el corte de red en cobro (Slice-0 E2E)
-          // exige provisorio DeviceCode-SeqLocal y reintento sin duplicar por op_id.
-          const q = JSON.parse(storage.getItem(outboxKey) ?? "[]");
-          q.push({ op_id, device_code, device_seq: seq, payload });
-          storage.setItem(outboxKey, JSON.stringify(q));
-          refrescarIndicador();
-          // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
-          // desde el snapshot local en vez de volver a pedir el nombre.
-          if (linea.alta && tenant) {
-            catalogo = agregarProvisorio(storage, tenant, linea.product_id, linea.precio_centavos);
-            mostrarCatalogo();
           }
-          estado("offline provisorio " + device_code + "-" + seq + " encolado " + op_id);
+          const vuelo = cobroEnVuelo;
+          if (vuelo.fiado) {
+            if (!navigator.onLine) {
+              estado("La venta a cuenta necesita conexión.");
+              return;
+            }
+            try {
+              const r = await fetch("/api/credit/sales-on-account", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Idempotency-Key": vuelo.op_id },
+                body: JSON.stringify(vuelo.payload),
+              });
+              const j = await r.json().catch((error) => {
+                console.warn("[venta] fiado sin JSON", r.status, error);
+                return {};
+              });
+              if (r.ok || r.status === 409) {
+                const ticket = j.ticket_definitivo || j.original?.ticket_definitivo || vuelo.ticketBase.provisorio;
+                publicarTicket({
+                  definitivo: j.ticket_definitivo ?? j.original?.ticket_definitivo ?? null,
+                  provisorio: vuelo.ticketBase.provisorio,
+                  total: String(j.total_centavos ?? j.original?.total_centavos ?? vuelo.ticketBase.total),
+                  medio: "A cuenta",
+                  lineas: vuelo.ticketBase.lineas,
+                  sale_id: null,
+                  op_id: vuelo.op_id,
+                });
+                estado(
+                  r.status +
+                    " fiado " +
+                    (vuelo.payload.customer_id || "") +
+                    " ticket " +
+                    ticket +
+                    " total " +
+                    (j.total_centavos ?? ""),
+                );
+                return;
+              }
+              if (r.status >= 400 && r.status < 500) {
+                cobroEnVuelo = null;
+                estado(r.status + " " + (j.error || "venta a cuenta falló"));
+                return;
+              }
+              estado(r.status + " " + (j.error || "venta a cuenta falló"));
+            } catch (error) {
+              console.warn("[venta] fiado", error);
+              estado("La venta a cuenta necesita conexión.");
+            }
+            return;
+          }
+          try {
+            const r = await fetch("/api/sales", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Idempotency-Key": vuelo.op_id },
+              body: JSON.stringify(vuelo.payload),
+            });
+            const txt = await r.text();
+            let j = {};
+            try { j = JSON.parse(txt); } catch { /* no json */ }
+            if (r.ok) {
+              publicarTicket({
+                definitivo: j.ticket_definitivo ?? null,
+                provisorio: j.ticket_provisorio || vuelo.ticketBase.provisorio,
+                total: String(j.total_centavos ?? vuelo.ticketBase.total),
+                medio: vuelo.payload.medio,
+                lineas: vuelo.ticketBase.lineas,
+                sale_id: j.sale_id ?? null,
+                op_id: vuelo.op_id,
+              });
+              estado(r.status + " " + txt);
+              return;
+            }
+            if (r.status === 409) {
+              const orig = j.original && typeof j.original === "object" ? j.original : {};
+              publicarTicket({
+                definitivo: orig.ticket_definitivo ?? null,
+                provisorio: orig.ticket_provisorio || vuelo.ticketBase.provisorio,
+                total: String(orig.total_centavos ?? vuelo.ticketBase.total),
+                medio: vuelo.payload.medio,
+                lineas: vuelo.ticketBase.lineas,
+                sale_id: null,
+                op_id: vuelo.op_id,
+              });
+              estado(r.status + " " + txt);
+              return;
+            }
+            if (r.status >= 400 && r.status < 500) {
+              cobroEnVuelo = null;
+              estado(r.status + " " + txt);
+              return;
+            }
+            estado(r.status + " " + txt);
+          } catch {
+            // Por qué localStorage y no memoria: el corte de red en cobro (Slice-0 E2E)
+            // exige provisorio DeviceCode-SeqLocal y reintento sin duplicar por op_id.
+            const q = JSON.parse(storage.getItem(outboxKey) ?? "[]");
+            q.push({
+              op_id: vuelo.op_id,
+              device_code: vuelo.payload.device_code,
+              device_seq: vuelo.payload.seq_local,
+              payload: vuelo.payload,
+            });
+            storage.setItem(outboxKey, JSON.stringify(q));
+            refrescarIndicador();
+            // STOCK-S1 (ADR-0106): la próxima venta del SKU autocompleta precio
+            // desde el snapshot local en vez de volver a pedir el nombre.
+            if (tenant) {
+              for (const linea of vuelo.payload.lineas) {
+                if (!linea.alta) continue;
+                catalogo = agregarProvisorio(storage, tenant, linea.product_id, linea.precio_centavos);
+              }
+              mostrarCatalogo();
+            }
+            publicarTicket({
+              definitivo: null,
+              provisorio: vuelo.ticketBase.provisorio,
+              total: vuelo.ticketBase.total,
+              medio: vuelo.payload.medio,
+              lineas: vuelo.ticketBase.lineas,
+              sale_id: null,
+              op_id: vuelo.op_id,
+            });
+            estado("offline provisorio " + vuelo.ticketBase.provisorio + " encolado " + vuelo.op_id);
+          }
+        } finally {
+          cobrando = false;
+          balance();
         }
-        balance();
       };
       const enviar = async (item) => {
         const res = await fetch("/api/sync/push", {
@@ -438,10 +714,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           return {};
         });
         if (!res.ok) throw new Error("promote http " + res.status);
-        return {
+        const resultado = {
           ticket_definitivo:
             typeof cuerpo.ticket_definitivo === "string" ? cuerpo.ticket_definitivo : undefined,
         };
+        aplicarTicketDefinitivoSiVisible(item, resultado.ticket_definitivo);
+        return resultado;
       };
       // P1-28: online y Reintentar sync comparten drenadoUnico (un vuelo).
       const drenado = drenadoUnico({ storage, tenantId: tenant || null, enviar, promover });
@@ -484,23 +762,26 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         if (!debeDrenarPorVisibilidad(document.visibilityState, esHarnessWorst)) return;
         void aplicarDrenado("linea");
       });
-      // TV11: wa.me gratis default. Pide teléfono E.164 y abre el share.
-      $("compartir").onclick = async () => {
-        if (!lastSaleId) { estado("sin venta para compartir (cobrá primero)"); return; }
+      // P1-56: el resumen sale de la tarjeta. Sin sale_id no hay ticket en el
+      // servidor, y con sale_id wa.me local alcanza para este corte.
+      $("compartir").onclick = () => {
+        if (!lastTicket) { estado("sin ticket (cobrá primero)"); return; }
         const to = prompt("Teléfono E.164 (ej. +5491100000000)", "+5491100000000") ?? "";
-        try {
-          const r = await fetch("/api/tickets/compartir", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-            body: JSON.stringify({ sale_id: lastSaleId, toE164: to, dentroVentana24h: true, optIn: false, comercio: "Comercio" }),
-          });
-          const j = await r.json().catch((error) => { console.warn("[venta] respuesta sin JSON", r.status, error); return {}; });
-          if (j.wa_me_url) window.open(j.wa_me_url, "_blank");
-          else estado(r.status + " " + JSON.stringify(j));
-        } catch { estado("sin red para compartir"); }
+        const resumen = construir_resumen_ticket({
+          definitivo: lastTicket.definitivo,
+          provisorio: lastTicket.provisorio,
+          totalCentavos: BigInt(lastTicket.total),
+          medio: lastTicket.medio,
+          comercio: "Comercio",
+        });
+        const wa = construir_wa_me_url({ toE164: to, resumen });
+        if (!wa.ok) { estado("teléfono inválido"); return; }
+        window.open(wa.url, "_blank");
       };
-      // TV15 P2: impresión básica con window.print (térmica 58/80 vía CSS).
-      $("imprimir").onclick = () => window.print();
+      $("imprimir").onclick = () => {
+        if (!lastTicket) { estado("sin ticket (cobrá primero)"); return; }
+        window.print();
+      };
       // TV15 P2: térmica BLE (58mm/32 cols). El <script> del navegador no puede
       // importar .ts, así que el envío GATT se espeja acá en compacto; el
       // canónico es src/modules/sales/escpos_bt.ts (chunks 512B + corte GS V).

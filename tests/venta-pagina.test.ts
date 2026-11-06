@@ -23,3 +23,23 @@ describe("venta.astro: el script principal se empaqueta", () => {
     expect(s).toContain(".dataset.tenant");
   });
 });
+
+// P1-56: si Cobrar vuelve a armar lineas: [linea] desde el formulario, este test falla.
+describe("venta.astro: carrito multiproducto y ticket local", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("Cobrar arma el POST desde el carrito, no desde una sola línea del formulario", () => {
+    const s = src();
+    expect(s).toContain('import { fusionarLinea, armarCobroDesdeCarrito }');
+    expect(s).toContain("armarCobroDesdeCarrito({");
+    expect(s).toMatch(/body:\s*JSON\.stringify\(vuelo\.payload\)/);
+    expect(s).not.toMatch(/lineas:\s*\[\s*linea\s*\]/);
+    expect(s).toContain('id="lista-carrito"');
+    expect(s).toContain('id="tarjeta-ticket"');
+    expect(s).toContain("DOCUMENTO NO VÁLIDO COMO FACTURA");
+    expect(s).toMatch(/@media print[\s\S]*#tarjeta-ticket/);
+    expect(s).toContain("aplicarTicketDefinitivoSiVisible");
+    expect(s).toContain("construir_resumen_ticket");
+    expect(s).toContain("construir_wa_me_url");
+  });
+});
