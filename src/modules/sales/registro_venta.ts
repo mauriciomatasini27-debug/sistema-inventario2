@@ -1,5 +1,6 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { aplicarVentaLotes } from "../../lib/repos/stock.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
   cashMovements,
@@ -337,127 +338,121 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const yaCargados = new Set(conAlta.map((m) => m.sku));
         for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
       }
-      // Misma semántica que memoria: niveles por sku con la misma función.
-      const prods = await tx.select({ id: products.id, sku: products.sku, stockActual: products.stockActual }).from(products);
-      const niveles = new Map(prods.map((p) => [p.sku, p.stockActual] as const));
-      const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
-      const lotes = lotesDesdeStock(niveles);
-      const r = vender_mostrador({
-        idempotencyKey: i.key,
-        lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
-        medio: i.medio,
-        deviceCode: i.deviceCode,
-        seqLocal: i.seqLocal,
-        offline: i.offline,
-        lotes,
-        vistos: new Map<string, TicketEmitido>(),
-        ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
-        grant: { rol: "dueno" },
-        skusSinStockInicial,
-      });
-      if (!r.ok) throw new VentaRechazada(r);
-      const e = r.efecto;
-      if (i.gateFiscal) {
-        const g = i.gateFiscal(e.ticket.totalCentavos);
-        if (!g.ok) throw new VentaRechazada({ ok: false, codigo: "FISCAL_RECHAZO", status: 422, error: g.error });
-      }
-      if (i.pagos) {
-        const suma = i.pagos.reduce((a, p) => a + p.monto_centavos, 0);
-        if (BigInt(suma) !== e.ticket.totalCentavos) {
-          throw new VentaRechazada({ ok: false, codigo: "PAGOS_NO_SUMAN", status: 422 });
+      // P1-60: el corte de vencido es el instante de la venta. Movimientos,
+      // cantidad_restante y stock_actual los escribe aplicarVentaLotes.
+      const ahora = new Date(i.clientOccurredAt);
+      return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
+        const prods = await tx
+          .select({ id: products.id, sku: products.sku })
+          .from(products)
+          .where(inArray(products.sku, skusLinea));
+        const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
+        const r = vender_mostrador({
+          idempotencyKey: i.key,
+          lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+          medio: i.medio,
+          deviceCode: i.deviceCode,
+          seqLocal: i.seqLocal,
+          offline: i.offline,
+          lotes,
+          vistos: new Map<string, TicketEmitido>(),
+          ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
+          grant: { rol: "dueno" },
+          skusSinStockInicial,
+        });
+        if (!r.ok) throw new VentaRechazada(r);
+        const e = r.efecto;
+        if (i.gateFiscal) {
+          const g = i.gateFiscal(e.ticket.totalCentavos);
+          if (!g.ok) throw new VentaRechazada({ ok: false, codigo: "FISCAL_RECHAZO", status: 422, error: g.error });
         }
-      }
-      const saleId = crypto.randomUUID();
-      const pagosEfectivos = i.pagos ?? [{ medio: i.medio, monto_centavos: Number(e.ticket.totalCentavos) }];
-      const esDividido = Boolean(i.pagos);
-      const pagosConId = pagosEfectivos.map((p) => ({ ...p, cashMovementId: crypto.randomUUID() }));
-      // Sin onConflictDoNothing: el choque de carrera lo mapea el catch a 409.
-      await tx.insert(sales).values({
-        id: saleId,
-        idempotencyKey: i.key,
-        medio: i.medio,
-        totalCentavos: e.ticket.totalCentavos,
-        sobreventa: e.ticket.sobreventa,
-        offline: i.offline,
-        clientOccurredAt: new Date(i.clientOccurredAt),
-      });
-      await tx.insert(tickets).values({
-        saleId,
-        definitivo: e.ticket.definitivo,
-        provisorio: e.ticket.provisorio,
-      });
-      // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
-      const lineasDb = e.lineasConDescuento.flatMap((l) => {
-        const linea = i.lineas[l.idx];
-        if (!linea) return [];
-        const productId = esUuid(linea.product_id) ? linea.product_id : idPorSku.get(linea.product_id);
-        if (!productId) return [];
-        const costo = costos.get(l.sku) ?? 0n;
-        return [{
+        if (i.pagos) {
+          const suma = i.pagos.reduce((a, p) => a + p.monto_centavos, 0);
+          if (BigInt(suma) !== e.ticket.totalCentavos) {
+            throw new VentaRechazada({ ok: false, codigo: "PAGOS_NO_SUMAN", status: 422 });
+          }
+        }
+        const saleId = crypto.randomUUID();
+        const pagosEfectivos = i.pagos ?? [{ medio: i.medio, monto_centavos: Number(e.ticket.totalCentavos) }];
+        const esDividido = Boolean(i.pagos);
+        const pagosConId = pagosEfectivos.map((p) => ({ ...p, cashMovementId: crypto.randomUUID() }));
+        // Sin onConflictDoNothing: el choque de carrera lo mapea el catch a 409.
+        await tx.insert(sales).values({
+          id: saleId,
+          idempotencyKey: i.key,
+          medio: i.medio,
+          totalCentavos: e.ticket.totalCentavos,
+          sobreventa: e.ticket.sobreventa,
+          offline: i.offline,
+          clientOccurredAt: ahora,
+        });
+        await tx.insert(tickets).values({
           saleId,
-          productId,
-          qty: l.cantidad,
-          precioCentavos: BigInt(linea.precio_centavos),
-          costoCentavos: costo,
-        }];
-      });
-      if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
-      await tx.insert(ticketDiscounts).values(
-        e.lineasConDescuento.map((l) => ({
-          saleId,
-          lineaIdx: l.idx,
-          sku: l.sku,
-          brutoCentavos: l.brutoCentavos,
-          descLineaCentavos: l.descLineaCentavos,
-          descTicketCentavos: l.descTicketCentavos,
-          netoCentavos: l.netoCentavos,
-        })),
-      );
-      if (e.ingresaACaja) {
-        await tx.insert(cashMovements).values(
-          pagosConId.map((p) => ({
-            id: p.cashMovementId,
+          definitivo: e.ticket.definitivo,
+          provisorio: e.ticket.provisorio,
+        });
+        // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
+        const lineasDb = e.lineasConDescuento.flatMap((l) => {
+          const linea = i.lineas[l.idx];
+          if (!linea) return [];
+          const productId = esUuid(linea.product_id) ? linea.product_id : idPorSku.get(linea.product_id);
+          if (!productId) return [];
+          const costo = costos.get(l.sku) ?? 0n;
+          return [{
             saleId,
-            idempotencyKey: esDividido ? `${i.key}:${p.medio}` : i.key,
-            tipo: "ingreso",
-            metodo: p.medio,
-            categoriaId: "venta",
-            origen: "venta",
-            montoCentavos: BigInt(p.monto_centavos),
+            productId,
+            qty: l.cantidad,
+            precioCentavos: BigInt(linea.precio_centavos),
+            costoCentavos: costo,
+          }];
+        });
+        if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+        await tx.insert(ticketDiscounts).values(
+          e.lineasConDescuento.map((l) => ({
+            saleId,
+            lineaIdx: l.idx,
+            sku: l.sku,
+            brutoCentavos: l.brutoCentavos,
+            descLineaCentavos: l.descLineaCentavos,
+            descTicketCentavos: l.descTicketCentavos,
+            netoCentavos: l.netoCentavos,
           })),
         );
-        await tx.insert(ticketPayments).values(
-          pagosConId.map((p) => ({
-            saleId,
-            metodo: p.medio,
-            montoCentavos: BigInt(p.monto_centavos),
-            cashMovementId: p.cashMovementId,
-          })),
-        );
-      }
-      if (e.movimientosStock.length > 0) {
-        await tx.insert(stockMovements).values(
-          e.movimientosStock.map((m) => ({
+        if (e.ingresaACaja) {
+          await tx.insert(cashMovements).values(
+            pagosConId.map((p) => ({
+              id: p.cashMovementId,
+              saleId,
+              idempotencyKey: esDividido ? `${i.key}:${p.medio}` : i.key,
+              tipo: "ingreso",
+              metodo: p.medio,
+              categoriaId: "venta",
+              origen: "venta",
+              montoCentavos: BigInt(p.monto_centavos),
+            })),
+          );
+          await tx.insert(ticketPayments).values(
+            pagosConId.map((p) => ({
+              saleId,
+              metodo: p.medio,
+              montoCentavos: BigInt(p.monto_centavos),
+              cashMovementId: p.cashMovementId,
+            })),
+          );
+        }
+        if (e.ticket.definitivo) {
+          await tx.update(ticketCounters).set({ ultimo: ultimo + 1 }).where(eq(ticketCounters.id, "mostrador"));
+        }
+        return {
+          consumo: {
             idemKey: i.key,
-            sku: m.sku,
-            loteId: esUuid(m.loteId) ? m.loteId : null,
-            delta: m.delta,
-            tipo: m.tipo,
-          })),
-        );
-      }
-      if (!e.ticket.sobreventa) {
-        for (const d of e.descuentos) {
-          await tx
-            .update(products)
-            .set({ stockActual: sql`${products.stockActual} - ${d.cantidad}` })
-            .where(eq(products.sku, d.sku));
-        }
-      }
-      if (e.ticket.definitivo) {
-        await tx.update(ticketCounters).set({ ultimo: ultimo + 1 }).where(eq(ticketCounters.id, "mostrador"));
-      }
-      return { ok: true as const, saleId, efecto: e, pagosConId, esDividido };
+            tomas: e.descuentos.map((d) => ({ loteId: d.loteId, sku: d.sku, cantidad: d.cantidad })),
+            // P1-60: la sobreventa offline anota lo tomado y no baja cantidades.
+            mutarExistencias: !e.ticket.sobreventa,
+          },
+          valor: { ok: true as const, saleId, efecto: e, pagosConId, esDividido },
+        };
+      });
     });
     espejoMemoria(i.key, salida.saleId, i, salida.efecto, salida.pagosConId, salida.esDividido, costos);
     return { ok: true, venta: { saleId: salida.saleId, efecto: salida.efecto, pagosConId: salida.pagosConId, fuente: "db" } };
