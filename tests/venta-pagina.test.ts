@@ -43,3 +43,16 @@ describe("venta.astro: carrito multiproducto y ticket local", () => {
     expect(s).toContain("construir_wa_me_url");
   });
 });
+
+// P1-59: si el cobro offline deja de avisar con el stock proyectado, este test falla.
+describe("venta.astro: aviso de stock local en cero", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("después de encolar avisa si el proyectado queda en 0 y el cobro sigue", () => {
+    const s = src();
+    expect(s).toContain('import { avisoStockLocalAgotado, stockLocal } from "../offline/stock-local.js"');
+    expect(s).toContain("El stock registrado de este producto ya estaba en 0");
+    expect(s).toMatch(/storage\.setItem\(outboxKey[\s\S]*avisoStockLocalAgotado\(stockLocal\(/);
+    expect(s).toMatch(/estado\("offline provisorio " \+ vuelo\.ticketBase\.provisorio \+ " encolado " \+ vuelo\.op_id \+ avisoAgotado\)/);
+  });
+});

@@ -142,6 +142,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { debeDrenarPorVisibilidad, drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
       import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
       import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
+      import { avisoStockLocalAgotado, stockLocal } from "../offline/stock-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import { formatearCentavos } from "../lib/panel-modulos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
@@ -684,7 +685,15 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
               sale_id: null,
               op_id: vuelo.op_id,
             });
-            estado("offline provisorio " + vuelo.ticketBase.provisorio + " encolado " + vuelo.op_id);
+            // P1-59: el aviso mira el stock proyectado después de encolar y no frena el cobro.
+            let avisoAgotado = "";
+            for (const linea of vuelo.payload.lineas) {
+              if (avisoStockLocalAgotado(stockLocal(catalogo, q, linea.product_id))) {
+                avisoAgotado = " El stock registrado de este producto ya estaba en 0";
+                break;
+              }
+            }
+            estado("offline provisorio " + vuelo.ticketBase.provisorio + " encolado " + vuelo.op_id + avisoAgotado);
           }
         } finally {
           cobrando = false;
