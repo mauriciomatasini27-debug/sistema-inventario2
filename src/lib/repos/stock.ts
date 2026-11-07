@@ -161,8 +161,8 @@ export function aplicarEnMemoria(
   movimientos.agregar(m);
 }
 
-// Callback de la tx que ya abrió la venta. Esta función no abre otra.
-export type TxTenant = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
+/** Tx que ya abrió el caller de la venta; esta API no abre otra. */
+export type TxVentaAbierta = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
 
 export interface PedidoLotesVenta {
   readonly skus: readonly string[];
@@ -179,7 +179,8 @@ export interface TomaLoteVenta {
 export interface ConsumoVentaLotes {
   readonly idemKey: string;
   readonly tomas: readonly TomaLoteVenta[];
-  readonly mutarExistencias: boolean;
+  /** false: anota tomas en movimientos y no baja restante ni stock_actual. */
+  readonly bajarCantidades: boolean;
 }
 
 const UUID_LOTE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -206,7 +207,7 @@ function validarConsumoVenta(lotes: readonly Lote[], consumo: ConsumoVentaLotes)
 // stock_lots.id, siempre en ese orden, para que dos cobros no se traben.
 // La semilla existe solo si el SKU no tiene ninguna fila de lote.
 export async function aplicarVentaLotes<T>(
-  tx: TxTenant,
+  tx: TxVentaAbierta,
   pedido: PedidoLotesVenta,
   decidir: (lotes: readonly Lote[]) => Promise<{ readonly consumo: ConsumoVentaLotes; readonly valor: T }>,
 ): Promise<T> {
@@ -269,20 +270,19 @@ export async function aplicarVentaLotes<T>(
   const { consumo, valor } = await decidir(lotes);
   validarConsumoVenta(lotes, consumo);
   if (consumo.tomas.length > 0) {
-    // now() es el mismo en toda la tx; el índice deja el orden de las tomas en la tabla.
-    const base = pedido.ahora.getTime();
+    // P1-61: el orden FEFO vive en tomas[]; createdAt es el instante de la venta.
     await tx.insert(stockMovements).values(
-      consumo.tomas.map((t, i) => ({
+      consumo.tomas.map((t) => ({
         idemKey: consumo.idemKey,
         sku: t.sku,
         loteId: loteIdParaFila(t.loteId),
         delta: -t.cantidad,
         tipo: "VENTA" as const,
-        createdAt: new Date(base + i),
+        createdAt: pedido.ahora,
       })),
     );
   }
-  if (consumo.mutarExistencias) {
+  if (consumo.bajarCantidades) {
     const porSku = new Map<string, number>();
     for (const t of consumo.tomas) {
       const loteId = loteIdParaFila(t.loteId);
