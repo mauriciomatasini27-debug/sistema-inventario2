@@ -1,11 +1,10 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { customerMovements, customers } from "../../db/schema-credito.js";
 import {
   SERIE_MOSTRADOR,
   cashMovements,
   products,
   sales,
-  stockMovements,
   ticketCounters,
   ticketLines,
   tickets,
@@ -21,8 +20,8 @@ import {
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { lotesDesdeStock, type Sku } from "../../modules/inventario/inventario.js";
-import { cobro_fiado, venta_a_cuenta } from "../../modules/credit/fiado.js";
-import { siguiente_numero } from "../../modules/sales/vender_mostrador.js";
+import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/credit/fiado.js";
+import { aplicarVentaLotes } from "./stock.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
 import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
 import { registrarIngresoCobro } from "./caja.js";
@@ -32,10 +31,6 @@ import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
 // DB primero via dbVivaTenant(); solo en single sin base usa la memoria
 // particionada. En multi sin base dbVivaTenant lanza BaseNoDisponible y se
 // propaga (la ruta responde 503). Los ingresos a caja van por caja.ts.
-
-function esUuid(v: string | null | undefined): v is string {
-  return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-}
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -61,6 +56,12 @@ export type VentaACuentaResultado =
   | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db" | "memoria" }
   | { ok: false; codigo: string; status: number; error: string };
 
+class FiadoRechazado extends Error {
+  constructor(readonly resultado: Extract<VentaACuentaResultado, { ok: false }>) {
+    super("fiado rechazado");
+  }
+}
+
 // FC2/C18: descuenta stock, suma fiado, cero caja. Clave repetida => 409 con
 // relectura; el debe entra con espejo memoria.
 export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuentaResultado> {
@@ -71,44 +72,24 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   if (creditoVistos.contiene(input.key)) {
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
-  const nt = contadorTickets.leer();
-  const lotes = lotesDesdeStock(almacenStock.mapaVivo());
-  const r = venta_a_cuenta({
-    idempotencyKey: input.key,
-    customerId: input.customerId,
-    lineas: input.lineas.map((l) => ({ sku: l.sku as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precioCentavos) })),
-    deviceCode: input.deviceCode,
-    seqLocal: input.seqLocal,
-    offline: false,
-    // Ningun repo cubre lotes FIFO: se leen de la memoria particionada.
-    lotes,
-    vistos: new Map(),
-    ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
-    saldoActualCentavos: BigInt(input.saldoActualCentavos),
-    topeCentavos: BigInt(input.topeCentavos),
-    rol: "dueno",
-    ahoraMs: Date.now(),
-  });
-  if (!r.ok) {
-    return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
-  }
   const total = input.lineas.reduce((acc, l) => acc + BigInt(l.qty) * BigInt(l.precioCentavos), 0n);
+  const lineasNucleo = input.lineas.map((l) => ({ sku: l.sku as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precioCentavos) }));
 
   // P10-16 GP4: costo unitario vigente por SKU para congelarlo en la línea.
   const costos = costosVigentesMemoria();
 
-  const espejoMemoria = (ticket: string | null, siguiente: number | null, saleId: string) => {
+  const espejoMemoria = (efecto: EfectoFiado, ticket: string | null, siguiente: number | null, saleId: string) => {
     // Sin tabla propia: vistos y movimientos en memoria (durable via UNIQUE).
     creditoVistos.guardar(input.key, { customer_id: input.customerId });
     movsCredito.agregar({ customer_id: input.customerId, debe: total.toString(), haber: "0", key: input.key, fecha_ms: Date.now() });
     // P10-2: ticket y stock consultables también sin base.
     guardarTicketFiado(saleId, {
       sale_id: saleId,
-      ticket_definitivo: r.efecto.ticket.definitivo,
-      ticket_provisorio: r.efecto.ticket.provisorio,
+      ticket_definitivo: efecto.ticket.definitivo,
+      ticket_provisorio: efecto.ticket.provisorio,
       total_centavos: total.toString(),
       medio: "A cuenta",
-      sobreventa: r.efecto.faltantes.length > 0,
+      sobreventa: efecto.faltantes.length > 0,
       idempotency_key: input.key,
     });
     for (const l of input.lineas) {
@@ -121,7 +102,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         costo_centavos: costo.toString(),
       });
     }
-    for (const d of r.efecto.lineasConDescuento) {
+    for (const d of efecto.lineasConDescuento) {
       agregarDescuentoTicket({
         sale_id: saleId,
         linea_idx: d.idx,
@@ -133,10 +114,10 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       });
     }
     const stock = almacenStock.mapaVivo();
-    for (const d of r.efecto.descuentos) {
+    for (const d of efecto.descuentos) {
       stock.set(d.sku, (stock.get(d.sku) ?? 0) - d.cantidad);
     }
-    for (const m of r.efecto.movimientosStock) {
+    for (const m of efecto.movimientosStock) {
       agregarStockMoveMemoria({ idemKey: input.key, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo });
     }
     // Espejo del correlativo T-*: en memoria avanza de a uno; con base viva
@@ -147,11 +128,33 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     }
   };
 
+  // P1-60: sin base no hay filas stock_lots. La semilla sigue siendo el stock de memoria.
+  const semilla = () => {
+    const nt = contadorTickets.leer();
+    return venta_a_cuenta({
+      idempotencyKey: input.key,
+      customerId: input.customerId,
+      lineas: lineasNucleo,
+      deviceCode: input.deviceCode,
+      seqLocal: input.seqLocal,
+      offline: false,
+      lotes: lotesDesdeStock(almacenStock.mapaVivo()),
+      vistos: new Map(),
+      ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
+      saldoActualCentavos: BigInt(input.saldoActualCentavos),
+      topeCentavos: BigInt(input.topeCentavos),
+      rol: "dueno",
+      ahoraMs: Date.now(),
+    });
+  };
+
   const db = dbVivaTenant();
   if (!db) {
+    const r = semilla();
+    if (!r.ok) return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
     const dup = movsCredito.listar().find((m) => m.key === input.key);
     if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    espejoMemoria(r.efecto.ticket.definitivo, null, crypto.randomUUID());
+    espejoMemoria(r.efecto, r.efecto.ticket.definitivo, null, crypto.randomUUID());
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 
@@ -175,82 +178,99 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       const ultimo = filas[0]?.ultimo ?? 0;
       const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
       if (previo[0]) return { estado: "repetida" } as const;
-      // Sin definitivo (offline) no consume número, igual que ventas.
-      const definitivo = r.efecto.ticket.definitivo !== null;
-      const n = definitivo ? ultimo + 1 : ultimo;
-      const ticket = definitivo ? siguiente_numero(ultimo > 0 ? { n: ultimo } : null) : null;
-      const saleId = crypto.randomUUID();
-      const prods = await tx.select({ id: products.id, sku: products.sku }).from(products);
-      const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
-      await tx.insert(customerMovements).values({
-        customerId: input.customerId,
-        tipo: "venta",
-        debeCentavos: total,
-        haberCentavos: 0n,
-        saleId,
-        idempotencyKey: input.key,
-        clientOccurredAt: new Date(),
-      });
-      await tx.insert(sales).values({
-        id: saleId,
-        idempotencyKey: input.key,
-        medio: "A cuenta",
-        totalCentavos: total,
-        sobreventa: r.efecto.faltantes.length > 0,
+      // P1-60: el corte de vencido y clientOccurredAt son el mismo instante.
+      // El espejo de después del commit usa el efecto de esta corrida.
+      const ahora = new Date();
+      return aplicarVentaLotes(tx, {
+        skus: input.lineas.map((l) => l.sku),
         offline: false,
-        clientOccurredAt: new Date(),
-      });
-      await tx.insert(tickets).values({
-        saleId,
-        definitivo: ticket,
-        provisorio: r.efecto.ticket.provisorio,
-      });
-      // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
-      const lineasDb = input.lineas.flatMap((l) => {
-        const productId = idPorSku.get(l.sku);
-        if (!productId) return [];
-        const costo = costosDb.get(l.sku) ?? 0n;
-        return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos), costoCentavos: costo }];
-      });
-      if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
-      // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
-      await tx.insert(ticketDiscounts).values(
-        r.efecto.lineasConDescuento.map((l) => ({
+        ahora,
+      }, async (lotes) => {
+        const r = venta_a_cuenta({
+          idempotencyKey: input.key,
+          customerId: input.customerId,
+          lineas: lineasNucleo,
+          deviceCode: input.deviceCode,
+          seqLocal: input.seqLocal,
+          offline: false,
+          lotes,
+          vistos: new Map(),
+          ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
+          saldoActualCentavos: BigInt(input.saldoActualCentavos),
+          topeCentavos: BigInt(input.topeCentavos),
+          rol: "dueno",
+          ahoraMs: ahora.getTime(),
+        });
+        if (!r.ok) {
+          throw new FiadoRechazado({ ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo });
+        }
+        const ticket = r.efecto.ticket.kind === "online" ? r.efecto.ticket.definitivo : null;
+        const n = ticket ? ultimo + 1 : ultimo;
+        const saleId = crypto.randomUUID();
+        const prods = await tx.select({ id: products.id, sku: products.sku }).from(products);
+        const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
+        await tx.insert(customerMovements).values({
+          customerId: input.customerId,
+          tipo: "venta",
+          debeCentavos: total,
+          haberCentavos: 0n,
           saleId,
-          lineaIdx: l.idx,
-          sku: l.sku,
-          brutoCentavos: l.brutoCentavos,
-          descLineaCentavos: l.descLineaCentavos,
-          descTicketCentavos: l.descTicketCentavos,
-          netoCentavos: l.netoCentavos,
-        })),
-      );
-      if (r.efecto.movimientosStock.length > 0) {
-        await tx.insert(stockMovements).values(
-          r.efecto.movimientosStock.map((m) => ({
-            idemKey: input.key,
-            sku: m.sku,
-            loteId: esUuid(m.loteId) ? m.loteId : null,
-            delta: m.delta,
-            tipo: m.tipo,
+          idempotencyKey: input.key,
+          clientOccurredAt: ahora,
+        });
+        await tx.insert(sales).values({
+          id: saleId,
+          idempotencyKey: input.key,
+          medio: "A cuenta",
+          totalCentavos: total,
+          sobreventa: r.efecto.faltantes.length > 0,
+          offline: false,
+          clientOccurredAt: ahora,
+        });
+        await tx.insert(tickets).values({
+          saleId,
+          definitivo: ticket,
+          provisorio: r.efecto.ticket.provisorio,
+        });
+        // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
+        const lineasDb = input.lineas.flatMap((l) => {
+          const productId = idPorSku.get(l.sku);
+          if (!productId) return [];
+          const costo = costosDb.get(l.sku) ?? 0n;
+          return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos), costoCentavos: costo }];
+        });
+        if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+        // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
+        await tx.insert(ticketDiscounts).values(
+          r.efecto.lineasConDescuento.map((l) => ({
+            saleId,
+            lineaIdx: l.idx,
+            sku: l.sku,
+            brutoCentavos: l.brutoCentavos,
+            descLineaCentavos: l.descLineaCentavos,
+            descTicketCentavos: l.descTicketCentavos,
+            netoCentavos: l.netoCentavos,
           })),
         );
-      }
-      for (const d of r.efecto.descuentos) {
-        await tx
-          .update(products)
-          .set({ stockActual: sql`${products.stockActual} - ${d.cantidad}` })
-          .where(eq(products.sku, d.sku));
-      }
-      if (definitivo) await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_MOSTRADOR));
-      return { estado: "ok", ticket, n, saleId } as const;
+        if (ticket) await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_MOSTRADOR));
+        return {
+          consumo: {
+            idemKey: input.key,
+            tomas: r.efecto.descuentos.map((d) => ({ loteId: d.loteId, sku: d.sku, cantidad: d.cantidad })),
+            // P1-60: fiado no deja la venta en sobreventa; siempre baja lo tomado.
+            mutarExistencias: true,
+          },
+          valor: { estado: "ok" as const, ticket, n, saleId, efecto: r.efecto },
+        };
+      });
     });
     if (salida.estado === "repetida") {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    espejoMemoria(salida.ticket, salida.n + 1, salida.saleId);
+    espejoMemoria(salida.efecto, salida.ticket, salida.n + 1, salida.saleId);
     return { ok: true, ticketDefinitivo: salida.ticket, totalCentavos: total.toString(), fuente: "db" };
   } catch (e) {
+    if (e instanceof FiadoRechazado) return e.resultado;
     if (esConflictoUnico(e)) {
       try {
         const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
@@ -265,7 +285,9 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     if (creditoVistos.contiene(input.key)) {
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    espejoMemoria(r.efecto.ticket.definitivo, null, crypto.randomUUID());
+    const r = semilla();
+    if (!r.ok) return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
+    espejoMemoria(r.efecto, r.efecto.ticket.definitivo, null, crypto.randomUUID());
     return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
   }
 }
