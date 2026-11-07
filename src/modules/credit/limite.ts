@@ -1,5 +1,3 @@
-// P1-62: la columna 0 es "sin tope" (FC6.1). Un bigint suelto no puede decirlo:
-// el núcleo lo leía como techo cero y el bot como abierto.
 import type { Rol } from "../cash/caja.js";
 
 const marcaCredito: unique symbol = Symbol("credito");
@@ -56,10 +54,14 @@ export function supera_limite(saldoNuevo: bigint, limite: LimiteCredito): boolea
   return saldoNuevo > limite.centavos;
 }
 
-export function disponibleCentavos(credito: CreditoResuelto): bigint | null {
-  if (credito.limite.kind === "abierto") return null;
-  const libre = credito.limite.centavos - credito.saldoCentavos;
+export function disponibleDesdeLimite(saldoCentavos: bigint, limite: LimiteCredito): bigint | null {
+  if (limite.kind === "abierto") return null;
+  const libre = limite.centavos - saldoCentavos;
   return libre > 0n ? libre : 0n;
+}
+
+export function disponibleCentavos(credito: CreditoResuelto): bigint | null {
+  return disponibleDesdeLimite(credito.saldoCentavos, credito.limite);
 }
 
 export function motivoTope(saldoCentavos: bigint, topeAlmacenado: bigint): boolean {

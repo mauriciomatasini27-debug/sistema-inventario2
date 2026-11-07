@@ -74,7 +74,6 @@ export type RolEfectivo =
   | { estado: "legado" }
   | { estado: "sin_permiso" };
 
-// P1-62: el fiado usa el mismo legado = dueño de P9-13. El body no trae rol.
 export function rolParaFiado(
   efectivo: RolEfectivo,
 ): { ok: true; rol: "dueno" | "empleado" } | { ok: false; error: string } {

@@ -22,7 +22,7 @@ import type { Medio } from "../validation.js";
 import type { Sku } from "../../modules/inventario/inventario.js";
 import type { Rol } from "../../modules/cash/caja.js";
 import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/credit/fiado.js";
-import { disponibleCentavos, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
+import { disponibleDesdeLimite, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
 import { aplicarVentaLotes } from "./stock.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
 import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
@@ -30,9 +30,6 @@ import { registrarIngresoCobro } from "./caja.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
 
 // PERS2-S17 (ADR-0058): fiado (venta a cuenta, cobros, saldo por cliente).
-// P1-62: la venta a cuenta exige la fila de customers. Sin base no hay ficha
-// y responde 404. El cobro sigue el camino de memoria en single sin base.
-// En multi sin base dbVivaTenant lanza BaseNoDisponible (503).
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -69,7 +66,6 @@ class FiadoRechazado extends Error {
 }
 
 // FC2/C18: descuenta stock, suma fiado, cero caja. Clave repetida => 409.
-// P1-62: el tope sale de la ficha lockeada, no del body.
 export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuentaResultado> {
   const creditoVistos = crearAlmacenCreditoVistos();
   const movsCredito = crearListaMovimientosCredito();
@@ -159,9 +155,6 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       const ultimo = filas[0]?.ultimo ?? 0;
       const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
       if (previo[0]) return { estado: "repetida" } as const;
-      // P1-62: el FOR UPDATE de la ficha serializa dos fiados del mismo cliente.
-      // Sin fila no hay lock, y un id libre no se vende. La clave ya vista
-      // respondió 409 arriba, aunque la ficha se haya borrado después.
       if (!esUuid(input.customerId)) {
         throw new FiadoRechazado({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" });
       }
@@ -191,8 +184,6 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       if (!credito.ok) {
         throw new FiadoRechazado({ ok: false, codigo: credito.codigo, status: credito.status, error: credito.codigo });
       }
-      // P1-60: el corte de vencido y clientOccurredAt son el mismo instante.
-      // El espejo de después del commit usa el efecto de esta corrida.
       const ahora = new Date();
       return aplicarVentaLotes(tx, {
         skus: input.lineas.map((l) => l.sku),
@@ -395,7 +386,6 @@ const PREVIEW_SIN_FICHA = {
 } as const;
 
 function previewDeTope(
-  customerId: string,
   tope: bigint,
   saldo: bigint,
 ): Pick<SaldoCliente, "existe" | "sinTope" | "topeCentavos" | "disponibleCentavos"> {
@@ -403,9 +393,7 @@ function previewDeTope(
   if ("ok" in limite) {
     return { existe: true, sinTope: false, topeCentavos: tope.toString(), disponibleCentavos: null };
   }
-  // P1-62: el disponible no depende del rol. CreditoResuelto no se arma suelto.
-  const credito = resolverCredito({ customerId, topeAlmacenado: tope, saldoCentavos: saldo, rol: "empleado" });
-  const libre = credito.ok ? disponibleCentavos(credito.valor) : null;
+  const libre = disponibleDesdeLimite(saldo, limite);
   return {
     existe: true,
     sinTope: limite.kind === "abierto",
@@ -444,7 +432,7 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
         .where(eq(customers.id, customerId))
         .limit(1);
       const ficha = fichas[0];
-      if (ficha) preview = previewDeTope(customerId, ficha.tope, saldo);
+      if (ficha) preview = previewDeTope(ficha.tope, saldo);
     }
     return { saldoCentavos: saldo.toString(), diasMax, fuente: "db", ...preview };
   } catch (e) {

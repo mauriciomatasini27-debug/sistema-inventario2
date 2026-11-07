@@ -63,7 +63,6 @@ export interface VentaACuentaInput {
   readonly lotes: ReadonlyArray<Lote>;
   readonly vistos: ReadonlyMap<string, TicketFiado>;
   readonly ultimoDefinitivo: TicketSeq | null;
-  // P1-62: saldo, tope y rol ya resueltos. El núcleo no vuelve a leer la columna.
   readonly credito: CreditoResuelto;
   readonly ahoraMs: number;
   // Nivel 1 mora día 15: el adaptador calcula esta_en_mora y lo pasa.
@@ -130,7 +129,6 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
   const total = snap.calculo.totalNetoCentavos;
   if (total <= 0n) return { ok: false, codigo: "LINEA_INVALIDA", status: 422 };
 
-  // FC6: superar el techo solo lo pasa el Dueño. Abierto no supera.
   const nuevoSaldo = input.credito.saldoCentavos + total;
   const superaTope = supera_limite(nuevoSaldo, input.credito.limite);
   if (superaTope && input.credito.rol !== "dueno") {

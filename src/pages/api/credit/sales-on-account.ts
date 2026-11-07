@@ -7,8 +7,6 @@ import { formatearCentavos } from "../../../lib/panel-modulos.js";
 
 export const prerender = false;
 
-// POST /api/credit/sales-on-account — FC2/C18: descuenta stock, suma fiado, cero caja.
-// P1-62: el rol sale de la sesión y el tope de la ficha. El JSON no trae ninguno.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

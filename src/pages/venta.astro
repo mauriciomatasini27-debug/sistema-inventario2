@@ -482,11 +482,10 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       $("medio").addEventListener("change", syncClienteFiado);
       syncClienteFiado();
 
-      // P1-62: el POST manda el id del click. Lo que se sigue tipeando no es una ficha.
-      let clienteElegido = null;
+      let clienteConfirmado = null;
       let buscaFiado = null;
       const pintarPreviewFiado = (item, j) => {
-        if (!clienteElegido || clienteElegido.customerId !== item.customer_id) return;
+        if (!clienteConfirmado || clienteConfirmado.customerId !== item.customer_id) return;
         const preview = $("cliente-fiado-preview");
         if (j.existe === false) {
           preview.textContent = "Este cliente no está en la ficha.";
@@ -500,7 +499,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         preview.textContent = "Saldo " + saldo + ". Disponible " + formatearCentavos(j.disponible_centavos ?? 0) + ".";
       };
       const elegirClienteFiado = (item) => {
-        clienteElegido = { customerId: item.customer_id, nombre: item.nombre };
+        clienteConfirmado = { customerId: item.customer_id, nombre: item.nombre };
         $("cliente-fiado-elegido").textContent = "Elegido: " + item.nombre;
         $("cliente-fiado-opciones").textContent = "";
         $("cliente-fiado-preview").textContent = "Consultando saldo…";
@@ -512,7 +511,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           .then((j) => pintarPreviewFiado(item, j))
           .catch((error) => {
             console.warn("[venta] fiado balance", error);
-            if (clienteElegido && clienteElegido.customerId === item.customer_id) {
+            if (clienteConfirmado && clienteConfirmado.customerId === item.customer_id) {
               $("cliente-fiado-preview").textContent = "No se pudo leer el saldo.";
             }
           });
@@ -547,7 +546,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           });
       };
       $("cliente-fiado-q").addEventListener("input", () => {
-        clienteElegido = null;
+        clienteConfirmado = null;
         $("cliente-fiado-elegido").textContent = "";
         $("cliente-fiado-preview").textContent = "";
         clearTimeout(buscaFiado);
@@ -590,7 +589,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         }
         // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
         if (fiado && !cobroEnVuelo) {
-          if (!clienteElegido) {
+          if (!clienteConfirmado) {
             estado("Elegí un cliente de la lista.");
             return;
           }
@@ -609,7 +608,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
             }
             const { armado, op_id } = preparado;
             if (fiado) {
-              const elegido = clienteElegido;
+              const elegido = clienteConfirmado;
               if (!elegido) {
                 estado("Elegí un cliente de la lista.");
                 return;
