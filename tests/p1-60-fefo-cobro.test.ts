@@ -102,7 +102,23 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
 
   async function movimientos(key: string) {
     const db = getTenantDb();
-    return db.select().from(stockMovements).where(eq(stockMovements.idemKey, key)).orderBy(asc(stockMovements.createdAt));
+    // Orden observable = FEFO del lote (vence_el), no el createdAt de la fila.
+    const filas = await db
+      .select({
+        delta: stockMovements.delta,
+        tipo: stockMovements.tipo,
+        loteId: stockMovements.loteId,
+        venceEl: stockLots.venceEl,
+      })
+      .from(stockMovements)
+      .leftJoin(stockLots, eq(stockMovements.loteId, stockLots.id))
+      .where(eq(stockMovements.idemKey, key));
+    return [...filas].sort((a, b) => {
+      if (a.venceEl == null && b.venceEl == null) return 0;
+      if (a.venceEl == null) return 1;
+      if (b.venceEl == null) return -1;
+      return a.venceEl.getTime() - b.venceEl.getTime();
+    });
   }
 
   async function restantes(sku: string) {
@@ -138,7 +154,7 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
             consumo: {
               idemKey: key,
               tomas: d.valor.descuentos.map((t) => ({ loteId: t.loteId, sku: t.sku, cantidad: t.cantidad })),
-              mutarExistencias: true,
+              bajarCantidades: true,
             },
             valor: true,
           };

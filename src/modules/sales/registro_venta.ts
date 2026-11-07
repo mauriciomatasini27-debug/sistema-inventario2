@@ -338,8 +338,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const yaCargados = new Set(conAlta.map((m) => m.sku));
         for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
       }
-      // P1-60: el corte de vencido es el instante de la venta. Movimientos,
-      // cantidad_restante y stock_actual los escribe aplicarVentaLotes.
+      // P1-60: el corte de vencido es el instante de la venta.
       const ahora = new Date(i.clientOccurredAt);
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
         const prods = await tx
@@ -447,8 +446,8 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
           consumo: {
             idemKey: i.key,
             tomas: e.descuentos.map((d) => ({ loteId: d.loteId, sku: d.sku, cantidad: d.cantidad })),
-            // P1-60: la sobreventa offline anota lo tomado y no baja cantidades.
-            mutarExistencias: !e.ticket.sobreventa,
+          // P1-60: la sobreventa offline anota lo tomado y no baja cantidades.
+          bajarCantidades: !e.ticket.sobreventa,
           },
           valor: { ok: true as const, saleId, efecto: e, pagosConId, esDividido },
         };

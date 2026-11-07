@@ -258,7 +258,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
             idemKey: input.key,
             tomas: r.efecto.descuentos.map((d) => ({ loteId: d.loteId, sku: d.sku, cantidad: d.cantidad })),
             // P1-60: fiado no deja la venta en sobreventa; siempre baja lo tomado.
-            mutarExistencias: true,
+            bajarCantidades: true,
           },
           valor: { estado: "ok" as const, ticket, n, saleId, efecto: r.efecto },
         };
