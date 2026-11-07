@@ -1,6 +1,6 @@
-import { sql } from "drizzle-orm";
-import { eq, inArray } from "drizzle-orm";
-import { products, stockCounts, stockCountLines, stockMovements } from "../../db/schema.js";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { products, stockCounts, stockCountLines, stockLots, stockMovements } from "../../db/schema.js";
+import type { Lote, LotId, Sku } from "../../modules/inventario/inventario.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenConteoVistos,
@@ -72,13 +72,16 @@ function espejarConteoSector(
 }
 
 export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
+// P1-60: la VENTA no entra por aplicarMovimiento. Ese camino abre otra
+// conexión, no baja cantidad_restante y, si la base falla, espeja memoria y sigue.
+export type TipoMovimientoNoVenta = Exclude<TipoMovimientoStock, "VENTA">;
 
 export interface MovimientoStockNuevo {
   readonly idemKey: string;
   readonly sku: string;
   readonly loteId: string | null;
   readonly delta: number;
-  readonly tipo: TipoMovimientoStock;
+  readonly tipo: TipoMovimientoNoVenta;
   readonly motivo?: string | undefined;
 }
 
@@ -156,6 +159,151 @@ export function aplicarEnMemoria(
 ): void {
   existencias.guardar(m.sku, (existencias.obtener(m.sku) ?? 0) + m.delta);
   movimientos.agregar(m);
+}
+
+// Callback de la tx que ya abrió la venta. Esta función no abre otra.
+export type TxTenant = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
+
+export interface PedidoLotesVenta {
+  readonly skus: readonly string[];
+  readonly offline: boolean;
+  readonly ahora: Date;
+}
+
+export interface TomaLoteVenta {
+  readonly loteId: string;
+  readonly sku: string;
+  readonly cantidad: number;
+}
+
+export interface ConsumoVentaLotes {
+  readonly idemKey: string;
+  readonly tomas: readonly TomaLoteVenta[];
+  readonly mutarExistencias: boolean;
+}
+
+const UUID_LOTE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function loteIdParaFila(id: string): string | null {
+  return UUID_LOTE.test(id) ? id : null;
+}
+
+function validarConsumoVenta(lotes: readonly Lote[], consumo: ConsumoVentaLotes): void {
+  if (!consumo.idemKey) throw new Error("consumo de venta inválido");
+  const porId = new Map(lotes.map((l) => [l.id as string, l]));
+  const vistos = new Set<string>();
+  for (const t of consumo.tomas) {
+    const lote = porId.get(t.loteId);
+    if (!lote || vistos.has(t.loteId) || t.sku !== lote.sku) throw new Error("consumo de venta inválido");
+    vistos.add(t.loteId);
+    if (!Number.isInteger(t.cantidad) || t.cantidad < 1 || t.cantidad > lote.cantidad) {
+      throw new Error("consumo de venta inválido");
+    }
+  }
+}
+
+// P1-60: única escritura de una VENTA. Primero products.sku y después
+// stock_lots.id, siempre en ese orden, para que dos cobros no se traben.
+// La semilla existe solo si el SKU no tiene ninguna fila de lote.
+export async function aplicarVentaLotes<T>(
+  tx: TxTenant,
+  pedido: PedidoLotesVenta,
+  decidir: (lotes: readonly Lote[]) => Promise<{ readonly consumo: ConsumoVentaLotes; readonly valor: T }>,
+): Promise<T> {
+  const skus = [...new Set(pedido.skus)].sort();
+  const lotes: Lote[] = [];
+  if (skus.length > 0) {
+    const bloqueados = await tx
+      .select({ sku: products.sku, stockActual: products.stockActual })
+      .from(products)
+      .where(inArray(products.sku, skus))
+      .orderBy(asc(products.sku))
+      .for("update");
+    const filasLote = await tx
+      .select({
+        id: stockLots.id,
+        sku: stockLots.sku,
+        cantidadRestante: stockLots.cantidadRestante,
+        venceEl: stockLots.venceEl,
+        costoCentavos: stockLots.costoCentavos,
+      })
+      .from(stockLots)
+      .where(inArray(stockLots.sku, skus))
+      .orderBy(asc(stockLots.id))
+      .for("update");
+    const porSku = new Map<string, typeof filasLote>();
+    for (const fila of filasLote) {
+      const arr = porSku.get(fila.sku);
+      if (arr) arr.push(fila);
+      else porSku.set(fila.sku, [fila]);
+    }
+    const stockDe = new Map(bloqueados.map((p) => [p.sku, p.stockActual]));
+    for (const sku of skus) {
+      const filas = porSku.get(sku) ?? [];
+      if (filas.length === 0) {
+        const stock = stockDe.get(sku) ?? 0;
+        if (stock > 0) {
+          lotes.push({
+            id: `seed-${sku}` as LotId,
+            sku: sku as Sku,
+            cantidad: stock,
+            venceEl: null,
+            costoCentavos: 0n,
+          });
+        }
+        continue;
+      }
+      for (const fila of filas) {
+        if (fila.cantidadRestante <= 0) continue;
+        if (!pedido.offline && fila.venceEl !== null && fila.venceEl.getTime() < pedido.ahora.getTime()) continue;
+        lotes.push({
+          id: fila.id as LotId,
+          sku: fila.sku as Sku,
+          cantidad: fila.cantidadRestante,
+          venceEl: fila.venceEl,
+          costoCentavos: fila.costoCentavos,
+        });
+      }
+    }
+  }
+  const { consumo, valor } = await decidir(lotes);
+  validarConsumoVenta(lotes, consumo);
+  if (consumo.tomas.length > 0) {
+    // now() es el mismo en toda la tx; el índice deja el orden de las tomas en la tabla.
+    const base = pedido.ahora.getTime();
+    await tx.insert(stockMovements).values(
+      consumo.tomas.map((t, i) => ({
+        idemKey: consumo.idemKey,
+        sku: t.sku,
+        loteId: loteIdParaFila(t.loteId),
+        delta: -t.cantidad,
+        tipo: "VENTA" as const,
+        createdAt: new Date(base + i),
+      })),
+    );
+  }
+  if (consumo.mutarExistencias) {
+    const porSku = new Map<string, number>();
+    for (const t of consumo.tomas) {
+      const loteId = loteIdParaFila(t.loteId);
+      if (loteId) {
+        const updated = await tx
+          .update(stockLots)
+          .set({ cantidadRestante: sql`${stockLots.cantidadRestante} - ${t.cantidad}` })
+          .where(and(eq(stockLots.id, loteId), sql`${stockLots.cantidadRestante} >= ${t.cantidad}`))
+          .returning({ id: stockLots.id });
+        if (!updated[0]) throw new Error("el lote no alcanzó para la toma");
+      }
+      porSku.set(t.sku, (porSku.get(t.sku) ?? 0) + t.cantidad);
+    }
+    for (const [sku, cantidad] of porSku) {
+      await tx
+        .update(products)
+        .set({ stockActual: sql`${products.stockActual} - ${cantidad}` })
+        .where(eq(products.sku, sku));
+    }
+  }
+  return valor;
 }
 
 export function nivelStock(sku: string): number {
@@ -347,7 +495,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
         await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
       }
       for (const m of r.valor.movimientos) {
-        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
+        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
       }
       espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
       return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
@@ -365,7 +513,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     }
   }
   for (const m of r.valor.movimientos) {
-    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoStock, ...(m.motivo ? { motivo: m.motivo } : {}) });
+    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
   }
   const id = crypto.randomUUID();
   espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
