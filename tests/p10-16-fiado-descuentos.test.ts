@@ -6,7 +6,8 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { cashMovements, sales, ticketLines } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
-import { customerMovements } from "../src/db/schema-credito.js";
+import { randomUUID } from "node:crypto";
+import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { POST as POSTSale } from "../src/pages/api/credit/sales-on-account.js";
 import { POST as POSTProducto } from "../src/pages/api/products.js";
 import { POST as POSTIngreso } from "../src/pages/api/stock/ingreso.js";
@@ -33,8 +34,6 @@ function cuerpoCliente(cliente: string, sku = "demo-sku-1") {
     ],
     device_code: "caja-01",
     seq_local: 1,
-    tope_centavos: 100000,
-    saldo_actual_centavos: 0,
   };
 }
 
@@ -56,33 +55,12 @@ describe("P10-16 memoria: venta a cuenta deja snapshot de descuentos consultable
     delete process.env.TENANT_DATABASE_URL;
   });
 
-  it("201 en memoria y GET /api/tickets muestra bruto, descuentos en cero y neto", async () => {
-    const r = (await POSTSale(req(`p10-16-mem-${Date.now()}`, cuerpoCliente("cli-16")))) as Response;
-    expect(r.status).toBe(201);
-    const j = (await r.json()) as { ticket_definitivo: string; total_centavos: string };
-    expect(j.total_centavos).toBe("30000");
-
-    const t = (await getDescription(ctx(`http://x/api/tickets?numero=${j.ticket_definitivo}`))) as Response;
-    expect(t.status).toBe(200);
-    const tj = (await t.json()) as {
-      total_centavos: string;
-      lineas: Array<{
-        bruto_centavos: string;
-        desc_linea_centavos: string;
-        desc_ticket_centavos: string;
-        neto_centavos: string;
-      }>;
-    };
-    expect(tj.total_centavos).toBe("30000");
-    expect(tj.lineas).toHaveLength(2);
-    for (const l of tj.lineas) {
-      expect(l.bruto_centavos).toBe(l.neto_centavos);
-      expect(l.desc_linea_centavos).toBe("0");
-      expect(l.desc_ticket_centavos).toBe("0");
-    }
-
-    const b = (await GETBalance(ctx("http://x/api/credit/balance?customer_id=cli-16"))) as Response;
-    expect(((await b.json()) as Record<string, unknown>)["saldo_centavos"]).toBe("30000");
+  it("sin base no deja ticket ni saldo", async () => {
+    const id = randomUUID();
+    const r = (await POSTSale(req(`p10-16-mem-${Date.now()}`, cuerpoCliente(id)))) as Response;
+    expect(r.status).toBe(404);
+    const b = (await GETBalance(ctx(`http://x/api/credit/balance?customer_id=${id}`))) as Response;
+    expect(((await b.json()) as Record<string, unknown>)["saldo_centavos"]).toBe("0");
   });
 
   it("congela el costo del lote en la línea de la venta a cuenta", async () => {
@@ -97,18 +75,16 @@ describe("P10-16 memoria: venta a cuenta deja snapshot de descuentos consultable
 
     const r = (await POSTSale(
       req(`p10-16-costo-${Date.now()}`, {
-        customer_id: "cli-costo",
+        customer_id: randomUUID(),
         lineas: [{ product_id: "COSTO-MEM", qty: 2, precio_centavos: 10000 }],
         device_code: "caja-01",
         seq_local: 1,
-        tope_centavos: 100000,
-        saldo_actual_centavos: 0,
       }),
     )) as Response;
-    expect(r.status).toBe(201);
+    expect(r.status).toBe(404);
 
     const lineas = store.ticketLineas.filter((l) => l.product_id === "COSTO-MEM");
-    expect(lineas.map((l) => l.costo_centavos)).toEqual(["4000"]);
+    expect(lineas).toEqual([]);
   });
 });
 
@@ -116,7 +92,7 @@ const URL_A = process.env.PG_TEST_URL_A;
 const URL_B = process.env.PG_TEST_URL_B;
 const claveVenta = `p10-16-${Date.now().toString(36)}-vta`;
 const claveCobro = `p10-16-${Date.now().toString(36)}-cob`;
-const cliente = `p10-16-${Date.now().toString(36)}-cli`;
+const cliente = randomUUID();
 
 function fijarMulti(urlA: string, urlB: string) {
   process.env.TENANT_MODE = "multi";
@@ -153,6 +129,7 @@ describe.skipIf(!(URL_A && URL_B))("P10-16 PG vivo: venta a cuenta y cobro aisla
       POSTIngreso(ctx("http://x/api/stock/ingreso", { body: { sku: "DEMO-SKU-1", cantidad: 5, costo_centavos: 4000 } })),
     )) as Response;
     expect([200, 201, 409]).toContain(ingreso.status);
+    await dbA.insert(customers).values({ id: cliente, nombre: "P10-16", topeCentavos: 0n }).onConflictDoNothing();
   });
 
   it("venta en A persiste ticket lines + snapshot en una tx, B no los ve", async () => {

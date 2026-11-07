@@ -2,12 +2,13 @@ import { readFileSync } from "node:fs";
 import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { resetStore } from "../src/lib/store.js";
+import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { utilityBills } from "../src/db/schema-servicios.js";
 import { cashMovements } from "../src/db/schema.js";
-import { customerMovements } from "../src/db/schema-credito.js";
+import { randomUUID } from "node:crypto";
+import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { POST as postBill } from "../src/pages/api/utility-bills.js";
 import { GET as getDue } from "../src/pages/api/utility-bills/due.js";
 import { POST as payBill } from "../src/pages/api/utility-bills/pay.js";
@@ -114,42 +115,27 @@ describe("PERS2-S17 single sin DB: venta a cuenta, cobro y saldo como hoy", () =
     resetStore();
   });
 
-  it("venta a cuenta 201 suma debe y balance cae a memoria", async () => {
+  it("sin base la venta a cuenta no fía y el reintento tampoco", async () => {
     const key = `pers2-vta-${sufijo}`;
+    const id = randomUUID();
     const cuerpo = {
-      customer_id: "cli-1",
+      customer_id: id,
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
       device_code: "caja-01",
       seq_local: 1,
-      tope_centavos: 100000,
-      saldo_actual_centavos: 0,
     };
     const r = (await postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": key } }))) as Response;
-    expect(r.status).toBe(201);
-    expect(await r.json()).toMatchObject({ total_centavos: "20000" });
-    const b = (await getBalance(ctx("http://x/api/credit/balance?customer_id=cli-1"))) as Response;
+    expect(r.status).toBe(404);
+    const b = (await getBalance(ctx(`http://x/api/credit/balance?customer_id=${id}`))) as Response;
     const j = (await b.json()) as Record<string, unknown>;
-    expect(j["saldo_centavos"]).toBe("20000");
+    expect(j["saldo_centavos"]).toBe("0");
     expect(j["fuente"]).toBe("memoria");
     const dup = (await postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": key } }))) as Response;
-    expect(dup.status).toBe(409);
+    expect(dup.status).toBe(404);
   });
 
   it("cobro 201 resta haber y balance cuadra", async () => {
-    const k1 = `pers2-vta2-${sufijo}`;
-    await postSale(
-      ctx("http://x/api/credit/sales-on-account", {
-        body: {
-          customer_id: "cli-2",
-          lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
-          device_code: "caja-01",
-          seq_local: 1,
-          tope_centavos: 100000,
-          saldo_actual_centavos: 0,
-        },
-        headers: { "Idempotency-Key": k1 },
-      }),
-    );
+    store.creditMovs.push({ customer_id: "cli-2", debe: "20000", haber: "0", key: `pers2-semilla-${sufijo}`, fecha_ms: Date.now() });
     const k2 = `pers2-cob-${sufijo}`;
     const r = (await postPayment(
       ctx("http://x/api/credit/payments", { body: { customer_id: "cli-2", monto_centavos: 8000, medio: "Efectivo" }, headers: { "Idempotency-Key": k2 } }),
@@ -172,7 +158,7 @@ function fijarMulti() {
 
 const messagePG = `pers2-svc-${sufijo}@test.local`;
 const montoPG = 1000000 + Math.floor(Math.random() * 8999999);
-const clientePG = `pers2-cli-${sufijo}`;
+const clientePG = randomUUID();
 const claveVentaPG = `pers2-pg-vta-${sufijo}`;
 const claveCobroPG = `pers2-pg-cob-${sufijo}`;
 const retiroKeysPG: string[] = [];
@@ -187,6 +173,7 @@ async function borrarRastroPG() {
       }
       await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, claveCobroPG));
       await db.delete(customerMovements).where(eq(customerMovements.customerId, clientePG));
+      await db.delete(customers).where(eq(customers.id, clientePG));
       await db.delete(utilityBills).where(eq(utilityBills.messageId, messagePG));
     });
   }
@@ -294,9 +281,10 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
       device_code: "caja-01",
       seq_local: 1,
-      tope_centavos: 100000,
-      saldo_actual_centavos: 0,
     };
+    await conTenant("tenant-a", async () => {
+      await getTenantDb().insert(customers).values({ id: clientePG, nombre: "Pers2 svc", topeCentavos: 0n }).onConflictDoNothing();
+    });
     const venta = await conTenant("tenant-a", () =>
       postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": claveVentaPG } })),
     );

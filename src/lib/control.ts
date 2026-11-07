@@ -74,6 +74,15 @@ export type RolEfectivo =
   | { estado: "legado" }
   | { estado: "sin_permiso" };
 
+// P1-62: el fiado usa el mismo legado = dueño de P9-13. El body no trae rol.
+export function rolParaFiado(
+  efectivo: RolEfectivo,
+): { ok: true; rol: "dueno" | "empleado" } | { ok: false; error: string } {
+  if (efectivo.estado === "sin_permiso") return { ok: false, error: "No tenés permiso en este comercio." };
+  if (efectivo.estado === "legado") return { ok: true, rol: "dueno" };
+  return { ok: true, rol: efectivo.rol };
+}
+
 export function resolverRolEfectivo(request: Request): RolEfectivo {
   const ses = resolverSesion(request);
   if (!ses) return { estado: "legado" };

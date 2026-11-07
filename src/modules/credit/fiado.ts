@@ -17,6 +17,7 @@ import { LEYENDA_NO_FISCAL, siguiente_numero, type TicketDefinitivo, type Ticket
 import { aplicar_descuentos, type LineaConDescuento } from "../sales/descuentos.js";
 import type { Medio } from "../../lib/validation.js";
 import { crear_movimiento, type MovimientoCredito, type TipoMovCredito } from "./saldos.js";
+import { disponibleCentavos, supera_limite, type CreditoResuelto } from "./limite.js";
 
 export const PAGO_A_CUENTA = "Pago: A cuenta" as const;
 
@@ -55,7 +56,6 @@ export interface LineaFiado {
 
 export interface VentaACuentaInput {
   readonly idempotencyKey: string;
-  readonly customerId: string;
   readonly lineas: ReadonlyArray<LineaFiado>;
   readonly deviceCode: string;
   readonly seqLocal: number;
@@ -63,10 +63,8 @@ export interface VentaACuentaInput {
   readonly lotes: ReadonlyArray<Lote>;
   readonly vistos: ReadonlyMap<string, TicketFiado>;
   readonly ultimoDefinitivo: TicketSeq | null;
-  // FC6: saldo vigente (online: servidor; offline: SUM local, ADR-0003).
-  readonly saldoActualCentavos: bigint;
-  readonly topeCentavos: bigint;
-  readonly rol: Rol;
+  // P1-62: saldo, tope y rol ya resueltos. El núcleo no vuelve a leer la columna.
+  readonly credito: CreditoResuelto;
   readonly ahoraMs: number;
   // Nivel 1 mora día 15: el adaptador calcula esta_en_mora y lo pasa.
   // Si bloquearEnMora y enMora, solo Dueño pasa (empleado 403 MORA).
@@ -93,7 +91,7 @@ export type FalloFiado =
   | { readonly ok: false; readonly codigo: "YA_VISTA"; readonly status: 409; readonly original: TicketFiado }
   | { readonly ok: false; readonly codigo: "SIN_STOCK"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "LINEA_INVALIDA"; readonly status: 422 }
-  | { readonly ok: false; readonly codigo: "TOPE_SUPERADO"; readonly status: 403 }
+  | { readonly ok: false; readonly codigo: "TOPE_SUPERADO"; readonly status: 403; readonly disponibleCentavos: bigint }
   | { readonly ok: false; readonly codigo: "MORA"; readonly status: 403 };
 
 export type VentaACuentaResult = { readonly ok: true; readonly efecto: EfectoFiado } | FalloFiado;
@@ -132,17 +130,22 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
   const total = snap.calculo.totalNetoCentavos;
   if (total <= 0n) return { ok: false, codigo: "LINEA_INVALIDA", status: 422 };
 
-  // FC6: tope contra saldo vigente (local si offline). Superar solo Dueño.
-  const nuevoSaldo = input.saldoActualCentavos + total;
-  const superaTope = nuevoSaldo > input.topeCentavos;
-  if (superaTope && input.rol !== "dueno") {
-    return { ok: false, codigo: "TOPE_SUPERADO", status: 403 };
+  // FC6: superar el techo solo lo pasa el Dueño. Abierto no supera.
+  const nuevoSaldo = input.credito.saldoCentavos + total;
+  const superaTope = supera_limite(nuevoSaldo, input.credito.limite);
+  if (superaTope && input.credito.rol !== "dueno") {
+    return {
+      ok: false,
+      codigo: "TOPE_SUPERADO",
+      status: 403,
+      disponibleCentavos: disponibleCentavos(input.credito) ?? 0n,
+    };
   }
 
   // Nivel 1 mora día 15: en mora solo Dueño vende (empleado 403 MORA).
   const enMora = input.enMora === true && input.bloquearEnMora === true;
   const superaMora = enMora;
-  if (enMora && input.rol !== "dueno") {
+  if (enMora && input.credito.rol !== "dueno") {
     return { ok: false, codigo: "MORA", status: 403 };
   }
 
@@ -154,7 +157,7 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
     : { kind: "offline", definitivo: null, provisorio, totalCentavos: total, sobreventa, pago: PAGO_A_CUENTA, leyenda: LEYENDA_NO_FISCAL };
 
   const mov = crear_movimiento({
-    customerId: input.customerId,
+    customerId: input.credito.clienteId,
     tipo: "venta",
     debeCentavos: total,
     haberCentavos: 0n,

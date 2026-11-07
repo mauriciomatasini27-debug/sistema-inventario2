@@ -4,7 +4,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { customerMovements } from "../src/db/schema-credito.js";
+import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { idMappings, outbox, products, sales, ticketCounters, tickets } from "../src/db/schema.js";
 import { saleReturns } from "../src/db/schema-tickets.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
@@ -50,12 +50,10 @@ function devolucionBody(saleId: string, monto: number, over: Record<string, unkn
 
 function cuentaBody(over: Record<string, unknown> = {}) {
   return {
-    customer_id: `p5-cli-${suf}`,
+    customer_id: randomUUID(),
     lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
     device_code: "caja-01",
     seq_local: 1,
-    tope_centavos: 1000000,
-    saldo_actual_centavos: 0,
     ...over,
   };
 }
@@ -93,21 +91,18 @@ describe("PERS5 single sin DB: devoluciones y venta a cuenta como hoy", () => {
     expect(((await d2.json()) as { numero_devolucion: string }).numero_devolucion).toBe("D-000002");
   });
 
-  it("venta a cuenta y venta comparten store.nextTicket sin repetir", async () => {
+  it("sin base la venta a cuenta no consume el correlativo del mostrador", async () => {
     const c = await postCuenta(
       ctx("http://x/api/credit/sales-on-account", { headers: { "Idempotency-Key": `p5-c-${suf}` }, body: cuentaBody() }),
     );
-    expect(c.status).toBe(201);
-    const ticketC = ((await c.json()) as { ticket_definitivo: string }).ticket_definitivo;
+    expect(c.status).toBe(404);
     const v = await postSales(
       ctx("http://x/api/sales", { headers: { "Idempotency-Key": `p5-vc-${suf}` }, body: ventaBody() }),
     );
     expect(v.status).toBe(201);
     const ticketV = ((await v.json()) as { ticket_definitivo: string }).ticket_definitivo;
-    expect(ticketC).toBe("T-000001");
-    expect(ticketV).toBe("T-000002");
-    expect(new Set([ticketC, ticketV]).size).toBe(2);
-    expect(store.nextTicket).toBe(3);
+    expect(ticketV).toBe("T-000001");
+    expect(store.nextTicket).toBe(2);
   });
 });
 
@@ -136,7 +131,7 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
   const ventaKey = `p5-pg-v-${suf}`;
   const cuentaKey = `p5-pg-c-${suf}`;
   const cuentaKey2 = `p5-pg-c2-${suf}`;
-  const cliente = `p5-cli-${suf}`;
+  const cliente = randomUUID();
   const opId = randomUUID();
   const device = `p5-caja-${suf}`.slice(0, 32);
   const ticketsT: string[] = [];
@@ -155,6 +150,7 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
         .onConflictDoNothing();
       await db.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
       await db.insert(ticketCounters).values({ id: "devolucion", ultimo: 0 }).onConflictDoNothing();
+      await db.insert(customers).values({ id: cliente, nombre: "PERS5 fiado", topeCentavos: 0n }).onConflictDoNothing();
     });
     await conTenant("tenant-a", () => {
       store.nextTicket = 1;
@@ -173,6 +169,7 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
       await db.delete(sales).where(eq(sales.idempotencyKey, ventaKey));
       await db.delete(sales).where(eq(sales.id, ventaDev));
       await db.delete(customerMovements).where(eq(customerMovements.customerId, cliente));
+      await db.delete(customers).where(eq(customers.id, cliente));
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
       await db.delete(products).where(eq(products.sku, sku));
@@ -284,7 +281,13 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
 
     const c = await conTenant("tenant-a", () =>
       postCuenta(
-        ctx("http://x/api/credit/sales-on-account", { headers: { "Idempotency-Key": cuentaKey }, body: cuentaBody({ customer_id: cliente }) }),
+        ctx("http://x/api/credit/sales-on-account", {
+          headers: { "Idempotency-Key": cuentaKey },
+          body: cuentaBody({
+            customer_id: cliente,
+            lineas: [{ product_id: sku, qty: 1, precio_centavos: 20000 }],
+          }),
+        }),
       ),
     );
     expect((c as Response).status).toBe(201);
@@ -299,7 +302,13 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
     resetStore();
     const c2 = await conTenant("tenant-a", () =>
       postCuenta(
-        ctx("http://x/api/credit/sales-on-account", { headers: { "Idempotency-Key": cuentaKey2 }, body: cuentaBody({ customer_id: cliente }) }),
+        ctx("http://x/api/credit/sales-on-account", {
+          headers: { "Idempotency-Key": cuentaKey2 },
+          body: cuentaBody({
+            customer_id: cliente,
+            lineas: [{ product_id: sku, qty: 1, precio_centavos: 20000 }],
+          }),
+        }),
       ),
     );
     expect((c2 as Response).status).toBe(201);

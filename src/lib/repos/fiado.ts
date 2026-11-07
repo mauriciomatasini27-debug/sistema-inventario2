@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { customerMovements, customers } from "../../db/schema-credito.js";
 import {
   SERIE_MOSTRADOR,
@@ -19,8 +19,10 @@ import {
   crearListaMovimientosCredito,
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
-import { lotesDesdeStock, type Sku } from "../../modules/inventario/inventario.js";
+import type { Sku } from "../../modules/inventario/inventario.js";
+import type { Rol } from "../../modules/cash/caja.js";
 import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/credit/fiado.js";
+import { disponibleCentavos, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
 import { aplicarVentaLotes } from "./stock.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
 import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
@@ -28,9 +30,9 @@ import { registrarIngresoCobro } from "./caja.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
 
 // PERS2-S17 (ADR-0058): fiado (venta a cuenta, cobros, saldo por cliente).
-// DB primero via dbVivaTenant(); solo en single sin base usa la memoria
-// particionada. En multi sin base dbVivaTenant lanza BaseNoDisponible y se
-// propaga (la ruta responde 503). Los ingresos a caja van por caja.ts.
+// P1-62: la venta a cuenta exige la fila de customers. Sin base no hay ficha
+// y responde 404. El cobro sigue el camino de memoria en single sin base.
+// En multi sin base dbVivaTenant lanza BaseNoDisponible (503).
 
 function esConflictoUnico(e: unknown): boolean {
   return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
@@ -48,13 +50,17 @@ export interface VentaACuentaInput {
   readonly lineas: ReadonlyArray<LineaFiado>;
   readonly deviceCode: string;
   readonly seqLocal: number;
-  readonly topeCentavos: number;
-  readonly saldoActualCentavos: number;
+  readonly rol: Rol;
 }
 
 export type VentaACuentaResultado =
-  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db" | "memoria" }
+  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db" }
+  | { ok: false; codigo: "TOPE_SUPERADO"; status: 403; error: string; disponibleCentavos: bigint }
   | { ok: false; codigo: string; status: number; error: string };
+
+function esUuid(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
 
 class FiadoRechazado extends Error {
   constructor(readonly resultado: Extract<VentaACuentaResultado, { ok: false }>) {
@@ -62,8 +68,8 @@ class FiadoRechazado extends Error {
   }
 }
 
-// FC2/C18: descuenta stock, suma fiado, cero caja. Clave repetida => 409 con
-// relectura; el debe entra con espejo memoria.
+// FC2/C18: descuenta stock, suma fiado, cero caja. Clave repetida => 409.
+// P1-62: el tope sale de la ficha lockeada, no del body.
 export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuentaResultado> {
   const creditoVistos = crearAlmacenCreditoVistos();
   const movsCredito = crearListaMovimientosCredito();
@@ -128,34 +134,9 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
     }
   };
 
-  // P1-60: sin base no hay filas stock_lots. La semilla sigue siendo el stock de memoria.
-  const semilla = () => {
-    const nt = contadorTickets.leer();
-    return venta_a_cuenta({
-      idempotencyKey: input.key,
-      customerId: input.customerId,
-      lineas: lineasNucleo,
-      deviceCode: input.deviceCode,
-      seqLocal: input.seqLocal,
-      offline: false,
-      lotes: lotesDesdeStock(almacenStock.mapaVivo()),
-      vistos: new Map(),
-      ultimoDefinitivo: nt > 1 ? { n: nt - 1 } : null,
-      saldoActualCentavos: BigInt(input.saldoActualCentavos),
-      topeCentavos: BigInt(input.topeCentavos),
-      rol: "dueno",
-      ahoraMs: Date.now(),
-    });
-  };
-
   const db = dbVivaTenant();
   if (!db) {
-    const r = semilla();
-    if (!r.ok) return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
-    const dup = movsCredito.listar().find((m) => m.key === input.key);
-    if (dup) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    espejoMemoria(r.efecto, r.efecto.ticket.definitivo, null, crypto.randomUUID());
-    return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
+    return { ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" };
   }
 
   let costosDb: ReadonlyMap<string, bigint>;
@@ -178,6 +159,38 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       const ultimo = filas[0]?.ultimo ?? 0;
       const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
       if (previo[0]) return { estado: "repetida" } as const;
+      // P1-62: el FOR UPDATE de la ficha serializa dos fiados del mismo cliente.
+      // Sin fila no hay lock, y un id libre no se vende. La clave ya vista
+      // respondió 409 arriba, aunque la ficha se haya borrado después.
+      if (!esUuid(input.customerId)) {
+        throw new FiadoRechazado({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" });
+      }
+      const fichas = await tx
+        .select({ id: customers.id, tope: customers.topeCentavos })
+        .from(customers)
+        .where(eq(customers.id, input.customerId))
+        .for("update")
+        .limit(1);
+      const ficha = fichas[0];
+      if (!ficha) {
+        throw new FiadoRechazado({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" });
+      }
+      const sumas = await tx
+        .select({
+          saldo: sql<string>`coalesce(sum(${customerMovements.debeCentavos} - ${customerMovements.haberCentavos}), 0)::text`,
+        })
+        .from(customerMovements)
+        .where(eq(customerMovements.customerId, input.customerId));
+      const saldoCentavos = BigInt(sumas[0]?.saldo ?? "0");
+      const credito = resolverCredito({
+        customerId: input.customerId,
+        topeAlmacenado: ficha.tope,
+        saldoCentavos,
+        rol: input.rol,
+      });
+      if (!credito.ok) {
+        throw new FiadoRechazado({ ok: false, codigo: credito.codigo, status: credito.status, error: credito.codigo });
+      }
       // P1-60: el corte de vencido y clientOccurredAt son el mismo instante.
       // El espejo de después del commit usa el efecto de esta corrida.
       const ahora = new Date();
@@ -188,7 +201,6 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       }, async (lotes) => {
         const r = venta_a_cuenta({
           idempotencyKey: input.key,
-          customerId: input.customerId,
           lineas: lineasNucleo,
           deviceCode: input.deviceCode,
           seqLocal: input.seqLocal,
@@ -196,13 +208,20 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           lotes,
           vistos: new Map(),
           ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
-          saldoActualCentavos: BigInt(input.saldoActualCentavos),
-          topeCentavos: BigInt(input.topeCentavos),
-          rol: "dueno",
+          credito: credito.valor,
           ahoraMs: ahora.getTime(),
         });
         if (!r.ok) {
-          throw new FiadoRechazado({ ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo });
+          if (r.codigo === "TOPE_SUPERADO") {
+            throw new FiadoRechazado({
+              ok: false,
+              codigo: "TOPE_SUPERADO",
+              status: 403,
+              error: "TOPE_SUPERADO",
+              disponibleCentavos: r.disponibleCentavos,
+            });
+          }
+          throw new FiadoRechazado({ ok: false, codigo: r.codigo, status: r.status, error: r.codigo });
         }
         const ticket = r.efecto.ticket.kind === "online" ? r.efecto.ticket.definitivo : null;
         const n = ticket ? ultimo + 1 : ultimo;
@@ -272,23 +291,10 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   } catch (e) {
     if (e instanceof FiadoRechazado) return e.resultado;
     if (esConflictoUnico(e)) {
-      try {
-        const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
-        if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-      } catch {
-        // Cae al espejo memoria de abajo.
-      }
-      creditoVistos.anteFalloPersistencia(e);
-    } else {
-      creditoVistos.anteFalloPersistencia(e);
+      const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+      if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
-    if (creditoVistos.contiene(input.key)) {
-      return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
-    }
-    const r = semilla();
-    if (!r.ok) return { ok: false, codigo: r.codigo, status: r.status as number, error: r.codigo };
-    espejoMemoria(r.efecto, r.efecto.ticket.definitivo, null, crypto.randomUUID());
-    return { ok: true, ticketDefinitivo: r.efecto.ticket.definitivo, totalCentavos: total.toString(), fuente: "memoria" };
+    throw e;
   }
 }
 
@@ -375,6 +381,37 @@ export interface SaldoCliente {
   readonly saldoCentavos: string;
   readonly diasMax: number;
   readonly fuente: "db" | "memoria";
+  readonly existe: boolean;
+  readonly sinTope: boolean;
+  readonly topeCentavos: string | null;
+  readonly disponibleCentavos: string | null;
+}
+
+const PREVIEW_SIN_FICHA = {
+  existe: false,
+  sinTope: true,
+  topeCentavos: null,
+  disponibleCentavos: null,
+} as const;
+
+function previewDeTope(
+  customerId: string,
+  tope: bigint,
+  saldo: bigint,
+): Pick<SaldoCliente, "existe" | "sinTope" | "topeCentavos" | "disponibleCentavos"> {
+  const limite = limiteDesdeFicha(tope);
+  if ("ok" in limite) {
+    return { existe: true, sinTope: false, topeCentavos: tope.toString(), disponibleCentavos: null };
+  }
+  // P1-62: el disponible no depende del rol. CreditoResuelto no se arma suelto.
+  const credito = resolverCredito({ customerId, topeAlmacenado: tope, saldoCentavos: saldo, rol: "empleado" });
+  const libre = credito.ok ? disponibleCentavos(credito.valor) : null;
+  return {
+    existe: true,
+    sinTope: limite.kind === "abierto",
+    topeCentavos: tope.toString(),
+    disponibleCentavos: libre === null ? null : libre.toString(),
+  };
 }
 
 // Saldo derivado (SUM, no persistido) + mora dia 15. Con DB viva deriva de
@@ -399,7 +436,17 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
       const d = dias_atraso(new Date(f.ocurridoEn).getTime(), hoyMs);
       if (d > diasMax) diasMax = d;
     }
-    return { saldoCentavos: saldo.toString(), diasMax, fuente: "db" };
+    let preview: Pick<SaldoCliente, "existe" | "sinTope" | "topeCentavos" | "disponibleCentavos"> = PREVIEW_SIN_FICHA;
+    if (esUuid(customerId)) {
+      const fichas = await db
+        .select({ tope: customers.topeCentavos })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      const ficha = fichas[0];
+      if (ficha) preview = previewDeTope(customerId, ficha.tope, saldo);
+    }
+    return { saldoCentavos: saldo.toString(), diasMax, fuente: "db", ...preview };
   } catch (e) {
     creditoVistos.anteFalloPersistencia(e);
     return saldoMemoria(customerId, hoyMs);
@@ -416,7 +463,7 @@ function saldoMemoria(customerId: string, hoyMs: number): SaldoCliente {
     const d = dias_atraso(m.fecha_ms, hoyMs);
     if (d > diasMax) diasMax = d;
   }
-  return { saldoCentavos: saldo.toString(), diasMax, fuente: "memoria" };
+  return { saldoCentavos: saldo.toString(), diasMax, fuente: "memoria", ...PREVIEW_SIN_FICHA };
 }
 
 // BOT-S4 (PRD-BOT-01): clientes con saldo para la cobranza del bot pyme.

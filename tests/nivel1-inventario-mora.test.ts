@@ -3,6 +3,7 @@ import { compensar, verificar_movimientos, type Sku } from "../src/modules/inven
 import { conteo_por_sector, normalizarSector } from "../src/modules/inventario/sectores.js";
 import { UMBRAL_MORA_DIAS, esta_en_mora, estado_mora_por_dias, texto_mora, vence_el, MS_POR_DIA } from "../src/modules/credit/saldos.js";
 import { venta_a_cuenta } from "../src/modules/credit/fiado.js";
+import { resolverCredito } from "../src/modules/credit/limite.js";
 import { lotesDesdeStock } from "../src/modules/inventario/inventario.js";
 
 const sku = (s: string) => s as Sku;
@@ -88,27 +89,29 @@ describe("Nivel 1 mora día 15", () => {
   });
 
   it("venta_a_cuenta bloquea MORA a empleado, dueño pasa marcado", () => {
-    const base = {
-      idempotencyKey: "mora-1",
-      customerId: "cli-1",
-      lineas: [{ sku: sku("demo-sku-1"), cantidad: 1, precioCentavos: 10000n }],
-      deviceCode: "D-001",
-      seqLocal: 1,
-      offline: false,
-      lotes: lotesDesdeStock(new Map([["demo-sku-1", 10]])),
-      vistos: new Map(),
-      ultimoDefinitivo: null,
-      saldoActualCentavos: 0n,
-      topeCentavos: 999_999_999n,
-      ahoraMs: HOY,
+    const armar = (key: string, rol: "dueno" | "empleado") => {
+      const credito = resolverCredito({ customerId: "cli-1", topeAlmacenado: 0n, saldoCentavos: 0n, rol });
+      if (!credito.ok) throw new Error(credito.codigo);
+      return {
+        idempotencyKey: key,
+        lineas: [{ sku: sku("demo-sku-1"), cantidad: 1, precioCentavos: 10000n }],
+        deviceCode: "D-001",
+        seqLocal: 1,
+        offline: false,
+        lotes: lotesDesdeStock(new Map([["demo-sku-1", 10]])),
+        vistos: new Map(),
+        ultimoDefinitivo: null,
+        credito: credito.valor,
+        ahoraMs: HOY,
+      };
     };
-    const emp = venta_a_cuenta({ ...base, rol: "empleado", enMora: true, bloquearEnMora: true });
+    const emp = venta_a_cuenta({ ...armar("mora-1", "empleado"), enMora: true, bloquearEnMora: true });
     expect(emp).toMatchObject({ ok: false, codigo: "MORA", status: 403 });
-    const due = venta_a_cuenta({ ...base, idempotencyKey: "mora-2", rol: "dueno", enMora: true, bloquearEnMora: true });
+    const due = venta_a_cuenta({ ...armar("mora-2", "dueno"), enMora: true, bloquearEnMora: true });
     expect(due.ok).toBe(true);
     if (!due.ok) return;
     expect(due.efecto.superaMora).toBe(true);
-    const sinBloqueo = venta_a_cuenta({ ...base, idempotencyKey: "mora-3", rol: "empleado" });
+    const sinBloqueo = venta_a_cuenta(armar("mora-3", "empleado"));
     expect(sinBloqueo.ok).toBe(true);
   });
 });

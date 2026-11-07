@@ -1,14 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { eq } from "drizzle-orm";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { customerMovements } from "../src/db/schema-credito.js";
+import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { POST as ventaFiadoPOST } from "../src/pages/api/credit/sales-on-account.js";
 import { GET as saldoGET } from "../src/pages/api/credit/balance.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
-const cliente = `pers2-cli-${Date.now().toString(36)}`;
+const cliente = randomUUID();
 const clave = `pers2-key-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
 
 function fijarMulti() {
@@ -26,8 +27,6 @@ function peticionVenta(claveIdem: string) {
       lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 15000 }],
       device_code: "DEV-PERS2-01",
       seq_local: 1,
-      tope_centavos: 999999999,
-      saldo_actual_centavos: 0,
     },
   });
 }
@@ -39,6 +38,7 @@ async function borrarCliente() {
     await conTenant(tenant, async () => {
       const db = getTenantDb();
       await db.delete(customerMovements).where(eq(customerMovements.customerId, cliente));
+      await db.delete(customers).where(eq(customers.id, cliente));
     });
   }
 }
@@ -57,6 +57,9 @@ describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
 
   it("el fiado de A se lee con fuente db y B no lo ve", async () => {
     fijarMulti();
+    await conTenant("tenant-a", async () => {
+      await getTenantDb().insert(customers).values({ id: cliente, nombre: "Pers2", topeCentavos: 0n }).onConflictDoNothing();
+    });
     const creado = await conTenant("tenant-a", () =>
       ventaFiadoPOST(peticionVenta(clave)),
     );
