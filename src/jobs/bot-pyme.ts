@@ -6,6 +6,7 @@
 
 import { formatear_pesos } from "../modules/email/plantilla-cierre.js";
 import { link_whatsapp } from "../modules/credit/fiado.js";
+import { motivoTope } from "../modules/credit/limite.js";
 import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
 import type { ModuloBot } from "../modules/bot/modulos-rubro.js";
 import { fechaAR, sumarDiasAR, type FechaAR } from "../lib/fecha-ar.js";
@@ -95,7 +96,7 @@ export function texto_recordatorio(nombreCliente: string, nombreComercio: string
 
 function motivosDe(c: ClientePyme): MotivoDeuda[] {
   const motivos: MotivoDeuda[] = [];
-  if (c.topeCentavos > 0n && c.saldoCentavos > c.topeCentavos) motivos.push("tope");
+  if (motivoTope(c.saldoCentavos, c.topeCentavos)) motivos.push("tope");
   if (c.diasMax >= MORA_COBRANZA_DIAS) motivos.push("mora");
   return motivos;
 }
