@@ -218,12 +218,10 @@ export const priceAdjustmentSchema = pricePreviewSchema.extend({
   tenant_id: z.string().min(1).max(128).optional(),
 });
 export const creditSaleSchema = z.object({
-  customer_id: z.string().min(1).max(64),
+  customer_id: z.string().uuid(),
   lineas: z.array(salesLineSchema).min(1).max(50),
   device_code: z.string().min(4).max(32),
   seq_local: z.number().int().positive(),
-  tope_centavos: z.number().int().min(0).max(999_999_999),
-  saldo_actual_centavos: z.number().int().min(0).max(999_999_999).default(0),
 });
 export const creditPaymentSchema = z.object({
   customer_id: z.string().min(1).max(64),

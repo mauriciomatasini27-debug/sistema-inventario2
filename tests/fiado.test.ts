@@ -14,6 +14,8 @@ import {
 } from "../src/modules/credit/fiado.js";
 import type { Lote, LotId, Sku } from "../src/modules/inventario/inventario.js";
 import type { MovimientoCredito } from "../src/modules/credit/saldos.js";
+import { resolverCredito } from "../src/modules/credit/limite.js";
+import type { Rol } from "../src/modules/cash/caja.js";
 
 const sku = (s: string) => s as Sku;
 const lot = (s: string) => s as LotId;
@@ -29,10 +31,19 @@ const AHORA = 1_789_000_000_000;
 const LINEAS = [{ sku: sku("YERBA"), cantidad: 2, precioCentavos: 15000n }] as const;
 const TOTAL = 30000n;
 
-function ventaBase(over: Partial<Parameters<typeof venta_a_cuenta>[0]> = {}) {
+function ventaBase(
+  over: Partial<Omit<Parameters<typeof venta_a_cuenta>[0], "credito">> & {
+    saldoActualCentavos?: bigint;
+    topeCentavos?: bigint;
+    rol?: Rol;
+    customerId?: string;
+  } = {},
+) {
+  const { saldoActualCentavos = 0n, topeCentavos = 100000n, rol = "empleado", customerId = "cli-1", ...resto } = over;
+  const credito = resolverCredito({ customerId, topeAlmacenado: topeCentavos, saldoCentavos: saldoActualCentavos, rol });
+  if (!credito.ok) throw new Error(credito.codigo);
   return {
     idempotencyKey: "fiado-" + Math.random().toString(36).slice(2),
-    customerId: "cli-1",
     lineas: [...LINEAS],
     deviceCode: "KIOSCO-01",
     seqLocal: 7,
@@ -40,11 +51,9 @@ function ventaBase(over: Partial<Parameters<typeof venta_a_cuenta>[0]> = {}) {
     lotes: [lote("l1", "YERBA", 10)],
     vistos: new Map<string, TicketFiado>(),
     ultimoDefinitivo: { n: 41 },
-    saldoActualCentavos: 0n,
-    topeCentavos: 100000n,
-    rol: "empleado" as const,
     ahoraMs: AHORA,
-    ...over,
+    credito: credito.valor,
+    ...resto,
   };
 }
 
@@ -136,13 +145,27 @@ describe("FC2/FC3 venta a cuenta + C18", () => {
 describe("FC6 tope + plazo", () => {
   it("empleado 403 al superar tope, dueno supera marcado", () => {
     const emp = venta_a_cuenta(ventaBase({ saldoActualCentavos: 90000n, topeCentavos: 100000n, rol: "empleado" }));
-    expect(emp).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403 });
+    expect(emp).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403, disponibleCentavos: 10000n });
     const due = venta_a_cuenta(
       ventaBase({ idempotencyKey: "fa-dueno", saldoActualCentavos: 90000n, topeCentavos: 100000n, rol: "dueno" }),
     );
     expect(due.ok).toBe(true);
     if (!due.ok) return;
     expect(due.efecto.superaTope).toBe(true);
+    expect(due.efecto.movimientoCredito.customerId).toBe("cli-1");
+  });
+
+  it("tope 0 no bloquea al empleado y el igual al techo entra", () => {
+    const abierto = venta_a_cuenta(ventaBase({ saldoActualCentavos: 90000n, topeCentavos: 0n, rol: "empleado" }));
+    expect(abierto.ok).toBe(true);
+    if (!abierto.ok) return;
+    expect(abierto.efecto.superaTope).toBe(false);
+    const justo = venta_a_cuenta(
+      ventaBase({ idempotencyKey: "fa-justo", saldoActualCentavos: 70000n, topeCentavos: 100000n, rol: "empleado" }),
+    );
+    expect(justo.ok).toBe(true);
+    if (!justo.ok) return;
+    expect(justo.efecto.superaTope).toBe(false);
   });
 
   it("dentro de tope no marca y offline controla contra saldo local", () => {
@@ -153,7 +176,7 @@ describe("FC6 tope + plazo", () => {
     const pasado = venta_a_cuenta(
       ventaBase({ idempotencyKey: "fa-off2", offline: true, saldoActualCentavos: 95000n, topeCentavos: 100000n }),
     );
-    expect(pasado).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403 });
+    expect(pasado).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403, disponibleCentavos: 5000n });
   });
 });
 

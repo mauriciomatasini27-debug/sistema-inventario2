@@ -65,6 +65,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       #lista-carrito .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; }
       #carrito-total, #ticket-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+      #cliente-fiado-elegido, #cliente-fiado-preview { margin: 4px 0 0; font-size: 14px; }
       #tarjeta-ticket h2 { margin: 0 0 6px; font-size: 18px; }
       #ticket-leyenda { font-size: 12px; font-weight: 700; }
       @media print {
@@ -93,9 +94,14 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
           </select>
         </label>
-        <label id="cliente-fiado-label" hidden>Cliente (fiado)
-          <input id="cliente-fiado" type="text" autocomplete="off" placeholder="customer_id" />
-        </label>
+        <div id="cliente-fiado-label" hidden>
+          <label>Cliente (fiado)
+            <input id="cliente-fiado-q" type="search" autocomplete="off" placeholder="Buscar por nombre" />
+          </label>
+          <ul id="cliente-fiado-opciones" aria-label="Clientes encontrados"></ul>
+          <p id="cliente-fiado-elegido"></p>
+          <p id="cliente-fiado-preview"></p>
+        </div>
         <section id="panel-carrito" aria-label="Carrito">
           <ul id="lista-carrito"></ul>
           <p id="carrito-total">Total: —</p>
@@ -476,6 +482,78 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       $("medio").addEventListener("change", syncClienteFiado);
       syncClienteFiado();
 
+      let clienteConfirmado = null;
+      let buscaFiado = null;
+      const pintarPreviewFiado = (item, j) => {
+        if (!clienteConfirmado || clienteConfirmado.customerId !== item.customer_id) return;
+        const preview = $("cliente-fiado-preview");
+        if (j.existe === false) {
+          preview.textContent = "Este cliente no está en la ficha.";
+          return;
+        }
+        const saldo = formatearCentavos(j.saldo_centavos ?? 0);
+        if (j.sin_tope) {
+          preview.textContent = "Saldo " + saldo + ". Sin tope.";
+          return;
+        }
+        preview.textContent = "Saldo " + saldo + ". Disponible " + formatearCentavos(j.disponible_centavos ?? 0) + ".";
+      };
+      const elegirClienteFiado = (item) => {
+        clienteConfirmado = { customerId: item.customer_id, nombre: item.nombre };
+        $("cliente-fiado-elegido").textContent = "Elegido: " + item.nombre;
+        $("cliente-fiado-opciones").textContent = "";
+        $("cliente-fiado-preview").textContent = "Consultando saldo…";
+        fetch("/api/credit/balance?customer_id=" + encodeURIComponent(item.customer_id))
+          .then((r) => {
+            if (!r.ok) throw new Error("http " + r.status);
+            return r.json();
+          })
+          .then((j) => pintarPreviewFiado(item, j))
+          .catch((error) => {
+            console.warn("[venta] fiado balance", error);
+            if (clienteConfirmado && clienteConfirmado.customerId === item.customer_id) {
+              $("cliente-fiado-preview").textContent = "No se pudo leer el saldo.";
+            }
+          });
+      };
+      const buscarClientesFiado = (texto) => {
+        const lista = $("cliente-fiado-opciones");
+        lista.textContent = "";
+        if (!texto) return;
+        fetch("/api/credit/customers?q=" + encodeURIComponent(texto) + "&limit=8")
+          .then((r) => {
+            if (!r.ok) throw new Error("http " + r.status);
+            return r.json();
+          })
+          .then((j) => {
+            lista.textContent = "";
+            const items = j.items ?? [];
+            items.forEach((item) => {
+              const li = document.createElement("li");
+              const boton = document.createElement("button");
+              boton.type = "button";
+              boton.textContent = item.nombre + " · " + item.customer_id;
+              boton.addEventListener("click", () => elegirClienteFiado(item));
+              li.appendChild(boton);
+              lista.appendChild(li);
+            });
+            if (items.length === 0) $("cliente-fiado-preview").textContent = "Sin resultados.";
+          })
+          .catch((error) => {
+            console.warn("[venta] fiado buscador", error);
+            lista.textContent = "";
+            $("cliente-fiado-preview").textContent = "No se pudo buscar clientes.";
+          });
+      };
+      $("cliente-fiado-q").addEventListener("input", () => {
+        clienteConfirmado = null;
+        $("cliente-fiado-elegido").textContent = "";
+        $("cliente-fiado-preview").textContent = "";
+        clearTimeout(buscaFiado);
+        const texto = $("cliente-fiado-q").value.trim();
+        buscaFiado = setTimeout(() => buscarClientesFiado(texto), 250);
+      });
+
       const armarVuelo = (medioCobro, offline) => {
         // P1-31: el perfil persiste su código. Dos teléfonos no comparten seq.
         const device_code = codigoDispositivoLocal(storage);
@@ -511,8 +589,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         }
         // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
         if (fiado && !cobroEnVuelo) {
-          if (!$("cliente-fiado").value.trim()) {
-            estado("Para fiado escribí el customer_id del cliente.");
+          if (!clienteConfirmado) {
+            estado("Elegí un cliente de la lista.");
             return;
           }
           if (!navigator.onLine) {
@@ -523,22 +601,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         cobrando = true;
         try {
           if (!cobroEnVuelo) {
-            let saldoActual = 0;
-            if (fiado) {
-              const customerId = $("cliente-fiado").value.trim();
-              try {
-                const bal = await fetch("/api/credit/balance?customer_id=" + encodeURIComponent(customerId));
-                const bj = await bal.json().catch((error) => {
-                  console.warn("[venta] fiado balance sin JSON", error);
-                  return {};
-                });
-                saldoActual = bal.ok ? Number(bj.saldo_centavos ?? 0) : 0;
-              } catch (error) {
-                console.warn("[venta] fiado", error);
-                estado("La venta a cuenta necesita conexión.");
-                return;
-              }
-            }
             const preparado = armarVuelo(fiado ? "A cuenta" : medio, fiado ? false : !navigator.onLine);
             if (!preparado.ok) {
               estado(textoCarrito(preparado.codigo));
@@ -546,16 +608,19 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
             }
             const { armado, op_id } = preparado;
             if (fiado) {
+              const elegido = clienteConfirmado;
+              if (!elegido) {
+                estado("Elegí un cliente de la lista.");
+                return;
+              }
               cobroEnVuelo = {
                 op_id,
                 fiado: true,
                 payload: {
-                  customer_id: $("cliente-fiado").value.trim(),
+                  customer_id: elegido.customerId,
                   lineas: armado.payload.lineas,
                   device_code: armado.payload.device_code,
                   seq_local: armado.payload.seq_local,
-                  tope_centavos: 999_999_999,
-                  saldo_actual_centavos: Number.isFinite(saldoActual) ? Math.max(0, saldoActual) : 0,
                 },
                 ticketBase: armado.ticketBase,
               };
@@ -599,6 +664,16 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
                     " total " +
                     (j.total_centavos ?? ""),
                 );
+                return;
+              }
+              if (r.status === 403 && j.codigo === "TOPE_SUPERADO") {
+                cobroEnVuelo = null;
+                estado(j.error || "Supera el tope. Cobrá con otro medio o pedile al dueño.");
+                return;
+              }
+              if (r.status === 404) {
+                cobroEnVuelo = null;
+                estado("Ese cliente no está en la ficha. Elegí uno de la lista.");
                 return;
               }
               if (r.status >= 400 && r.status < 500) {

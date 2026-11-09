@@ -6,6 +6,7 @@ import { GET as getTickets } from "../src/pages/api/tickets.js";
 import { POST as postCash } from "../src/pages/api/cash/movements.js";
 import { GET as getBalance } from "../src/pages/api/cash/balance.js";
 import { ventaACuenta, cobroFiado } from "../src/lib/repos/fiado.js";
+import { guardarTicketFiado } from "../src/lib/ticket-memoria.js";
 import { buscarVentaPorId, registrarDevolucion } from "../src/lib/repos/ventas.js";
 
 beforeEach(() => {
@@ -86,40 +87,33 @@ describe("tickets historial + caja (TV8/TV6/C6)", () => {
     expect(j.por_medio["Efectivo"]).toBe("15000");
   });
 
-  it("P10-2: venta a cuenta persiste ticket, líneas y stock consultables", async () => {
+  it("P10-2: sin ficha la venta a cuenta no persiste ticket ni baja stock", async () => {
     const r = await ventaACuenta({
       key: "fiado-p10",
-      customerId: "c1",
+      customerId: crypto.randomUUID(),
       lineas: [{ sku: "demo-sku-1", qty: 2, precioCentavos: 15000 }],
       deviceCode: "caja-01",
       seqLocal: 1,
-      topeCentavos: 100000,
-      saldoActualCentavos: 0,
+      rol: "dueno",
     });
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(store.stock.get("demo-sku-1")).toBe(8);
-    const t = await getTickets(ctx(`http://x/api/tickets?numero=${r.ticketDefinitivo}`));
-    expect(t.status).toBe(200);
-    const tj = (await t.json()) as { medio: string; lineas: Array<{ sku: string; qty: number }> };
-    expect(tj.medio).toBe("A cuenta");
-    expect(tj.lineas).toEqual([expect.objectContaining({ sku: "demo-sku-1", qty: 2 })]);
-    const saleId = [...store.fiadoTickets.keys()][0];
-    const venta = await buscarVentaPorId(saleId!);
-    expect(venta?.fueAcuenta).toBe(true);
+    expect(r).toMatchObject({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404 });
+    expect(store.stock.get("demo-sku-1")).toBe(10);
+    expect(store.fiadoTickets.size).toBe(0);
   });
 
   it("P10-4: devolución de venta a cuenta reintegra crédito y no toca caja", async () => {
-    await ventaACuenta({
-      key: "fiado-dev",
-      customerId: "c1",
-      lineas: [{ sku: "demo-sku-1", qty: 2, precioCentavos: 15000 }],
-      deviceCode: "caja-01",
-      seqLocal: 1,
-      topeCentavos: 100000,
-      saldoActualCentavos: 0,
+    const saleId = crypto.randomUUID();
+    store.stock.set("demo-sku-1", 8);
+    guardarTicketFiado(saleId, {
+      sale_id: saleId,
+      ticket_definitivo: "T-000001",
+      ticket_provisorio: "caja-01-1",
+      total_centavos: "30000",
+      medio: "A cuenta",
+      sobreventa: false,
+      idempotency_key: "fiado-dev",
     });
-    const saleId = [...store.fiadoTickets.keys()][0]!;
+    store.creditMovs.push({ customer_id: "c1", debe: "30000", haber: "0", key: "fiado-dev" });
     const d = await registrarDevolucion({
       key: "dev-fiado",
       saleId,

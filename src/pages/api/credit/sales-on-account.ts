@@ -1,17 +1,17 @@
 import type { APIRoute } from "astro";
 import { creditSaleSchema } from "../../../lib/validation.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { rolParaFiado, resolverRolEfectivo } from "../../../lib/control.js";
 import { ventaACuenta } from "../../../lib/repos/fiado.js";
+import { formatearCentavos } from "../../../lib/panel-modulos.js";
 
 export const prerender = false;
 
-// POST /api/credit/sales-on-account — FC2/C18: descuenta stock, suma fiado, cero caja.
-// PERS2-S17: DB-first en el repo de fiado. Clave repetida responde 409 con
-// relectura; el debe entra con espejo memoria. Sin DB o ante error, la vía
-// memoria histórica resuelve igual que antes y la venta no se pierde.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
+  const acceso = rolParaFiado(resolverRolEfectivo(request));
+  if (!acceso.ok) return Response.json({ error: acceso.error }, { status: 403 });
   let body: unknown;
   try {
     body = await request.json();
@@ -29,19 +29,25 @@ export const POST: APIRoute = async ({ request }) => {
       lineas: b.lineas.map((l) => ({ sku: l.product_id, qty: l.qty, precioCentavos: l.precio_centavos })),
       deviceCode: b.device_code,
       seqLocal: b.seq_local,
-      topeCentavos: b.tope_centavos,
-      saldoActualCentavos: b.saldo_actual_centavos,
+      rol: acceso.rol,
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;
   }
-  if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
-  if (r.fuente === "db") {
+  if (!r.ok && r.codigo === "TOPE_SUPERADO" && "disponibleCentavos" in r) {
     return Response.json(
-      { ticket_definitivo: r.ticketDefinitivo, total_centavos: r.totalCentavos, fuente: "db" },
-      { status: 201 },
+      {
+        error: `Supera el tope. Disponible: ${formatearCentavos(r.disponibleCentavos)}. Cobrá con otro medio o pedile al dueño.`,
+        codigo: "TOPE_SUPERADO",
+        disponible_centavos: r.disponibleCentavos.toString(),
+      },
+      { status: 403 },
     );
   }
-  return Response.json({ ticket_definitivo: r.ticketDefinitivo, total_centavos: r.totalCentavos }, { status: 201 });
+  if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
+  return Response.json(
+    { ticket_definitivo: r.ticketDefinitivo, total_centavos: r.totalCentavos, fuente: "db" },
+    { status: 201 },
+  );
 };

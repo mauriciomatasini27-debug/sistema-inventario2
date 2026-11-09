@@ -4,16 +4,21 @@ import { UMBRAL_MORA_DIAS, saldoCliente } from "../../../lib/repos/fiado.js";
 
 export const prerender = false;
 
-function respuesta(customerId: string, saldo: bigint, diasMax: number, fuente: "db" | "memoria") {
-  const enMora = diasMax >= UMBRAL_MORA_DIAS && saldo > 0n;
+function respuesta(customerId: string, saldo: Awaited<ReturnType<typeof saldoCliente>>) {
+  const centavos = BigInt(saldo.saldoCentavos);
+  const enMora = saldo.diasMax >= UMBRAL_MORA_DIAS && centavos > 0n;
   return Response.json({
     customer_id: customerId,
-    saldo_centavos: saldo.toString(),
+    saldo_centavos: saldo.saldoCentavos,
     en_mora: enMora,
-    dias_max: diasMax,
+    dias_max: saldo.diasMax,
     umbral_mora_dias: UMBRAL_MORA_DIAS,
     estado: enMora ? "en_mora" : "al_dia",
-    fuente,
+    fuente: saldo.fuente,
+    existe: saldo.existe,
+    sin_tope: saldo.sinTope,
+    tope_centavos: saldo.topeCentavos,
+    disponible_centavos: saldo.disponibleCentavos,
   });
 }
 
@@ -34,5 +39,5 @@ export const GET: APIRoute = async ({ url }) => {
     }
     throw e;
   }
-  return respuesta(customerId, BigInt(saldo.saldoCentavos), saldo.diasMax, saldo.fuente);
+  return respuesta(customerId, saldo);
 };

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { asc, eq, inArray } from "drizzle-orm";
-import { customerMovements } from "../src/db/schema-credito.js";
+import { customerMovements, customers } from "../src/db/schema-credito.js";
 import {
   cashMovements,
   products,
@@ -68,6 +68,7 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
       const ventas = keys.length > 0 ? await db.select({ id: sales.id }).from(sales).where(inArray(sales.idempotencyKey, keys)) : [];
       const saleIds = ventas.map((v) => v.id);
       if (keys.length > 0) await db.delete(customerMovements).where(inArray(customerMovements.idempotencyKey, keys));
+      await db.delete(customers).where(eq(customers.nombre, "FEFO fiado"));
       if (saleIds.length > 0) {
         await db.delete(ticketPayments).where(inArray(ticketPayments.saleId, saleIds));
         await db.delete(ticketDiscounts).where(inArray(ticketDiscounts.saleId, saleIds));
@@ -279,14 +280,15 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
         { restante: 10, vence: new Date("2026-12-01T00:00:00.000Z") },
         { restante: 3, vence: new Date("2026-11-07T00:00:00.000Z") },
       ]);
+      const cliente = crypto.randomUUID();
+      await getTenantDb().insert(customers).values({ id: cliente, nombre: "FEFO fiado", topeCentavos: 0n });
       const r = await ventaACuenta({
         key,
-        customerId: `cli-${sufijo}`,
+        customerId: cliente,
         lineas: [{ sku, qty: 5, precioCentavos: 1000 }],
         deviceCode: `fefo-${sufijo}`.slice(0, 32),
         seqLocal: 4,
-        topeCentavos: 1_000_000,
-        saldoActualCentavos: 0,
+        rol: "empleado",
       });
       const moves = store.stockMoves.filter((m) => m.idemKey === key);
       return { r, moves };
