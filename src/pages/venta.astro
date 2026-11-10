@@ -7,6 +7,7 @@ import "../styles/tema.css";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
 import PwaRegistro from "../components/ui/PwaRegistro.astro";
+import { pesosParaInput } from "../lib/pesos.js";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 
@@ -87,7 +88,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         <button id="leer-camara" type="button">Leer con la cámara</button>
         <video id="camara-video" hidden playsinline muted></video>
         <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
-        <label>Precio centavos <input id="precio" type="number" value={harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000} min="0" /></label>
+        <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
         <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
         <label>Medio
           <select id="medio">
@@ -159,6 +160,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { avisoStockLocalAgotado, stockLocal } from "../offline/stock-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import { formatearCentavos } from "../lib/panel-modulos.js";
+      import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
       import {
@@ -221,8 +223,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       let skuElegido = $("sku").value;
       const completarPrecio = () => {
         if (precioEditado) return;
-        const precio = precioLocal(catalogo, $("sku").value);
-        if (precio !== null) $("precio").value = String(precio);
+        const centavos = precioLocal(catalogo, $("sku").value);
+        if (centavos === null) return;
+        $("precio").value = pesosParaInput(centavos);
       };
       $("sku").addEventListener("input", () => {
         if ($("sku").value !== skuElegido) {
@@ -252,7 +255,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       const textoCarrito = (codigo) => {
         if (codigo === "demasiadas_lineas") return "máximo 50 productos";
         if (codigo === "qty_invalida") return "la cantidad tiene que ser un entero de 1 a 999";
-        if (codigo === "precio_invalido") return "el precio tiene que ser centavos enteros, de 0 para arriba";
+        if (codigo === "precio_invalido") return "el precio tiene que ser de 0 para arriba";
         if (codigo === "sku_invalido") return "el código tiene que tener entre 1 y 64 caracteres";
         if (codigo === "nombre_invalido") return "el nombre tiene que tener entre 1 y 120 caracteres";
         return "carrito vacío";
@@ -335,14 +338,19 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       };
       const agregarLineaDesdeFormulario = () => {
         if (cobroTomado()) return;
+        // P1-65: el input es pesos es-AR. Number("9,99") no son 999 centavos.
+        const parseo = parsearPesos($("precio").value);
+        if (!parseo.ok) {
+          estado(mensajePesos(parseo.motivo));
+          return;
+        }
         const product_id = $("sku").value.trim();
         const qty = Number($("qty").value);
-        const precio_centavos = Number($("precio").value);
         const nombre = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
         const linea = {
           product_id,
           qty,
-          precio_centavos,
+          precio_centavos: parseo.centavos,
           ...(nombre ? { alta: { nombre } } : {}),
         };
         const r = fusionarLinea(carrito, linea);
