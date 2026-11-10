@@ -31,6 +31,8 @@ const logoTexto = comercio.trim() || "Inventario";
     <TemaInicial />
     <style is:global>
       body { margin: 0; background: var(--tema-fondo); color: var(--tema-texto); font-family: var(--font-sans); }
+      /* TB-158: el fondo del documento en Inicio es void. Si queda el tema claro, se ve una franja blanca sobre la barra. */
+      body:has(.tablero-inicio) { background: var(--color-void); color: var(--color-star-white); }
       .panel-shell { max-width: none; margin: 0; padding: 0; }
       /* TB-158: el padding de 16px es más específico que el del nav y tapaba la barra. */
       .panel-shell .tablero-contenido {
