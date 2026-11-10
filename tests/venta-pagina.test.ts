@@ -56,3 +56,17 @@ describe("venta.astro: aviso de stock local en cero", () => {
     expect(s).toMatch(/estado\("offline provisorio " \+ vuelo\.ticketBase\.provisorio \+ " encolado " \+ vuelo\.op_id \+ avisoAgotado\)/);
   });
 });
+
+describe("venta.astro: aviso de mora sin frenar Cobrar", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("suma los días al saldo y suelta el cobro si el servidor responde MORA", () => {
+    const s = src();
+    expect(s).toContain("Este cliente no está en la ficha.");
+    expect(s).toContain('Saldo " + saldo + ". Sin tope.');
+    expect(s).toContain('Saldo " + saldo + ". Disponible "');
+    expect(s).toContain('" En mora: " + dias + " días con saldo."');
+    expect(s).toMatch(/j\.codigo === "MORA"[\s\S]{0,180}cobroEnVuelo = null/);
+    expect(s).toMatch(/j\.codigo === "MORA"[\s\S]{0,220}estado\(j\.error/);
+  });
+});

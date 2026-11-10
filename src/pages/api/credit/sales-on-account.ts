@@ -4,6 +4,7 @@ import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { rolParaFiado, resolverRolEfectivo } from "../../../lib/control.js";
 import { ventaACuenta } from "../../../lib/repos/fiado.js";
 import { formatearCentavos } from "../../../lib/panel-modulos.js";
+import { UMBRAL_MORA_DIAS, texto_bloqueo_mora } from "../../../modules/credit/saldos.js";
 
 export const prerender = false;
 
@@ -45,9 +46,25 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 403 },
     );
   }
+  if (!r.ok && r.codigo === "MORA" && "diasMax" in r) {
+    return Response.json(
+      {
+        error: texto_bloqueo_mora(r.diasMax),
+        codigo: "MORA",
+        dias_max: r.diasMax,
+        umbral_mora_dias: UMBRAL_MORA_DIAS,
+      },
+      { status: 403 },
+    );
+  }
   if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
   return Response.json(
-    { ticket_definitivo: r.ticketDefinitivo, total_centavos: r.totalCentavos, fuente: "db" },
+    {
+      ticket_definitivo: r.ticketDefinitivo,
+      total_centavos: r.totalCentavos,
+      fuente: "db",
+      supera_mora: r.superaMora,
+    },
     { status: 201 },
   );
 };
