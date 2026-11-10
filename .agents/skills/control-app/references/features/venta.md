@@ -6,7 +6,7 @@ Ruta `/venta`. Rol empleado. Es la caja rápida con cola offline.
 
 - `#sku` código o SKU.
 - `#qty` cantidad.
-- `#precio` precio en centavos. El seed deja `CAFE-001` en 850000.
+- `#precio` precio en pesos, con coma decimal. El seed deja `CAFE-001` en 850000 centavos. En el campo se escribe `8500,00`.
 - `#medio` medio de pago. Valores `efectivo`, `transferencia`, `tarjeta`, `fiado` según el select.
 - `#cobrar` confirma la venta.
 - `#sync` reintenta la cola offline.
@@ -21,7 +21,7 @@ node scripts/control-app/control-app.mjs login --rol empleado
 node scripts/control-app/control-app.mjs ir /venta
 node scripts/control-app/control-app.mjs escribir '#sku' 'CAFE-001'
 node scripts/control-app/control-app.mjs escribir '#qty' '1'
-node scripts/control-app/control-app.mjs escribir '#precio' '850000'
+node scripts/control-app/control-app.mjs escribir '#precio' '8500,00'
 node scripts/control-app/control-app.mjs clic '#cobrar'
 node scripts/control-app/control-app.mjs api GET /api/cash/balance
 node scripts/control-app/control-app.mjs captura --nombre venta-empleado

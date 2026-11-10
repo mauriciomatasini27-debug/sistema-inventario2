@@ -27,7 +27,7 @@ Preconditions:
 
 ## Gotchas
 
-- `#precio` defaults `15000` centavos; changing it changes `#balance` expectations.
+- `#precio` shows `150,00` by default (15000 centavos). Changing it changes `#balance` expectations.
 - `seq` comes from `localStorage slice0-seq:<tenant>` (hereda el valor legado al primer arranque); stale values change the provisorio label.
 - `sync` clears the outbox even on failed pushes; assert the `sync intentado (1)` text, not queue length after.
 - `fullyParallel: false`, `retries: 0` — order matters, no auto-retry.
