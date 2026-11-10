@@ -9,7 +9,10 @@ const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
 const COMPONENTES = readdirSync(join(RAIZ, "src/components/panel"))
   .filter((f) => f.endsWith(".astro"))
   .map((f) => `src/components/panel/${f}`);
-const DASHBOARD = COMPONENTES.filter((f) => !f.endsWith("PanelShell.astro"));
+// UpsellPantalla es overlay de módulos, no widget del dashboard compuesto.
+const DASHBOARD = COMPONENTES.filter(
+  (f) => !f.endsWith("PanelShell.astro") && !f.endsWith("UpsellPantalla.astro"),
+);
 const fuentePanel = (): string => [leer("src/pages/panel.astro"), ...COMPONENTES.map(leer)].join("\n");
 
 const IDS_WIDGET = [

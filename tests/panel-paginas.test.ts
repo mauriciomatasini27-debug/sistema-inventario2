@@ -28,8 +28,9 @@ const PANTALLAS = [
   "src/pages/panel/ventas-pendientes.astro",
 ] as const;
 
+// P1-39 counts + P1-63 tickets/returns: pantallas reales ya llaman esas rutas.
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial)|tickets|returns)/;
+  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial)|tickets|returns|counts(?:\/|$|\?))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";
