@@ -7,6 +7,7 @@
 // Ley 25.326 mínima: solo se guardan estos campos (sin domicilio, sin
 // email, sin scoring); notas acotadas a 280 caracteres y longitudes
 // máximas en cada campo. El borrado/retención va en migración, no acá.
+import { z } from "zod";
 import type { Rol } from "../cash/caja.js";
 
 export interface FichaInput {
@@ -82,31 +83,41 @@ export function validar_ficha(input: FichaInput): string[] {
 
 // Anti-duplicados FC1: mismo nombre normalizado, o mismo teléfono, o mismo
 // DNI. OR y no AND: con un solo identificador repetido ya es duplicado.
+// P1-64: un solo recorrido. El boolean y el 409 salen de la misma ficha.
+function primer_duplicado<E extends ClienteExistente>(
+  candidato: { readonly nombre: string; readonly telefono: string | null; readonly dni: string | null },
+  existentes: ReadonlyArray<E>,
+): E | null {
+  const nombre = normalizar_nombre(candidato.nombre);
+  for (const e of existentes) {
+    if (nombre !== "" && normalizar_nombre(e.nombre) === nombre) return e;
+    if (candidato.telefono !== null && e.telefono === candidato.telefono) return e;
+    if (candidato.dni !== null && e.dni === candidato.dni) return e;
+  }
+  return null;
+}
+
 export function es_duplicado(
   candidato: { readonly nombre: string; readonly telefono: string | null; readonly dni: string | null },
   existentes: ReadonlyArray<ClienteExistente>,
 ): boolean {
-  const nombre = normalizar_nombre(candidato.nombre);
-  for (const e of existentes) {
-    if (nombre !== "" && normalizar_nombre(e.nombre) === nombre) return true;
-    if (candidato.telefono !== null && e.telefono === candidato.telefono) return true;
-    if (candidato.dni !== null && e.dni === candidato.dni) return true;
-  }
-  return false;
+  return primer_duplicado(candidato, existentes) !== null;
 }
 
-export type FalloCliente =
+export type FalloCliente<E extends ClienteExistente = ClienteExistente> =
   | { readonly ok: false; readonly codigo: "FICHA_INVALIDA"; readonly status: 422; readonly error: string }
-  | { readonly ok: false; readonly codigo: "DUPLICADO"; readonly status: 409; readonly error: string }
+  | { readonly ok: false; readonly codigo: "DUPLICADO"; readonly status: 409; readonly error: string; readonly existente: E }
   | { readonly ok: false; readonly codigo: "SOLO_DUENO"; readonly status: 403; readonly error: string };
 
-export type CrearClienteResult = { readonly ok: true; readonly cliente: Cliente } | FalloCliente;
+export type CrearClienteResult<E extends ClienteExistente = ClienteExistente> =
+  | { readonly ok: true; readonly cliente: Cliente }
+  | FalloCliente<E>;
 
-export function crear_cliente(
+export function crear_cliente<E extends ClienteExistente>(
   input: FichaInput,
-  existentes: ReadonlyArray<ClienteExistente>,
+  existentes: ReadonlyArray<E>,
   opts?: { readonly id?: string; readonly topeCentavos?: bigint; readonly plazoDias?: number; readonly rol?: Rol },
-): CrearClienteResult {
+): CrearClienteResult<E> {
   const errores = validar_ficha(input);
   if (errores.length > 0) {
     const primero = errores[0] ?? "ficha invalida";
@@ -125,13 +136,9 @@ export function crear_cliente(
   const telefono = input.telefono === undefined ? null : normalizar_telefono(input.telefono);
   const dni = input.dni === undefined ? null : normalizar_dni(input.dni);
   const notas = input.notas === undefined || input.notas === "" ? null : input.notas;
-  if (
-    es_duplicado(
-      { nombre: input.nombre, telefono, dni },
-      existentes,
-    )
-  ) {
-    return { ok: false, codigo: "DUPLICADO", status: 409, error: "cliente duplicado" };
+  const duplicado = primer_duplicado({ nombre: input.nombre, telefono, dni }, existentes);
+  if (duplicado) {
+    return { ok: false, codigo: "DUPLICADO", status: 409, error: "cliente duplicado", existente: duplicado };
   }
   return {
     ok: true,
@@ -172,3 +179,11 @@ export function fijar_tope_plazo(
   if (falla) return falla;
   return { ok: true, cliente: { ...cliente, topeCentavos, plazoDias } };
 }
+
+// P1-64: forma del POST. Los dígitos y el nombre vacío los dice validar_ficha.
+export const altaRapidaClienteSchema = z
+  .object({
+    nombre: z.string().max(NOMBRE_MAX),
+    telefono: z.string().max(40),
+  })
+  .strict();

@@ -81,7 +81,11 @@ describe("FC1 ficha cliente", () => {
     expect(es_duplicado({ nombre: "Otro", telefono: null, dni: "30123456" }, existentes)).toBe(true);
     expect(es_duplicado({ nombre: "Distinto", telefono: "1100000000", dni: "999" }, existentes)).toBe(false);
     const r = crear_cliente({ nombre: "juan perez" }, existentes);
-    expect(r).toMatchObject({ ok: false, codigo: "DUPLICADO", status: 409 });
+    expect(r).toMatchObject({ ok: false, codigo: "DUPLICADO", status: 409, existente: existentes[0] });
+    const primera = { nombre: "Ana", telefono: "5491155551234", dni: null };
+    const segunda = { nombre: "Otra", telefono: "5491155551234", dni: null };
+    const porTelefono = crear_cliente({ nombre: "Nueva", telefono: "+54 9 11 5555 1234" }, [primera, segunda]);
+    expect(porTelefono).toMatchObject({ ok: false, codigo: "DUPLICADO", existente: primera });
   });
 
   it("FC9 tope/plazo personalizado solo dueno", () => {
