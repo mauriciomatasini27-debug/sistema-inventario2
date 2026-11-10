@@ -12,21 +12,23 @@ import {
 } from "../src/lib/panel-modulos.js";
 
 describe("panel-modulos: navegación de pills", () => {
-  it("los 7 módulos resuelven a una pantalla real, sin anclas muertas", () => {
+  it("los módulos resuelven a una pantalla real, sin anclas muertas", () => {
     expect(hrefModulo("caja")).toBe("/panel/caja");
     expect(hrefModulo("stock")).toBe("/panel/stock");
     expect(hrefModulo("precios")).toBe("/panel/precios");
     expect(hrefModulo("proveedores")).toBe("/panel/proveedores");
     expect(hrefModulo("consumos")).toBe("/panel/consumos");
     expect(hrefModulo("fiado")).toBe("/panel/fiado");
+    expect(hrefModulo("devoluciones")).toBe("/panel/devoluciones");
     expect(hrefModulo("reportes")).toBe("/panel/reportes");
     expect(tienePantalla("caja")).toBe(true);
     expect(tienePantalla("precios")).toBe(true);
     expect(tienePantalla("fiado")).toBe(true);
+    expect(tienePantalla("devoluciones")).toBe(true);
   });
 
   it("todos los módulos conocidos tienen pantalla", () => {
-    for (const m of ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "reportes"] as const) {
+    for (const m of ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "devoluciones", "reportes"] as const) {
       expect(tienePantalla(m), m).toBe(true);
       expect(hrefModulo(m), m).toBe(`/panel/${m}`);
     }
@@ -37,6 +39,7 @@ describe("panel-modulos: navegación de pills", () => {
     expect(pills.map((p) => p.label)).toEqual([
       "Dashboard",
       "Ventas",
+      "Devolución",
       "Caja",
       "Stock",
       "Precios",
@@ -53,7 +56,7 @@ describe("panel-modulos: navegación de pills", () => {
 
   it("pillsPanel sin activo conocido no rompe", () => {
     const pills = pillsPanel();
-    expect(pills).toHaveLength(11);
+    expect(pills).toHaveLength(12);
     expect(pills.some((p) => p.activo)).toBe(false);
   });
 
@@ -65,6 +68,8 @@ describe("panel-modulos: navegación de pills", () => {
     expect(esModuloPanel("")).toBe(false);
     expect(etiquetaModulo("proveedores")).toBe("Proveedores");
     expect(etiquetaModulo("stock")).toBe("Stock");
+    expect(etiquetaModulo("devoluciones")).toBe("Devolución");
+    expect(esModuloPanel("devoluciones")).toBe(true);
   });
 });
 

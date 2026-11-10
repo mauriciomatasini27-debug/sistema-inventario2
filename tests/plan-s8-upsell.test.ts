@@ -29,6 +29,7 @@ const ASISTENTE_EN_PLUS: OfertaUpsell = {
 const CORE = [
   "dashboard",
   "ventas",
+  "devoluciones",
   "caja",
   "stock",
   "precios",

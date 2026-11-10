@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const CORE = [
   { id: "dashboard", label: "Dashboard", href: "/panel" },
   { id: "ventas", label: "Ventas", href: "/venta" },
+  { id: "devoluciones", label: "Devolución", href: "/panel/devoluciones" },
   { id: "caja", label: "Caja", href: "/panel/caja" },
   { id: "stock", label: "Stock", href: "/panel/stock" },
   { id: "precios", label: "Precios", href: "/panel/precios" },

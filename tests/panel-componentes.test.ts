@@ -65,7 +65,7 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
     expect(top).toContain("href={p.href}");
     const hrefs = pillsPanel("dashboard").map((p) => p.href);
     expect(hrefs).toEqual([
-      "/panel", "/venta", "/panel/caja", "/panel/stock", "/panel/precios",
+      "/panel", "/venta", "/panel/devoluciones", "/panel/caja", "/panel/stock", "/panel/precios",
       "/panel/proveedores", "/panel/consumos", "/panel/fiado", "/panel/reportes",
       "/panel/bot/config", "/panel/alertas/umbrales",
     ]);
