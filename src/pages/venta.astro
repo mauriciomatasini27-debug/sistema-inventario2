@@ -507,11 +507,14 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           return;
         }
         const saldo = formatearCentavos(j.saldo_centavos ?? 0);
-        if (j.sin_tope) {
-          preview.textContent = "Saldo " + saldo + ". Sin tope.";
-          return;
+        let texto = j.sin_tope
+          ? "Saldo " + saldo + ". Sin tope."
+          : "Saldo " + saldo + ". Disponible " + formatearCentavos(j.disponible_centavos ?? 0) + ".";
+        if (j.en_mora === true) {
+          const dias = j.dias_max;
+          texto += Number.isInteger(dias) && dias >= 0 ? " En mora: " + dias + " días con saldo." : " En mora.";
         }
-        preview.textContent = "Saldo " + saldo + ". Disponible " + formatearCentavos(j.disponible_centavos ?? 0) + ".";
+        preview.textContent = texto;
       };
       const elegirClienteFiado = (item) => {
         clienteConfirmado = { customerId: item.customer_id, nombre: item.nombre };
@@ -783,6 +786,11 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
               if (r.status === 403 && j.codigo === "TOPE_SUPERADO") {
                 cobroEnVuelo = null;
                 estado(j.error || "Supera el tope. Cobrá con otro medio o pedile al dueño.");
+                return;
+              }
+              if (r.status === 403 && j.codigo === "MORA") {
+                cobroEnVuelo = null;
+                estado(j.error || "Este cliente está en mora. Pedile al dueño.");
                 return;
               }
               if (r.status === 404) {

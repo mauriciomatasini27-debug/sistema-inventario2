@@ -5,15 +5,13 @@ import { UMBRAL_MORA_DIAS, saldoCliente } from "../../../lib/repos/fiado.js";
 export const prerender = false;
 
 function respuesta(customerId: string, saldo: Awaited<ReturnType<typeof saldoCliente>>) {
-  const centavos = BigInt(saldo.saldoCentavos);
-  const enMora = saldo.diasMax >= UMBRAL_MORA_DIAS && centavos > 0n;
   return Response.json({
     customer_id: customerId,
     saldo_centavos: saldo.saldoCentavos,
-    en_mora: enMora,
-    dias_max: saldo.diasMax,
+    en_mora: saldo.mora.estado === "en_mora",
+    dias_max: saldo.mora.diasMax,
     umbral_mora_dias: UMBRAL_MORA_DIAS,
-    estado: enMora ? "en_mora" : "al_dia",
+    estado: saldo.mora.estado,
     fuente: saldo.fuente,
     existe: saldo.existe,
     sin_tope: saldo.sinTope,
@@ -23,7 +21,7 @@ function respuesta(customerId: string, saldo: Awaited<ReturnType<typeof saldoCli
 }
 
 // GET /api/credit/balance?customer_id= — saldo derivado (SUM, no persistido)
-// + mora día 15 (Nivel 1): en_mora si alguna deuda tiene 15+ días.
+// + mora día 15. en_mora y dias_max salen de saldo.mora; la ruta no los recalcula.
 // PERS2-S17: con DB viva deriva de customer_movements via repo de fiado; sin
 // DB cae a memoria. En multi sin base del tenant no se cae a memoria; 503.
 export const GET: APIRoute = async ({ url }) => {
