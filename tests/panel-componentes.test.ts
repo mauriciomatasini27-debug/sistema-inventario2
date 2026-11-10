@@ -9,9 +9,6 @@ const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
 const COMPONENTES = readdirSync(join(RAIZ, "src/components/panel"))
   .filter((f) => f.endsWith(".astro"))
   .map((f) => `src/components/panel/${f}`);
-const DASHBOARD = COMPONENTES.filter(
-  (f) => !f.endsWith("PanelShell.astro") && !f.endsWith("UpsellPantalla.astro"),
-);
 const fuentePanel = (): string => [leer("src/pages/panel.astro"), ...COMPONENTES.map(leer)].join("\n");
 
 const IDS_WIDGET = [
@@ -38,12 +35,15 @@ const TEXTO_CARGA = [
 ] as const;
 
 describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
-  it("panel.astro compone todos los componentes del dashboard", () => {
+  it("Inicio compone el resumen conciso y no el listado de módulos", () => {
     const panel = leer("src/pages/panel.astro");
-    for (const f of DASHBOARD) {
-      const nombre = f.replace("src/components/panel/", "").replace(".astro", "");
-      expect(panel, f).toContain(nombre);
+    for (const nombre of ["PanelShell", "KpiStrip", "UpsellCard", "AsistenteDrawer", "BienvenidaDialog"]) {
+      expect(panel, nombre).toContain(nombre);
     }
+    for (const nombre of ["ShiftTimeline", "MovementsTable", "HeatCard", "SalesChart", "MixDonut", "StockCard", "BotCard"]) {
+      expect(panel, nombre).not.toContain(nombre);
+    }
+    expect(panel).not.toContain("/panel/clientes");
   });
 
   it("conserva todos los ids de widgets y secciones", () => {
@@ -61,16 +61,18 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
     expect(src).toContain("↗");
   });
 
-  it("TopPills enlaza a /panel/<modulo> desde pillsPanel", () => {
-    const top = leer("src/components/panel/TopPills.astro");
-    expect(top).toContain("pillsPanel(activo)");
-    expect(top).toContain("href={p.href}");
+  it("la barra enlaza Inicio, Productos, Vender y Fiado, con destino táctil", () => {
+    const nav = leer("src/components/panel/NavTablero.astro");
+    expect(nav).toContain("href={a.href}");
+    expect(nav).toContain("min-height: 44px");
+    expect(nav).toContain("min-width: 44px");
+    expect(nav).toContain("safe-area-inset-bottom");
+    expect(nav).toMatch(/prefers-reduced-motion:\s*reduce/);
     const hrefs = pillsPanel("dashboard").map((p) => p.href);
-    expect(hrefs).toEqual([
-      "/panel", "/venta", "/panel/devoluciones", "/panel/caja", "/panel/stock", "/panel/precios",
-      "/panel/proveedores", "/panel/consumos", "/panel/fiado", "/panel/reportes",
-      "/panel/bot/config", "/panel/alertas/umbrales",
-    ]);
+    expect(hrefs).toContain("/panel");
+    expect(hrefs).toContain("/venta");
+    expect(hrefs).toContain("/panel/stock");
+    expect(hrefs).toContain("/panel/fiado");
   });
 
   it("conserva los textos de carga de cada widget", () => {
@@ -84,11 +86,11 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
   });
 
   it("el panel aplica la regla global de prefers-reduced-motion", () => {
-    const panel = leer("src/pages/panel.astro");
-    expect(panel).toMatch(/prefers-reduced-motion:\s*reduce/);
-    expect(panel).toContain("animation: none !important");
-    expect(panel).toContain("transition: none !important");
-    expect(panel).toContain("scroll-behavior: auto !important");
+    const nav = leer("src/components/panel/NavTablero.astro");
+    expect(nav).toMatch(/prefers-reduced-motion:\s*reduce/);
+    expect(nav).toContain("animation: none !important");
+    expect(nav).toContain("transition: none !important");
+    expect(nav).toContain("scroll-behavior: auto !important");
     const global = leer("src/styles/global.css");
     expect(global).toMatch(/prefers-reduced-motion:\s*reduce/);
     expect(global).toContain("animation: none !important");

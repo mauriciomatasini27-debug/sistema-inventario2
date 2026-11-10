@@ -20,7 +20,7 @@ function validarArranque(estado, texto, nombre) {
   }
 }
 const RX_FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const RX_CHICO = /^P\d+-\d+$/;
+const RX_CHICO = /^(?:P\d+-\d+|TB-\d+)$/;
 const CAMPOS = ["item", "estado", "adr", "prd", "fecha"];
 const CAMPOS_CHICO = ["item", "estado", "fecha"];
 

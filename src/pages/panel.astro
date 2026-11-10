@@ -1,34 +1,13 @@
 ---
-import "../styles/tokens-papel.css";
-import "../styles/tema.css";
-import { Toaster } from "../components/ui/Toaster";
-import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
-import TemaInicial from "../components/ui/TemaInicial.astro";
-import TemaToggle from "../components/ui/TemaToggle.astro";
-import CerrarSesion from "../components/ui/CerrarSesion.astro";
+import PanelShell from "../components/panel/PanelShell.astro";
 import BienvenidaDialog from "../components/panel/BienvenidaDialog.astro";
-import { esDueno, resolverSesion } from "../lib/control.js";
+import KpiStrip from "../components/panel/KpiStrip.astro";
+import UpsellCard from "../components/panel/UpsellCard.astro";
+import AsistenteDrawer from "../components/panel/AsistenteDrawer.astro";
+import { esDueno, resolverRolEfectivo, resolverSesion } from "../lib/control.js";
 import { control } from "../lib/store.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
-import TopPills from "../components/panel/TopPills.astro";
-import KpiStrip from "../components/panel/KpiStrip.astro";
-import ShiftTimeline from "../components/panel/ShiftTimeline.astro";
-import MovementsTable from "../components/panel/MovementsTable.astro";
-import HeatCard from "../components/panel/HeatCard.astro";
-import SalesChart from "../components/panel/SalesChart.astro";
-import MixDonut from "../components/panel/MixDonut.astro";
-import ConsumosCard from "../components/panel/ConsumosCard.astro";
-import PagarServicioCard from "../components/panel/PagarServicioCard.astro";
-import StockCard from "../components/panel/StockCard.astro";
-import PreciosCard from "../components/panel/PreciosCard.astro";
-import ProveedoresCard from "../components/panel/ProveedoresCard.astro";
-import FiadoCard from "../components/panel/FiadoCard.astro";
-import AlertasCard from "../components/panel/AlertasCard.astro";
-import UpsellCard from "../components/panel/UpsellCard.astro";
-import BotModulosCard from "../components/panel/BotModulosCard.astro";
-import AsistenteDrawer from "../components/panel/AsistenteDrawer.astro";
-import BotCard from "../components/panel/BotCard.astro";
-import AjustesCard from "../components/panel/AjustesCard.astro";
+import { puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
 // BIEN-S2 (ADR-0115): tenant y sub en servidor; el diálogo solo para Dueño.
 // P1-35: el nombre del comercio activo va en el saludo (antes era genérico).
@@ -43,288 +22,175 @@ const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
 const nombreComercio = tenantRes.ok
   ? (control.tenants.get(tenantRes.tenantId)?.nombreComercio?.trim() || null)
   : null;
-const tituloPanel = nombreComercio ? `Panel · ${nombreComercio}` : "Panel del comercio";
-const subPanel = nombreComercio
-  ? `${nombreComercio} · todo lo hecho, visible de un vistazo`
-  : "Panel del comercio · todo lo hecho, visible de un vistazo";
-const inicialAvatar = nombreComercio ? nombreComercio.slice(0, 1).toUpperCase() : "C";
+const tituloPanel = nombreComercio ? `Inicio · ${nombreComercio}` : "Inicio";
+const nav = rolParaNav(resolverRolEfectivo(Astro.request));
+const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
 ---
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>{tituloPanel}</title>
-    <TemaInicial />
-    <style is:global>
-      :root {
-        --papel: var(--tema-fondo); --canvas: var(--tema-linea); --tinta: var(--color-void);
-        --texto: var(--tema-texto);
-        --llama: var(--color-llama); --llama-hover: var(--color-llama-hover); --muted: var(--tema-texto-suave);
-        --card: var(--tema-superficie); --radio: 16px;
-        --borde: var(--tema-linea); --linea: var(--tema-linea); --texto-suave: var(--tema-texto-suave); --blanco: var(--color-star-white);
-        --tenue-oscuro: #cfc9b8; --borde-oscuro: #444; --heat-off: #3a3a3a;
-        --sombra: rgba(0,0,0,.06);
+
+<PanelShell titulo={tituloPanel} comercio={nombreComercio ?? ""} activo="dashboard" ocultarTitulo>
+  <h1 class="hello">Hola{nombreComercio ? ` · ${nombreComercio}` : ""}</h1>
+  <p class="sub">Números de hoy, avisos y los tres accesos del día.</p>
+
+  <KpiStrip verSaldo={verSaldo} />
+
+  <section class="card" aria-label="Avisos">
+    <h2>Avisos</h2>
+    <p id="aviso-stock" hidden></p>
+    <p id="aviso-stock-vacio" class="estado">Sin avisos de stock por ahora.</p>
+  </section>
+
+  <nav class="atajos" aria-label="Atajos">
+    <a class="sg-flame-cta atajo" href="/venta">Vender</a>
+    <a class="atajo" href="/panel/stock">Productos</a>
+    <a class="atajo" href="/panel/fiado">Fiado</a>
+  </nav>
+
+  <UpsellCard />
+  <AsistenteDrawer />
+
+  <style is:global>
+    .atajos { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+    .atajos a {
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 8px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+    .panel-shell .atajos a.sg-flame-cta { color: var(--color-star-white); }
+    .panel-shell .atajos a:not(.sg-flame-cta) {
+      background: var(--tema-superficie);
+      color: var(--tema-texto);
+      border: 1px solid var(--tema-linea);
+    }
+  </style>
+
+  <script>
+    import { renderResumen, renderResumenError } from "../lib/panel-dashboard.js";
+    import {
+      CLAVE_DESCARTES_UPSELL,
+      elegirOferta,
+      esOfertaUpsell,
+      type OfertaUpsell,
+    } from "../lib/panel-upsell.js";
+
+    const CLAVE_DESCARTES = CLAVE_DESCARTES_UPSELL;
+
+    function leerDescartes(): Record<string, number> | null {
+      try {
+        const crudo = localStorage.getItem(CLAVE_DESCARTES);
+        if (crudo === null) return {};
+        const datos: unknown = JSON.parse(crudo);
+        if (typeof datos !== "object" || datos === null || Array.isArray(datos)) return null;
+        const salida: Record<string, number> = {};
+        for (const [modulo, marca] of Object.entries(datos)) {
+          if (typeof marca === "number" && Number.isFinite(marca)) salida[modulo] = marca;
+        }
+        return salida;
+      } catch (error) {
+        console.warn("[panel] no pudimos leer los descartes de upsell", error);
+        return null;
       }
-      * { box-sizing: border-box; }
-      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--texto); }
-      .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
-      .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; }
-      .logo { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
-      nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
-      nav.pills a { white-space: nowrap; text-decoration: none; color: var(--texto-suave); font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center; }
-      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--blanco); }
-      :root[data-tema="oscuro"] nav.pills a.active, :root[data-tema="oscuro"] nav.pills a:hover { background: var(--color-star-white); color: var(--color-void); }
-      .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-      .top-right input { border: 1px solid var(--borde); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 44px; }
-      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--blanco); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
-      h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; color: var(--texto); }
-      .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
-      .kpis { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-      .segbar { display: flex; height: 34px; border-radius: 999px; overflow: hidden; background: var(--canvas); min-width: min(420px, 100%); font-size: 12px; font-weight: 700; }
-      .segbar span { display: inline-flex; align-items: center; padding: 0 12px; min-width: 0; overflow: hidden; white-space: nowrap; }
-      .segbar span:not(.vacio):nth-child(1) { background: var(--tinta); color: var(--blanco); }
-      .segbar span:not(.vacio):nth-child(2) { background: var(--color-ember-ambar); color: var(--color-void); }
-      .segbar span:not(.vacio):nth-child(3) { background: var(--color-ember-coral); color: var(--color-void); }
-      .segbar span:not(.vacio):nth-child(4) { background: var(--color-ember-vino); color: var(--color-star-white); border-radius: 0 999px 999px 0; }
-      :root:not([data-tema="oscuro"]) .segbar span:not(.vacio):nth-child(2), :root:not([data-tema="oscuro"]) .segbar span:not(.vacio):nth-child(3) { box-shadow: inset 0 0 0 1px var(--color-ash); }
-      .segbar span.vacio { flex: 1; background: var(--tema-linea); color: var(--tema-texto-suave); font-weight: 500; box-shadow: none; }
-      /* Con el punto ember la etiqueta no entra a 360px: no se corta en dos renglones, pasa el bignum a otra fila. */
-      .bignums { display: flex; flex-wrap: wrap; column-gap: 28px; row-gap: 8px; }
-      .bignum { text-align: left; }
-      .bignum b { font-size: clamp(28px, 4vw, 44px); font-weight: 600; display: block; }
-      .bignum small { color: var(--muted); font-size: 12px; white-space: nowrap; }
-      .grid { display: grid; gap: 16px; }
-      .grid.r1 { grid-template-columns: 240px 1fr 300px; }
-      .grid.r2 { grid-template-columns: 1fr 300px; margin-top: 16px; }
-      .grid.r3 { grid-template-columns: repeat(5, 1fr); margin-top: 16px; }
-      .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px var(--sombra); min-width: 0; }
-      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        .card { background: var(--tema-vidrio); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+    }
+
+    function pintarAvisoStock(crudo: { stock_bajo?: unknown }): void {
+      const aviso = document.getElementById("aviso-stock");
+      const vacio = document.getElementById("aviso-stock-vacio");
+      if (!aviso || !vacio) return;
+      const n = Number(crudo.stock_bajo ?? 0);
+      aviso.replaceChildren();
+      if (!Number.isFinite(n) || n <= 0) {
+        aviso.hidden = true;
+        vacio.hidden = false;
+        return;
       }
-      @media (prefers-reduced-transparency: reduce) {
-        .card { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+      const texto = document.createTextNode(
+        n === 1 ? "1 producto con stock bajo. " : `${n} productos con stock bajo. `,
+      );
+      const link = document.createElement("a");
+      link.href = "/panel/stock";
+      link.textContent = "Ver productos";
+      aviso.append(texto, link);
+      aviso.hidden = false;
+      vacio.hidden = true;
+    }
+
+    function aplicarUpsell(crudo: unknown): void {
+      if (typeof crudo !== "object" || crudo === null) return;
+      const card = document.querySelector<HTMLElement>("[data-upsell]");
+      if (!card) return;
+      const datos = crudo as { upsell?: unknown; rol?: unknown };
+      if (!Array.isArray(datos.upsell)) return;
+      const ofertas: OfertaUpsell[] = [];
+      for (const item of datos.upsell) {
+        if (esOfertaUpsell(item)) ofertas.push(item);
       }
-      .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
-      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid var(--linea); border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-      .live { font-size: 11px; background: var(--estado-vivo-tint); color: var(--estado-vivo); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
-      .tl { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-      .tl li { border-left: 2px solid var(--linea); margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
-      .tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--llama); position: absolute; left: -5px; top: 10px; }
-      .hora { display: inline-block; border: 1px solid var(--linea); border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
-      table.mov { width: 100%; border-collapse: collapse; font-size: 13px; }
-      table.mov th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px; border-bottom: 1px solid var(--canvas); }
-      table.mov td { padding: 8px 6px; border-bottom: 1px solid var(--canvas); }
-      .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; }
-      .ok { background: var(--estado-ok-tint); color: var(--estado-ok); }
-      .warn { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
-      .pend { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
-      .dark { background: var(--tinta); color: var(--blanco); }
-      /* En oscuro la tarjeta .dark y el banner quedan void sobre void: un borde los separa del fondo. */
-      :root[data-tema="oscuro"] .dark, :root[data-tema="oscuro"] .banner { border: 1px solid var(--color-mid); }
-      :root[data-tema="oscuro"] .segbar span:not(.vacio):nth-child(1) { background: var(--color-star-white); color: var(--color-void); }
-      :root[data-tema="oscuro"] .avatar { background: var(--color-star-white); color: var(--color-void); }
-      /* A 360px la barra ocupa 3 filas: fija le comería un tercio de la pantalla. */
-      @media (max-width: 640px) { .topbar.vidrio-barra { position: static; } }
-      .dark h2 a { color: var(--blanco); border-color: var(--borde-oscuro); }
-      .heat { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; margin-top: 12px; }
-      .heat i { aspect-ratio: 1; border-radius: 50%; background: var(--heat-off); }
-      .heat i.on { background: var(--llama); }
-      .bign { font-size: 30px; }
-      svg.chart { width: 100%; height: 170px; }
-      .dona { display: flex; align-items: center; justify-content: center; }
-      .legend { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-top: 8px; }
-      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--blanco); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
-      .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
-      .mini { font-size: 13px; color: var(--texto-suave); }
-      .mini a { color: var(--texto); font-weight: 600; }
-      .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
-      :target { outline: 2px solid var(--llama); outline-offset: 4px; }
-      [data-modulo-indice][hidden] { display: none !important; }
-      @media (max-width: 900px) {
-        .grid.r1, .grid.r2, .grid.r3 { grid-template-columns: 1fr; }
-        .top-right input { display: none; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="topbar vidrio-barra">
-        <a class="logo" href="/" style="text-decoration:none;color:inherit">Inventario</a>
-        <TopPills activo="dashboard" />
-        <span class="top-right">
-          <input id="q" type="search" placeholder="Buscar" aria-label="Buscar en movimientos" />
-          <span class="avatar" title={nombreComercio ?? "Comercio"}>{inicialAvatar}</span>
-          <CerrarSesion />
-          <TemaToggle />
-        </span>
-      </div>
+      const descartes = leerDescartes();
+      if (descartes === null) return;
+      const oferta = elegirOferta({ ofertas, descartes, ahora: Date.now() });
+      if (oferta === null) return;
 
-      <h1 class="hello">Hola{nombreComercio ? ` · ${nombreComercio}` : ""}</h1>
-      <div class="sub">{subPanel}</div>
+      const titulo = card.querySelector<HTMLElement>("[data-upsell-titulo]");
+      const texto = card.querySelector<HTMLElement>("[data-upsell-texto]");
+      const link = card.querySelector<HTMLElement>("[data-upsell-link]");
+      const empleado = card.querySelector<HTMLElement>("[data-upsell-empleado]");
+      if (!titulo || !texto || !link || !empleado) return;
 
-      <KpiStrip />
+      titulo.textContent = oferta.titulo;
+      texto.textContent = oferta.texto;
+      const dueno = datos.rol === "dueno";
+      link.hidden = !dueno;
+      empleado.hidden = dueno;
+      card.dataset.upsellModulo = oferta.modulo;
+      card.hidden = false;
+    }
 
-      <div class="banner">
-        <div><b>Venta mostrador</b><br /><span class="mini" style="color:var(--tenue-oscuro)">Cobrar, sync offline y balance — como siempre.</span></div>
-        <span style="margin-left:auto"></span>
-        <a href="/venta">Vender →</a>
-      </div>
-
-      <UpsellCard />
-
-      <div class="grid" style="margin-bottom:16px">
-        <AsistenteDrawer />
-      </div>
-
-      <div class="grid r1">
-        <ShiftTimeline />
-        <MovementsTable />
-        <HeatCard />
-      </div>
-
-      <div class="grid r2">
-        <SalesChart />
-        <MixDonut />
-      </div>
-
-      <div class="grid r2">
-        <ConsumosCard />
-        <PagarServicioCard />
-      </div>
-
-      <div class="grid r3">
-        <a class="card" href="/panel/ventas-pendientes" data-modulo-indice="ventas-pendientes" style="text-decoration:none;color:inherit">
-          <h2>Ventas pendientes</h2>
-          <div class="mini">Revisá las ventas offline que no se pudieron aplicar.</div>
-          <div class="mini" data-ventas-pendientes-cuenta hidden></div>
-        </a>
-        <StockCard />
-        <PreciosCard />
-        <ProveedoresCard />
-        <FiadoCard />
-        <AlertasCard />
-        <BotModulosCard />
-        <BotCard />
-        <AjustesCard />
-      </div>
-    </div>
-    <script>
-      import { renderResumen, renderResumenError } from "../lib/panel-dashboard.js";
-      import { aplicarFiltroIndice } from "../lib/panel-indice-cliente.js";
-      import { textoVentasPendientes } from "../lib/panel-modulos.js";
-      import {
-        CLAVE_DESCARTES_UPSELL,
-        elegirOferta,
-        esOfertaUpsell,
-        type OfertaUpsell,
-      } from "../lib/panel-upsell.js";
-
-      // El cliente no conoce el tenant: una sola clave de descartes por navegador.
-      const CLAVE_DESCARTES = CLAVE_DESCARTES_UPSELL;
-
-      function leerDescartes(): Record<string, number> | null {
+    function descartarUpsell(): void {
+      const card = document.querySelector<HTMLElement>("[data-upsell]");
+      if (!card) return;
+      const modulo = card.dataset.upsellModulo;
+      if (modulo) {
+        const descartes = leerDescartes() ?? {};
+        descartes[modulo] = Date.now();
         try {
-          const crudo = localStorage.getItem(CLAVE_DESCARTES);
-          if (crudo === null) return {};
-          const datos: unknown = JSON.parse(crudo);
-          if (typeof datos !== "object" || datos === null || Array.isArray(datos)) return null;
-          const salida: Record<string, number> = {};
-          for (const [modulo, marca] of Object.entries(datos)) {
-            if (typeof marca === "number" && Number.isFinite(marca)) salida[modulo] = marca;
-          }
-          return salida;
+          localStorage.setItem(CLAVE_DESCARTES, JSON.stringify(descartes));
         } catch (error) {
-          console.warn("[panel] no pudimos leer los descartes de upsell", error);
-          return null;
+          console.warn("[panel] no pudimos guardar el descarte de upsell", error);
         }
       }
+      card.hidden = true;
+    }
 
-      function aplicarIndice(crudo: unknown): void {
-        if (!aplicarFiltroIndice(crudo, document)) return;
-        const cuenta = document.querySelector<HTMLElement>("[data-ventas-pendientes-cuenta]");
-        if (!cuenta) return;
-        const pendientes = (crudo as { ventas_pendientes?: unknown }).ventas_pendientes;
-        const texto = typeof pendientes === "number" ? textoVentasPendientes(pendientes) : "";
-        cuenta.textContent = texto;
-        cuenta.hidden = texto === "";
-      }
+    document
+      .querySelector<HTMLButtonElement>("[data-upsell-descartar]")
+      ?.addEventListener("click", descartarUpsell);
 
-      function aplicarUpsell(crudo: unknown): void {
-        if (typeof crudo !== "object" || crudo === null) return;
-        const card = document.querySelector<HTMLElement>("[data-upsell]");
-        if (!card) return;
-        const datos = crudo as { upsell?: unknown; rol?: unknown };
-        if (!Array.isArray(datos.upsell)) return;
-        const ofertas: OfertaUpsell[] = [];
-        for (const item of datos.upsell) {
-          if (esOfertaUpsell(item)) ofertas.push(item);
-        }
-        const descartes = leerDescartes();
-        if (descartes === null) return;
-        const oferta = elegirOferta({ ofertas, descartes, ahora: Date.now() });
-        if (oferta === null) return;
-
-        const titulo = card.querySelector<HTMLElement>("[data-upsell-titulo]");
-        const texto = card.querySelector<HTMLElement>("[data-upsell-texto]");
-        const link = card.querySelector<HTMLElement>("[data-upsell-link]");
-        const empleado = card.querySelector<HTMLElement>("[data-upsell-empleado]");
-        if (!titulo || !texto || !link || !empleado) return;
-
-        titulo.textContent = oferta.titulo;
-        texto.textContent = oferta.texto;
-        const esDueno = datos.rol === "dueno";
-        link.hidden = !esDueno;
-        empleado.hidden = esDueno;
-        card.dataset.upsellModulo = oferta.modulo;
-        card.hidden = false;
-      }
-
-      function descartarUpsell(): void {
-        const card = document.querySelector<HTMLElement>("[data-upsell]");
-        if (!card) return;
-        const modulo = card.dataset.upsellModulo;
-        if (modulo) {
-          const descartes = leerDescartes() ?? {};
-          descartes[modulo] = Date.now();
-          try {
-            localStorage.setItem(CLAVE_DESCARTES, JSON.stringify(descartes));
-          } catch (error) {
-            console.warn("[panel] no pudimos guardar el descarte de upsell", error);
-          }
-        }
-        card.hidden = true;
-      }
-
-      document
-        .querySelector<HTMLButtonElement>("[data-upsell-descartar]")
-        ?.addEventListener("click", descartarUpsell);
-
-      fetch("/api/panel/indice")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((crudo) => {
-          aplicarIndice(crudo);
-          aplicarUpsell(crudo);
-        })
-        .catch((error) => {
-          console.warn("[panel] no pudimos leer el índice de módulos", error);
-        });
-
-      fetch("/api/sales/resumen").then(async (r) => {
-        if (!r.ok) throw new Error("http " + r.status);
-        renderResumen(await r.json());
-      }).catch(() => {
-        renderResumenError();
+    fetch("/api/panel/indice")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((crudo) => {
+        aplicarUpsell(crudo);
+      })
+      .catch((error) => {
+        console.warn("[panel] no pudimos leer el índice de módulos", error);
       });
-    </script>
-    {mostrarBienvenida ? (
-      <BienvenidaDialog tenantId={bienvenidaTenantId} googleSub={bienvenidaGoogleSub} />
-    ) : null}
-    <Toaster client:idle />
-    <ConfirmDialog />
-  </body>
-</html>
+
+    fetch("/api/sales/resumen").then(async (r) => {
+      if (!r.ok) throw new Error("http " + r.status);
+      const resumen = await r.json();
+      renderResumen(resumen);
+      pintarAvisoStock(resumen);
+    }).catch(() => {
+      renderResumenError();
+    });
+  </script>
+  {mostrarBienvenida ? (
+    <BienvenidaDialog tenantId={bienvenidaTenantId} googleSub={bienvenidaGoogleSub} />
+  ) : null}
+</PanelShell>

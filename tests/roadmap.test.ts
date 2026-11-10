@@ -341,6 +341,27 @@ describe("parsearAvance chico P<n>-<m>", () => {
     });
   });
 
+  it("TB-158 usa el mismo formato chico, con Decisión y sin adr", () => {
+    const texto = [
+      "---",
+      "item: TB-158",
+      "estado: hecho",
+      "fecha: 2026-11-10",
+      "---",
+      "TB-158: cascarón.",
+      "",
+      "## Decisión",
+      "Una.",
+      "Dos.",
+      "Tres.",
+      "Cuatro.",
+      "Cinco.",
+    ].join("\n");
+    const a = parsearAvance(texto, "TB-158.md");
+    expect((a as { chico?: boolean }).chico).toBe(true);
+    expect(a.item).toBe("TB-158");
+  });
+
   it("detecta el id chico sin ruta ni extensión", () => {
     const a = parsearAvance(avanceChicoValido(), "docs/roadmap/avances/P1-6.md");
     expect((a as { chico?: boolean }).chico).toBe(true);

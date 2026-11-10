@@ -39,8 +39,9 @@ describe("marca 2: toggle de tema en /admin", () => {
   });
 });
 
-describe("marca 2: arreglos del segbar y del banner en /panel", () => {
-  const panel = leer("src/pages/panel.astro");
+describe("marca 2: arreglos del segbar y de los atajos en /panel", () => {
+  const panel = leer("src/components/panel/KpiStrip.astro");
+  const inicio = leer("src/pages/panel.astro");
 
   it("los segmentos con color excluyen .vacio", () => {
     expect(panel).toContain(":not(.vacio):nth-child");
@@ -59,9 +60,9 @@ describe("marca 2: arreglos del segbar y del banner en /panel", () => {
     expect(panel).toMatch(/\.bignums\s*\{[^}]*flex-wrap:\s*wrap/);
   });
 
-  it("el botón del banner no envuelve la flecha", () => {
-    expect(panel).toMatch(/\.banner a\s*\{[^}]*white-space:\s*nowrap/);
-    expect(panel).toMatch(/\.banner a\s*\{[^}]*flex-shrink:\s*0/);
+  it("el atajo no envuelve la etiqueta", () => {
+    expect(inicio).toMatch(/\.atajos a\s*\{[^}]*white-space:\s*nowrap/);
+    expect(inicio).toMatch(/\.atajos a\s*\{[^}]*flex-shrink:\s*0/);
   });
 });
 
@@ -86,11 +87,10 @@ describe("marca 2: ember por módulo", () => {
     expect(porHref.get("/venta")?.ember).toBeUndefined();
   });
 
-  it("TopPills pinta el punto decorativo de los módulos", () => {
-    const top = leer("src/components/panel/TopPills.astro");
-    expect(top).toContain("pill-ember");
-    expect(top).toContain("ember-${p.ember}");
-    expect(top).toContain('aria-hidden="true"');
+  it("KpiStrip pinta el punto decorativo de los números", () => {
+    const kpi = leer("src/components/panel/KpiStrip.astro");
+    expect(kpi).toContain("kpi-ember");
+    expect(kpi).toContain('aria-hidden="true"');
   });
 });
 

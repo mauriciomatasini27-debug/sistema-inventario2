@@ -106,6 +106,7 @@ describe("T-UI-02: las 5 acciones destructivas pasan por confirmar", () => {
 
   it("cada layout que monta las acciones incluye ConfirmDialog una vez", () => {
     expect(leer("src/components/panel/PanelShell.astro")).toContain("<ConfirmDialog />");
-    expect(leer("src/pages/panel.astro")).toContain("<ConfirmDialog />");
+    expect(leer("src/pages/panel.astro")).toContain("PanelShell");
+    expect(leer("src/pages/panel.astro")).not.toContain("<ConfirmDialog />");
   });
 });

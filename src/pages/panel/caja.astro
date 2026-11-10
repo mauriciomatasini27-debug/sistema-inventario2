@@ -1,10 +1,14 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import { resolverRolEfectivo } from "../../lib/control.js";
+import { puedeVerSaldoCaja, rolParaNav } from "../../lib/panel-modulos.js";
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
+const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Caja" subtitulo="Saldos, movimientos y vencimientos del comercio." activo="caja">
   <div class="grid dos">
-    <section class="card">
+    <section class="card" id="saldo-caja" hidden={!verSaldo}>
       <h2>Saldo de caja</h2>
       <div class="kpi">
         <div><b id="caja-total">…</b><small>Total en caja</small></div>
@@ -240,8 +244,9 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     return tr;
   };
 
-  const cargarBalance = () =>
-    fetch("/api/cash/balance")
+  const cargarBalance = () => {
+    if ($("saldo-caja").hidden) return Promise.resolve();
+    return fetch("/api/cash/balance")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
@@ -262,6 +267,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         $("caja-total").textContent = "—";
         $("estado-balance").textContent = mensaje("error", "");
       });
+  };
 
   const cargarMovimientos = () =>
     fetch("/api/cash/history?limit=10")

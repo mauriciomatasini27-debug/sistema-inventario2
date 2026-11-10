@@ -38,10 +38,13 @@ test.describe("marca 2 en oscuro", () => {
   });
 });
 
-for (const ruta of [{ url: "/panel", texto: "Vender →" }, { url: "/admin", texto: "Ver mora →" }]) {
+for (const ruta of [
+  { url: "/panel", texto: "Vender", sel: ".atajos a.sg-flame-cta" },
+  { url: "/admin", texto: "Ver mora →", sel: ".banner a" },
+]) {
   test(`${ruta.url}: "${ruta.texto}" entra en una línea a 360px`, async ({ page }) => {
     await page.goto(ruta.url);
-    const boton = page.locator(".banner a");
+    const boton = page.locator(ruta.sel);
     await expect(boton).toHaveText(ruta.texto);
     const caja = await boton.boundingBox();
     // 44px de mínimo táctil: con la flecha en otra línea pasaría de 50.

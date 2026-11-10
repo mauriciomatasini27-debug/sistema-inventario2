@@ -11,6 +11,9 @@ import { pesosParaInput } from "../lib/pesos.js";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
+import NavTablero from "../components/panel/NavTablero.astro";
+import { resolverRolEfectivo } from "../lib/control.js";
+import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);
@@ -19,6 +22,9 @@ const harness = modoHarness(Astro.url, import.meta.env.DEV);
 // al cliente por data-attribute; sin tenant conocido no se lee ni escribe.
 const tenant = tenantDeRequest(Astro.request);
 const tenantId = tenant.ok ? tenant.tenantId : null;
+const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
+const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
+const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <!doctype html>
 <html lang="es" dir={harness.dir}>
@@ -37,7 +43,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
            Insets físicos, por eso padding-left/right y no padding-inline. */
         padding-left: env(safe-area-inset-left, 0px);
         padding-right: env(safe-area-inset-right, 0px);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-bottom: 0;
+      }
+      /* TB-158: el mostrador scrollea por encima de la barra. El inset queda en el contenido. */
+      .tablero-contenido { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+      @media (min-width: 900px) {
+        .tablero-contenido { padding-bottom: 16px; }
       }
       .barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
       .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
@@ -50,8 +61,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       #indicador-sync[data-tono="azul"] { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
       #indicador-sync[data-tono="rojo"] { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
-      input, select, button:not(.tema-toggle) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
-      button:not(.tema-toggle) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      input, select, button:not(.tema-toggle):not([data-nav-mas]) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
+      button:not(.tema-toggle):not([data-nav-mas]) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
       #camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
@@ -63,7 +74,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       ul { list-style: none; margin: 0; padding-inline: 0; }
       li { padding-block: 4px; }
       :root[data-tema="oscuro"] input, :root[data-tema="oscuro"] select { background: var(--color-charcoal); color: var(--color-star-white); border: 1px solid var(--color-ash); }
-      :root[data-tema="oscuro"] button:not(.tema-toggle) { background: var(--color-star-white); color: var(--color-void); }
+      :root[data-tema="oscuro"] button:not(.tema-toggle):not([data-nav-mas]) { background: var(--color-star-white); color: var(--color-void); }
       #lista-carrito .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; }
       #carrito-total, #ticket-total { font-variant-numeric: tabular-nums; font-weight: 700; }
@@ -77,7 +88,10 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       }
     </style>
   </head>
-  <body>
+  <body data-ver-saldo={verSaldo ? "si" : "no"} data-crear-productos={puedeCrear ? "si" : "no"}>
+    <div class="tablero">
+      <NavTablero activo="ventas" />
+      <div class="tablero-contenido">
     <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
       <TemaToggle />
@@ -210,8 +224,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       };
       // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
       // el nombre para darlo de alta al cobrar. El precio es el de la línea.
+      const puedeCrear = document.body.dataset.crearProductos !== "no";
       const mostrarAlta = () => {
-        $("alta-nombre-label").hidden = precioLocal(catalogo, $("sku").value) !== null;
+        $("alta-nombre-label").hidden = !puedeCrear || precioLocal(catalogo, $("sku").value) !== null;
       };
       const mostrarCatalogo = () => {
         // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).
@@ -476,6 +491,10 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       };
       // P1-36: mismo contrato que /panel/caja (JSON por_medio), no el body crudo.
       async function balance() {
+        if (document.body.dataset.verSaldo === "no") {
+          $("balance").hidden = true;
+          return;
+        }
         try {
           const r = await fetch("/api/cash/balance");
           if (!r.ok) {
@@ -1067,6 +1086,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       refrescarIndicador();
       if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) balance();
     </script>
+      </div>
+    </div>
     <ConfirmDialog />
   </body>
 </html>
