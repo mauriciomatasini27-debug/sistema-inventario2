@@ -57,6 +57,27 @@ describe("venta.astro: aviso de stock local en cero", () => {
   });
 });
 
+describe("TB-160: buscador, ticket y paso de cobro", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("nace sin catálogo a la vista y con Cobrar apagado, distinto del flame", () => {
+    const s = src();
+    expect(s).toContain('id="resultados" hidden');
+    expect(s).toContain('class="cobrar-apagado" disabled');
+    expect(s).toContain("#cobrar.cobrar-apagado");
+    expect(s).toContain("#cobrar.sg-flame-cta");
+    expect(s).not.toContain("demo-sku-1");
+    expect(s).toContain('id="paso-cobro"');
+    expect(s).toContain('id="volver-ticket"');
+    expect(s).toContain('id="confirmar-cobro"');
+    expect(s).toContain('id="leer-camara"');
+    expect(s).toContain("Escanear");
+    expect(s).toContain("hitsCatalogoLocal");
+    expect(s).toContain("efectoCodigoDesconocido().mensaje");
+    expect(s).toContain("min-width: 44px; min-height: 44px");
+  });
+});
+
 describe("venta.astro: aviso de mora sin frenar Cobrar", () => {
   const src = (): string => leer("src/pages/venta.astro");
 

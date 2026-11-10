@@ -76,8 +76,42 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       :root[data-tema="oscuro"] input, :root[data-tema="oscuro"] select { background: var(--color-charcoal); color: var(--color-star-white); border: 1px solid var(--color-ash); }
       :root[data-tema="oscuro"] button:not(.tema-toggle):not([data-nav-mas]) { background: var(--color-star-white); color: var(--color-void); }
       #lista-carrito .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-      #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; }
-      #carrito-total, #ticket-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+      #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; min-width: 44px; min-height: 44px; }
+      #carrito-total, #ticket-total, #cobro-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+      .buscador { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+      .buscador-campo { flex: 1 1 160px; min-width: 0; }
+      .buscador-campo input { width: 100%; margin-block: 0; }
+      #leer-camara { width: auto; flex: 0 0 auto; margin-block: 0; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding-inline: 12px; }
+      #leer-camara svg { flex: 0 0 auto; }
+      #resultados { list-style: none; margin: 8px 0 0; padding: 0; }
+      #resultados[hidden] { display: none; }
+      #resultados button { width: 100%; min-height: 44px; text-align: start; }
+      .datos-linea { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .datos-linea input { margin-block: 0; }
+      #ticket-vacio { margin: 8px 0; color: var(--tema-texto-suave); }
+      #volver-ticket { width: auto; min-width: 44px; min-height: 44px; margin-block: 0; padding-inline: 12px; }
+      /* TB-160: el apagado es mid sobre el flame. Sin opacidad ni pointer-events como único apagado. */
+      #cobrar.cobrar-apagado { background: var(--color-mid); color: var(--color-muted-dark); box-shadow: none; cursor: not-allowed; }
+      #cobrar.sg-flame-cta, #confirmar-cobro.sg-flame-cta { background-color: var(--color-star-glow); color: var(--color-star-white); box-shadow: var(--sombra-cta); }
+      #paso-ticket[hidden], #paso-cobro[hidden] { display: none; }
+    </style>
+    <style is:global>
+      /* TB-160: los botones del ticket nacen en el script y no heredan el style con scope. */
+      #lista-carrito button,
+      #resultados button,
+      #leer-camara,
+      #volver-ticket,
+      #cobrar,
+      #confirmar-cobro {
+        box-sizing: border-box;
+        min-width: 44px;
+        min-height: 44px;
+      }
+      #lista-carrito .fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      #lista-carrito .nombre { min-width: 0; flex: 1 1 8rem; overflow-wrap: anywhere; }
+      #lista-carrito .monto, #lista-carrito .qty { font-variant-numeric: tabular-nums; }
+      #lista-carrito button { width: auto; flex: 0 0 auto; padding-inline: 12px; }
+      #resultados button { width: 100%; text-align: start; }
       #cliente-fiado-elegido, #cliente-fiado-preview { margin: 4px 0 0; font-size: 14px; }
       #tarjeta-ticket h2 { margin: 0 0 6px; font-size: 18px; }
       #ticket-leyenda { font-size: 12px; font-weight: 700; }
@@ -98,13 +132,38 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       <span id="indicador-sync" role="status"></span>
     </header>
     <main data-tenant={tenantId ?? ""}>
-      <div class="card vidrio-card">
-        <label>Código / SKU <input id="sku" value={harness.data === "worst" ? VENTA_WORST.sku : "demo-sku-1"} /></label>
-        <button id="leer-camara" type="button">Leer con la cámara</button>
+      <section id="paso-ticket" class="card vidrio-card" aria-label="Ticket">
+        <div class="buscador">
+          <label class="buscador-campo">Buscar
+            <input id="sku" type="search" autocomplete="off" enterkeyhint="search" placeholder="Nombre o código" value={harness.data === "worst" ? VENTA_WORST.sku : ""} />
+          </label>
+          <button id="leer-camara" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M9 4l1.5 2h3L15 4h4a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h4zm3 4a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6z"></path>
+            </svg>
+            Escanear
+          </button>
+        </div>
         <video id="camara-video" hidden playsinline muted></video>
-        <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
-        <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
+        <div class="datos-linea">
+          <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
+          <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
+        </div>
         <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
+        <ul id="resultados" hidden aria-label="Resultados"></ul>
+        <p id="catalogo-estado">Sin catálogo descargado</p>
+        <section id="panel-carrito" aria-label="Ticket de la venta">
+          <p id="ticket-vacio">Buscá o escaneá para armar el ticket.</p>
+          <ul id="lista-carrito"></ul>
+          <p id="carrito-total">Total: $0.00</p>
+        </section>
+        <button id="cobrar" type="button" class="cobrar-apagado" disabled>Cobrar</button>
+      </section>
+      <section id="paso-cobro" class="card vidrio-card" hidden aria-label="Cobro">
+        <button id="volver-ticket" type="button">Volver</button>
+        <h2 id="cobro-titulo" tabindex="-1">Cobrar</h2>
+        <ul id="cobro-lineas"></ul>
+        <p id="cobro-total">Total: $0.00</p>
         <label>Medio
           <select id="medio">
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
@@ -126,17 +185,14 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           <p id="cliente-fiado-elegido"></p>
           <p id="cliente-fiado-preview"></p>
         </div>
-        <section id="panel-carrito" aria-label="Carrito">
-          <ul id="lista-carrito"></ul>
-          <p id="carrito-total">Total: —</p>
-        </section>
-        <button id="cobrar">Cobrar</button>
+        <button id="confirmar-cobro" type="button" class="sg-flame-cta">Confirmar cobro</button>
+      </section>
+      <div class="card vidrio-card">
         <button id="sync" type="button">Reintentar sync</button>
         <button id="compartir" type="button">Compartir por WhatsApp</button>
         <button id="imprimir" type="button">Imprimir ticket</button>
         <button id="imprimir-bt" type="button">Imprimir BT</button>
       </div>
-      <p id="catalogo-estado">Sin catálogo descargado</p>
       <div class="card vidrio-card"><div id="estado" role="status">{harness.data === "worst" ? VENTA_WORST.errorApi : "Lista."}</div></div>
       <section id="tarjeta-ticket" class="card vidrio-card" hidden aria-label="Ticket">
         <h2 id="ticket-numero"></h2>
@@ -177,9 +233,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import { formatearCentavos } from "../lib/panel-modulos.js";
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
+      import { hitsCatalogoLocal, unirHits } from "../modules/sales/buscar_venta_ticket.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
       import { confirmar } from "../lib/confirmar-dom.js";
       import {
+        efectoCodigoDesconocido,
         efectoDeTecla,
         resolverLectura,
         sesionCamara,
@@ -225,8 +283,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
       // el nombre para darlo de alta al cobrar. El precio es el de la línea.
       const puedeCrear = document.body.dataset.crearProductos !== "no";
+      // TB-160: el alta solo sigue a un código desconocido. Una búsqueda a medias no es un alta.
+      let pedirNombre = false;
       const mostrarAlta = () => {
-        $("alta-nombre-label").hidden = !puedeCrear || precioLocal(catalogo, $("sku").value) !== null;
+        const sku = $("sku").value.trim();
+        $("alta-nombre-label").hidden = !puedeCrear || !pedirNombre || sku === "" || precioLocal(catalogo, sku) !== null;
       };
       const mostrarCatalogo = () => {
         // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).
@@ -248,15 +309,18 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         if ($("sku").value !== skuElegido) {
           skuElegido = $("sku").value;
           precioEditado = false;
+          pedirNombre = false;
         }
         completarPrecio();
         mostrarAlta();
+        programarBusqueda();
       });
       $("precio").addEventListener("input", () => { precioEditado = true; });
       const aplicarSkuEncontrado = (sku) => {
         $("sku").value = sku;
         skuElegido = sku;
         precioEditado = false;
+        pedirNombre = false;
         completarPrecio();
         mostrarAlta();
         estado("Lista.");
@@ -278,50 +342,93 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         return "carrito vacío";
       };
       let carrito = [];
+      const nombresLinea = new Map();
       let cobrando = false;
+      let busquedaToken = 0;
+      let buscaTimer = 0;
+      const mostrarPaso = (paso) => {
+        const raiz = document.querySelector("main");
+        if (raiz) raiz.dataset.paso = paso;
+        $("paso-ticket").hidden = paso !== "ticket";
+        $("paso-cobro").hidden = paso !== "cobro";
+      };
+      const syncCobrar = () => {
+        const boton = $("cobrar");
+        const vacio = carrito.length === 0;
+        boton.disabled = vacio;
+        boton.classList.toggle("sg-flame-cta", !vacio);
+        boton.classList.toggle("cobrar-apagado", vacio);
+        $("ticket-vacio").hidden = !vacio;
+        const confirmarCobro = $("confirmar-cobro");
+        if (confirmarCobro) confirmarCobro.disabled = vacio;
+      };
       // P1-56: un 5xx no cierra el cobro. El segundo tap reusa op_id y seq
       // para no emitir otro ticket de la misma venta.
       let cobroEnVuelo = null;
+      const nombreDeLinea = (linea) => {
+        if (linea.alta?.nombre) return linea.alta.nombre;
+        return nombresLinea.get(linea.product_id) || linea.product_id;
+      };
+      const textoTotal = () => {
+        const total = carrito.reduce((acc, l) => acc + l.qty * l.precio_centavos, 0);
+        return "Total: " + formatearCentavos(total);
+      };
+      const pintarLineaLectura = (ul, linea) => {
+        const li = document.createElement("li");
+        li.className = "fila";
+        const nombre = document.createElement("span");
+        nombre.className = "nombre";
+        nombre.textContent = nombreDeLinea(linea);
+        const qty = document.createElement("span");
+        qty.className = "qty";
+        qty.textContent = String(linea.qty);
+        const etiqueta = document.createElement("span");
+        etiqueta.className = "etiqueta";
+        etiqueta.textContent = "Subtotal";
+        const monto = document.createElement("span");
+        monto.className = "monto";
+        monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
+        const menos = document.createElement("button");
+        menos.type = "button";
+        menos.textContent = "−";
+        menos.setAttribute("aria-label", "Bajar cantidad " + linea.product_id);
+        menos.addEventListener("click", () => cambiarQty(linea.product_id, -1));
+        const mas = document.createElement("button");
+        mas.type = "button";
+        mas.textContent = "+";
+        mas.setAttribute("aria-label", "Subir cantidad " + linea.product_id);
+        mas.addEventListener("click", () => cambiarQty(linea.product_id, 1));
+        const quitar = document.createElement("button");
+        quitar.type = "button";
+        quitar.textContent = "Quitar";
+        quitar.setAttribute("aria-label", "Quitar " + linea.product_id);
+        quitar.addEventListener("click", () => quitarLinea(linea.product_id));
+        li.append(nombre, menos, qty, mas, etiqueta, monto, quitar);
+        ul.appendChild(li);
+      };
       const pintarCarrito = () => {
         const ul = $("lista-carrito");
         ul.replaceChildren();
-        if (carrito.length === 0) {
-          const vacio = document.createElement("li");
-          vacio.textContent = "Carrito vacío";
-          ul.appendChild(vacio);
-        } else {
-          for (const linea of carrito) {
-            const li = document.createElement("li");
-            li.className = "fila";
-            const nombre = document.createElement("span");
-            nombre.className = "nombre";
-            nombre.textContent = (linea.alta ? linea.alta.nombre + " · " : "") + linea.product_id;
-            const qty = document.createElement("span");
-            qty.textContent = String(linea.qty);
-            const monto = document.createElement("span");
-            monto.className = "monto";
-            monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
-            const menos = document.createElement("button");
-            menos.type = "button";
-            menos.textContent = "−";
-            menos.setAttribute("aria-label", "Bajar cantidad " + linea.product_id);
-            menos.addEventListener("click", () => cambiarQty(linea.product_id, -1));
-            const mas = document.createElement("button");
-            mas.type = "button";
-            mas.textContent = "+";
-            mas.setAttribute("aria-label", "Subir cantidad " + linea.product_id);
-            mas.addEventListener("click", () => cambiarQty(linea.product_id, 1));
-            const quitar = document.createElement("button");
-            quitar.type = "button";
-            quitar.textContent = "Quitar";
-            quitar.setAttribute("aria-label", "Quitar " + linea.product_id);
-            quitar.addEventListener("click", () => quitarLinea(linea.product_id));
-            li.append(nombre, menos, qty, mas, monto, quitar);
-            ul.appendChild(li);
-          }
+        for (const linea of carrito) pintarLineaLectura(ul, linea);
+        $("carrito-total").textContent = textoTotal();
+        syncCobrar();
+      };
+      const pintarCobro = () => {
+        const ul = $("cobro-lineas");
+        ul.replaceChildren();
+        for (const linea of carrito) {
+          const li = document.createElement("li");
+          li.className = "producto";
+          const nombre = document.createElement("span");
+          nombre.className = "nombre";
+          nombre.textContent = nombreDeLinea(linea) + " × " + linea.qty;
+          const monto = document.createElement("span");
+          monto.className = "monto";
+          monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
+          li.append(nombre, monto);
+          ul.appendChild(li);
         }
-        const total = carrito.reduce((acc, l) => acc + l.qty * l.precio_centavos, 0);
-        $("carrito-total").textContent = carrito.length === 0 ? "Total: —" : "Total: " + formatearCentavos(total);
+        $("cobro-total").textContent = textoTotal();
       };
       const cobroTomado = () => {
         if (!cobrando && !cobroEnVuelo) return false;
@@ -331,6 +438,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       const quitarLinea = (product_id) => {
         if (cobroTomado()) return;
         carrito = carrito.filter((l) => l.product_id !== product_id);
+        nombresLinea.delete(product_id);
         pintarCarrito();
       };
       const cambiarQty = (product_id, delta) => {
@@ -341,6 +449,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const qty = linea.qty + delta;
         if (qty < 1) {
           carrito = carrito.filter((l) => l.product_id !== product_id);
+          nombresLinea.delete(product_id);
           pintarCarrito();
           return;
         }
@@ -354,11 +463,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         pintarCarrito();
       };
       const agregarLineaDesdeFormulario = () => {
-        if (cobroTomado()) return;
+        if (cobroTomado()) return false;
         const parseo = parsearPesos($("precio").value);
         if (!parseo.ok) {
           estado(mensajePesos(parseo.motivo));
-          return;
+          return false;
         }
         const product_id = $("sku").value.trim();
         const qty = Number($("qty").value);
@@ -372,7 +481,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const r = fusionarLinea(carrito, linea);
         if (!r.ok) {
           estado(textoCarrito(r.codigo));
-          return;
+          return false;
         }
         carrito = r.carrito;
         pintarCarrito();
@@ -381,6 +490,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         $("sku").focus();
         $("sku").select();
         estado("Lista.");
+        return true;
       };
       // P1-56: Cobrar ya no lee el formulario. Enter y la cámara suman al carrito,
       // también si el código no está en el catálogo. El alta viaja solo si hay nombre.
@@ -388,15 +498,93 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const texto = String(raw ?? "").trim();
         if (!texto) return;
         const res = await resolverEnPantalla(texto);
+        let desconocido = false;
         if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
         else if (res.estado === "desconocido") {
+          desconocido = true;
+          pedirNombre = true;
           $("sku").value = texto;
           skuElegido = texto;
           mostrarAlta();
         } else {
           return;
         }
-        agregarLineaDesdeFormulario();
+        const ok = agregarLineaDesdeFormulario();
+        if (desconocido && ok) estado(efectoCodigoDesconocido().mensaje);
+      };
+      const pintarResultados = (hits) => {
+        const ul = $("resultados");
+        ul.replaceChildren();
+        const q = $("sku").value.trim();
+        if (!q || hits.length === 0) {
+          ul.hidden = !q || hits.length === 0;
+          if (q && hits.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "Sin coincidencias.";
+            ul.appendChild(li);
+            ul.hidden = false;
+          }
+          return;
+        }
+        ul.hidden = false;
+        for (const hit of hits) {
+          const li = document.createElement("li");
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.textContent = hit.nombre + " · " + hit.sku + " · " + formatearCentavos(hit.precioCentavos);
+          if (hit.stock === 0) boton.append(" · Stock en 0");
+          boton.addEventListener("click", () => {
+            $("sku").value = hit.sku;
+            skuElegido = hit.sku;
+            precioEditado = false;
+            completarPrecio();
+            if (precioLocal(catalogo, hit.sku) === null) $("precio").value = pesosParaInput(hit.precioCentavos);
+            if (hit.nombre && hit.nombre !== hit.sku) nombresLinea.set(hit.sku, hit.nombre);
+            pedirNombre = false;
+            mostrarAlta();
+            agregarLineaDesdeFormulario();
+          });
+          li.appendChild(boton);
+          ul.appendChild(li);
+        }
+      };
+      const ejecutarBusqueda = async () => {
+        const q = $("sku").value.trim();
+        const token = ++busquedaToken;
+        if (!q) {
+          pintarResultados([]);
+          return;
+        }
+        const locales = hitsCatalogoLocal(catalogo, q);
+        pintarResultados(locales);
+        if (!navigator.onLine) return;
+        try {
+          const r = await fetch("/api/products?q=" + encodeURIComponent(q));
+          if (token !== busquedaToken || $("sku").value.trim() !== q) return;
+          if (!r.ok) {
+            pintarResultados(locales);
+            return;
+          }
+          const j = await r.json().catch((error) => {
+            console.warn("[venta] búsqueda sin JSON", r.status, error);
+            return {};
+          });
+          if (token !== busquedaToken || $("sku").value.trim() !== q) return;
+          const fichas = Array.isArray(j.productos) ? j.productos : [];
+          pintarResultados(unirHits(q, locales, fichas));
+        } catch (error) {
+          console.warn("[venta] búsqueda", error);
+          if (token === busquedaToken) pintarResultados(locales);
+        }
+      };
+      const programarBusqueda = () => {
+        window.clearTimeout(buscaTimer);
+        if (!$("sku").value.trim()) {
+          busquedaToken += 1;
+          pintarResultados([]);
+          return;
+        }
+        buscaTimer = window.setTimeout(() => { void ejecutarBusqueda(); }, 200);
       };
       pintarCarrito();
       $("sku").addEventListener("keydown", async (ev) => {
@@ -478,8 +666,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         lastSaleId = ticket.sale_id;
         pintarTicket();
         carrito = [];
+        nombresLinea.clear();
         pintarCarrito();
         cobroEnVuelo = null;
+        mostrarPaso("ticket");
         $("sku").focus();
       };
       const aplicarTicketDefinitivoSiVisible = (item, ticket_definitivo) => {
@@ -717,7 +907,19 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         if (!armado.ok) return armado;
         return { ok: true, armado, op_id: crypto.randomUUID() };
       };
-      $("cobrar").onclick = async () => {
+      // TB-160: el paso abre sin POST. Confirmar reusa el mismo vuelo, sin un cobro de demostración.
+      $("cobrar").addEventListener("click", () => {
+        if ($("cobrar").disabled || carrito.length === 0) return;
+        pintarCobro();
+        mostrarPaso("cobro");
+        $("cobro-titulo").focus();
+      });
+      $("volver-ticket").addEventListener("click", () => {
+        mostrarPaso("ticket");
+        pintarCarrito();
+        $("sku").focus();
+      });
+      $("confirmar-cobro").onclick = async () => {
         if (cobrando) return;
         const medio = $("medio").value;
         const fiado = medio === "A cuenta";

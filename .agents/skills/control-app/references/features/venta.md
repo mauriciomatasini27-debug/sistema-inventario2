@@ -8,7 +8,7 @@ Ruta `/venta`. Rol empleado. Es la caja rápida con cola offline.
 - `#qty` cantidad.
 - `#precio` precio en pesos, con coma decimal. El seed deja `CAFE-001` en 850000 centavos. En el campo se escribe `8500,00`.
 - `#medio` medio de pago. Valores `efectivo`, `transferencia`, `tarjeta`, `fiado` según el select.
-- `#cobrar` confirma la venta.
+- `#cobrar` abre el paso de cobro. `#confirmar-cobro` confirma la venta. `#volver-ticket` vuelve al ticket sin vaciarlo.
 - `#sync` reintenta la cola offline.
 - `#estado` último resultado.
 - `#balance` balance de caja.
@@ -22,12 +22,14 @@ node scripts/control-app/control-app.mjs ir /venta
 node scripts/control-app/control-app.mjs escribir '#sku' 'CAFE-001'
 node scripts/control-app/control-app.mjs escribir '#qty' '1'
 node scripts/control-app/control-app.mjs escribir '#precio' '8500,00'
+node scripts/control-app/control-app.mjs clic '#resultados button'
 node scripts/control-app/control-app.mjs clic '#cobrar'
+node scripts/control-app/control-app.mjs clic '#confirmar-cobro'
 node scripts/control-app/control-app.mjs api GET /api/cash/balance
 node scripts/control-app/control-app.mjs captura --nombre venta-empleado
 ```
 
-El clic en `#cobrar` devuelve 201 y deja un ticket en `#estado`. El `api` tiene que mostrar el movimiento en caja. La captura prueba el estado visual.
+`#cobrar` abre el paso. `#confirmar-cobro` devuelve 201 y deja un ticket en `#estado`. El `api` tiene que mostrar el movimiento en caja. La captura prueba el estado visual.
 
 ## Offline
 
