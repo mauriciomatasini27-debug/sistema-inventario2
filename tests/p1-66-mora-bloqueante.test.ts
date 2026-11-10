@@ -175,7 +175,12 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
     });
   }
 
-  async function vender(rol: "dueno" | "empleado", customerId: string, key: string) {
+  async function vender(
+    rol: "dueno" | "empleado",
+    customerId: string,
+    key: string,
+    extra: { confirmado_exceso?: boolean } = {},
+  ) {
     keys.push(key);
     const n = seq;
     seq += 1;
@@ -189,6 +194,7 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
             device_code: "p166-caja",
             seq_local: n,
             en_mora: false,
+            ...(extra.confirmado_exceso === undefined ? {} : { confirmado_exceso: extra.confirmado_exceso }),
           },
         }),
       ),
@@ -238,10 +244,11 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
     await deuda(id, 4000n, 0n, 15);
     const stock = await stockActual();
     const key = `p166-due-${sufijo}`;
-    const r = await vender("dueno", id, key);
+    const r = await vender("dueno", id, key, { confirmado_exceso: true });
     expect(r.status).toBe(201);
-    const j = (await r.json()) as { supera_mora: boolean; fuente: string };
+    const j = (await r.json()) as { supera_mora: boolean; supera_tope: boolean; fuente: string };
     expect(j.supera_mora).toBe(true);
+    expect(j.supera_tope).toBe(false);
     expect(j.fuente).toBe("db");
     expect((await movimientosDe(id)).filter((m) => m.idempotencyKey === key)).toHaveLength(1);
     expect(await stockActual()).toBe(stock - 1);

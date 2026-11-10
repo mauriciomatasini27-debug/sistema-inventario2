@@ -24,6 +24,95 @@ export const PAGO_A_CUENTA = "Pago: A cuenta" as const;
 // C18 matriz explícita: qué lado del fiado toca caja.
 export const C18_INGRESO_CAJA = { venta_a_cuenta: false, cobro_fiado: true } as const;
 
+// P1-67: "declarada" quiere decir que el cliente mandó true. No autoriza la venta.
+const marcaConfirmacionExceso = Symbol("ConfirmacionExceso");
+
+export type ConfirmacionExceso = {
+  readonly [marcaConfirmacionExceso]: "ConfirmacionExceso";
+  readonly kind: "ausente" | "declarada";
+};
+
+function armarConfirmacion(kind: ConfirmacionExceso["kind"]): ConfirmacionExceso {
+  return { [marcaConfirmacionExceso]: "ConfirmacionExceso", kind };
+}
+
+export function sinConfirmarExceso(): ConfirmacionExceso {
+  return armarConfirmacion("ausente");
+}
+
+export function confirmacionDesdeCable(flag: boolean | undefined): ConfirmacionExceso {
+  return armarConfirmacion(flag === true ? "declarada" : "ausente");
+}
+
+export const CODIGO_CONFIRMACION_EXCESO = "CONFIRMACION_EXCESO" as const;
+
+export interface DetalleExceso {
+  readonly superaTope: boolean;
+  readonly superaMora: boolean;
+  readonly disponibleCentavos: bigint | null;
+  readonly diasMax: number | null;
+}
+
+export function texto_confirmacion_exceso(detalle: {
+  readonly superaTope: boolean;
+  readonly superaMora: boolean;
+  readonly disponibleTexto: string | null;
+  readonly diasMax: number | null;
+}): string {
+  const partes: string[] = [];
+  if (detalle.superaTope) {
+    partes.push(
+      detalle.disponibleTexto
+        ? `Esta venta supera el límite. Disponible: ${detalle.disponibleTexto}.`
+        : "Esta venta supera el límite.",
+    );
+  }
+  if (detalle.superaMora) {
+    partes.push(
+      detalle.diasMax === null
+        ? "Este cliente está en mora."
+        : `Este cliente está en mora: ${detalle.diasMax} días con saldo.`,
+    );
+  }
+  if (partes.length === 0) return "Esta venta supera el límite del cliente.";
+  return partes.join(" ");
+}
+
+export function dialogo_confirmacion_exceso(detalle: {
+  readonly superaTope: boolean;
+  readonly superaMora: boolean;
+  readonly disponibleTexto: string | null;
+  readonly diasMax: number | null;
+}): { readonly titulo: string; readonly mensaje: string; readonly accion: string } {
+  return {
+    titulo: "Vender a cuenta igual",
+    mensaje: texto_confirmacion_exceso(detalle),
+    accion: "Vender igual",
+  };
+}
+
+// Privada: el caller no puede saltear venta_a_cuenta y autorizar solo.
+function decidir_exceso(input: {
+  readonly rol: Rol;
+  readonly detalle: DetalleExceso;
+  readonly confirmacion: ConfirmacionExceso;
+}):
+  | { readonly kind: "sigue" }
+  | { readonly kind: "empleado_tope"; readonly disponibleCentavos: bigint }
+  | { readonly kind: "empleado_mora"; readonly diasMax: number }
+  | { readonly kind: "falta_confirmacion"; readonly detalle: DetalleExceso } {
+  const { rol, detalle, confirmacion } = input;
+  if (!detalle.superaTope && !detalle.superaMora) return { kind: "sigue" };
+  if (rol !== "dueno") {
+    if (detalle.superaTope) {
+      return { kind: "empleado_tope", disponibleCentavos: detalle.disponibleCentavos ?? 0n };
+    }
+    return { kind: "empleado_mora", diasMax: detalle.diasMax ?? 0 };
+  }
+  if (confirmacion.kind === "ausente") return { kind: "falta_confirmacion", detalle };
+  return { kind: "sigue" };
+}
+
 export type TicketFiado =
   | {
       readonly kind: "online";
@@ -67,6 +156,7 @@ export interface VentaACuentaInput {
   readonly ahoraMs: number;
   // P1-66: el adaptador mide SituacionMora en la tx. El núcleo no vuelve a contar los 15 días.
   readonly mora: SituacionMora;
+  readonly confirmacion: ConfirmacionExceso;
 }
 
 export interface EfectoFiado {
@@ -89,7 +179,16 @@ export type FalloFiado =
   | { readonly ok: false; readonly codigo: "SIN_STOCK"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "LINEA_INVALIDA"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "TOPE_SUPERADO"; readonly status: 403; readonly disponibleCentavos: bigint }
-  | { readonly ok: false; readonly codigo: "MORA"; readonly status: 403; readonly diasMax: number };
+  | { readonly ok: false; readonly codigo: "MORA"; readonly status: 403; readonly diasMax: number }
+  | {
+      readonly ok: false;
+      readonly codigo: typeof CODIGO_CONFIRMACION_EXCESO;
+      readonly status: 403;
+      readonly superaTope: boolean;
+      readonly superaMora: boolean;
+      readonly disponibleCentavos: bigint | null;
+      readonly diasMax: number | null;
+    };
 
 export type VentaACuentaResult = { readonly ok: true; readonly efecto: EfectoFiado } | FalloFiado;
 
@@ -129,20 +228,41 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
 
   const nuevoSaldo = input.credito.saldoCentavos + total;
   const superaTope = supera_limite(nuevoSaldo, input.credito.limite);
-  if (superaTope && input.credito.rol !== "dueno") {
+  const superaMora = input.mora.estado === "en_mora";
+  const detalle: DetalleExceso = {
+    superaTope,
+    superaMora,
+    disponibleCentavos: disponibleCentavos(input.credito),
+    diasMax: superaMora ? input.mora.diasMax : null,
+  };
+  // P1-67: el dueño sin marca no vende el exceso. El empleado no usa esa marca.
+  const puerta = decidir_exceso({
+    rol: input.credito.rol,
+    detalle,
+    confirmacion: input.confirmacion,
+  });
+  if (puerta.kind === "empleado_tope") {
     return {
       ok: false,
       codigo: "TOPE_SUPERADO",
       status: 403,
-      disponibleCentavos: disponibleCentavos(input.credito) ?? 0n,
+      disponibleCentavos: puerta.disponibleCentavos,
     };
   }
-
-  // P1-66: en mora solo el dueño vende. El empleado recibe los días para la frase del 403.
-  if (input.mora.estado === "en_mora" && input.credito.rol !== "dueno") {
-    return { ok: false, codigo: "MORA", status: 403, diasMax: input.mora.diasMax };
+  if (puerta.kind === "empleado_mora") {
+    return { ok: false, codigo: "MORA", status: 403, diasMax: puerta.diasMax };
   }
-  const superaMora = input.mora.estado === "en_mora";
+  if (puerta.kind === "falta_confirmacion") {
+    return {
+      ok: false,
+      codigo: CODIGO_CONFIRMACION_EXCESO,
+      status: 403,
+      superaTope: puerta.detalle.superaTope,
+      superaMora: puerta.detalle.superaMora,
+      disponibleCentavos: puerta.detalle.disponibleCentavos,
+      diasMax: puerta.detalle.diasMax,
+    };
+  }
 
   const provisorio = `${input.deviceCode}-${input.seqLocal}`;
   const definitivo = input.offline ? null : siguiente_numero(input.ultimoDefinitivo);

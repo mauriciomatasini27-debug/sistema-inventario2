@@ -7,6 +7,7 @@ import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { rolParaFiado } from "../src/lib/control.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { ventaACuenta } from "../src/lib/repos/fiado.js";
+import { confirmacionDesdeCable, sinConfirmarExceso } from "../src/modules/credit/fiado.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -189,6 +190,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
         deviceCode: "p162-caja",
         seqLocal: 2,
         rol: "dueno",
+        confirmacion: confirmacionDesdeCable(true),
       }),
     );
     expect(r.ok).toBe(true);
@@ -210,6 +212,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
         deviceCode: "p162-caja",
         seqLocal: 3,
         rol: "empleado",
+        confirmacion: sinConfirmarExceso(),
       }),
     );
     expect(r.ok).toBe(true);
@@ -236,6 +239,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
         deviceCode: "p162-caja",
         seqLocal: 4,
         rol: "empleado",
+        confirmacion: sinConfirmarExceso(),
       }),
     );
     expect(r).toMatchObject({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404 });
@@ -257,6 +261,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
           deviceCode: "p162-caja",
           seqLocal: 5,
           rol: "empleado",
+          confirmacion: sinConfirmarExceso(),
         }),
       );
     const [a, b] = await Promise.all([una(k1), una(k2)]);

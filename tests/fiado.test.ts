@@ -7,6 +7,8 @@ import {
   link_whatsapp,
   registrar_ajuste,
   revertir_movimiento,
+  confirmacionDesdeCable,
+  sinConfirmarExceso,
   texto_pago_ticket,
   venta_a_cuenta,
   type CobroRegistrado,
@@ -54,6 +56,7 @@ function ventaBase(
     ahoraMs: AHORA,
     credito: credito.valor,
     mora: { estado: "al_dia" as const, diasMax: 0 },
+    confirmacion: sinConfirmarExceso(),
     ...resto,
   };
 }
@@ -152,12 +155,126 @@ describe("FC6 tope + plazo", () => {
     const emp = venta_a_cuenta(ventaBase({ saldoActualCentavos: 90000n, topeCentavos: 100000n, rol: "empleado" }));
     expect(emp).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403, disponibleCentavos: 10000n });
     const due = venta_a_cuenta(
-      ventaBase({ idempotencyKey: "fa-dueno", saldoActualCentavos: 90000n, topeCentavos: 100000n, rol: "dueno" }),
+      ventaBase({
+        idempotencyKey: "fa-dueno",
+        saldoActualCentavos: 90000n,
+        topeCentavos: 100000n,
+        rol: "dueno",
+        confirmacion: confirmacionDesdeCable(true),
+      }),
     );
     expect(due.ok).toBe(true);
     if (!due.ok) return;
     expect(due.efecto.superaTope).toBe(true);
+    expect(due.efecto.superaMora).toBe(false);
     expect(due.efecto.movimientoCredito.customerId).toBe("cli-1");
+  });
+
+  it("el flag no autoriza al empleado que supera el tope", () => {
+    const emp = venta_a_cuenta(
+      ventaBase({
+        saldoActualCentavos: 90000n,
+        topeCentavos: 100000n,
+        rol: "empleado",
+        confirmacion: confirmacionDesdeCable(true),
+      }),
+    );
+    expect(emp).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403, disponibleCentavos: 10000n });
+  });
+
+  it("el dueño sin confirmar el exceso no arma efecto", () => {
+    const due = venta_a_cuenta(
+      ventaBase({ saldoActualCentavos: 90000n, topeCentavos: 100000n, rol: "dueno" }),
+    );
+    expect(due).toMatchObject({
+      ok: false,
+      codigo: "CONFIRMACION_EXCESO",
+      status: 403,
+      superaTope: true,
+      superaMora: false,
+      disponibleCentavos: 10000n,
+      diasMax: null,
+    });
+  });
+
+  it("el empleado en mora sigue bloqueado aunque mande el flag", () => {
+    const emp = venta_a_cuenta(
+      ventaBase({
+        rol: "empleado",
+        mora: { estado: "en_mora", diasMax: 15 },
+        confirmacion: confirmacionDesdeCable(true),
+      }),
+    );
+    expect(emp).toMatchObject({ ok: false, codigo: "MORA", status: 403, diasMax: 15 });
+  });
+
+  it("el dueño en mora sin confirmación no arma la venta", () => {
+    const due = venta_a_cuenta(ventaBase({ rol: "dueno", mora: { estado: "en_mora", diasMax: 15 } }));
+    expect(due).toMatchObject({
+      ok: false,
+      codigo: "CONFIRMACION_EXCESO",
+      status: 403,
+      superaTope: false,
+      superaMora: true,
+      diasMax: 15,
+    });
+    const vendido = venta_a_cuenta(
+      ventaBase({
+        idempotencyKey: "fa-mora-ok",
+        rol: "dueno",
+        mora: { estado: "en_mora", diasMax: 15 },
+        confirmacion: confirmacionDesdeCable(true),
+      }),
+    );
+    expect(vendido.ok).toBe(true);
+    if (!vendido.ok) return;
+    expect(vendido.efecto.superaMora).toBe(true);
+    expect(vendido.efecto.superaTope).toBe(false);
+  });
+
+  it("tope y mora juntos piden una sola confirmación y el empleado ve el tope", () => {
+    const mora = { estado: "en_mora" as const, diasMax: 18 };
+    const emp = venta_a_cuenta(
+      ventaBase({
+        saldoActualCentavos: 90000n,
+        topeCentavos: 100000n,
+        rol: "empleado",
+        mora,
+        confirmacion: confirmacionDesdeCable(true),
+      }),
+    );
+    expect(emp).toMatchObject({ ok: false, codigo: "TOPE_SUPERADO", status: 403 });
+    const due = venta_a_cuenta(
+      ventaBase({
+        idempotencyKey: "fa-ambos",
+        saldoActualCentavos: 90000n,
+        topeCentavos: 100000n,
+        rol: "dueno",
+        mora,
+      }),
+    );
+    expect(due).toMatchObject({
+      ok: false,
+      codigo: "CONFIRMACION_EXCESO",
+      status: 403,
+      superaTope: true,
+      superaMora: true,
+      diasMax: 18,
+    });
+    const vendido = venta_a_cuenta(
+      ventaBase({
+        idempotencyKey: "fa-ambos-ok",
+        saldoActualCentavos: 90000n,
+        topeCentavos: 100000n,
+        rol: "dueno",
+        mora,
+        confirmacion: confirmacionDesdeCable(true),
+      }),
+    );
+    expect(vendido.ok).toBe(true);
+    if (!vendido.ok) return;
+    expect(vendido.efecto.superaTope).toBe(true);
+    expect(vendido.efecto.superaMora).toBe(true);
   });
 
   it("tope 0 no bloquea al empleado y el igual al techo entra", () => {
@@ -178,6 +295,14 @@ describe("FC6 tope + plazo", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.efecto.superaTope).toBe(false);
+    expect(r.efecto.superaMora).toBe(false);
+    const declarado = venta_a_cuenta(
+      ventaBase({ idempotencyKey: "fa-dentro", confirmacion: confirmacionDesdeCable(true) }),
+    );
+    expect(declarado.ok).toBe(true);
+    if (!declarado.ok) return;
+    expect(declarado.efecto.superaTope).toBe(false);
+    expect(declarado.efecto.superaMora).toBe(false);
     const pasado = venta_a_cuenta(
       ventaBase({ idempotencyKey: "fa-off2", offline: true, saldoActualCentavos: 95000n, topeCentavos: 100000n }),
     );

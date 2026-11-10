@@ -222,6 +222,8 @@ export const creditSaleSchema = z.object({
   lineas: z.array(salesLineSchema).min(1).max(50),
   device_code: z.string().min(4).max(32),
   seq_local: z.number().int().positive(),
+  // P1-67: no autoriza. false y ausente se leen igual en el núcleo. Un string no coacciona.
+  confirmado_exceso: z.boolean().optional(),
 });
 export const creditPaymentSchema = z.object({
   customer_id: z.string().min(1).max(64),
