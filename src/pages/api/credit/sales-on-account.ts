@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 403 },
     );
   }
-  if (!r.ok && r.codigo === "MORA") {
+  if (!r.ok && r.codigo === "MORA" && "diasMax" in r) {
     return Response.json(
       {
         error: texto_bloqueo_mora(r.diasMax),
