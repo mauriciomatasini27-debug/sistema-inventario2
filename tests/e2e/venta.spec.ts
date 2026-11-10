@@ -44,7 +44,6 @@ test("catálogo descargado completa el precio y sigue disponible offline", async
   await page.goto("/venta");
   await expect(page.locator("#catalogo-estado")).toContainText("Catálogo del", { timeout: 10_000 });
   await page.fill("#sku", "demo-sku-1");
-  // P1-65: 999 centavos del catálogo se ven 9,99. La fila cobra $9.99, no $999.00.
   await expect(page.locator("#precio")).toHaveValue("9,99");
   await page.press("#sku", "Enter");
   await expect(page.locator("#lista-carrito .monto")).toHaveText("$9.99");
@@ -84,10 +83,10 @@ test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, 
   await expect(page.locator("h1")).toHaveText("Venta mostrador");
   await page.fill("#sku", "demo-sku-2");
   await page.fill("#qty", "2");
-  // P1-65: 5,00 pesos siguen siendo 500 centavos en el payload.
   await page.fill("#precio", "5,00");
   await page.press("#sku", "Enter");
   await expect(page.locator("#lista-carrito")).toContainText("demo-sku-2", { timeout: 10_000 });
+  await expect(page.locator("#lista-carrito .monto")).toHaveText("$10.00");
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
 });

@@ -338,7 +338,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       };
       const agregarLineaDesdeFormulario = () => {
         if (cobroTomado()) return;
-        // P1-65: el input es pesos es-AR. Number("9,99") no son 999 centavos.
         const parseo = parsearPesos($("precio").value);
         if (!parseo.ok) {
           estado(mensajePesos(parseo.motivo));
