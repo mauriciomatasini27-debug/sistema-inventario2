@@ -9,7 +9,9 @@ const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
 const COMPONENTES = readdirSync(join(RAIZ, "src/components/panel"))
   .filter((f) => f.endsWith(".astro"))
   .map((f) => `src/components/panel/${f}`);
-const DASHBOARD = COMPONENTES.filter((f) => !f.endsWith("PanelShell.astro"));
+const DASHBOARD = COMPONENTES.filter(
+  (f) => !f.endsWith("PanelShell.astro") && !f.endsWith("UpsellPantalla.astro"),
+);
 const fuentePanel = (): string => [leer("src/pages/panel.astro"), ...COMPONENTES.map(leer)].join("\n");
 
 const IDS_WIDGET = [
@@ -65,7 +67,7 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
     expect(top).toContain("href={p.href}");
     const hrefs = pillsPanel("dashboard").map((p) => p.href);
     expect(hrefs).toEqual([
-      "/panel", "/venta", "/panel/caja", "/panel/stock", "/panel/precios",
+      "/panel", "/venta", "/panel/devoluciones", "/panel/caja", "/panel/stock", "/panel/precios",
       "/panel/proveedores", "/panel/consumos", "/panel/fiado", "/panel/reportes",
       "/panel/bot/config", "/panel/alertas/umbrales",
     ]);

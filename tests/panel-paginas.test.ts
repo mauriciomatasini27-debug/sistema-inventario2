@@ -17,6 +17,7 @@ const PANTALLAS = [
   "src/pages/panel/precios.astro",
   "src/pages/panel/proveedores.astro",
   "src/pages/panel/fiado.astro",
+  "src/pages/panel/devoluciones.astro",
   "src/pages/panel/consumos.astro",
   "src/pages/panel/reportes.astro",
   "src/pages/panel/alertas/umbrales.astro",
@@ -27,8 +28,9 @@ const PANTALLAS = [
   "src/pages/panel/ventas-pendientes.astro",
 ] as const;
 
+// P1-39 counts + P1-63 tickets/returns: pantallas reales ya llaman esas rutas.
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial))/;
+  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial)|tickets|returns|counts(?:\/|$|\?))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";
@@ -92,6 +94,14 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
         f,
       ).toEqual([]);
     }
+  });
+
+  it("devoluciones.astro no arma sale_id ni Idempotency-Key", () => {
+    const src = leer("src/pages/panel/devoluciones.astro");
+    expect(src).not.toContain("sale_id");
+    expect(src).not.toContain("Idempotency-Key");
+    expect(src).toContain('fetch("/api/tickets?numero="');
+    expect(src).toContain('fetch("/api/returns"');
   });
 
   it("el shell usa tokens de Tema Papel y ninguna pantalla tiene colores hardcodeados", () => {

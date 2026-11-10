@@ -96,6 +96,14 @@ describe("T-UI-02: las 5 acciones destructivas pasan por confirmar", () => {
     }
   });
 
+  it("la devolución de una venta confirma antes del POST", () => {
+    const src = leer("src/pages/panel/devoluciones.astro");
+    const confirmarEn = src.indexOf("confirmar(");
+    const postEn = src.indexOf('fetch("/api/returns"');
+    expect(confirmarEn).toBeGreaterThan(-1);
+    expect(postEn).toBeGreaterThan(confirmarEn);
+  });
+
   it("cada layout que monta las acciones incluye ConfirmDialog una vez", () => {
     expect(leer("src/components/panel/PanelShell.astro")).toContain("<ConfirmDialog />");
     expect(leer("src/pages/panel.astro")).toContain("<ConfirmDialog />");

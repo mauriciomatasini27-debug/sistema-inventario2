@@ -9,7 +9,7 @@ import { EMBER_MODULO, emberModulo, pillsPanel, type ModuloPanel } from "../src/
 const RAIZ = process.cwd();
 const leer = (f: string) => readFileSync(join(RAIZ, f), "utf8");
 
-const MODULOS: readonly ModuloPanel[] = ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "reportes"];
+const MODULOS: readonly ModuloPanel[] = ["caja", "stock", "precios", "proveedores", "consumos", "fiado", "devoluciones", "reportes"];
 
 describe("marca 2: toggle de tema en /admin", () => {
   const admin = leer("src/pages/admin.astro");
@@ -74,6 +74,7 @@ describe("marca 2: ember por módulo", () => {
       proveedores: "vino",
       consumos: "ambar",
       fiado: "coral",
+      devoluciones: "ambar",
       reportes: "vino",
     };
     for (const m of MODULOS) expect(emberModulo(m), m).toBe(esperado[m]);

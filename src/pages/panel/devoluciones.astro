@@ -1,0 +1,276 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import { medioSchema } from "../../lib/validation.js";
+
+const medios = medioSchema.options;
+---
+<PanelShell titulo="Devolución" subtitulo="Devolución de una venta. No es un egreso manual de caja." activo="devoluciones">
+  <section class="card">
+    <h2>Ticket de la venta</h2>
+    <div class="fila">
+      <label>Número
+        <input id="dev-numero" type="search" autocomplete="off" />
+      </label>
+      <button id="dev-buscar" type="button">Buscar</button>
+    </div>
+    <p id="dev-estado" class="estado" role="status">Escribí el número del ticket.</p>
+    <ul id="dev-lineas" class="lista" aria-label="Líneas del ticket" hidden></ul>
+    <p id="dev-total"></p>
+    <p id="dev-fiado" hidden></p>
+    <div class="fila">
+      <label>Motivo
+        <input id="dev-motivo" type="text" maxlength="280" autocomplete="off" />
+      </label>
+      <label>Quién registra
+        <input id="dev-actor" type="text" maxlength="128" value="panel-web" autocomplete="name" />
+      </label>
+      <label id="dev-medio-label" hidden>Medio del reintegro
+        <select id="dev-medio">
+          {medios.map((medio) => <option value={medio}>{medio}</option>)}
+        </select>
+      </label>
+    </div>
+    <div class="fila" id="dev-motivos" hidden></div>
+    <div class="fila">
+      <button id="dev-todo" type="button" hidden>Devolver todo</button>
+      <button id="dev-cambiar" type="button" hidden>Cambiar selección</button>
+      <button id="dev-otra" type="button" hidden>Otra devolución</button>
+      <button id="dev-enviar" type="button" hidden>Registrar devolución</button>
+    </div>
+  </section>
+</PanelShell>
+
+<style is:global>
+  .panel-shell .dev-linea { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .panel-shell .dev-linea input { width: 6rem; flex: 0 0 auto; }
+</style>
+
+<script>
+  import {
+    MOTIVOS_RAPIDOS,
+    estadoInicial,
+    reducir,
+    vistaDe,
+    type EstadoDevolucion,
+    type LineaId,
+    type VistaDevolucion,
+  } from "../../lib/devolucion-borrador.js";
+  import type { Medio } from "../../lib/validation.js";
+  import { formatearCentavos } from "../../lib/panel-modulos.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
+
+  let estado: EstadoDevolucion = estadoInicial();
+
+  function porId(id: string): HTMLElement {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(id);
+    return el;
+  }
+
+  function campo(id: string): HTMLInputElement {
+    const el = porId(id);
+    if (!(el instanceof HTMLInputElement)) throw new Error(id);
+    return el;
+  }
+
+  function selectorMedio(): HTMLSelectElement {
+    const el = porId("dev-medio");
+    if (!(el instanceof HTMLSelectElement)) throw new Error("dev-medio");
+    return el;
+  }
+
+  function boton(id: string): HTMLButtonElement {
+    const el = porId(id);
+    if (!(el instanceof HTMLButtonElement)) throw new Error(id);
+    return el;
+  }
+
+  function escribirSiNoFoco(el: HTMLInputElement, valor: string): void {
+    if (document.activeElement === el) return;
+    if (el.value !== valor) el.value = valor;
+  }
+
+  function medioElegido(): Medio | null {
+    const medio = selectorMedio();
+    const valor = medio.value;
+    if (![...medio.options].some((opcion) => opcion.value === valor)) return null;
+    return valor as Medio;
+  }
+
+  function pintarLineas(vista: VistaDevolucion): void {
+    const ul = porId("dev-lineas");
+    ul.hidden = !vista.mostrarLineas;
+    const firma = vista.lineas.map((linea) => linea.lineaId).join("\n");
+    if (ul.dataset.firma !== firma) {
+      ul.dataset.firma = firma;
+      ul.replaceChildren();
+      for (const linea of vista.lineas) {
+        const li = document.createElement("li");
+        li.className = "dev-linea";
+        const texto = document.createElement("span");
+        texto.textContent = `${linea.titulo} · ${linea.detalle}`;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.inputMode = "numeric";
+        input.setAttribute("aria-label", `Unidades de ${linea.titulo}`);
+        input.dataset.linea = linea.lineaId;
+        const lineaId: LineaId = linea.lineaId;
+        input.addEventListener("input", () => {
+          estado = reducir(estado, { tipo: "cantidad", lineaId, qty: Number(input.value) }).estado;
+          pintar();
+        });
+        li.append(texto, input);
+        ul.append(li);
+      }
+    }
+    for (const linea of vista.lineas) {
+      const input = ul.querySelector(`input[data-linea="${CSS.escape(linea.lineaId)}"]`);
+      if (!(input instanceof HTMLInputElement)) continue;
+      input.max = String(linea.max);
+      input.disabled = vista.bloquearEdicion;
+      if (document.activeElement !== input && input.value !== String(linea.qty)) input.value = String(linea.qty);
+    }
+  }
+
+  function pintar(): void {
+    const vista = vistaDe(estado, formatearCentavos);
+    porId("dev-estado").textContent = vista.status;
+    porId("dev-total").textContent = vista.total === "" ? "" : `Total ${vista.total}`;
+    const fiado = porId("dev-fiado");
+    fiado.hidden = vista.textoFiado === null;
+    fiado.textContent = vista.textoFiado ?? "";
+    porId("dev-medio-label").hidden = !vista.mostrarMedio;
+    const medio = selectorMedio();
+    medio.disabled = vista.bloquearEdicion;
+    if (vista.medio) medio.value = vista.medio;
+    const motivo = campo("dev-motivo");
+    const actor = campo("dev-actor");
+    motivo.disabled = vista.bloquearEdicion;
+    actor.disabled = vista.bloquearEdicion;
+    escribirSiNoFoco(motivo, vista.motivo);
+    escribirSiNoFoco(actor, vista.actor);
+    const todo = boton("dev-todo");
+    todo.hidden = !vista.mostrarTodo;
+    todo.disabled = vista.bloquearEdicion;
+    boton("dev-cambiar").hidden = !vista.mostrarCambiar;
+    boton("dev-otra").hidden = !vista.mostrarOtra;
+    const enviar = boton("dev-enviar");
+    if (vista.boton) {
+      enviar.hidden = false;
+      enviar.textContent = vista.boton.etiqueta;
+      enviar.disabled = vista.boton.disabled;
+    } else {
+      enviar.hidden = true;
+    }
+    const rapidos = porId("dev-motivos");
+    rapidos.hidden = !vista.mostrarLineas;
+    for (const rapido of rapidos.querySelectorAll("button")) rapido.disabled = vista.bloquearEdicion;
+    pintarLineas(vista);
+    const ocupado = vista.buscando || vista.boton?.etiqueta === "Registrando…";
+    campo("dev-numero").disabled = ocupado;
+    boton("dev-buscar").disabled = ocupado;
+  }
+
+  async function buscar(): Promise<void> {
+    const paso = reducir(estado, { tipo: "buscar", numero: campo("dev-numero").value });
+    estado = paso.estado;
+    pintar();
+    if (paso.efecto.tipo !== "buscar") return;
+    const busqueda = paso.efecto.busqueda;
+    try {
+      const respuesta = await fetch("/api/tickets?numero=" + encodeURIComponent(paso.efecto.numero));
+      const json: unknown = await respuesta.json().catch((error) => {
+        console.warn("[panel/devoluciones] respuesta sin JSON", respuesta.status, error);
+        return null;
+      });
+      estado = reducir(estado, { tipo: "respuestaTicket", status: respuesta.status, json, busqueda }).estado;
+    } catch (error) {
+      console.warn("[panel/devoluciones] busqueda", error);
+      estado = reducir(estado, { tipo: "red", busqueda }).estado;
+    }
+    pintar();
+  }
+
+  async function enviar(): Promise<void> {
+    const vista = vistaDe(estado, formatearCentavos);
+    if (!vista.confirmacion || vista.boton === null || vista.boton.disabled) return;
+    if (!(await confirmar(vista.confirmacion))) return;
+    const paso = reducir(estado, {
+      tipo: "enviar",
+      ahoraIso: new Date().toISOString(),
+      claveNueva: crypto.randomUUID(),
+    });
+    estado = paso.estado;
+    pintar();
+    if (paso.efecto.tipo !== "post") return;
+    try {
+      const respuesta = await fetch("/api/returns", {
+        method: "POST",
+        headers: paso.efecto.pedido.headers,
+        body: paso.efecto.pedido.body,
+      });
+      const json: unknown = await respuesta.json().catch((error) => {
+        console.warn("[panel/devoluciones] respuesta sin JSON", respuesta.status, error);
+        return null;
+      });
+      estado = reducir(estado, { tipo: "respuestaDevolucion", status: respuesta.status, json }).estado;
+    } catch (error) {
+      console.warn("[panel/devoluciones] envio", error);
+      estado = reducir(estado, { tipo: "redEnvio" }).estado;
+    }
+    pintar();
+  }
+
+  const motivos = porId("dev-motivos");
+  for (const texto of MOTIVOS_RAPIDOS) {
+    const rapido = document.createElement("button");
+    rapido.type = "button";
+    rapido.textContent = texto;
+    rapido.addEventListener("click", () => {
+      estado = reducir(estado, { tipo: "motivo", texto }).estado;
+      pintar();
+    });
+    motivos.append(rapido);
+  }
+
+  boton("dev-buscar").addEventListener("click", () => {
+    void buscar();
+  });
+  campo("dev-numero").addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter") return;
+    evento.preventDefault();
+    void buscar();
+  });
+  campo("dev-motivo").addEventListener("input", () => {
+    estado = reducir(estado, { tipo: "motivo", texto: campo("dev-motivo").value }).estado;
+    pintar();
+  });
+  campo("dev-actor").addEventListener("input", () => {
+    estado = reducir(estado, { tipo: "actor", texto: campo("dev-actor").value }).estado;
+    pintar();
+  });
+  selectorMedio().addEventListener("change", () => {
+    const medio = medioElegido();
+    if (!medio) return;
+    estado = reducir(estado, { tipo: "medio", medio }).estado;
+    pintar();
+  });
+  boton("dev-todo").addEventListener("click", () => {
+    estado = reducir(estado, { tipo: "devolverTodo" }).estado;
+    pintar();
+  });
+  boton("dev-cambiar").addEventListener("click", () => {
+    estado = reducir(estado, { tipo: "cambiar" }).estado;
+    pintar();
+  });
+  boton("dev-otra").addEventListener("click", () => {
+    estado = reducir(estado, { tipo: "otra" }).estado;
+    pintar();
+  });
+  boton("dev-enviar").addEventListener("click", () => {
+    void enviar();
+  });
+
+  pintar();
+</script>

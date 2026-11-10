@@ -7,6 +7,7 @@ export type ModuloPanel =
   | "proveedores"
   | "consumos"
   | "fiado"
+  | "devoluciones"
   | "reportes";
 
 export type DestinoPanel = "dashboard" | "ventas" | ModuloPanel | "ventas-pendientes";
@@ -46,6 +47,7 @@ export const EMBER_MODULO: Record<ModuloPanel, Ember> = {
   proveedores: "vino",
   consumos: "ambar",
   fiado: "coral",
+  devoluciones: "ambar",
   reportes: "vino",
 };
 
@@ -66,6 +68,7 @@ const CON_PANTALLA: ReadonlySet<ModuloPanel> = new Set([
   "proveedores",
   "consumos",
   "fiado",
+  "devoluciones",
   "reportes",
 ]);
 
@@ -76,6 +79,7 @@ const ETIQUETAS: Record<ModuloPanel, string> = {
   proveedores: "Proveedores",
   consumos: "Consumos",
   fiado: "Fiado",
+  devoluciones: "Devolución",
   reportes: "Reportes",
 };
 
@@ -104,6 +108,7 @@ export function emberModulo(id: ModuloPanel): Ember {
 export const MODULOS_INDICE: ReadonlyArray<EntradaIndice> = Object.freeze([
   { id: "dashboard", label: "Dashboard", href: "/panel", ember: null, enPills: true, requisito: { tipo: "siempre" } },
   { id: "ventas", label: "Ventas", href: "/venta", ember: null, enPills: true, requisito: { tipo: "siempre" } },
+  { id: "devoluciones", label: "Devolución", href: hrefModulo("devoluciones"), ember: emberModulo("devoluciones"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "caja", label: "Caja", href: hrefModulo("caja"), ember: emberModulo("caja"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "stock", label: "Stock", href: hrefModulo("stock"), ember: emberModulo("stock"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "precios", label: "Precios", href: hrefModulo("precios"), ember: emberModulo("precios"), enPills: true, requisito: { tipo: "siempre" } },
