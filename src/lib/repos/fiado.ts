@@ -25,7 +25,7 @@ import type { Rol } from "../../modules/cash/caja.js";
 import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/credit/fiado.js";
 import { disponibleDesdeLimite, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
 import { aplicarVentaLotes } from "./stock.js";
-import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
+import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso, situacion_mora, type SituacionMora } from "../../modules/credit/saldos.js";
 import { PLAZO_DEFECTO_DIAS, crear_cliente } from "../../modules/credit/clientes.js";
 import { registrarIngresoCobro } from "./caja.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
@@ -52,8 +52,9 @@ export interface VentaACuentaInput {
 }
 
 export type VentaACuentaResultado =
-  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db" }
+  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db"; superaMora: boolean }
   | { ok: false; codigo: "TOPE_SUPERADO"; status: 403; error: string; disponibleCentavos: bigint }
+  | { ok: false; codigo: "MORA"; status: 403; error: string; diasMax: number }
   | { ok: false; codigo: string; status: number; error: string };
 
 function esUuid(v: string): boolean {
@@ -169,13 +170,19 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       if (!ficha) {
         throw new FiadoRechazado({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" });
       }
-      const sumas = await tx
+      // P1-66: saldoCliente abre otra lectura y, si falla, cae a memoria.
+      // El saldo y la mora salen de estas filas, con el cliente ya bloqueado.
+      const filasMov = await tx
         .select({
-          saldo: sql<string>`coalesce(sum(${customerMovements.debeCentavos} - ${customerMovements.haberCentavos}), 0)::text`,
+          debe: customerMovements.debeCentavos,
+          haber: customerMovements.haberCentavos,
+          ocurridoEn: customerMovements.clientOccurredAt,
         })
         .from(customerMovements)
         .where(eq(customerMovements.customerId, input.customerId));
-      const saldoCentavos = BigInt(sumas[0]?.saldo ?? "0");
+      const saldoCentavos = derivar_saldo(
+        filasMov.map((f) => ({ debeCentavos: BigInt(f.debe), haberCentavos: BigInt(f.haber) })),
+      );
       const credito = resolverCredito({
         customerId: input.customerId,
         topeAlmacenado: ficha.tope,
@@ -186,6 +193,11 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         throw new FiadoRechazado({ ok: false, codigo: credito.codigo, status: credito.status, error: credito.codigo });
       }
       const ahora = new Date();
+      const mora = situacion_mora(
+        filasMov.flatMap((f) => (BigInt(f.debe) > 0n ? [{ fecha: new Date(f.ocurridoEn).getTime() }] : [])),
+        saldoCentavos,
+        ahora.getTime(),
+      );
       return aplicarVentaLotes(tx, {
         skus: input.lineas.map((l) => l.sku),
         offline: false,
@@ -202,6 +214,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           ultimoDefinitivo: ultimo > 0 ? { n: ultimo } : null,
           credito: credito.valor,
           ahoraMs: ahora.getTime(),
+          mora,
         });
         if (!r.ok) {
           if (r.codigo === "TOPE_SUPERADO") {
@@ -211,6 +224,15 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
               status: 403,
               error: "TOPE_SUPERADO",
               disponibleCentavos: r.disponibleCentavos,
+            });
+          }
+          if (r.codigo === "MORA") {
+            throw new FiadoRechazado({
+              ok: false,
+              codigo: "MORA",
+              status: 403,
+              error: "MORA",
+              diasMax: r.diasMax,
             });
           }
           throw new FiadoRechazado({ ok: false, codigo: r.codigo, status: r.status, error: r.codigo });
@@ -279,7 +301,13 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
     espejoMemoria(salida.efecto, salida.ticket, salida.n + 1, salida.saleId);
-    return { ok: true, ticketDefinitivo: salida.ticket, totalCentavos: total.toString(), fuente: "db" };
+    return {
+      ok: true,
+      ticketDefinitivo: salida.ticket,
+      totalCentavos: total.toString(),
+      fuente: "db",
+      superaMora: salida.efecto.superaMora,
+    };
   } catch (e) {
     if (e instanceof FiadoRechazado) return e.resultado;
     if (esConflictoUnico(e)) {
@@ -372,6 +400,7 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
 export interface SaldoCliente {
   readonly saldoCentavos: string;
   readonly diasMax: number;
+  readonly mora: SituacionMora;
   readonly fuente: "db" | "memoria";
   readonly existe: boolean;
   readonly sinTope: boolean;
@@ -419,12 +448,11 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
       .from(customerMovements)
       .where(eq(customerMovements.customerId, customerId));
     const saldo = derivar_saldo(filas.map((f) => ({ debeCentavos: BigInt(f.debe), haberCentavos: BigInt(f.haber) })));
-    let diasMax = 0;
-    for (const f of filas) {
-      if (BigInt(f.debe) <= 0n) continue;
-      const d = dias_atraso(new Date(f.ocurridoEn).getTime(), hoyMs);
-      if (d > diasMax) diasMax = d;
-    }
+    const mora = situacion_mora(
+      filas.flatMap((f) => (BigInt(f.debe) > 0n ? [{ fecha: new Date(f.ocurridoEn).getTime() }] : [])),
+      saldo,
+      hoyMs,
+    );
     let preview: Pick<SaldoCliente, "existe" | "sinTope" | "topeCentavos" | "disponibleCentavos"> = PREVIEW_SIN_FICHA;
     if (esUuid(customerId)) {
       const fichas = await db
@@ -435,7 +463,7 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
       const ficha = fichas[0];
       if (ficha) preview = previewDeTope(ficha.tope, saldo);
     }
-    return { saldoCentavos: saldo.toString(), diasMax, fuente: "db", ...preview };
+    return { saldoCentavos: saldo.toString(), diasMax: mora.diasMax, mora, fuente: "db", ...preview };
   } catch (e) {
     creditoVistos.anteFalloPersistencia(e);
     return saldoMemoria(customerId, hoyMs);
@@ -445,14 +473,12 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
 function saldoMemoria(customerId: string, hoyMs: number): SaldoCliente {
   const movs = crearListaMovimientosCredito().listar().filter((m) => m.customer_id === customerId);
   const saldo = derivar_saldo(movs.map((m) => ({ debeCentavos: BigInt(m.debe), haberCentavos: BigInt(m.haber) })));
-  let diasMax = 0;
-  for (const m of movs) {
-    if (BigInt(m.debe) <= 0n) continue;
-    if (typeof m.fecha_ms !== "number") continue;
-    const d = dias_atraso(m.fecha_ms, hoyMs);
-    if (d > diasMax) diasMax = d;
-  }
-  return { saldoCentavos: saldo.toString(), diasMax, fuente: "memoria", ...PREVIEW_SIN_FICHA };
+  const mora = situacion_mora(
+    movs.flatMap((m) => (BigInt(m.debe) > 0n && typeof m.fecha_ms === "number" ? [{ fecha: m.fecha_ms }] : [])),
+    saldo,
+    hoyMs,
+  );
+  return { saldoCentavos: saldo.toString(), diasMax: mora.diasMax, mora, fuente: "memoria", ...PREVIEW_SIN_FICHA };
 }
 
 // BOT-S4 (PRD-BOT-01): clientes con saldo para la cobranza del bot pyme.
