@@ -11,7 +11,6 @@ export type FormatoPesos = (centavos: number) => string;
 
 export const MOTIVOS_RAPIDOS: readonly string[] = ["Producto fallado", "Se arrepintió", "Equivocación"];
 
-// P1-63: este POST no trae la sesión del cajero. El campo queda visible y arranca como la caja del panel.
 export const ACTOR_INICIAL = "panel-web";
 
 const FRASE_FIADO = "Se acredita al fiado. La caja no se mueve.";
@@ -241,13 +240,11 @@ function itemsDe(borrador: BorradorEditable): { product_id: string; qty: number 
   return orden.map((sku) => ({ product_id: sku, qty: cantidades.get(sku) ?? 0 }));
 }
 
-function medioDelCuerpo(borrador: BorradorEditable): Medio {
-  // P1-63: el esquema no acepta "A cuenta". fueAcuenta de la venta decide el crédito. La pantalla no muestra este medio.
+function medioParaPost(borrador: BorradorEditable): Medio {
   if (borrador.reintegro === "fiado") return "Efectivo";
   return borrador.medio;
 }
 
-// P1-63: el 409 no compara el cuerpo. Soltar el congelado al editar evita mostrar la devolución vieja como si fuera la nueva.
 function congelar(borrador: BorradorEditable, clave: string, ocurridoEn: string): EnvioCongelado {
   const pedido: PedidoPost = {
     headers: {
@@ -258,7 +255,7 @@ function congelar(borrador: BorradorEditable, clave: string, ocurridoEn: string)
       sale_id: borrador.ticket.saleId,
       monto_centavos: montoDelBorrador(borrador),
       items: itemsDe(borrador),
-      medio: medioDelCuerpo(borrador),
+      medio: medioParaPost(borrador),
       motivo: borrador.motivo.trim(),
       actor: borrador.actor.trim(),
       client_occurred_at: ocurridoEn,
@@ -487,7 +484,6 @@ function alResponderDevolucion(estado: EstadoInterno, accion: Extract<AccionDevo
     return aEditando(estado, editable);
   }
   if (accion.status === 404) return aVacio(estado, "No encontré esa venta.");
-  // 503 y cualquier otro código conservan la clave. Un reintento no abre una segunda devolución.
   return aReintento(estado, borrador);
 }
 

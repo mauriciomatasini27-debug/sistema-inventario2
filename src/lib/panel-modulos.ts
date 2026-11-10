@@ -108,7 +108,6 @@ export function emberModulo(id: ModuloPanel): Ember {
 export const MODULOS_INDICE: ReadonlyArray<EntradaIndice> = Object.freeze([
   { id: "dashboard", label: "Dashboard", href: "/panel", ember: null, enPills: true, requisito: { tipo: "siempre" } },
   { id: "ventas", label: "Ventas", href: "/venta", ember: null, enPills: true, requisito: { tipo: "siempre" } },
-  // P1-63: al lado de Ventas. El origen devolucion de caja sigue siendo un egreso manual.
   { id: "devoluciones", label: "Devolución", href: hrefModulo("devoluciones"), ember: emberModulo("devoluciones"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "caja", label: "Caja", href: hrefModulo("caja"), ember: emberModulo("caja"), enPills: true, requisito: { tipo: "siempre" } },
   { id: "stock", label: "Stock", href: hrefModulo("stock"), ember: emberModulo("stock"), enPills: true, requisito: { tipo: "siempre" } },
