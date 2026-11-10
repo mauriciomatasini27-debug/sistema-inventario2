@@ -142,7 +142,56 @@ export function alternarReposo(nodo: NodoModo): NodoModo {
   return nodo.avisos.length > 0 ? aplicarEvento(despierto, "avisos") : despierto;
 }
 
+export const CELEBRACION_MS = 1500;
+
+export type CargaAviso = "pendiente" | "lista" | "error";
+
+export interface OpcionesAvisosModo {
+  readonly cargaTerminada: boolean;
+  readonly yaCelebro: boolean;
+}
+
+export interface PasoAvisosModo {
+  readonly nodo: NodoModo;
+  readonly calmarEnMs: number | null;
+}
+
+export function cargaDeAviso(marca: string | undefined, texto: string, oculto: boolean): CargaAviso {
+  if (marca === "error") return "error";
+  if (marca === "si") return "lista";
+  if (!oculto || texto.trim() !== "") return "lista";
+  return "pendiente";
+}
+
+export function incorporarAvisos(
+  nodo: NodoModo,
+  avisos: readonly AvisoModo[],
+  opciones: OpcionesAvisosModo,
+): PasoAvisosModo {
+  if (
+    opciones.cargaTerminada &&
+    !opciones.yaCelebro &&
+    avisos.length === 0 &&
+    (nodo.estado === "calmado" || nodo.estado === "pensando")
+  ) {
+    return {
+      nodo: { ...aplicarEvento(nodo, "celebrar"), avisos: [] },
+      calmarEnMs: CELEBRACION_MS,
+    };
+  }
+  return { nodo: conAvisos(nodo, avisos), calmarEnMs: null };
+}
+
+export function alVencerCelebracion(nodo: NodoModo): NodoModo {
+  if (nodo.estado !== "exito") return nodo;
+  return aplicarEvento(nodo, "calmar");
+}
+
 export function conAvisos(nodo: NodoModo, avisos: readonly AvisoModo[]): NodoModo {
+  // TB-159: sin-avisos en el mismo turno que celebrar pintaría calmado y el éxito no llegaría a verse.
+  if (nodo.estado === "exito" && avisos.length === 0) {
+    return { ...nodo, avisos: [] };
+  }
   const evento: EventoModo = avisos.length > 0 ? "avisos" : "sin-avisos";
   return { ...aplicarEvento(nodo, evento), avisos: [...avisos] };
 }

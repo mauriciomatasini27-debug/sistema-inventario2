@@ -243,14 +243,16 @@ const vars = [
     alternarPanel,
     alternarReposo,
     alTecla,
+    alVencerCelebracion,
     aplicarEvento,
     avisosModo,
+    cargaDeAviso,
     cerrarPanel,
-    conAvisos,
     crearNodoModo,
     esEstadoModo,
     fijarEstado,
     gestoModo,
+    incorporarAvisos,
     leerCuentaOpcional,
     leerStockBajo,
     muestraConfeti,
@@ -300,8 +302,24 @@ const vars = [
       pintarAvisos(nodo.avisos);
     };
 
-    const aplicarAvisos = (stockBajo: number | null, fiadoAtrasado: number | null) => {
-      pintar(conAvisos(nodo, avisosModo({ stockBajo, fiadoAtrasado })));
+    let yaCelebro = false;
+    let calma = 0;
+
+    const aplicarAvisos = (stockBajo: number | null, fiadoAtrasado: number | null, cargaTerminada: boolean) => {
+      const paso = incorporarAvisos(nodo, avisosModo({ stockBajo, fiadoAtrasado }), {
+        cargaTerminada,
+        yaCelebro,
+      });
+      if (paso.calmarEnMs !== null) {
+        yaCelebro = true;
+        window.clearTimeout(calma);
+        calma = window.setTimeout(() => {
+          pintar(alVencerCelebracion(nodo));
+        }, paso.calmarEnMs);
+      } else if (paso.nodo.estado !== "exito") {
+        window.clearTimeout(calma);
+      }
+      pintar(paso.nodo);
     };
 
     pintar(nodo);
@@ -340,7 +358,16 @@ const vars = [
     const avisoStock = document.getElementById("aviso-stock");
     if (avisoStock) {
       const leer = () => {
-        aplicarAvisos(leerStockBajo(avisoStock.textContent, avisoStock.hidden), fiadoActual());
+        const carga = cargaDeAviso(avisoStock.dataset.cargado, avisoStock.textContent ?? "", avisoStock.hidden);
+        if (carga === "pendiente") {
+          if (nodo.estado === "calmado") pintar(aplicarEvento(nodo, "cargar"));
+          return;
+        }
+        if (carga === "error") {
+          aplicarAvisos(0, fiadoActual(), false);
+          return;
+        }
+        aplicarAvisos(leerStockBajo(avisoStock.textContent, avisoStock.hidden), fiadoActual(), true);
       };
       leer();
       new MutationObserver(leer).observe(avisoStock, {
@@ -357,11 +384,11 @@ const vars = [
           const stock = typeof crudo === "object" && crudo !== null && "stock_bajo" in crudo
             ? Number((crudo as { stock_bajo?: unknown }).stock_bajo ?? 0)
             : 0;
-          aplicarAvisos(Number.isFinite(stock) ? stock : 0, fiadoActual());
+          aplicarAvisos(Number.isFinite(stock) ? stock : 0, fiadoActual(), true);
         })
         .catch((error: unknown) => {
           console.warn("[modo] no pudimos leer el resumen", error);
-          aplicarAvisos(0, fiadoActual());
+          aplicarAvisos(0, fiadoActual(), false);
         });
     }
   }

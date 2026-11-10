@@ -104,6 +104,8 @@ const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
       const aviso = document.getElementById("aviso-stock");
       const vacio = document.getElementById("aviso-stock-vacio");
       if (!aviso || !vacio) return;
+      // TB-159: con cero avisos el nodo sigue hidden y vacío. Sin esta marca Modo no ve que la carga terminó.
+      aviso.dataset.cargado = "si";
       const n = Number(crudo.stock_bajo ?? 0);
       aviso.replaceChildren();
       if (!Number.isFinite(n) || n <= 0) {
@@ -188,6 +190,8 @@ const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
       pintarAvisoStock(resumen);
     }).catch(() => {
       renderResumenError();
+      const aviso = document.getElementById("aviso-stock");
+      if (aviso) aviso.dataset.cargado = "error";
     });
   </script>
   {mostrarBienvenida ? (

@@ -5,21 +5,25 @@ import {
   ANTENA_MODO,
   CUERPO_MODO,
   alTecla,
+  alVencerCelebracion,
   alternarPanel,
   alternarReposo,
   aplicarEvento,
   avisosModo,
+  cargaDeAviso,
   conAvisos,
   crearNodoModo,
   etiquetaModo,
   fijarEstado,
   gestoModo,
+  incorporarAvisos,
   leerCuentaOpcional,
   leerStockBajo,
   muestraConfeti,
   reducirModo,
   tamanoModo,
   vistaModo,
+  CELEBRACION_MS,
 } from "../src/lib/modo.js";
 
 const leer = (p: string) => readFileSync(p, "utf8");
@@ -134,6 +138,95 @@ describe("Modo: panel, avisos y reposo", () => {
     expect(reducirModo("calmado", "celebrar")).toBe("exito");
     expect(reducirModo("exito", "calmar")).toBe("calmado");
     expect(etiquetaModo(reducirModo("alerta", "celebrar"))).toBe("Modo, éxito");
+  });
+
+  it("un aviso vacío no apaga un éxito que todavía no se calmó", () => {
+    const exito = aplicarEvento(crearNodoModo(), "celebrar");
+    const sigue = conAvisos(exito, []);
+    expect(sigue.estado).toBe("exito");
+    expect(sigue.ariaLabel).toBe("Modo, éxito");
+  });
+});
+
+describe("Modo: la carga sin avisos se celebra en el cascarón", () => {
+  it("al terminar sin avisos el aria-label es éxito y el vencimiento vuelve a calmado", () => {
+    expect(cargaDeAviso(undefined, "", true)).toBe("pendiente");
+    const pensando = aplicarEvento(crearNodoModo(), "cargar");
+    expect(pensando.ariaLabel).toBe("Modo, pensando");
+    expect(cargaDeAviso("si", "", true)).toBe("lista");
+    const paso = incorporarAvisos(pensando, avisosModo({ stockBajo: 0, fiadoAtrasado: null }), {
+      cargaTerminada: true,
+      yaCelebro: false,
+    });
+    expect(paso.nodo.estado).toBe("exito");
+    expect(paso.nodo.ariaLabel).toBe("Modo, éxito");
+    expect(paso.calmarEnMs).toBe(CELEBRACION_MS);
+    expect(CELEBRACION_MS).toBeGreaterThanOrEqual(1000);
+    expect(CELEBRACION_MS).toBeLessThanOrEqual(2000);
+    const eco = incorporarAvisos(paso.nodo, [], { cargaTerminada: true, yaCelebro: true });
+    expect(eco.nodo.ariaLabel).toBe("Modo, éxito");
+    expect(eco.calmarEnMs).toBeNull();
+    const calmo = alVencerCelebracion(eco.nodo);
+    expect(calmo.estado).toBe("calmado");
+    expect(calmo.ariaLabel).toBe("Modo, calmado");
+    const quieto = vistaModo(paso.nodo.estado, true, false);
+    expect(quieto.ariaLabel).toBe("Modo, éxito");
+    expect(quieto.gesto).toBe("quieto");
+    expect(quieto.confeti).toBe(false);
+  });
+
+  it("un aviso real corta la celebración y el vencimiento no la calma", () => {
+    const exito = incorporarAvisos(aplicarEvento(crearNodoModo(), "cargar"), [], {
+      cargaTerminada: true,
+      yaCelebro: false,
+    }).nodo;
+    const alerta = incorporarAvisos(exito, avisosModo({ stockBajo: 2, fiadoAtrasado: null }), {
+      cargaTerminada: true,
+      yaCelebro: true,
+    });
+    expect(alerta.nodo.estado).toBe("alerta");
+    expect(alerta.nodo.ariaLabel).toBe("Modo, alerta");
+    expect(alerta.calmarEnMs).toBeNull();
+    expect(alVencerCelebracion(alerta.nodo)).toBe(alerta.nodo);
+  });
+
+  it("la carga que falla, el reposo y una segunda vuelta no celebran", () => {
+    const fallo = incorporarAvisos(aplicarEvento(crearNodoModo(), "cargar"), [], {
+      cargaTerminada: false,
+      yaCelebro: false,
+    });
+    expect(fallo.nodo.estado).toBe("calmado");
+    expect(fallo.calmarEnMs).toBeNull();
+    expect(cargaDeAviso("error", "", true)).toBe("error");
+    const quieto = incorporarAvisos(aplicarEvento(crearNodoModo(), "minimizar"), [], {
+      cargaTerminada: true,
+      yaCelebro: false,
+    });
+    expect(quieto.nodo.estado).toBe("minimizado");
+    expect(quieto.calmarEnMs).toBeNull();
+    const otra = incorporarAvisos(crearNodoModo(), [], { cargaTerminada: true, yaCelebro: true });
+    expect(otra.nodo.estado).toBe("calmado");
+    expect(otra.calmarEnMs).toBeNull();
+    const conStock = incorporarAvisos(aplicarEvento(crearNodoModo(), "cargar"), avisosModo({ stockBajo: 1, fiadoAtrasado: null }), {
+      cargaTerminada: true,
+      yaCelebro: false,
+    });
+    expect(conStock.nodo.estado).toBe("alerta");
+    expect(conStock.calmarEnMs).toBeNull();
+  });
+
+  it("el script del componente y el aviso del inicio usan ese paso", () => {
+    const modo = leer("src/components/panel/Modo.astro");
+    const script = modo.slice(modo.indexOf("<script>"));
+    expect(script).toContain("incorporarAvisos(");
+    expect(script).toContain("alVencerCelebracion(");
+    expect(script).toContain("cargaDeAviso(");
+    expect(script).toContain("fiadoActual(), true");
+    expect(script).toContain("fiadoActual(), false");
+    expect(script).not.toContain("conAvisos(");
+    const panel = leer("src/pages/panel.astro");
+    expect(panel).toContain('dataset.cargado = "si"');
+    expect(panel).toContain('dataset.cargado = "error"');
   });
 });
 
