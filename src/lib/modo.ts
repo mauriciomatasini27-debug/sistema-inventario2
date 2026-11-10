@@ -1,5 +1,3 @@
-// TB-159: un solo reductor para el personaje. La barra solo pinta lo que esto devuelve.
-
 export const ESTADOS_MODO = ["calmado", "pensando", "exito", "alerta", "minimizado"] as const;
 
 export type EstadoModo = (typeof ESTADOS_MODO)[number];

@@ -81,7 +81,6 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
   });
 
   it("Inicio pide el resumen una sola vez y Modo no lo repite si el aviso ya está", () => {
-    // TB-159: en Inicio el aviso ya se pinta. Modo observa ese nodo y solo pide el resumen en las otras pantallas.
     const re = /fetch\("\/api\/sales\/resumen"\)/g;
     expect([...leer("src/pages/panel.astro").matchAll(re)].length).toBe(1);
     const modo = leer("src/components/panel/Modo.astro");
