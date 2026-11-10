@@ -70,6 +70,7 @@ describe("panel: cada pill resuelve a una página real", () => {
     const stock = leer("src/pages/panel/stock.astro");
     expect(stock).toContain("data-puede-crear");
     expect(stock).toContain("puedeCrearProductos");
+    expect(leer("src/pages/panel/stock/importar.astro")).toContain("hidden={!puedeCrear}");
   });
 
   it("cada destino de Más existe como página", () => {
