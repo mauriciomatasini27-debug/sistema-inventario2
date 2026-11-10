@@ -180,9 +180,13 @@ const medios = medioSchema.options;
     const busqueda = paso.efecto.busqueda;
     try {
       const respuesta = await fetch("/api/tickets?numero=" + encodeURIComponent(paso.efecto.numero));
-      const json: unknown = await respuesta.json().catch(() => null);
+      const json: unknown = await respuesta.json().catch((error) => {
+        console.warn("[panel/devoluciones] respuesta sin JSON", respuesta.status, error);
+        return null;
+      });
       estado = reducir(estado, { tipo: "respuestaTicket", status: respuesta.status, json, busqueda }).estado;
-    } catch {
+    } catch (error) {
+      console.warn("[panel/devoluciones] busqueda", error);
       estado = reducir(estado, { tipo: "red", busqueda }).estado;
     }
     pintar();
@@ -206,9 +210,13 @@ const medios = medioSchema.options;
         headers: paso.efecto.pedido.headers,
         body: paso.efecto.pedido.body,
       });
-      const json: unknown = await respuesta.json().catch(() => null);
+      const json: unknown = await respuesta.json().catch((error) => {
+        console.warn("[panel/devoluciones] respuesta sin JSON", respuesta.status, error);
+        return null;
+      });
       estado = reducir(estado, { tipo: "respuestaDevolucion", status: respuesta.status, json }).estado;
-    } catch {
+    } catch (error) {
+      console.warn("[panel/devoluciones] envio", error);
       estado = reducir(estado, { tipo: "redEnvio" }).estado;
     }
     pintar();
