@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  BARRA_TABLERO,
+  ENTRADAS_MAS,
   derivarEstado,
   esModuloPanel,
   etiquetaModulo,
   formatearCentavos,
+  gruposMasVisibles,
   hrefModulo,
   montoParaInput,
   pillsPanel,
+  puedeCrearProductos,
+  puedeVerSaldoCaja,
+  rolParaNav,
   textoVentasPendientes,
   tienePantalla,
 } from "../src/lib/panel-modulos.js";
@@ -70,6 +76,57 @@ describe("panel-modulos: navegación de pills", () => {
     expect(etiquetaModulo("stock")).toBe("Stock");
     expect(etiquetaModulo("devoluciones")).toBe("Devolución");
     expect(esModuloPanel("devoluciones")).toBe(true);
+  });
+});
+
+describe("TB-158 barra y Más", () => {
+  it("la barra tiene cinco accesos y Vender queda al centro, destacado", () => {
+    expect(BARRA_TABLERO.map((a) => a.label)).toEqual(["Inicio", "Productos", "Vender", "Fiado", "Más"]);
+    expect(BARRA_TABLERO.map((a) => a.href)).toEqual(["/panel", "/panel/stock", "/venta", "/panel/fiado", null]);
+    expect(BARRA_TABLERO[2]?.destacado).toBe(true);
+    expect(BARRA_TABLERO.some((a) => a.href === "/panel/clientes")).toBe(false);
+  });
+
+  it("Más agrupa Devolución bajo Vender y no inventa /panel/clientes", () => {
+    const dueno = gruposMasVisibles("dueno");
+    const vender = dueno.find((g) => g.id === "vender");
+    expect(vender?.entradas.map((e) => e.href)).toEqual(["/panel/ventas-pendientes", "/panel/devoluciones"]);
+    expect(dueno.flatMap((g) => g.entradas.map((e) => e.href))).not.toContain("/panel/clientes");
+    expect(ENTRADAS_MAS.map((e) => e.href)).not.toContain("/panel/clientes");
+  });
+
+  it("el empleado no ve ventas pendientes ni Gmail; el dueño sí", () => {
+    const hrefs = (rol: "dueno" | "empleado") =>
+      gruposMasVisibles(rol).flatMap((g) => g.entradas.map((e) => e.href));
+    expect(hrefs("dueno")).toEqual(expect.arrayContaining([
+      "/panel/ventas-pendientes",
+      "/panel/integraciones",
+      "/panel/integraciones-remitentes",
+    ]));
+    expect(hrefs("empleado")).not.toEqual(expect.arrayContaining(["/panel/ventas-pendientes"]));
+    expect(hrefs("empleado")).not.toContain("/panel/integraciones");
+    expect(hrefs("empleado")).not.toContain("/panel/integraciones-remitentes");
+    expect(hrefs("empleado")).toContain("/panel/devoluciones");
+    expect(hrefs("empleado")).toContain("/panel/caja");
+  });
+
+  it("el saldo de caja y el alta de producto siguen el permiso, y el dueño los tiene", () => {
+    expect(puedeVerSaldoCaja("dueno", [])).toBe(true);
+    expect(puedeVerSaldoCaja("empleado", [])).toBe(false);
+    expect(puedeVerSaldoCaja("empleado", ["ver_saldos_caja"])).toBe(true);
+    expect(puedeVerSaldoCaja("empleado", ["crear_productos"])).toBe(false);
+    expect(puedeCrearProductos("dueno", [])).toBe(true);
+    expect(puedeCrearProductos("empleado", ["registrar_devoluciones"])).toBe(false);
+    expect(puedeCrearProductos("empleado", ["crear_productos"])).toBe(true);
+  });
+
+  it("sin sesión el nav queda como dueño; sin permiso cierra", () => {
+    expect(rolParaNav({ estado: "legado" }).rol).toBe("dueno");
+    expect(rolParaNav({ estado: "sin_permiso" })).toEqual({ rol: "empleado", permisos: [] });
+    expect(rolParaNav({ estado: "sesion", rol: "empleado", permisos: ["registrar_devoluciones"] })).toEqual({
+      rol: "empleado",
+      permisos: ["registrar_devoluciones"],
+    });
   });
 });
 

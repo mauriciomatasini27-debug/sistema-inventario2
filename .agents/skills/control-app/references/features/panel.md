@@ -5,9 +5,14 @@ Ruta `/panel`. Dueño ve todos los módulos. Empleado ve solo los permitidos.
 ## Qué mirar
 
 - `h1` empieza con `Hola`.
-- Tarjetas de totales y accesos a módulos.
+- Barra de cinco accesos: Inicio, Productos, Vender, Fiado, Más. Vender va al centro.
+- En ~390px solo se ven esos cinco. El resto está en Más, agrupado.
+- En escritorio la misma agrupación está en la columna izquierda.
+- Números del día, aviso de stock bajo si hay, y atajos a Vender, Productos y Fiado.
 - `AsistenteDrawer` aparece si el plan incluye asistente.
 - `upsell` sale del plan activo.
+- Un empleado no ve ventas pendientes ni Gmail en Más.
+- Sin `ver_saldos_caja` no se ve el saldo de caja. Sin `crear_productos` no se ve el alta.
 
 ## Receta
 

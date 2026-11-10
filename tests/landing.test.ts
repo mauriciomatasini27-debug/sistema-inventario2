@@ -231,7 +231,8 @@ describe("landing Gaps B1 (ADR-0022)", () => {
   });
 
   it("E10: panel y venta con noindex", () => {
-    expect(src("pages/panel.astro")).toContain('name="robots" content="noindex, nofollow"');
+    expect(src("components/panel/PanelShell.astro")).toContain('name="robots" content="noindex, nofollow"');
+    expect(src("pages/panel.astro")).toContain("PanelShell");
     expect(src("pages/venta.astro")).toContain('name="robots" content="noindex, nofollow"');
   });
 });

@@ -95,7 +95,7 @@ describe("DS-S12 KpiStrip: marcado de carga", () => {
   const kpi = leer(KPI);
 
   it("la franja arranca ocupada con las dos fuentes pendientes", () => {
-    expect(kpi).toMatch(/<div class="kpis" id="kpi-strip" aria-busy="true" data-pendientes="resumen caja">/);
+    expect(kpi).toMatch(/id="kpi-strip" aria-busy="true" data-pendientes="resumen caja"/);
   });
 
   it("cada número y la segbar arrancan en skeleton oculto al lector, sin '…' ni 'Sin datos'", () => {
@@ -110,7 +110,7 @@ describe("DS-S12 KpiStrip: marcado de carga", () => {
   });
 
   it("los tres KPI tienen índice de stagger 0, 1 y 2", () => {
-    expect([...kpi.matchAll(/<div class="bignum" style="--i: (\d)">/g)].map((m) => m[1])).toEqual(["0", "1", "2"]);
+    expect([...kpi.matchAll(/style="--i: (\d)"/g)].map((m) => m[1])).toEqual(["0", "1", "2"]);
   });
 });
 

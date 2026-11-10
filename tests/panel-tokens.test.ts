@@ -49,9 +49,13 @@ describe("panel: los tokens --color-* existen donde se usan", () => {
     expect(tokens(leer("src/styles/tokens-papel.css"))).toEqual(tokens(theme));
   });
 
-  it("/panel (sin global.css) importa tokens-papel.css y su paleta local apunta a los tokens", () => {
+  it("/panel delega el chrome al shell y el shell apunta la paleta a tokens", () => {
     const panel = leer("src/pages/panel.astro");
-    expect(panel).toContain('import "../styles/tokens-papel.css"');
-    expect(panel).toContain("--muted: var(--tema-texto-suave)");
+    const shell = leer("src/components/panel/PanelShell.astro");
+    expect(panel).toContain("PanelShell");
+    expect(shell).toContain('import "../../styles/global.css"');
+    expect(shell).toContain("--muted: var(--tema-texto-suave)");
+    expect(shell).toContain("var(--color-void)");
+    expect(panel).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

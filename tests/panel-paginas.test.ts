@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pillsPanel, moduloIndice, MODULOS_INDICE } from "../src/lib/panel-modulos.js";
+import { pillsPanel, moduloIndice, MODULOS_INDICE, BARRA_TABLERO, ENTRADAS_MAS } from "../src/lib/panel-modulos.js";
 
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
@@ -47,10 +47,34 @@ function urlsFetch(src: string): string[] {
 }
 
 describe("panel: cada pill resuelve a una página real", () => {
-  it("TopPills arma los pills desde el módulo compartido, sin anclas #", () => {
-    const top = leer("src/components/panel/TopPills.astro");
-    expect(top).toContain("pillsPanel");
+  it("NavTablero arma la barra de cinco desde el módulo compartido, sin anclas #", () => {
+    const nav = leer("src/components/panel/NavTablero.astro");
+    expect(nav).toContain("BARRA_TABLERO");
+    expect(nav).toContain("gruposMasVisibles");
+    for (const label of ["Inicio", "Productos", "Vender", "Fiado", "Más"]) {
+      expect(BARRA_TABLERO.map((a) => a.label)).toContain(label);
+    }
     expect(fuentePanel()).not.toMatch(/href:\s*"#/);
+    expect(nav).not.toContain("/panel/clientes");
+  });
+
+  it("venta usa la misma nav y caja esconde el saldo sin permiso", () => {
+    const venta = leer("src/pages/venta.astro");
+    expect(venta).toContain("<NavTablero");
+    expect(venta).toContain("puedeVerSaldoCaja");
+    expect(venta).toContain("puedeCrearProductos");
+    expect(venta).toContain('id="cobrar"');
+    const caja = leer("src/pages/panel/caja.astro");
+    expect(caja).toContain('id="saldo-caja"');
+    expect(caja).toContain("puedeVerSaldoCaja");
+    const stock = leer("src/pages/panel/stock.astro");
+    expect(stock).toContain("data-puede-crear");
+    expect(stock).toContain("puedeCrearProductos");
+  });
+
+  it("cada destino de Más existe como página", () => {
+    const faltantes = ENTRADAS_MAS.map((e) => e.href).filter((h) => archivoDeHref(h) === null);
+    expect(faltantes).toEqual([]);
   });
 
   it("todo href de pillsPanel existe como archivo de página", () => {

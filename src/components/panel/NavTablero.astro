@@ -1,0 +1,219 @@
+---
+import { resolverRolEfectivo } from "../../lib/control.js";
+import {
+  BARRA_TABLERO,
+  gruposMasVisibles,
+  rolParaNav,
+  type DestinoPanel,
+  type EntradaMas,
+} from "../../lib/panel-modulos.js";
+
+interface Props {
+  activo?: DestinoPanel;
+}
+
+const { activo } = Astro.props;
+const nav = rolParaNav(resolverRolEfectivo(Astro.request));
+const grupos = gruposMasVisibles(nav.rol);
+const ruta = Astro.url.pathname;
+
+function actual(href: string): "page" | undefined {
+  return ruta === href ? "page" : undefined;
+}
+---
+
+<div class="nav-tablero">
+  <div class="nav-columna">
+    <nav class="nav-primarios" aria-label="Accesos principales">
+      {BARRA_TABLERO.filter((a) => a.href).map((a) => (
+        <a
+          href={a.href}
+          class:list={["nav-link", { "sg-flame-cta": a.destacado, "is-active": a.activo === activo }]}
+          aria-current={a.activo === activo ? "page" : undefined}
+        >{a.label}</a>
+      ))}
+    </nav>
+    <nav class="nav-mas nav-mas-cerrado" id="nav-mas" aria-label="Más secciones">
+      {grupos.map((grupo) => (
+        <details class="nav-grupo">
+          <summary>{grupo.label}</summary>
+          <ul>
+            {grupo.entradas.map((entrada: EntradaMas) => (
+              <li>
+                <a
+                  href={entrada.href}
+                  class:list={["nav-link", { "is-active": actual(entrada.href) === "page" }]}
+                  data-modulo-indice={entrada.indice}
+                  aria-current={actual(entrada.href)}
+                >{entrada.label}</a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </nav>
+  </div>
+  <nav class="nav-bar" aria-label="Accesos">
+    {BARRA_TABLERO.map((a) => a.href ? (
+      <a
+        href={a.href}
+        class:list={["nav-link", { "sg-flame-cta": a.destacado, "is-active": a.activo === activo }]}
+        aria-current={a.activo === activo ? "page" : undefined}
+      >{a.label}</a>
+    ) : (
+      <button type="button" data-nav-mas aria-expanded="false" aria-controls="nav-mas">{a.label}</button>
+    ))}
+  </nav>
+</div>
+
+<style is:global>
+  .nav-tablero { min-width: 0; }
+  .nav-primarios { display: none; }
+  .nav-link, .nav-grupo summary, .nav-bar button {
+    min-height: 44px;
+    min-width: 44px;
+    box-sizing: border-box;
+  }
+  .nav-bar {
+    position: fixed;
+    z-index: 40;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    background: var(--tema-superficie);
+    border-top: 1px solid var(--tema-linea);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .nav-bar a, .nav-bar button {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-decoration: none;
+    color: var(--tema-texto-suave);
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 4px;
+    cursor: pointer;
+  }
+  .nav-bar a.is-active { color: var(--tema-texto); font-weight: 700; }
+  .nav-bar a.sg-flame-cta {
+    margin: 6px 4px;
+    border-radius: 999px;
+    background-color: var(--color-star-glow);
+    color: var(--color-star-white);
+  }
+  .nav-primarios, .nav-mas { padding: 8px; }
+  .nav-primarios { flex-direction: column; gap: 4px; }
+  .nav-primarios a, .nav-grupo a, .nav-grupo summary {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: var(--tema-texto);
+    border-radius: 12px;
+  }
+  .nav-primarios a.is-active, .nav-grupo a.is-active { background: var(--tema-linea); font-weight: 700; }
+  .nav-primarios a.sg-flame-cta {
+    background-color: var(--color-star-glow);
+    color: var(--color-star-white);
+    justify-content: center;
+  }
+  .nav-grupo { border-top: 1px solid var(--tema-linea); }
+  .nav-grupo summary { cursor: pointer; font-weight: 700; }
+  .nav-grupo ul { list-style: none; margin: 0; padding: 0 0 8px; }
+  .nav-tablero a:focus-visible, .nav-tablero button:focus-visible, .nav-tablero summary:focus-visible {
+    outline: 2px solid var(--tema-acento);
+    outline-offset: 2px;
+  }
+  .nav-tablero [data-modulo-indice][hidden] { display: none !important; }
+  .tablero-contenido {
+    min-width: 0;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (max-width: 899px) {
+    .nav-mas.nav-mas-cerrado { display: none; }
+    .nav-mas:not(.nav-mas-cerrado) {
+      position: fixed;
+      z-index: 39;
+      left: 0;
+      right: 0;
+      bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+      max-height: min(70vh, 480px);
+      overflow: auto;
+      background: var(--tema-superficie);
+      border-top: 1px solid var(--tema-linea);
+    }
+  }
+  @media (min-width: 900px) {
+    .tablero {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      align-items: start;
+    }
+    .nav-tablero {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      background: var(--tema-superficie);
+      border-right: 1px solid var(--tema-linea);
+    }
+    .nav-primarios { display: flex; }
+    .nav-mas.nav-mas-cerrado { display: block; }
+    .nav-bar { display: none; }
+    .tablero-contenido { padding-bottom: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-tablero, .nav-tablero * {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  @media print {
+    .nav-tablero { display: none !important; }
+  }
+</style>
+
+<script>
+  import { aplicarFiltroIndice } from "../../lib/panel-indice-cliente.js";
+
+  const boton = document.querySelector<HTMLButtonElement>("[data-nav-mas]");
+  const panel = document.getElementById("nav-mas");
+  if (boton && panel) {
+    const columna = window.matchMedia("(min-width: 900px)");
+    const pintar = (abierto: boolean) => {
+      panel.classList.toggle("nav-mas-cerrado", !abierto);
+      boton.setAttribute("aria-expanded", abierto ? "true" : "false");
+    };
+    boton.addEventListener("click", () => {
+      if (columna.matches) return;
+      pintar(panel.classList.contains("nav-mas-cerrado"));
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || columna.matches || panel.classList.contains("nav-mas-cerrado")) return;
+      pintar(false);
+      boton.focus();
+    });
+    const aplicarColumna = () => {
+      if (columna.matches) pintar(true);
+    };
+    columna.addEventListener("change", aplicarColumna);
+    aplicarColumna();
+  }
+
+  fetch("/api/panel/indice")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((crudo) => {
+      aplicarFiltroIndice(crudo, document);
+    })
+    .catch((error) => {
+      console.warn("[panel] no pudimos leer el índice de módulos", error);
+    });
+</script>

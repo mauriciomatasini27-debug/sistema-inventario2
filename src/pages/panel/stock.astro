@@ -3,13 +3,17 @@ import PanelShell from "../../components/panel/PanelShell.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
+import { resolverRolEfectivo } from "../../lib/control.js";
+import { puedeCrearProductos, rolParaNav } from "../../lib/panel-modulos.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 const tenant = tenantDeRequest(Astro.request);
 const tenantId = tenant.ok ? tenant.tenantId : null;
+const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
+const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
-  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} hidden>
+  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
@@ -460,6 +464,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   };
 
   const cargarCatalogoSugerido = () => {
+    if ($("catalogo-sugerido").dataset.puedeCrear === "no") return;
     fetch("/api/stock/plantilla")
       .then((r) => {
         if (r.status === 403) {

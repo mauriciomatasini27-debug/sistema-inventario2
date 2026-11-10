@@ -193,6 +193,141 @@ export function pillsPanel(activo?: DestinoPanel): PillPanel[] {
   });
 }
 
+// TB-158: la barra muestra cinco accesos. El resto vive en grupos de Más.
+// El índice de plan (MODULOS_INDICE / indicePanel) no cambia: DASH-S12 sigue
+// siendo la lista que el cliente filtra. Un id de Más solo lleva `indice`
+// cuando ese id ya está en MODULOS_INDICE, para no ocultar de más si el
+// índice falla (P1-46).
+export type IdBarra = "inicio" | "productos" | "vender" | "fiado" | "mas";
+
+export interface AccesoBarra {
+  readonly id: IdBarra;
+  readonly label: string;
+  readonly href: string | null;
+  readonly activo?: DestinoPanel;
+  readonly destacado?: boolean;
+}
+
+export const BARRA_TABLERO: readonly AccesoBarra[] = Object.freeze([
+  { id: "inicio", label: "Inicio", href: "/panel", activo: "dashboard" },
+  { id: "productos", label: "Productos", href: "/panel/stock", activo: "stock" },
+  { id: "vender", label: "Vender", href: "/venta", activo: "ventas", destacado: true },
+  { id: "fiado", label: "Fiado", href: "/panel/fiado", activo: "fiado" },
+  { id: "mas", label: "Más", href: null },
+]);
+
+export type IdGrupoMas = "vender" | "productos" | "caja" | "compras" | "servicios" | "reportes" | "ajustes";
+
+export interface EntradaMas {
+  readonly id: string;
+  readonly label: string;
+  readonly href: string;
+  readonly grupo: IdGrupoMas;
+  readonly indice?: ModuloIndice;
+  readonly soloDueno?: boolean;
+}
+
+export interface GrupoMas {
+  readonly id: IdGrupoMas;
+  readonly label: string;
+  readonly entradas: readonly EntradaMas[];
+}
+
+const ETIQUETA_GRUPO: Record<IdGrupoMas, string> = {
+  vender: "Vender",
+  productos: "Productos",
+  caja: "Caja",
+  compras: "Compras",
+  servicios: "Servicios",
+  reportes: "Reportes",
+  ajustes: "Ajustes",
+};
+
+const ORDEN_GRUPOS: readonly IdGrupoMas[] = [
+  "vender",
+  "productos",
+  "caja",
+  "compras",
+  "servicios",
+  "reportes",
+  "ajustes",
+];
+
+export const ENTRADAS_MAS: readonly EntradaMas[] = Object.freeze([
+  {
+    id: "ventas-pendientes",
+    label: "Ventas pendientes",
+    href: "/panel/ventas-pendientes",
+    grupo: "vender",
+    indice: "ventas-pendientes",
+    soloDueno: true,
+  },
+  {
+    id: "devoluciones",
+    label: "Devolución",
+    href: "/panel/devoluciones",
+    grupo: "vender",
+    indice: "devoluciones",
+  },
+  { id: "importar", label: "Importar stock", href: "/panel/stock/importar", grupo: "productos", indice: "stock" },
+  { id: "precios", label: "Precios", href: "/panel/precios", grupo: "productos", indice: "precios" },
+  { id: "alertas-umbrales", label: "Umbrales", href: "/panel/alertas/umbrales", grupo: "productos", indice: "alertas" },
+  {
+    id: "alertas-destinatarios",
+    label: "Destinatarios",
+    href: "/panel/alertas/destinatarios",
+    grupo: "productos",
+    indice: "alertas",
+  },
+  { id: "alertas-historial", label: "Historial de alertas", href: "/panel/alertas/historial", grupo: "productos" },
+  { id: "caja", label: "Caja", href: "/panel/caja", grupo: "caja", indice: "caja" },
+  { id: "proveedores", label: "Proveedores", href: "/panel/proveedores", grupo: "compras", indice: "proveedores" },
+  { id: "consumos", label: "Consumos", href: "/panel/consumos", grupo: "servicios", indice: "consumos" },
+  { id: "integraciones", label: "Gmail", href: "/panel/integraciones", grupo: "servicios", soloDueno: true },
+  {
+    id: "integraciones-remitentes",
+    label: "Remitentes",
+    href: "/panel/integraciones-remitentes",
+    grupo: "servicios",
+    soloDueno: true,
+  },
+  { id: "reportes", label: "Reportes", href: "/panel/reportes", grupo: "reportes", indice: "reportes" },
+  { id: "bot", label: "Bot", href: "/panel/bot/config", grupo: "ajustes", indice: "bot" },
+  { id: "bot-historial", label: "Historial del bot", href: "/panel/bot/historial", grupo: "ajustes", indice: "bot" },
+  { id: "plan", label: "Plan", href: "/panel/plan", grupo: "ajustes" },
+  { id: "fiscal", label: "Facturación ARCA", href: "/panel/fiscal/delegacion", grupo: "ajustes" },
+  { id: "pronto", label: "Pronto", href: "/panel/pronto", grupo: "ajustes" },
+]);
+
+export function gruposMasVisibles(rol: "dueno" | "empleado"): GrupoMas[] {
+  const entradas = ENTRADAS_MAS.filter((e) => !e.soloDueno || rol === "dueno");
+  return ORDEN_GRUPOS.map((id) => ({
+    id,
+    label: ETIQUETA_GRUPO[id],
+    entradas: entradas.filter((e) => e.grupo === id),
+  })).filter((g) => g.entradas.length > 0);
+}
+
+export function rolParaNav(efectivo: {
+  estado: "sesion" | "legado" | "sin_permiso";
+  rol?: "dueno" | "empleado";
+  permisos?: readonly string[];
+}): { rol: "dueno" | "empleado"; permisos: readonly string[] } {
+  if (efectivo.estado === "sin_permiso") return { rol: "empleado", permisos: [] };
+  if (efectivo.estado === "sesion" && efectivo.rol === "empleado") {
+    return { rol: "empleado", permisos: efectivo.permisos ?? [] };
+  }
+  return { rol: "dueno", permisos: efectivo.permisos ?? [] };
+}
+
+export function puedeVerSaldoCaja(rol: "dueno" | "empleado", permisos: readonly string[]): boolean {
+  return rol === "dueno" || permisos.includes("ver_saldos_caja");
+}
+
+export function puedeCrearProductos(rol: "dueno" | "empleado", permisos: readonly string[]): boolean {
+  return rol === "dueno" || permisos.includes("crear_productos");
+}
+
 export function setTexto(id: string, texto: string): void {
   const el = document.getElementById(id);
   if (el) el.textContent = texto;

@@ -237,7 +237,7 @@ describe("tema: script del toggle", () => {
 });
 
 describe("tema: cableado en las páginas con tema", () => {
-  for (const f of ["src/components/panel/PanelShell.astro", "src/pages/panel.astro", "src/pages/venta.astro"]) {
+  for (const f of ["src/components/panel/PanelShell.astro", "src/pages/venta.astro"]) {
     it(`${f} pone TemaInicial antes del primer <style y usa TemaToggle`, () => {
       const s = leer(f);
       const inicial = s.indexOf("<TemaInicial");
@@ -261,7 +261,7 @@ describe("tema: hoja de tema.css (DS-S4/S5)", () => {
 
   it("el opaco por reduced-transparency va después del @supports para ganarle", () => {
     expect(tema.indexOf("prefers-reduced-transparency")).toBeGreaterThan(tema.indexOf("@supports"));
-    for (const f of ["src/components/panel/PanelShell.astro", "src/pages/panel.astro"]) {
+    for (const f of ["src/components/panel/PanelShell.astro"]) {
       const s = leer(f);
       expect(s.indexOf("prefers-reduced-transparency"), f).toBeGreaterThan(s.indexOf("@supports"));
     }
@@ -310,7 +310,6 @@ describe("tema: pila del sistema y landing sin glass (ADR-0010)", () => {
 describe("tema: una sola pila tipográfica por token (DS-S6)", () => {
   const paginas = [
     "src/pages/venta.astro",
-    "src/pages/panel.astro",
     "src/pages/admin.astro",
     "src/pages/alta.astro",
     "src/pages/alta/estado.astro",

@@ -35,11 +35,9 @@ test("sin bot ni asistente en el índice oculta Bot y deja el botón del asisten
   await asistenteIncluido(page);
   await page.goto("/panel");
 
-  await expect(page.locator('#bot[data-modulo-indice="bot"]')).toBeHidden();
-  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeHidden();
+  await expect(page.locator('a[href="/panel/bot/config"]')).toBeHidden();
   await expect(page.locator("#asistente-abrir")).toBeVisible();
-  await expect(page.locator('#alertas[data-modulo-indice="alertas"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/alertas/umbrales"]')).toBeVisible();
 });
 
 test("con todo encendido aparecen Bot, Alertas y Asistente", async ({ page }) => {
@@ -47,10 +45,8 @@ test("con todo encendido aparecen Bot, Alertas y Asistente", async ({ page }) =>
   await asistenteIncluido(page);
   await page.goto("/panel");
 
-  await expect(page.locator('#bot[data-modulo-indice="bot"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeVisible();
-  await expect(page.locator('#alertas[data-modulo-indice="alertas"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/bot/config"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/alertas/umbrales"]')).toBeVisible();
   await expect(page.locator("#asistente-abrir")).toBeVisible();
 });
 
@@ -58,17 +54,17 @@ test("en /panel/caja el índice oculta la pill Bot y deja Alertas", async ({ pag
   await indice(page, SIN_BOT_NI_ASISTENTE);
   await page.goto("/panel/caja");
 
-  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeHidden();
-  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="caja"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/bot/config"]')).toBeHidden();
+  await expect(page.locator('a[href="/panel/alertas/umbrales"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/caja"]')).toBeVisible();
 });
 
 test("si el índice falla en /panel/caja las pills siguen visibles", async ({ page }) => {
   await page.route("**/api/panel/indice", (r) => r.fulfill({ status: 500, json: { error: "falló" } }));
   await page.goto("/panel/caja");
 
-  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="alertas"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/bot/config"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/alertas/umbrales"]')).toBeVisible();
 });
 
 test("si el índice falla el panel muestra todos los módulos", async ({ page }) => {
@@ -76,9 +72,8 @@ test("si el índice falla el panel muestra todos los módulos", async ({ page })
   await asistenteIncluido(page);
   await page.goto("/panel");
 
-  await expect(page.locator('#bot[data-modulo-indice="bot"]')).toBeVisible();
-  await expect(page.locator('nav.pills a[data-modulo-indice="bot"]')).toBeVisible();
-  await expect(page.locator('#alertas[data-modulo-indice="alertas"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/bot/config"]')).toBeVisible();
+  await expect(page.locator('a[href="/panel/alertas/umbrales"]')).toBeVisible();
   await expect(page.locator("#asistente-abrir")).toBeVisible();
 });
 
@@ -90,7 +85,9 @@ for (const ancho of [360, 1280] as const) {
       await indice(page, TODO);
       await asistenteIncluido(page);
       await page.goto("/panel");
-      await expect(page.locator('#bot[data-modulo-indice="bot"]')).toBeVisible();
+      if (ancho < 900) await page.getByRole("button", { name: "Más" }).click();
+      await expect(page.locator('a[href="/panel/bot/config"]')).toBeVisible();
+      await expect(page.locator(".nav-bar a, .nav-bar button")).toHaveCount(5);
 
       const desborde = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(desborde).toBeLessThanOrEqual(0);

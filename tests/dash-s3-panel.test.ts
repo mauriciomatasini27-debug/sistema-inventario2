@@ -7,11 +7,11 @@ const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
 
 describe("DASH-S3 tarjeta Bot en el índice de /panel", () => {
-  it("panel.astro compone BotCard junto a los módulos del bot", () => {
-    const panel = leer("src/pages/panel.astro");
-    expect(panel).toContain("BotCard");
-    expect(panel).toContain("<BotCard />");
-    expect(panel).toContain("<BotModulosCard />");
+  it("el bot queda en Más y la tarjeta sigue enlazando la config", () => {
+    const nav = leer("src/lib/panel-modulos.ts");
+    expect(nav).toContain('href: "/panel/bot/config"');
+    expect(leer("src/components/panel/BotCard.astro")).toContain("href={bot.href}");
+    expect(leer("src/pages/panel.astro")).not.toContain("<BotCard />");
   });
 
   it("la tarjeta enlaza a la config del bot y trae los tres datos", () => {
