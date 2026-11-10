@@ -98,6 +98,14 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
           <label>Cliente (fiado)
             <input id="cliente-fiado-q" type="search" autocomplete="off" placeholder="Buscar por nombre" />
           </label>
+          <button type="button" id="cliente-fiado-nuevo">+ Nuevo cliente</button>
+          <div id="cliente-fiado-alta" hidden>
+            <label>Nombre <input id="cliente-fiado-alta-nombre" maxlength="80" autocomplete="name" /></label>
+            <label>Teléfono <input id="cliente-fiado-alta-telefono" maxlength="40" inputmode="tel" autocomplete="tel" /></label>
+            <button type="button" id="cliente-fiado-alta-guardar">Guardar y elegir</button>
+            <button type="button" id="cliente-fiado-alta-cancelar">Cancelar</button>
+            <div id="cliente-fiado-alta-aviso" role="status" hidden></div>
+          </div>
           <ul id="cliente-fiado-opciones" aria-label="Clientes encontrados"></ul>
           <p id="cliente-fiado-elegido"></p>
           <p id="cliente-fiado-preview"></p>
@@ -552,6 +560,105 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         clearTimeout(buscaFiado);
         const texto = $("cliente-fiado-q").value.trim();
         buscaFiado = setTimeout(() => buscarClientesFiado(texto), 250);
+      });
+
+      // P1-64: el aviso no va en #cliente-fiado-opciones. El buscador la vacía en cada tecla.
+      let altaFiadoEnVuelo = false;
+      const avisoAltaFiado = () => $("cliente-fiado-alta-aviso");
+      const limpiarAvisoAltaFiado = () => {
+        const aviso = avisoAltaFiado();
+        aviso.hidden = true;
+        aviso.textContent = "";
+      };
+      const pintarAvisoAltaFiado = (texto) => {
+        const aviso = avisoAltaFiado();
+        aviso.hidden = false;
+        aviso.textContent = texto;
+      };
+      const cerrarAltaFiado = () => {
+        $("cliente-fiado-alta").hidden = true;
+        $("cliente-fiado-alta-nombre").value = "";
+        $("cliente-fiado-alta-telefono").value = "";
+        limpiarAvisoAltaFiado();
+      };
+      const pintarOfertaDuplicado = (existente) => {
+        const aviso = avisoAltaFiado();
+        aviso.hidden = false;
+        aviso.textContent = "";
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.textContent = "Usar " + existente.nombre;
+        boton.addEventListener("click", () => {
+          clearTimeout(buscaFiado);
+          $("cliente-fiado-q").value = "";
+          cerrarAltaFiado();
+          elegirClienteFiado({ customer_id: existente.customer_id, nombre: existente.nombre });
+        });
+        aviso.appendChild(boton);
+      };
+      const altaClienteFiado = async () => {
+        if (altaFiadoEnVuelo) return;
+        if (!navigator.onLine) {
+          estado("La venta a cuenta necesita conexión.");
+          return;
+        }
+        altaFiadoEnVuelo = true;
+        $("cliente-fiado-alta-guardar").disabled = true;
+        limpiarAvisoAltaFiado();
+        try {
+          const r = await fetch("/api/credit/customers", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              nombre: $("cliente-fiado-alta-nombre").value,
+              telefono: $("cliente-fiado-alta-telefono").value,
+            }),
+          });
+          const j = await r.json().catch((error) => {
+            console.warn("[venta] alta cliente sin JSON", r.status, error);
+            return {};
+          });
+          if (r.status === 201) {
+            clearTimeout(buscaFiado);
+            $("cliente-fiado-q").value = "";
+            cerrarAltaFiado();
+            elegirClienteFiado({ customer_id: j.customer_id, nombre: j.nombre });
+            return;
+          }
+          if (r.status === 409 && j.codigo === "DUPLICADO" && j.existente) {
+            pintarOfertaDuplicado(j.existente);
+            return;
+          }
+          if (r.status === 503) {
+            pintarAvisoAltaFiado("La venta a cuenta necesita la ficha en el servidor.");
+            return;
+          }
+          if (r.status === 422) {
+            pintarAvisoAltaFiado(typeof j.error === "string" ? j.error : "Revisá nombre y teléfono.");
+            return;
+          }
+          pintarAvisoAltaFiado(typeof j.error === "string" ? j.error : "No se pudo crear el cliente.");
+        } catch (error) {
+          console.warn("[venta] alta cliente", error);
+          pintarAvisoAltaFiado("No se pudo crear el cliente.");
+        } finally {
+          altaFiadoEnVuelo = false;
+          $("cliente-fiado-alta-guardar").disabled = false;
+        }
+      };
+      $("cliente-fiado-nuevo").addEventListener("click", () => {
+        $("cliente-fiado-alta").hidden = false;
+        limpiarAvisoAltaFiado();
+        if (!$("cliente-fiado-alta-nombre").value) {
+          $("cliente-fiado-alta-nombre").value = $("cliente-fiado-q").value.trim();
+        }
+        $("cliente-fiado-alta-nombre").focus();
+      });
+      $("cliente-fiado-alta-cancelar").addEventListener("click", () => {
+        cerrarAltaFiado();
+      });
+      $("cliente-fiado-alta-guardar").addEventListener("click", () => {
+        void altaClienteFiado();
       });
 
       const armarVuelo = (medioCobro, offline) => {

@@ -11,7 +11,8 @@ import {
 } from "../../db/schema.js";
 import { agregarDescuentoTicket, agregarLineaTicket, agregarStockMoveMemoria, guardarTicketFiado } from "../ticket-memoria.js";
 import { ticketDiscounts } from "../../db/schema-tickets.js";
-import { dbVivaTenant, intentarLeer } from "../server-db.js";
+import { BaseNoDisponible, dbVivaTenant, intentarLeer } from "../server-db.js";
+import { tenantActual } from "../tenant-mode.js";
 import {
   crearAlmacenCreditoVistos,
   crearAlmacenStock,
@@ -25,7 +26,7 @@ import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/cre
 import { disponibleDesdeLimite, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
 import { aplicarVentaLotes } from "./stock.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso } from "../../modules/credit/saldos.js";
-import { PLAZO_DEFECTO_DIAS } from "../../modules/credit/clientes.js";
+import { PLAZO_DEFECTO_DIAS, crear_cliente } from "../../modules/credit/clientes.js";
 import { registrarIngresoCobro } from "./caja.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "./lotes.js";
 
@@ -613,6 +614,84 @@ function clientesListaMemoria(): ClienteLista[] {
     });
   }
   return clientes.sort((a, b) => (a.customerId < b.customerId ? -1 : a.customerId > b.customerId ? 1 : 0));
+}
+
+export interface AltaClienteRapidaInput {
+  readonly nombre: string;
+  readonly telefono: string;
+}
+
+export type AltaClienteRapidaResultado =
+  | { readonly ok: true; readonly customerId: string; readonly nombre: string }
+  | { readonly ok: false; readonly codigo: "FICHA_INVALIDA"; readonly status: 422; readonly error: string }
+  | {
+      readonly ok: false;
+      readonly codigo: "DUPLICADO";
+      readonly status: 409;
+      readonly error: string;
+      readonly existente: { readonly customerId: string; readonly nombre: string };
+    };
+
+interface FichaAltaVista {
+  readonly id: string;
+  readonly nombre: string;
+  readonly telefono: string | null;
+  readonly dni: string | null;
+}
+
+// P1-64: el duplicado es un OR de nombre y teléfono, y no hay UNIQUE.
+// El lock es por comercio para que el segundo alta vea la fila del primero.
+// cliente.id es un uuid de dominio. customers.id lo pone la base.
+export async function altaClienteRapida(input: AltaClienteRapidaInput): Promise<AltaClienteRapidaResultado> {
+  const db = dbVivaTenant();
+  if (!db) throw new BaseNoDisponible();
+  const clave = "p1-64-alta-cliente:" + (tenantActual() ?? "");
+  return await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${clave}))`);
+    const filas = await tx
+      .select({
+        id: customers.id,
+        nombre: customers.nombre,
+        telefono: customers.telefono,
+        dni: customers.dni,
+      })
+      .from(customers)
+      .orderBy(asc(customers.nombre), asc(customers.id));
+    const fichas: FichaAltaVista[] = filas.map((f) => ({
+      id: String(f.id),
+      nombre: f.nombre,
+      telefono: f.telefono,
+      dni: f.dni,
+    }));
+    const decidido = crear_cliente({ nombre: input.nombre, telefono: input.telefono }, fichas);
+    if (!decidido.ok && decidido.codigo === "DUPLICADO") {
+      return {
+        ok: false,
+        codigo: "DUPLICADO",
+        status: 409,
+        error: decidido.error,
+        existente: { customerId: decidido.existente.id, nombre: decidido.existente.nombre },
+      };
+    }
+    if (!decidido.ok && decidido.codigo === "FICHA_INVALIDA") {
+      return { ok: false, codigo: "FICHA_INVALIDA", status: 422, error: decidido.error };
+    }
+    if (!decidido.ok) throw new Error("alta rapida no pide tope");
+    const insertadas = await tx
+      .insert(customers)
+      .values({
+        nombre: decidido.cliente.nombre,
+        telefono: decidido.cliente.telefono,
+        dni: decidido.cliente.dni,
+        notas: decidido.cliente.notas,
+        topeCentavos: decidido.cliente.topeCentavos,
+        plazoDias: decidido.cliente.plazoDias,
+      })
+      .returning({ id: customers.id });
+    const id = insertadas[0]?.id;
+    if (!id) throw new Error("customers.insert sin returning");
+    return { ok: true, customerId: String(id), nombre: decidido.cliente.nombre };
+  });
 }
 
 export { UMBRAL_MORA_DIAS };
