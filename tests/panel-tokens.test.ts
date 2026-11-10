@@ -58,4 +58,15 @@ describe("panel: los tokens --color-* existen donde se usan", () => {
     expect(shell).toContain("var(--color-void)");
     expect(panel).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
+
+  it("el tablero usa void, charcoal y mid, sin tokens --mo-", () => {
+    const nav = leer("src/components/panel/NavTablero.astro");
+    const shell = leer("src/components/panel/PanelShell.astro");
+    for (const token of ["var(--color-void)", "var(--color-charcoal)", "var(--color-mid)"]) {
+      expect(nav, token).toContain(token);
+      expect(shell, token).toContain(token);
+    }
+    expect(nav).not.toContain("--mo-");
+    expect(shell).not.toContain("--mo-");
+  });
 });
