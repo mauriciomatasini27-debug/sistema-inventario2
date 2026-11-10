@@ -83,6 +83,12 @@ describe("pesosParaInput", () => {
     expect(pesosParaInput(null)).toBe("");
     expect(pesosParaInput("no-es-un-numero")).toBe("");
   });
+
+  it("la ida y vuelta de la caja conserva los centavos", () => {
+    for (const n of [999, 500, 15_000, 850_000, 999_999_999]) {
+      expect(parsearPesos(pesosParaInput(n))).toEqual({ ok: true, centavos: n });
+    }
+  });
 });
 
 describe("mensajePesos", () => {
