@@ -44,12 +44,14 @@ test("catálogo descargado completa el precio y sigue disponible offline", async
   await page.goto("/venta");
   await expect(page.locator("#catalogo-estado")).toContainText("Catálogo del", { timeout: 10_000 });
   await page.fill("#sku", "demo-sku-1");
-  await expect(page.locator("#precio")).toHaveValue("999");
+  await expect(page.locator("#precio")).toHaveValue("9,99");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito .monto")).toHaveText("$9.99");
 
   await context.setOffline(true);
   await page.fill("#sku", "demo-sku-2");
   await page.fill("#sku", "demo-sku-1");
-  await expect(page.locator("#precio")).toHaveValue("999");
+  await expect(page.locator("#precio")).toHaveValue("9,99");
   await expect(page.locator("#catalogo-estado")).toContainText("Catálogo del");
 });
 
@@ -81,9 +83,10 @@ test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, 
   await expect(page.locator("h1")).toHaveText("Venta mostrador");
   await page.fill("#sku", "demo-sku-2");
   await page.fill("#qty", "2");
-  await page.fill("#precio", "500");
+  await page.fill("#precio", "5,00");
   await page.press("#sku", "Enter");
   await expect(page.locator("#lista-carrito")).toContainText("demo-sku-2", { timeout: 10_000 });
+  await expect(page.locator("#lista-carrito .monto")).toHaveText("$10.00");
   await page.click("#cobrar");
   await expect(page.locator("#estado")).toContainText("provisorio", { timeout: 10_000 });
 });
