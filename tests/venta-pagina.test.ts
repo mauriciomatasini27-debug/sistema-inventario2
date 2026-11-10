@@ -69,4 +69,20 @@ describe("venta.astro: aviso de mora sin frenar Cobrar", () => {
     expect(s).toMatch(/j\.codigo === "MORA"[\s\S]{0,180}cobroEnVuelo = null/);
     expect(s).toMatch(/j\.codigo === "MORA"[\s\S]{0,220}estado\(j\.error/);
   });
+
+  it("CONFIRMACION_EXCESO pregunta antes de soltar el vuelo y reintenta la misma clave", () => {
+    const s = src();
+    const marca = s.indexOf('j.codigo === "CONFIRMACION_EXCESO"');
+    const tope = s.indexOf('j.codigo === "TOPE_SUPERADO"');
+    expect(marca).toBeGreaterThan(0);
+    expect(tope).toBeGreaterThan(marca);
+    const bloque = s.slice(marca, tope);
+    const pregunta = bloque.indexOf("confirmar(");
+    const suelta = bloque.indexOf("cobroEnVuelo = null");
+    expect(pregunta).toBeGreaterThan(-1);
+    expect(suelta).toBeGreaterThan(pregunta);
+    expect(bloque).toContain("confirmado_exceso: true");
+    expect(s).toContain('import { confirmar } from "../lib/confirmar-dom.js"');
+    expect(s).toContain("<ConfirmDialog");
+  });
 });

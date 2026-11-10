@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compensar, verificar_movimientos, type Sku } from "../src/modules/inventario/inventario.js";
 import { conteo_por_sector, normalizarSector } from "../src/modules/inventario/sectores.js";
 import { UMBRAL_MORA_DIAS, esta_en_mora, estado_mora_por_dias, texto_mora, vence_el, MS_POR_DIA } from "../src/modules/credit/saldos.js";
-import { venta_a_cuenta } from "../src/modules/credit/fiado.js";
+import { confirmacionDesdeCable, sinConfirmarExceso, venta_a_cuenta } from "../src/modules/credit/fiado.js";
 import { resolverCredito } from "../src/modules/credit/limite.js";
 import { lotesDesdeStock } from "../src/modules/inventario/inventario.js";
 
@@ -104,12 +104,25 @@ describe("Nivel 1 mora día 15", () => {
         credito: credito.valor,
         ahoraMs: HOY,
         mora: { estado: "al_dia" as const, diasMax: 0 },
+        confirmacion: sinConfirmarExceso(),
       };
     };
     const mora = { estado: "en_mora" as const, diasMax: 15 };
     const emp = venta_a_cuenta({ ...armar("mora-1", "empleado"), mora });
     expect(emp).toMatchObject({ ok: false, codigo: "MORA", status: 403, diasMax: 15 });
-    const due = venta_a_cuenta({ ...armar("mora-2", "dueno"), mora });
+    const bloqueado = venta_a_cuenta({ ...armar("mora-2b", "dueno"), mora });
+    expect(bloqueado).toMatchObject({
+      ok: false,
+      codigo: "CONFIRMACION_EXCESO",
+      status: 403,
+      superaMora: true,
+      superaTope: false,
+    });
+    const due = venta_a_cuenta({
+      ...armar("mora-2", "dueno"),
+      mora,
+      confirmacion: confirmacionDesdeCable(true),
+    });
     expect(due.ok).toBe(true);
     if (!due.ok) return;
     expect(due.efecto.superaMora).toBe(true);

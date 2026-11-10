@@ -6,6 +6,7 @@ import { GET as getTickets } from "../src/pages/api/tickets.js";
 import { POST as postCash } from "../src/pages/api/cash/movements.js";
 import { GET as getBalance } from "../src/pages/api/cash/balance.js";
 import { ventaACuenta, cobroFiado } from "../src/lib/repos/fiado.js";
+import { sinConfirmarExceso } from "../src/modules/credit/fiado.js";
 import { guardarTicketFiado } from "../src/lib/ticket-memoria.js";
 import { buscarVentaPorId, registrarDevolucion } from "../src/lib/repos/ventas.js";
 
@@ -95,6 +96,7 @@ describe("tickets historial + caja (TV8/TV6/C6)", () => {
       deviceCode: "caja-01",
       seqLocal: 1,
       rol: "dueno",
+      confirmacion: sinConfirmarExceso(),
     });
     expect(r).toMatchObject({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404 });
     expect(store.stock.get("demo-sku-1")).toBe(10);

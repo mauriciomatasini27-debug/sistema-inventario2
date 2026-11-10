@@ -22,7 +22,13 @@ import {
 import type { Medio } from "../validation.js";
 import type { Sku } from "../../modules/inventario/inventario.js";
 import type { Rol } from "../../modules/cash/caja.js";
-import { cobro_fiado, venta_a_cuenta, type EfectoFiado } from "../../modules/credit/fiado.js";
+import {
+  CODIGO_CONFIRMACION_EXCESO,
+  cobro_fiado,
+  venta_a_cuenta,
+  type ConfirmacionExceso,
+  type EfectoFiado,
+} from "../../modules/credit/fiado.js";
 import { disponibleDesdeLimite, limiteDesdeFicha, resolverCredito } from "../../modules/credit/limite.js";
 import { aplicarVentaLotes } from "./stock.js";
 import { UMBRAL_MORA_DIAS, derivar_saldo, dias_atraso, situacion_mora, type SituacionMora } from "../../modules/credit/saldos.js";
@@ -49,12 +55,23 @@ export interface VentaACuentaInput {
   readonly deviceCode: string;
   readonly seqLocal: number;
   readonly rol: Rol;
+  readonly confirmacion: ConfirmacionExceso;
 }
 
 export type VentaACuentaResultado =
-  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db"; superaMora: boolean }
+  | { ok: true; ticketDefinitivo: string | null; totalCentavos: string; fuente: "db"; superaMora: boolean; superaTope: boolean }
   | { ok: false; codigo: "TOPE_SUPERADO"; status: 403; error: string; disponibleCentavos: bigint }
   | { ok: false; codigo: "MORA"; status: 403; error: string; diasMax: number }
+  | {
+      ok: false;
+      codigo: typeof CODIGO_CONFIRMACION_EXCESO;
+      status: 403;
+      error: string;
+      superaTope: boolean;
+      superaMora: boolean;
+      disponibleCentavos: bigint | null;
+      diasMax: number | null;
+    }
   | { ok: false; codigo: string; status: number; error: string };
 
 function esUuid(v: string): boolean {
@@ -215,8 +232,22 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           credito: credito.valor,
           ahoraMs: ahora.getTime(),
           mora,
+          confirmacion: input.confirmacion,
         });
         if (!r.ok) {
+          if (r.codigo === CODIGO_CONFIRMACION_EXCESO) {
+            // P1-67: el throw sale antes del insert. La tx no deja la clave.
+            throw new FiadoRechazado({
+              ok: false,
+              codigo: CODIGO_CONFIRMACION_EXCESO,
+              status: r.status,
+              error: CODIGO_CONFIRMACION_EXCESO,
+              superaTope: r.superaTope,
+              superaMora: r.superaMora,
+              disponibleCentavos: r.disponibleCentavos,
+              diasMax: r.diasMax,
+            });
+          }
           if (r.codigo === "TOPE_SUPERADO") {
             throw new FiadoRechazado({
               ok: false,
@@ -307,6 +338,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       totalCentavos: total.toString(),
       fuente: "db",
       superaMora: salida.efecto.superaMora,
+      superaTope: salida.efecto.superaTope,
     };
   } catch (e) {
     if (e instanceof FiadoRechazado) return e.resultado;

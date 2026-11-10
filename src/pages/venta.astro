@@ -10,6 +10,7 @@ import PwaRegistro from "../components/ui/PwaRegistro.astro";
 import { pesosParaInput } from "../lib/pesos.js";
 import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
+import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);
@@ -163,6 +164,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
+      import { confirmar } from "../lib/confirmar-dom.js";
       import {
         efectoDeTecla,
         resolverLectura,
@@ -752,15 +754,35 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
               return;
             }
             try {
-              const r = await fetch("/api/credit/sales-on-account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Idempotency-Key": vuelo.op_id },
-                body: JSON.stringify(vuelo.payload),
-              });
-              const j = await r.json().catch((error) => {
-                console.warn("[venta] fiado sin JSON", r.status, error);
-                return {};
-              });
+              const pedirFiado = async () => {
+                const respuesta = await fetch("/api/credit/sales-on-account", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Idempotency-Key": vuelo.op_id },
+                  body: JSON.stringify(vuelo.payload),
+                });
+                const cuerpo = await respuesta.json().catch((error) => {
+                  console.warn("[venta] fiado sin JSON", respuesta.status, error);
+                  return {};
+                });
+                return { respuesta, cuerpo };
+              };
+              let { respuesta: r, cuerpo: j } = await pedirFiado();
+              // P1-67: este 403 no suelta el vuelo. Cancelar sí. Aceptar reintenta la misma clave una vez.
+              if (r.status === 403 && j.codigo === "CONFIRMACION_EXCESO") {
+                const c = j.confirmacion && typeof j.confirmacion === "object" ? j.confirmacion : {};
+                const acepta = await confirmar({
+                  titulo: typeof c.titulo === "string" ? c.titulo : "",
+                  mensaje: typeof c.mensaje === "string" ? c.mensaje : (typeof j.error === "string" ? j.error : ""),
+                  accion: typeof c.accion === "string" ? c.accion : "",
+                });
+                if (!acepta) {
+                  cobroEnVuelo = null;
+                  estado("Venta a cuenta cancelada.");
+                  return;
+                }
+                vuelo.payload = { ...vuelo.payload, confirmado_exceso: true };
+                ({ respuesta: r, cuerpo: j } = await pedirFiado());
+              }
               if (r.ok || r.status === 409) {
                 const ticket = j.ticket_definitivo || j.original?.ticket_definitivo || vuelo.ticketBase.provisorio;
                 publicarTicket({
@@ -1045,5 +1067,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       refrescarIndicador();
       if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) balance();
     </script>
+    <ConfirmDialog />
   </body>
 </html>

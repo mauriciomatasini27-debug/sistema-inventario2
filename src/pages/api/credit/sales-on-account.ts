@@ -5,6 +5,11 @@ import { rolParaFiado, resolverRolEfectivo } from "../../../lib/control.js";
 import { ventaACuenta } from "../../../lib/repos/fiado.js";
 import { formatearCentavos } from "../../../lib/panel-modulos.js";
 import { UMBRAL_MORA_DIAS, texto_bloqueo_mora } from "../../../modules/credit/saldos.js";
+import {
+  CODIGO_CONFIRMACION_EXCESO,
+  confirmacionDesdeCable,
+  dialogo_confirmacion_exceso,
+} from "../../../modules/credit/fiado.js";
 
 export const prerender = false;
 
@@ -31,6 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
       deviceCode: b.device_code,
       seqLocal: b.seq_local,
       rol: acceso.rol,
+      confirmacion: confirmacionDesdeCable(b.confirmado_exceso),
     });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
@@ -44,6 +50,26 @@ export const POST: APIRoute = async ({ request }) => {
         disponible_centavos: r.disponibleCentavos.toString(),
       },
       { status: 403 },
+    );
+  }
+  if (!r.ok && r.codigo === CODIGO_CONFIRMACION_EXCESO && "superaTope" in r) {
+    const dialogo = dialogo_confirmacion_exceso({
+      superaTope: r.superaTope,
+      superaMora: r.superaMora,
+      disponibleTexto: r.disponibleCentavos === null ? null : formatearCentavos(r.disponibleCentavos),
+      diasMax: r.diasMax,
+    });
+    return Response.json(
+      {
+        error: dialogo.mensaje,
+        codigo: CODIGO_CONFIRMACION_EXCESO,
+        confirmacion: dialogo,
+        supera_tope: r.superaTope,
+        supera_mora: r.superaMora,
+        disponible_centavos: r.disponibleCentavos === null ? null : r.disponibleCentavos.toString(),
+        dias_max: r.diasMax,
+      },
+      { status: r.status },
     );
   }
   if (!r.ok && r.codigo === "MORA" && "diasMax" in r) {
@@ -64,6 +90,7 @@ export const POST: APIRoute = async ({ request }) => {
       total_centavos: r.totalCentavos,
       fuente: "db",
       supera_mora: r.superaMora,
+      supera_tope: r.superaTope,
     },
     { status: 201 },
   );

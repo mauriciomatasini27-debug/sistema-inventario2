@@ -5,6 +5,7 @@ import { products, sales, stockMovements, ticketLines, tickets } from "../src/db
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { altaClienteRapida, listarClientes, ventaACuenta } from "../src/lib/repos/fiado.js";
+import { sinConfirmarExceso } from "../src/modules/credit/fiado.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -239,6 +240,7 @@ describe.skipIf(!hayPG)("P1-64 alta rápida de cliente", () => {
         deviceCode: "p164-caja",
         seqLocal: 1,
         rol: "empleado",
+        confirmacion: sinConfirmarExceso(),
       }),
     );
     expect(venta).toMatchObject({ ok: true });

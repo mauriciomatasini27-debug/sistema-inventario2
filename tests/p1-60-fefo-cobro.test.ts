@@ -14,6 +14,7 @@ import {
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 import { ventaACuenta } from "../src/lib/repos/fiado.js";
+import { sinConfirmarExceso } from "../src/modules/credit/fiado.js";
 import { aplicarVentaLotes, type MovimientoStockNuevo } from "../src/lib/repos/stock.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { resetStore, store } from "../src/lib/store.js";
@@ -289,6 +290,7 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
         deviceCode: `fefo-${sufijo}`.slice(0, 32),
         seqLocal: 4,
         rol: "empleado",
+        confirmacion: sinConfirmarExceso(),
       });
       const moves = store.stockMoves.filter((m) => m.idemKey === key);
       return { r, moves };
