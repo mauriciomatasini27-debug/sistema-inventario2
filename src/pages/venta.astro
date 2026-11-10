@@ -12,6 +12,7 @@ import { VENTA_WORST, modoHarness } from "../lib/venta-worst.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import NavTablero from "../components/panel/NavTablero.astro";
+import Modo from "../components/panel/Modo.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
 import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
@@ -51,6 +52,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         .tablero-contenido { padding-bottom: 16px; }
       }
       .barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+      /* TB-159: el blur de la barra recortaría el panel. El mostrador no lo necesita. */
+      .barra.vidrio-barra { overflow: visible; backdrop-filter: none; -webkit-backdrop-filter: none; }
       .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
       /* P1-29: el texto ámbar no entra al lado del título en 320px. El chip
          baja de línea y --estado-* ya cambia con el tema. */
@@ -61,8 +64,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #indicador-sync[data-tono="azul"] { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
       #indicador-sync[data-tono="rojo"] { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
-      input, select, button:not(.tema-toggle):not([data-nav-mas]) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
-      button:not(.tema-toggle):not([data-nav-mas]) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      input, select, button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
+      button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
       #camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
@@ -74,7 +77,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       ul { list-style: none; margin: 0; padding-inline: 0; }
       li { padding-block: 4px; }
       :root[data-tema="oscuro"] input, :root[data-tema="oscuro"] select { background: var(--color-charcoal); color: var(--color-star-white); border: 1px solid var(--color-ash); }
-      :root[data-tema="oscuro"] button:not(.tema-toggle):not([data-nav-mas]) { background: var(--color-star-white); color: var(--color-void); }
+      :root[data-tema="oscuro"] button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--color-star-white); color: var(--color-void); }
       #lista-carrito .fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
       #lista-carrito button { width: auto; flex: 0 0 auto; margin-block: 0; padding-inline: 12px; }
       #carrito-total, #ticket-total { font-variant-numeric: tabular-nums; font-weight: 700; }
@@ -94,6 +97,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       <div class="tablero-contenido">
     <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
+      <Modo />
       <TemaToggle />
       <span id="indicador-sync" role="status"></span>
     </header>

@@ -80,9 +80,15 @@ describe("panel compuesto: componentes conservan ids, enlaces y textos", () => {
     for (const t of TEXTO_CARGA) expect(src, t).toContain(t);
   });
 
-  it("el resumen se pide una sola vez", () => {
-    const veces = [...fuentePanel().matchAll(/fetch\("\/api\/sales\/resumen"\)/g)].length;
-    expect(veces).toBe(1);
+  it("Inicio pide el resumen una sola vez y Modo no lo repite si el aviso ya está", () => {
+    const re = /fetch\("\/api\/sales\/resumen"\)/g;
+    expect([...leer("src/pages/panel.astro").matchAll(re)].length).toBe(1);
+    const modo = leer("src/components/panel/Modo.astro");
+    expect([...modo.matchAll(re)].length).toBe(1);
+    const guarda = modo.indexOf('getElementById("aviso-stock")');
+    const pedido = modo.indexOf('fetch("/api/sales/resumen")');
+    expect(modo.slice(guarda, pedido)).toContain("else");
+    expect([...fuentePanel().matchAll(re)].length).toBe(2);
   });
 
   it("el panel aplica la regla global de prefers-reduced-motion", () => {
