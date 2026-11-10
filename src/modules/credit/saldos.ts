@@ -164,6 +164,29 @@ export function esta_en_mora(
   return { enMora, diasMax, estado: enMora ? "en_mora" : "al_dia" };
 }
 
+export interface SituacionMora {
+  readonly estado: EstadoMora;
+  readonly diasMax: number;
+}
+
+// P1-66: la edad sola no alcanza. Saldo en cero o a favor queda al día
+// aunque quede un debe viejo, la misma cláusula que el balance.
+export function situacion_mora(
+  deudas: ReadonlyArray<Pick<DeudaPendiente, "fecha">>,
+  saldoCentavos: bigint,
+  hoyMs: number,
+): SituacionMora {
+  const edad = esta_en_mora(deudas, hoyMs);
+  if (edad.estado === "en_mora" && saldoCentavos > 0n) {
+    return { estado: "en_mora", diasMax: edad.diasMax };
+  }
+  return { estado: "al_dia", diasMax: edad.diasMax };
+}
+
+export function texto_bloqueo_mora(diasMax: number): string {
+  return `Este cliente está en mora: ${diasMax} días con saldo. Cobrá con otro medio o pedile al dueño.`;
+}
+
 export function texto_mora(nombre: string, diasMax: number, saldoCentavos: bigint): string {
   const pesos = (Number(saldoCentavos) / 100).toFixed(2);
   return `Hola ${nombre}, tu cuenta tiene ${diasMax} días de atraso con saldo $${pesos}. Acercate a regularizar.`;

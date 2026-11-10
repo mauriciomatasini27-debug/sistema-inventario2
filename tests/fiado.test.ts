@@ -53,6 +53,7 @@ function ventaBase(
     ultimoDefinitivo: { n: 41 },
     ahoraMs: AHORA,
     credito: credito.valor,
+    mora: { estado: "al_dia" as const, diasMax: 0 },
     ...resto,
   };
 }

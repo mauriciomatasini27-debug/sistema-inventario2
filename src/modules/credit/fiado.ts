@@ -16,7 +16,7 @@ import { registrar_movimiento, type Movimiento, type Rol } from "../cash/caja.js
 import { LEYENDA_NO_FISCAL, siguiente_numero, type TicketDefinitivo, type TicketSeq } from "../sales/vender_mostrador.js";
 import { aplicar_descuentos, type LineaConDescuento } from "../sales/descuentos.js";
 import type { Medio } from "../../lib/validation.js";
-import { crear_movimiento, type MovimientoCredito, type TipoMovCredito } from "./saldos.js";
+import { crear_movimiento, type MovimientoCredito, type SituacionMora, type TipoMovCredito } from "./saldos.js";
 import { disponibleCentavos, supera_limite, type CreditoResuelto } from "./limite.js";
 
 export const PAGO_A_CUENTA = "Pago: A cuenta" as const;
@@ -65,10 +65,8 @@ export interface VentaACuentaInput {
   readonly ultimoDefinitivo: TicketSeq | null;
   readonly credito: CreditoResuelto;
   readonly ahoraMs: number;
-  // Nivel 1 mora día 15: el adaptador calcula esta_en_mora y lo pasa.
-  // Si bloquearEnMora y enMora, solo Dueño pasa (empleado 403 MORA).
-  readonly enMora?: boolean;
-  readonly bloquearEnMora?: boolean;
+  // P1-66: el adaptador mide SituacionMora en la tx. El núcleo no vuelve a contar los 15 días.
+  readonly mora: SituacionMora;
 }
 
 export interface EfectoFiado {
@@ -91,7 +89,7 @@ export type FalloFiado =
   | { readonly ok: false; readonly codigo: "SIN_STOCK"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "LINEA_INVALIDA"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "TOPE_SUPERADO"; readonly status: 403; readonly disponibleCentavos: bigint }
-  | { readonly ok: false; readonly codigo: "MORA"; readonly status: 403 };
+  | { readonly ok: false; readonly codigo: "MORA"; readonly status: 403; readonly diasMax: number };
 
 export type VentaACuentaResult = { readonly ok: true; readonly efecto: EfectoFiado } | FalloFiado;
 
@@ -140,12 +138,11 @@ export function venta_a_cuenta(input: VentaACuentaInput): VentaACuentaResult {
     };
   }
 
-  // Nivel 1 mora día 15: en mora solo Dueño vende (empleado 403 MORA).
-  const enMora = input.enMora === true && input.bloquearEnMora === true;
-  const superaMora = enMora;
-  if (enMora && input.credito.rol !== "dueno") {
-    return { ok: false, codigo: "MORA", status: 403 };
+  // P1-66: en mora solo el dueño vende. El empleado recibe los días para la frase del 403.
+  if (input.mora.estado === "en_mora" && input.credito.rol !== "dueno") {
+    return { ok: false, codigo: "MORA", status: 403, diasMax: input.mora.diasMax };
   }
+  const superaMora = input.mora.estado === "en_mora";
 
   const provisorio = `${input.deviceCode}-${input.seqLocal}`;
   const definitivo = input.offline ? null : siguiente_numero(input.ultimoDefinitivo);

@@ -103,15 +103,19 @@ describe("Nivel 1 mora día 15", () => {
         ultimoDefinitivo: null,
         credito: credito.valor,
         ahoraMs: HOY,
+        mora: { estado: "al_dia" as const, diasMax: 0 },
       };
     };
-    const emp = venta_a_cuenta({ ...armar("mora-1", "empleado"), enMora: true, bloquearEnMora: true });
-    expect(emp).toMatchObject({ ok: false, codigo: "MORA", status: 403 });
-    const due = venta_a_cuenta({ ...armar("mora-2", "dueno"), enMora: true, bloquearEnMora: true });
+    const mora = { estado: "en_mora" as const, diasMax: 15 };
+    const emp = venta_a_cuenta({ ...armar("mora-1", "empleado"), mora });
+    expect(emp).toMatchObject({ ok: false, codigo: "MORA", status: 403, diasMax: 15 });
+    const due = venta_a_cuenta({ ...armar("mora-2", "dueno"), mora });
     expect(due.ok).toBe(true);
     if (!due.ok) return;
     expect(due.efecto.superaMora).toBe(true);
-    const sinBloqueo = venta_a_cuenta(armar("mora-3", "empleado"));
-    expect(sinBloqueo.ok).toBe(true);
+    const alDia = venta_a_cuenta({ ...armar("mora-3", "empleado"), mora: { estado: "al_dia", diasMax: 20 } });
+    expect(alDia.ok).toBe(true);
+    if (!alDia.ok) return;
+    expect(alDia.efecto.superaMora).toBe(false);
   });
 });
