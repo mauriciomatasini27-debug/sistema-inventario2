@@ -1,7 +1,9 @@
 import type { APIRoute } from "astro";
+import { rolParaFiado, resolverRolEfectivo } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { filtrarTexto, listaQuerySchema, paginar } from "../../../lib/lista-paginada.js";
-import { listarClientes } from "../../../lib/repos/fiado.js";
+import { altaClienteRapida, listarClientes } from "../../../lib/repos/fiado.js";
+import { altaRapidaClienteSchema } from "../../../modules/credit/clientes.js";
 
 export const prerender = false;
 
@@ -34,4 +36,38 @@ export const GET: APIRoute = async ({ url }) => {
     next_cursor,
     fuente: leidos.fuente,
   });
+};
+
+// P1-64: mismo permiso que la venta a cuenta. El id sale de customers, no del body.
+export const POST: APIRoute = async ({ request }) => {
+  const acceso = rolParaFiado(resolverRolEfectivo(request));
+  if (!acceso.ok) return Response.json({ error: acceso.error }, { status: 403 });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "json invalido" }, { status: 422 });
+  }
+  const parsed = altaRapidaClienteSchema.safeParse(body);
+  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
+
+  try {
+    const r = await altaClienteRapida({ nombre: parsed.data.nombre, telefono: parsed.data.telefono });
+    if (!r.ok && r.codigo === "DUPLICADO") {
+      return Response.json(
+        {
+          error: r.error,
+          codigo: r.codigo,
+          existente: { customer_id: r.existente.customerId, nombre: r.existente.nombre },
+        },
+        { status: r.status },
+      );
+    }
+    if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
+    return Response.json({ customer_id: r.customerId, nombre: r.nombre }, { status: 201 });
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
 };
