@@ -201,4 +201,11 @@ test("buscador, ticket y volver conservan líneas y total", async ({ page }) => 
   await page.press("#sku", "Enter");
   await expect(page.locator("#estado")).toContainText("No hay un producto con ese código.", { timeout: 10_000 });
   await expect(page.locator("#alta-nombre-label")).toBeVisible();
+  await expect(page.locator("#lista-carrito")).not.toContainText("codigo-que-no-esta");
+  await page.press("#alta-nombre", "Enter");
+  await expect(page.locator("#lista-carrito")).not.toContainText("codigo-que-no-esta");
+  await page.fill("#alta-nombre", "Producto nuevo");
+  await page.press("#alta-nombre", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("Producto nuevo");
+  await expect(page.locator("#lista-carrito")).toContainText("codigo-que-no-esta");
 });

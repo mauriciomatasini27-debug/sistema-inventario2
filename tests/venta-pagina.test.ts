@@ -76,7 +76,39 @@ describe("TB-160: buscador, ticket y paso de cobro", () => {
     expect(s).toContain("efectoCodigoDesconocido().mensaje");
     expect(s).toContain("min-width: 44px; min-height: 44px");
   });
+
+  it("un código desconocido con el nombre vacío no arma la línea", () => {
+    const cuerpo = bloqueLectura(src());
+    const vacio = cuerpo.indexOf('$("alta-nombre").value.trim() === ""');
+    const aviso = cuerpo.indexOf("efectoCodigoDesconocido().mensaje", vacio);
+    const retorno = cuerpo.indexOf("return;", aviso);
+    const suma = cuerpo.lastIndexOf("agregarLineaDesdeFormulario()");
+    expect(vacio).toBeGreaterThan(0);
+    expect(aviso).toBeGreaterThan(vacio);
+    expect(retorno).toBeGreaterThan(aviso);
+    expect(suma).toBeGreaterThan(retorno);
+  });
+
+  it("Enter en el nombre vacío tampoco arma la línea", () => {
+    const s = src();
+    const i = s.indexOf('$("alta-nombre").addEventListener("keydown"');
+    expect(i).toBeGreaterThan(0);
+    const tecla = s.slice(i, i + 500);
+    expect(tecla).toContain('ev.key !== "Enter"');
+    const vacio = tecla.indexOf('$("alta-nombre").value.trim() === ""');
+    const retorno = tecla.indexOf("return;", vacio);
+    const suma = tecla.indexOf("agregarLineaDesdeFormulario()");
+    expect(vacio).toBeGreaterThan(-1);
+    expect(retorno).toBeGreaterThan(vacio);
+    expect(suma).toBeGreaterThan(retorno);
+  });
 });
+
+function bloqueLectura(s: string): string {
+  const inicio = s.indexOf("const incorporarLectura");
+  const fin = s.indexOf("const pintarResultados", inicio);
+  return s.slice(inicio, fin);
+}
 
 describe("venta.astro: aviso de mora sin frenar Cobrar", () => {
   const src = (): string => leer("src/pages/venta.astro");
