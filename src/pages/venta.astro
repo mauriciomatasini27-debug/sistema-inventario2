@@ -496,26 +496,38 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         estado("Lista.");
         return true;
       };
-      // P1-56: Cobrar ya no lee el formulario. Enter y la cámara suman al carrito,
-      // también si el código no está en el catálogo. El alta viaja solo si hay nombre.
       const incorporarLectura = async (raw) => {
         const texto = String(raw ?? "").trim();
         if (!texto) return;
         const res = await resolverEnPantalla(texto);
-        let desconocido = false;
-        if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
-        else if (res.estado === "desconocido") {
-          desconocido = true;
-          pedirNombre = true;
-          $("sku").value = texto;
-          skuElegido = texto;
-          mostrarAlta();
-        } else {
+        if (res.estado === "encontrado") {
+          aplicarSkuEncontrado(res.sku);
+          agregarLineaDesdeFormulario();
+          return;
+        }
+        if (res.estado !== "desconocido") return;
+        pedirNombre = true;
+        $("sku").value = texto;
+        skuElegido = texto;
+        mostrarAlta();
+        // TB-160: fusionarLinea acepta la línea sin alta. Sin nombre, el código no entra al ticket.
+        if ($("alta-nombre-label").hidden || $("alta-nombre").value.trim() === "") {
+          estado(efectoCodigoDesconocido().mensaje);
+          if (!$("alta-nombre-label").hidden) $("alta-nombre").focus();
           return;
         }
         const ok = agregarLineaDesdeFormulario();
-        if (desconocido && ok) estado(efectoCodigoDesconocido().mensaje);
+        if (ok) estado(efectoCodigoDesconocido().mensaje);
       };
+      $("alta-nombre").addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        if ($("alta-nombre").value.trim() === "") {
+          estado(efectoCodigoDesconocido().mensaje);
+          return;
+        }
+        agregarLineaDesdeFormulario();
+      });
       const pintarResultados = (hits) => {
         const ul = $("resultados");
         ul.replaceChildren();
