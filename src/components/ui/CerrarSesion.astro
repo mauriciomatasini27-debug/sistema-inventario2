@@ -1,7 +1,24 @@
 ---
 // P1-34: el POST /api/auth/logout existía sin UI; AU13/AU8.7 piden salir a mano.
+interface Props {
+  variante?: "barra" | "menu";
+}
+const { variante = "barra" } = Astro.props;
 ---
-<button type="button" class="cerrar-sesion" id="btn-cerrar-sesion">Cerrar sesión</button>
+<button
+  type="button"
+  class:list={["cerrar-sesion", { "cerrar-sesion--menu": variante === "menu" }]}
+  data-cerrar-sesion
+>
+  {variante === "menu" ? (
+    <span class="panel-cuenta-etiq">
+      <b>Cerrar sesión</b>
+      <small>Salís del panel y volvés al inicio</small>
+    </span>
+  ) : (
+    "Cerrar sesión"
+  )}
+</button>
 <style>
   .cerrar-sesion {
     min-height: 44px;
@@ -21,14 +38,16 @@
   }
 </style>
 <script>
-  document.getElementById("btn-cerrar-sesion")?.addEventListener("click", async () => {
-    const btn = document.getElementById("btn-cerrar-sesion");
-    if (btn instanceof HTMLButtonElement) btn.disabled = true;
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
-    } catch (err) {
-      console.warn("P1-34 logout falló", err);
-    }
-    location.href = "/";
+  document.querySelectorAll("[data-cerrar-sesion]").forEach((nodo) => {
+    nodo.addEventListener("click", async () => {
+      const btn = nodo;
+      if (btn instanceof HTMLButtonElement) btn.disabled = true;
+      try {
+        await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+      } catch (err) {
+        console.warn("P1-34 logout falló", err);
+      }
+      location.href = "/";
+    });
   });
 </script>

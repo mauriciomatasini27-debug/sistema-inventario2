@@ -65,6 +65,9 @@ function fakeBoton() {
     setAttribute(k: string, v: string) {
       attrs[k] = v;
     },
+    getAttribute(k: string) {
+      return attrs[k] ?? null;
+    },
     addEventListener(t: string, cb: () => void) {
       if (!listeners[t]) listeners[t] = [];
       listeners[t].push(cb);
@@ -144,6 +147,7 @@ interface FalsoBotonSpans {
   setAttribute: (k: string, v: string) => void;
   addEventListener: (t: string, cb: () => void) => void;
   querySelector: (sel: string) => FalsoTexto | null;
+  getAttribute: (k: string) => string | null;
 }
 
 function fakeBotonConSpans(): FalsoBotonSpans {
@@ -158,6 +162,9 @@ function fakeBotonConSpans(): FalsoBotonSpans {
     etiqueta,
     setAttribute(k, v) {
       attrs[k] = v;
+    },
+    getAttribute(k) {
+      return attrs[k] ?? null;
     },
     addEventListener(t, cb) {
       (listeners[t] ??= []).push(cb);
@@ -237,17 +244,26 @@ describe("tema: script del toggle", () => {
 });
 
 describe("tema: cableado en las páginas con tema", () => {
-  for (const f of ["src/components/panel/PanelShell.astro", "src/pages/venta.astro"]) {
-    it(`${f} pone TemaInicial antes del primer <style y usa TemaToggle`, () => {
-      const s = leer(f);
-      const inicial = s.indexOf("<TemaInicial");
-      const style = s.indexOf("<style");
-      expect(inicial, f).toBeGreaterThan(-1);
-      expect(style, f).toBeGreaterThan(-1);
-      expect(inicial, `${f}: TemaInicial antes del <style`).toBeLessThan(style);
-      expect(s, f).toContain("<TemaToggle");
-    });
-  }
+  it("PanelShell pone TemaInicial antes del primer style y el toggle vive en el menú de cuenta", () => {
+    const s = leer("src/components/panel/PanelShell.astro");
+    const inicial = s.indexOf("<TemaInicial");
+    const style = s.indexOf("<style");
+    expect(inicial).toBeGreaterThan(-1);
+    expect(style).toBeGreaterThan(-1);
+    expect(inicial).toBeLessThan(style);
+    expect(leer("src/components/panel/PanelCuentaMenu.astro")).toContain("data-tema-toggle");
+  });
+
+  it("venta.astro pone TemaInicial antes del primer <style y usa TemaToggle", () => {
+    const f = "src/pages/venta.astro";
+    const s = leer(f);
+    const inicial = s.indexOf("<TemaInicial");
+    const style = s.indexOf("<style");
+    expect(inicial, f).toBeGreaterThan(-1);
+    expect(style, f).toBeGreaterThan(-1);
+    expect(inicial, `${f}: TemaInicial antes del <style`).toBeLessThan(style);
+    expect(s, f).toContain("<TemaToggle");
+  });
 });
 
 describe("tema: hoja de tema.css (DS-S4/S5)", () => {

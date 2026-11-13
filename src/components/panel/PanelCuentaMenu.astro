@@ -1,0 +1,348 @@
+---
+// TB-BARRA-SUPERIOR: hoja de cuenta (tema, Modo discreto, cerrar sesión).
+import { SCRIPT_TEMA_TOGGLE } from "../../lib/tema.js";
+import CerrarSesion from "../ui/CerrarSesion.astro";
+
+interface Props {
+  nombre: string;
+  rol: string;
+  comercio: string;
+  inicial: string;
+}
+
+const { nombre, rol, comercio, inicial } = Astro.props;
+const subtituloCuenta = rol !== "—" && comercio.trim()
+  ? `${rol} · ${comercio.trim()}`
+  : rol !== "—"
+    ? rol
+    : comercio.trim() || "Panel";
+---
+<div class="panel-cuenta-scrim" data-cuenta-scrim hidden></div>
+<section
+  class="panel-cuenta-menu"
+  id="panel-cuenta-menu"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="panel-cuenta-titulo"
+  hidden
+>
+  <div class="panel-cuenta-handle" aria-hidden="true"></div>
+  <div class="panel-cuenta-head">
+    <div class="panel-cuenta-avatar" aria-hidden="true">{inicial}</div>
+    <div>
+      <h2 id="panel-cuenta-titulo">{nombre}</h2>
+      <p>{subtituloCuenta}</p>
+    </div>
+  </div>
+  <div class="panel-cuenta-lista">
+    <div class="panel-cuenta-fila" role="group" aria-labelledby="panel-cuenta-tema-lbl">
+      <span class="panel-cuenta-etiq">
+        <b id="panel-cuenta-tema-lbl">Tema</b>
+        <small data-cuenta-tema-desc>Oscuro, como el tablero B</small>
+      </span>
+      <button
+        type="button"
+        class="panel-cuenta-switch"
+        data-tema-toggle
+        role="switch"
+        aria-checked="true"
+        aria-labelledby="panel-cuenta-tema-lbl"
+      ></button>
+    </div>
+    <div class="panel-cuenta-fila" role="group" aria-labelledby="panel-cuenta-disc-lbl">
+      <span class="panel-cuenta-etiq">
+        <b id="panel-cuenta-disc-lbl">Modo discreto</b>
+        <small>Minimizar: Modo se queda quieto</small>
+      </span>
+      <button
+        type="button"
+        class="panel-cuenta-switch"
+        data-modo-discreto-switch
+        role="switch"
+        aria-checked="false"
+        aria-labelledby="panel-cuenta-disc-lbl"
+      ></button>
+    </div>
+    <CerrarSesion variante="menu" />
+  </div>
+</section>
+<script is:inline set:html={SCRIPT_TEMA_TOGGLE} />
+<script>
+  import { esEstadoModo } from "../../lib/modo.js";
+  import {
+    cuentaMenuAbierto,
+    debeCerrarMenuTecla,
+    discretoSwitchMarcado,
+    elementosEnfocables,
+    indiceTabAtrapado,
+    temaSwitchMarcado,
+  } from "../../lib/panel-cuenta-menu.js";
+
+  const scrim = document.querySelector<HTMLElement>("[data-cuenta-scrim]");
+  const menu = document.getElementById("panel-cuenta-menu");
+  const avatar = document.querySelector<HTMLButtonElement>("[data-panel-avatar]");
+  const temaDesc = document.querySelector<HTMLElement>("[data-cuenta-tema-desc]");
+  const swTema = document.querySelector<HTMLButtonElement>("[data-tema-toggle][role='switch']");
+  const swDisc = document.querySelector<HTMLButtonElement>("[data-modo-discreto-switch]");
+  const reducido = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  if (scrim && menu && avatar && swTema && swDisc) {
+    let ultimoFoco: HTMLElement | null = null;
+
+    const pintarTemaDesc = () => {
+      const oscuro = temaSwitchMarcado(document.documentElement.dataset.tema);
+      if (temaDesc) temaDesc.textContent = oscuro ? "Oscuro, como el tablero B" : "Claro";
+    };
+
+    const pintarDiscreto = () => {
+      const raiz = document.querySelector<HTMLElement>("[data-modo]");
+      const estado = raiz?.dataset.modoEstado ?? "calmado";
+      if (!esEstadoModo(estado)) {
+        swDisc.setAttribute("aria-checked", "false");
+        return;
+      }
+      const on = discretoSwitchMarcado(estado);
+      swDisc.setAttribute("aria-checked", on ? "true" : "false");
+    };
+
+    const menuAbierto = () =>
+      cuentaMenuAbierto(avatar.getAttribute("aria-expanded") === "true", menu.hidden);
+
+    const cerrar = () => {
+      menu.classList.remove("panel-cuenta-menu--abierto");
+      scrim.classList.remove("panel-cuenta-scrim--visible");
+      const fin = () => {
+        if (menu.classList.contains("panel-cuenta-menu--abierto")) return;
+        menu.hidden = true;
+        scrim.hidden = true;
+      };
+      if (reducido.matches) fin();
+      else window.setTimeout(fin, reducido.matches ? 0 : 280);
+      avatar.setAttribute("aria-expanded", "false");
+      ultimoFoco?.focus();
+      ultimoFoco = null;
+    };
+
+    const abrir = () => {
+      ultimoFoco = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      menu.hidden = false;
+      scrim.hidden = false;
+      pintarTemaDesc();
+      pintarDiscreto();
+      avatar.setAttribute("aria-expanded", "true");
+      requestAnimationFrame(() => {
+        menu.classList.add("panel-cuenta-menu--abierto");
+        scrim.classList.add("panel-cuenta-scrim--visible");
+        swTema.focus();
+      });
+    };
+
+    avatar.addEventListener("click", () => {
+      if (menuAbierto()) cerrar();
+      else abrir();
+    });
+    scrim.addEventListener("click", cerrar);
+
+    document.addEventListener("keydown", (ev) => {
+      if (debeCerrarMenuTecla(ev.key, menuAbierto())) {
+        ev.preventDefault();
+        cerrar();
+        return;
+      }
+      if (ev.key !== "Tab" || !menuAbierto()) return;
+      const focos = elementosEnfocables(menu);
+      const actual = focos.indexOf(document.activeElement as HTMLElement);
+      const siguiente = indiceTabAtrapado(focos.length, actual, ev.shiftKey);
+      if (siguiente < 0) return;
+      ev.preventDefault();
+      focos[siguiente]?.focus();
+    });
+
+    swDisc.addEventListener("click", () => {
+      document.querySelector<HTMLButtonElement>(".modo-minimizar")?.click();
+      window.setTimeout(pintarDiscreto, 0);
+    });
+
+    document.addEventListener("modo:estado", () => pintarDiscreto());
+    document.addEventListener("DOMContentLoaded", pintarTemaDesc);
+    const obs = new MutationObserver(() => pintarTemaDesc());
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema"] });
+    pintarTemaDesc();
+    pintarDiscreto();
+  }
+</script>
+
+<style is:global>
+  .panel-cuenta-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: color-mix(in srgb, var(--color-void) 55%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .panel-cuenta-scrim--visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .panel-cuenta-menu {
+    position: fixed;
+    z-index: 46;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: min(88dvh, calc(100dvh - 12px));
+    border-radius: 24px 24px 0 0;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(105%);
+    pointer-events: none;
+    overflow: auto;
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    border: 1px solid var(--color-mid);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.28);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-sizing: border-box;
+  }
+  .panel-cuenta-menu--abierto {
+    transform: none;
+    pointer-events: auto;
+  }
+  .panel-cuenta-handle {
+    width: 44px;
+    height: 5px;
+    border-radius: 9px;
+    background: var(--color-mid);
+    margin: 6px auto 10px;
+  }
+  .panel-cuenta-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 4px 14px;
+    border-bottom: 1px solid var(--color-mid);
+    margin: 0;
+  }
+  .panel-cuenta-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: var(--color-mid);
+    border: 1px solid var(--color-mid);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    flex: none;
+  }
+  .panel-cuenta-head h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    line-height: 1.25;
+  }
+  .panel-cuenta-head p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--color-muted-dark);
+  }
+  .panel-cuenta-lista {
+    display: grid;
+    gap: 4px;
+    padding: 10px 0 0;
+  }
+  .panel-cuenta-fila,
+  .panel-cuenta-menu .cerrar-sesion--menu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .panel-cuenta-menu .cerrar-sesion--menu {
+    color: var(--color-vivo-oscuro);
+  }
+  .panel-cuenta-etiq {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  .panel-cuenta-etiq b {
+    font-size: 0.95rem;
+    font-weight: 650;
+  }
+  .panel-cuenta-etiq small {
+    font-size: 12px;
+    color: var(--color-muted-dark);
+    font-weight: 500;
+  }
+  .panel-cuenta-switch {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    flex: none;
+    border-radius: 999px;
+    border: 0;
+    background: var(--color-mid);
+    cursor: pointer;
+    padding: 0;
+  }
+  .panel-cuenta-switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+  .panel-cuenta-switch[aria-checked="true"] {
+    background: var(--color-star-glow);
+  }
+  .panel-cuenta-switch[aria-checked="true"]::after {
+    transform: translateX(20px);
+  }
+  @media (min-width: 900px) {
+    .panel-cuenta-handle {
+      display: none;
+    }
+    .panel-cuenta-menu {
+      left: auto;
+      right: 16px;
+      top: 64px;
+      bottom: auto;
+      width: min(360px, calc(100% - 32px));
+      max-height: min(80dvh, calc(100dvh - 80px));
+      border-radius: 1.25rem;
+      padding: 16px 16px 12px;
+      transform: translateY(-8px) scale(0.98);
+      opacity: 0;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .panel-cuenta-menu--abierto {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel-cuenta-scrim,
+    .panel-cuenta-menu,
+    .panel-cuenta-switch::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>

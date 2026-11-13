@@ -46,6 +46,9 @@ export const SCRIPT_TEMA_TOGGLE = `(function(){
     for(var i=0;i<botones.length;i++){
       var b=botones[i];
       b.setAttribute("aria-pressed",oscuro?"true":"false");
+      if(b.getAttribute("role")==="switch"){
+        b.setAttribute("aria-checked",oscuro?"true":"false");
+      }
       b.setAttribute("aria-label",oscuro?"Tema oscuro, cambiar a claro":"Tema oscuro");
       if(b.querySelector){
         var icono=b.querySelector("[data-tema-icono]");

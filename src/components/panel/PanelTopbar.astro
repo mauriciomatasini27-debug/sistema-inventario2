@@ -1,0 +1,238 @@
+---
+import PanelBuscar from "./PanelBuscar.astro";
+import Modo from "./Modo.astro";
+import PanelCuentaMenu from "./PanelCuentaMenu.astro";
+import { ANTENA_MODO, CUERPO_MODO } from "../../lib/modo.js";
+
+interface Props {
+  comercio: string;
+  nombreUsuario: string;
+  rolEtiqueta: string;
+  inicialAvatar: string;
+}
+
+const { comercio, nombreUsuario, rolEtiqueta, inicialAvatar } = Astro.props;
+const logoTexto = comercio.trim() || "Inventario";
+const modoVars = [
+  `--modo-antena-calmado:${ANTENA_MODO.calmado}`,
+  `--modo-antena-minimizado:${ANTENA_MODO.minimizado}`,
+  `--modo-cuerpo-a:${CUERPO_MODO[0]}`,
+  `--modo-cuerpo-b:${CUERPO_MODO[1]}`,
+  `--modo-cuerpo-c:${CUERPO_MODO[2]}`,
+].join(";");
+---
+
+<header class="topbar-panel" aria-label="Barra del panel">
+  <a class="topbar-panel-marca" href="/panel" title={comercio.trim() || "Panel del comercio"}>
+    <div class="topbar-panel-modo-chico" data-topbar-modo-chico style={modoVars} aria-hidden="true">
+      <svg class="topbar-panel-modo-svg" viewBox="0 0 36 36" width="28" height="28" aria-hidden="true">
+        <linearGradient id="llama-topbar-mini" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--modo-cuerpo-a)"></stop>
+          <stop offset="45%" stop-color="var(--modo-cuerpo-b)"></stop>
+          <stop offset="100%" stop-color="var(--modo-cuerpo-c)"></stop>
+        </linearGradient>
+        <circle class="topbar-panel-modo-antena" cx="18" cy="3" r="2.1"></circle>
+        <rect x="6" y="8" width="24" height="22" rx="8" fill="url(#llama-topbar-mini)"></rect>
+        <rect x="9" y="13" width="18" height="8" rx="3" fill="var(--color-void)"></rect>
+        <circle class="topbar-panel-modo-ojo" cx="14" cy="17" r="2.15" fill="var(--color-llama)"></circle>
+        <circle class="topbar-panel-modo-ojo" cx="22" cy="17" r="2.15" fill="var(--color-llama)"></circle>
+      </svg>
+    </div>
+    <span class="topbar-panel-copy">
+      <b>{logoTexto}</b>
+      <small>
+        <span class="topbar-panel-punto" data-topbar-modo-punto aria-hidden="true"></span>
+        <span data-topbar-modo-estado>Modo atento</span>
+      </small>
+    </span>
+  </a>
+  <PanelBuscar ubicacion="topbar" />
+  <div class="topbar-panel-acciones">
+    <div class="topbar-panel-modo-btn">
+      <Modo />
+    </div>
+    <div class="topbar-panel-quien">
+      <b>{nombreUsuario}</b>
+      <span>{rolEtiqueta}</span>
+    </div>
+    <button
+      type="button"
+      class="topbar-panel-avatar"
+      data-panel-avatar
+      aria-haspopup="dialog"
+      aria-controls="panel-cuenta-menu"
+      aria-expanded="false"
+      aria-label={`Cuenta de ${nombreUsuario}, ${rolEtiqueta}`}
+    >{inicialAvatar}</button>
+  </div>
+</header>
+<PanelCuentaMenu nombre={nombreUsuario} rol={rolEtiqueta} comercio={comercio} inicial={inicialAvatar} />
+
+<script>
+  import { esEstadoModo } from "../../lib/modo.js";
+  import { textoEstadoModoBarra } from "../../lib/panel-topbar.js";
+
+  const estadoEl = document.querySelector<HTMLElement>("[data-topbar-modo-estado]");
+  const puntoEl = document.querySelector<HTMLElement>("[data-topbar-modo-punto]");
+  const mini = document.querySelector<HTMLElement>("[data-topbar-modo-chico]");
+
+  const pintarBarraModo = () => {
+    const raiz = document.querySelector<HTMLElement>("[data-modo]");
+    const estado = raiz?.dataset.modoEstado ?? "calmado";
+    if (estadoEl && esEstadoModo(estado)) estadoEl.textContent = textoEstadoModoBarra(estado);
+    if (mini) mini.dataset.modoEstadoMini = estado;
+    if (puntoEl) {
+      puntoEl.classList.toggle("topbar-panel-punto--discreto", estado === "minimizado");
+    }
+  };
+
+  document.addEventListener("modo:estado", pintarBarraModo);
+  pintarBarraModo();
+  const obs = document.querySelector<HTMLElement>("[data-modo]");
+  if (obs) {
+    new MutationObserver(pintarBarraModo).observe(obs, {
+      attributes: true,
+      attributeFilter: ["data-modo-estado"],
+    });
+  }
+</script>
+
+<style is:global>
+  .topbar-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    min-height: 56px;
+    flex-wrap: nowrap;
+    padding: 8px 16px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--color-mid);
+    background: color-mix(in srgb, var(--color-void) 96%, transparent);
+    color: var(--color-star-white);
+    box-sizing: border-box;
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .topbar-panel {
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .topbar-panel {
+      background: var(--color-void);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  .topbar-panel-marca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    text-decoration: none;
+    color: inherit;
+  }
+  .topbar-panel-copy {
+    min-width: 0;
+  }
+  .topbar-panel-copy b {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar-panel-copy small {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-muted-dark);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .topbar-panel-punto {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-llama);
+    flex: none;
+  }
+  .topbar-panel-punto--discreto {
+    background: var(--color-ash);
+  }
+  .topbar-panel-acciones {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+  }
+  .topbar-panel-modo-btn .modo-abrir {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-charcoal);
+  }
+  .topbar-panel-quien {
+    display: none;
+    text-align: right;
+    line-height: 1.15;
+    margin-right: 2px;
+  }
+  .topbar-panel-quien b {
+    display: block;
+    font-size: 13px;
+  }
+  .topbar-panel-quien span {
+    font-size: 11px;
+    color: var(--color-muted-dark);
+  }
+  .topbar-panel-avatar {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-mid);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    cursor: pointer;
+    flex: none;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--color-star-white);
+    letter-spacing: 0.02em;
+  }
+  .topbar-panel-avatar[aria-expanded="true"] {
+    border-color: var(--color-star-white);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-star-white) 25%, transparent);
+  }
+  .topbar-panel-modo-chico[data-modo-estado-mini="minimizado"] .topbar-panel-modo-ojo {
+    opacity: 0.35;
+  }
+  @media (min-width: 900px) {
+    .topbar-panel-quien {
+      display: block;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .topbar-panel,
+    .topbar-panel * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>

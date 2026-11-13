@@ -313,6 +313,9 @@ const vars = [
       panel.hidden = !nodo.panelAbierto;
       minimizar.textContent = nodo.estado === "minimizado" ? "Mostrar" : "Minimizar";
       pintarAvisos(nodo.avisos);
+      raiz.dispatchEvent(
+        new CustomEvent("modo:estado", { bubbles: true, detail: { estado: nodo.estado } }),
+      );
     };
 
     let yaCelebro = false;
