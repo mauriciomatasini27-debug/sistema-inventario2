@@ -3,18 +3,21 @@ id: GUIA-DEPLOY-PILOTO
 tipo: spec
 estado: propuesto
 modulos: [auth, onboarding]
-depende_de: [ADR-0003, ADR-0017, ADR-0048, ADR-0049]
+depende_de: [ADR-0003, ADR-0017, ADR-0048, ADR-0049, ADR-0116]
 reemplaza: []
 reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  How-to para poner en producción el corte piloto (login Google HTTPS, multi con
-  dos bases, Vercel, altas reales y recorrido de mostrador). No despliega por vos.
+  How-to para poner en producción el corte piloto (login Google HTTPS, Postgres,
+  Vercel, altas reales y recorrido de mostrador). El camino multi de dos bases
+  quedó obsoleto como runbook piloto (ADR-0116). No despliega por vos.
 ---
 # Cómo desplegar el piloto (1–2 comercios)
 
-Goal: un host HTTPS donde cada dueño entra con Google, da de alta su comercio en una base propia, carga stock y vende con carrito online u offline.
+> **Obsolescencia (ADR-0116).** El cuerpo de abajo todavía describe `TENANT_MODE=multi` y dos proyectos Supabase (`piloto1` / `piloto2`, P1-68). Ese runbook **ya no es el camino piloto**. El destino es una Postgres compartida con `tenant_id` y `TENANT_MODE=shared`. La reescritura completa de esta guía llega en el PR C4 del plan. No crees un segundo proyecto Free solo para aislar dos comercios.
+
+Goal: un host HTTPS donde cada dueño entra con Google, da de alta su comercio, carga stock y vende con carrito online u offline.
 
 Inventario de variables: [destrabe-credenciales.md](destrabe-credenciales.md) y `npm run credenciales`. Postgres: [migracion-supabase.md](../migracion-supabase.md). Verificación local sin Google: skill `control-app`.
 
