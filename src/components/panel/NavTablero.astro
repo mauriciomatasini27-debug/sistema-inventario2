@@ -38,7 +38,7 @@ function actual(href: string): "page" | undefined {
     </nav>
     <nav class="nav-mas nav-mas-cerrado" id="nav-mas" aria-label="Más secciones">
       {grupos.map((grupo) => (
-        <details class="nav-grupo">
+        <details class="nav-grupo" open={grupo.id === "ajustes"}>
           <summary>{grupo.label}</summary>
           <ul>
             {grupo.entradas.map((entrada: EntradaMas) => (

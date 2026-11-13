@@ -104,6 +104,8 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
 
   return (
     <>
+      {/* TB-AUDIT-MOBILE: en 360px cinco columnas fijas rompían “A reponer”; scroll horizontal conserva lectura. */}
+      <div className="tabla-catalogo-scroll" aria-label={`${etiqueta}: deslizá si no entra la tabla`}>
       <TableVirtuoso
         data={items}
         useWindowScroll
@@ -123,7 +125,9 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
         )}
         itemContent={(_, item) => CELDAS[columnas](item)}
       />
+      </div>
       <style>{`
+        .tabla-catalogo-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .tabla-catalogo { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
         /* thead th / tbody td para ganarle a las reglas genéricas de tabla de PanelShell (13px, padding 8px 6px). */
         .tabla-catalogo thead th, .tabla-catalogo tbody td { font-size: .875rem; padding: .45rem .375rem; border-bottom: 1px solid var(--tema-linea); overflow-wrap: anywhere; vertical-align: middle; }
@@ -144,6 +148,10 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
         .tabla-catalogo--stock th:nth-child(3) { width: 30%; }
         .tabla-catalogo--stock th:nth-child(4) { width: 12%; }
         .tabla-catalogo--stock th:nth-child(5) { width: 12%; }
+        @media (max-width: 899px) {
+          .tabla-catalogo--stock { table-layout: auto; min-width: 22rem; width: max-content; max-width: none; }
+          .tabla-catalogo--stock thead th { white-space: nowrap; }
+        }
       `}</style>
     </>
   );
