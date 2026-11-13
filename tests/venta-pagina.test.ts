@@ -72,6 +72,25 @@ describe("TB-161: escáner real en Vender", () => {
   });
 });
 
+describe("TB-162: cobro real y vuelto en efectivo", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("reusa el POST, marca Modo al cobrar y valida el monto recibido", () => {
+    const s = src();
+    expect(s).toContain('import { evaluarVueltoEfectivo, totalCentavosCarrito }');
+    expect(s).toContain('id="efectivo-recibido"');
+    expect(s).toContain('id="efectivo-vuelto"');
+    expect(s).toContain('modoRaiz.dataset.modoCobrando');
+    expect(s).toContain("recibido_insuficiente");
+    expect(s).toContain('confirmarCobro.disabled = vacio || cobrando');
+    expect(s).toContain('if (cobrando) return');
+    expect(s).not.toMatch(/simulaci[oó]n/i);
+    for (const medio of ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"]) {
+      expect(s).toContain(`"${medio}"`);
+    }
+  });
+});
+
 describe("TB-160: buscador, ticket y paso de cobro", () => {
   const src = (): string => leer("src/pages/venta.astro");
 

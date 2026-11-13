@@ -202,3 +202,55 @@ test("buscador, ticket y volver conservan líneas y total", async ({ page }) => 
   await expect(page.locator("#estado")).toContainText("No hay un producto con ese código.", { timeout: 10_000 });
   await expect(page.locator("#alta-nombre-label")).toBeVisible();
 });
+
+test("efectivo: vuelto visible y recibido insuficiente no confirma", async ({ page }) => {
+  await page.goto("/venta");
+  await page.fill("#sku", "demo-sku-1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
+  await page.click("#cobrar");
+  await page.selectOption("#medio", "Efectivo");
+  await expect(page.locator("#efectivo-recibido-label")).toBeVisible();
+  await page.fill("#efectivo-recibido", "100,00");
+  await expect(page.locator("#efectivo-vuelto")).toBeHidden();
+  await page.click("#confirmar-cobro");
+  await expect(page.locator("#estado")).toContainText("no alcanza");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1");
+  await page.fill("#efectivo-recibido", "10000,00");
+  await expect(page.locator("#efectivo-vuelto")).toContainText("Vuelto:");
+  await page.click("#confirmar-cobro");
+  await expect(page.locator("#estado")).toContainText("201", { timeout: 10_000 });
+});
+
+test("A cuenta offline avisa y no encola en sales", async ({ page, context }) => {
+  await page.goto("/venta");
+  await page.fill("#sku", "demo-sku-1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
+  await context.setOffline(true);
+  await page.click("#cobrar");
+  await page.selectOption("#medio", "A cuenta");
+  await page.click("#confirmar-cobro");
+  await expect(page.locator("#estado")).toContainText("necesita conexión");
+  expect(await largoOutbox(page)).toBe(0);
+});
+
+test("segundo toque en Confirmar con cobro en vuelo no duplica", async ({ page }) => {
+  let hits = 0;
+  await page.route("**/api/sales", async (route) => {
+    hits += 1;
+    await new Promise((r) => setTimeout(r, 400));
+    await route.continue();
+  });
+  await page.goto("/venta");
+  await page.fill("#sku", "demo-sku-1");
+  await page.press("#sku", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-1", { timeout: 10_000 });
+  await page.click("#cobrar");
+  const confirmar = page.locator("#confirmar-cobro");
+  await confirmar.click();
+  await expect(confirmar).toBeDisabled();
+  await confirmar.click({ force: true });
+  await expect(page.locator("#estado")).toContainText("201", { timeout: 15_000 });
+  expect(hits).toBe(1);
+});
