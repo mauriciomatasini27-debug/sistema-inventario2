@@ -106,6 +106,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #cobrar.cobrar-apagado { background: var(--color-mid); color: var(--color-muted-dark); box-shadow: none; cursor: not-allowed; }
       #cobrar.sg-flame-cta, #confirmar-cobro.sg-flame-cta { background-color: var(--color-star-glow); color: var(--color-star-white); box-shadow: var(--sombra-cta); }
       #paso-ticket[hidden], #paso-cobro[hidden] { display: none; }
+      #efectivo-vuelto { margin: 4px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
     </style>
     <style is:global>
       /* TB-160: los botones del ticket nacen en el script y no heredan el style con scope. */
@@ -195,6 +196,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
           </select>
         </label>
+        <div id="efectivo-recibido-label" hidden>
+          <label>¿Con cuánto paga? (opcional, para ver el vuelto)
+            <input id="efectivo-recibido" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Monto recibido" />
+          </label>
+          <p id="efectivo-vuelto" hidden role="status"></p>
+        </div>
         <div id="cliente-fiado-label" hidden>
           <label>Cliente (fiado)
             <input id="cliente-fiado-q" type="search" autocomplete="off" placeholder="Buscar por nombre" />
@@ -259,6 +266,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import { formatearCentavos } from "../lib/panel-modulos.js";
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
+      import { evaluarVueltoEfectivo, totalCentavosCarrito } from "../modules/sales/vuelto_efectivo.js";
       import { hitsCatalogoLocal, unirHits } from "../modules/sales/buscar_venta_ticket.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
       import { confirmar } from "../lib/confirmar-dom.js";
@@ -373,6 +381,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       let carrito = [];
       const nombresLinea = new Map();
       let cobrando = false;
+      const modoRaiz = document.querySelector("[data-modo]");
+      const syncModoCobrando = () => {
+        if (!modoRaiz) return;
+        const enPasoCobro = document.querySelector("main")?.dataset.paso === "cobro";
+        modoRaiz.dataset.modoCobrando = enPasoCobro || cobrando || cobroEnVuelo ? "si" : "no";
+      };
       let busquedaToken = 0;
       let buscaTimer = 0;
       const mostrarPaso = (paso) => {
@@ -380,6 +394,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         if (raiz) raiz.dataset.paso = paso;
         $("paso-ticket").hidden = paso !== "ticket";
         $("paso-cobro").hidden = paso !== "cobro";
+        syncModoCobrando();
       };
       const syncCobrar = () => {
         const boton = $("cobrar");
@@ -389,7 +404,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         boton.classList.toggle("cobrar-apagado", vacio);
         $("ticket-vacio").hidden = !vacio;
         const confirmarCobro = $("confirmar-cobro");
-        if (confirmarCobro) confirmarCobro.disabled = vacio;
+        if (confirmarCobro) confirmarCobro.disabled = vacio || cobrando;
       };
       // P1-56: un 5xx no cierra el cobro. El segundo tap reusa op_id y seq
       // para no emitir otro ticket de la misma venta.
@@ -733,6 +748,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         nombresLinea.clear();
         pintarCarrito();
         cobroEnVuelo = null;
+        $("efectivo-recibido").value = "";
+        $("efectivo-vuelto").hidden = true;
+        $("efectivo-vuelto").textContent = "";
+        syncModoCobrando();
         mostrarPaso("ticket");
         $("sku").focus();
       };
@@ -769,8 +788,32 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const aCuenta = $("medio").value === "A cuenta";
         $("cliente-fiado-label").hidden = !aCuenta;
       };
-      $("medio").addEventListener("change", syncClienteFiado);
-      syncClienteFiado();
+      const syncEfectivoRecibido = () => {
+        const efectivo = $("medio").value === "Efectivo";
+        $("efectivo-recibido-label").hidden = !efectivo;
+        const aviso = $("efectivo-vuelto");
+        if (!efectivo) {
+          aviso.hidden = true;
+          aviso.textContent = "";
+          return;
+        }
+        const total = totalCentavosCarrito(carrito);
+        const evaluacion = evaluarVueltoEfectivo(total, $("efectivo-recibido").value);
+        if (evaluacion.ok && evaluacion.modo === "vuelto" && evaluacion.vueltoCentavos >= 0) {
+          aviso.hidden = false;
+          aviso.textContent = "Vuelto: " + formatearCentavos(evaluacion.vueltoCentavos);
+          return;
+        }
+        aviso.hidden = true;
+        aviso.textContent = "";
+      };
+      const syncMedioCobro = () => {
+        syncClienteFiado();
+        syncEfectivoRecibido();
+      };
+      $("medio").addEventListener("change", syncMedioCobro);
+      $("efectivo-recibido").addEventListener("input", syncEfectivoRecibido);
+      syncMedioCobro();
 
       let clienteConfirmado = null;
       let buscaFiado = null;
@@ -975,6 +1018,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       $("cobrar").addEventListener("click", () => {
         if ($("cobrar").disabled || carrito.length === 0) return;
         pintarCobro();
+        syncEfectivoRecibido();
         mostrarPaso("cobro");
         $("cobro-titulo").focus();
       });
@@ -991,18 +1035,32 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           estado("carrito vacío");
           return;
         }
-        // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
-        if (fiado && !cobroEnVuelo) {
-          if (!clienteConfirmado) {
-            estado("Elegí un cliente de la lista.");
+        // TB-162: el vuelto es de interfaz. Con recibido cargado, no confirma si alcanza menos que el total.
+        if (medio === "Efectivo" && !cobroEnVuelo) {
+          const evaluacion = evaluarVueltoEfectivo(totalCentavosCarrito(carrito), $("efectivo-recibido").value);
+          if (!evaluacion.ok) {
+            if (evaluacion.codigo === "recibido_insuficiente") {
+              estado("El monto recibido no alcanza para el total.");
+              return;
+            }
+            estado("Revisá el monto recibido.");
             return;
           }
+        }
+        // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
+        if (fiado && !cobroEnVuelo) {
           if (!navigator.onLine) {
             estado("La venta a cuenta necesita conexión.");
             return;
           }
+          if (!clienteConfirmado) {
+            estado("Elegí un cliente de la lista.");
+            return;
+          }
         }
         cobrando = true;
+        syncCobrar();
+        syncModoCobrando();
         try {
           if (!cobroEnVuelo) {
             const preparado = armarVuelo(fiado ? "A cuenta" : medio, fiado ? false : !navigator.onLine);
@@ -1201,6 +1259,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           }
         } finally {
           cobrando = false;
+          syncCobrar();
+          syncModoCobrando();
           balance();
         }
       };
