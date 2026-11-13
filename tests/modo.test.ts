@@ -279,7 +279,8 @@ describe("Modo: en el cascarón, sin tapar la venta", () => {
   });
 
   it("la barra principal sigue en el cascarón y el bot de WhatsApp no se toca", () => {
-    expect(shell).toContain("<Modo />");
+    expect(shell).toContain("PanelTopbar");
+    expect(leer("src/components/panel/PanelTopbar.astro")).toContain("<Modo />");
     expect(shell).toContain("<NavTablero");
     expect(venta).toContain("<Modo />");
     expect(venta).toContain('id="cobrar"');

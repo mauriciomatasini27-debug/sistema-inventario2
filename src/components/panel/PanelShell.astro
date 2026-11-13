@@ -4,11 +4,14 @@ import "../../styles/tema.css";
 import { Toaster } from "../ui/Toaster";
 import ConfirmDialog from "../ui/ConfirmDialog.astro";
 import TemaInicial from "../ui/TemaInicial.astro";
-import TemaToggle from "../ui/TemaToggle.astro";
-import CerrarSesion from "../ui/CerrarSesion.astro";
 import NavTablero from "./NavTablero.astro";
-import Modo from "./Modo.astro";
-import PanelBuscar from "./PanelBuscar.astro";
+import PanelTopbar from "./PanelTopbar.astro";
+import { control } from "../../lib/store.js";
+import { membershipActiva, resolverRolEfectivo, resolverSesion } from "../../lib/control.js";
+import { tenantDeRequest } from "../../lib/tenant-context.js";
+import { datosCuentaBarra } from "../../lib/panel-topbar.js";
+import { enmascararEmail } from "../../modules/auth/auditoria.js";
+import { rolParaNav } from "../../lib/panel-modulos.js";
 import ReportesComercioDialog from "./ReportesComercioDialog.astro";
 import type { DestinoPanel } from "../../lib/panel-modulos.js";
 
@@ -22,7 +25,24 @@ interface Props {
   ocultarTitulo?: boolean;
 }
 const { titulo, subtitulo = "", activo, comercio = "", ocultarTitulo = false } = Astro.props;
-const logoTexto = comercio.trim() || "Inventario";
+
+const sesionCtx = resolverSesion(Astro.request);
+let nombreCrudo: string | null = null;
+let rolMembresia: "dueno" | "empleado" | null = null;
+if (sesionCtx) {
+  const u = control.users.get(sesionCtx.googleSub);
+  nombreCrudo = u?.nombre?.trim() || (u?.email ? enmascararEmail(u.email) : null);
+  const tenantRes = tenantDeRequest(Astro.request);
+  const tenantId = tenantRes.ok ? tenantRes.tenantId : sesionCtx.tenantId;
+  if (tenantId) {
+    const m = membershipActiva(tenantId, sesionCtx.googleSub);
+    if (m) rolMembresia = m.rol;
+  }
+} else {
+  const nav = rolParaNav(resolverRolEfectivo(Astro.request));
+  rolMembresia = nav.rol;
+}
+const cuentaBarra = datosCuentaBarra(nombreCrudo, rolMembresia);
 ---
 <!doctype html>
 <html lang="es">
@@ -48,19 +68,7 @@ const logoTexto = comercio.trim() || "Inventario";
       @media (min-width: 900px) {
         .panel-shell .tablero-contenido { padding-bottom: 16px; }
       }
-      .panel-shell .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; }
-      .panel-shell .topbar .tema-toggle { margin-left: auto; }
-      /* TB-158: la barra de arriba acompaña el nav oscuro. El vidrio del tema no la aclara. */
-      /* TB-159: el blur recorta el panel de Modo al alto de la barra. El fondo ya es void sólido. */
-      .panel-shell .topbar.vidrio-barra {
-        position: static;
-        background: var(--color-void);
-        color: var(--color-star-white);
-        overflow: visible;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-      }
-      .panel-shell .logo { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--color-mid); border-radius: 999px; background: var(--color-charcoal); color: var(--color-star-white); font-weight: 700; text-decoration: none; }
+      /* TB-BARRA-SUPERIOR: la barra sale del padding de 16px y queda ancho completo. */
       /* P1-46: un display de la nav gana al atributo hidden. Sin esto el módulo fuera de plan sigue en Más. */
       [data-modulo-indice][hidden] { display: none !important; }
       .panel-shell main { padding-bottom: 32px; }
@@ -103,18 +111,18 @@ const logoTexto = comercio.trim() || "Inventario";
       .panel-shell ul.lista li { padding: 8px 0; border-bottom: 1px solid var(--tema-linea); }
       .panel-shell form { display: grid; gap: 8px; }
       .panel-shell label { display: grid; gap: 4px; min-width: 0; font-size: 13px; color: var(--tema-texto-suave); }
-      .panel-shell input, .panel-shell select, .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila) { min-height: 44px; font-size: 16px; border-radius: 8px; padding: 8px 10px; font-family: inherit; }
+      .panel-shell input, .panel-shell select, .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):not(.panel-cuenta-switch):not(.topbar-panel-avatar):not(.panel-buscar-inline):not(.panel-buscar-abrir) { min-height: 44px; font-size: 16px; border-radius: 8px; padding: 8px 10px; font-family: inherit; }
       .panel-shell .opciones button { min-height: 44px; font-size: 16px; padding: 8px 12px; font-family: inherit; }
       .panel-shell input, .panel-shell select { border: 1px solid var(--tema-linea); background: var(--tema-superficie); color: var(--tema-texto); }
       .panel-shell label > input, .panel-shell label > select { box-sizing: border-box; width: 100%; min-width: 0; }
       .panel-shell select { text-overflow: ellipsis; }
-      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila) { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; cursor: pointer; }
+      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):not(.panel-cuenta-switch):not(.topbar-panel-avatar):not(.panel-buscar-inline):not(.panel-buscar-abrir):not(.cerrar-sesion--menu) { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; cursor: pointer; }
       .panel-shell .opciones button { border-radius: 12px; padding: 8px 12px; background: var(--color-charcoal); font-weight: 500; }
       .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):hover { background: var(--color-void); }
       .panel-shell button:disabled { opacity: 0.6; cursor: progress; }
       .panel-shell .fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
       .panel-shell .fila > label { flex: 1 1 120px; }
-      .panel-shell a:not(.nav-link):not(.atajo):not(.upsell-ver):not(.logo):not(.modo-aviso) { color: var(--tema-acento); }
+      .panel-shell a:not(.nav-link):not(.atajo):not(.upsell-ver):not(.logo):not(.modo-aviso):not(.topbar-panel-marca) { color: var(--tema-acento); }
       .panel-shell .error-campo { margin: 4px 0 0; color: var(--estado-peligro); font-size: 12px; font-weight: 600; }
       .panel-shell .error-campo::before { content: "⚠ "; }
       .panel-shell input[aria-invalid="true"], .panel-shell select[aria-invalid="true"], .panel-shell textarea[aria-invalid="true"] { border-color: var(--estado-peligro); }
@@ -161,10 +169,10 @@ const logoTexto = comercio.trim() || "Inventario";
       }
       .tablero.panel-shell th { color: var(--color-muted-dark); border-color: var(--color-mid); }
       .tablero.panel-shell td, .tablero.panel-shell ul.lista li { border-color: var(--color-mid); }
-      .tablero.panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):hover {
+      .tablero.panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):not(.panel-cuenta-switch):not(.topbar-panel-avatar):not(.panel-buscar-inline):not(.panel-buscar-abrir):not(.cerrar-sesion--menu):hover {
         background: var(--color-mid);
       }
-      .tablero.panel-shell a:not(.nav-link):not(.atajo):not(.upsell-ver):not(.logo):not(.modo-aviso):not(.accion-rapida) {
+      .tablero.panel-shell a:not(.nav-link):not(.atajo):not(.upsell-ver):not(.logo):not(.modo-aviso):not(.accion-rapida):not(.topbar-panel-marca) {
         color: var(--color-star-glow);
       }
       .tablero.panel-shell .resumen-pantalla {
@@ -211,14 +219,13 @@ const logoTexto = comercio.trim() || "Inventario";
   <body>
     <div class:list={["panel-shell", "tablero", { "tablero-inicio": activo === "dashboard" }]}>
       <NavTablero activo={activo} />
+      <PanelTopbar
+        comercio={comercio}
+        nombreUsuario={cuentaBarra.nombre}
+        rolEtiqueta={cuentaBarra.rol}
+        inicialAvatar={cuentaBarra.inicial}
+      />
       <div class="tablero-contenido">
-        <header class="topbar vidrio-barra">
-          <a class="logo" href="/panel" title={comercio.trim() || "Panel del comercio"}>{logoTexto}</a>
-          <PanelBuscar />
-          <CerrarSesion />
-          <TemaToggle />
-          <Modo />
-        </header>
         <main>
           {ocultarTitulo ? null : <h1>{titulo}</h1>}
           {subtitulo ? <p class="sub">{subtitulo}</p> : null}

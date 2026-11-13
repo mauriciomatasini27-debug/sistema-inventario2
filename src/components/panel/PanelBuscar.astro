@@ -3,14 +3,35 @@ import { destinosBuscar } from "../../lib/panel-buscar.js";
 import { rolParaNav } from "../../lib/panel-modulos.js";
 import { resolverRolEfectivo } from "../../lib/control.js";
 
+interface Props {
+  /** TB-BARRA-SUPERIOR: en la barra superior solo va inline en escritorio. */
+  ubicacion?: "default" | "topbar";
+}
+const { ubicacion = "default" } = Astro.props;
+
 const nav = rolParaNav(resolverRolEfectivo(Astro.request));
 const destinos = destinosBuscar(nav.rol, nav.permisos);
 const destinosJson = JSON.stringify(destinos);
 ---
 
-<button type="button" class="panel-buscar-abrir" data-panel-buscar-abrir aria-haspopup="dialog" aria-controls="panel-buscar" aria-label="Buscar función">
-  <span aria-hidden="true">⌕</span>
-</button>
+{ubicacion === "default" ? (
+  <button type="button" class="panel-buscar-abrir" data-panel-buscar-abrir aria-haspopup="dialog" aria-controls="panel-buscar" aria-label="Buscar función">
+    <span aria-hidden="true">⌕</span>
+  </button>
+) : (
+  <button
+    type="button"
+    class="panel-buscar-inline"
+    data-panel-buscar-abrir
+    aria-haspopup="dialog"
+    aria-controls="panel-buscar"
+    aria-label="Buscar función, Ctrl o Cmd K"
+  >
+    <span aria-hidden="true">⌕</span>
+    <span class="panel-buscar-inline-texto">Buscar función</span>
+    <span class="panel-buscar-inline-hint">Ctrl+K</span>
+  </button>
+)}
 <dialog id="panel-buscar" class="panel-buscar" aria-labelledby="panel-buscar-titulo">
   <form method="dialog" class="panel-buscar-caja">
     <header class="panel-buscar-enc">
@@ -168,6 +189,38 @@ const destinosJson = JSON.stringify(destinos);
   .panel-buscar-abrir:focus-visible {
     outline: 2px solid var(--color-star-white);
     outline-offset: 2px;
+  }
+  .panel-buscar-inline {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    flex: 0 1 280px;
+    max-width: 320px;
+    margin-left: auto;
+  }
+  .panel-buscar-inline-hint {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-muted-dark);
+    border: 1px solid var(--color-mid);
+    border-radius: 6px;
+    padding: 2px 6px;
+    letter-spacing: 0.02em;
+  }
+  @media (min-width: 900px) {
+    .panel-buscar-inline {
+      display: inline-flex;
+    }
   }
   .panel-buscar {
     border: 1px solid var(--color-mid);

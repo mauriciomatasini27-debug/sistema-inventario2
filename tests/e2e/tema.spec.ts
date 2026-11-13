@@ -9,6 +9,14 @@ declare global {
 // DS-S4/S6: tema claro/oscuro por dispositivo con toggle y sin flash.
 const RUTAS = ["/venta", "/panel", "/panel/stock", "/admin"];
 
+async function toggleTema(page: import("@playwright/test").Page, ruta: string) {
+  if (ruta.startsWith("/panel")) {
+    await page.locator("[data-panel-avatar]").click();
+    return page.locator("button[data-tema-toggle][role='switch']");
+  }
+  return page.locator("button[data-tema-toggle]").first();
+}
+
 for (const ruta of RUTAS) {
   test.describe(`tema guardado sin flash en ${ruta}`, () => {
     test.use({ colorScheme: "light" });
@@ -52,19 +60,25 @@ for (const ruta of RUTAS) {
 
     test("el toggle cambia el tema, aria-pressed y persiste tras recargar", async ({ page }) => {
       await page.goto(ruta);
-      const toggle = page.locator("button[data-tema-toggle]").first();
+      const toggle = await toggleTema(page, ruta);
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
       await toggle.click();
       await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
       await expect(toggle).toHaveAttribute("aria-pressed", "false");
       await page.reload();
       await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
-      await expect(page.locator("button[data-tema-toggle]").first()).toHaveAttribute("aria-pressed", "false");
+      const toggleTrasReload = ruta.startsWith("/panel")
+        ? page.locator("button[data-tema-toggle][role='switch']")
+        : page.locator("button[data-tema-toggle]").first();
+      if (ruta.startsWith("/panel")) {
+        await page.locator("[data-panel-avatar]").click();
+      }
+      await expect(toggleTrasReload).toHaveAttribute("aria-pressed", "false");
     });
 
     test("el toggle responde al teclado (foco + Enter)", async ({ page }) => {
       await page.goto(ruta);
-      const toggle = page.locator("button[data-tema-toggle]").first();
+      const toggle = await toggleTema(page, ruta);
       await toggle.focus();
       await page.keyboard.press("Enter");
       await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
@@ -72,19 +86,27 @@ for (const ruta of RUTAS) {
 
     test("el toggle mide al menos 44x44", async ({ page }) => {
       await page.goto(ruta);
-      const caja = await page.locator("button[data-tema-toggle]").first().boundingBox();
+      const toggle = await toggleTema(page, ruta);
+      const caja = await toggle.boundingBox();
       expect(caja?.width ?? 0).toBeGreaterThanOrEqual(44);
       expect(caja?.height ?? 0).toBeGreaterThanOrEqual(44);
     });
 
     test("la etiqueta visible anuncia el tema destino", async ({ page }) => {
       await page.goto(ruta);
-      const toggle = page.locator("button[data-tema-toggle]").first();
+      const toggle = await toggleTema(page, ruta);
       await expect(page.locator("html")).toHaveAttribute("data-tema", "oscuro");
-      await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Claro");
-      await toggle.click();
-      await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
-      await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Oscuro");
+      if (ruta.startsWith("/panel")) {
+        await expect(page.locator("[data-cuenta-tema-desc]")).toHaveText("Oscuro, como el tablero B");
+        await toggle.click();
+        await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
+        await expect(page.locator("[data-cuenta-tema-desc]")).toHaveText("Claro");
+      } else {
+        await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Claro");
+        await toggle.click();
+        await expect(page.locator("html")).toHaveAttribute("data-tema", "claro");
+        await expect(toggle.locator("[data-tema-etiqueta]")).toHaveText("Oscuro");
+      }
     });
 
   });
