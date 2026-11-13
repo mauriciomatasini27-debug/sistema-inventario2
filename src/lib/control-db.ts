@@ -90,6 +90,8 @@ export function persistirSesion(s: {
       .onConflictDoUpdate({
         target: sessions.idHash,
         set: {
+          // P1-68: el alta pega el tenant en la sesión ya persistida del login.
+          tenantId: s.tenantId,
           expiraAt: new Date(s.expiraAt),
           lastSeenAt: s.lastSeenAt ? new Date(s.lastSeenAt) : null,
           ...(s.reauthAt ? { reauthAt: new Date(s.reauthAt) } : {}),
@@ -217,6 +219,15 @@ export function buscarAltasPorDueno(ownerGoogleSub: string): Promise<AltaExisten
       nombreComercio: f.nombreComercio,
       requestKey: f.requestKey ?? undefined,
     }));
+  }).then((r) => r ?? []);
+}
+
+// P1-68: ids ya reclamados en control (cualquier dueño) para no reusar una
+// TENANT_DATABASE_URL_<id> de otro comercio.
+export function listarIdsTenantsControl(): Promise<string[]> {
+  return leerControl(async (db) => {
+    const filas = await db.select({ id: tenants.id }).from(tenants);
+    return filas.map((f) => f.id);
   }).then((r) => r ?? []);
 }
 
