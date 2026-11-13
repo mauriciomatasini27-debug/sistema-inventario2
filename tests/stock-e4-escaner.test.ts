@@ -3,9 +3,13 @@ import {
   decodificarCuadro,
   efectoCodigoDesconocido,
   efectoDeTecla,
+  mensajeCamaraNoDisponible,
+  mensajeErrorCamara,
+  motivoCamaraNoDisponible,
   productosConSkuExacto,
   resolverEscaneo,
   resolverLectura,
+  sesionCamara,
   type CodigoDeTenant,
 } from "../src/modules/stock/escaner.js";
 
@@ -114,6 +118,46 @@ describe("STOCK-E4 escáner", () => {
     });
     expect(leido).toEqual({ codigo: "7790001", decodificador: "zxing-wasm" });
     expect(llamadas).toEqual({ detector: 0, zxing: 1 });
+  });
+
+  it("distingue permiso denegado y contexto inseguro", () => {
+    expect(mensajeErrorCamara({ name: "NotAllowedError" })).toContain("Permiso de cámara denegado");
+    expect(mensajeErrorCamara({ name: "NotFoundError" })).toContain("No hay cámara");
+    expect(mensajeCamaraNoDisponible("contexto_inseguro")).toContain("HTTPS");
+    expect(mensajeCamaraNoDisponible("sin_api")).toContain("no soporta");
+    const motivo = motivoCamaraNoDisponible();
+    expect(motivo === null || motivo === "sin_api").toBe(true);
+  });
+
+  it("cerrar detiene tracks y oculta el video", async () => {
+    let detenidos = 0;
+    const track = { stop: () => { detenidos += 1; } };
+    const stream = { getTracks: () => [track] };
+    const video = {
+      hidden: false,
+      srcObject: stream,
+      videoWidth: 64,
+      videoHeight: 64,
+      play: async () => {},
+    } as unknown as HTMLVideoElement;
+    const original = (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector;
+  (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector = class {
+      async detect() {
+        return [];
+      }
+    };
+    const sesion = sesionCamara(video, {
+      getUserMedia: async () => stream as MediaStream,
+    });
+    const lectura = sesion.leer();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    sesion.cerrar();
+    await lectura;
+    if (original === undefined) delete (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector;
+    else (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector = original;
+    expect(detenidos).toBe(1);
+    expect(video.hidden).toBe(true);
+    expect(video.srcObject).toBeNull();
   });
 
   it("con BarcodeDetector no llama a zxing-wasm", async () => {

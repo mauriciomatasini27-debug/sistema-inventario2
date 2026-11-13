@@ -1,0 +1,278 @@
+---
+import { destinosBuscar } from "../../lib/panel-buscar.js";
+import { rolParaNav } from "../../lib/panel-modulos.js";
+import { resolverRolEfectivo } from "../../lib/control.js";
+
+const nav = rolParaNav(resolverRolEfectivo(Astro.request));
+const destinos = destinosBuscar(nav.rol, nav.permisos);
+const destinosJson = JSON.stringify(destinos);
+---
+
+<button type="button" class="panel-buscar-abrir" data-panel-buscar-abrir aria-haspopup="dialog" aria-controls="panel-buscar" aria-label="Buscar función">
+  <span aria-hidden="true">⌕</span>
+</button>
+<dialog id="panel-buscar" class="panel-buscar" aria-labelledby="panel-buscar-titulo">
+  <form method="dialog" class="panel-buscar-caja">
+    <header class="panel-buscar-enc">
+      <h2 id="panel-buscar-titulo">Buscar función</h2>
+      <button type="submit" class="panel-buscar-cerrar" aria-label="Cerrar">✕</button>
+    </header>
+    <label class="panel-buscar-campo">
+      <span class="sr-only">Consulta</span>
+      <input type="search" id="panel-buscar-q" autocomplete="off" placeholder="Escribí para filtrar…" />
+    </label>
+    <p class="panel-buscar-ayuda">Ctrl+K o Cmd+K</p>
+    <ul id="panel-buscar-lista" class="panel-buscar-lista" role="listbox" aria-label="Resultados"></ul>
+    <p id="panel-buscar-vacio" class="panel-buscar-vacio" hidden>Sin coincidencias.</p>
+  </form>
+</dialog>
+
+<script define:vars={{ destinosJson }}>
+  import { filtrarDestinosBuscar } from "../../lib/panel-buscar.js";
+
+  const destinos = JSON.parse(destinosJson);
+  const dialogo = document.getElementById("panel-buscar");
+  const input = document.getElementById("panel-buscar-q");
+  const lista = document.getElementById("panel-buscar-lista");
+  const vacio = document.getElementById("panel-buscar-vacio");
+  const abrirBtns = document.querySelectorAll("[data-panel-buscar-abrir]");
+  if (!(dialogo instanceof HTMLDialogElement) || !(input instanceof HTMLInputElement) || !lista || !vacio) {
+    throw new Error("panel-buscar: DOM incompleto");
+  }
+
+  let activo = 0;
+
+  function pintar() {
+    const filtrados = filtrarDestinosBuscar(destinos, input.value);
+    lista.replaceChildren();
+    activo = 0;
+    if (!filtrados.length) {
+      vacio.hidden = input.value.trim() === "";
+      return;
+    }
+    vacio.hidden = true;
+    filtrados.forEach((d, i) => {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = d.href;
+      a.role = "option";
+      a.tabIndex = -1;
+      a.dataset.idx = String(i);
+      const titulo = document.createElement("span");
+      titulo.className = "panel-buscar-titulo";
+      titulo.textContent = d.label;
+      a.append(titulo);
+      if (d.grupo) {
+        const meta = document.createElement("span");
+        meta.className = "panel-buscar-meta";
+        meta.textContent = d.grupo;
+        a.append(meta);
+      }
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        dialogo.close();
+        location.assign(d.href);
+      });
+      li.append(a);
+      lista.append(li);
+    });
+    marcarActivo();
+  }
+
+  function opciones(): HTMLAnchorElement[] {
+    return [...lista.querySelectorAll<HTMLAnchorElement>("a[role=option]")];
+  }
+
+  function marcarActivo() {
+    const ops = opciones();
+    ops.forEach((a, i) => {
+      a.setAttribute("aria-selected", i === activo ? "true" : "false");
+    });
+    const actual = ops[activo];
+    if (actual) actual.scrollIntoView({ block: "nearest" });
+  }
+
+  function abrir() {
+    if (typeof dialogo.showModal === "function") dialogo.showModal();
+    else dialogo.setAttribute("open", "");
+    input.value = "";
+    pintar();
+    input.focus();
+  }
+
+  function cerrar() {
+    if (dialogo.open) dialogo.close();
+    else dialogo.removeAttribute("open");
+  }
+
+  abrirBtns.forEach((b) => b.addEventListener("click", abrir));
+
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+      ev.preventDefault();
+      abrir();
+      return;
+    }
+    if (!dialogo.open) return;
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      cerrar();
+      return;
+    }
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      const ops = opciones();
+      if (!ops.length) return;
+      activo = Math.min(activo + 1, ops.length - 1);
+      marcarActivo();
+      return;
+    }
+    if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      activo = Math.max(activo - 1, 0);
+      marcarActivo();
+      return;
+    }
+    if (ev.key === "Enter") {
+      const ops = opciones();
+      const dest = ops[activo];
+      if (dest) {
+        ev.preventDefault();
+        dialogo.close();
+        location.assign(dest.href);
+      }
+    }
+  });
+
+  input.addEventListener("input", pintar);
+  dialogo.addEventListener("close", () => {
+    abrirBtns[0]?.focus();
+  });
+</script>
+
+<style is:global>
+  .panel-buscar-abrir {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .panel-buscar-abrir:focus-visible {
+    outline: 2px solid var(--color-star-white);
+    outline-offset: 2px;
+  }
+  .panel-buscar {
+    border: 1px solid var(--color-mid);
+    border-radius: 16px;
+    padding: 0;
+    max-width: min(420px, calc(100vw - 24px));
+    width: 100%;
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    box-shadow: var(--sombra-cta);
+  }
+  .panel-buscar::backdrop {
+    background: color-mix(in srgb, var(--color-void) 55%, transparent);
+  }
+  .panel-buscar-caja {
+    margin: 0;
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+  }
+  .panel-buscar-enc {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .panel-buscar-enc h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .panel-buscar-cerrar {
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .panel-buscar-campo input {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-void);
+    color: var(--color-star-white);
+    padding: 8px 12px;
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+  .panel-buscar-ayuda {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-muted-dark);
+  }
+  .panel-buscar-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: min(50vh, 320px);
+    overflow: auto;
+  }
+  .panel-buscar-lista a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--color-star-white);
+  }
+  .panel-buscar-lista a:hover,
+  .panel-buscar-lista a[aria-selected="true"] {
+    background: var(--color-mid);
+  }
+  .panel-buscar-meta {
+    font-size: 11px;
+    text-transform: capitalize;
+    color: var(--color-muted-dark);
+  }
+  .panel-buscar-vacio {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-muted-dark);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel-buscar,
+    .panel-buscar * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>

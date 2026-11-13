@@ -24,6 +24,9 @@ function actual(href: string): "page" | undefined {
 
 <div class="nav-tablero">
   <div class="nav-columna">
+    <button type="button" class="nav-buscar-side" data-panel-buscar-abrir>
+      Buscar función
+    </button>
     <nav class="nav-primarios" aria-label="Accesos principales">
       {BARRA_TABLERO.filter((a) => a.href).map((a) => (
         <a
@@ -133,6 +136,22 @@ function actual(href: string): "page" | undefined {
     background-color: var(--color-star-glow);
     color: var(--color-star-white);
   }
+  .nav-buscar-side {
+    display: none;
+    margin: 8px;
+    width: calc(100% - 16px);
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    padding: 8px 12px;
+  }
   .nav-primarios, .nav-mas { padding: 8px; }
   .nav-primarios { flex-direction: column; gap: 4px; }
   .nav-primarios a, .nav-grupo a, .nav-grupo summary {
@@ -189,6 +208,7 @@ function actual(href: string): "page" | undefined {
       background: var(--color-void);
       border-right: 1px solid var(--color-mid);
     }
+    .nav-buscar-side { display: block; }
     .nav-primarios { display: flex; }
     .nav-mas.nav-mas-cerrado { display: block; }
     .nav-bar { display: none; }

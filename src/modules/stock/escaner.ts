@@ -234,12 +234,48 @@ function esperar(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+export type MotivoCamaraNoDisponible = "contexto_inseguro" | "sin_api";
+
+export type DepsSesionCamara = {
+  readonly getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+};
+
+// TB-161: la venta manual sigue si la cámara no puede abrirse.
+export function motivoCamaraNoDisponible(): MotivoCamaraNoDisponible | null {
+  if (typeof globalThis.isSecureContext === "boolean" && !globalThis.isSecureContext) return "contexto_inseguro";
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return "sin_api";
+  return null;
+}
+
+export function mensajeCamaraNoDisponible(motivo: MotivoCamaraNoDisponible): string {
+  if (motivo === "contexto_inseguro") {
+    return "La cámara necesita HTTPS o localhost. Seguí con el buscador o el lector.";
+  }
+  return "Este navegador no soporta la cámara. Usá el buscador o el lector.";
+}
+
+export function mensajeErrorCamara(error: unknown): string {
+  const nombre = error && typeof error === "object" && "name" in error ? String((error as { name: unknown }).name) : "";
+  if (nombre === "NotAllowedError" || nombre === "PermissionDeniedError") {
+    return "Permiso de cámara denegado. Podés buscar el código a mano o usar el lector.";
+  }
+  if (nombre === "NotFoundError" || nombre === "DevicesNotFoundError") {
+    return "No hay cámara en este dispositivo. Usá el buscador o el lector.";
+  }
+  if (nombre === "NotSupportedError" || nombre === "OverconstrainedError") {
+    return "La cámara no está disponible. Usá el buscador o el lector.";
+  }
+  return "No se pudo abrir la cámara. Usá el buscador o el lector.";
+}
+
 export type SesionCamara = {
   leer(): Promise<string | null>;
   cerrar(): void;
 };
 
-export function sesionCamara(video: HTMLVideoElement): SesionCamara {
+export function sesionCamara(video: HTMLVideoElement, deps: DepsSesionCamara = {}): SesionCamara {
+  const pedirStream = deps.getUserMedia
+    ?? ((constraints: MediaStreamConstraints) => navigator.mediaDevices.getUserMedia(constraints));
   const ac = new AbortController();
   let stream: MediaStream | null = null;
   const cerrar = (): void => {
@@ -250,7 +286,11 @@ export function sesionCamara(video: HTMLVideoElement): SesionCamara {
     video.hidden = true;
   };
   const leer = async (): Promise<string | null> => {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    stream = await pedirStream({ video: { facingMode: "environment" } });
+    if (ac.signal.aborted) {
+      cerrar();
+      return null;
+    }
     video.srcObject = stream;
     video.hidden = false;
     await video.play();
