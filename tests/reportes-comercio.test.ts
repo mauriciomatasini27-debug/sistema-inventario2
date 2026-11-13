@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as reportesDb from "../src/lib/reportes-comercio-db.js";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -85,6 +86,16 @@ beforeEach(() => {
   resetTablaReportesProbe();
   process.env.ADMIN_ALLOWLIST_SUBS = "admin-1";
   sembrarTenants();
+  vi.spyOn(reportesDb, "persistirReporteComercio").mockResolvedValue({ ok: true });
+  vi.spyOn(reportesDb, "actualizarEstadoReporteDb").mockResolvedValue({ ok: true });
+  vi.spyOn(reportesDb, "leerPorClaveDb").mockResolvedValue(null);
+  vi.spyOn(reportesDb, "leerReporteDb").mockResolvedValue(null);
+  vi.spyOn(reportesDb, "listarPropiosDb").mockResolvedValue(null);
+  vi.spyOn(reportesDb, "listarPlataformaDb").mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("TB-164 reportes comercio", () => {
@@ -228,6 +239,24 @@ describe("TB-164 reportes comercio", () => {
     expect(j.estado).toBe("en_revision");
     expect(j.borrador_issue.titulo).toContain("Sugerencia");
     expect(borradorIssueDesdeReporte).toBeDefined();
+  });
+
+  it("sin persistencia durable responde 503 y no deja Recibido en memoria", async () => {
+    vi.mocked(reportesDb.persistirReporteComercio).mockResolvedValueOnce({ ok: false, motivo: "sin_tabla" });
+    const plano = sesionPlano("duena-1", "t-esquina");
+    const r = (await POSTReportes(
+      ctx("http://x/api/reportes", {
+        method: "POST",
+        headers: { cookie: `__Host-sesion=${plano}`, "Idempotency-Key": "sin-tabla" },
+        body: { tipo: "problema", texto: "Esto no debería guardarse sin tabla", ruta_sugerida: "/venta" },
+      }),
+    )) as Response;
+    expect(r.status).toBe(503);
+    const lista = (await GETReportes(
+      ctx("http://x/api/reportes", { headers: { cookie: `__Host-sesion=${plano}` } }),
+    )) as Response;
+    const j = (await lista.json()) as { items: unknown[] };
+    expect(j.items).toHaveLength(0);
   });
 
   it("sin sesión no envía", async () => {

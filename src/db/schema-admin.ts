@@ -133,7 +133,8 @@ export type ContextoFeedbackJson = {
 
 export const platformFeedbackReports = pgTable("platform_feedback_reports", {
   id: uuid("id").primaryKey(),
-  tenantId: uuid("tenant_id").notNull(),
+  // TB-164: opaco como el resto del panel admin; en dev control-app el id no es UUID.
+  tenantId: text("tenant_id").notNull(),
   nombreComercio: text("nombre_comercio").notNull(),
   autorGoogleSub: text("autor_google_sub").notNull(),
   idempotencyKey: text("idempotency_key").notNull().unique(),

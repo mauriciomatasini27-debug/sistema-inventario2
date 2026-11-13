@@ -7,29 +7,64 @@ import {
   type TipoReporteComercio,
   reportesComercioStore,
 } from "../../lib/reportes-comercio-store.js";
-import { persistirReporteComercio, actualizarEstadoReporteDb, tablaReportesDisponible } from "../../lib/reportes-comercio-db.js";
+import {
+  actualizarEstadoReporteDb,
+  leerPorClaveDb,
+  leerReporteDb,
+  listarPlataformaDb,
+  listarPropiosDb,
+  mensajePersistenciaFallida,
+  persistirReporteComercio,
+} from "../../lib/reportes-comercio-db.js";
 import { evaluarRateLimit } from "./rate-limit.js";
 import { contextoSeguro, contextoSinDatosSensibles } from "./contexto.js";
 
 export const VERSION_REPORTES_COMERCIO = "tablero B · 0.1.0";
 
-export function listarReportesPropios(tenantId: string, googleSub: string): ReporteComercioMem[] {
+function cacheReporte(r: ReporteComercioMem): void {
+  reportesComercioStore.reportes.set(r.id, r);
+  reportesComercioStore.porClave.set(r.idempotencyKey, r.id);
+}
+
+export async function listarReportesPropios(tenantId: string, googleSub: string): Promise<ReporteComercioMem[]> {
+  const desdeDb = await listarPropiosDb(tenantId, googleSub);
+  if (desdeDb !== null) {
+    for (const r of desdeDb) cacheReporte(r);
+    return desdeDb;
+  }
   return [...reportesComercioStore.reportes.values()]
     .filter((r) => r.tenantId === tenantId && r.autorGoogleSub === googleSub)
     .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 }
 
-export function listarReportesPlataforma(filtroEstado?: EstadoReporteComercio): ReporteComercioMem[] {
+export async function listarReportesPlataforma(
+  filtroEstado?: EstadoReporteComercio,
+): Promise<ReporteComercioMem[]> {
+  const desdeDb = await listarPlataformaDb(filtroEstado);
+  if (desdeDb !== null) {
+    for (const r of desdeDb) cacheReporte(r);
+    return desdeDb;
+  }
   const todos = [...reportesComercioStore.reportes.values()].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
   if (!filtroEstado) return todos;
   return todos.filter((r) => r.estado === filtroEstado);
 }
 
-export function leerReporte(id: string): ReporteComercioMem | null {
+export async function leerReporte(id: string): Promise<ReporteComercioMem | null> {
+  const db = await leerReporteDb(id);
+  if (db) {
+    cacheReporte(db);
+    return db;
+  }
   return reportesComercioStore.reportes.get(id) ?? null;
 }
 
-export function leerPorClave(idempotencyKey: string): ReporteComercioMem | null {
+async function leerPorClave(idempotencyKey: string): Promise<ReporteComercioMem | null> {
+  const db = await leerPorClaveDb(idempotencyKey);
+  if (db) {
+    cacheReporte(db);
+    return db;
+  }
   const id = reportesComercioStore.porClave.get(idempotencyKey);
   if (!id) return null;
   return reportesComercioStore.reportes.get(id) ?? null;
@@ -53,7 +88,7 @@ export async function crearReporte(input: {
   const tenant = control.tenants.get(input.tenantId);
   if (!tenant) return { ok: false, codigo: "sin_comercio", mensaje: "No encontramos este comercio." };
 
-  const existente = leerPorClave(input.idempotencyKey);
+  const existente = await leerPorClave(input.idempotencyKey);
   if (existente) {
     if (existente.autorGoogleSub !== input.googleSub || existente.tenantId !== input.tenantId) {
       return { ok: false, codigo: "sin_comercio", mensaje: "No pudimos registrar el envío." };
@@ -67,7 +102,7 @@ export async function crearReporte(input: {
 
   const ctx: ContextoReporteSeguro = contextoSeguro({
     versionApp: VERSION_REPORTES_COMERCIO,
-  referer: input.referer ?? null,
+    referer: input.referer ?? null,
     ...(input.rutaSugerida !== undefined ? { rutaSugerida: input.rutaSugerida } : {}),
     ...(input.pantallaCliente !== undefined ? { pantallaCliente: input.pantallaCliente } : {}),
   });
@@ -90,14 +125,16 @@ export async function crearReporte(input: {
     actualizadoEn: ahoraIso,
   };
 
-  reportesComercioStore.reportes.set(reporte.id, reporte);
-  reportesComercioStore.porClave.set(reporte.idempotencyKey, reporte.id);
-
-  const okDb = await persistirReporteComercio(reporte);
-  if (tablaReportesDisponible() === false && !okDb) {
-    /* memoria suficiente en monoproceso */
+  const persistido = await persistirReporteComercio(reporte);
+  if (!persistido.ok) {
+    return {
+      ok: false,
+      codigo: "persistencia",
+      mensaje: mensajePersistenciaFallida(persistido.motivo),
+    };
   }
 
+  cacheReporte(reporte);
   return { ok: true, reporte, reintento: false };
 }
 
@@ -105,18 +142,20 @@ export function puedeLeerReporte(r: ReporteComercioMem, tenantId: string, google
   return r.tenantId === tenantId && r.autorGoogleSub === googleSub;
 }
 
-export function cambiarEstadoReporte(
+export async function cambiarEstadoReporte(
   id: string,
   estado: EstadoReporteComercio,
-): ReporteComercioMem | null {
-  const r = reportesComercioStore.reportes.get(id);
+): Promise<ReporteComercioMem | null> {
+  const r = await leerReporte(id);
   if (!r) return null;
+  const actualizadoEn = new Date().toISOString();
+  const db = await actualizarEstadoReporteDb(id, estado, actualizadoEn);
+  if (!db.ok) return null;
   const actualizado: ReporteComercioMem = {
     ...r,
     estado,
-    actualizadoEn: new Date().toISOString(),
+    actualizadoEn,
   };
-  reportesComercioStore.reportes.set(id, actualizado);
-  void actualizarEstadoReporteDb(id, estado, actualizado.actualizadoEn);
+  cacheReporte(actualizado);
   return actualizado;
 }

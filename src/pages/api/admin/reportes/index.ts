@@ -21,7 +21,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     estado = filtro as EstadoReporteComercio;
   }
 
-  const items = listarReportesPlataforma(estado).map((r) => ({
+  const items = (await listarReportesPlataforma(estado)).map((r) => ({
     id: r.id,
     tipo: r.tipo,
     estado: r.estado,

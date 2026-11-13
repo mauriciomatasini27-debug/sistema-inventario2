@@ -2,6 +2,8 @@
 
 ## Alcance actual
 
+- Persistencia **solo** en Postgres (`platform_feedback_reports` vía `CONTROL_DATABASE_URL`). La memoria del proceso no sirve en Vercel serverless (cada instancia/reinicio pierde el mapa).
+- Sin migración aplicada, `POST /api/reportes` responde **503** y la UI **no** muestra Recibido.
 - Los comercios envían problemas/sugerencias desde Modo o Más.
 - La bandeja de triaje es solo para administradores de plataforma (`exigirAdmin`).
 - **Canal de notificación** de envíos nuevos (email, chat, etc.): **pendiente de definir** (issue #164). No implementar sin decisión del dueño.

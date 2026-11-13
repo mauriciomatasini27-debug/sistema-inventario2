@@ -15,7 +15,7 @@ export const GET: APIRoute = async ({ request, params }) => {
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;
   const id = params.id ?? "";
-  const r = leerReporte(id);
+  const r = await leerReporte(id);
   if (!r) return jsonError("No encontramos ese reporte.", 404);
   return Response.json({
     id: r.id,
@@ -43,7 +43,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;
   const id = params.id ?? "";
-  const existente = leerReporte(id);
+  const existente = await leerReporte(id);
   if (!existente) return jsonError("No encontramos ese reporte.", 404);
 
   let body: unknown;
@@ -60,7 +60,7 @@ export const PATCH: APIRoute = async ({ request, params }) => {
   const den = exigirConfirmacion(parsed.data as Record<string, unknown>, id);
   if (den instanceof Response) return den;
 
-  const actualizado = cambiarEstadoReporte(id, conf.data.estado);
+  const actualizado = await cambiarEstadoReporte(id, conf.data.estado);
   if (!actualizado) return jsonError("No pudimos actualizar el estado.", 500);
   return Response.json({ id, estado: actualizado.estado });
 };

@@ -9,7 +9,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request }) => {
   const gate = exigirMiembroComercio(request);
   if (!gate.ok) return gate.respuesta;
-  const items = listarReportesPropios(gate.tenantId, gate.ctx.googleSub).map((r) => ({
+  const items = (await listarReportesPropios(gate.tenantId, gate.ctx.googleSub)).map((r) => ({
     id: r.id,
     tipo: r.tipo,
     texto: r.texto,
@@ -57,6 +57,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!r.ok) {
     if (r.codigo === "rate_limit") return jsonError(r.mensaje, 429);
+    if (r.codigo === "persistencia") return jsonError(r.mensaje, 503);
     return jsonError(r.mensaje, 422);
   }
 

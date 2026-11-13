@@ -9,7 +9,7 @@ export const GET: APIRoute = async ({ request, params }) => {
   const gate = exigirMiembroComercio(request);
   if (!gate.ok) return gate.respuesta;
   const id = params.id ?? "";
-  const r = leerReporte(id);
+  const r = await leerReporte(id);
   if (!r || !puedeLeerReporte(r, gate.tenantId, gate.ctx.googleSub)) {
     return jsonError("No encontramos ese envío.", 404);
   }
