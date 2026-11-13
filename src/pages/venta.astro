@@ -50,6 +50,30 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       }
       /* TB-158: el mostrador scrollea por encima de la barra. El inset queda en el contenido. */
       .tablero-contenido { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+      /* TB-AUDIT-MOBILE: mismos tokens B que PanelShell; las vidrio-card no aclaran sobre void. */
+      .tablero {
+        --tema-fondo: var(--color-void);
+        --tema-superficie: var(--color-charcoal);
+        --tema-linea: var(--color-mid);
+        --tema-texto: var(--color-star-white);
+        --tema-texto-suave: var(--color-muted-dark);
+        --tema-vidrio: var(--color-charcoal);
+      }
+      .tablero .vidrio-card {
+        background: var(--color-charcoal);
+        border: 1px solid var(--color-mid);
+        color: var(--color-star-white);
+      }
+      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .tablero .vidrio-card {
+          background: color-mix(in srgb, var(--color-charcoal) 92%, transparent);
+          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px);
+        }
+      }
+      @media (prefers-reduced-transparency: reduce) {
+        .tablero .vidrio-card { background: var(--color-charcoal); backdrop-filter: none; -webkit-backdrop-filter: none; }
+      }
       @media (min-width: 900px) {
         .tablero-contenido { padding-bottom: 16px; }
       }
