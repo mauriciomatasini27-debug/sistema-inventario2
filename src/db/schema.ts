@@ -15,6 +15,8 @@ import {
 // Inmutables (sales, tickets, cash_movements, outbox) solo INSERT/SELECT:
 // el revoke + trigger se aplica en migración, no en este schema tipado.
 export const products = pgTable("products", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku").notNull().unique(),
   nombre: text("nombre").notNull(),
@@ -36,6 +38,8 @@ export const products = pgTable("products", {
 
 // Nivel 1: conteos por sector, append-only (inmutable runtime en migración).
 export const inventoryCounts = pgTable("inventory_counts", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   sector: text("sector").notNull(),
   idemKey: text("idem_key").notNull().unique(),
@@ -43,6 +47,8 @@ export const inventoryCounts = pgTable("inventory_counts", {
 });
 
 export const devices = pgTable("devices", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   deviceCode: text("device_code").notNull().unique(),
   plataforma: text("plataforma").notNull(),
@@ -52,6 +58,8 @@ export const devices = pgTable("devices", {
 // P1-3 PIN de mostrador por dispositivo (migración 0005). Solo hash,
 // nunca el plano. El bloqueo es estado local, no secreto.
 export const devicePins = pgTable("device_pins", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   deviceCode: text("device_code").primaryKey(),
   pinHash: text("pin_hash").notNull(),
   bloqueado: boolean("bloqueado").notNull().default(false),
@@ -59,6 +67,8 @@ export const devicePins = pgTable("device_pins", {
 });
 
 export const sales = pgTable("sales", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   medio: text("medio").notNull(),
@@ -70,6 +80,8 @@ export const sales = pgTable("sales", {
 });
 
 export const tickets = pgTable("tickets", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   saleId: uuid("sale_id").notNull(),
   definitivo: text("definitivo").unique(),
@@ -82,6 +94,8 @@ export const tickets = pgTable("tickets", {
 // revierte el incremento. Mismo patrón que fiscal_sequences.
 // PERS5-S1 (ADR-0080): la serie `devolucion` numera D-* con el mismo lock.
 export const ticketCounters = pgTable("ticket_counters", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: text("id").primaryKey(),
   ultimo: integer("ultimo").notNull().default(0),
 });
@@ -90,6 +104,8 @@ export const SERIE_MOSTRADOR = "mostrador";
 export const SERIE_DEVOLUCION = "devolucion";
 
 export const ticketLines = pgTable("ticket_lines", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   saleId: uuid("sale_id").notNull(),
   productId: uuid("product_id").notNull(),
@@ -100,6 +116,8 @@ export const ticketLines = pgTable("ticket_lines", {
 });
 
 export const cashMovements = pgTable("cash_movements", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   saleId: uuid("sale_id"),
@@ -114,6 +132,8 @@ export const cashMovements = pgTable("cash_movements", {
 export type OutboxPayload = unknown;
 
 export const outbox = pgTable("outbox", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   opId: uuid("op_id").primaryKey(),
   deviceCode: text("device_code").notNull(),
   deviceSeq: integer("device_seq").notNull(),
@@ -125,6 +145,8 @@ export const outbox = pgTable("outbox", {
 });
 
 export const idMappings = pgTable("id_mappings", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   opId: uuid("op_id").primaryKey(),
   idProvisorio: text("id_provisorio").notNull(),
   idDefinitivo: text("id_definitivo").notNull(),
@@ -273,6 +295,8 @@ export const opsSignalsOutbox = pgTable("ops_signals_outbox", {
 // aplica en migración, no en este schema tipado. Unidades en integer,
 // dinero siempre bigint centavos.
 export const productCodes = pgTable("product_codes", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   codigo: text("codigo").primaryKey(),
   sku: text("sku")
     .notNull()
@@ -281,6 +305,8 @@ export const productCodes = pgTable("product_codes", {
 });
 
 export const stockLots = pgTable("stock_lots", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku")
     .notNull()
@@ -296,6 +322,8 @@ export const stockLots = pgTable("stock_lots", {
 // stock_movements_stock_inicial_unico (migración 0036) cubre las keys
 // 'stock-inicial:%'; drizzle-kit no declara índices parciales acá.
 export const stockMovements = pgTable("stock_movements", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull(),
   sku: text("sku").notNull(),
@@ -308,6 +336,8 @@ export const stockMovements = pgTable("stock_movements", {
 
 // Vive en la base del tenant: sin tenant_id, como stock_movements.
 export const stockImports = pgTable("stock_imports", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull().unique(),
   archivoNombre: text("archivo_nombre").notNull(),
@@ -326,6 +356,8 @@ export const stockImports = pgTable("stock_imports", {
 // N1 CAT-S1/S5/S6 + CAJA-S1/S3/S4: tablas mínimas para cutover DB.
 // Tests/build sin DB usan store en memoria; con DB viva hay write-through.
 export const productPhotos = pgTable("product_photos", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku").notNull().references(() => products.sku),
   url: text("url").notNull(),
@@ -337,6 +369,8 @@ export const productPhotos = pgTable("product_photos", {
 
 // Unicidad case-insensitive: índice locations_nombre_lower_unique (migración 0017).
 export const locations = pgTable("locations", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   nombre: text("nombre").notNull(),
   archivada: boolean("archivada").notNull().default(false),
@@ -344,6 +378,8 @@ export const locations = pgTable("locations", {
 });
 
 export const stockCounts = pgTable("stock_counts", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull().unique(),
   sector: text("sector").notNull().default("general"),
@@ -354,6 +390,8 @@ export const stockCounts = pgTable("stock_counts", {
 });
 
 export const stockCountLines = pgTable("stock_count_lines", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   countId: uuid("count_id").notNull().references(() => stockCounts.id),
   sku: text("sku").notNull(),
@@ -362,6 +400,8 @@ export const stockCountLines = pgTable("stock_count_lines", {
 });
 
 export const cashQrReceipts = pgTable("cash_qr_receipts", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   numeroOperacion: text("numero_operacion").notNull().unique(),
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
@@ -376,6 +416,8 @@ export const cashQrReceipts = pgTable("cash_qr_receipts", {
 });
 
 export const cashDueItems = pgTable("cash_due_items", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   concepto: text("concepto").notNull(),
   venceEl: timestamp("vence_el").notNull(),
@@ -390,6 +432,8 @@ export const cashDueItems = pgTable("cash_due_items", {
 });
 
 export const ticketPayments = pgTable("ticket_payments", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   saleId: uuid("sale_id").notNull(),
   metodo: text("metodo").notNull(),
@@ -398,10 +442,12 @@ export const ticketPayments = pgTable("ticket_payments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// PERS4-S1 (ADR-0079): trabajos y eventos OCR. Sin tenant_id (base por tenant).
+// PERS4-S1 (ADR-0079): trabajos y eventos OCR. tenant_id nullable (ADR-0116 C1).
 // idempotency_key único = replay de Idempotency-Key. Timestamps explícitos
 // (no default en creado/actualizado) porque el dominio ya trae ISO del caller.
 export const ocrJobs = pgTable("ocr_jobs", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   origen: text("origen").notNull(),
@@ -416,15 +462,18 @@ export const ocrJobs = pgTable("ocr_jobs", {
 });
 
 export const ocrEventos = pgTable("ocr_eventos", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   tipo: text("tipo").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
 });
 
-// P0-5: eventos del webhook de Mercado Pago. Sin tenant_id (base por tenant,
-// igual que OCR).
+// P0-5: eventos del webhook de Mercado Pago. tenant_id nullable (ADR-0116 C1).
 export const mpWebhookEvents = pgTable("mp_webhook_events", {
+  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
+  tenantId: uuid("tenant_id"),
   clave: text("clave").primaryKey(),
   preapprovalId: text("preapproval_id").notNull(),
   estado: text("estado").notNull(),

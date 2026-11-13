@@ -302,6 +302,13 @@
       "when": 1793018400000,
       "tag": "0042_proveedores_durable",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794612000000,
+      "tag": "0043_shared_tenant_nucleo",
+      "breakpoints": true
     }
   ]
 }
