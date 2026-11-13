@@ -56,4 +56,10 @@ describe("buscar ticket: coincidencias reales", () => {
     expect(hits).toEqual([{ sku: "ALF-1", nombre: "Alfajor", precioCentavos: 90000, stock: null }]);
     expect(unirHits("zzz", [], [{ sku: "ALF-1", nombre: "Alfajor", precioCentavos: 90000 }])).toEqual([]);
   });
+
+  it("no tira el nombre que la búsqueda difusa ya aceptó", () => {
+    expect(unirHits("cafe", [], [{ sku: "TORR-1", nombre: "Café", precioCentavos: 120000 }])).toEqual([
+      { sku: "TORR-1", nombre: "Café", precioCentavos: 120000, stock: null },
+    ]);
+  });
 });

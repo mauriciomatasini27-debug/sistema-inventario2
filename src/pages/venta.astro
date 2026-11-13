@@ -551,6 +551,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           $("sku").value = texto;
           skuElegido = texto;
           mostrarAlta();
+          // TB-160: fusionarLinea acepta la línea sin alta. Sin nombre, el código no entra al ticket.
+          if ($("alta-nombre-label").hidden || $("alta-nombre").value.trim() === "") {
+            estado(efectoCodigoDesconocido().mensaje);
+            if (!$("alta-nombre-label").hidden) $("alta-nombre").focus();
+            return;
+          }
         } else {
           return;
         }
@@ -567,6 +573,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           estado("El stock registrado de este producto ya estaba en 0. Si vendés igual, el ticket va a quedar marcado.");
         }
       };
+      $("alta-nombre").addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        if ($("alta-nombre").value.trim() === "") {
+          estado(efectoCodigoDesconocido().mensaje);
+          return;
+        }
+        agregarLineaDesdeFormulario();
+      });
       const pintarResultados = (hits) => {
         const ul = $("resultados");
         ul.replaceChildren();

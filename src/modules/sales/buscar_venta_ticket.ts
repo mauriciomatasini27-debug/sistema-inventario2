@@ -1,4 +1,7 @@
 // TB-160: la consulta vacía no es "mostrar todo". El catálogo completo no entra al ticket.
+// TB-160: "cafe" y "Café" ya coinciden en coincideDifuso. includes deja la tilde y tira la ficha.
+
+import { coincideDifuso } from "../inventario/busqueda.js";
 
 export type HitTicket = {
   readonly sku: string;
@@ -65,7 +68,7 @@ export function unirHits(
     const sku = ficha.sku.trim();
     if (sku === "") continue;
     const nombre = typeof ficha.nombre === "string" ? ficha.nombre.trim() : "";
-    if (!texto(sku).includes(q) && (nombre === "" || !texto(nombre).includes(q))) continue;
+    if (!coincideDifuso([sku, nombre], consulta)) continue;
     const prev = porSku.get(sku);
     const precio = precioEntero(ficha.precioCentavos);
     porSku.set(sku, {

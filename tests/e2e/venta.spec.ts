@@ -96,7 +96,10 @@ test("PWA-S2b: /venta abierto directo vuelve sin red con su JS", async ({ page, 
   await page.fill("#qty", "2");
   await page.fill("#precio", "5,00");
   await page.press("#sku", "Enter");
-  await expect(page.locator("#lista-carrito")).toContainText("demo-sku-2", { timeout: 10_000 });
+  await expect(page.locator("#alta-nombre-label")).toBeVisible();
+  await page.fill("#alta-nombre", "Demo dos");
+  await page.press("#alta-nombre", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("Demo dos", { timeout: 10_000 });
   await expect(page.locator("#lista-carrito .monto")).toHaveText("$10.00");
   await page.click("#cobrar");
   await page.click("#confirmar-cobro");
@@ -201,6 +204,13 @@ test("buscador, ticket y volver conservan líneas y total", async ({ page }) => 
   await page.press("#sku", "Enter");
   await expect(page.locator("#estado")).toContainText("No hay un producto con ese código.", { timeout: 10_000 });
   await expect(page.locator("#alta-nombre-label")).toBeVisible();
+  await expect(page.locator("#lista-carrito")).not.toContainText("codigo-que-no-esta");
+  await page.press("#alta-nombre", "Enter");
+  await expect(page.locator("#lista-carrito")).not.toContainText("codigo-que-no-esta");
+  await page.fill("#alta-nombre", "Producto nuevo");
+  await page.press("#alta-nombre", "Enter");
+  await expect(page.locator("#lista-carrito")).toContainText("Producto nuevo");
+  await expect(page.getByRole("button", { name: "Quitar codigo-que-no-esta" })).toBeVisible();
 });
 
 test("efectivo: vuelto visible y recibido insuficiente no confirma", async ({ page }) => {
