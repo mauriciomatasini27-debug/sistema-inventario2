@@ -177,10 +177,10 @@ const destinosJson = JSON.stringify(destinos);
     width: 100%;
     background: var(--color-charcoal);
     color: var(--color-star-white);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--sombra-cta);
   }
   .panel-buscar::backdrop {
-    background: rgba(0, 0, 0, 0.55);
+    background: color-mix(in srgb, var(--color-void) 55%, transparent);
   }
   .panel-buscar-caja {
     margin: 0;
