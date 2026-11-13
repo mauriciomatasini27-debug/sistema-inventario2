@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { leerVarEntorno } from "../../lib/env.js";
+import { idsConBasePropia } from "../../lib/db.js";
 
 export const prerender = false;
 
@@ -12,8 +13,12 @@ export const GET: APIRoute = async () => {
   const tieneGoogleSecret = Boolean(leerVarEntorno("GOOGLE_LOGIN_CLIENT_SECRET"));
   const tieneGoogleRedirect = Boolean(leerVarEntorno("GOOGLE_LOGIN_REDIRECT"));
   const tieneGoogle = tieneGoogleId && tieneGoogleSecret && tieneGoogleRedirect;
+  // P1-68: en multi no hay TENANT_DATABASE_URL compartida; basta control +
+  // al menos una TENANT_DATABASE_URL_<id>. Env directo para no tocar el trinquete.
+  const multi = leerVarEntorno("TENANT_MODE") === "multi";
   const tieneDb = Boolean(
-    leerVarEntorno("CONTROL_DATABASE_URL") && leerVarEntorno("TENANT_DATABASE_URL"),
+    leerVarEntorno("CONTROL_DATABASE_URL") &&
+      (multi ? idsConBasePropia().length > 0 : leerVarEntorno("TENANT_DATABASE_URL")),
   );
   const tieneJobs = Boolean(leerVarEntorno("JOBS_SECRET"));
   return Response.json(

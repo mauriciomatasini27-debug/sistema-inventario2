@@ -1,7 +1,15 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { jsonError, resolverSesion } from "../../../lib/control.js";
-import { persistirAuthEvent, asegurarAltaPendiente, buscarAltasPorDueno } from "../../../lib/control-db.js";
+import {
+  persistirAuthEvent,
+  persistirSesion,
+  asegurarAltaPendiente,
+  buscarAltasPorDueno,
+  listarIdsTenantsControl,
+} from "../../../lib/control-db.js";
+import { reclamarIdBaseLibre } from "../../../lib/db.js";
+import { leerVarEntorno } from "../../../lib/env.js";
 import { altaAutoservicioSchema } from "../../../lib/validation.js";
 import { ejecutarAprovisionamiento } from "../../../jobs/aprovisionar.js";
 import {
@@ -80,7 +88,27 @@ export const POST: APIRoute = async ({ request }) => {
     if (!numero) return jsonError("El número no es un celular argentino válido.", 422);
   }
 
-  const id = crypto.randomUUID();
+  // P1-68: en multi el id es el sufijo de TENANT_DATABASE_URL_<id> ya cargado.
+  // Sin cupo no creamos tenant ni marcamos el catálogo como lista.
+  let id: string;
+  // P1-68: leer TENANT_MODE directo (ARQ-S4 no suma el helper del modo).
+  if (leerVarEntorno("TENANT_MODE") === "multi") {
+    const ocupados = new Set(control.tenants.keys());
+    for (const tid of await listarIdsTenantsControl()) ocupados.add(tid);
+    const libre = reclamarIdBaseLibre(ocupados);
+    if (!libre) {
+      return Response.json(
+        {
+          error: "No hay base de comercio libre. Cargá TENANT_DATABASE_URL_<id> y redeploy.",
+          codigo: "sin_base_libre",
+        },
+        { status: 503 },
+      );
+    }
+    id = libre;
+  } else {
+    id = crypto.randomUUID();
+  }
   let slug = slugDeNombre(b.nombre_comercio);
   if ([...control.tenants.values()].some((t) => t.slug === slug)) slug = `${slug}-${id.slice(0, 8)}`;
   const database = nombreDatabase(id);
@@ -114,7 +142,19 @@ export const POST: APIRoute = async ({ request }) => {
 
   const corrido = await ejecutarAprovisionamiento(jobId);
   // BOT-S1: al terminar el alta se activan los módulos del bot del rubro.
-  await aplicarDefaultsModulosBot(id, b.rubro);
+  // En multi sin base alcanzable no tumba el alta de control (mismo criterio
+  // que la siembra de ubicaciones).
+  try {
+    await aplicarDefaultsModulosBot(id, b.rubro);
+  } catch (e) {
+    control.events.push({
+      tenantId: id,
+      tipo: "alta_bot_modulos_error",
+      actor: "sistema",
+      creadoEn: new Date().toISOString(),
+      detalle: { rubro: b.rubro, error: e instanceof Error ? e.message : String(e) },
+    });
+  }
   try {
     const sembrado = await sembrarUbicacionesRubro(id, b.rubro);
     control.events.push({
@@ -155,6 +195,18 @@ export const POST: APIRoute = async ({ request }) => {
     detalle: { rubro: b.rubro },
   });
   void persistirAuthEvent({ tenantId: id, tipo: "alta_comercio", actor: ctx.googleSub });
+
+  // P1-68: el login dejó tenantId null; el panel y el gate multi leen la sesión.
+  ctx.sesion.tenantId = id;
+  void persistirSesion({
+    idHash: ctx.sesion.idHash,
+    googleSub: ctx.sesion.googleSub,
+    tenantId: id,
+    expiraAt: ctx.sesion.expiraAt,
+    expiraAbsoluta: ctx.sesion.expiraAbsoluta,
+    lastSeenAt: ctx.sesion.lastSeenAt,
+    reauthAt: ctx.sesion.reauthAt,
+  });
 
   let vincular: { codigo: string; expira_en_min: number } | null = null;
   if (numero) {

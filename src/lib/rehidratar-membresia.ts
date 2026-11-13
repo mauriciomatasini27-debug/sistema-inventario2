@@ -132,9 +132,11 @@ export async function rehidratarMembresias(
   googleSub: string,
   leer: (googleSub: string) => Promise<FilaMembresiaDurable[] | null> = leerMembresiasActivas,
 ): Promise<void> {
-  if (comerciosActivos(googleSub).length > 0) return;
-  const filas = await leer(googleSub);
-  if (!filas) return;
-  volcar(filas);
+  // P1-68: aunque la membership ya esté en memoria (alta en esta instancia),
+  // hay que completar el tenant de la sesión nula del login.
+  if (comerciosActivos(googleSub).length === 0) {
+    const filas = await leer(googleSub);
+    if (filas) volcar(filas);
+  }
   completarTenantDeSesion(googleSub);
 }

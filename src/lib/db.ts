@@ -42,6 +42,18 @@ export function idsConBasePropia(env: NodeJS.ProcessEnv = process.env): string[]
     .sort();
 }
 
+// P1-68: en multi el alta no inventa UUID. Reclama un id cuya URL ya está
+// en el proceso (Vercel no crea bases). Sin cupo libre el alta responde 503.
+export function reclamarIdBaseLibre(
+  ocupados: ReadonlySet<string>,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  for (const id of idsConBasePropia(env)) {
+    if (!ocupados.has(id)) return id;
+  }
+  return null;
+}
+
 // Por qué lazy: Astro importa este módulo en build sin env/DB; conectar a nivel
 // superior rompería `astro build` y mezclaría pools entre tenants.
 export function getControlDb() {
