@@ -57,6 +57,21 @@ describe("venta.astro: aviso de stock local en cero", () => {
   });
 });
 
+describe("TB-161: escáner real en Vender", () => {
+  const src = (): string => leer("src/pages/venta.astro");
+
+  it("usa el visor modal, mensajes del módulo y devuelve el foco al buscador", () => {
+    const s = src();
+    expect(s).toContain('id="visor-camara"');
+    expect(s).toContain("Escanear etiqueta");
+    expect(s).toContain("mensajeErrorCamara");
+    expect(s).toContain("motivoCamaraNoDisponible");
+    expect(s).toContain("cerrarVisorCamara");
+    expect(s).toMatch(/\$\("sku"\)\.focus\(\)/);
+    expect(s).not.toContain("Simular lectura");
+  });
+});
+
 describe("TB-160: buscador, ticket y paso de cobro", () => {
   const src = (): string => leer("src/pages/venta.astro");
 
