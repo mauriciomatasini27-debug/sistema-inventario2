@@ -1,0 +1,22 @@
+---
+interface Accion {
+  href: string;
+  label: string;
+  ancho?: "completo";
+}
+
+interface Props {
+  acciones: Accion[];
+}
+
+const { acciones } = Astro.props;
+---
+<nav class="acciones-rapidas" aria-label="Acciones rápidas">
+  {
+    acciones.map((a) => (
+      <a href={a.href} class:list={["accion-rapida", { "accion-rapida--completo": a.ancho === "completo" }]}>
+        {a.label}
+      </a>
+    ))
+  }
+</nav>

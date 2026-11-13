@@ -74,7 +74,9 @@ describe("panel: cada pill resuelve a una página real", () => {
   });
 
   it("cada destino de Más existe como página", () => {
-    const faltantes = ENTRADAS_MAS.map((e) => e.href).filter((h) => archivoDeHref(h) === null);
+    const faltantes = ENTRADAS_MAS.filter((e) => !e.dialogo)
+      .map((e) => e.href)
+      .filter((h) => archivoDeHref(h) === null);
     expect(faltantes).toEqual([]);
   });
 
@@ -152,7 +154,9 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
   it("umbrales de alerta se enlaza desde stock y desde la tarjeta de stock", () => {
     const destino = "/panel/alertas/umbrales";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
-    expect(leer("src/pages/panel/stock.astro")).toContain(`href="${destino}"`);
+    const stock = leer("src/pages/panel/stock.astro");
+    expect(stock).toContain(destino);
+    expect(stock).toContain("TableroAcciones");
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 
