@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { correrJob } from "../../../lib/jobs-tenant.js";
-import { esModoMulti } from "../../../lib/tenant-mode.js";
+import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import {
   alertasPreviasDelDia,
   catalogoAvisoVivo,
@@ -32,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
     const fecha = fechaAR(new Date(ahoraMs));
     const vivos = await catalogoAvisoVivo();
     const uno = obtenerComercioBot(tenantId);
-    const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
+    const comercios = esModoAisladoPorTenant() ? (uno ? [uno] : []) : listarComerciosBot();
     const porTenant = new Map(comercios.map((c) => [c.tenantId, c]));
     const comerciosWa = await Promise.all(
       comercios.map(async (c) => ({

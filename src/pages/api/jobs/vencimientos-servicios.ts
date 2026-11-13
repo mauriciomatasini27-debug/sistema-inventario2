@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { correrJob } from "../../../lib/jobs-tenant.js";
-import { esModoMulti } from "../../../lib/tenant-mode.js";
+import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import { listarCuentas, listarFacturas } from "../../../lib/repos/servicios.js";
 import { listarOrdenesJob, persistirOrdenesVencidas } from "../../../lib/repos/ordenes-pago.js";
 import { listarComerciosBot, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request }) => {
     const facturas = await listarFacturas();
     let ordenes = await listarOrdenesJob();
     const uno = obtenerComercioBot(tenantId);
-    const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
+    const comercios = esModoAisladoPorTenant() ? (uno ? [uno] : []) : listarComerciosBot();
     const yaEnviados = waEnviadosVivos();
     const resultados = [];
     for (const comercio of comercios) {

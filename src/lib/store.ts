@@ -14,7 +14,7 @@ import type { PaymentOrder, PagoConfirmado } from "../modules/payments/ordenes.j
 import type { EventoResumen, OutboxPendiente } from "../modules/email/resumen-cierre.js";
 import type { CanalElegido } from "../modules/alertas/stock-bajo.js";
 import type { ImportacionRegistrada } from "./repos/importaciones.js";
-import { esModoMulti, tenantActual } from "./tenant-mode.js";
+import { esModoAisladoPorTenant, tenantActual } from "./tenant-mode.js";
 
 export interface StoredTicket {
   sale_id: string;
@@ -238,7 +238,8 @@ const particiones = new Map<string, EstadoStore>();
 const estadoSingle: EstadoStore = crearEstado();
 
 function estadoActual(): EstadoStore {
-  if (!esModoMulti()) return estadoSingle;
+  // ADR-0116: shared también parte memoria por UUID (no estadoSingle global).
+  if (!esModoAisladoPorTenant()) return estadoSingle;
   const tenant = tenantActual();
   if (!tenant) throw new Error("Falta tenant");
   let estado = particiones.get(tenant);
@@ -279,8 +280,8 @@ export function importacionesEnMemoria(): Map<string, ImportacionRegistrada> {
 export function resetStore() {
   // Por qué limpiar todas: en multi fuera de contexto (setup de tests) no hay
   // partición actual; se descartan todas y se resetea la de single.
-  if (esModoMulti() && !tenantActual()) particiones.clear();
-  const s = esModoMulti() && !tenantActual() ? estadoSingle : estadoActual();
+  if (esModoAisladoPorTenant() && !tenantActual()) particiones.clear();
+  const s = esModoAisladoPorTenant() && !tenantActual() ? estadoSingle : estadoActual();
   s.idempotency.clear();
   s.movements = [];
   s.stockMoves = [];

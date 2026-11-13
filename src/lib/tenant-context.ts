@@ -1,8 +1,8 @@
 import { control } from "./store.js";
 import { esDueno, jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "./control.js";
-import { esModoMulti, tenantPorDefecto } from "./tenant-mode.js";
+import { esModoAisladoPorTenant, esModoMulti, esModoShared, tenantPorDefecto } from "./tenant-mode.js";
 
-export { esModoMulti, tenantPorDefecto };
+export { esModoAisladoPorTenant, esModoMulti, esModoShared, tenantPorDefecto };
 
 export type TenantResuelto = { ok: true; tenantId: string } | { ok: false; respuesta: Response };
 
@@ -91,7 +91,8 @@ export function gateTenantDatos(request: Request, path: string): TenantResuelto 
 // Single-tenant: un solo comercio, sin sesión ni fan-out. También decide si
 // un job puede correr sin X-Job-Secret (CAJA-S3 review M1).
 export function esSingle(): boolean {
-  return !esModoMulti();
+  // ADR-0116: shared no es single. Si no, tenantDeRequest fija slice0.
+  return !esModoAisladoPorTenant();
 }
 
 export function gateJob(request: Request): JobResuelto | null {
