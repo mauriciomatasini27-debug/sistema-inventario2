@@ -13,6 +13,7 @@ import { tenantDeRequest } from "../lib/tenant-context.js";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import NavTablero from "../components/panel/NavTablero.astro";
 import Modo from "../components/panel/Modo.astro";
+import PanelBuscar from "../components/panel/PanelBuscar.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
 import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
@@ -131,6 +132,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       <div class="tablero-contenido">
     <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
+      <PanelBuscar />
       <Modo />
       <TemaToggle />
       <span id="indicador-sync" role="status"></span>
