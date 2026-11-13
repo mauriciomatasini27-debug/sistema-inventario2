@@ -9,6 +9,7 @@ import {
 import { postSalesSchema } from "../validation.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
   crearAlmacenCodigos,
@@ -282,16 +283,25 @@ function mapaCodigos(
 // Columnas explícitas: el esquema tipado puede tener columnas que la base
 // local aún no tiene, así que nunca se usa select() completo aquí.
 async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
-  const filas = await db
-    .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
-    .from(products);
+  const wProd = dondeTenant(products.tenantId);
+  const filas = wProd
+    ? await db
+        .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
+        .from(products)
+        .where(wProd)
+    : await db
+        .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
+        .from(products);
   const stock: Record<string, number> = {};
   const prices: Record<string, number> = {};
   for (const f of filas) {
     stock[f.sku] = f.stockActual;
     prices[f.sku] = Number(f.precioCentavos);
   }
-  const filasCodigos = await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes);
+  const wCod = dondeTenant(productCodes.tenantId);
+  const filasCodigos = wCod
+    ? await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes).where(wCod)
+    : await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes);
   return { stock, prices, codes: mapaCodigos(filasCodigos.map((f) => [f.codigo, f.sku] as const), stock, prices) };
 }
 

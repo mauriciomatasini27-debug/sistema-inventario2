@@ -1,4 +1,4 @@
-import { esModoMulti } from "../tenant-mode.js";
+import { esModoAisladoPorTenant } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
 import { control, importacionesEnMemoria, store, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
@@ -94,7 +94,7 @@ function aBaseNoDisponible(e: unknown): BaseNoDisponible {
 }
 
 function anteFalloSegunModo(): (error: unknown) => void {
-  if (esModoMulti()) {
+  if (esModoAisladoPorTenant()) {
     return (e) => {
       throw aBaseNoDisponible(e);
     };
@@ -143,7 +143,7 @@ function crearConjunto(conjunto: Set<string>): ConjuntoAlmacen {
 // BaseNoDisponible; en single la llamada sigue hacia memoria.
 export function crearAlmacenAjustes(): Almacen<Ajuste> {
   const mapa = store.ajustes;
-  if (esModoMulti()) {
+  if (esModoAisladoPorTenant()) {
     return crearAlmacenMemoria(mapa, (e) => {
       throw aBaseNoDisponible(e);
     });
