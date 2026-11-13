@@ -69,7 +69,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
-      #camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
+      #visor-camara { width: min(360px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 16px; background: var(--tema-superficie, var(--color-charcoal)); color: var(--tema-texto, var(--color-star-white)); }
+      #visor-camara::backdrop { background: color-mix(in srgb, var(--color-void) 55%, transparent); }
+      #visor-camara[open] { display: grid; gap: 12px; padding: 16px; margin: auto; }
+      #visor-camara-titulo { margin: 0; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      #visor-camara-cerrar { width: auto; min-width: 44px; min-height: 44px; margin: 0; padding-inline: 12px; }
+      #visor-camara-ayuda { margin: 0; font-size: 14px; color: var(--tema-texto-suave, var(--color-muted-dark)); }
+      .visor-camara-marco { border: 2px solid var(--color-star-glow); border-radius: 12px; overflow: hidden; background: var(--color-void); }
+      #camara-video { display: block; width: 100%; max-height: 240px; object-fit: cover; background: var(--color-void); }
+      #visor-camara-cancelar { width: 100%; min-height: 44px; margin: 0; }
       #catalogo-estado { margin: 0 4px 10px; font-size: 13px; color: var(--tema-texto-suave); text-align: start; overflow-wrap: anywhere; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
       .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }
@@ -104,6 +112,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #lista-carrito button,
       #resultados button,
       #leer-camara,
+      #visor-camara-cerrar,
+      #visor-camara-cancelar,
       #volver-ticket,
       #cobrar,
       #confirmar-cobro {
@@ -150,7 +160,17 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             Escanear
           </button>
         </div>
-        <video id="camara-video" hidden playsinline muted></video>
+        <dialog id="visor-camara" aria-labelledby="visor-camara-titulo-texto">
+          <h2 id="visor-camara-titulo">
+            <span id="visor-camara-titulo-texto">Escanear etiqueta</span>
+            <button id="visor-camara-cerrar" type="button" aria-label="Cerrar visor de cámara">✕</button>
+          </h2>
+          <p id="visor-camara-ayuda">Apuntá al código de barras de la etiqueta del producto. No es un lector de tickets ni de facturas.</p>
+          <div class="visor-camara-marco">
+            <video id="camara-video" hidden playsinline muted aria-label="Vista de la cámara"></video>
+          </div>
+          <button id="visor-camara-cancelar" type="button">Cancelar</button>
+        </dialog>
         <div class="datos-linea">
           <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
           <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
@@ -245,6 +265,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import {
         efectoCodigoDesconocido,
         efectoDeTecla,
+        mensajeCamaraNoDisponible,
+        mensajeErrorCamara,
+        motivoCamaraNoDisponible,
         resolverLectura,
         sesionCamara,
       } from "../modules/stock/escaner.js";
@@ -516,7 +539,17 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           return;
         }
         const ok = agregarLineaDesdeFormulario();
-        if (desconocido && ok) estado(efectoCodigoDesconocido().mensaje);
+        if (!ok) return;
+        if (desconocido) {
+          estado(efectoCodigoDesconocido().mensaje);
+          return;
+        }
+        const sku = $("sku").value.trim();
+        const linea = carrito.find((l) => l.product_id === sku);
+        const cola = JSON.parse(storage.getItem(outboxKey) ?? "[]");
+        if (linea && avisoStockLocalAgotado(stockLocal(catalogo, cola, linea.product_id, linea.qty))) {
+          estado("El stock registrado de este producto ya estaba en 0. Si vendés igual, el ticket va a quedar marcado.");
+        }
       };
       const pintarResultados = (hits) => {
         const ul = $("resultados");
@@ -600,25 +633,50 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         await incorporarLectura($("sku").value);
       });
       let sesion = null;
+      const visor = $("visor-camara");
+      const cerrarVisorCamara = () => {
+        if (sesion) {
+          sesion.cerrar();
+          sesion = null;
+        }
+        if (visor instanceof HTMLDialogElement && visor.open) visor.close();
+        $("sku").focus();
+      };
+      const abrirVisorCamara = () => {
+        if (!(visor instanceof HTMLDialogElement)) return;
+        if (!visor.open) visor.showModal();
+      };
+      $("visor-camara-cerrar").addEventListener("click", cerrarVisorCamara);
+      $("visor-camara-cancelar").addEventListener("click", cerrarVisorCamara);
+      visor?.addEventListener("cancel", (ev) => {
+        ev.preventDefault();
+        cerrarVisorCamara();
+      });
       $("leer-camara").addEventListener("click", async () => {
         const video = $("camara-video");
         if (!(video instanceof HTMLVideoElement)) return;
         if (sesion) {
-          sesion.cerrar();
-          sesion = null;
+          cerrarVisorCamara();
+          return;
+        }
+        const previo = motivoCamaraNoDisponible();
+        if (previo) {
+          estado(mensajeCamaraNoDisponible(previo));
+          $("sku").focus();
           return;
         }
         sesion = sesionCamara(video);
+        abrirVisorCamara();
         try {
           const codigo = await sesion.leer();
           sesion = null;
+          cerrarVisorCamara();
           if (!codigo) return;
           await incorporarLectura(codigo);
         } catch (error) {
           console.warn("[venta] cámara", error);
-          if (sesion) sesion.cerrar();
-          sesion = null;
-          estado("No se pudo abrir la cámara.");
+          cerrarVisorCamara();
+          estado(mensajeErrorCamara(error));
         }
       });
       const refrescarCatalogo = async () => {
