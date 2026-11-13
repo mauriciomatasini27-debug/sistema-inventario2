@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { products, stockCounts, stockCountLines, stockLots, stockMovements } from "../../db/schema.js";
 import type { Lote, LotId, Sku } from "../../modules/inventario/inventario.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant } from "../tenant-scope.js";
 import {
   crearAlmacenConteoVistos,
   crearAlmacenSectores,
@@ -31,10 +32,11 @@ function esChoqueIdemKey(e: unknown): boolean {
 async function sectoresDeDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, string>> {
   const mapa = new Map<string, string>();
   if (skus.length === 0) return mapa;
+  const w = dondeTenant(products.tenantId, inArray(products.sku, [...skus]));
   const filas = await db
     .select({ sku: products.sku, sector: products.sector })
     .from(products)
-    .where(inArray(products.sku, [...skus]));
+    .where(w ?? inArray(products.sku, [...skus]));
   for (const f of filas) mapa.set(f.sku, normalizarSector(f.sector));
   return mapa;
 }
@@ -214,12 +216,14 @@ export async function aplicarVentaLotes<T>(
   const skus = [...new Set(pedido.skus)].sort();
   const lotes: Lote[] = [];
   if (skus.length > 0) {
+    const wProd = dondeTenant(products.tenantId, inArray(products.sku, skus));
     const bloqueados = await tx
       .select({ sku: products.sku, stockActual: products.stockActual })
       .from(products)
-      .where(inArray(products.sku, skus))
+      .where(wProd ?? inArray(products.sku, skus))
       .orderBy(asc(products.sku))
       .for("update");
+    const wLotes = dondeTenant(stockLots.tenantId, inArray(stockLots.sku, skus));
     const filasLote = await tx
       .select({
         id: stockLots.id,
@@ -229,7 +233,7 @@ export async function aplicarVentaLotes<T>(
         costoCentavos: stockLots.costoCentavos,
       })
       .from(stockLots)
-      .where(inArray(stockLots.sku, skus))
+      .where(wLotes ?? inArray(stockLots.sku, skus))
       .orderBy(asc(stockLots.id))
       .for("update");
     const porSku = new Map<string, typeof filasLote>();

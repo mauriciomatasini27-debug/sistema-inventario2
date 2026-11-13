@@ -3,6 +3,7 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { conTenant } from "../tenant-mode.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
 import { normalizarSector } from "../../modules/inventario/sectores.js";
 import { nombresUbicacionesRubro } from "../../modules/onboarding/ubicaciones-rubro.js";
@@ -185,13 +186,19 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
   const db = dbVivaTenant();
   if (!db) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
   try {
-    const filas = await db.select().from(productCodes).where(eq(productCodes.codigo, cod)).limit(1);
+    const wCod = dondeTenant(productCodes.tenantId, eq(productCodes.codigo, cod));
+    const filas = await db
+      .select()
+      .from(productCodes)
+      .where(wCod ?? eq(productCodes.codigo, cod))
+      .limit(1);
     const fila = filas[0];
     if (!fila) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
+    const wProd = dondeTenant(products.tenantId, eq(products.sku, fila.sku));
     const prods = await db
       .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
       .from(products)
-      .where(eq(products.sku, fila.sku))
+      .where(wProd ?? eq(products.sku, fila.sku))
       .limit(1);
     const p = prods[0];
     if (!p) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
@@ -229,9 +236,15 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       fuente: "memoria",
     };
   try {
-    const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
-      .from(products);
+    const wLista = dondeTenant(products.tenantId);
+    const filas = wLista
+      ? await db
+          .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
+          .from(products)
+          .where(wLista)
+      : await db
+          .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
+          .from(products);
     const union = new Map<string, FichaProducto>();
     for (const p of productos.comoMapaSoloLectura().values()) union.set(p.sku, p);
     const ubicDb = await ubicacionesDb(
@@ -359,20 +372,47 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     return { ok: true, ficha, fuente: "memoria" };
   }
   try {
-    const previoSku = await db.select({ sku: products.sku }).from(products).where(eq(products.sku, sku)).limit(1);
+    const wSku = dondeTenant(products.tenantId, eq(products.sku, sku));
+    const previoSku = await db
+      .select({ sku: products.sku })
+      .from(products)
+      .where(wSku ?? eq(products.sku, sku))
+      .limit(1);
     if (previoSku[0]) return { ok: false, codigo: "SKU_DUPLICADO", error: "sku duplicado" };
     if (cod) {
-      const previoCod = await db.select({ codigo: productCodes.codigo }).from(productCodes).where(eq(productCodes.codigo, cod)).limit(1);
+      const wCod = dondeTenant(productCodes.tenantId, eq(productCodes.codigo, cod));
+      const previoCod = await db
+        .select({ codigo: productCodes.codigo })
+        .from(productCodes)
+        .where(wCod ?? eq(productCodes.codigo, cod))
+        .limit(1);
       if (previoCod[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
     }
-    await db.execute(
-      sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}) on conflict do nothing`,
-    );
+    // ADR-0116 C3: en shared el alta pega tenant_id; uniques globales siguen hasta el cierre.
+    const tid = tenantIdShared();
+    if (tid) {
+      await db.execute(
+        sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector, tenant_id) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}, ${tid}::uuid) on conflict do nothing`,
+      );
+    } else {
+      await db.execute(
+        sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}) on conflict do nothing`,
+      );
+    }
     if (cod) {
-      await db.insert(productCodes).values({ codigo: cod, sku, padre: null }).onConflictDoNothing();
+      await db
+        .insert(productCodes)
+        .values(tid ? { codigo: cod, sku, padre: null, tenantId: tid } : { codigo: cod, sku, padre: null })
+        .onConflictDoNothing();
     }
     if (input.foto) {
-      await db.insert(productPhotos).values({ sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes });
+      await db
+        .insert(productPhotos)
+        .values(
+          tid
+            ? { sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes, tenantId: tid }
+            : { sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes },
+        );
     }
     // Por qué update separado: el insert crudo omite location_id a
     // propósito (drift de bases sin la 0021); fijarLocationDb tolera eso.
