@@ -34,8 +34,8 @@ const logoTexto = comercio.trim() || "Inventario";
     <TemaInicial />
     <style is:global>
       body { margin: 0; background: var(--tema-fondo); color: var(--tema-texto); font-family: var(--font-sans); }
-      /* TB-158: el fondo del documento en Inicio es void. Si queda el tema claro, se ve una franja blanca sobre la barra. */
-      body:has(.tablero-inicio) { background: var(--color-void); color: var(--color-star-white); }
+      /* TB-163: todo el panel operativo usa void; si el tema claro gana, se ve franja sobre la barra. */
+      body:has(.tablero) { background: var(--color-void); color: var(--color-star-white); }
       .panel-shell { max-width: none; margin: 0; padding: 0; }
       /* TB-158: el padding de 16px es más específico que el del nav y tapaba la barra. */
       .panel-shell .tablero-contenido {
@@ -103,12 +103,14 @@ const logoTexto = comercio.trim() || "Inventario";
       .panel-shell ul.lista li { padding: 8px 0; border-bottom: 1px solid var(--tema-linea); }
       .panel-shell form { display: grid; gap: 8px; }
       .panel-shell label { display: grid; gap: 4px; min-width: 0; font-size: 13px; color: var(--tema-texto-suave); }
-      .panel-shell input, .panel-shell select, .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control) { min-height: 44px; font-size: 16px; border-radius: 8px; padding: 8px 10px; font-family: inherit; }
+      .panel-shell input, .panel-shell select, .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila) { min-height: 44px; font-size: 16px; border-radius: 8px; padding: 8px 10px; font-family: inherit; }
+      .panel-shell .opciones button { min-height: 44px; font-size: 16px; padding: 8px 12px; font-family: inherit; }
       .panel-shell input, .panel-shell select { border: 1px solid var(--tema-linea); background: var(--tema-superficie); color: var(--tema-texto); }
       .panel-shell label > input, .panel-shell label > select { box-sizing: border-box; width: 100%; min-width: 0; }
       .panel-shell select { text-overflow: ellipsis; }
-      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control) { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; cursor: pointer; }
-      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):hover { background: var(--color-void); }
+      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila) { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; cursor: pointer; }
+      .panel-shell .opciones button { border-radius: 12px; padding: 8px 12px; background: var(--color-charcoal); font-weight: 500; }
+      .panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):hover { background: var(--color-void); }
       .panel-shell button:disabled { opacity: 0.6; cursor: progress; }
       .panel-shell .fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
       .panel-shell .fila > label { flex: 1 1 120px; }
@@ -116,20 +118,93 @@ const logoTexto = comercio.trim() || "Inventario";
       .panel-shell .error-campo { margin: 4px 0 0; color: var(--estado-peligro); font-size: 12px; font-weight: 600; }
       .panel-shell .error-campo::before { content: "⚠ "; }
       .panel-shell input[aria-invalid="true"], .panel-shell select[aria-invalid="true"], .panel-shell textarea[aria-invalid="true"] { border-color: var(--estado-peligro); }
-      /* TB-158: Inicio es el tablero oscuro. Las subpáginas siguen el tema para no rehacer formularios. */
-      .tablero-inicio { background: var(--color-void); color: var(--color-star-white); }
-      .tablero-inicio .sub, .tablero-inicio .estado, .tablero-inicio .bignum small { color: var(--color-muted-dark); }
-      .tablero-inicio.panel-shell .card {
+      /* TB-163: piel B en todas las pantallas del shell; los tokens --tema-* se reasignan acá. */
+      .tablero.panel-shell {
+        background: var(--color-void);
+        color: var(--color-star-white);
+        --tema-fondo: var(--color-void);
+        --tema-superficie: var(--color-charcoal);
+        --tema-linea: var(--color-mid);
+        --tema-texto: var(--color-star-white);
+        --tema-texto-suave: var(--color-muted-dark);
+        --tema-acento: var(--color-pendiente-oscuro);
+        --tema-barra: var(--color-void);
+        --tema-vidrio: var(--color-charcoal);
+        --tema-fila-hover: color-mix(in srgb, var(--color-star-white) 6%, transparent);
+        --tema-fila-seleccionada: color-mix(in srgb, var(--color-star-glow) 14%, transparent);
+        --tema-borde-encabezado: var(--color-mid);
+        --tema-enfasis: var(--color-star-glow);
+        --card: var(--color-charcoal);
+        --borde: var(--color-mid);
+        --linea: var(--color-mid);
+        --muted: var(--color-muted-dark);
+        --texto-suave: var(--color-muted-dark);
+        --texto: var(--color-star-white);
+      }
+      .tablero.panel-shell .sub, .tablero.panel-shell .estado, .tablero.panel-shell .bignum small { color: var(--color-muted-dark); }
+      .tablero.panel-shell .card {
         background: var(--color-charcoal);
         border-color: var(--color-mid);
         color: var(--color-star-white);
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
       }
-      .tablero-inicio.panel-shell .atajos a:not(.sg-flame-cta) {
+      .tablero.panel-shell .atajos a:not(.sg-flame-cta) {
         background: var(--color-charcoal);
         color: var(--color-star-white);
         border-color: var(--color-mid);
+      }
+      .tablero.panel-shell input, .tablero.panel-shell select, .tablero.panel-shell textarea {
+        background: var(--color-charcoal);
+        border-color: var(--color-mid);
+        color: var(--color-star-white);
+      }
+      .tablero.panel-shell th { color: var(--color-muted-dark); border-color: var(--color-mid); }
+      .tablero.panel-shell td, .tablero.panel-shell ul.lista li { border-color: var(--color-mid); }
+      .tablero.panel-shell button:not(.tema-toggle):not([data-nav-mas]):not(.upsell-ahora):not(.asistente-abrir):not(.asistente-cerrar):not(.asistente-reintentar):not(#asistente-enviar):not(.modo-control):not(.fiado-fila):hover {
+        background: var(--color-mid);
+      }
+      .tablero.panel-shell a:not(.nav-link):not(.atajo):not(.upsell-ver):not(.logo):not(.modo-aviso):not(.accion-rapida) {
+        color: var(--color-star-glow);
+      }
+      .tablero.panel-shell .resumen-pantalla {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: var(--color-muted-dark);
+      }
+      .tablero.panel-shell .acciones-rapidas {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr 1fr;
+        margin: 0 0 16px;
+      }
+      .tablero.panel-shell .accion-rapida {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--color-mid);
+        background: var(--color-charcoal);
+        color: var(--color-star-white);
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .tablero.panel-shell .accion-rapida--completo { grid-column: 1 / -1; }
+      .tablero.panel-shell .accion-rapida:hover { border-color: var(--color-star-white); }
+      .tablero.panel-shell .accion-rapida:focus-visible {
+        outline: 2px solid var(--color-star-white);
+        outline-offset: 2px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tablero.panel-shell, .tablero.panel-shell * {
+          animation: none !important;
+          transition: none !important;
+        }
       }
     </style>
   </head>

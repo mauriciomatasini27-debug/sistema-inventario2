@@ -30,12 +30,13 @@ const pills = [
     <TemaInicial />
     <style>
       :root {
-        --papel: var(--tema-fondo); --canvas: var(--tema-linea); --tinta: var(--color-void);
-        --llama: var(--color-llama); --llama-hover: var(--color-llama-hover); --muted: var(--tema-texto-suave);
-        --card: var(--tema-superficie); --radio: 16px;
+        /* TB-163: admin usa la misma piel oscura del tablero B. */
+        --papel: var(--color-void); --canvas: var(--color-mid); --tinta: var(--color-void);
+        --llama: var(--color-llama); --llama-hover: var(--color-llama-hover); --muted: var(--color-muted-dark);
+        --card: var(--color-charcoal); --radio: 16px;
       }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--tema-texto); }
+      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--color-star-white); }
       .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
       /* Barra superior */
       .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

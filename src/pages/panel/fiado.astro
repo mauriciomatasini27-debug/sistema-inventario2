@@ -2,50 +2,104 @@
 import PanelShell from "../../components/panel/PanelShell.astro";
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 ---
-<PanelShell titulo="Fiado" subtitulo="Saldo por cliente y registro de cobros." activo="fiado">
-  <div class="grid dos">
-    <section class="card">
-      <h2>Saldo del cliente</h2>
-      <label>Buscar cliente
-        <input id="fiado-q" type="search" placeholder="Nombre o ID" autocomplete="off" />
-      </label>
-      <ul class="opciones" id="fiado-opciones" aria-label="Clientes encontrados"></ul>
-      <div class="estado" id="estado-fiado-q" role="status"></div>
+<PanelShell titulo="Fiado" subtitulo="Saldos y cobros por cliente. Buscá por nombre o ID; no hay /panel/clientes." activo="fiado">
+  <section class="card">
+    <h2>Saldo del cliente</h2>
+    <label>Buscar cliente
+      <input id="fiado-q" type="search" placeholder="Nombre o ID" autocomplete="off" />
+    </label>
+    <ul class="opciones" id="fiado-opciones" aria-label="Clientes encontrados"></ul>
+    <div class="estado" id="estado-fiado-q" role="status"></div>
+    <ul class="fiado-cartera" id="fiado-cartera" aria-label="Clientes con saldo"></ul>
+    <div class="estado" id="estado-fiado-cartera" role="status"></div>
+    <details class="fiado-consulta-manual">
+      <summary>Consultar por ID</summary>
       <div class="fila">
         <label>Cliente
           <input id="fiado-cliente" type="text" placeholder="cliente-1" autocomplete="off" />
         </label>
         <button id="fiado-buscar" type="button">Consultar</button>
       </div>
-      <ul class="lista" id="fiado-lista"></ul>
-      <div class="estado" id="estado-fiado" role="status">Cargá un cliente para ver su saldo.</div>
-    </section>
+    </details>
+    <ul class="lista" id="fiado-lista"></ul>
+    <div class="estado" id="estado-fiado" role="status">Elegí un cliente de la lista o buscalo arriba.</div>
+  </section>
 
-    <section class="card">
-      <h2>Registrar cobro</h2>
-      <form id="pago-form">
-        <div class="fila">
-          <label>Cliente
-            <input id="pago-cliente" data-campo="customer_id" type="text" placeholder="cliente-1" autocomplete="off" />
-          </label>
-          <label>Medio
-            <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
-          </label>
-        </div>
-        <label>Monto en centavos
-          <input id="pago-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+  <section class="card" id="fiado-cobro">
+    <h2>Registrar cobro</h2>
+    <p class="resumen-pantalla" id="fiado-contexto-cobro">Elegí un cliente para ver el saldo y el monto sugerido.</p>
+    <form id="pago-form">
+      <div class="fila">
+        <label>Cliente
+          <input id="pago-cliente" data-campo="customer_id" type="text" placeholder="cliente-1" autocomplete="off" />
         </label>
-        <button id="pago-enviar" type="submit">Cobrar</button>
-        <div class="estado" id="estado-pago" role="status">Cargá el monto y cobrá.</div>
-      </form>
-    </section>
-  </div>
+        <label>Medio
+          <select id="pago-medio">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+        </label>
+      </div>
+      <label>Monto (centavos)
+        <input id="pago-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" value="1000" />
+      </label>
+      <button id="pago-enviar" type="submit">Registrar cobro</button>
+      <div class="estado" id="estado-pago" role="status">Cargá el monto y cobrá.</div>
+    </form>
+  </section>
 </PanelShell>
 
 <style is:global>
   .panel-shell .opciones { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
-  .panel-shell .opciones button { width: 100%; min-height: 44px; text-align: left; background: var(--tema-linea); color: var(--tema-texto); border: 1px solid var(--tema-linea); border-radius: 12px; font-weight: 500; }
-  .panel-shell .opciones button:hover { border-color: var(--tema-texto-suave); }
+  .panel-shell .opciones button {
+    width: 100%;
+    min-height: 44px;
+    text-align: left;
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    border: 1px solid var(--color-mid);
+    border-radius: 12px;
+    font-weight: 500;
+  }
+  .panel-shell .opciones button:hover { border-color: var(--color-star-white); }
+  .panel-shell .fiado-cartera {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0;
+  }
+  .panel-shell .fiado-fila {
+    width: 100%;
+    min-height: 44px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 0;
+    border: 0;
+    border-bottom: 1px solid var(--color-mid);
+    background: transparent;
+    color: var(--color-star-white);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 0;
+  }
+  .panel-shell .fiado-fila:hover { background: var(--tema-fila-hover); }
+  .panel-shell .fiado-fila:focus-visible {
+    outline: 2px solid var(--color-star-white);
+    outline-offset: -2px;
+  }
+  .panel-shell .fiado-fila-nombre { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .panel-shell .fiado-fila-meta { font-size: 12px; color: var(--color-muted-dark); margin-top: 2px; }
+  .panel-shell .fiado-fila-izq { min-width: 0; }
+  .panel-shell .fiado-fila-monto { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .panel-shell .fiado-consulta-manual { margin-top: 12px; font-size: 14px; color: var(--color-muted-dark); }
+  .panel-shell .fiado-consulta-manual summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--color-star-glow);
+  }
 </style>
 
 <script>
@@ -57,6 +111,30 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   const $ = (id) => document.getElementById(id);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
+
+  let clienteActivo = { id: "", nombre: "" };
+
+  const actualizarContextoCobro = (nombre, j) => {
+    const cobro = $("fiado-contexto-cobro");
+    if (!cobro) return;
+    if (!nombre) {
+      cobro.textContent = "Elegí un cliente para ver el saldo y el monto sugerido.";
+      return;
+    }
+    if (j.saldo_centavos > 0) {
+      cobro.textContent =
+        nombre +
+        " debe " +
+        formatearCentavos(j.saldo_centavos) +
+        ". Lleva " +
+        j.dias_max +
+        " día" +
+        (j.dias_max === 1 ? "" : "s") +
+        (j.estado === "en_mora" ? " (en mora)." : ".");
+    } else {
+      cobro.textContent = nombre + " está al día.";
+    }
+  };
 
   const cargarSaldo = (cliente) => {
     $("estado-fiado").textContent = "Cargando…";
@@ -78,6 +156,9 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
           li.textContent = etiqueta + " · " + valor;
           ul.appendChild(li);
         });
+        const nombre = clienteActivo.nombre || cliente;
+        actualizarContextoCobro(nombre, j);
+        if (j.saldo_centavos > 0) $("pago-monto").value = String(j.saldo_centavos);
         $("estado-fiado").textContent = mensaje(
           derivarEstado({ cargando: false, error: false, items: filas.length }),
           "Sin movimientos del cliente.",
@@ -96,16 +177,96 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       $("estado-fiado").textContent = "Escribí el cliente.";
       return;
     }
+    clienteActivo = { id: cliente, nombre: "" };
+    $("pago-cliente").value = cliente;
     cargarSaldo(cliente);
   });
 
   // P1-37: el pick llena consulta y cobro; sin esto había que reescribir el id.
   const elegirCliente = (item) => {
+    clienteActivo = { id: item.customer_id, nombre: item.nombre };
     $("fiado-cliente").value = item.customer_id;
     $("pago-cliente").value = item.customer_id;
-    $("fiado-cliente").focus();
-    $("estado-fiado-q").textContent = "Elegido: " + item.nombre + ".";
+    $("fiado-q").value = "";
+    $("fiado-opciones").textContent = "";
+    $("estado-fiado-q").textContent = "";
     cargarSaldo(item.customer_id);
+    const cobro = $("fiado-cobro");
+    if (cobro && typeof cobro.scrollIntoView === "function") {
+      cobro.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+  };
+
+  const pintarFilaCartera = (item) => {
+    const li = document.createElement("li");
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "fiado-fila";
+    const izq = document.createElement("span");
+    izq.className = "fiado-fila-izq";
+    const nombre = document.createElement("span");
+    nombre.className = "fiado-fila-nombre";
+    nombre.textContent = item.nombre;
+    const meta = document.createElement("span");
+    meta.className = "fiado-fila-meta";
+    meta.textContent = item.dias_max + " día" + (item.dias_max === 1 ? "" : "s") + " · " + item.customer_id;
+    izq.appendChild(nombre);
+    izq.appendChild(meta);
+    const monto = document.createElement("span");
+    monto.className = "fiado-fila-monto";
+    monto.textContent = formatearCentavos(item.saldo_centavos);
+    boton.appendChild(izq);
+    boton.appendChild(monto);
+    boton.addEventListener("click", () => elegirCliente(item));
+    li.appendChild(boton);
+    return li;
+  };
+
+  const cargarCartera = () => {
+    const ul = $("fiado-cartera");
+    const estado = $("estado-fiado-cartera");
+    if (!ul || !estado) return;
+    ul.textContent = "";
+    estado.textContent = "Cargando clientes…";
+    fetch("/api/credit/customers?limit=30")
+      .then((r) => {
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      })
+      .then(async (j) => {
+        const items = j.items ?? [];
+        const filas = await Promise.all(
+          items.map(async (c) => {
+            try {
+              const r = await fetch("/api/credit/balance?customer_id=" + encodeURIComponent(c.customer_id));
+              if (!r.ok) return null;
+              const b = await r.json();
+              if (!Number(b.saldo_centavos) || b.saldo_centavos <= 0) return null;
+              return {
+                customer_id: c.customer_id,
+                nombre: c.nombre,
+                saldo_centavos: b.saldo_centavos,
+                dias_max: b.dias_max,
+                estado: b.estado,
+              };
+            } catch (error) {
+              console.warn("[panel/fiado] balance cartera", c.customer_id, error);
+              return null;
+            }
+          }),
+        );
+        const conSaldo = filas.filter(Boolean).sort((a, b) => b.saldo_centavos - a.saldo_centavos);
+        ul.textContent = "";
+        conSaldo.forEach((item) => ul.appendChild(pintarFilaCartera(item)));
+        estado.textContent =
+          conSaldo.length > 0
+            ? ""
+            : mensaje(derivarEstado({ cargando: false, error: false, items: 0 }), "Nadie debe por ahora.");
+      })
+      .catch((error) => {
+        console.warn("[panel/fiado] cartera", error);
+        estado.textContent = mensaje("error", "");
+      });
   };
 
   let temporizador = null;
@@ -199,8 +360,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         return;
       }
       estado.textContent = "Cobro registrado: " + formatearCentavos(j.haber_centavos) + ".";
-      // P1-37: refrescar saldo del cliente cobrado antes de limpiar el form.
       await cargarSaldo(cliente);
+      cargarCartera();
       $("fiado-cliente").value = cliente;
       $("pago-form").reset();
       $("pago-cliente").value = cliente;
@@ -209,4 +370,6 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       estado.textContent = mensaje("error", "");
     }
   });
+
+  cargarCartera();
 </script>

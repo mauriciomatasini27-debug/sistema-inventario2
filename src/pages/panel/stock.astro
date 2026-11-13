@@ -1,5 +1,6 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import TableroAcciones from "../../components/panel/TableroAcciones.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
@@ -13,6 +14,14 @@ const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
 const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
+  <TableroAcciones
+    acciones={[
+      { href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" },
+      { href: "/panel/alertas/umbrales", label: "Editar umbrales" },
+      { href: "/panel/precios", label: "Precios" },
+    ]}
+  />
+  <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
   <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
@@ -46,8 +55,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         <div><b id="stock-umbral">…</b><small>Con stock mínimo</small></div>
       </div>
       <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
-      <p class="estado"><a href="/panel/alertas/umbrales">Editar umbrales por producto</a></p>
-      <p class="estado"><a href="/panel/stock/importar">Importar stock desde CSV o Excel</a></p>
       <div class="estado" id="estado-stock" role="status">Cargando…</div>
     </section>
 
@@ -234,6 +241,13 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     const conUmbral = items.filter((p) => p.min_stock !== null && p.min_stock !== undefined).length;
     $("stock-productos").textContent = String(items.length);
     $("stock-umbral").textContent = String(conUmbral);
+    const resumen = $("stock-resumen");
+    if (resumen) {
+      resumen.textContent =
+        items.length === 0
+          ? "Sin productos cargados."
+          : `${items.length} producto${items.length === 1 ? "" : "s"} · ${conUmbral} con stock mínimo`;
+    }
     $("estado-stock").textContent = mensaje(
       derivarEstado({ cargando: false, error: false, items: items.length }),
       "Todavía no hay productos cargados.",
@@ -256,6 +270,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         console.warn("[panel/stock] catálogo", error);
         $("stock-productos").textContent = "—";
         $("stock-umbral").textContent = "—";
+        const resumen = $("stock-resumen");
+        if (resumen) resumen.textContent = "No pudimos cargar el catálogo.";
         $("estado-stock").textContent = mensaje("error", "");
       });
   };
