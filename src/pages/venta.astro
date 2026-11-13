@@ -14,6 +14,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import NavTablero from "../components/panel/NavTablero.astro";
 import Modo from "../components/panel/Modo.astro";
 import PanelBuscar from "../components/panel/PanelBuscar.astro";
+import ReportesComercioDialog from "../components/panel/ReportesComercioDialog.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
 import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
@@ -1415,5 +1416,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       </div>
     </div>
     <ConfirmDialog />
+    <ReportesComercioDialog />
   </body>
 </html>

@@ -225,6 +225,8 @@ export interface EntradaMas {
   readonly grupo: IdGrupoMas;
   readonly indice?: ModuloIndice;
   readonly soloDueno?: boolean;
+  // TB-164: abre el diálogo de reportes sin ruta nueva en la barra.
+  readonly dialogo?: "reportes-comercio";
 }
 
 export interface GrupoMas {
@@ -297,6 +299,13 @@ export const ENTRADAS_MAS: readonly EntradaMas[] = Object.freeze([
   { id: "plan", label: "Plan", href: "/panel/plan", grupo: "ajustes" },
   { id: "fiscal", label: "Facturación ARCA", href: "/panel/fiscal/delegacion", grupo: "ajustes" },
   { id: "pronto", label: "Pronto", href: "/panel/pronto", grupo: "ajustes" },
+  {
+    id: "problemas-sugerencias",
+    label: "Problemas y sugerencias",
+    href: "#reportes-comercio",
+    grupo: "ajustes",
+    dialogo: "reportes-comercio",
+  },
 ]);
 
 export function gruposMasVisibles(rol: "dueno" | "empleado"): GrupoMas[] {
