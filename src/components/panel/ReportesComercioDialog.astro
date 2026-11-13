@@ -1,0 +1,406 @@
+---
+// TB-164 #164: formulario compacto Problemas y sugerencias (~390px).
+---
+
+<div class="rep-comercio" data-reportes-comercio hidden>
+  <div
+    class="rep-hoja"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="rep-titulo"
+    hidden
+    id="rep-dialogo"
+  >
+    <div class="rep-asidero" aria-hidden="true"></div>
+    <header class="rep-cabeza">
+      <h2 id="rep-titulo">Problemas y sugerencias</h2>
+      <button type="button" class="rep-cerrar modo-control" data-rep-cerrar aria-label="Cerrar">×</button>
+    </header>
+    <p class="rep-ayuda">Solo ves tus propios envíos. Los de otros comercios no aparecen acá.</p>
+    <div class="rep-tabs" role="tablist" aria-label="Vistas del formulario">
+      <button type="button" role="tab" class="rep-tab is-active" data-rep-vista="nuevo" aria-selected="true">Nuevo</button>
+      <button type="button" role="tab" class="rep-tab" data-rep-vista="lista" aria-selected="false">
+        Mis envíos <span data-rep-contador>(0)</span>
+      </button>
+    </div>
+
+    <section class="rep-panel" data-rep-panel="nuevo">
+      <form class="rep-form" id="rep-form">
+        <fieldset class="rep-tipo">
+          <legend>Tipo</legend>
+          <label><input type="radio" name="rep-tipo" value="problema" checked /> Problema</label>
+          <label><input type="radio" name="rep-tipo" value="sugerencia" /> Sugerencia</label>
+        </fieldset>
+        <label class="rep-texto">
+          Qué pasó o qué se puede mejorar
+          <textarea
+            id="rep-texto"
+            name="texto"
+            rows="5"
+            required
+            minlength="8"
+            maxlength="2000"
+            placeholder="Contá el problema o la mejora, sin datos de clientes ni de ventas."
+          ></textarea>
+        </label>
+        <label class="rep-adjunto">
+          <input type="checkbox" disabled />
+          Incluir una captura (próximamente; hoy no se adjunta archivo)
+        </label>
+        <aside class="rep-contexto" aria-label="Contexto que se adjunta">
+          <strong>Contexto que se adjunta (sin ventas, clientes, tokens ni parámetros)</strong>
+          <dl>
+            <div><dt>Pantalla</dt><dd data-rep-ctx-pantalla>—</dd></div>
+            <div><dt>Ruta</dt><dd data-rep-ctx-ruta>—</dd></div>
+            <div><dt>Versión</dt><dd data-rep-ctx-version>—</dd></div>
+          </dl>
+        </aside>
+        <p class="rep-error" data-rep-error hidden></p>
+        <button type="submit" class="rep-enviar">Enviar</button>
+      </form>
+    </section>
+
+    <section class="rep-panel" data-rep-panel="recibido" hidden>
+      <h3 class="rep-recibido-titulo">Recibido</h3>
+      <p data-rep-recibido-texto>Tu envío quedó en seguimiento.</p>
+      <div class="rep-contexto" aria-label="Contexto del envío">
+        <strong>Contexto que se adjunta (sin ventas, clientes, tokens ni parámetros)</strong>
+        <dl>
+          <div><dt>Pantalla</dt><dd data-rep-ctx-pantalla-ok>—</dd></div>
+          <div><dt>Ruta</dt><dd data-rep-ctx-ruta-ok>—</dd></div>
+          <div><dt>Versión</dt><dd data-rep-ctx-version-ok>—</dd></div>
+        </dl>
+      </div>
+      <div class="rep-acciones">
+        <button type="button" class="rep-prim" data-rep-ver-lista>Ver mis envíos</button>
+        <button type="button" class="rep-sec" data-rep-otro>Enviar otro</button>
+      </div>
+    </section>
+
+    <section class="rep-panel" data-rep-panel="lista" hidden>
+      <ul class="rep-lista" data-rep-lista></ul>
+      <p class="rep-vacio-lista" data-rep-vacio-lista hidden>Todavía no mandaste nada.</p>
+    </section>
+  </div>
+</div>
+
+<style is:global>
+  .rep-comercio {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .rep-comercio:not([hidden]) { pointer-events: auto; }
+  .rep-comercio::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .rep-hoja {
+    position: relative;
+    width: min(100%, 420px);
+    max-height: min(92vh, 780px);
+    overflow: auto;
+    background: var(--color-void);
+    color: var(--color-star-white);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    pointer-events: auto;
+  }
+  .rep-asidero {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-mid);
+    margin: 4px auto 12px;
+  }
+  .rep-cabeza { display: flex; align-items: center; gap: 8px; }
+  .rep-cabeza h2 { margin: 0; font-size: 18px; flex: 1; }
+  .rep-cerrar {
+    border: 1px solid var(--color-mid);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .rep-ayuda { margin: 8px 0 12px; font-size: 12px; color: var(--color-muted-dark); }
+  .rep-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--color-charcoal);
+    margin-bottom: 12px;
+  }
+  .rep-tab {
+    flex: 1;
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-star-white);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .rep-tab.is-active { background: var(--color-star-white); color: var(--color-void); }
+  .rep-tipo { border: 0; margin: 0 0 12px; padding: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+  .rep-tipo legend { font-size: 13px; color: var(--color-muted-dark); width: 100%; margin-bottom: 4px; }
+  .rep-texto { display: grid; gap: 6px; font-size: 13px; color: var(--color-muted-dark); }
+  .rep-texto textarea {
+    min-height: 120px;
+    resize: vertical;
+    border-radius: 12px;
+    border: 1px solid var(--color-mid);
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    padding: 10px;
+    font-size: 16px;
+    font-family: inherit;
+  }
+  .rep-adjunto { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--color-muted-dark); margin: 12px 0; }
+  .rep-contexto {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--color-charcoal);
+    font-size: 12px;
+  }
+  .rep-contexto dl { margin: 8px 0 0; display: grid; gap: 6px; }
+  .rep-contexto dt { color: var(--color-muted-dark); display: inline; }
+  .rep-contexto dd { display: inline; margin: 0 0 0 6px; }
+  .rep-error { color: var(--estado-peligro); font-size: 13px; font-weight: 600; }
+  .rep-enviar, .rep-prim, .rep-sec {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .rep-enviar, .rep-prim {
+    border: 0;
+    background: var(--color-star-white);
+    color: var(--color-void);
+  }
+  .rep-sec {
+    border: 1px solid var(--color-mid);
+    background: transparent;
+    color: var(--color-star-white);
+  }
+  .rep-recibido-titulo { font-size: 22px; margin: 0 0 8px; }
+  .rep-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .rep-item {
+    border: 1px solid var(--color-mid);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .rep-item-header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  .rep-badge {
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .rep-badge.recibido { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
+  .rep-badge.en_revision { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
+  .rep-badge.resuelto { background: var(--estado-ok-tint); color: var(--estado-ok); }
+  @media (prefers-reduced-motion: reduce) {
+    .rep-hoja { transition: none; }
+  }
+</style>
+
+<script>
+  import {
+    etiquetaEstado,
+    nuevaClaveEnvio,
+    pantallaActual,
+  } from "../../lib/reportes-comercio-client.js";
+
+  const raiz = document.querySelector<HTMLElement>("[data-reportes-comercio]");
+  const hoja = document.getElementById("rep-dialogo");
+  const form = document.getElementById("rep-form") as HTMLFormElement | null;
+  const texto = document.getElementById("rep-texto") as HTMLTextAreaElement | null;
+  const errEl = document.querySelector<HTMLElement>("[data-rep-error]");
+  const contador = document.querySelector<HTMLElement>("[data-rep-contador]");
+  const lista = document.querySelector<HTMLElement>("[data-rep-lista]");
+  const vacioLista = document.querySelector<HTMLElement>("[data-rep-vacio-lista]");
+
+  const ctxPantalla = document.querySelector<HTMLElement>("[data-rep-ctx-pantalla]");
+  const ctxRuta = document.querySelector<HTMLElement>("[data-rep-ctx-ruta]");
+  const ctxVersion = document.querySelector<HTMLElement>("[data-rep-ctx-version]");
+  const ctxPantallaOk = document.querySelector<HTMLElement>("[data-rep-ctx-pantalla-ok]");
+  const ctxRutaOk = document.querySelector<HTMLElement>("[data-rep-ctx-ruta-ok]");
+  const ctxVersionOk = document.querySelector<HTMLElement>("[data-rep-ctx-version-ok]");
+  const recibidoTexto = document.querySelector<HTMLElement>("[data-rep-recibido-texto]");
+
+  type Item = {
+    id: string;
+    tipo: string;
+    texto: string;
+    estado: string;
+    contexto: { pantalla: string; ruta: string; version: string };
+  };
+
+  let claveEnvio = nuevaClaveEnvio();
+  let ultimoContexto: Item["contexto"] | null = null;
+
+  function pintarContextoPreview() {
+    const ruta = pantallaActual();
+    if (ctxRuta) ctxRuta.textContent = ruta;
+    if (ctxPantalla) ctxPantalla.textContent = ruta === "/venta" ? "Venta mostrador" : "Panel";
+    if (ctxVersion) ctxVersion.textContent = "tablero B";
+  }
+
+  function mostrarPanel(id: "nuevo" | "lista" | "recibido") {
+    for (const el of document.querySelectorAll<HTMLElement>("[data-rep-panel]")) {
+      el.hidden = el.dataset.repPanel !== id;
+    }
+    for (const tab of document.querySelectorAll<HTMLButtonElement>("[data-rep-vista]")) {
+      const on = tab.dataset.repVista === (id === "recibido" ? "nuevo" : id);
+      tab.classList.toggle("is-active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+    }
+  }
+
+  function abrir() {
+    if (!raiz || !hoja) return;
+    raiz.hidden = false;
+    hoja.hidden = false;
+    pintarContextoPreview();
+    mostrarPanel("nuevo");
+    texto?.focus();
+  }
+
+  function cerrar() {
+    if (!raiz || !hoja) return;
+    raiz.hidden = true;
+    hoja.hidden = true;
+  }
+
+  async function cargarLista() {
+    if (!lista || !vacioLista || !contador) return;
+    const r = await fetch("/api/reportes");
+    if (!r.ok) return;
+    const j = (await r.json()) as { items: Item[] };
+    contador.textContent = `(${j.items.length})`;
+    lista.replaceChildren();
+    for (const item of j.items) {
+      const li = document.createElement("li");
+      li.className = "rep-item";
+      const cab = document.createElement("div");
+      cab.className = "rep-item-header";
+      const tipo = document.createElement("span");
+      tipo.textContent = item.tipo === "problema" ? "Problema" : "Sugerencia";
+      const badge = document.createElement("span");
+      badge.className = `rep-badge ${item.estado}`;
+      badge.textContent = etiquetaEstado(item.estado);
+      cab.append(tipo, badge);
+      const cuerpo = document.createElement("p");
+      cuerpo.textContent = item.texto;
+      li.append(cab, cuerpo);
+      lista.append(li);
+    }
+    vacioLista.hidden = j.items.length > 0;
+  }
+
+  if (raiz && hoja && form && texto && errEl) {
+    document.addEventListener("reportes-comercio:abrir", () => abrir());
+    document.querySelectorAll<HTMLButtonElement>("[data-rep-cerrar]").forEach((b) => {
+      b.addEventListener("click", cerrar);
+    });
+    raiz.addEventListener("click", (e) => {
+      if (e.target === raiz) cerrar();
+    });
+    hoja.addEventListener("click", (e) => e.stopPropagation());
+
+    for (const tab of document.querySelectorAll<HTMLButtonElement>("[data-rep-vista]")) {
+      tab.addEventListener("click", () => {
+        const v = tab.dataset.repVista;
+        if (v === "lista") {
+          mostrarPanel("lista");
+          void cargarLista();
+        } else {
+          mostrarPanel("nuevo");
+        }
+      });
+    }
+
+    document.querySelector<HTMLButtonElement>("[data-rep-ver-lista]")?.addEventListener("click", () => {
+      mostrarPanel("lista");
+      void cargarLista();
+    });
+    document.querySelector<HTMLButtonElement>("[data-rep-otro]")?.addEventListener("click", () => {
+      claveEnvio = nuevaClaveEnvio();
+      mostrarPanel("nuevo");
+      texto.value = "";
+      errEl.hidden = true;
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errEl.hidden = true;
+      const tipo = (form.querySelector<HTMLInputElement>('input[name="rep-tipo"]:checked')?.value ??
+        "problema") as "problema" | "sugerencia";
+      const cuerpo = texto.value.trim();
+      if (cuerpo.length < 8) {
+        errEl.textContent = "Contá un poco más para que podamos entender.";
+        errEl.hidden = false;
+        return;
+      }
+      const boton = form.querySelector<HTMLButtonElement>(".rep-enviar");
+      boton?.setAttribute("disabled", "true");
+      try {
+        const res = await fetch("/api/reportes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": claveEnvio,
+          },
+          body: JSON.stringify({
+            tipo,
+            texto: cuerpo,
+            ruta_sugerida: pantallaActual(),
+          }),
+        });
+        const payload = (await res.json()) as { error?: string; id?: string; contexto?: Item["contexto"] };
+        if (!res.ok) {
+          errEl.textContent = payload.error ?? "No pudimos enviar. Probá de nuevo.";
+          errEl.hidden = false;
+          return;
+        }
+        ultimoContexto = payload.contexto ?? null;
+        if (recibidoTexto && payload.id) {
+          recibidoTexto.textContent = `Tu envío quedó en seguimiento como Recibido · ${payload.id.slice(0, 8)}.`;
+        }
+        if (ultimoContexto) {
+          ctxPantallaOk && (ctxPantallaOk.textContent = ultimoContexto.pantalla);
+          ctxRutaOk && (ctxRutaOk.textContent = ultimoContexto.ruta);
+          ctxVersionOk && (ctxVersionOk.textContent = ultimoContexto.version);
+        }
+        mostrarPanel("recibido");
+        void cargarLista();
+      } catch {
+        errEl.textContent = "Falló la conexión. Tu texto sigue acá: probá de nuevo.";
+        errEl.hidden = false;
+      } finally {
+        boton?.removeAttribute("disabled");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !raiz.hidden) cerrar();
+    });
+
+    pintarContextoPreview();
+  }
+</script>

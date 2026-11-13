@@ -40,12 +40,20 @@ function actual(href: string): "page" | undefined {
           <ul>
             {grupo.entradas.map((entrada: EntradaMas) => (
               <li>
-                <a
-                  href={entrada.href}
-                  class:list={["nav-link", { "is-active": actual(entrada.href) === "page" }]}
-                  data-modulo-indice={entrada.indice}
-                  aria-current={actual(entrada.href)}
-                >{entrada.label}</a>
+                {entrada.dialogo === "reportes-comercio" ? (
+                  <button
+                    type="button"
+                    class="nav-link"
+                    data-abrir-reportes-comercio
+                  >{entrada.label}</button>
+                ) : (
+                  <a
+                    href={entrada.href}
+                    class:list={["nav-link", { "is-active": actual(entrada.href) === "page" }]}
+                    data-modulo-indice={entrada.indice}
+                    aria-current={actual(entrada.href)}
+                  >{entrada.label}</a>
+                )}
               </li>
             ))}
           </ul>
@@ -75,6 +83,19 @@ function actual(href: string): "page" | undefined {
     min-height: 44px;
     min-width: 44px;
     box-sizing: border-box;
+  }
+  button.nav-link {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
   }
   .nav-bar {
     position: fixed;
@@ -211,6 +232,12 @@ function actual(href: string): "page" | undefined {
     columna.addEventListener("change", aplicarColumna);
     aplicarColumna();
   }
+
+  document.querySelectorAll<HTMLButtonElement>("[data-abrir-reportes-comercio]").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("reportes-comercio:abrir"));
+    });
+  });
 
   fetch("/api/panel/indice")
     .then((r) => (r.ok ? r.json() : null))

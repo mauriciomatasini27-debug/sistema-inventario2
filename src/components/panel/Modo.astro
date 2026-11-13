@@ -78,6 +78,9 @@ const vars = [
     <p class="modo-vacio">Sin avisos por ahora.</p>
     <ul class="modo-avisos" hidden></ul>
     <button type="button" class="modo-minimizar modo-control">Minimizar</button>
+    <button type="button" class="modo-reportes modo-control" data-abrir-reportes-comercio>
+      Problemas y sugerencias
+    </button>
   </div>
 </div>
 
@@ -131,6 +134,16 @@ const vars = [
   .modo[data-modo-estado="minimizado"] .modo-ojos-cerrados { display: block; }
   .modo[data-modo-estado="pensando"] .modo-puntos { display: block; }
   .modo[data-modo-estado="alerta"] .modo-bang { display: block; }
+  .modo-reportes {
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid var(--color-mid);
+    border-radius: 999px;
+    background: var(--color-charcoal);
+    color: var(--color-star-white);
+    font-weight: 600;
+    cursor: pointer;
+  }
   .modo-panel {
     position: absolute;
     top: calc(100% + 4px);
@@ -391,5 +404,11 @@ const vars = [
           aplicarAvisos(0, fiadoActual(), false);
         });
     }
+
+  const abrirReportes = raiz.querySelector<HTMLButtonElement>("[data-abrir-reportes-comercio]");
+    abrirReportes?.addEventListener("click", () => {
+      pintar(cerrarPanel(nodo));
+      document.dispatchEvent(new CustomEvent("reportes-comercio:abrir"));
+    });
   }
 </script>

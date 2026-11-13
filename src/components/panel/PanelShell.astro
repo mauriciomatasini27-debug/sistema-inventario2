@@ -8,6 +8,7 @@ import TemaToggle from "../ui/TemaToggle.astro";
 import CerrarSesion from "../ui/CerrarSesion.astro";
 import NavTablero from "./NavTablero.astro";
 import Modo from "./Modo.astro";
+import ReportesComercioDialog from "./ReportesComercioDialog.astro";
 import type { DestinoPanel } from "../../lib/panel-modulos.js";
 
 interface Props {
@@ -150,5 +151,6 @@ const logoTexto = comercio.trim() || "Inventario";
     </div>
     <Toaster client:idle />
     <ConfirmDialog />
+    <ReportesComercioDialog />
   </body>
 </html>
