@@ -1,6 +1,6 @@
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { esModoMulti, tenantActual } from "./tenant-mode.js";
+import { esModoMulti, esModoShared, tenantActual } from "./tenant-mode.js";
 
 const clients = new Map<string, ReturnType<typeof postgres>>();
 const dbs = new Map<string, ReturnType<typeof drizzlePg>>();
@@ -75,6 +75,13 @@ export function getTenantDb(tenantId?: string) {
     const propia = process.env[`TENANT_DATABASE_URL_${resuelto}`];
     if (!propia) throw new Error(`Falta TENANT_DATABASE_URL_${resuelto}`);
     return dbFor(propia);
+  }
+  // ADR-0116: shared siempre abre TENANT_DATABASE_URL. El filtro por fila es C3.
+  if (esModoShared()) {
+    if (!resuelto) throw new Error("Falta tenant");
+    const url = process.env.TENANT_DATABASE_URL;
+    if (!url) throw new Error("Falta TENANT_DATABASE_URL");
+    return dbFor(url);
   }
   const key = resuelto ? `TENANT_DATABASE_URL_${resuelto}` : "TENANT_DATABASE_URL";
   const url = (resuelto && process.env[key]) || process.env.TENANT_DATABASE_URL;

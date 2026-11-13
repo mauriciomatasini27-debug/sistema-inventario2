@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { correrJob } from "../../../lib/jobs-tenant.js";
-import { esModoMulti } from "../../../lib/tenant-mode.js";
+import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
       return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
     };
     const uno = obtenerComercioBot(tenantId);
-    const comercios = esModoMulti() ? (uno ? [uno] : []) : listarComerciosBot();
+    const comercios = esModoAisladoPorTenant() ? (uno ? [uno] : []) : listarComerciosBot();
     const resultados = [];
     for (const c of comercios) {
       const email = control.users.get(c.googleSub)?.email ?? "";

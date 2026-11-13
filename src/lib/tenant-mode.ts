@@ -7,6 +7,18 @@ export function esModoMulti(env: NodeJS.ProcessEnv = process.env): boolean {
   return leerVarEntorno("TENANT_MODE", env) === "multi";
 }
 
+// ADR-0116: una Postgres compartida con tenant_id. No redefine single/slice0.
+export function esModoShared(env: NodeJS.ProcessEnv = process.env): boolean {
+  return leerVarEntorno("TENANT_MODE", env) === "shared";
+}
+
+// multi = URL por id; shared = una URL + filas con dueño. Ambos exigen tenant
+// en el request (no slice0).
+export function esModoAisladoPorTenant(env: NodeJS.ProcessEnv = process.env): boolean {
+  const m = leerVarEntorno("TENANT_MODE", env);
+  return m === "multi" || m === "shared";
+}
+
 export function tenantPorDefecto(env: NodeJS.ProcessEnv = process.env): string {
   return leerVarEntorno("DEFAULT_TENANT_ID", env) || "slice0";
 }
