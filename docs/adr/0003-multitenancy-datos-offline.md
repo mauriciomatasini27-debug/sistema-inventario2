@@ -6,15 +6,19 @@ modulos: [offline, tenant]
 depende_de: [ADR-0004]
 reemplaza: []
 reemplazado_por: ""
-resumen: "1 DB Postgres por cliente + 1 base control catálogo. Local SQLite por dispositivo con outbox idempotente."
+modifica: []
+modificado_por: [ADR-0116]
+resumen: "1 DB Postgres por cliente + 1 base control catálogo. Local SQLite por dispositivo con outbox idempotente. Topología de comercio supersedida en shared por ADR-0116."
 ---
 # ADR-0003 - Multitenancy, datos y offline
 
-Estado: aceptado. Fecha: 2026-10-10.
+Estado: aceptado. Fecha: 2026-10-10. Modificado por ADR-0116 (2026-11-13) en la topología Postgres de comercio.
 
 ## Decisión
 
 1 DB Postgres por cliente + 1 base control catálogo. Local SQLite por dispositivo con outbox idempotente.
+
+**Topología shared (ADR-0116).** Para el piloto y el crecimiento en Free, la Postgres de comercio pasa a ser **una base compartida** con `tenant_id` en tablas de negocio y `TENANT_MODE=shared`. Los contratos offline, outbox, sync y API de este ADR siguen. El camino `multi` (una URL por id, P1-68) no es el runbook piloto.
 
 ## Control (1)
 
