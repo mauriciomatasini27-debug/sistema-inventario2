@@ -8,10 +8,11 @@ function valorDe(nombre) {
 }
 
 const apply = process.argv.includes("--apply");
+const permitirShared = process.argv.includes("--shared");
 const tenantId = valorDe("--tenant-id") ?? "slice0";
 const comerciosEnBase = Number(valorDe("--comercios") ?? "1");
 
-const plan = planBackfill({ apply, tenantId, comerciosEnBase });
+const plan = planBackfill({ apply, tenantId, comerciosEnBase, permitirShared });
 if (!plan.ok) {
   console.error(`FAIL ${plan.error}`);
   process.exit(1);

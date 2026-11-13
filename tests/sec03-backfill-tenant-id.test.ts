@@ -59,12 +59,25 @@ describe("SEC3-S1 plan cubre ambas tablas", () => {
     }
   });
 
-  it("comercios invalido o compartido se niega", () => {
+  it("comercios invalido o compartido sin --shared se niega", () => {
     for (const comerciosEnBase of [0, -1, Number.NaN, 2, 5]) {
       const r = planBackfill({ apply: false, tenantId: "slice0", comerciosEnBase });
       expect(r.ok).toBe(false);
       expect(r.ejecutaria).toBe(false);
     }
+  });
+
+  it("ADR-0116: con --shared planifica UPDATE hacia el tenant dado aunque haya varios comercios", () => {
+    const r = planBackfill({
+      apply: true,
+      tenantId: "dueno-nulas",
+      comerciosEnBase: 3,
+      permitirShared: true,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("esperaba plan ok");
+    expect(r.ejecutaria).toBe(true);
+    expect(r.sql).toContain("dueno-nulas");
   });
 });
 

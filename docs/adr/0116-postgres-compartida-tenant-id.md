@@ -6,7 +6,7 @@ modulos: [tenant, persistencia, offline]
 depende_de: [ADR-0003, ADR-0048, ADR-0050, ADR-0051, ADR-0052, PRD-ISO-01, PRD-ISO-02]
 reemplaza: []
 reemplazado_por: ""
-modifica: [ADR-0003, ADR-0051]
+modifica: [ADR-0003, ADR-0051, PRD-ISO-01, PRD-ISO-02]
 modificado_por: []
 resumen: |
   Una Postgres compartida para muchos comercios. Aislamiento por tenant_id en tablas de
@@ -59,8 +59,6 @@ Redefinir `TENANT_MODE=single` para exigir UUID de sesión. Choca con ISO-S1 en 
 
 ## Pendientes
 
-- Migraciones y repos por módulo (núcleo primero). Sin `drizzle/*.sql` hasta aprobación de Mauri.
-- Valor `shared` en `tenant-mode`, `tenantDeRequest`, `getTenantDb`, `store`, health y alta.
-- Reescritura de `docs/guias/deploy-piloto.md` y AC ISO-S2/S6/S9 en tests.
+- Waves siguientes: `NOT NULL` + uniques compuestos `(tenant_id, …)` y filtros en caja/fiado/precios/etc.
 - Decidir si el código `multi` de P1-68 se borra o queda dormido.
-- Dueño del backfill para filas ya existentes en la DB single de producción.
+- Dueño del backfill para filas ya existentes en la DB single de producción (usar `--shared --tenant-id`).
