@@ -123,3 +123,25 @@ export const tenantDailyUsage = pgTable("tenant_daily_usage", {
   tickets: integer("tickets").notNull().default(0),
   usoWa: integer("uso_wa").notNull().default(0),
 }, (t) => [primaryKey({ columns: [t.tenantId, t.dia] })]);
+
+// TB-164 #164: reportes problema/sugerencia (plano control, sin join a negocio).
+export type ContextoFeedbackJson = {
+  pantalla: string;
+  ruta: string;
+  version: string;
+};
+
+export const platformFeedbackReports = pgTable("platform_feedback_reports", {
+  id: uuid("id").primaryKey(),
+  // TB-164: opaco como el resto del panel admin; en dev control-app el id no es UUID.
+  tenantId: text("tenant_id").notNull(),
+  nombreComercio: text("nombre_comercio").notNull(),
+  autorGoogleSub: text("autor_google_sub").notNull(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  tipo: text("tipo").notNull(),
+  texto: text("texto").notNull(),
+  estado: text("estado").notNull().default("recibido"),
+  contexto: jsonb("contexto").$type<ContextoFeedbackJson>().notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+  actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
+});

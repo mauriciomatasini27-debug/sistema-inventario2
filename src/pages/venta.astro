@@ -13,6 +13,8 @@ import { tenantDeRequest } from "../lib/tenant-context.js";
 import ConfirmDialog from "../components/ui/ConfirmDialog.astro";
 import NavTablero from "../components/panel/NavTablero.astro";
 import Modo from "../components/panel/Modo.astro";
+import PanelBuscar from "../components/panel/PanelBuscar.astro";
+import ReportesComercioDialog from "../components/panel/ReportesComercioDialog.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
 import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
 
@@ -68,7 +70,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
-      #camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
+      #visor-camara { width: min(360px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 16px; background: var(--tema-superficie, var(--color-charcoal)); color: var(--tema-texto, var(--color-star-white)); }
+      #visor-camara::backdrop { background: color-mix(in srgb, var(--color-void) 55%, transparent); }
+      #visor-camara[open] { display: grid; gap: 12px; padding: 16px; margin: auto; }
+      #visor-camara-titulo { margin: 0; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      #visor-camara-cerrar { width: auto; min-width: 44px; min-height: 44px; margin: 0; padding-inline: 12px; }
+      #visor-camara-ayuda { margin: 0; font-size: 14px; color: var(--tema-texto-suave, var(--color-muted-dark)); }
+      .visor-camara-marco { border: 2px solid var(--color-star-glow); border-radius: 12px; overflow: hidden; background: var(--color-void); }
+      #camara-video { display: block; width: 100%; max-height: 240px; object-fit: cover; background: var(--color-void); }
+      #visor-camara-cancelar { width: 100%; min-height: 44px; margin: 0; }
       #catalogo-estado { margin: 0 4px 10px; font-size: 13px; color: var(--tema-texto-suave); text-align: start; overflow-wrap: anywhere; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
       .producto { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-width: 0; }
@@ -97,12 +107,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #cobrar.cobrar-apagado { background: var(--color-mid); color: var(--color-muted-dark); box-shadow: none; cursor: not-allowed; }
       #cobrar.sg-flame-cta, #confirmar-cobro.sg-flame-cta { background-color: var(--color-star-glow); color: var(--color-star-white); box-shadow: var(--sombra-cta); }
       #paso-ticket[hidden], #paso-cobro[hidden] { display: none; }
+      #efectivo-vuelto { margin: 4px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
     </style>
     <style is:global>
       /* TB-160: los botones del ticket nacen en el script y no heredan el style con scope. */
       #lista-carrito button,
       #resultados button,
       #leer-camara,
+      #visor-camara-cerrar,
+      #visor-camara-cancelar,
       #volver-ticket,
       #cobrar,
       #confirmar-cobro {
@@ -131,6 +144,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       <div class="tablero-contenido">
     <header class="barra vidrio-barra">
       <h1>Venta mostrador</h1>
+      <PanelBuscar />
       <Modo />
       <TemaToggle />
       <span id="indicador-sync" role="status"></span>
@@ -148,7 +162,17 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             Escanear
           </button>
         </div>
-        <video id="camara-video" hidden playsinline muted></video>
+        <dialog id="visor-camara" aria-labelledby="visor-camara-titulo-texto">
+          <h2 id="visor-camara-titulo">
+            <span id="visor-camara-titulo-texto">Escanear etiqueta</span>
+            <button id="visor-camara-cerrar" type="button" aria-label="Cerrar visor de cámara">✕</button>
+          </h2>
+          <p id="visor-camara-ayuda">Apuntá al código de barras de la etiqueta del producto. No es un lector de tickets ni de facturas.</p>
+          <div class="visor-camara-marco">
+            <video id="camara-video" hidden playsinline muted aria-label="Vista de la cámara"></video>
+          </div>
+          <button id="visor-camara-cancelar" type="button">Cancelar</button>
+        </dialog>
         <div class="datos-linea">
           <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
           <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
@@ -173,6 +197,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             {medios.map((m) => <option value={m} selected={harness.data === "worst" && m === VENTA_WORST.medio}>{m}</option>)}
           </select>
         </label>
+        <div id="efectivo-recibido-label" hidden>
+          <label>¿Con cuánto paga? (opcional, para ver el vuelto)
+            <input id="efectivo-recibido" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Monto recibido" />
+          </label>
+          <p id="efectivo-vuelto" hidden role="status"></p>
+        </div>
         <div id="cliente-fiado-label" hidden>
           <label>Cliente (fiado)
             <input id="cliente-fiado-q" type="search" autocomplete="off" placeholder="Buscar por nombre" />
@@ -237,12 +267,16 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import { formatearCentavos } from "../lib/panel-modulos.js";
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
+      import { evaluarVueltoEfectivo, totalCentavosCarrito } from "../modules/sales/vuelto_efectivo.js";
       import { hitsCatalogoLocal, unirHits } from "../modules/sales/buscar_venta_ticket.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
       import { confirmar } from "../lib/confirmar-dom.js";
       import {
         efectoCodigoDesconocido,
         efectoDeTecla,
+        mensajeCamaraNoDisponible,
+        mensajeErrorCamara,
+        motivoCamaraNoDisponible,
         resolverLectura,
         sesionCamara,
       } from "../modules/stock/escaner.js";
@@ -348,6 +382,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       let carrito = [];
       const nombresLinea = new Map();
       let cobrando = false;
+      const modoRaiz = document.querySelector("[data-modo]");
+      const syncModoCobrando = () => {
+        if (!modoRaiz) return;
+        const enPasoCobro = document.querySelector("main")?.dataset.paso === "cobro";
+        modoRaiz.dataset.modoCobrando = enPasoCobro || cobrando || cobroEnVuelo ? "si" : "no";
+      };
       let busquedaToken = 0;
       let buscaTimer = 0;
       const mostrarPaso = (paso) => {
@@ -355,6 +395,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         if (raiz) raiz.dataset.paso = paso;
         $("paso-ticket").hidden = paso !== "ticket";
         $("paso-cobro").hidden = paso !== "cobro";
+        syncModoCobrando();
       };
       const syncCobrar = () => {
         const boton = $("cobrar");
@@ -364,7 +405,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         boton.classList.toggle("cobrar-apagado", vacio);
         $("ticket-vacio").hidden = !vacio;
         const confirmarCobro = $("confirmar-cobro");
-        if (confirmarCobro) confirmarCobro.disabled = vacio;
+        if (confirmarCobro) confirmarCobro.disabled = vacio || cobrando;
       };
       // P1-56: un 5xx no cierra el cobro. El segundo tap reusa op_id y seq
       // para no emitir otro ticket de la misma venta.
@@ -496,28 +537,41 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         estado("Lista.");
         return true;
       };
+      // P1-56: Cobrar ya no lee el formulario. Enter y la cámara suman al carrito,
+      // también si el código no está en el catálogo. El alta viaja solo si hay nombre.
       const incorporarLectura = async (raw) => {
         const texto = String(raw ?? "").trim();
         if (!texto) return;
         const res = await resolverEnPantalla(texto);
-        if (res.estado === "encontrado") {
-          aplicarSkuEncontrado(res.sku);
-          agregarLineaDesdeFormulario();
-          return;
-        }
-        if (res.estado !== "desconocido") return;
-        pedirNombre = true;
-        $("sku").value = texto;
-        skuElegido = texto;
-        mostrarAlta();
-        // TB-160: fusionarLinea acepta la línea sin alta. Sin nombre, el código no entra al ticket.
-        if ($("alta-nombre-label").hidden || $("alta-nombre").value.trim() === "") {
-          estado(efectoCodigoDesconocido().mensaje);
-          if (!$("alta-nombre-label").hidden) $("alta-nombre").focus();
+        let desconocido = false;
+        if (res.estado === "encontrado") aplicarSkuEncontrado(res.sku);
+        else if (res.estado === "desconocido") {
+          desconocido = true;
+          pedirNombre = true;
+          $("sku").value = texto;
+          skuElegido = texto;
+          mostrarAlta();
+          // TB-160: fusionarLinea acepta la línea sin alta. Sin nombre, el código no entra al ticket.
+          if ($("alta-nombre-label").hidden || $("alta-nombre").value.trim() === "") {
+            estado(efectoCodigoDesconocido().mensaje);
+            if (!$("alta-nombre-label").hidden) $("alta-nombre").focus();
+            return;
+          }
+        } else {
           return;
         }
         const ok = agregarLineaDesdeFormulario();
-        if (ok) estado(efectoCodigoDesconocido().mensaje);
+        if (!ok) return;
+        if (desconocido) {
+          estado(efectoCodigoDesconocido().mensaje);
+          return;
+        }
+        const sku = $("sku").value.trim();
+        const linea = carrito.find((l) => l.product_id === sku);
+        const cola = JSON.parse(storage.getItem(outboxKey) ?? "[]");
+        if (linea && avisoStockLocalAgotado(stockLocal(catalogo, cola, linea.product_id, linea.qty))) {
+          estado("El stock registrado de este producto ya estaba en 0. Si vendés igual, el ticket va a quedar marcado.");
+        }
       };
       $("alta-nombre").addEventListener("keydown", (ev) => {
         if (ev.key !== "Enter") return;
@@ -610,25 +664,50 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         await incorporarLectura($("sku").value);
       });
       let sesion = null;
+      const visor = $("visor-camara");
+      const cerrarVisorCamara = () => {
+        if (sesion) {
+          sesion.cerrar();
+          sesion = null;
+        }
+        if (visor instanceof HTMLDialogElement && visor.open) visor.close();
+        $("sku").focus();
+      };
+      const abrirVisorCamara = () => {
+        if (!(visor instanceof HTMLDialogElement)) return;
+        if (!visor.open) visor.showModal();
+      };
+      $("visor-camara-cerrar").addEventListener("click", cerrarVisorCamara);
+      $("visor-camara-cancelar").addEventListener("click", cerrarVisorCamara);
+      visor?.addEventListener("cancel", (ev) => {
+        ev.preventDefault();
+        cerrarVisorCamara();
+      });
       $("leer-camara").addEventListener("click", async () => {
         const video = $("camara-video");
         if (!(video instanceof HTMLVideoElement)) return;
         if (sesion) {
-          sesion.cerrar();
-          sesion = null;
+          cerrarVisorCamara();
+          return;
+        }
+        const previo = motivoCamaraNoDisponible();
+        if (previo) {
+          estado(mensajeCamaraNoDisponible(previo));
+          $("sku").focus();
           return;
         }
         sesion = sesionCamara(video);
+        abrirVisorCamara();
         try {
           const codigo = await sesion.leer();
           sesion = null;
+          cerrarVisorCamara();
           if (!codigo) return;
           await incorporarLectura(codigo);
         } catch (error) {
           console.warn("[venta] cámara", error);
-          if (sesion) sesion.cerrar();
-          sesion = null;
-          estado("No se pudo abrir la cámara.");
+          cerrarVisorCamara();
+          estado(mensajeErrorCamara(error));
         }
       });
       const refrescarCatalogo = async () => {
@@ -685,6 +764,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         nombresLinea.clear();
         pintarCarrito();
         cobroEnVuelo = null;
+        $("efectivo-recibido").value = "";
+        $("efectivo-vuelto").hidden = true;
+        $("efectivo-vuelto").textContent = "";
+        syncModoCobrando();
         mostrarPaso("ticket");
         $("sku").focus();
       };
@@ -721,8 +804,32 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const aCuenta = $("medio").value === "A cuenta";
         $("cliente-fiado-label").hidden = !aCuenta;
       };
-      $("medio").addEventListener("change", syncClienteFiado);
-      syncClienteFiado();
+      const syncEfectivoRecibido = () => {
+        const efectivo = $("medio").value === "Efectivo";
+        $("efectivo-recibido-label").hidden = !efectivo;
+        const aviso = $("efectivo-vuelto");
+        if (!efectivo) {
+          aviso.hidden = true;
+          aviso.textContent = "";
+          return;
+        }
+        const total = totalCentavosCarrito(carrito);
+        const evaluacion = evaluarVueltoEfectivo(total, $("efectivo-recibido").value);
+        if (evaluacion.ok && evaluacion.modo === "vuelto" && evaluacion.vueltoCentavos >= 0) {
+          aviso.hidden = false;
+          aviso.textContent = "Vuelto: " + formatearCentavos(evaluacion.vueltoCentavos);
+          return;
+        }
+        aviso.hidden = true;
+        aviso.textContent = "";
+      };
+      const syncMedioCobro = () => {
+        syncClienteFiado();
+        syncEfectivoRecibido();
+      };
+      $("medio").addEventListener("change", syncMedioCobro);
+      $("efectivo-recibido").addEventListener("input", syncEfectivoRecibido);
+      syncMedioCobro();
 
       let clienteConfirmado = null;
       let buscaFiado = null;
@@ -927,6 +1034,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       $("cobrar").addEventListener("click", () => {
         if ($("cobrar").disabled || carrito.length === 0) return;
         pintarCobro();
+        syncEfectivoRecibido();
         mostrarPaso("cobro");
         $("cobro-titulo").focus();
       });
@@ -943,18 +1051,32 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           estado("carrito vacío");
           return;
         }
-        // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
-        if (fiado && !cobroEnVuelo) {
-          if (!clienteConfirmado) {
-            estado("Elegí un cliente de la lista.");
+        // TB-162: el vuelto es de interfaz. Con recibido cargado, no confirma si alcanza menos que el total.
+        if (medio === "Efectivo" && !cobroEnVuelo) {
+          const evaluacion = evaluarVueltoEfectivo(totalCentavosCarrito(carrito), $("efectivo-recibido").value);
+          if (!evaluacion.ok) {
+            if (evaluacion.codigo === "recibido_insuficiente") {
+              estado("El monto recibido no alcanza para el total.");
+              return;
+            }
+            estado("Revisá el monto recibido.");
             return;
           }
+        }
+        // P1-41: venta a cuenta solo online. No encola ni llama /api/sales.
+        if (fiado && !cobroEnVuelo) {
           if (!navigator.onLine) {
             estado("La venta a cuenta necesita conexión.");
             return;
           }
+          if (!clienteConfirmado) {
+            estado("Elegí un cliente de la lista.");
+            return;
+          }
         }
         cobrando = true;
+        syncCobrar();
+        syncModoCobrando();
         try {
           if (!cobroEnVuelo) {
             const preparado = armarVuelo(fiado ? "A cuenta" : medio, fiado ? false : !navigator.onLine);
@@ -1153,6 +1275,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           }
         } finally {
           cobrando = false;
+          syncCobrar();
+          syncModoCobrando();
           balance();
         }
       };
@@ -1307,5 +1431,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       </div>
     </div>
     <ConfirmDialog />
+    <ReportesComercioDialog />
   </body>
 </html>

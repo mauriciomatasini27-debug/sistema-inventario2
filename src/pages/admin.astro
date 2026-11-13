@@ -18,6 +18,7 @@ const pills = [
   { label: "Rollouts", href: "#rollouts", active: false },
   { label: "Auditoría", href: "#auditoria", active: false },
   { label: "Uso", href: "#uso", active: false },
+  { label: "Reportes", href: "#reportes-comercio", active: false },
 ];
 ---
 <!doctype html>
@@ -188,6 +189,19 @@ const pills = [
           <div class="heat" id="heat" aria-hidden="true"></div>
         </section>
       </div>
+
+      <section class="card" id="reportes-comercio" style="margin-bottom:16px">
+        <h2>Bandeja de reportes <span class="live">en vivo</span></h2>
+        <p class="mini">Solo administrador de plataforma. Los comercios no ven esta vista. Seguridad real en servidor.</p>
+        <div class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
+          <button type="button" class="cta-piloto" data-rep-filtro="todos" style="margin-top:0">Todos</button>
+          <button type="button" class="cta-piloto" data-rep-filtro="recibido" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Recibido</button>
+          <button type="button" class="cta-piloto" data-rep-filtro="en_revision" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">En revisión</button>
+          <button type="button" class="cta-piloto" data-rep-filtro="resuelto" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Resuelto</button>
+        </div>
+        <ul class="tl" id="rep-admin-lista" aria-live="polite"></ul>
+        <div class="estado" id="rep-admin-estado">Cargando bandeja…</div>
+      </section>
 
       <div class="grid r2">
         <section class="card" id="mora">
@@ -474,6 +488,34 @@ const pills = [
           tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
         });
       });
+      const repLista = document.getElementById("rep-admin-lista");
+      const repEstado = document.getElementById("rep-admin-estado");
+      let repFiltro = "";
+      const cargarRepAdmin = () => {
+        const url = repFiltro ? "/api/admin/reportes?estado=" + repFiltro : "/api/admin/reportes";
+        get(url).then((b) => {
+          repLista.replaceChildren();
+          (b.items || []).forEach((it) => {
+            const li = document.createElement("li");
+            const tipo = it.tipo === "problema" ? "Problema" : "Sugerencia";
+            const est = it.estado === "en_revision" ? "En revisión" : (it.estado === "resuelto" ? "Resuelto" : "Recibido");
+            li.innerHTML = "<b>" + tipo + "</b> · <span class='pill pend'>" + est + "</span><br />" +
+              (it.nombre_comercio || "—") + " · " + String(it.texto || "").slice(0, 120);
+            repLista.appendChild(li);
+          });
+          repEstado.textContent = "En vivo: " + (b.items || []).length + " reportes.";
+        }).catch((e) => {
+          repEstado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión.";
+        });
+      };
+      document.querySelectorAll("[data-rep-filtro]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const f = btn.getAttribute("data-rep-filtro");
+          repFiltro = f === "todos" ? "" : f;
+          cargarRepAdmin();
+        });
+      });
+      cargarRepAdmin();
     </script>
   </body>
 </html>
