@@ -3,9 +3,11 @@ id: PRD-ISO-01
 tipo: prd
 estado: hecho
 modulos: [compras, fiscal, persistencia, tenant]
-depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0018, ADR-0019, ADR-0048, ADR-0050]
+depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0018, ADR-0019, ADR-0048, ADR-0050, ADR-0116]
 reemplaza: []
 reemplazado_por: ""
+modifica: []
+modificado_por: [ADR-0116]
 resumen: "Requisito ISO-1: el tenant de una request fiscal lo resuelve el servidor, nunca el cliente por sí solo."
 ---
 # PRD-ISO-01 - Aislamiento por tenant de los datos fiscales (R1)
@@ -21,7 +23,7 @@ El aislamiento entre comercios depende de que cada tenant tenga su propia base (
 Requisito ISO-1: el tenant de una request fiscal lo resuelve el servidor, nunca el cliente por sí solo.
 
 - Historia ISO-S1. Resolvedor `tenantDeRequest(request)` en `src/lib/tenant-context.ts`: en modo `TENANT_MODE=multi` exige sesión válida (`resolverSesion`) y membership activa del tenant pedido en header `X-Tenant-Id`; sin eso devuelve 403 con el mismo texto de E5 que no revela si el tenant existe. En modo `single` (default dev/demo, ADR-0048) devuelve `DEFAULT_TENANT_ID` (o `slice0`). AC: Given modo multi sin sesión When pido `GET /api/fiscal/history` Then 403; Given sesión de A con `X-Tenant-Id: B` sin membership Then 403 y evento `acceso_denegado`; Given modo single Then responde como hoy. ADR: 0050, 0002. Talla M. Depende de: nada.
-- Historia ISO-S2. `getTenantDb()` sin `tenantId` en modo multi lanza (fail-closed) en lugar de caer a la base compartida; en modo single se conserva el fallback. AC: Given `TENANT_MODE=multi` When llamo `getTenantDb()` Then error `Falta tenant`; Given `getTenantDb("A")` sin `TENANT_DATABASE_URL_A` en modo multi Then error, nunca la URL compartida. ADR: 0050, 0002. Talla S. Depende de: nada.
+- Historia ISO-S2. `getTenantDb()` sin `tenantId` en modo multi lanza (fail-closed) en lugar de caer a la base compartida; en modo single se conserva el fallback. AC: Given `TENANT_MODE=multi` When llamo `getTenantDb()` Then error `Falta tenant`; Given `getTenantDb("A")` sin `TENANT_DATABASE_URL_A` en modo multi Then error, nunca la URL compartida. ADR: 0050, 0002. Talla S. Depende de: nada. Mecanismo shared (ADR-0116): Given `TENANT_MODE=shared` sin `tenantActual()` When `getTenantDb()` Then error `Falta tenant`; Given shared con `conTenant("A")` y `TENANT_DATABASE_URL` Then abre el pool compartido (no exige `TENANT_DATABASE_URL_A`).
 
 ## Épica ISO-E2. Datos fiscales con dueño
 
@@ -32,7 +34,9 @@ Requisito ISO-2: todo comprobante fiscal guarda a qué tenant pertenece y toda l
 
 ## Dependencias externas
 
-Ninguna para dev/demo. Producción multi-tenant espera a la separación real de bases (ADR-0002, ADR-0003) y a la consulta legal Ley 25.326 ya abierta en el roadmap.
+Ninguna para dev/demo. Producción con `TENANT_MODE=shared` (ADR-0116) usa una Postgres + `tenant_id`. El camino `multi` (una URL por id) sigue válido como alternativa. Consulta legal Ley 25.326 abierta en el roadmap.
+
+> Estado al 2026-11-13: ISO-S2 reformulado para `shared` (fail-closed por contexto, no por URL dedicada).
 
 ## Estrategia prueba
 

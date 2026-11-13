@@ -9,26 +9,25 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  How-to para poner en producción el corte piloto (login Google HTTPS, Postgres,
-  Vercel, altas reales y recorrido de mostrador). El camino multi de dos bases
-  quedó obsoleto como runbook piloto (ADR-0116). No despliega por vos.
+  How-to para poner en producción el corte piloto (login Google HTTPS, TENANT_MODE=shared,
+  una Postgres, Vercel, altas reales y recorrido de mostrador). No despliega por vos.
 ---
 # Cómo desplegar el piloto (1–2 comercios)
 
-> **Obsolescencia (ADR-0116).** El cuerpo de abajo todavía describe `TENANT_MODE=multi` y dos proyectos Supabase (`piloto1` / `piloto2`, P1-68). Ese runbook **ya no es el camino piloto**. El destino es una Postgres compartida con `tenant_id` y `TENANT_MODE=shared`. La reescritura completa de esta guía llega en el PR C4 del plan. No crees un segundo proyecto Free solo para aislar dos comercios.
-
-Goal: un host HTTPS donde cada dueño entra con Google, da de alta su comercio, carga stock y vende con carrito online u offline.
+Goal: un host HTTPS donde cada dueño entra con Google, da de alta su comercio, carga stock y vende con carrito online u offline. Dos comercios comparten **una** Postgres y se aíslan por `tenant_id` (`TENANT_MODE=shared`, ADR-0116).
 
 Inventario de variables: [destrabe-credenciales.md](destrabe-credenciales.md) y `npm run credenciales`. Postgres: [migracion-supabase.md](../migracion-supabase.md). Verificación local sin Google: skill `control-app`.
 
 Fuera de este corte: factura ARCA, bot WhatsApp, OCR real, Mercado Pago automático, alertas Resend. La app no ejecuta `CREATE DATABASE`.
 
+El runbook P1-68 (`TENANT_MODE=multi` + `TENANT_DATABASE_URL_piloto1/2`) quedó histórico. No creés un segundo proyecto Free solo para aislar dos comercios.
+
 ## 0. Precondiciones
 
-1. Confirmá que `main` ya trae el carrito (P1-56) y el alta multi (P1-68).
+1. Confirmá que `main` trae el carrito (P1-56), ADR-0116 (C0–C3) y la migración `0043_shared_tenant_nucleo`.
 2. Tené a mano el dominio HTTPS del deploy (ejemplo `https://tu-app.vercel.app`). Las cookies de sesión usan el prefijo `__Host-` con `Secure`. Sin HTTPS el login no cierra.
 3. No uses solo el botón de laboratorio “2 comercios piloto”. El segundo comercio lleva `owner_google_sub: "piloto-basico-t2"` y no puede loguearse. Cada dueño real entra con Google y hace su propia alta.
-4. El Free de Supabase deja 2 proyectos activos. Dos comercios aislados usan esos dos cupos.
+4. Un proyecto Supabase Free alcanza para control + negocio de todos los comercios del piloto.
 
 ## 1. Google Login en producción
 
@@ -48,42 +47,35 @@ Fuera de este corte: factura ARCA, bot WhatsApp, OCR real, Mercado Pago automát
 
 Comprobación: `npm run credenciales` marca “Google login: presente”.
 
-## 2. Postgres: control + una base por comercio
+## 2. Postgres: una base compartida
 
-Aislamiento = 1 Postgres de negocio por comercio (ADR-0003). Single con una sola URL mezcla stock y ventas.
+Aislamiento = filas con `tenant_id` + sesión (ADR-0116). No hace falta una URL por comercio.
 
-1. Creá **dos** proyectos Supabase Free en `ca-central-1` (proyecto A y proyecto B). Seguí [migracion-supabase.md](../migracion-supabase.md) para el Session pooler `:5432`.
-2. Elegí dos ids **sin guiones** (Vercel no acepta `-` en el nombre de la variable). Convención del corte:
-
-   - `piloto1` → proyecto A (también hospeda el plano control)
-   - `piloto2` → proyecto B
-
-3. Migrá **cada** proyecto con la URL del Session pooler de ese proyecto:
+1. Creá **un** proyecto Supabase Free en `ca-central-1`. Seguí [migracion-supabase.md](../migracion-supabase.md) para el Session pooler `:5432`.
+2. Migrá con la URL del Session pooler:
 
    ```bash
-   TENANT_DATABASE_URL='postgresql://postgres.<refA>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require' npm run db:migrate
-   TENANT_DATABASE_URL='postgresql://postgres.<refB>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require' npm run db:migrate
+   TENANT_DATABASE_URL='postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require' npm run db:migrate
    ```
 
-   Nunca migres por Transaction pooler (`:6543`). El journal crea tablas de control y de negocio en la misma base; en B las de control quedan vacías y no se usan.
+   Nunca migres por Transaction pooler (`:6543`). El journal aplica control + negocio en la misma base, incluida `0043` (`tenant_id` nullable en el núcleo).
 
-4. En Vercel Production cargá:
+3. En Vercel Production cargá:
 
    ```env
-   TENANT_MODE=multi
-   CONTROL_DATABASE_URL=postgresql://postgres.<refA>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
-   TENANT_DATABASE_URL_piloto1=postgresql://postgres.<refA>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
-   TENANT_DATABASE_URL_piloto2=postgresql://postgres.<refB>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+   TENANT_MODE=shared
+   CONTROL_DATABASE_URL=postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+   TENANT_DATABASE_URL=postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
    ```
 
-   No hace falta `TENANT_DATABASE_URL` compartida en multi. Redeploy después de cargar las vars: el proceso solo ve lo que había al arrancar.
+   `CONTROL` y `TENANT` pueden ser la misma URL (ADR-0048). No cargues `TENANT_DATABASE_URL_piloto1` salvo que quieras el camino multi histórico. Redeploy después de cargar las vars.
 
-5. En Supabase → Table Editor de cada proyecto tienen que aparecer tablas de negocio (`sales`, `outbox`, `cash_movements`, …) y `drizzle.__drizzle_migrations`.
+4. En Supabase → Table Editor tienen que aparecer tablas de negocio (`sales`, `outbox`, `products`, …), columna `tenant_id` en el núcleo, y `drizzle.__drizzle_migrations`.
 
-Comprobación rápida (reemplazá la URL):
+Comprobación rápida:
 
 ```bash
-node -e "const p=require('postgres');const s=p(process.env.TENANT_DATABASE_URL_piloto1,{ssl:'require'});s\`select now()\`.then(r=>{console.log(r);return s.end()})"
+node -e "const p=require('postgres');const s=p(process.env.TENANT_DATABASE_URL,{ssl:'require'});s\`select now()\`.then(r=>{console.log(r);return s.end()})"
 ```
 
 ## 3. Secretos mínimos del host
@@ -112,7 +104,7 @@ El repo ya usa `@astrojs/vercel` en `astro.config.mjs` con `output: "server"`.
 5. Abrí `https://<tu-host>/api/health`. Tiene que responder JSON con `ok: true` y:
 
    - `tieneGoogle: true`
-   - `tieneDb: true` (en multi: control + al menos una `TENANT_DATABASE_URL_<id>`)
+   - `tieneDb: true` (en shared: `CONTROL_DATABASE_URL` + `TENANT_DATABASE_URL`)
    - `tieneJobs: true`
 
 Si algún flag queda en `false`, falta esa variable en el entorno de Production. No hace falta mirar valores: solo presencia.
@@ -121,11 +113,11 @@ Si algún flag queda en `false`, falta esa variable en el entorno de Production.
 
 1. Abrí `https://<tu-host>/api/auth/login` (o el botón de login de la landing).
 2. Completá Google. Si no hay tenant, el callback deja `/?alta=pendiente` y la home redirige a `/alta`.
-3. Completá el alta del comercio con ese Google. El alta reclama el primer id libre (`piloto1`, después `piloto2`). Si no queda cupo, responde 503 `sin_base_libre`.
+3. Completá el alta del comercio. En shared el id es un UUID nuevo (no hay cupo `sin_base_libre`).
 4. Repetí con el segundo dueño en otra cuenta Google. Un mismo `google_sub` no puede crear dos comercios.
 5. No dependas del seed admin “2 comercios piloto” para usuarios de campo.
 
-Comprobación: cada dueño ve `/panel` con el nombre de su comercio y no ve productos ni ventas del otro.
+Comprobación: cada dueño ve `/panel` con el nombre de su comercio y no ve productos ni ventas del otro (mismo SKU permitido en ambos).
 
 ## 6. Recorrido de mostrador
 
@@ -134,7 +126,7 @@ Hacé este camino una vez por comercio, en el host HTTPS:
 1. Cargá ~20 productos (SKU o EAN) con precio y stock.
 2. En `/venta`, armá un carrito de varias líneas y cobrá online. Tiene que aparecer la tarjeta de ticket.
 3. Poné el dispositivo offline (DevTools → Offline), cobrá otra venta multiproducto y confirmá ticket provisorio.
-4. Volvé online, sincronizá la cola y confirmá que el número provisorio pasa a definitivo cuando corresponde.
+4. Volvé online, sincronizá la cola y confirmá que el número provisorio pasa a definitivo cuando corresponde. La tarjeta puede mostrar `T-*` aunque `tickets.definitivo` en DB aún sea deuda conocida (gap promote).
 5. En `/panel/caja`, cerrá o conciliá la jornada según el flujo vigente.
 6. Si algo de la cola falla al sync, revisá ventas pendientes; no borres la outbox a mano.
 
@@ -160,7 +152,7 @@ node scripts/control-app/control-app.mjs apagar
 - FEFO en el cobro es agregado sobre stock visible, no descuento fila a fila de `stock_lots`.
 - Mercado Pago QR: registrá el medio a mano. No hay conciliación automática del webhook.
 - Cobro de suscripción: a mano. El webhook MP del repo no valida el `x-signature` real.
-- Sin `CREATE DATABASE` automático: cada comercio nuevo necesita una `TENANT_DATABASE_URL_<id>` cargada y redeploy.
+- `tenant_id` en el núcleo aún es nullable (C1). El cierre `NOT NULL` + uniques compuestos es trabajo posterior. Catálogo/stock/sync ya filtran en shared (C3).
 
 ## 8. Orden de fallo típico
 
@@ -168,11 +160,11 @@ node scripts/control-app/control-app.mjs apagar
 |---|---|
 | Login vuelve con error de config | `GOOGLE_LOGIN_*` y redirect URI exacto HTTPS |
 | Login “anda” pero no queda sesión | El host no es HTTPS, o falta cookie `Secure`/`__Host-` |
-| `/api/health` con `tieneDb: false` | `CONTROL_DATABASE_URL` y al menos una `TENANT_DATABASE_URL_<id>` en Production |
-| Alta 503 `sin_base_libre` | Falta un id libre o no redeployaste tras cargar las vars |
-| 503 `base_no_disponible` en ventas | El id del tenant no coincide con el sufijo de la env, o la URL apunta mal |
+| `/api/health` con `tieneDb: false` | `CONTROL_DATABASE_URL` y `TENANT_DATABASE_URL` en Production |
+| Alta 503 `sin_base_libre` | Estás en `multi` sin cupo de URLs; en shared no aplica |
+| 503 `base_no_disponible` en ventas | Falta `TENANT_DATABASE_URL` o el proceso no redeployó |
 | Admin 403 | `ADMIN_ALLOWLIST_SUBS` sin el `google_sub` de esa cuenta |
 | Segundo comercio del botón piloto no entra | Esperado: usar alta real por Google |
-| Dos dueños ven el mismo stock | Estás en single o las dos `TENANT_DATABASE_URL_*` apuntan a la misma URL |
+| Dos dueños ven el mismo stock | `TENANT_MODE` no es `shared`, o una query sin filtro `tenant_id` |
 
 Cuando este how-to esté corrido de punta a punta en un host real, pasá el frontmatter a `estado: aceptado` y anotá fecha y host (sin secretos) en el avance del ítem.

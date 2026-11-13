@@ -3,18 +3,24 @@
 /**
  * @typedef {{ tabla: string, sql: string }} SentenciaBackfill
  * @typedef {{ ok: true, ejecutaria: boolean, sentencias: SentenciaBackfill[], sql: string } | { ok: false, error: string, ejecutaria: false }} PlanBackfill
- * @param {{ apply?: boolean, tenantId?: string, comerciosEnBase?: number }} [args]
+ * @param {{ apply?: boolean, tenantId?: string, comerciosEnBase?: number, permitirShared?: boolean }} [args]
  * @returns {PlanBackfill}
  */
-export function planBackfill({ apply = false, tenantId = "slice0", comerciosEnBase = 1 } = {}) {
+export function planBackfill({
+  apply = false,
+  tenantId = "slice0",
+  comerciosEnBase = 1,
+  permitirShared = false,
+} = {}) {
   const id = String(tenantId ?? "").trim();
   if (!id) return { ok: false, error: "Falta tenantId para el backfill.", ejecutaria: false };
   const n = Number(comerciosEnBase);
   if (!Number.isFinite(n) || n < 1) return { ok: false, error: "Comercios en base inválido.", ejecutaria: false };
-  if (n > 1) {
+  // ADR-0116 ISO-S9: shared deja de negar la base; exige --shared + tenant explícito por tabla.
+  if (n > 1 && !permitirShared) {
     return {
       ok: false,
-      error: `Se niega: la base es compartida por ${n} comercios; el backfill solo corre en base de un comercio.`,
+      error: `Se niega: la base es compartida por ${n} comercios; pasá --shared y --tenant-id del dueño de las filas nulas.`,
       ejecutaria: false,
     };
   }

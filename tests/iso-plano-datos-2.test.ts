@@ -162,11 +162,22 @@ describe("ISO-S9 plan de backfill en seco por defecto", () => {
     expect(r.ejecutaria).toBe(false);
   });
 
-  it("base compartida por mas de un comercio se niega", () => {
-    const r = planBackfill({ apply: false, tenantId: "slice0", comerciosEnBase: 2 });
-    expect(r.ok).toBe(false);
-    if (r.ok) throw new Error("esperaba rechazo");
-    expect(r.error).toMatch(/comercio|compartida/i);
+  it("base compartida sin --shared se niega; con --shared planifica por tenant", () => {
+    const negado = planBackfill({ apply: false, tenantId: "slice0", comerciosEnBase: 2 });
+    expect(negado.ok).toBe(false);
+    if (negado.ok) throw new Error("esperaba rechazo");
+    expect(negado.error).toMatch(/shared|comercio|compartida/i);
+
+    const ok = planBackfill({
+      apply: false,
+      tenantId: "tenant-legado",
+      comerciosEnBase: 2,
+      permitirShared: true,
+    });
+    expect(ok.ok).toBe(true);
+    if (!ok.ok) throw new Error("esperaba plan ok con --shared");
+    expect(ok.sql).toContain("tenant-legado");
+    expect(ok.ejecutaria).toBe(false);
   });
 
   it("CLI en seco sin base imprime las sentencias sin conectar ni imprimir env", () => {
