@@ -64,10 +64,16 @@ describe.skipIf(!hayPG)("consultarNombre shared PG fail-closed", () => {
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A ?? "";
   });
 
-  it("sin contexto shared no consulta y no devuelve filas de otro comercio", async () => {
-    const { origen, resolucion } = await consultarNombre({ tenantId: tenantA, texto: `cuantos ${term} tengo` });
+  it("sin contexto ni pedido válido no consulta (fail-closed)", async () => {
+    const { origen, resolucion } = await consultarNombre({ tenantId: null, texto: `cuantos ${term} tengo` });
     expect(origen).toBe("db");
     expect(resolucion.kind).toBe("sin_resultados");
+  });
+
+  it("pedido.tenantId uuid sin ALS resuelve (webhook shared)", async () => {
+    const r = await consultarNombre({ tenantId: tenantA, texto: `cuantos ${term} tengo` });
+    expect(r.resolucion.kind).toBe("directo");
+    if (r.resolucion.kind === "directo") expect(r.resolucion.ficha.sku).toBe(sku);
   });
 
   it("con contexto A solo ve productos de A", async () => {

@@ -2,8 +2,8 @@ import { sql } from "drizzle-orm";
 import { decidir_respuesta, extraer_termino, type Candidato } from "../../modules/whatsapp/consulta.js";
 import { puntuarMemoria } from "../../modules/whatsapp/puntaje-memoria.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { esModoShared } from "../tenant-mode.js";
-import { tenantIdAlSellar, tenantIdShared, tenantUuidMulti, UUID_TENANT } from "../tenant-scope.js";
+import { esModoShared, tenantActual } from "../tenant-mode.js";
+import { tenantIdAlSellar, tenantUuidMulti, UUID_TENANT } from "../tenant-scope.js";
 import { listarCatalogoVivo } from "./whatsapp.js";
 
 /** Mitad del umbral de decidir_respuesta (0.3): umbral local de pg_trgm en la transacción. */
@@ -38,7 +38,17 @@ interface FilaRankeada {
   score: number;
 }
 
+function sharedTieneTenantParaDb(pedido: PedidoNombre): boolean {
+  const ctx = tenantActual();
+  if (ctx && UUID_TENANT.test(ctx)) return true;
+  const t = pedido.tenantId;
+  return Boolean(t && UUID_TENANT.test(t));
+}
+
 export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNombre> {
+  if (esModoShared() && !sharedTieneTenantParaDb(pedido)) {
+    return { origen: "db", resolucion: { kind: "sin_resultados" } };
+  }
   const db = dbVivaTenant(pedido.tenantId ?? undefined);
   const origen: "db" | "memoria" = db ? "db" : "memoria";
   const term = extraer_termino(pedido.texto);
@@ -50,7 +60,7 @@ export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNo
   }
 
   const tid = resolverTenantSql(pedido);
-  if (tid === undefined) {
+  if (tid === undefined || tid === null) {
     return { origen: "db", resolucion: { kind: "sin_resultados" } };
   }
   let filas: FilaRankeada[];
@@ -63,6 +73,9 @@ export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNo
 }
 
 export async function leerFicha(pedido: { tenantId: string | null; sku: string }): Promise<FichaProducto | null> {
+  if (esModoShared() && !sharedTieneTenantParaDb({ tenantId: pedido.tenantId, texto: "" })) {
+    return null;
+  }
   const db = dbVivaTenant(pedido.tenantId ?? undefined);
   if (!db) {
     const item = (await listarCatalogoVivo(pedido.tenantId ?? undefined)).find((i) => i.sku === pedido.sku);
@@ -70,8 +83,8 @@ export async function leerFicha(pedido: { tenantId: string | null; sku: string }
   }
   try {
     const tid = resolverTenantSql({ tenantId: pedido.tenantId, texto: "" });
-    if (tid === undefined) return null;
-    const filtro = tid ? sql`AND tenant_id = ${tid}::uuid` : sql``;
+    if (tid === undefined || tid === null) return null;
+    const filtro = sql`AND tenant_id = ${tid}::uuid`;
     const filas = await db.execute(sql`
       SELECT sku, nombre, stock_actual AS stock, COALESCE(min_stock, 0) AS umbral, precio_centavos AS precio
       FROM products
@@ -159,9 +172,11 @@ function resolverTenantSql(pedido: PedidoNombre): string | null | undefined {
 
 function tenantIdFilaSql(pedido: PedidoNombre): string | null {
   if (esModoShared()) {
-    const tid = tenantIdShared();
-    if (!tid || !UUID_TENANT.test(tid)) throw new Error("Falta tenant");
-    return tid;
+    const ctx = tenantActual();
+    if (ctx && UUID_TENANT.test(ctx)) return ctx;
+    const t = pedido.tenantId;
+    if (t && UUID_TENANT.test(t)) return t;
+    throw new Error("Falta tenant");
   }
   const sellado = tenantIdAlSellar();
   if (sellado) return sellado;

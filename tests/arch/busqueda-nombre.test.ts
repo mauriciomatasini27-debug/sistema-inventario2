@@ -7,7 +7,7 @@ import { consultarNombre } from "../../src/lib/repos/busqueda-nombre.js";
 import { getTenantDb } from "../../src/lib/db.js";
 import { products } from "../../src/db/schema.js";
 import { productAliases } from "../../src/db/schema-whatsapp.js";
-import { filaPg } from "../helpers/pg-tenant-fixture.js";
+import { activarTenantPgEnSingle, filaPg } from "../helpers/pg-tenant-fixture.js";
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..", "..");
 
@@ -44,6 +44,7 @@ describe.skipIf(!hayPG)("consultarNombre con PG (integración)", () => {
       process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A;
     }
     delete process.env.TENANT_MODE;
+    activarTenantPgEnSingle();
   });
 
   afterAll(async () => {
