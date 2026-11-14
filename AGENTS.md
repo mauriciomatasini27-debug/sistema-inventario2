@@ -24,14 +24,14 @@ Reglas cortas para agentes en este repo.
 - La descripción del PR explica comportamiento, diseño, tests y cómo verificarlo (comandos concretos).
 - Tests de bordes sacados de los AC del PRD/ADR (cambio de día, otro tenant, fallo de base, permisos por rol, estado vacío), y comprobá que cada uno falla si rompés el comportamiento que cubre.
 - Antes del PR: `npm run typecheck`, `npm run check:arch` y `npm run verify` en verde. No hay ESLint/Biome/Prettier: esos pasos más el `astro build` de `verify` son el lint.
-- Sin `drizzle/*.sql` salvo pedido explícito de Mauri (ver migraciones abajo).
+- Sin `drizzle/*.sql` salvo pedido explícito de Mauri (ver migraciones abajo). Nunca edites un `drizzle/*.sql` ya aplicado en alguna base: el cambio va en un tag nuevo. `npm run db:migrate` usa el wrapper P1-69 (pendientes por idx del journal; saltea tablas ausentes); `db:migrate:kit` queda el drizzle-kit crudo.
 
 ## Gate de merge
 
 - `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0; después squash-merge y borrar la rama.
 - GitHub Actions quedó manual-only (`workflow_dispatch`, ADR-0086): el gate real es `npm run verify`.
 - `puede-mergear.mjs` bloquea si el título/cuerpo dice "No mergear"/"DO NOT MERGE", o si el PR agrega `drizzle/*.sql` cuyo tag no tiene `docs/roadmap/migraciones/<tag>.json` en `main`.
-- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones/<tag>.json` antes del merge del PR que las trae; `docs/roadmap/migraciones-aplicadas.md` es derivado (`npm run docs:migraciones`).
+- Las migraciones solo se aplican con aprobación de Mauri y se registran en `docs/roadmap/migraciones/<tag>.json` antes del merge del PR que las trae; `docs/roadmap/migraciones-aplicadas.md` es derivado (`npm run docs:migraciones`). Aplicar en una base: `TENANT_DATABASE_URL=… npm run db:migrate` (o `--check` / `db:migrate:check` para listar pendientes sin escribir).
 
 ## Cadena: lock
 
