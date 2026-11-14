@@ -127,6 +127,8 @@ describe("P1-69 db-migrate-lib", () => {
 
   it("no toma FUNCTION... como ON tabla (0004 auth_append_only_guard)", () => {
     const fn = splitStatements(readFileSync("drizzle/0004_auth_append_only.sql", "utf8"))[3];
+    expect(fn).toBeDefined();
+    if (!fn) return;
     expect(tablaDeStatement(fn)).toBeNull();
     const { run, skip } = filtrarStatementsPorTablas({
       statements: splitStatements(readFileSync("drizzle/0004_auth_append_only.sql", "utf8")),
