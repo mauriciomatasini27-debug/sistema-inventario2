@@ -5,7 +5,6 @@ import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 
 type InsertCaja = typeof cashMovements.$inferInsert;
 
-// ADR-0116 C5: el caller no elige tenant ni reloj. id sigue opcional, como en el insert del schema.
 export type MovimientoCajaNuevo = Omit<InsertCaja, "tenantId" | "createdAt">;
 
 export type FilaMovimientoCaja = typeof cashMovements.$inferSelect;
@@ -20,12 +19,8 @@ export type FiltroMovimientoCaja =
 type TxCaja = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
 export type SesionCaja = TenantDb | TxCaja;
 
-// ADR-0116 C5: único SQL de cash_movements. En shared sella tenant_id y filtra.
-// En single y multi tenantIdShared es null y dondeTenant no agrega predicado.
-// Un 23505 se propaga: releer adentro de la tx abortada fallaría.
-
+// 23505 se propaga: releer adentro de la tx abortada fallaría.
 export async function insertarMovimientosCaja(db: SesionCaja, filas: readonly MovimientoCajaNuevo[]): Promise<void> {
-  // Lista vacía no escribe y no lee el ALS. El caller puede armar el lote sin tenant.
   if (filas.length === 0) return;
   const tenantId = tenantIdShared();
   const lote: InsertCaja[] = filas.map((fila) => (tenantId ? { ...fila, tenantId } : { ...fila }));

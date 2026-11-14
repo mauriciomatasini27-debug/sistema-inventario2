@@ -99,7 +99,6 @@ export async function encolarEnvio(input: {
 // Snapshot de caja para el resumen: cash_movements del tenant con DB viva,
 // memoria particionada en single sin base. En multi sin base propaga.
 export async function resumenMovimientosCaja(tenantId?: string): Promise<{ total: bigint; porMedio: Record<string, bigint> }> {
-  // ADR-0116 C5: el filtro usa el ALS. El id del argumento tiene que entrar antes de abrir la base.
   const leer = async () => {
     const db = dbVivaTenant();
     if (!db) return null;
