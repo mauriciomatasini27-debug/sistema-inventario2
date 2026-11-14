@@ -1,137 +1,114 @@
 ---
 // Alta autoservicio ON1: nombre, rubro y WhatsApp. Celular primero, 360px.
-import "../styles/tokens-papel.css";
+// TB-ALTA: chrome tablero B + toggle de tema (tokens --tema-*).
+import AltaShell from "../components/alta/AltaShell.astro";
 ---
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Crear mi comercio</title>
-    <style is:global>
-      body { margin: 0; font-family: var(--font-sans); background: var(--color-canvas); }
-      main { max-width: 360px; margin: 0 auto; padding: 12px; }
-      input, select, button { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; box-sizing: border-box; }
-      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
-      button:disabled { opacity: 0.6; }
-      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin: 8px 0; }
-      .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
-      .check input { width: auto; min-height: 24px; }
-      #error { color: var(--color-star-glow); font-size: 14px; white-space: pre-wrap; }
-      .hint { font-size: 13px; color: var(--color-ash); }
-      .error-campo { margin: 4px 0 0; color: var(--color-star-glow); font-size: 14px; font-weight: 600; }
-      .error-campo::before { content: "⚠ "; }
-      input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--color-star-glow); }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Crear mi comercio</h1>
-      <form class="card" id="alta-form">
-        <label>Nombre del kiosco / comercio
-          <input id="nombre" data-campo="nombre_comercio" placeholder="Kiosco La Esquina" autocomplete="organization" maxlength="60" />
-        </label>
-        <label>Rubro
-          <select id="rubro" data-campo="rubro">
-            <option value="kiosco">Kiosco</option>
-            <option value="almacen">Almacén</option>
-            <option value="despensa">Despensa</option>
-            <option value="libreria">Librería</option>
-            <option value="otro">Otro</option>
-          </select>
-        </label>
-        <label id="detalle-wrap" hidden>¿Qué vendés?
-          <input id="detalle" data-campo="rubro_detalle" placeholder="Dietética" maxlength="80" />
-        </label>
-        <label>Número de WhatsApp
-          <input id="numero" data-campo="numero" type="tel" inputmode="numeric" placeholder="11 5555-1234" autocomplete="tel" />
-        </label>
-        <p class="hint">Lo normalizamos a +54 9 con el mismo criterio del sistema.</p>
-        <label class="check">
-          <input id="optin" type="checkbox" />
-          <span>Quiero recibir por WhatsApp avisos de stock y resúmenes.</span>
-        </label>
-        <button id="crear" type="submit">Crear mi comercio</button>
-        <div id="error" role="alert"></div>
-      </form>
-      <div class="card">
-        <p class="hint">Sin contraseña, sin CUIT ni tarjeta. Si abandonás y volvés a entrar, retomás donde quedaste.</p>
-      </div>
-    </main>
-    <script>
-      import { REQUERIDO, TELEFONO, erroresDesdeZod, mensajeCampo } from "../lib/errores-campo.js";
-      import { limpiarErrores, mostrarErrores } from "../lib/errores-campo-dom.js";
-      const $ = (id) => document.getElementById(id);
-      const KEY = "alta-form";
-      try {
-        const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-        if (saved.nombre) $("nombre").value = saved.nombre;
-        if (saved.rubro) $("rubro").value = saved.rubro;
-        if (saved.detalle) $("detalle").value = saved.detalle;
-        if (saved.numero) $("numero").value = saved.numero;
-      } catch { /* sin guardado previo */ }
-      const syncDetalle = () => { $("detalle-wrap").hidden = $("rubro").value !== "otro"; };
-      $("rubro").onchange = syncDetalle;
-      syncDetalle();
-      for (const id of ["nombre", "rubro", "detalle", "numero"]) {
-        $(id).addEventListener("input", () => {
-          localStorage.setItem(KEY, JSON.stringify({
-            nombre: $("nombre").value, rubro: $("rubro").value,
-            detalle: $("detalle").value, numero: $("numero").value,
-          }));
-        });
+<AltaShell tituloPagina="Crear mi comercio">
+  <h1>Crear mi comercio</h1>
+  <p class="hint">Sin contraseña ni tarjeta. Empezamos con lo mínimo para abrir tu comercio.</p>
+  <form class="card" id="alta-form">
+    <label for="nombre">Nombre del kiosco / comercio
+      <input id="nombre" data-campo="nombre_comercio" placeholder="Kiosco La Esquina" autocomplete="organization" maxlength="60" />
+    </label>
+    <label for="rubro">Rubro
+      <select id="rubro" data-campo="rubro">
+        <option value="kiosco">Kiosco</option>
+        <option value="almacen">Almacén</option>
+        <option value="despensa">Despensa</option>
+        <option value="libreria">Librería</option>
+        <option value="otro">Otro</option>
+      </select>
+    </label>
+    <label id="detalle-wrap" for="detalle" hidden>¿Qué vendés?
+      <input id="detalle" data-campo="rubro_detalle" placeholder="Dietética" maxlength="80" />
+    </label>
+    <label for="numero">Número de WhatsApp
+      <input id="numero" data-campo="numero" type="tel" inputmode="numeric" placeholder="11 5555-1234" autocomplete="tel" />
+    </label>
+    <p class="hint">Lo normalizamos a +54 9 con el mismo criterio del sistema.</p>
+    <label class="check">
+      <input id="optin" type="checkbox" />
+      <span>Quiero recibir por WhatsApp avisos de stock y resúmenes.</span>
+    </label>
+    <button id="crear" type="submit">Crear mi comercio</button>
+    <div id="error" role="alert"></div>
+  </form>
+  <div class="card">
+    <p class="hint">Si abandonás y volvés a entrar, retomás donde quedaste.</p>
+  </div>
+  <script>
+    import { REQUERIDO, TELEFONO, erroresDesdeZod, mensajeCampo } from "../lib/errores-campo.js";
+    import { limpiarErrores, mostrarErrores } from "../lib/errores-campo-dom.js";
+    const $ = (id) => document.getElementById(id);
+    const KEY = "alta-form";
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
+      if (saved.nombre) $("nombre").value = saved.nombre;
+      if (saved.rubro) $("rubro").value = saved.rubro;
+      if (saved.detalle) $("detalle").value = saved.detalle;
+      if (saved.numero) $("numero").value = saved.numero;
+    } catch { /* sin guardado previo */ }
+    const syncDetalle = () => { $("detalle-wrap").hidden = $("rubro").value !== "otro"; };
+    $("rubro").onchange = syncDetalle;
+    syncDetalle();
+    for (const id of ["nombre", "rubro", "detalle", "numero"]) {
+      $(id).addEventListener("input", () => {
+        localStorage.setItem(KEY, JSON.stringify({
+          nombre: $("nombre").value, rubro: $("rubro").value,
+          detalle: $("detalle").value, numero: $("numero").value,
+        }));
+      });
+    }
+    const form = $("alta-form");
+    form.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      limpiarErrores(evento.currentTarget as HTMLElement);
+      const nombre = $("nombre").value.trim();
+      const numero = $("numero").value.trim();
+      const errores = {};
+      if (nombre.length < 3) errores.nombre_comercio = mensajeCampo("nombre_comercio", REQUERIDO);
+      if (!numero) errores.numero = mensajeCampo("numero", REQUERIDO);
+      else if (numero.replace(/\D/g, "").length < 10) errores.numero = mensajeCampo("numero", TELEFONO);
+      if (Object.keys(errores).length > 0) {
+        mostrarErrores(form, errores);
+        $("error").textContent = "Revisá los campos marcados.";
+        return;
       }
-      const form = $("alta-form");
-      form.addEventListener("submit", async (evento) => {
-        evento.preventDefault();
-        limpiarErrores(evento.currentTarget as HTMLElement);
-        const nombre = $("nombre").value.trim();
-        const numero = $("numero").value.trim();
-        const errores = {};
-        if (nombre.length < 3) errores.nombre_comercio = mensajeCampo("nombre_comercio", REQUERIDO);
-        if (!numero) errores.numero = mensajeCampo("numero", REQUERIDO);
-        else if (numero.replace(/\D/g, "").length < 10) errores.numero = mensajeCampo("numero", TELEFONO);
-        if (Object.keys(errores).length > 0) {
-          mostrarErrores(form, errores);
-          $("error").textContent = "Revisá los campos marcados.";
+      $("error").textContent = "";
+      $("crear").disabled = true;
+      $("crear").textContent = "Creando…";
+      const payload = {
+        nombre_comercio: nombre,
+        rubro: $("rubro").value,
+        rubro_detalle: $("detalle").value,
+        numero,
+        opt_in: $("optin").checked,
+      };
+      try {
+        const r = await fetch("/api/onboarding/alta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch((error) => { console.warn("[alta] respuesta sin JSON", r.status, error); return {}; });
+        if ((r.status === 201 || r.status === 409) && j.tenant_id) {
+          try {
+            sessionStorage.setItem("alta-vincular", JSON.stringify({ tenant_id: j.tenant_id, numero: j.numero ?? "", vincular: j.vincular ?? null }));
+          } catch { /* sin session storage */ }
+          localStorage.removeItem(KEY);
+          location.href = "/alta/estado?tenant_id=" + encodeURIComponent(j.tenant_id);
           return;
         }
-        $("error").textContent = "";
-        $("crear").disabled = true;
-        $("crear").textContent = "Creando…";
-        const payload = {
-          nombre_comercio: nombre,
-          rubro: $("rubro").value,
-          rubro_detalle: $("detalle").value,
-          numero,
-          opt_in: $("optin").checked,
-        };
-        try {
-          const r = await fetch("/api/onboarding/alta", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-            body: JSON.stringify(payload),
-          });
-          const j = await r.json().catch((error) => { console.warn("[alta] respuesta sin JSON", r.status, error); return {}; });
-          if ((r.status === 201 || r.status === 409) && j.tenant_id) {
-            try {
-              sessionStorage.setItem("alta-vincular", JSON.stringify({ tenant_id: j.tenant_id, numero: j.numero ?? "", vincular: j.vincular ?? null }));
-            } catch { /* sin session storage */ }
-            localStorage.removeItem(KEY);
-            location.href = "/alta/estado?tenant_id=" + encodeURIComponent(j.tenant_id);
-            return;
-          }
-          if (mostrarErrores(form, erroresDesdeZod(j))) {
-            $("error").textContent = "";
-          } else {
-            $("error").textContent = typeof j.error === "string" && j.error ? j.error : "Error " + r.status;
-          }
-        } catch {
-          $("error").textContent = "Sin conexión. Revisá tu red e intentá de nuevo — tus datos se conservan.";
+        if (mostrarErrores(form, erroresDesdeZod(j))) {
+          $("error").textContent = "";
+        } else {
+          $("error").textContent = typeof j.error === "string" && j.error ? j.error : "Error " + r.status;
         }
-        $("crear").disabled = false;
-        $("crear").textContent = "Crear mi comercio";
-      });
-    </script>
-  </body>
-</html>
+      } catch {
+        $("error").textContent = "Sin conexión. Revisá tu red e intentá de nuevo — tus datos se conservan.";
+      }
+      $("crear").disabled = false;
+      $("crear").textContent = "Crear mi comercio";
+    });
+  </script>
+</AltaShell>

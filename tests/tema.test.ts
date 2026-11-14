@@ -264,6 +264,17 @@ describe("tema: cableado en las páginas con tema", () => {
     expect(inicial, `${f}: TemaInicial antes del <style`).toBeLessThan(style);
     expect(s, f).toContain("<TemaToggle");
   });
+
+  it("alta usa AltaShell con TemaInicial antes del style y toggle en la barra", () => {
+    const shell = leer("src/components/alta/AltaShell.astro");
+    const inicial = shell.indexOf("<TemaInicial");
+    const style = shell.indexOf("<style");
+    expect(inicial).toBeGreaterThan(-1);
+    expect(style).toBeGreaterThan(inicial);
+    expect(shell).toContain("<TemaToggle");
+    expect(leer("src/pages/alta.astro")).toContain("AltaShell");
+    expect(leer("src/pages/alta/estado.astro")).toContain("AltaShell");
+  });
 });
 
 describe("tema: hoja de tema.css (DS-S4/S5)", () => {
@@ -327,10 +338,9 @@ describe("tema: una sola pila tipográfica por token (DS-S6)", () => {
   const paginas = [
     "src/pages/venta.astro",
     "src/pages/admin.astro",
-    "src/pages/alta.astro",
-    "src/pages/alta/estado.astro",
     "src/pages/t/[token].astro",
     "src/components/panel/PanelShell.astro",
+    "src/components/alta/AltaShell.astro",
   ];
   for (const f of paginas) {
     it(`${f} toma la fuente de var(--font-sans)`, () => {
