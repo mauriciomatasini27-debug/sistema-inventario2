@@ -126,7 +126,7 @@ Hacé este camino una vez por comercio, en el host HTTPS:
 1. Cargá ~20 productos (SKU o EAN) con precio y stock.
 2. En `/venta`, armá un carrito de varias líneas y cobrá online. Tiene que aparecer la tarjeta de ticket.
 3. Poné el dispositivo offline (DevTools → Offline), cobrá otra venta multiproducto y confirmá ticket provisorio.
-4. Volvé online, sincronizá la cola y confirmá que el número provisorio pasa a definitivo cuando corresponde. La tarjeta puede mostrar `T-*` aunque `tickets.definitivo` en DB aún sea deuda conocida (gap promote).
+4. Volvé online, sincronizá la cola y confirmá que el provisorio pasa a un `T-*`. Promote completa `tickets.definitivo` con ese número. El provisorio sigue buscable por el mismo ticket.
 5. En `/panel/caja`, cerrá o conciliá la jornada según el flujo vigente.
 6. Si algo de la cola falla al sync, revisá ventas pendientes; no borres la outbox a mano.
 
