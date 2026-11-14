@@ -64,7 +64,7 @@ async function reclamarEventoMpEnDb(
 }
 
 export async function reclamarEventoMp(clave: string, preapprovalId: string, estado: string): Promise<boolean> {
-  const tenantId = tenantIdDePreapproval(preapprovalId);
+  const tenantId = await tenantIdDePreapproval(preapprovalId);
 
   if (esModoShared() && process.env.TENANT_DATABASE_URL) {
     if (tenantId) {

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { priceAdjustments, pricingAuditLog } from "../../db/schema-precios.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { crearAlmacenAjustes, type Almacen } from "./_almacen.js";
 import {
   crearAjuste,
@@ -64,10 +65,14 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
   } catch (e) {
     if (esConflictoUnico(e)) {
       try {
+        const wPrev = dondeTenant(
+          priceAdjustments.tenantId,
+          eq(priceAdjustments.idempotencyKey, input.idempotencyKey),
+        );
         const previo = await db
           .select()
           .from(priceAdjustments)
-          .where(eq(priceAdjustments.idempotencyKey, input.idempotencyKey))
+          .where(wPrev ?? eq(priceAdjustments.idempotencyKey, input.idempotencyKey))
           .limit(1);
         if (previo[0]) return { ok: false, codigo: "CLAVE_REPETIDA", error: "idempotency-key repetida" };
       } catch (e2) {
@@ -82,8 +87,6 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
   }
 }
 
-// P1-73: tablas pricing sin tenant_id en DB (schema-precios.ts). El aislamiento
-// shared en Postgres queda para migración 0044; en memoria el store ya parte por tenant.
 async function registrarAjusteEnDb(
   db: TenantDb,
   almacen: Almacen<Ajuste>,
@@ -92,8 +95,14 @@ async function registrarAjusteEnDb(
   auditoria: AuditoriaPrecios,
   confirmado: boolean,
 ): Promise<RegistrarAjusteResultado> {
-  const previo = await db.select().from(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key)).limit(1);
+  const wPrev = dondeTenant(priceAdjustments.tenantId, eq(priceAdjustments.idempotencyKey, key));
+  const previo = await db
+    .select()
+    .from(priceAdjustments)
+    .where(wPrev ?? eq(priceAdjustments.idempotencyKey, key))
+    .limit(1);
   if (previo[0]) return { ok: false, codigo: "CLAVE_REPETIDA", error: "idempotency-key repetida" };
+  const tid = tenantIdShared();
   const ahora = new Date();
   const ins = await db.transaction(async (tx) => {
     const filas = await tx
@@ -109,6 +118,7 @@ async function registrarAjusteEnDb(
         confirmado,
         creadoPor: ajuste.creadoPor,
         createdAt: ahora,
+        ...(tid ? { tenantId: tid } : {}),
       })
       .returning({ id: priceAdjustments.id });
     const fila = filas[0];
@@ -119,6 +129,7 @@ async function registrarAjusteEnDb(
       motivo: auditoria.motivo,
       antes: { texto: auditoria.antes },
       despues: { texto: auditoria.despues },
+      ...(tid ? { tenantId: tid } : {}),
     });
     return fila.id;
   });

@@ -470,6 +470,13 @@ export const ocrEventos = pgTable("ocr_eventos", {
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
 });
 
+// P1-74: vínculo durable preapproval_id → tenant (serverless sin mapa en proceso).
+export const mpPreapprovalTenants = pgTable("mp_preapproval_tenants", {
+  preapprovalId: text("preapproval_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  creadoEn: timestamp("creado_en").notNull().defaultNow(),
+});
+
 // P0-5: eventos del webhook de Mercado Pago. tenant_id nullable (ADR-0116 C1).
 export const mpWebhookEvents = pgTable("mp_webhook_events", {
   // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
