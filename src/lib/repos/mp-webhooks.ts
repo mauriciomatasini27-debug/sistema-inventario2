@@ -1,6 +1,7 @@
 import { mpWebhookEvents } from "../../db/schema.js";
 import { leerVarEntorno } from "../env.js";
 import { BaseNoDisponible, dbVivaTenant } from "../server-db.js";
+import { tenantIdDePreapproval } from "./planes.js";
 
 // P0-5: reclamo durable del webhook de Mercado Pago. DB primero vía
 // dbVivaTenant(); solo en single sin base usa el Set en memoria. En multi sin
@@ -38,7 +39,13 @@ export async function reclamarEventoMp(clave: string, preapprovalId: string, est
     return true;
   }
   try {
-    await db.insert(mpWebhookEvents).values({ clave, preapprovalId, estado });
+    const tenantId = tenantIdDePreapproval(preapprovalId);
+    await db.insert(mpWebhookEvents).values({
+      clave,
+      preapprovalId,
+      estado,
+      ...(tenantId ? { tenantId } : {}),
+    });
     vistos.add(clave);
     return true;
   } catch (e) {

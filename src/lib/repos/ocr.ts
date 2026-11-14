@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { ocrEventos, ocrJobs } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { con_borrador, type FallbackNubeApi, type OcrJob } from "../../modules/ocr/jobs.js";
 import { crearAlmacenOcrJobs, crearAlmacenOcrJobsByKey, crearListaEventosOcr, type EventoOcr } from "./_almacen.js";
 
@@ -70,7 +71,8 @@ export async function buscarJobPorClave(key: string): Promise<OcrJob | null> {
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
-    const filas = await db.select().from(ocrJobs).where(eq(ocrJobs.idempotencyKey, key)).limit(1);
+    const w = dondeTenant(ocrJobs.tenantId, eq(ocrJobs.idempotencyKey, key)) ?? eq(ocrJobs.idempotencyKey, key);
+    const filas = await db.select().from(ocrJobs).where(w).limit(1);
     const fila = filas[0];
     if (!fila) return memoria;
     const job = jobDesdeFila(fila);
@@ -88,7 +90,8 @@ export async function obtenerJob(id: string): Promise<OcrJob | undefined> {
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
-    const filas = await db.select().from(ocrJobs).where(eq(ocrJobs.id, id)).limit(1);
+    const w = dondeTenant(ocrJobs.tenantId, eq(ocrJobs.id, id)) ?? eq(ocrJobs.id, id);
+    const filas = await db.select().from(ocrJobs).where(w).limit(1);
     const fila = filas[0];
     if (!fila) return memoria;
     const job = jobDesdeFila(fila);
@@ -106,7 +109,8 @@ export async function listarJobs(): Promise<OcrJob[]> {
   const db = dbVivaTenant();
   if (!db) return memoria;
   try {
-    const filas = await db.select().from(ocrJobs);
+    const w = dondeTenant(ocrJobs.tenantId);
+    const filas = w ? await db.select().from(ocrJobs).where(w) : await db.select().from(ocrJobs);
     const union = new Map<string, OcrJob>();
     for (const j of memoria) union.set(j.id, j);
     for (const f of filas) {
@@ -128,7 +132,8 @@ export async function crearJobRegistro(job: OcrJob): Promise<OcrJob> {
   const db = dbVivaTenant();
   if (!db) return job;
   try {
-    await db.insert(ocrJobs).values(filaDeJob(job));
+    const tid = tenantIdShared();
+    await db.insert(ocrJobs).values(tid ? { ...filaDeJob(job), tenantId: tid } : filaDeJob(job));
     return job;
   } catch (e) {
     if (esChoqueIdempotencia(e)) {
@@ -147,7 +152,8 @@ export async function marcarJobFallo(job: OcrJob, error: string): Promise<OcrJob
   const db = dbVivaTenant();
   if (!db) return fallido;
   try {
-    await db.update(ocrJobs).set({ estado: fallido.estado, error }).where(eq(ocrJobs.id, job.id));
+    const w = dondeTenant(ocrJobs.tenantId, eq(ocrJobs.id, job.id)) ?? eq(ocrJobs.id, job.id);
+    await db.update(ocrJobs).set({ estado: fallido.estado, error }).where(w);
     return fallido;
   } catch (e) {
     almacenJobs.anteFalloPersistencia(e);
@@ -165,7 +171,7 @@ export async function vincularBorradorAlJob(job: OcrJob, borradorId: string, aho
     await db
       .update(ocrJobs)
       .set({ estado: vinculado.estado, borradorId, actualizadoEn: new Date(ahoraIso) })
-      .where(eq(ocrJobs.id, job.id));
+      .where(dondeTenant(ocrJobs.tenantId, eq(ocrJobs.id, job.id)) ?? eq(ocrJobs.id, job.id));
     return vinculado;
   } catch (e) {
     almacenJobs.anteFalloPersistencia(e);
@@ -188,7 +194,7 @@ export async function actualizarJob(job: OcrJob): Promise<void> {
         actualizadoEn: new Date(job.actualizadoEn),
         recordadoEn: job.recordadoEn ? new Date(job.recordadoEn) : null,
       })
-      .where(eq(ocrJobs.id, job.id));
+      .where(dondeTenant(ocrJobs.tenantId, eq(ocrJobs.id, job.id)) ?? eq(ocrJobs.id, job.id));
   } catch (e) {
     almacenJobs.anteFalloPersistencia(e);
   }
@@ -200,7 +206,10 @@ export async function registrarEventoOcr(tipo: string, payload: unknown): Promis
   const db = dbVivaTenant();
   if (!db) return;
   try {
-    await db.insert(ocrEventos).values({ tipo, payload: payload as Record<string, unknown> });
+    const tid = tenantIdShared();
+    await db
+      .insert(ocrEventos)
+      .values(tid ? { tipo, payload: payload as Record<string, unknown>, tenantId: tid } : { tipo, payload: payload as Record<string, unknown> });
   } catch (e) {
     eventos.anteFalloPersistencia(e);
   }
@@ -233,7 +242,12 @@ export async function buscarFallbackNubeJob(jobId: string): Promise<FallbackNube
     const filas = await db
       .select({ payload: ocrEventos.payload })
       .from(ocrEventos)
-      .where(and(eq(ocrEventos.tipo, "ocr_borrador_listo"), sql`${ocrEventos.payload}->>'job_id' = ${jobId}`))
+      .where(
+        dondeTenant(
+          ocrEventos.tenantId,
+          and(eq(ocrEventos.tipo, "ocr_borrador_listo"), sql`${ocrEventos.payload}->>'job_id' = ${jobId}`),
+        ) ?? and(eq(ocrEventos.tipo, "ocr_borrador_listo"), sql`${ocrEventos.payload}->>'job_id' = ${jobId}`),
+      )
       .orderBy(desc(ocrEventos.creadoEn))
       .limit(1);
     const fila = filas[0];
