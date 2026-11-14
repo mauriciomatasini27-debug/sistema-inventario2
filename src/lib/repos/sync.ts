@@ -9,7 +9,7 @@ import {
 import { postSalesSchema } from "../validation.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant } from "../tenant-scope.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
   crearAlmacenCodigos,
@@ -70,7 +70,7 @@ export interface RespuestaRepo {
 }
 
 async function contarOutbox(db: TenantDb): Promise<number> {
-  const filas = await db.select({ n: sql`count(*)` }).from(outbox);
+  const filas = await db.select({ n: sql`count(*)` }).from(outbox).where(dondeTenant(outbox.tenantId));
   return Number(filas[0]?.n ?? 0);
 }
 
@@ -91,7 +91,7 @@ async function guardarResultadoOutbox(opId: string, estado: string, payload?: un
     await db
       .update(outbox)
       .set(payload === undefined ? { estado } : { estado, payload: payload as OutboxPayload })
-      .where(eq(outbox.opId, opId));
+      .where(dondeTenant(outbox.tenantId, eq(outbox.opId, opId)));
   } catch (e) {
     buzon.anteFalloPersistencia(e);
   }
@@ -189,14 +189,14 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
   const db = dbVivaTenant();
   if (!db) return aplicarVentaSiCorresponde(b, pushEnMemoria(b, buzon, secuencias));
   try {
-    const previo = await db.select().from(outbox).where(eq(outbox.opId, b.opId)).limit(1);
+    const previo = await db.select().from(outbox).where(dondeTenant(outbox.tenantId, eq(outbox.opId, b.opId))).limit(1);
     const fila = previo[0];
     if (fila) return aplicarVentaSiCorresponde(b, await replayDb(db, b.opId, b.payload, fila));
 
     const maxFilas = await db
       .select({ m: sql<number | null>`max(${outbox.deviceSeq})` })
       .from(outbox)
-      .where(eq(outbox.deviceCode, b.deviceCode));
+      .where(dondeTenant(outbox.tenantId, eq(outbox.deviceCode, b.deviceCode)));
     // deviceSeq has no table: la secuencia por dispositivo vive en memoria del repo.
     const lastSeq = Math.max(Number(maxFilas[0]?.m ?? 0), secuencias.obtener(b.deviceCode) ?? 0);
     if (b.deviceSeq <= lastSeq) {
@@ -204,8 +204,10 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
     }
 
     const idMapeado = `srv-${b.opId.slice(0, 8)}`;
+    const tenantId = tenantIdShared();
     await db.transaction(async (tx) => {
       await tx.insert(outbox).values({
+        ...(tenantId ? { tenantId } : {}),
         opId: b.opId,
         deviceCode: b.deviceCode,
         deviceSeq: b.deviceSeq,
@@ -215,7 +217,12 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
       });
       await tx
         .insert(idMappings)
-        .values({ opId: b.opId, idProvisorio: b.opId, idDefinitivo: idMapeado })
+        .values({
+          ...(tenantId ? { tenantId } : {}),
+          opId: b.opId,
+          idProvisorio: b.opId,
+          idDefinitivo: idMapeado,
+        })
         .onConflictDoNothing({ target: idMappings.opId });
     });
     buzon.guardar(b.opId, {
@@ -235,7 +242,7 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
   } catch (e) {
     if (esConflictoUnico(e) && db) {
       try {
-        const previo = await db.select().from(outbox).where(eq(outbox.opId, b.opId)).limit(1);
+        const previo = await db.select().from(outbox).where(dondeTenant(outbox.tenantId, eq(outbox.opId, b.opId))).limit(1);
         const fila = previo[0];
         if (fila) return aplicarVentaSiCorresponde(b, await replayDb(db, b.opId, b.payload, fila));
       } catch {
@@ -360,12 +367,13 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
     const filas = await db
       .select()
       .from(outbox)
+      .where(dondeTenant(outbox.tenantId))
       .orderBy(outbox.createdAt, outbox.opId)
       .limit(tope)
       .offset(start);
-    const totalFilas = await db.select({ n: sql`count(*)` }).from(outbox);
+    const totalFilas = await db.select({ n: sql`count(*)` }).from(outbox).where(dondeTenant(outbox.tenantId));
     const total = Number(totalFilas[0]?.n ?? 0);
-    const mapas = await db.select().from(idMappings);
+    const mapas = await db.select().from(idMappings).where(dondeTenant(idMappings.tenantId));
     return {
       movimientos: filas.map((f) => ({ op_id: f.opId, payload: f.payload })),
       cursorNuevo: String(start + filas.length),
@@ -430,7 +438,7 @@ export async function listarVentasNoAplicables(): Promise<VentaNoAplicable[]> {
         payload: outbox.payload,
       })
       .from(outbox)
-      .where(and(eq(outbox.modulo, "sales"), like(outbox.estado, `${PREFIJO_NO_APLICABLE}%`)))
+      .where(dondeTenant(outbox.tenantId, and(eq(outbox.modulo, "sales"), like(outbox.estado, `${PREFIJO_NO_APLICABLE}%`))))
       .orderBy(outbox.createdAt, outbox.opId);
     return filas.map((f) => ({
       op_id: f.opId,
@@ -466,7 +474,7 @@ async function leerFilaOutbox(opId: string): Promise<FilaOutboxResuelta | null> 
     const filas = await db
       .select({ payload: outbox.payload, estado: outbox.estado, modulo: outbox.modulo })
       .from(outbox)
-      .where(eq(outbox.opId, opId))
+      .where(dondeTenant(outbox.tenantId, eq(outbox.opId, opId)))
       .limit(1);
     const f = filas[0];
     return f ? { payload: f.payload, estado: f.estado, modulo: f.modulo } : null;
@@ -564,7 +572,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   const db = dbVivaTenant();
   if (db) {
     try {
-      const previoDb = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
+      const previoDb = await db.select().from(idMappings).where(dondeTenant(idMappings.tenantId, eq(idMappings.opId, b.opId))).limit(1);
       const previoDbRow = previoDb?.[0];
       if (previoDbRow && esPromovido(previoDbRow.idDefinitivo)) {
         await completarDefinitivoTicketPromote(db, b.opId, previoDbRow.idDefinitivo);
@@ -601,7 +609,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   let hayOp = buzon.contiene(b.opId);
   if (db && !hayOp) {
     try {
-      const opsDb = await db.select({ opId: outbox.opId }).from(outbox).where(eq(outbox.opId, b.opId));
+      const opsDb = await db.select({ opId: outbox.opId }).from(outbox).where(dondeTenant(outbox.tenantId, eq(outbox.opId, b.opId)));
       hayOp = (opsDb?.length ?? 0) > 0;
     } catch (e) {
       promociones.anteFalloPersistencia(e);
@@ -635,7 +643,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       if (!filas[0]) {
         await tx.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
       }
-      const vigente = await tx.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
+      const vigente = await tx.select().from(idMappings).where(dondeTenant(idMappings.tenantId, eq(idMappings.opId, b.opId))).limit(1);
       const ya = vigente[0];
       if (ya && esPromovido(ya.idDefinitivo)) {
         await completarDefinitivoTicketPromote(tx, b.opId, ya.idDefinitivo);
@@ -644,14 +652,21 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       const ultimo = filas[0]?.ultimo ?? 0;
       const n = ultimo + 1;
       const definitivo = `T-${String(n).padStart(6, "0")}`;
+      const tenantId = tenantIdShared();
       await tx
         .insert(idMappings)
-        .values({ opId: b.opId, idProvisorio: provisorio, idDefinitivo: definitivo })
+        .values({
+          ...(tenantId ? { tenantId } : {}),
+          opId: b.opId,
+          idProvisorio: provisorio,
+          idDefinitivo: definitivo,
+        })
         .onConflictDoUpdate({
           target: idMappings.opId,
           set: { idProvisorio: provisorio, idDefinitivo: definitivo },
+          ...(tenantId ? { where: eq(idMappings.tenantId, tenantId) } : {}),
         });
-      await tx.update(outbox).set({ estado: "confirmado" }).where(eq(outbox.opId, b.opId));
+      await tx.update(outbox).set({ estado: "confirmado" }).where(dondeTenant(outbox.tenantId, eq(outbox.opId, b.opId)));
       await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, "mostrador"));
       await completarDefinitivoTicketPromote(tx, b.opId, definitivo);
       return { definitivo, provisorio, gano: true };
@@ -671,7 +686,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   } catch (e) {
     if (esConflictoUnico(e)) {
       try {
-        const previo = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
+        const previo = await db.select().from(idMappings).where(dondeTenant(idMappings.tenantId, eq(idMappings.opId, b.opId))).limit(1);
         const fila = previo[0];
         if (fila && esPromovido(fila.idDefinitivo)) {
           await completarDefinitivoTicketPromote(db, b.opId, fila.idDefinitivo);

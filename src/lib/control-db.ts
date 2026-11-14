@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getControlDb } from "./db.js";
+import { tenantIdShared } from "./tenant-scope.js";
 import {
   authEvents,
   devicePins,
@@ -415,10 +416,12 @@ export function persistirOutboxOp(o: {
   modulo: string;
   payload: OutboxPayload;
 }): Promise<boolean> {
-  return intentarControl((db) =>
-    db
+  return intentarControl((db) => {
+    const tenantId = tenantIdShared();
+    return db
       .insert(outbox)
       .values({
+        ...(tenantId ? { tenantId } : {}),
         opId: o.opId,
         deviceCode: o.deviceCode,
         deviceSeq: o.deviceSeq,
@@ -426,15 +429,21 @@ export function persistirOutboxOp(o: {
         modulo: o.modulo,
         payload: o.payload,
       })
-      .onConflictDoNothing(),
-  );
+      .onConflictDoNothing();
+  });
 }
 
 export function persistirIdMapping(m: { opId: string; idProvisorio: string; idDefinitivo: string }): Promise<boolean> {
-  return intentarControl((db) =>
-    db
+  return intentarControl((db) => {
+    const tenantId = tenantIdShared();
+    return db
       .insert(idMappings)
-      .values({ opId: m.opId, idProvisorio: m.idProvisorio, idDefinitivo: m.idDefinitivo })
-      .onConflictDoNothing(),
-  );
+      .values({
+        ...(tenantId ? { tenantId } : {}),
+        opId: m.opId,
+        idProvisorio: m.idProvisorio,
+        idDefinitivo: m.idDefinitivo,
+      })
+      .onConflictDoNothing();
+  });
 }
