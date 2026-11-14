@@ -5,4 +5,4 @@ adr: ADR-0114
 prd: PRD-STOCK-03-escaner
 fecha: 2026-11-14
 ---
-STOCK-S19 hecho: en /panel/stock hay un formulario Agregar producto (nombre, código opcional, precio y cantidad inicial), atajo desde código desconocido, permiso crear_productos alineado a importar, y en /venta el precio editable al escanear un producto nuevo sin precio en catálogo.
+STOCK-S19 hecho: formulario Agregar producto en /panel/stock; intento fijo (SKU INT- e Idempotency-Key) hasta limpiar el formulario; Guardar deshabilitado mientras guarda; ingreso fallido con reintento; abrir desde código desconocido deja el formulario limpio con solo el código; permiso crear_productos y precio en /venta para códigos nuevos.

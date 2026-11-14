@@ -1,5 +1,13 @@
 // STOCK-S19: alta manual desde /panel/stock (nombre, código opcional, SKU interno).
 
+export const MENSAJE_INGRESO_FALLIDO = "Producto creado, pero no se cargó la cantidad.";
+
+export type IntentoAltaFormulario = {
+  readonly entropiaSku: string;
+  readonly idempotencyKey: string;
+  readonly skuSinCodigo: string;
+};
+
 export type CuerpoAltaProducto = {
   readonly sku: string;
   readonly nombre: string;
@@ -18,16 +26,24 @@ export function elegirSkuDesdeCodigo(codigo: string): string {
   return codigo.trim().toUpperCase();
 }
 
+export function nuevoIntentoAlta(entropiaSku: string, idempotencyKey: string): IntentoAltaFormulario {
+  return {
+    entropiaSku,
+    idempotencyKey,
+    skuSinCodigo: generarSkuInterno(entropiaSku),
+  };
+}
+
 export function armarAltaProducto(input: {
   nombre: string;
   codigo?: string;
   precioCentavos: number;
   locationId?: string;
-  entropiaSku: string;
+  intento: IntentoAltaFormulario;
 }): CuerpoAltaProducto {
   const nombre = input.nombre.trim();
   const codigo = input.codigo?.trim();
-  const sku = codigo ? elegirSkuDesdeCodigo(codigo) : generarSkuInterno(input.entropiaSku);
+  const sku = codigo ? elegirSkuDesdeCodigo(codigo) : input.intento.skuSinCodigo;
   return {
     sku,
     nombre,

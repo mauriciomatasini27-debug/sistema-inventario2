@@ -12,6 +12,8 @@ test("formulario Agregar producto en stock a 390px", async ({ page }) => {
   if (await form.count()) {
     await expect(page.locator("#alta-producto-card")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Agregar producto" })).toBeVisible();
+    await expect(page.locator("#alta-reintentar-ingreso-btn")).toHaveCount(1);
+    await expect(page.locator("#alta-producto-enviar")).toBeEnabled();
     await page.screenshot({
       path: join(ARTIFACTS, "stock-s19-alta-producto-390.png"),
       fullPage: true,

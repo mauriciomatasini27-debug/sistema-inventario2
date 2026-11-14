@@ -58,6 +58,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         <div class="fila" id="alta-duplicado-acciones" hidden>
           <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
         </div>
+        <div class="fila" id="alta-reintentar-ingreso" hidden>
+          <button id="alta-reintentar-ingreso-btn" type="button">Reintentar carga de stock</button>
+        </div>
       </form>
     </section>
   ) : null}
@@ -265,9 +268,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
   import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
   import {
+    MENSAJE_INGRESO_FALLIDO,
     accionSiCodigoDuplicado,
     armarAltaProducto,
     mensajeErrorAlta,
+    nuevoIntentoAlta,
   } from "../../modules/stock/alta-producto-panel.js";
   import {
     efectoCodigoDesconocido,
@@ -841,12 +846,95 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     }
   });
 
+  let intentoAlta = nuevoIntentoAlta(crypto.randomUUID(), crypto.randomUUID());
+  let guardandoAlta = false;
+  type PendienteIngreso = { sku: string; cantidad: number; costoCentavos: number; idempotencyKey: string };
+  let pendienteIngreso: PendienteIngreso | null = null;
+
+  const botonGuardarAlta = () => $("alta-producto-enviar");
+
+  const fijarGuardandoAlta = (activo: boolean) => {
+    guardandoAlta = activo;
+    const boton = botonGuardarAlta();
+    if (boton instanceof HTMLButtonElement) {
+      boton.disabled = activo || pendienteIngreso !== null;
+    }
+  };
+
+  const ocultarDuplicadoAlta = () => {
+    const acciones = $("alta-duplicado-acciones");
+    if (acciones) acciones.hidden = true;
+  };
+
+  const ocultarReintentoIngreso = () => {
+    $("alta-reintentar-ingreso").hidden = true;
+    pendienteIngreso = null;
+    const boton = botonGuardarAlta();
+    if (boton instanceof HTMLButtonElement && !guardandoAlta) boton.disabled = false;
+  };
+
+  const limpiarFormularioAlta = (codigoPrecargado?: string) => {
+    const form = $("alta-producto-form");
+    if (!(form instanceof HTMLFormElement)) return;
+    limpiarErrores(form);
+    form.reset();
+    ocultarDuplicadoAlta();
+    ocultarReintentoIngreso();
+    const estado = $("estado-alta-producto");
+    if (estado) estado.replaceChildren();
+    const codigoInput = $("alta-codigo");
+    if (codigoInput instanceof HTMLInputElement && codigoPrecargado !== undefined) {
+      codigoInput.value = codigoPrecargado.trim();
+    }
+    intentoAlta = nuevoIntentoAlta(crypto.randomUUID(), crypto.randomUUID());
+    fijarGuardandoAlta(false);
+  };
+
+  const enviarIngresoInicial = async (dato: PendienteIngreso) => {
+    return fetch("/api/stock/ingreso", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": dato.idempotencyKey },
+      body: JSON.stringify({
+        sku: dato.sku,
+        cantidad: dato.cantidad,
+        costo_centavos: dato.costoCentavos,
+        controla_vencimiento: false,
+        vence_el: null,
+      }),
+    });
+  };
+
+  $("alta-reintentar-ingreso-btn")?.addEventListener("click", async () => {
+    if (!pendienteIngreso) return;
+    const estado = $("estado-alta-producto");
+    estado.textContent = "Reintentando carga de stock…";
+    fijarGuardandoAlta(true);
+    try {
+      const ingreso = await enviarIngresoInicial(pendienteIngreso);
+      if (!ingreso.ok) {
+        toast.error(MENSAJE_INGRESO_FALLIDO);
+        estado.textContent = MENSAJE_INGRESO_FALLIDO;
+        return;
+      }
+      toast.success("Stock cargado.");
+      estado.textContent = "Producto " + pendienteIngreso.sku + " guardado con stock.";
+      const skuOk = pendienteIngreso.sku;
+      limpiarFormularioAlta();
+      cargarCatalogo();
+      marcarSkuSeleccionado(skuOk);
+    } catch (error) {
+      console.warn("[panel/stock] reintento ingreso", error);
+      estado.textContent = mensaje("error", "");
+    } finally {
+      fijarGuardandoAlta(false);
+    }
+  });
+
   const abrirAltaConCodigo = (codigo: string, destinoSku?: HTMLInputElement | null) => {
     const seccion = $("alta-producto-card");
-    const codigoInput = $("alta-codigo");
-    if (!(seccion instanceof HTMLElement) || !(codigoInput instanceof HTMLInputElement)) return;
+    if (!(seccion instanceof HTMLElement)) return;
+    limpiarFormularioAlta(codigo);
     seccion.scrollIntoView({ behavior: "smooth", block: "start" });
-    codigoInput.value = codigo.trim();
     $("alta-nombre").focus();
     if (destinoSku) destinoSku.value = "";
   };
@@ -863,16 +951,13 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     estado.appendChild(btn);
   };
 
-  const ocultarDuplicadoAlta = () => {
-    const acciones = $("alta-duplicado-acciones");
-    if (acciones) acciones.hidden = true;
-  };
-
   $("alta-producto-form")?.addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    if (guardandoAlta) return;
     const form = evento.currentTarget as HTMLFormElement;
     limpiarErrores(form);
     ocultarDuplicadoAlta();
+    ocultarReintentoIngreso();
     const estado = $("estado-alta-producto");
     const nombre = $("alta-nombre").value.trim();
     const codigo = $("alta-codigo").value.trim();
@@ -896,11 +981,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       nombre,
       ...(codigo ? { codigo } : {}),
       precioCentavos: precio.ok ? precio.centavos : 0,
-      entropiaSku: crypto.randomUUID(),
+      intento: intentoAlta,
       ...(locationId ? { locationId } : {}),
     });
     estado.textContent = "Guardando producto…";
-    const idemAlta = crypto.randomUUID();
+    fijarGuardandoAlta(true);
+    const idemAlta = intentoAlta.idempotencyKey;
     try {
       const r = await fetch("/api/products", {
         method: "POST",
@@ -962,33 +1048,34 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         return;
       }
       const skuCreado = typeof j.sku === "string" ? j.sku : cuerpo.sku;
+      cargarCatalogo();
+      marcarSkuSeleccionado(skuCreado);
       if (cantidad > 0) {
-        const idemIngreso = idemAlta;
-        const ingreso = await fetch("/api/stock/ingreso", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Idempotency-Key": idemIngreso },
-          body: JSON.stringify({
-            sku: skuCreado,
-            cantidad,
-            costo_centavos: precio.ok ? precio.centavos : 0,
-            controla_vencimiento: false,
-            vence_el: null,
-          }),
-        });
+        const datoIngreso: PendienteIngreso = {
+          sku: skuCreado,
+          cantidad,
+          costoCentavos: precio.ok ? precio.centavos : 0,
+          idempotencyKey: idemAlta,
+        };
+        const ingreso = await enviarIngresoInicial(datoIngreso);
         if (!ingreso.ok) {
-          toast.error("Producto creado, pero no se cargó el stock inicial.");
-          estado.textContent = "Producto creado. Revisá el ingreso de mercadería para cargar stock.";
+          pendienteIngreso = datoIngreso;
+          $("alta-reintentar-ingreso").hidden = false;
+          toast.error(MENSAJE_INGRESO_FALLIDO);
+          estado.textContent = MENSAJE_INGRESO_FALLIDO;
+          const boton = botonGuardarAlta();
+          if (boton instanceof HTMLButtonElement) boton.disabled = true;
+          return;
         }
       }
       toast.success("Producto guardado.");
       estado.textContent = "Producto " + skuCreado + " guardado.";
-      form.reset();
-      ocultarDuplicadoAlta();
-      cargarCatalogo();
-      marcarSkuSeleccionado(skuCreado);
+      limpiarFormularioAlta();
     } catch (error) {
       console.warn("[panel/stock] alta producto", error);
       estado.textContent = mensaje("error", "");
+    } finally {
+      fijarGuardandoAlta(false);
     }
   });
 

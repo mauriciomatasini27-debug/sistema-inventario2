@@ -9,10 +9,12 @@ import { eq } from "drizzle-orm";
 import { POST as postProducts } from "../src/pages/api/products.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
+  MENSAJE_INGRESO_FALLIDO,
   armarAltaProducto,
   generarSkuInterno,
   mensajeErrorAlta,
   accionSiCodigoDuplicado,
+  nuevoIntentoAlta,
 } from "../src/modules/stock/alta-producto-panel.js";
 
 function tenantConMiembro(tenantId: string, sub: string, rol: "dueno" | "empleado", permisos: string[] = []) {
@@ -53,10 +55,11 @@ describe("STOCK-S19 alta producto panel", () => {
     const b = generarSkuInterno("entropia-bbb");
     expect(a).toMatch(/^INT-[A-Z0-9]{8,12}$/);
     expect(a).not.toBe(b);
+    const intento = nuevoIntentoAlta("test-entropia-1", "idem-1");
     const cuerpo = armarAltaProducto({
       nombre: "Yerba",
       precioCentavos: 0,
-      entropiaSku: "test-entropia-1",
+      intento,
     });
     expect(cuerpo.sku).toMatch(/^INT-/);
     expect(cuerpo.nombre).toBe("Yerba");
@@ -64,11 +67,12 @@ describe("STOCK-S19 alta producto panel", () => {
   });
 
   it("usa el código como SKU cuando hay barras", () => {
+    const intento = nuevoIntentoAlta("x", "idem-2");
     const cuerpo = armarAltaProducto({
       nombre: "Gaseosa",
       codigo: "7790123456789",
       precioCentavos: 500,
-      entropiaSku: "x",
+      intento,
     });
     expect(cuerpo.sku).toBe("7790123456789");
     expect(cuerpo.codigo).toBe("7790123456789");
@@ -81,12 +85,31 @@ describe("STOCK-S19 alta producto panel", () => {
     expect(abrir).toEqual({ tipo: "abrir", sku: "SKU-1", mensaje: expect.any(String) });
   });
 
-  it("stock panel expone el formulario solo con permiso", () => {
+  it("mismo intento reusa SKU INT- e idempotency al reintentar guardar", () => {
+    const intento = nuevoIntentoAlta("fija-entropia-99", "clave-idem-fija");
+    const uno = armarAltaProducto({ nombre: "A", precioCentavos: 0, intento });
+    const dos = armarAltaProducto({ nombre: "B", precioCentavos: 0, intento });
+    expect(uno.sku).toBe(dos.sku);
+    expect(uno.sku).toBe(intento.skuSinCodigo);
+    expect(intento.idempotencyKey).toBe("clave-idem-fija");
+  });
+
+  it("mensaje de ingreso fallido para el panel", () => {
+    expect(MENSAJE_INGRESO_FALLIDO).toBe("Producto creado, pero no se cargó la cantidad.");
+  });
+
+  it("stock panel: formulario, idempotencia, guardado y reintento", () => {
     const src = readFileSync("src/pages/panel/stock.astro", "utf8");
     expect(src).toContain('id="alta-producto-card"');
     expect(src).toContain("Agregar producto");
     expect(src).toContain("Crear producto con este código");
     expect(src).toContain("{puedeCrear ?");
+    expect(src).toContain("nuevoIntentoAlta");
+    expect(src).toContain("limpiarFormularioAlta");
+    expect(src).toContain("guardandoAlta");
+    expect(src).toContain("alta-reintentar-ingreso");
+    expect(src).toContain("MENSAJE_INGRESO_FALLIDO");
+    expect(src).toMatch(/limpiarFormularioAlta\(codigo\)/);
   });
 });
 
