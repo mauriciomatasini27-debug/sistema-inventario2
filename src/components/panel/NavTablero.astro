@@ -78,9 +78,8 @@ function actual(href: string): "page" | undefined {
 </div>
 
 <style is:global>
-  /* TB-158: el chrome del tablero queda oscuro aunque el contenido use el tema claro.
-     La línea gris del diseño entra como --color-mid, sin token nuevo. */
-  .nav-tablero { min-width: 0; color: var(--color-star-white); }
+  /* TB-TEMA-CLARO: chrome del tablero sigue los tokens de tema (TB-163 solo en oscuro). */
+  .nav-tablero { min-width: 0; color: var(--tema-texto); }
   .nav-primarios { display: none; }
   .nav-link, .nav-grupo summary, .nav-bar button {
     min-height: 44px;
@@ -107,8 +106,8 @@ function actual(href: string): "page" | undefined {
     right: 0;
     bottom: 0;
     display: flex;
-    background: var(--color-charcoal);
-    border-top: 1px solid var(--color-mid);
+    background: var(--tema-superficie);
+    border-top: 1px solid var(--tema-linea);
     padding-bottom: env(safe-area-inset-bottom, 0px);
     box-sizing: content-box;
     min-height: 44px;
@@ -120,7 +119,7 @@ function actual(href: string): "page" | undefined {
     justify-content: center;
     text-align: center;
     text-decoration: none;
-    color: var(--color-muted-dark);
+    color: var(--tema-texto-suave);
     background: transparent;
     border: 0;
     font: inherit;
@@ -129,12 +128,12 @@ function actual(href: string): "page" | undefined {
     padding: 4px;
     cursor: pointer;
   }
-  .nav-bar a.is-active { color: var(--color-star-white); font-weight: 700; }
+  .nav-bar a.is-active { color: var(--tema-texto); font-weight: 700; }
   .nav-bar a.sg-flame-cta {
     margin: 6px 4px;
     border-radius: 999px;
     background-color: var(--color-star-glow);
-    color: var(--color-star-white);
+    color: var(--tema-texto);
   }
   .nav-buscar-side {
     display: none;
@@ -142,9 +141,9 @@ function actual(href: string): "page" | undefined {
     width: calc(100% - 16px);
     min-height: 44px;
     border-radius: 12px;
-    border: 1px solid var(--color-mid);
-    background: var(--color-charcoal);
-    color: var(--color-star-white);
+    border: 1px solid var(--tema-linea);
+    background: var(--tema-superficie);
+    color: var(--tema-texto);
     font: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -159,20 +158,20 @@ function actual(href: string): "page" | undefined {
     align-items: center;
     padding: 8px 12px;
     text-decoration: none;
-    color: var(--color-star-white);
+    color: var(--tema-texto);
     border-radius: 12px;
   }
-  .nav-primarios a.is-active, .nav-grupo a.is-active { background: var(--color-mid); color: var(--color-star-white); font-weight: 700; }
+  .nav-primarios a.is-active, .nav-grupo a.is-active { background: var(--tema-linea); color: var(--tema-texto); font-weight: 700; }
   .nav-primarios a.sg-flame-cta {
     background-color: var(--color-star-glow);
-    color: var(--color-star-white);
+    color: var(--tema-texto);
     justify-content: center;
   }
-  .nav-grupo { border-top: 1px solid var(--color-mid); }
+  .nav-grupo { border-top: 1px solid var(--tema-linea); }
   .nav-grupo summary { cursor: pointer; font-weight: 700; }
   .nav-grupo ul { list-style: none; margin: 0; padding: 0 0 8px; }
   .nav-tablero a:focus-visible, .nav-tablero button:focus-visible, .nav-tablero summary:focus-visible {
-    outline: 2px solid var(--color-star-white);
+    outline: 2px solid var(--tema-texto);
     outline-offset: 2px;
   }
   .nav-tablero [data-modulo-indice][hidden] { display: none !important; }
@@ -190,8 +189,8 @@ function actual(href: string): "page" | undefined {
       bottom: calc(64px + env(safe-area-inset-bottom, 0px));
       max-height: min(70vh, 480px);
       overflow: auto;
-      background: var(--color-charcoal);
-      border-top: 1px solid var(--color-mid);
+      background: var(--tema-superficie);
+      border-top: 1px solid var(--tema-linea);
     }
   }
   @media (min-width: 900px) {
@@ -205,8 +204,8 @@ function actual(href: string): "page" | undefined {
       top: 0;
       height: 100vh;
       overflow: auto;
-      background: var(--color-void);
-      border-right: 1px solid var(--color-mid);
+      background: var(--tema-fondo);
+      border-right: 1px solid var(--tema-linea);
     }
     .nav-buscar-side { display: block; }
     .nav-primarios { display: flex; }

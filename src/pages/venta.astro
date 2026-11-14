@@ -41,7 +41,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     <style>
       *, *::before, *::after { box-sizing: border-box; }
       body {
-        margin: 0; font-family: var(--font-sans); background: var(--color-void); color: var(--color-star-white);
+        margin: 0; font-family: var(--font-sans); background: var(--tema-fondo); color: var(--tema-texto);
         /* DS-S17: con viewport-fit=cover, solo suma el inset del notch/barra (0 en el resto).
            Insets físicos, por eso padding-left/right y no padding-inline. */
         padding-left: env(safe-area-inset-left, 0px);
@@ -50,29 +50,26 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       }
       /* TB-158: el mostrador scrollea por encima de la barra. El inset queda en el contenido. */
       .tablero-contenido { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
-      /* TB-AUDIT-MOBILE: mismos tokens B que PanelShell; las vidrio-card no aclaran sobre void. */
-      .tablero {
-        --tema-fondo: var(--color-void);
-        --tema-superficie: var(--color-charcoal);
-        --tema-linea: var(--color-mid);
-        --tema-texto: var(--color-star-white);
-        --tema-texto-suave: var(--color-muted-dark);
-        --tema-vidrio: var(--color-charcoal);
-      }
+      /* TB-TEMA-CLARO: las vidrio-card usan tokens; en oscuro sin blur que aclare sobre void. */
       .tablero .vidrio-card {
-        background: var(--color-charcoal);
-        border: 1px solid var(--color-mid);
-        color: var(--color-star-white);
+        background: var(--tema-superficie);
+        border: 1px solid var(--tema-linea);
+        color: var(--tema-texto);
       }
       @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         .tablero .vidrio-card {
-          background: color-mix(in srgb, var(--color-charcoal) 92%, transparent);
+          background: var(--tema-vidrio);
           -webkit-backdrop-filter: blur(16px);
           backdrop-filter: blur(16px);
         }
       }
+      :root[data-tema="oscuro"] .tablero .vidrio-card {
+        background: var(--color-charcoal);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
       @media (prefers-reduced-transparency: reduce) {
-        .tablero .vidrio-card { background: var(--color-charcoal); backdrop-filter: none; -webkit-backdrop-filter: none; }
+        .tablero .vidrio-card { background: var(--tema-superficie); backdrop-filter: none; -webkit-backdrop-filter: none; }
       }
       @media (min-width: 900px) {
         .tablero-contenido { padding-bottom: 16px; }
@@ -91,17 +88,17 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #indicador-sync[data-tono="rojo"] { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
       main { max-width: 360px; margin-inline: auto; padding: 12px; }
       input, select, button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { min-height: 44px; font-family: inherit; font-size: 16px; width: 100%; margin-block: 6px; }
-      button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
+      button:not(.tema-toggle):not([data-nav-mas]):not(.modo-control) { background: var(--tema-texto); color: var(--tema-fondo); border: 0; border-radius: 8px; }
       .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
       #estado { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
       #visor-camara { width: min(360px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 16px; background: var(--tema-superficie, var(--color-charcoal)); color: var(--tema-texto, var(--color-star-white)); }
-      #visor-camara::backdrop { background: color-mix(in srgb, var(--color-void) 55%, transparent); }
+      #visor-camara::backdrop { background: color-mix(in srgb, var(--tema-fondo) 55%, transparent); }
       #visor-camara[open] { display: grid; gap: 12px; padding: 16px; margin: auto; }
       #visor-camara-titulo { margin: 0; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       #visor-camara-cerrar { width: auto; min-width: 44px; min-height: 44px; margin: 0; padding-inline: 12px; }
       #visor-camara-ayuda { margin: 0; font-size: 14px; color: var(--tema-texto-suave, var(--color-muted-dark)); }
-      .visor-camara-marco { border: 2px solid var(--color-star-glow); border-radius: 12px; overflow: hidden; background: var(--color-void); }
-      #camara-video { display: block; width: 100%; max-height: 240px; object-fit: cover; background: var(--color-void); }
+      .visor-camara-marco { border: 2px solid var(--color-star-glow); border-radius: 12px; overflow: hidden; background: var(--tema-fondo); }
+      #camara-video { display: block; width: 100%; max-height: 240px; object-fit: cover; background: var(--tema-fondo); }
       #visor-camara-cancelar { width: 100%; min-height: 44px; margin: 0; }
       #catalogo-estado { margin: 0 4px 10px; font-size: 13px; color: var(--tema-texto-suave); text-align: start; overflow-wrap: anywhere; }
       #balance, h1, .producto, .producto .nombre, .provisorio { overflow-wrap: anywhere; text-align: start; }
