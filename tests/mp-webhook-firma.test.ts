@@ -5,7 +5,7 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { mpWebhookEvents } from "../src/db/schema.js";
-import { manifestFirmaMp } from "../src/lib/mp-webhook-firma.js";
+import { manifestFirmaMp, timestampFirmaMpMs, verificarFirmaMpWebhook } from "../src/lib/mp-webhook-firma.js";
 import { olvidarEventosMpEnMemoria } from "../src/lib/repos/mp-webhooks.js";
 import { POST as postMpWebhook } from "../src/pages/api/billing/webhooks/mercadopago.js";
 
@@ -34,7 +34,50 @@ function modoSingleSinDb() {
   delete process.env.TENANT_DATABASE_URL;
 }
 
-describe("P1-78 firma webhook Mercado Pago", () => {
+describe("timestampFirmaMpMs", () => {
+  it("escala ts en segundos (10 dígitos) a ms y deja ms intactos", () => {
+    expect(timestampFirmaMpMs("1704908010")).toBe(1_704_908_010_000);
+    const nowMs = Date.now();
+    expect(timestampFirmaMpMs(String(nowMs))).toBe(nowMs);
+  });
+
+  it("verificarFirmaMpWebhook acepta ts en segundos dentro de la ventana", () => {
+    const ahora = 1_765_000_000_000;
+    const tsSec = String(Math.floor(ahora / 1000));
+    const manifest = manifestFirmaMp("e1", "r1", tsSec);
+    const v1 = createHmac("sha256", SECRETO).update(manifest, "utf8").digest("hex");
+    expect(
+      verificarFirmaMpWebhook({
+        xSignature: `ts=${tsSec},v1=${v1}`,
+        xRequestId: "r1",
+        dataId: "e1",
+        secreto: SECRETO,
+        ahoraMs: ahora,
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("rechaza ts en segundos viejo o futuro", () => {
+    const ahora = 1_765_000_000_000;
+    const firmarSec = (offsetSec: number) => {
+      const tsSec = String(Math.floor(ahora / 1000) + offsetSec);
+      const manifest = manifestFirmaMp("e1", "r1", tsSec);
+      const v1 = createHmac("sha256", SECRETO).update(manifest, "utf8").digest("hex");
+      return verificarFirmaMpWebhook({
+        xSignature: `ts=${tsSec},v1=${v1}`,
+        xRequestId: "r1",
+        dataId: "e1",
+        secreto: SECRETO,
+        ahoraMs: ahora,
+      });
+    };
+    expect(firmarSec(-600)).toEqual({ ok: false, codigo: "ts_viejo" });
+    expect(firmarSec(600)).toEqual({ ok: false, codigo: "ts_viejo" });
+    expect(firmarSec(0)).toEqual({ ok: true });
+  });
+});
+
+describe("P1-80 firma webhook Mercado Pago", () => {
   beforeEach(() => {
     modoSingleSinDb();
     resetStore();
@@ -46,6 +89,21 @@ describe("P1-78 firma webhook Mercado Pago", () => {
   afterEach(() => {
     delete process.env.MP_WEBHOOK_SECRET;
     delete process.env.NODE_ENV;
+  });
+
+  it("firma válida con ts en segundos (MP real) procesa 201", async () => {
+    const preId = `p180-sec-${Date.now().toString(36)}`;
+    const dataId = "evt-sec";
+    const ts = String(Math.floor(Date.now() / 1000));
+    const { headers } = firmar({ dataId, requestId: "req-sec", ts });
+    const r = (await postMpWebhook(
+      ctx("http://x/api/billing/webhooks/mercadopago", {
+        method: "POST",
+        headers,
+        body: { preapproval_id: preId, estado: "activo" as const, data: { id: dataId } },
+      }),
+    )) as Response;
+    expect(r.status).toBe(201);
   });
 
   it("firma válida procesa 201", async () => {
@@ -110,11 +168,26 @@ describe("P1-78 firma webhook Mercado Pago", () => {
   it("sin secreto en production responde 401 sin procesar", async () => {
     process.env.NODE_ENV = "production";
     delete process.env.MP_WEBHOOK_SECRET;
+    process.env.MP_WEBHOOK_ALLOW_TEST = "1";
     const r = (await postMpWebhook(
       ctx("http://x/api/billing/webhooks/mercadopago", {
         method: "POST",
         headers: { "x-test": "true" },
         body: { preapproval_id: "pre-nosec", estado: "activo" as const },
+      }),
+    )) as Response;
+    expect(r.status).toBe(401);
+  });
+
+  it("sin MP_WEBHOOK_ALLOW_TEST el x-test no bypassa aunque falte secreto", async () => {
+    delete process.env.MP_WEBHOOK_SECRET;
+    delete process.env.MP_WEBHOOK_ALLOW_TEST;
+    delete process.env.NODE_ENV;
+    const r = (await postMpWebhook(
+      ctx("http://x/api/billing/webhooks/mercadopago", {
+        method: "POST",
+        headers: { "x-test": "true" },
+        body: { preapproval_id: "pre-nobypass", estado: "activo" as const },
       }),
     )) as Response;
     expect(r.status).toBe(401);
@@ -156,7 +229,7 @@ describe("P1-78 firma webhook Mercado Pago", () => {
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 
-describe.skipIf(!hayPG)("P1-78 firma inválida no escribe en mp_webhook_events", () => {
+describe.skipIf(!hayPG)("P1-80 firma inválida no escribe en mp_webhook_events", () => {
   const claves: string[] = [];
   let urlAnterior: string | undefined;
 

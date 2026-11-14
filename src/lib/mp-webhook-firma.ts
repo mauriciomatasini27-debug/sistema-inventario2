@@ -1,10 +1,23 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-// P1-78: manifest oficial Mercado Pago (id/request-id/ts) + HMAC-SHA256 del secreto del panel.
+// P1-80: manifest oficial Mercado Pago (id/request-id/ts) + HMAC-SHA256 del secreto del panel.
 export const MP_WEBHOOK_SKEW_MS = 5 * 60 * 1000;
+
+const UMBRAL_TS_MS = 1e12;
 
 export function esProduccionMpWebhook(): boolean {
   return process.env.NODE_ENV === "production";
+}
+
+export function permiteBypassTestMpWebhook(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.MP_WEBHOOK_ALLOW_TEST === "1" && env.NODE_ENV !== "production";
+}
+
+/** MP manda ts en segundos (10 dígitos); si ya es ms (≥ 1e12), no escala. */
+export function timestampFirmaMpMs(tsRaw: string): number | null {
+  const n = Number(tsRaw);
+  if (!Number.isFinite(n)) return null;
+  return n < UMBRAL_TS_MS ? n * 1000 : n;
 }
 
 export function manifestFirmaMp(dataId: string | undefined, requestId: string | undefined, ts: string): string {
@@ -73,13 +86,14 @@ export function verificarFirmaMpWebhook(input: {
   if (!compararHexConstante(esperado, parsed.v1)) {
     return { ok: false, codigo: "firma_invalida" };
   }
-  const tsMs = Number(parsed.ts);
-  if (!Number.isFinite(tsMs)) {
+  const tsMs = timestampFirmaMpMs(parsed.ts);
+  if (tsMs === null) {
     return { ok: false, codigo: "firma_invalida" };
   }
   const ahora = input.ahoraMs ?? Date.now();
   const tol = input.toleranciaMs ?? MP_WEBHOOK_SKEW_MS;
-  if (Math.abs(ahora - tsMs) > tol) {
+  const delta = ahora - tsMs;
+  if (Math.abs(delta) > tol) {
     return { ok: false, codigo: "ts_viejo" };
   }
   return { ok: true };

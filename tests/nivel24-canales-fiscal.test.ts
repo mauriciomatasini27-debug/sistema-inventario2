@@ -58,6 +58,9 @@ describe("N2-4 fiscal + canales", () => {
     expect((await c.json() as { origen: string }).origen).toBe("padron");
   });
   it("email/send 202 sin key + 409 duplicado + jobs/enqueue + MP webhook", async () => {
+    process.env.MP_WEBHOOK_ALLOW_TEST = "1";
+    delete process.env.MP_WEBHOOK_SECRET;
+    delete process.env.NODE_ENV;
     resetStore();
     const e1 = (await POSTEmail(req("http://x/api/email/send", { stream: "avisos", to: "a@b.com", plantilla: "cierre", vars: { fecha: "hoy" } }, { "Idempotency-Key": "m1" }))) as Response;
     expect([201, 202]).toContain(e1.status);
