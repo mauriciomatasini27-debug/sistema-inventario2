@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { cashMovements } from "../../db/schema.js";
 import { fiscalSettings } from "../../db/schema-fiscal.js";
+import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   crearAlmacenFiscalDocs,
@@ -156,11 +156,7 @@ export async function hayCobroParaVenta(saleId: string): Promise<boolean> {
   const db = dbActual();
   if (!db) return enMemoria;
   try {
-    const cobros = await db
-      .select({ id: cashMovements.id })
-      .from(cashMovements)
-      .where(eq(cashMovements.saleId, saleId))
-      .limit(1);
+    const cobros = await listarMovimientosCaja(db, { tipo: "venta", saleId });
     return cobros.length > 0;
   } catch {
     return enMemoria;
