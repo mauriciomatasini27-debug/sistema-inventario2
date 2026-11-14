@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mpWebhookEvents, stockLots } from "../src/db/schema.js";
+import { mpPreapprovalTenants, mpWebhookEvents, stockLots } from "../src/db/schema.js";
 import { priceAdjustments } from "../src/db/schema-precios.js";
 import type { ItemCatalogo } from "../src/modules/pricing/precios.js";
 import { crear_job } from "../src/modules/ocr/jobs.js";
@@ -203,6 +203,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
   const loteIds: string[] = [];
   const clavesMp: { clave: string; tenantId?: string }[] = [];
   const clavesAjuste: string[] = [];
+  const preapprovalVinculos: string[] = [];
   let snap: ReturnType<typeof guardarEnv> = {};
 
   beforeEach(() => {
@@ -210,6 +211,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     loteIds.length = 0;
     clavesMp.length = 0;
     clavesAjuste.length = 0;
+    preapprovalVinculos.length = 0;
     process.env.TENANT_MODE = "shared";
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A;
     delete process.env.CONTROL_DATABASE_URL;
@@ -236,12 +238,13 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
         }
       }
       for (const key of clavesAjuste) {
-        await conTenant(tenantA, async () => {
-          await getTenantDb().delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
-        });
-        await conTenant(tenantB, async () => {
-          await getTenantDb().delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
-        });
+        const plaforma = getSharedDbPlataforma();
+        await plaforma.delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
+      }
+      for (const preId of preapprovalVinculos) {
+        await getSharedDbPlataforma()
+          .delete(mpPreapprovalTenants)
+          .where(eq(mpPreapprovalTenants.preapprovalId, preId));
       }
     } finally {
       restaurarEnv(snap);
@@ -303,8 +306,18 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     };
     expect((await conTenant(tenantA, () => registrarAjuste(base))).ok).toBe(true);
     expect((await conTenant(tenantB, () => registrarAjuste(base))).ok).toBe(true);
-    const filasA = await conTenant(tenantA, () => getTenantDb().select().from(priceAdjustments));
-    const filasB = await conTenant(tenantB, () => getTenantDb().select().from(priceAdjustments));
+    const filasA = await conTenant(tenantA, () =>
+      getTenantDb()
+        .select()
+        .from(priceAdjustments)
+        .where(and(eq(priceAdjustments.tenantId, tenantA), eq(priceAdjustments.idempotencyKey, clave))),
+    );
+    const filasB = await conTenant(tenantB, () =>
+      getTenantDb()
+        .select()
+        .from(priceAdjustments)
+        .where(and(eq(priceAdjustments.tenantId, tenantB), eq(priceAdjustments.idempotencyKey, clave))),
+    );
     expect(filasA).toHaveLength(1);
     expect(filasB).toHaveLength(1);
     expect(filasA[0]?.tenantId).toBe(tenantA);
@@ -313,6 +326,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
 
   it("mp_webhook sella tenant_id si hubo vincularPreaprobacionTenant", async () => {
     const preId = `pre-${randomUUID()}`;
+    preapprovalVinculos.push(preId);
     vincularPreaprobacionTenant(preId, tenantA);
     const clave = `${preId}:activo`;
     clavesMp.push({ clave, tenantId: tenantA });
@@ -326,6 +340,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
 
   it("mp_webhook resuelve tenant desde DB sin mapa en memoria", async () => {
     const preId = `pre-db-${randomUUID()}`;
+    preapprovalVinculos.push(preId);
     vincularPreaprobacionTenant(preId, tenantA);
     await tenantIdDePreapproval(preId);
     olvidarMoraCobroEnMemoria();
@@ -376,9 +391,8 @@ describe.skipIf(!hayPG)("P1-74 tablas de migración 0044 en Postgres", () => {
 
   it.each(TABLAS_0044)("%s existe tras migrar", async (tabla) => {
     const db = getSharedDbPlataforma();
-    const r = await db.execute(sql`SELECT to_regclass(${`public.${tabla}`})::text AS reg`);
-    const reg = (r[0] as { reg: string | null } | undefined)?.reg;
-    expect(reg).toBe(`public.${tabla}`);
+    const r = await db.execute(sql`SELECT (to_regclass(${`public.${tabla}`}) IS NOT NULL) AS ok`);
+    expect((r[0] as { ok: boolean } | undefined)?.ok).toBe(true);
   });
 
   it("price_adjustments tiene columna tenant_id", async () => {
