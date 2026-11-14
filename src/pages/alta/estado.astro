@@ -95,7 +95,8 @@ const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\
           $("error").textContent = j.error ?? ("Error " + r.status);
         }
       };
-      $("despues").onclick = () => { location.href = "/"; };
+      // ON1.5: "Verificar después" entra al comercio; WA queda pendiente en checklist.
+      $("despues").onclick = () => { location.href = "/panel"; };
       document.addEventListener("visibilitychange", () => { if (!document.hidden) refrescar(); });
       setInterval(refrescar, 2000);
       refrescar();

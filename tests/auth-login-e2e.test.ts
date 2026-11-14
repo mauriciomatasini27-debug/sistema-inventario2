@@ -203,7 +203,31 @@ describe("P3-2a allowlist de next sin open-redirect (login.ts:33, callback.ts:17
     return { destino: rCb.headers.get("Location"), pendienteNext };
   }
 
-  it("next=/panel se guarda y el callback redirige ahí", async () => {
+  it("next=/panel sin comercio manda al alta (P1-70)", async () => {
+    const { destino, pendienteNext } = await flujoConNext("/panel");
+    expect(pendienteNext).toBe("/panel");
+    expect(destino).toBe("/?alta=pendiente");
+  });
+
+  it("next=/panel con comercio termina en /panel", async () => {
+    control.tenants.set("t1", {
+      id: "t1",
+      nombreComercio: "K",
+      slug: "k",
+      estado: "activo",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: "juan",
+      esDemo: false,
+    });
+    control.memberships.set("m1", {
+      id: "m1",
+      tenantId: "t1",
+      googleSub: "juan",
+      rol: "dueno",
+      permisos: [],
+      estado: "activo",
+    });
     const { destino, pendienteNext } = await flujoConNext("/panel");
     expect(pendienteNext).toBe("/panel");
     expect(destino).toBe("/panel");
@@ -259,8 +283,26 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     expect(await callbackSinNext()).toBe("/?alta=pendiente");
   });
 
-  it("next validado gana sobre la allowlist admin", async () => {
+  it("next=/panel con comercio gana sobre la allowlist admin", async () => {
     process.env.ADMIN_ALLOWLIST_SUBS = "juan";
+    control.tenants.set("t1", {
+      id: "t1",
+      nombreComercio: "K",
+      slug: "k",
+      estado: "activo",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: "juan",
+      esDemo: false,
+    });
+    control.memberships.set("m1", {
+      id: "m1",
+      tenantId: "t1",
+      googleSub: "juan",
+      rol: "dueno",
+      permisos: [],
+      estado: "activo",
+    });
     const rLogin = await getLogin(ctx("http://x/api/auth/login?next=/panel"));
     const state = stateDeCookies(setCookies(rLogin));
     const rCb = await getCallback(
