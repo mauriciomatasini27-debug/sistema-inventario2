@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
+import { dondeTenant, tenantIdShared } from "../../lib/tenant-scope.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
@@ -100,8 +101,14 @@ function filaVentaJson(f: FilaVenta): Record<string, unknown> {
 // PERS2-S2: la disponibilidad de DB la resuelve el helper central
 // (dbVivaTenant: null en single, BaseNoDisponible en multi).
 
+// postgres.js anida el 23505 en cause. Si no se ve, la carrera cae a memoria.
 function esConflictoUnico(e: unknown): boolean {
-  return typeof e === "object" && e !== null && "code" in e && (e as { code: unknown }).code === "23505";
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (typeof cur === "object" && cur !== null && "code" in cur && (cur as { code: unknown }).code === "23505") return true;
+    cur = typeof cur === "object" && cur !== null && "cause" in cur ? (cur as { cause?: unknown }).cause : undefined;
+  }
+  return false;
 }
 
 function esUuid(v: unknown): v is string {
@@ -284,10 +291,16 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
   const db = dbVivaTenant();
   if (!db) return viaMemoria(i);
+  const tenantId = tenantIdShared();
 
   // 409 antes de numerar, misma respuesta que el pre-check histórico.
+  // La key es única en toda la base. Sin el filtro, el 409 devolvería la venta de otro comercio.
   try {
-    const previo = await db.select().from(sales).where(eq(sales.idempotencyKey, i.key)).limit(1);
+    const previo = await db
+      .select()
+      .from(sales)
+      .where(dondeTenant(sales.tenantId, eq(sales.idempotencyKey, i.key)))
+      .limit(1);
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
@@ -384,11 +397,13 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
           sobreventa: e.ticket.sobreventa,
           offline: i.offline,
           clientOccurredAt: ahora,
+          ...(tenantId ? { tenantId } : {}),
         });
         await tx.insert(tickets).values({
           saleId,
           definitivo: e.ticket.definitivo,
           provisorio: e.ticket.provisorio,
+          ...(tenantId ? { tenantId } : {}),
         });
         // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
         const lineasDb = e.lineasConDescuento.flatMap((l) => {
@@ -461,7 +476,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     // Carrera entre pre-check e insert: mismo 409 con relectura del original.
     if (esConflictoUnico(e)) {
       try {
-        const previo = await db.select().from(sales).where(eq(sales.idempotencyKey, i.key)).limit(1);
+        const previo = await db
+          .select()
+          .from(sales)
+          .where(dondeTenant(sales.tenantId, eq(sales.idempotencyKey, i.key)))
+          .limit(1);
         const fila = previo[0];
         return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: fila ? filaVentaJson(fila) : null };
       } catch {

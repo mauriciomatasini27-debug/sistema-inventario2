@@ -1,5 +1,6 @@
 import { desc, eq, gte } from "drizzle-orm";
 import { products, sales } from "../../db/schema.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { shiftHandovers } from "../../db/schema-caja.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { intentarLeer } from "../server-db.js";
@@ -30,7 +31,7 @@ export async function leerResumenPanel(
     const ventasFilas = await db
       .select({ id: sales.id, medio: sales.medio, total: sales.totalCentavos, ocurrido: sales.clientOccurredAt })
       .from(sales)
-      .where(gte(sales.createdAt, desde));
+      .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
     const devolucionesFilas = await db
       .select({ monto: saleReturns.montoCentavos, medio: saleReturns.medio, ocurrido: saleReturns.createdAt })
       .from(saleReturns)
@@ -43,7 +44,7 @@ export async function leerResumenPanel(
       })
       .from(ticketPaymentCorrections)
       .innerJoin(sales, eq(ticketPaymentCorrections.saleId, sales.id))
-      .where(gte(sales.createdAt, desde));
+      .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
     const productosFilas = await db
       .select({ stockActual: products.stockActual, minStock: products.minStock })
       .from(products);

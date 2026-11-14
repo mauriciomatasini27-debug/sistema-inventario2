@@ -5,6 +5,7 @@ import type { LecturasIA } from "../../modules/ia/asistente.js";
 import { mesAR } from "../fecha-ar.js";
 import { dbVivaTenant } from "../server-db.js";
 import { conTenant } from "../tenant-mode.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { listarTodosLosDescuentosTicket, listarTodasLasLineasTicket } from "../ticket-memoria.js";
 import { construirResumen } from "../panel-resumen.js";
 import {
@@ -214,12 +215,12 @@ async function ventasTopDb(desde: Date, hasta: Date): Promise<{ ventas: LineaVen
     .from(ticketLines)
     .innerJoin(sales, eq(sales.id, ticketLines.saleId))
     .leftJoin(products, eq(products.id, ticketLines.productId))
-    .where(and(gte(sales.clientOccurredAt, desde), lt(sales.clientOccurredAt, hasta)));
+    .where(dondeTenant(sales.tenantId, and(gte(sales.clientOccurredAt, desde), lt(sales.clientOccurredAt, hasta))));
   const descuentos = await db
     .select({ saleId: ticketDiscounts.saleId, sku: ticketDiscounts.sku, neto: ticketDiscounts.netoCentavos })
     .from(ticketDiscounts)
     .innerJoin(sales, eq(sales.id, ticketDiscounts.saleId))
-    .where(and(gte(sales.clientOccurredAt, desde), lt(sales.clientOccurredAt, hasta)));
+    .where(dondeTenant(sales.tenantId, and(gte(sales.clientOccurredAt, desde), lt(sales.clientOccurredAt, hasta))));
   const devolucionesFilas = await db
     .select({ sku: stockMovements.sku, delta: stockMovements.delta })
     .from(stockMovements)

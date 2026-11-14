@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { sales, tickets } from "../../db/schema.js";
 import { getTenantDb } from "../../lib/db.js";
+import { dondeTenant } from "../../lib/tenant-scope.js";
 import { store } from "../../lib/store.js";
 
 // PERS-S4: lookup de venta DB-first con fallback a memoria. La DB manda cuando
@@ -27,7 +28,7 @@ export async function buscarVentaPorId(saleId: string): Promise<VentaResumen | n
       })
       .from(tickets)
       .innerJoin(sales, eq(tickets.saleId, sales.id))
-      .where(eq(sales.id, saleId))
+      .where(dondeTenant(sales.tenantId, eq(sales.id, saleId)))
       .limit(1);
     const f = filas[0];
     if (f) {
