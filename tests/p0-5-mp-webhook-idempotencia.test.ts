@@ -4,7 +4,8 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { mpWebhookEvents } from "../src/db/schema.js";
-import { olvidarEventosMpEnMemoria } from "../src/lib/repos/mp-webhooks.js";
+import { olvidarEventosMpEnMemoria, reclamarEventoMp } from "../src/lib/repos/mp-webhooks.js";
+import { vincularPreaprobacionTenant } from "../src/lib/repos/planes.js";
 import { POST as POSTMp } from "../src/pages/api/billing/webhooks/mercadopago.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
@@ -24,6 +25,14 @@ describe("P0-5 webhook MP single sin DB: 201 + 409 duplicado en memoria", () => 
     modoSingleSinDb();
     resetStore();
     olvidarEventosMpEnMemoria();
+  });
+
+  it("con preapproval vinculado sin URL no abre getTenantDb y usa memoria", async () => {
+    const preId = "p05-pre-vinc";
+    vincularPreaprobacionTenant(preId, "tenant-vinc");
+    const clave = `${preId}:activo`;
+    expect(await reclamarEventoMp(clave, preId, "activo")).toBe(true);
+    expect(await reclamarEventoMp(clave, preId, "activo")).toBe(false);
   });
 
   it("el segundo evento idéntico responde 409 con la misma clave", async () => {

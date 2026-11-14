@@ -5,13 +5,17 @@ import { mpWebhookEvents, stockLots } from "../src/db/schema.js";
 import { priceAdjustments } from "../src/db/schema-precios.js";
 import type { ItemCatalogo } from "../src/modules/pricing/precios.js";
 import { crear_job } from "../src/modules/ocr/jobs.js";
-import { getTenantDb } from "../src/lib/db.js";
+import { getSharedDbPlataforma, getTenantDb } from "../src/lib/db.js";
 import { altaProducto } from "../src/lib/repos/catalogo.js";
 import { aplicarImportacionStock } from "../src/lib/repos/importaciones.js";
 import { crearLote, listarLotes } from "../src/lib/repos/lotes.js";
 import { reclamarEventoMp } from "../src/lib/repos/mp-webhooks.js";
 import { crearJobRegistro, listarJobs } from "../src/lib/repos/ocr.js";
-import { olvidarMoraCobroEnMemoria, vincularPreaprobacionTenant } from "../src/lib/repos/planes.js";
+import {
+  olvidarMoraCobroEnMemoria,
+  tenantIdDePreapproval,
+  vincularPreaprobacionTenant,
+} from "../src/lib/repos/planes.js";
 import { registrarAjuste } from "../src/lib/repos/precios.js";
 import { crearAlmacenAjustes, crearAlmacenProductos } from "../src/lib/repos/_almacen.js";
 import { cargarStockInicial, listarPendientesStockInicial } from "../src/lib/repos/stock-inicial.js";
@@ -197,7 +201,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
   const tenantA = randomUUID();
   const tenantB = randomUUID();
   const loteIds: string[] = [];
-  const clavesMp: string[] = [];
+  const clavesMp: { clave: string; tenantId?: string }[] = [];
   const clavesAjuste: string[] = [];
   let snap: ReturnType<typeof guardarEnv> = {};
 
@@ -214,17 +218,30 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
 
   afterEach(async () => {
     try {
-      if (loteIds.length > 0 || clavesMp.length > 0 || clavesAjuste.length > 0) {
-        const db = getTenantDb();
-        for (const id of loteIds) {
-          await db.delete(stockLots).where(eq(stockLots.id, id));
+      if (loteIds.length > 0) {
+        await conTenant(tenantA, async () => {
+          const db = getTenantDb();
+          for (const id of loteIds) {
+            await db.delete(stockLots).where(eq(stockLots.id, id));
+          }
+        });
+      }
+      for (const { clave, tenantId } of clavesMp) {
+        if (tenantId) {
+          await conTenant(tenantId, async () => {
+            await getTenantDb().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+          });
+        } else {
+          await getSharedDbPlataforma().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
         }
-        for (const clave of clavesMp) {
-          await db.delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
-        }
-        for (const key of clavesAjuste) {
-          await db.delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
-        }
+      }
+      for (const key of clavesAjuste) {
+        await conTenant(tenantA, async () => {
+          await getTenantDb().delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
+        });
+        await conTenant(tenantB, async () => {
+          await getTenantDb().delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
+        });
       }
     } finally {
       restaurarEnv(snap);
@@ -298,23 +315,40 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     const preId = `pre-${randomUUID()}`;
     vincularPreaprobacionTenant(preId, tenantA);
     const clave = `${preId}:activo`;
-    clavesMp.push(clave);
+    clavesMp.push({ clave, tenantId: tenantA });
     const ok = await reclamarEventoMp(clave, preId, "activo");
     expect(ok).toBe(true);
-    const db = getTenantDb();
-    const filas = await db.select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+    const filas = await conTenant(tenantA, () =>
+      getTenantDb().select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave)),
+    );
     expect(filas[0]?.tenantId).toBe(tenantA);
   });
 
   it("mp_webhook resuelve tenant desde DB sin mapa en memoria", async () => {
     const preId = `pre-db-${randomUUID()}`;
     vincularPreaprobacionTenant(preId, tenantA);
+    await tenantIdDePreapproval(preId);
     olvidarMoraCobroEnMemoria();
     const clave = `${preId}:activo`;
-    clavesMp.push(clave);
+    clavesMp.push({ clave, tenantId: tenantA });
     expect(await reclamarEventoMp(clave, preId, "activo")).toBe(true);
-    const filas = await getTenantDb().select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+    const filas = await conTenant(tenantA, () =>
+      getTenantDb().select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave)),
+    );
     expect(filas[0]?.tenantId).toBe(tenantA);
+  });
+
+  it("mp_webhook sin vínculo usa plataforma shared (tenant_id null, sin 503)", async () => {
+    const preId = `pre-sin-${randomUUID()}`;
+    const clave = `${preId}:gracia`;
+    clavesMp.push({ clave });
+    const ok = await reclamarEventoMp(clave, preId, "gracia");
+    expect(ok).toBe(true);
+    const filas = await getSharedDbPlataforma()
+      .select()
+      .from(mpWebhookEvents)
+      .where(eq(mpWebhookEvents.clave, clave));
+    expect(filas[0]?.tenantId).toBeNull();
   });
 });
 
@@ -323,6 +357,7 @@ describe.skipIf(!hayPG)("P1-74 tablas de migración 0044 en Postgres", () => {
 
   beforeEach(() => {
     snap = guardarEnv();
+    process.env.TENANT_MODE = "shared";
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A;
   });
 
@@ -340,14 +375,14 @@ describe.skipIf(!hayPG)("P1-74 tablas de migración 0044 en Postgres", () => {
   ] as const;
 
   it.each(TABLAS_0044)("%s existe tras migrar", async (tabla) => {
-    const db = getTenantDb();
+    const db = getSharedDbPlataforma();
     const r = await db.execute(sql`SELECT to_regclass(${`public.${tabla}`})::text AS reg`);
     const reg = (r[0] as { reg: string | null } | undefined)?.reg;
     expect(reg).toBe(`public.${tabla}`);
   });
 
   it("price_adjustments tiene columna tenant_id", async () => {
-    const db = getTenantDb();
+    const db = getSharedDbPlataforma();
     const r = await db.execute(
       sql`SELECT 1 FROM information_schema.columns WHERE table_name = 'price_adjustments' AND column_name = 'tenant_id'`,
     );

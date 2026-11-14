@@ -19,7 +19,9 @@ import {
 import { planVigenteDe } from "../../modules/planes/ciclo.js";
 import { mpPreapprovalTenants } from "../../db/schema.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
+import { getSharedDbPlataforma } from "../db.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { esModoShared } from "../tenant-mode.js";
 import {
   crearAlmacenSuscripciones,
   crearAlmacenUsoPlanes,
@@ -80,9 +82,14 @@ export function olvidarMoraCobroEnMemoria(): void {
 const RX_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function dbPreapprovalVinculo(): TenantDb | null {
+  if (esModoShared() && process.env.TENANT_DATABASE_URL) return getSharedDbPlataforma();
+  return dbVivaTenant();
+}
+
 async function persistirVinculoPreaprobacionDb(preapprovalId: string, tenantId: string): Promise<void> {
   if (!RX_UUID.test(tenantId)) return;
-  const db = dbVivaTenant();
+  const db = dbPreapprovalVinculo();
   if (!db) return;
   try {
     await db
@@ -106,7 +113,7 @@ export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: str
 export async function tenantIdDePreapproval(preapprovalId: string): Promise<string | undefined> {
   const mem = preapprovalPorTenant.get(preapprovalId);
   if (mem) return mem;
-  const db = dbVivaTenant();
+  const db = dbPreapprovalVinculo();
   if (!db) return undefined;
   try {
     const filas = await db

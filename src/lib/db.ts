@@ -88,3 +88,12 @@ export function getTenantDb(tenantId?: string) {
   if (!url) throw new Error("Falta TENANT_DATABASE_URL");
   return dbFor(url);
 }
+
+// P1-73: webhook MP y otras entradas de plataforma en shared sin comercio en
+// contexto (sin AsyncLocalStorage). Inserta con tenant_id null hasta mapear preapproval.
+export function getSharedDbPlataforma() {
+  if (!esModoShared()) throw new Error("getSharedDbPlataforma solo en TENANT_MODE=shared");
+  const url = process.env.TENANT_DATABASE_URL;
+  if (!url) throw new Error("Falta TENANT_DATABASE_URL");
+  return dbFor(url);
+}
