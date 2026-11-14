@@ -5,9 +5,11 @@ import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { emailOutbox } from "../src/db/schema-email.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { encolarEnvio } from "../src/lib/repos/email.js";
+import { crearVencimiento, listarVencimientos } from "../src/lib/repos/caja.js";
 import { altaClienteRapida, listarClientes, saldoCliente } from "../src/lib/repos/fiado.js";
 import { altaProveedor, listarProveedores } from "../src/lib/repos/proveedores.js";
-import { guardarContacto } from "../src/lib/repos/proveedor-wa.js";
+import { contactoPorNumero, guardarContacto } from "../src/lib/repos/proveedor-wa.js";
+import { dondeTenant } from "../src/lib/tenant-scope.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { proveedorContactos } from "../src/db/schema-proveedores.js";
@@ -83,7 +85,7 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
   });
 
   it("proveedores: mismo CUIT en A y B sin chocar", async () => {
-    const cuit = "20" + randomUUID().replace(/\D/g, "").slice(0, 9);
+    const cuit = "20933331726";
     const rA = await conTenant(tenantA, () => altaProveedor({ cuit, nombre: "Prov A", ahoraIso: new Date().toISOString() }));
     const rB = await conTenant(tenantB, () => altaProveedor({ cuit, nombre: "Prov B", ahoraIso: new Date().toISOString() }));
     expect(rA.ok).toBe(true);
@@ -112,7 +114,7 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
       getTenantDb()
         .select()
         .from(emailOutbox)
-        .where(eq(emailOutbox.idempotencyKey, keyB)),
+        .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, keyB))),
     );
     expect(filasA).toHaveLength(1);
     expect(filasA[0]?.destinatario).toBe("a@test.local");
@@ -128,16 +130,20 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
       guardarContacto({ numeroE164: num, tenantId: tenantB, supplierCuit: null, estado: "verificado", creadoEn: new Date().toISOString() }),
     );
 
-    const a = await conTenant(tenantA, async () => {
-      const [f] = await getTenantDb().select().from(proveedorContactos).where(eq(proveedorContactos.numeroE164, num));
-      return f;
-    });
-    const b = await conTenant(tenantB, async () => {
-      const [f] = await getTenantDb().select().from(proveedorContactos).where(eq(proveedorContactos.numeroE164, num));
-      return f;
-    });
+    const a = await conTenant(tenantA, () => contactoPorNumero(num));
+    const b = await conTenant(tenantB, () => contactoPorNumero(num));
     expect(a?.tenantId).toBe(tenantA);
     expect(b?.tenantId).toBe(tenantB);
+  });
+
+  it("caja vencimientos: B no ve los de A", async () => {
+    await conTenant(tenantA, () =>
+      crearVencimiento({ concepto: "Alquiler A", venceEl: "2030-01-15", montoCentavos: 50_000 }),
+    );
+    const venA = await conTenant(tenantA, () => listarVencimientos());
+    const venB = await conTenant(tenantB, () => listarVencimientos());
+    expect(venA.some((v) => v.concepto === "Alquiler A")).toBe(true);
+    expect(venB.some((v) => v.concepto === "Alquiler A")).toBe(false);
   });
 
   it("customer_movements: idempotency por tenant", async () => {
@@ -164,13 +170,13 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
       getTenantDb()
         .select()
         .from(customerMovements)
-        .where(eq(customerMovements.idempotencyKey, key)),
+        .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, key))),
     );
     const enB = await conTenant(tenantB, () =>
       getTenantDb()
         .select()
         .from(customerMovements)
-        .where(eq(customerMovements.idempotencyKey, key)),
+        .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, key))),
     );
     expect(enA).toHaveLength(1);
     expect(enB).toHaveLength(1);

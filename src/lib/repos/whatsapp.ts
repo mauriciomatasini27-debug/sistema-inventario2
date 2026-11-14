@@ -539,7 +539,7 @@ export async function leerAlertaStock(
       const filas = await db
         .select({ payload: notificationEvents.payload })
         .from(notificationEvents)
-        .where(eq(notificationEvents.dedupeKey, clave))
+        .where(dondeTenant(notificationEvents.tenantId, eq(notificationEvents.dedupeKey, clave)))
         .limit(1);
       if (filas[0]) payload = filas[0].payload as AlertaStockPayload;
     } catch (e) {
@@ -573,7 +573,12 @@ export async function historialAlertasStock(tenantId: string, limite = 200): Pro
           estado: notificationEvents.estado,
         })
         .from(notificationEvents)
-        .where(and(eq(notificationEvents.tipo, "alerta_stock"), like(notificationEvents.dedupeKey, `${prefijo}%`)));
+        .where(
+          dondeTenant(
+            notificationEvents.tenantId,
+            and(eq(notificationEvents.tipo, "alerta_stock"), like(notificationEvents.dedupeKey, `${prefijo}%`)),
+          ),
+        );
       for (const f of filas) {
         const p = f.payload as AlertaStockPayload;
         porClave.set(f.dedupeKey, {

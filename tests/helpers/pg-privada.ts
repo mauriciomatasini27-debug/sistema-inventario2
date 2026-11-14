@@ -28,7 +28,8 @@ export async function asegurarBasePrivada(nombreDb: string, urlReferencia: strin
   } finally {
     await admin.end();
   }
-  execFileSync("npx", ["drizzle-kit", "migrate"], {
+  // P1-81: el wrapper P1-69 tolera tablas ausentes y aplica 0047; drizzle-kit crudo falla en el mismo camino.
+  execFileSync("node", ["scripts/db-migrate.mjs"], {
     env: { ...process.env, TENANT_DATABASE_URL: url },
     stdio: "pipe",
   });
