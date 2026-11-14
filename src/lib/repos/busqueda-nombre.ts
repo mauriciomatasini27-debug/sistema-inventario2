@@ -2,8 +2,8 @@ import { sql } from "drizzle-orm";
 import { decidir_respuesta, extraer_termino, type Candidato } from "../../modules/whatsapp/consulta.js";
 import { puntuarMemoria } from "../../modules/whatsapp/puntaje-memoria.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { esModoShared } from "../tenant-mode.js";
-import { tenantIdAlSellar, tenantIdShared, tenantUuidMulti } from "../tenant-scope.js";
+import { esModoShared, tenantActual } from "../tenant-mode.js";
+import { tenantIdAlSellar, tenantUuidMulti, UUID_TENANT } from "../tenant-scope.js";
 import { listarCatalogoVivo } from "./whatsapp.js";
 
 /** Mitad del umbral de decidir_respuesta (0.3): umbral local de pg_trgm en la transacción. */
@@ -38,7 +38,17 @@ interface FilaRankeada {
   score: number;
 }
 
+function sharedTieneTenantParaDb(pedido: PedidoNombre): boolean {
+  const ctx = tenantActual();
+  if (ctx && UUID_TENANT.test(ctx)) return true;
+  const t = pedido.tenantId;
+  return Boolean(t && UUID_TENANT.test(t));
+}
+
 export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNombre> {
+  if (esModoShared() && !sharedTieneTenantParaDb(pedido)) {
+    return { origen: "db", resolucion: { kind: "sin_resultados" } };
+  }
   const db = dbVivaTenant(pedido.tenantId ?? undefined);
   const origen: "db" | "memoria" = db ? "db" : "memoria";
   const term = extraer_termino(pedido.texto);
@@ -49,7 +59,10 @@ export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNo
     return { origen: "memoria", resolucion: decidirDesdeFilas(filas) };
   }
 
-  const tid = tenantIdFilaSql(pedido);
+  const tid = resolverTenantSql(pedido);
+  if (tid === undefined || tid === null) {
+    return { origen: "db", resolucion: { kind: "sin_resultados" } };
+  }
   let filas: FilaRankeada[];
   try {
     filas = await rankearSql(db, term, tid);
@@ -60,14 +73,18 @@ export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNo
 }
 
 export async function leerFicha(pedido: { tenantId: string | null; sku: string }): Promise<FichaProducto | null> {
+  if (esModoShared() && !sharedTieneTenantParaDb({ tenantId: pedido.tenantId, texto: "" })) {
+    return null;
+  }
   const db = dbVivaTenant(pedido.tenantId ?? undefined);
   if (!db) {
     const item = (await listarCatalogoVivo(pedido.tenantId ?? undefined)).find((i) => i.sku === pedido.sku);
     return item ? fichaDesdeVivo(item) : null;
   }
   try {
-    const tid = tenantIdFilaSql({ tenantId: pedido.tenantId, texto: "" });
-    const filtro = tid ? sql`AND tenant_id = ${tid}::uuid` : sql``;
+    const tid = resolverTenantSql({ tenantId: pedido.tenantId, texto: "" });
+    if (tid === undefined || tid === null) return null;
+    const filtro = sql`AND tenant_id = ${tid}::uuid`;
     const filas = await db.execute(sql`
       SELECT sku, nombre, stock_actual AS stock, COALESCE(min_stock, 0) AS umbral, precio_centavos AS precio
       FROM products
@@ -143,23 +160,34 @@ function fichaDesdeSql(f: FilaRankeada): FichaProducto {
   };
 }
 
+/** UUID de fila para SQL; `undefined` en shared sin contexto válido (no consultar). */
+function resolverTenantSql(pedido: PedidoNombre): string | null | undefined {
+  try {
+    return tenantIdFilaSql(pedido);
+  } catch (e) {
+    if (esModoShared() && e instanceof Error && e.message === "Falta tenant") return undefined;
+    throw e;
+  }
+}
+
 function tenantIdFilaSql(pedido: PedidoNombre): string | null {
   if (esModoShared()) {
-    try {
-      return tenantIdShared();
-    } catch {
-      return null;
-    }
+    const ctx = tenantActual();
+    if (ctx && UUID_TENANT.test(ctx)) return ctx;
+    const t = pedido.tenantId;
+    if (t && UUID_TENANT.test(t)) return t;
+    throw new Error("Falta tenant");
   }
   const sellado = tenantIdAlSellar();
   if (sellado) return sellado;
   const t = pedido.tenantId;
   if (!t) return null;
-  if (/^[0-9a-f-]{36}$/i.test(t)) return t;
+  if (UUID_TENANT.test(t)) return t;
   return tenantUuidMulti(t);
 }
 
 async function rankearSql(db: TenantDb, term: string, tenantRowId: string | null): Promise<FilaRankeada[]> {
+  if (esModoShared() && !tenantRowId) throw new Error("Falta tenant");
   const filtroProd = tenantRowId ? sql`AND p.tenant_id = ${tenantRowId}::uuid` : sql``;
   const filtroAlias = tenantRowId ? sql`AND a.tenant_id = ${tenantRowId}::uuid AND p.tenant_id = ${tenantRowId}::uuid` : sql``;
   return db.transaction(async (tx) => {
