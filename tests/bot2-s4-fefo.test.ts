@@ -11,6 +11,7 @@ import { armarRespuestaDetalle, consulta_con_detalle, type LoteCrudo } from "../
 import { lotesMemoriaDelTenant, textoDetalleSiCorresponde } from "../src/lib/repos/consulta-lotes.js";
 import { GET as GETConsult } from "../src/pages/api/whatsapp/consult.js";
 import { POST as postWebhook } from "../src/pages/api/whatsapp/webhook.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const SKU = "LECHEFEFO";
 const OTRO = "YERBAFEFO";
@@ -282,22 +283,24 @@ describe.skipIf(!hayPG)("BOT2-S4 lotes en la base del tenant", () => {
     ] as const) {
       await conTenant(tenant, async () => {
         const db = getTenantDb();
-        await db.insert(products).values({ sku, nombre: "Leche", precioCentavos: 100n, stockActual: 13 });
+        await db.insert(products).values(filaPg({ sku, nombre: "Leche", precioCentavos: 100n, stockActual: 13 }, tenant));
         if (tenant === tenantA) {
           await db.insert(stockLots).values([
-            { sku, cantidad: 4, cantidadRestante: 4, venceEl: new Date("2026-12-01T00:00:00.000Z"), costoCentavos: 100n },
-            { sku, cantidad: 2, cantidadRestante: 2, venceEl: new Date("2026-03-01T00:00:00.000Z"), costoCentavos: 100n },
-            { sku, cantidad: 7, cantidadRestante: 7, venceEl: null, costoCentavos: 100n },
-            { sku, cantidad: 1, cantidadRestante: 0, venceEl: new Date("2026-01-01T00:00:00.000Z"), costoCentavos: 100n },
+            filaPg({ sku, cantidad: 4, cantidadRestante: 4, venceEl: new Date("2026-12-01T00:00:00.000Z"), costoCentavos: 100n }, tenant),
+            filaPg({ sku, cantidad: 2, cantidadRestante: 2, venceEl: new Date("2026-03-01T00:00:00.000Z"), costoCentavos: 100n }, tenant),
+            filaPg({ sku, cantidad: 7, cantidadRestante: 7, venceEl: null, costoCentavos: 100n }, tenant),
+            filaPg({ sku, cantidad: 1, cantidadRestante: 0, venceEl: new Date("2026-01-01T00:00:00.000Z"), costoCentavos: 100n }, tenant),
           ]);
         } else {
-          await db.insert(stockLots).values({
-            sku,
-            cantidad: urlQty,
-            cantidadRestante: urlQty,
-            venceEl: new Date("2026-01-15T00:00:00.000Z"),
-            costoCentavos: 100n,
-          });
+          await db.insert(stockLots).values(
+            filaPg({
+              sku,
+              cantidad: urlQty,
+              cantidadRestante: urlQty,
+              venceEl: new Date("2026-01-15T00:00:00.000Z"),
+              costoCentavos: 100n,
+            }, tenant),
+          );
         }
         store.productos.set(sku, ficha(sku, true));
       });

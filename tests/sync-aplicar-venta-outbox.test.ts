@@ -19,6 +19,7 @@ import { aplicarVentaOutbox } from "../src/modules/sync/aplicar-venta-outbox.js"
 import { POST as POSTPush } from "../src/pages/api/sync/push.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -207,7 +208,7 @@ describe.skipIf(!hayPG)("P10-6 multi con PG local: la venta queda aplicada y el 
       const db = getTenantDb();
       const ins = await db
         .insert(products)
-        .values({ sku: skuPG, nombre: "Producto P10-6", precioCentavos: 15000n, stockActual: 10 })
+        .values(filaPg({ sku: skuPG, nombre: "Producto P10-6", precioCentavos: 15000n, stockActual: 10 }))
         .returning({ id: products.id });
       return ins[0]?.id ?? "";
     });

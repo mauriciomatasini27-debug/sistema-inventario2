@@ -3,6 +3,7 @@ import { getSharedDbPlataforma, getTenantDb } from "../db.js";
 import { leerVarEntorno } from "../env.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { conTenant, esModoShared } from "../tenant-mode.js";
+import { filaConTenant } from "../tenant-scope.js";
 import { tenantIdDePreapproval } from "./planes.js";
 
 // P0-5: reclamo durable del webhook de Mercado Pago. DB primero vía
@@ -43,12 +44,16 @@ async function reclamarEventoMpEnDb(
   tenantId?: string,
 ): Promise<boolean> {
   try {
-    await db.insert(mpWebhookEvents).values({
-      clave,
-      preapprovalId,
-      estado,
-      ...(tenantId ? { tenantId } : {}),
-    });
+    await db
+      .insert(mpWebhookEvents)
+      .values(
+        filaConTenant({
+          clave,
+          preapprovalId,
+          estado,
+          ...(tenantId ? { tenantId } : {}),
+        }),
+      );
     vistos.add(clave);
     return true;
   } catch (e) {

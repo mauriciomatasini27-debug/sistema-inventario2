@@ -13,6 +13,7 @@ import { GET as getBalance } from "../src/pages/api/credit/balance.js";
 import { POST as postCuenta } from "../src/pages/api/credit/sales-on-account.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const HOY = 1_789_000_000_000;
 
@@ -69,7 +70,7 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
     fijarMulti();
     resetStore();
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(products).values({ sku, nombre: "Fiado mora", precioCentavos: 1500n, stockActual: 80 });
+      await getTenantDb().insert(products).values(filaPg({ sku, nombre: "Fiado mora", precioCentavos: 1500n, stockActual: 80 }));
     });
   });
 

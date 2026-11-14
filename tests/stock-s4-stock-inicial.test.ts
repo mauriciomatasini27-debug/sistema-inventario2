@@ -13,6 +13,7 @@ import {
 import { GET as getInicial, POST as postInicial } from "../src/pages/api/stock/inicial.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
 
@@ -308,17 +309,19 @@ describe.skipIf(!hayPG)("STOCK-S4 multi con PG: ventana de 30 días y ALTA", () 
       const db = getTenantDb();
       const fila = await db
         .insert(sales)
-        .values({
-          idempotencyKey: key,
-          medio: "Efectivo",
-          totalCentavos: BigInt(qty * 100),
-          clientOccurredAt: creada,
-          createdAt: creada,
-        })
+        .values(
+          filaPg({
+            idempotencyKey: key,
+            medio: "Efectivo",
+            totalCentavos: BigInt(qty * 100),
+            clientOccurredAt: creada,
+            createdAt: creada,
+          }),
+        )
         .returning({ id: sales.id });
       const saleId = fila[0]?.id ?? "";
       saleIds.push(saleId);
-      await db.insert(ticketLines).values({ saleId, productId, qty, precioCentavos: 100n });
+      await db.insert(ticketLines).values(filaPg({ saleId, productId, qty, precioCentavos: 100n }));
     });
   }
 
@@ -332,23 +335,29 @@ describe.skipIf(!hayPG)("STOCK-S4 multi con PG: ventana de 30 días y ALTA", () 
       const altas = [skuA, skuB, skuC, skuD];
       const filas = await db
         .insert(products)
-        .values(altas.map((sku) => ({
-          sku,
-          nombre: sku === skuA ? "Zeta" : sku === skuB ? "Alfa" : sku === skuC ? "Beta" : "Delta",
-          precioCentavos: 100n,
-          stockActual: 0,
-          origen: "alta_al_vender",
-        })))
+        .values(
+          altas.map((sku) =>
+            filaPg({
+              sku,
+              nombre: sku === skuA ? "Zeta" : sku === skuB ? "Alfa" : sku === skuC ? "Beta" : "Delta",
+              precioCentavos: 100n,
+              stockActual: 0,
+              origen: "alta_al_vender",
+            }),
+          ),
+        )
         .returning({ id: products.id, sku: products.sku });
       const normal = await db
         .insert(products)
-        .values({
-          sku: skuE,
-          nombre: "Normal",
-          precioCentavos: 100n,
-          stockActual: 0,
-          origen: null,
-        })
+        .values(
+          filaPg({
+            sku: skuE,
+            nombre: "Normal",
+            precioCentavos: 100n,
+            stockActual: 0,
+            origen: null,
+          }),
+        )
         .returning({ id: products.id });
       const idDe = new Map(filas.map((f) => [f.sku, f.id] as const));
       idDe.set(skuE, normal[0]?.id ?? "");
@@ -362,13 +371,15 @@ describe.skipIf(!hayPG)("STOCK-S4 multi con PG: ventana de 30 días y ALTA", () 
       await ventaDb(idDe.get(skuC) ?? "", 2, haceUnDia);
       await ventaDb(idDe.get(skuD) ?? "", 100, haceUnDia);
       await ventaDb(idDe.get(skuE) ?? "", 80, haceUnDia);
-      await db.insert(stockMovements).values({
-        idemKey: `stock-s4-previa:${skuD}`,
-        sku: skuD,
-        loteId: null,
-        delta: 1,
-        tipo: "ALTA",
-      });
+      await db.insert(stockMovements).values(
+        filaPg({
+          idemKey: `stock-s4-previa:${skuD}`,
+          sku: skuD,
+          loteId: null,
+          delta: 1,
+          tipo: "ALTA",
+        }),
+      );
     });
   });
 

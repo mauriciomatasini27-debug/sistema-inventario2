@@ -1,7 +1,7 @@
 import { asc, eq, type SQL } from "drizzle-orm";
 import { cashMovements } from "../../db/schema.js";
 import type { TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant, tenantIdAlSellar } from "../tenant-scope.js";
 
 type InsertCaja = typeof cashMovements.$inferInsert;
 
@@ -22,8 +22,7 @@ export type SesionCaja = TenantDb | TxCaja;
 // 23505 se propaga: releer adentro de la tx abortada fallaría.
 export async function insertarMovimientosCaja(db: SesionCaja, filas: readonly MovimientoCajaNuevo[]): Promise<void> {
   if (filas.length === 0) return;
-  const tenantId = tenantIdShared();
-  const lote: InsertCaja[] = filas.map((fila) => (tenantId ? { ...fila, tenantId } : { ...fila }));
+  const lote: InsertCaja[] = filas.map((fila) => filaConTenant(fila));
   await db.insert(cashMovements).values(lote);
 }
 

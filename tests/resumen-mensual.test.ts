@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import {
   HORA_RESUMEN_MENSUAL,
   ZONA_DEFECTO,
@@ -439,15 +440,17 @@ describe.skipIf(!hayPG)("BOT-S7 listarMovimientosConFecha en Postgres por tenant
     const id = randomUUID();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(cashMovements).values({
-        id,
-        idempotencyKey: claveMov,
-        tipo: "ingreso",
-        metodo: "Efectivo",
-        categoriaId: "venta",
-        origen: "venta",
-        montoCentavos: 250_000n,
-      });
+      await db.insert(cashMovements).values(
+        filaPg({
+          id,
+          idempotencyKey: claveMov,
+          tipo: "ingreso",
+          metodo: "Efectivo",
+          categoriaId: "venta",
+          origen: "venta",
+          montoCentavos: 250_000n,
+        }),
+      );
     });
     const a = await conTenant("tenant-a", () => listarMovimientosConFecha());
     const propio = a.find((m) => m.origen === "venta" && m.montoCentavos === 250_000n);

@@ -13,6 +13,7 @@ import { GET as getBalance } from "../src/pages/api/credit/balance.js";
 import { GET as getCustomers, POST as postCustomers } from "../src/pages/api/credit/customers.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 function limpiarEntorno(): void {
   resetStore();
@@ -116,7 +117,7 @@ describe.skipIf(!hayPG)("P1-64 alta rápida de cliente", () => {
     fijarMulti();
     resetStore();
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(products).values({ sku, nombre: "Alta cliente", precioCentavos: 1000n, stockActual: 40 });
+      await getTenantDb().insert(products).values(filaPg({ sku, nombre: "Alta cliente", precioCentavos: 1000n, stockActual: 40 }));
     });
   });
 

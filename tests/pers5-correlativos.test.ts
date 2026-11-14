@@ -13,6 +13,7 @@ import { POST as postCuenta } from "../src/pages/api/credit/sales-on-account.js"
 import { POST as postPush } from "../src/pages/api/sync/push.js";
 import { POST as postPromote } from "../src/pages/api/sync/promote.js";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const suf = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
 
@@ -146,10 +147,10 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
       );
       await db
         .insert(sales)
-        .values({ id: ventaDev, idempotencyKey: `p5-sem-${suf}`, medio: "Efectivo", totalCentavos: 15000n, clientOccurredAt: new Date() })
+        .values(filaPg({ id: ventaDev, idempotencyKey: `p5-sem-${suf}`, medio: "Efectivo", totalCentavos: 15000n, clientOccurredAt: new Date() }))
         .onConflictDoNothing();
-      await db.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
-      await db.insert(ticketCounters).values({ id: "devolucion", ultimo: 0 }).onConflictDoNothing();
+      await db.insert(ticketCounters).values(filaPg({ id: "mostrador", ultimo: 0 })).onConflictDoNothing();
+      await db.insert(ticketCounters).values(filaPg({ id: "devolucion", ultimo: 0 })).onConflictDoNothing();
       await db.insert(customers).values({ id: cliente, nombre: "PERS5 fiado", topeCentavos: 0n }).onConflictDoNothing();
     });
     await conTenant("tenant-a", () => {

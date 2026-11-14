@@ -5,6 +5,7 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { ocrEventos, ocrJobs } from "../src/db/schema.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { supplierDrafts, supplierInvoices } from "../src/db/schema-proveedores.js";
 import { buscarFallbackNubeJob } from "../src/lib/repos/ocr.js";
 import {
@@ -279,7 +280,7 @@ describe.skipIf(!hayPG)("OCR1-S4 con PG local: el GET deriva el fallback del eve
       await conTenant("tenant-a", async () => {
         await getTenantDb()
           .insert(ocrEventos)
-          .values({ tipo: "ocr_borrador_listo", payload: { job_id: soloEnDb, confianza_global: "baja", fallback_nube: "ofrecido", revisa: true } });
+          .values(filaPg({ tipo: "ocr_borrador_listo", payload: { job_id: soloEnDb, confianza_global: "baja", fallback_nube: "ofrecido", revisa: true } }));
         return store.ocrEventos.some((e) => (e.payload as Record<string, unknown>)["job_id"] === soloEnDb);
       }),
     ).toBe(false);

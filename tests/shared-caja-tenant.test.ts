@@ -13,6 +13,7 @@ import {
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { registrar_movimiento_db_first } from "../src/modules/cash/registro_movimiento.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
@@ -146,14 +147,19 @@ describe.skipIf(!hayPG)("ADR-0116 C5 caja shared en Postgres", () => {
     await conTenant(tenantA, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyA, 1000n)]));
     await conTenant(tenantB, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyB, 4000n)]));
     await conTenant(tenantA, () =>
-      getTenantDb().insert(cashMovements).values({
-        idempotencyKey: keyNull,
-        tipo: "ingreso",
-        metodo: "Efectivo",
-        categoriaId: "general",
-        origen: "ajuste",
-        montoCentavos: 9_999_999n,
-      }),
+      getTenantDb().insert(cashMovements).values(
+        filaPg(
+          {
+            idempotencyKey: keyNull,
+            tipo: "ingreso",
+            metodo: "Efectivo",
+            categoriaId: "general",
+            origen: "ajuste",
+            montoCentavos: 9_999_999n,
+          },
+          tenantA,
+        ),
+      ),
     );
 
     const balA = await conTenant(tenantA, () => obtenerBalance());

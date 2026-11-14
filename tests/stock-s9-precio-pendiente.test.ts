@@ -11,6 +11,7 @@ import { guardarPrecioPendiente, listarPendientesPrecio } from "../src/lib/repos
 import { GET as getPrecio, POST as postPrecio } from "../src/pages/api/stock/precio.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
 
@@ -267,17 +268,19 @@ describe.skipIf(!hayPG)("STOCK-S9 multi con PG: pendientes por precio 0 y audito
       const db = getTenantDb();
       const fila = await db
         .insert(sales)
-        .values({
-          idempotencyKey: key,
-          medio: "Efectivo",
-          totalCentavos: BigInt(qty * 100),
-          clientOccurredAt: creada,
-          createdAt: creada,
-        })
+        .values(
+          filaPg({
+            idempotencyKey: key,
+            medio: "Efectivo",
+            totalCentavos: BigInt(qty * 100),
+            clientOccurredAt: creada,
+            createdAt: creada,
+          }),
+        )
         .returning({ id: sales.id });
       const saleId = fila[0]?.id ?? "";
       saleIds.push(saleId);
-      await db.insert(ticketLines).values({ saleId, productId, qty, precioCentavos: 100n });
+      await db.insert(ticketLines).values(filaPg({ saleId, productId, qty, precioCentavos: 100n }));
     });
   }
 
@@ -291,11 +294,11 @@ describe.skipIf(!hayPG)("STOCK-S9 multi con PG: pendientes por precio 0 y audito
       const filas = await db
         .insert(products)
         .values([
-          { sku: skuA, nombre: "Zeta", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" },
-          { sku: skuB, nombre: "Alfa", precioCentavos: 0n, stockActual: 0, origen: "alta_al_vender" },
-          { sku: skuC, nombre: "Beta", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" },
-          { sku: skuD, nombre: "Delta", precioCentavos: 100n, stockActual: 0, origen: "plantilla_rubro" },
-          { sku: skuE, nombre: "Normal", precioCentavos: 0n, stockActual: 0, origen: null },
+          filaPg({ sku: skuA, nombre: "Zeta", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" }),
+          filaPg({ sku: skuB, nombre: "Alfa", precioCentavos: 0n, stockActual: 0, origen: "alta_al_vender" }),
+          filaPg({ sku: skuC, nombre: "Beta", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" }),
+          filaPg({ sku: skuD, nombre: "Delta", precioCentavos: 100n, stockActual: 0, origen: "plantilla_rubro" }),
+          filaPg({ sku: skuE, nombre: "Normal", precioCentavos: 0n, stockActual: 0, origen: null }),
         ])
         .returning({ id: products.id, sku: products.sku });
       const idDe = new Map(filas.map((f) => [f.sku, f.id] as const));
@@ -376,7 +379,7 @@ describe.skipIf(!hayPG)("STOCK-S9 multi con PG: pendientes por precio 0 y audito
       const db = getTenantDb();
       await db
         .insert(products)
-        .values({ sku, nombre: "Carrera", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" });
+        .values(filaPg({ sku, nombre: "Carrera", precioCentavos: 0n, stockActual: 0, origen: "plantilla_rubro" }));
     });
 
     // La fila queda tomada por otra conexión para que los dos guardados

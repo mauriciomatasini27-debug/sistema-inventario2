@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { ocrEventos, ocrJobs } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { con_borrador, type FallbackNubeApi, type OcrJob } from "../../modules/ocr/jobs.js";
 import { crearAlmacenOcrJobs, crearAlmacenOcrJobsByKey, crearListaEventosOcr, type EventoOcr } from "./_almacen.js";
 
@@ -42,7 +42,7 @@ function jobDesdeFila(f: FilaOcrJob): OcrJob {
 }
 
 function filaDeJob(job: OcrJob): typeof ocrJobs.$inferInsert {
-  return {
+  return filaConTenant({
     id: job.id,
     idempotencyKey: job.idempotencyKey,
     origen: job.origen,
@@ -54,7 +54,7 @@ function filaDeJob(job: OcrJob): typeof ocrJobs.$inferInsert {
     creadoEn: new Date(job.creadoEn),
     actualizadoEn: new Date(job.actualizadoEn),
     recordadoEn: job.recordadoEn ? new Date(job.recordadoEn) : null,
-  };
+  });
 }
 
 // Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
@@ -132,8 +132,7 @@ export async function crearJobRegistro(job: OcrJob): Promise<OcrJob> {
   const db = dbVivaTenant();
   if (!db) return job;
   try {
-    const tid = tenantIdShared();
-    await db.insert(ocrJobs).values(tid ? { ...filaDeJob(job), tenantId: tid } : filaDeJob(job));
+    await db.insert(ocrJobs).values(filaDeJob(job));
     return job;
   } catch (e) {
     if (esChoqueIdempotencia(e)) {
@@ -206,10 +205,9 @@ export async function registrarEventoOcr(tipo: string, payload: unknown): Promis
   const db = dbVivaTenant();
   if (!db) return;
   try {
-    const tid = tenantIdShared();
     await db
       .insert(ocrEventos)
-      .values(tid ? { tipo, payload: payload as Record<string, unknown>, tenantId: tid } : { tipo, payload: payload as Record<string, unknown> });
+      .values(filaConTenant({ tipo, payload: payload as Record<string, unknown> }));
   } catch (e) {
     eventos.anteFalloPersistencia(e);
   }

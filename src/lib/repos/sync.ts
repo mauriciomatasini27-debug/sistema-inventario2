@@ -9,7 +9,8 @@ import {
 import { postSalesSchema } from "../validation.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
+import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../tenant-scope.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
 import {
   crearAlmacenCodigos,
@@ -204,25 +205,26 @@ export async function empujarOperacion(b: PushEntrada): Promise<RespuestaRepo> {
     }
 
     const idMapeado = `srv-${b.opId.slice(0, 8)}`;
-    const tenantId = tenantIdShared();
     await db.transaction(async (tx) => {
-      await tx.insert(outbox).values({
-        ...(tenantId ? { tenantId } : {}),
-        opId: b.opId,
-        deviceCode: b.deviceCode,
-        deviceSeq: b.deviceSeq,
-        hlc: b.hlc,
-        modulo: b.modulo,
-        payload: b.payload,
-      });
+      await tx.insert(outbox).values(
+        filaConTenant({
+          opId: b.opId,
+          deviceCode: b.deviceCode,
+          deviceSeq: b.deviceSeq,
+          hlc: b.hlc,
+          modulo: b.modulo,
+          payload: b.payload,
+        }),
+      );
       await tx
         .insert(idMappings)
-        .values({
-          ...(tenantId ? { tenantId } : {}),
-          opId: b.opId,
-          idProvisorio: b.opId,
-          idDefinitivo: idMapeado,
-        })
+        .values(
+          filaConTenant({
+            opId: b.opId,
+            idProvisorio: b.opId,
+            idDefinitivo: idMapeado,
+          }),
+        )
         .onConflictDoNothing({ target: idMappings.opId });
     });
     buzon.guardar(b.opId, {
@@ -639,9 +641,10 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   // El lock del contador serializa promotes concurrentes del mismo op.
   try {
     const salida = await db.transaction(async (tx) => {
-      const filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).for("update");
+      let filas = await tx.select().from(ticketCounters).where(whereContadorTicket("mostrador")).for("update");
       if (!filas[0]) {
-        await tx.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
+        await tx.insert(ticketCounters).values(filaContadorTicket("mostrador", 0)).onConflictDoNothing();
+        filas = await tx.select().from(ticketCounters).where(whereContadorTicket("mostrador")).for("update");
       }
       const vigente = await tx.select().from(idMappings).where(dondeTenant(idMappings.tenantId, eq(idMappings.opId, b.opId))).limit(1);
       const ya = vigente[0];
@@ -652,22 +655,23 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       const ultimo = filas[0]?.ultimo ?? 0;
       const n = ultimo + 1;
       const definitivo = `T-${String(n).padStart(6, "0")}`;
-      const tenantId = tenantIdShared();
+      const tenantId = tenantIdAlSellar();
       await tx
         .insert(idMappings)
-        .values({
-          ...(tenantId ? { tenantId } : {}),
-          opId: b.opId,
-          idProvisorio: provisorio,
-          idDefinitivo: definitivo,
-        })
+        .values(
+          filaConTenant({
+            opId: b.opId,
+            idProvisorio: provisorio,
+            idDefinitivo: definitivo,
+          }),
+        )
         .onConflictDoUpdate({
           target: idMappings.opId,
           set: { idProvisorio: provisorio, idDefinitivo: definitivo },
           ...(tenantId ? { where: eq(idMappings.tenantId, tenantId) } : {}),
         });
       await tx.update(outbox).set({ estado: "confirmado" }).where(dondeTenant(outbox.tenantId, eq(outbox.opId, b.opId)));
-      await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, "mostrador"));
+      await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket("mostrador"));
       await completarDefinitivoTicketPromote(tx, b.opId, definitivo);
       return { definitivo, provisorio, gano: true };
     });

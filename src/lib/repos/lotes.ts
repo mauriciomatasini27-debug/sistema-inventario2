@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { stockLots } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { costoUnitarioPorSku } from "../../modules/inventario/inventario.js";
 import { crearAlmacenLotes, crearListaMovimientosStock } from "./_almacen.js";
 import { aplicarMovimiento, movimientoDuplicado } from "./stock.js";
@@ -246,18 +246,18 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
   try {
     // CAT-S4: el insert lleva el id generado para que la fila DB y el espejo
     // en memoria compartan id (el UPDATE de baja por id acierta).
-    const tid = tenantIdShared();
     await db
       .insert(stockLots)
-      .values({
-        id,
-        sku: input.sku,
-        cantidad: input.cantidad,
-        cantidadRestante: input.cantidad,
-        venceEl: input.venceEl ? new Date(input.venceEl) : null,
-        costoCentavos: BigInt(input.costoCentavos),
-        ...(tid ? { tenantId: tid } : {}),
-      })
+      .values(
+        filaConTenant({
+          id,
+          sku: input.sku,
+          cantidad: input.cantidad,
+          cantidadRestante: input.cantidad,
+          venceEl: input.venceEl ? new Date(input.venceEl) : null,
+          costoCentavos: BigInt(input.costoCentavos),
+        }),
+      )
       .onConflictDoNothing();
     almacenLotes.guardar(id, { ...lote });
     const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });

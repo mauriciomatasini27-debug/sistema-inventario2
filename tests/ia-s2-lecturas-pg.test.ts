@@ -6,6 +6,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { products, sales, stockLots, stockMovements, ticketLines } from "../src/db/schema.js";
 import { saleReturns, ticketDiscounts } from "../src/db/schema-tickets.js";
 import { crearLecturasIA } from "../src/lib/repos/ia-lecturas.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const sufijo = Date.now().toString(36);
@@ -49,19 +50,21 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
       await db.insert(products).values([
-        { id: idA, sku: skuA, nombre: "Yerba A", precioCentavos: 10000n, stockActual: 12 },
-        { id: idR, sku: skuR, nombre: "Lento A", precioCentavos: 500n, stockActual: 4 },
+        filaPg({ id: idA, sku: skuA, nombre: "Yerba A", precioCentavos: 10000n, stockActual: 12 }),
+        filaPg({ id: idR, sku: skuR, nombre: "Lento A", precioCentavos: 500n, stockActual: 4 }),
       ]);
-      await db.insert(stockLots).values({ sku: skuA, cantidad: 12, cantidadRestante: 12, costoCentavos: 6000n });
-      await db.insert(sales).values({
-        id: saleA,
-        idempotencyKey: keyA,
-        medio: "Efectivo",
-        totalCentavos: 40000n,
-        clientOccurredAt: momento,
-        createdAt: momento,
-      });
-      await db.insert(ticketLines).values({ saleId: saleA, productId: idA, qty: 4, precioCentavos: 10000n });
+      await db.insert(stockLots).values(filaPg({ sku: skuA, cantidad: 12, cantidadRestante: 12, costoCentavos: 6000n }));
+      await db.insert(sales).values(
+        filaPg({
+          id: saleA,
+          idempotencyKey: keyA,
+          medio: "Efectivo",
+          totalCentavos: 40000n,
+          clientOccurredAt: momento,
+          createdAt: momento,
+        }),
+      );
+      await db.insert(ticketLines).values(filaPg({ saleId: saleA, productId: idA, qty: 4, precioCentavos: 10000n }));
       await db.insert(ticketDiscounts).values({
         saleId: saleA,
         lineaIdx: 0,
@@ -80,28 +83,32 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
         actor: "test",
       });
       await db.insert(stockMovements).values([
-        { idemKey: keyA, sku: skuA, delta: -4, tipo: "VENTA", createdAt: momento },
-        { idemKey: `${keyA}-dev`, sku: skuA, delta: 1, tipo: "COMPENSATORIO", createdAt: momento },
+        filaPg({ idemKey: keyA, sku: skuA, delta: -4, tipo: "VENTA", createdAt: momento }),
+        filaPg({ idemKey: `${keyA}-dev`, sku: skuA, delta: 1, tipo: "COMPENSATORIO", createdAt: momento }),
       ]);
     });
     await conTenant("tenant-b", async () => {
       const db = getTenantDb();
-      await db.insert(products).values({
-        id: idB,
-        sku: skuB,
-        nombre: "Yerba B",
-        precioCentavos: 20000n,
-        stockActual: 9,
-      });
-      await db.insert(sales).values({
-        id: saleB,
-        idempotencyKey: keyB,
-        medio: "Efectivo",
-        totalCentavos: 90000n,
-        clientOccurredAt: momento,
-        createdAt: momento,
-      });
-      await db.insert(ticketLines).values({ saleId: saleB, productId: idB, qty: 9, precioCentavos: 10000n });
+      await db.insert(products).values(
+        filaPg({
+          id: idB,
+          sku: skuB,
+          nombre: "Yerba B",
+          precioCentavos: 20000n,
+          stockActual: 9,
+        }),
+      );
+      await db.insert(sales).values(
+        filaPg({
+          id: saleB,
+          idempotencyKey: keyB,
+          medio: "Efectivo",
+          totalCentavos: 90000n,
+          clientOccurredAt: momento,
+          createdAt: momento,
+        }),
+      );
+      await db.insert(ticketLines).values(filaPg({ saleId: saleB, productId: idB, qty: 9, precioCentavos: 10000n }));
       await db.insert(ticketDiscounts).values({
         saleId: saleB,
         lineaIdx: 0,
@@ -109,7 +116,7 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
         brutoCentavos: 90000n,
         netoCentavos: 90000n,
       });
-      await db.insert(stockMovements).values({ idemKey: keyB, sku: skuB, delta: -9, tipo: "VENTA", createdAt: momento });
+      await db.insert(stockMovements).values(filaPg({ idemKey: keyB, sku: skuB, delta: -9, tipo: "VENTA", createdAt: momento }));
     });
   });
 

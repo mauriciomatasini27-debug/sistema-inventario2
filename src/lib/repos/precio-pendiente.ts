@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { products } from "../../db/schema.js";
 import { pricingAuditLog } from "../../db/schema-precios.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
+import { filaConTenant } from "../tenant-scope.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
 import {
   crearAlmacenPrecios,
@@ -158,13 +159,15 @@ export async function guardarPrecioPendiente(
         )
         .returning({ sku: products.sku });
       if (actualizados.length === 0) return { ok: false, codigo: "NO_PENDIENTE" };
-      await tx.insert(pricingAuditLog).values({
-        actor,
-        sku,
-        antes: { texto: "0" },
-        despues: { texto: String(precioCentavos) },
-        motivo: MOTIVO_AUDITORIA,
-      });
+      await tx.insert(pricingAuditLog).values(
+        filaConTenant({
+          actor,
+          sku,
+          antes: { texto: "0" },
+          despues: { texto: String(precioCentavos) },
+          motivo: MOTIVO_AUDITORIA,
+        }),
+      );
       return { ok: true };
     });
     if (resultado.ok) crearAlmacenPrecios().guardar(sku, precioCentavos);

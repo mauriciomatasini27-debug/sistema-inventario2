@@ -6,6 +6,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { sales } from "../src/db/schema.js";
 import { saleReturns, ticketPaymentCorrections } from "../src/db/schema-tickets.js";
 import { GET as GETResumen } from "../src/pages/api/sales/resumen.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const marca = `MedioPrueba${Date.now().toString(36)}`;
@@ -58,12 +59,14 @@ describe.skipIf(!hayPG)("P3-7c resumen del panel: aislamiento por tenant en Post
     fijarMulti();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(sales).values({
-        idempotencyKey: claveA,
-        medio: marca,
-        totalCentavos: 424_242n,
-        clientOccurredAt: new Date(),
-      });
+      await db.insert(sales).values(
+        filaPg({
+          idempotencyKey: claveA,
+          medio: marca,
+          totalCentavos: 424_242n,
+          clientOccurredAt: new Date(),
+        }),
+      );
     });
 
     const a = await resumenDe("tenant-a");
@@ -81,11 +84,11 @@ describe.skipIf(!hayPG)("P3-7c resumen del panel: aislamiento por tenant en Post
       const db = getTenantDb();
       const [v1] = await db
         .insert(sales)
-        .values({ idempotencyKey: claveNeto, medio: marcaNeto, totalCentavos: 100_000n, clientOccurredAt: new Date() })
+        .values(filaPg({ idempotencyKey: claveNeto, medio: marcaNeto, totalCentavos: 100_000n, clientOccurredAt: new Date() }))
         .returning({ id: sales.id });
       const [v2] = await db
         .insert(sales)
-        .values({ idempotencyKey: claveCorregida, medio: "Efectivo", totalCentavos: 50_000n, clientOccurredAt: new Date() })
+        .values(filaPg({ idempotencyKey: claveCorregida, medio: "Efectivo", totalCentavos: 50_000n, clientOccurredAt: new Date() }))
         .returning({ id: sales.id });
       await db.insert(saleReturns).values({
         idempotencyKey: claveRetorno,

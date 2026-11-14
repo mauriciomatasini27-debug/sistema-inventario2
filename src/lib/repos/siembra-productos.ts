@@ -3,6 +3,7 @@ import { products } from "../../db/schema.js";
 import { tenantProductSeeds } from "../../db/schema-planes.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { tenantActual, tenantPorDefecto } from "../tenant-mode.js";
+import { tenantIdAlSellar } from "../tenant-scope.js";
 import { marcarProductosSembradosRubro, productosSembradosRubro } from "../eventos-control.js";
 import {
   VERSION_PLANTILLAS_PRODUCTOS_RUBRO,
@@ -106,6 +107,7 @@ export async function sembrarProductosRubro(
           .onConflictDoNothing()
           .returning({ t: tenantProductSeeds.tenantId });
         if (seed.length === 0) throw new YaSembrado();
+        const tidFila = tenantIdAlSellar() ?? tenantId;
         let creados = 0;
         if (filas.length > 0) {
           const insertados = await tx
@@ -117,9 +119,10 @@ export async function sembrarProductosRubro(
                 precioCentavos: 0n,
                 stockActual: 0,
                 origen: "plantilla_rubro",
+                tenantId: tidFila,
               })),
             )
-            .onConflictDoNothing({ target: products.sku })
+            .onConflictDoNothing({ target: [products.tenantId, products.sku] })
             .returning({ sku: products.sku });
           creados = insertados.length;
         }

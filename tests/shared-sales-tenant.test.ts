@@ -20,6 +20,7 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { buscarVentaPorId as buscarVentaModulo } from "../src/modules/sales/buscar_venta.js";
 import { registrar_venta } from "../src/modules/sales/registro_venta.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
@@ -165,12 +166,17 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     expect(b.venta.fuente).toBe("db");
 
     await conTenant(tenantA, () =>
-      getTenantDb().insert(sales).values({
-        idempotencyKey: keyNull,
-        medio: "Efectivo",
-        totalCentavos: 9_999_999n,
-        clientOccurredAt: new Date(),
-      }),
+      getTenantDb().insert(sales).values(
+        filaPg(
+          {
+            idempotencyKey: keyNull,
+            medio: "Efectivo",
+            totalCentavos: 9_999_999n,
+            clientOccurredAt: new Date(),
+          },
+          tenantA,
+        ),
+      ),
     );
 
     const crudaA = await conTenant(tenantA, () => getTenantDb().select().from(sales).where(eq(sales.idempotencyKey, keyA)));
@@ -229,7 +235,7 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     claves.push(key);
     skus.push(sku);
     const db = getTenantDb();
-    await db.insert(products).values({ sku, nombre: "C6", precioCentavos: 700n, stockActual: 10 });
+    await db.insert(products).values(filaPg({ sku, nombre: "C6", precioCentavos: 700n, stockActual: 10 }));
     store.stock.set(sku, 10);
     const r = await registrar_venta({
       key,

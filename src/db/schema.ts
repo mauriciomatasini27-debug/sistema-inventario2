@@ -5,8 +5,10 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -14,11 +16,13 @@ import {
 // Mínimo Slice-0 por ADR-0003/0004. Dinero siempre bigint centavos.
 // Inmutables (sales, tickets, cash_movements, outbox) solo INSERT/SELECT:
 // el revoke + trigger se aplica en migración, no en este schema tipado.
-export const products = pgTable("products", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  sku: text("sku").notNull().unique(),
+export const products = pgTable(
+  "products",
+  {
+    // ADR-0116 0045: NOT NULL + unique (tenant_id, sku).
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    sku: text("sku").notNull(),
   nombre: text("nombre").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
   stockActual: integer("stock_actual").notNull().default(0),
@@ -34,78 +38,101 @@ export const products = pgTable("products", {
   // mínimo, la alerta usa la rotación 7d (umbral_efectivo).
   minStock: integer("min_stock"),
   reorderQty: integer("reorder_qty"),
-});
+  },
+  (t) => [uniqueIndex("products_tenant_sku_uq").on(t.tenantId, t.sku)],
+);
 
 // Nivel 1: conteos por sector, append-only (inmutable runtime en migración).
-export const inventoryCounts = pgTable("inventory_counts", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  sector: text("sector").notNull(),
-  idemKey: text("idem_key").notNull().unique(),
-  creadoEn: timestamp("creado_en").notNull().defaultNow(),
-});
+export const inventoryCounts = pgTable(
+  "inventory_counts",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    sector: text("sector").notNull(),
+    idemKey: text("idem_key").notNull(),
+    creadoEn: timestamp("creado_en").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("inventory_counts_tenant_idem_uq").on(t.tenantId, t.idemKey)],
+);
 
-export const devices = pgTable("devices", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  deviceCode: text("device_code").notNull().unique(),
+export const devices = pgTable(
+  "devices",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    deviceCode: text("device_code").notNull(),
   plataforma: text("plataforma").notNull(),
   appVersion: text("app_version").notNull(),
-});
+  },
+  (t) => [uniqueIndex("devices_tenant_device_code_uq").on(t.tenantId, t.deviceCode)],
+);
 
 // P1-3 PIN de mostrador por dispositivo (migración 0005). Solo hash,
 // nunca el plano. El bloqueo es estado local, no secreto.
-export const devicePins = pgTable("device_pins", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  deviceCode: text("device_code").primaryKey(),
-  pinHash: text("pin_hash").notNull(),
-  bloqueado: boolean("bloqueado").notNull().default(false),
-  actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
-});
+export const devicePins = pgTable(
+  "device_pins",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    deviceCode: text("device_code").notNull(),
+    pinHash: text("pin_hash").notNull(),
+    bloqueado: boolean("bloqueado").notNull().default(false),
+    actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.deviceCode] })],
+);
 
-export const sales = pgTable("sales", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const sales = pgTable(
+  "sales",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   medio: text("medio").notNull(),
   totalCentavos: bigint("total_centavos", { mode: "bigint" }).notNull(),
   sobreventa: boolean("sobreventa").notNull().default(false),
   offline: boolean("offline").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   clientOccurredAt: timestamp("client_occurred_at").notNull(),
-});
+  },
+  (t) => [uniqueIndex("sales_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
-export const tickets = pgTable("tickets", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  saleId: uuid("sale_id").notNull(),
-  definitivo: text("definitivo").unique(),
-  provisorio: text("provisorio").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const tickets = pgTable(
+  "tickets",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    saleId: uuid("sale_id").notNull(),
+    definitivo: text("definitivo"),
+    provisorio: text("provisorio").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tickets_tenant_definitivo_uq")
+      .on(t.tenantId, t.definitivo)
+      .where(sql`${t.definitivo} IS NOT NULL`),
+  ],
+);
 
 // PERS-S1 (ADR-0024): correlativo de ticket mostrador sin huecos. Una fila
 // por mostrador con lock FOR UPDATE dentro de la tx de venta; el rollback
 // revierte el incremento. Mismo patrón que fiscal_sequences.
 // PERS5-S1 (ADR-0080): la serie `devolucion` numera D-* con el mismo lock.
-export const ticketCounters = pgTable("ticket_counters", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: text("id").primaryKey(),
-  ultimo: integer("ultimo").notNull().default(0),
-});
+export const ticketCounters = pgTable(
+  "ticket_counters",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: text("id").notNull(),
+    ultimo: integer("ultimo").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.id] })],
+);
 
 export const SERIE_MOSTRADOR = "mostrador";
 export const SERIE_DEVOLUCION = "devolucion";
 
 export const ticketLines = pgTable("ticket_lines", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   saleId: uuid("sale_id").notNull(),
   productId: uuid("product_id").notNull(),
@@ -115,11 +142,12 @@ export const ticketLines = pgTable("ticket_lines", {
   costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(sql`0`),
 });
 
-export const cashMovements = pgTable("cash_movements", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const cashMovements = pgTable(
+  "cash_movements",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   saleId: uuid("sale_id"),
   tipo: text("tipo").notNull(),
   metodo: text("metodo").notNull(),
@@ -127,13 +155,14 @@ export const cashMovements = pgTable("cash_movements", {
   origen: text("origen").notNull(),
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("cash_movements_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 export type OutboxPayload = unknown;
 
 export const outbox = pgTable("outbox", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   opId: uuid("op_id").primaryKey(),
   deviceCode: text("device_code").notNull(),
   deviceSeq: integer("device_seq").notNull(),
@@ -145,8 +174,7 @@ export const outbox = pgTable("outbox", {
 });
 
 export const idMappings = pgTable("id_mappings", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   opId: uuid("op_id").primaryKey(),
   idProvisorio: text("id_provisorio").notNull(),
   idDefinitivo: text("id_definitivo").notNull(),
@@ -294,19 +322,21 @@ export const opsSignalsOutbox = pgTable("ops_signals_outbox", {
 // Inmutabilidad runtime (REVOKE UPDATE/DELETE + triggers + FOR UPDATE) se
 // aplica en migración, no en este schema tipado. Unidades en integer,
 // dinero siempre bigint centavos.
-export const productCodes = pgTable("product_codes", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  codigo: text("codigo").primaryKey(),
-  sku: text("sku")
-    .notNull()
-    .references(() => products.sku),
-  padre: text("padre"),
-});
+export const productCodes = pgTable(
+  "product_codes",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    codigo: text("codigo").notNull(),
+    sku: text("sku")
+      .notNull()
+      .references(() => products.sku),
+    padre: text("padre"),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.codigo] })],
+);
 
 export const stockLots = pgTable("stock_lots", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku")
     .notNull()
@@ -322,8 +352,7 @@ export const stockLots = pgTable("stock_lots", {
 // stock_movements_stock_inicial_unico (migración 0036) cubre las keys
 // 'stock-inicial:%'; drizzle-kit no declara índices parciales acá.
 export const stockMovements = pgTable("stock_movements", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   idemKey: text("idem_key").notNull(),
   sku: text("sku").notNull(),
@@ -335,11 +364,12 @@ export const stockMovements = pgTable("stock_movements", {
 });
 
 // Vive en la base del tenant: sin tenant_id, como stock_movements.
-export const stockImports = pgTable("stock_imports", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  idemKey: text("idem_key").notNull().unique(),
+export const stockImports = pgTable(
+  "stock_imports",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idemKey: text("idem_key").notNull(),
   archivoNombre: text("archivo_nombre").notNull(),
   archivoSha256: text("archivo_sha256").notNull(),
   formato: text("formato").notNull(),
@@ -351,13 +381,14 @@ export const stockImports = pgTable("stock_imports", {
   movimientos: integer("movimientos").notNull(),
   creadoPor: text("creado_por").notNull(),
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("stock_imports_tenant_idem_uq").on(t.tenantId, t.idemKey)],
+);
 
 // N1 CAT-S1/S5/S6 + CAJA-S1/S3/S4: tablas mínimas para cutover DB.
 // Tests/build sin DB usan store en memoria; con DB viva hay write-through.
 export const productPhotos = pgTable("product_photos", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku").notNull().references(() => products.sku),
   url: text("url").notNull(),
@@ -367,31 +398,36 @@ export const productPhotos = pgTable("product_photos", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Unicidad case-insensitive: índice locations_nombre_lower_unique (migración 0017).
-export const locations = pgTable("locations", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  nombre: text("nombre").notNull(),
-  archivada: boolean("archivada").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+// Unicidad case-insensitive: índice locations_tenant_nombre_lower_uq (0045).
+export const locations = pgTable(
+  "locations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    nombre: text("nombre").notNull(),
+    archivada: boolean("archivada").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("locations_tenant_nombre_lower_uq").on(t.tenantId, sql`lower(${t.nombre})`)],
+);
 
-export const stockCounts = pgTable("stock_counts", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  idemKey: text("idem_key").notNull().unique(),
+export const stockCounts = pgTable(
+  "stock_counts",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idemKey: text("idem_key").notNull(),
   sector: text("sector").notNull().default("general"),
   estado: text("estado").notNull().default("en_curso"),
   contadoPor: text("contado_por"),
   confirmadoPor: text("confirmado_por"),
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("stock_counts_tenant_idem_uq").on(t.tenantId, t.idemKey)],
+);
 
 export const stockCountLines = pgTable("stock_count_lines", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   countId: uuid("count_id").notNull().references(() => stockCounts.id),
   sku: text("sku").notNull(),
@@ -399,25 +435,30 @@ export const stockCountLines = pgTable("stock_count_lines", {
   fisico: integer("fisico").notNull().default(0),
 });
 
-export const cashQrReceipts = pgTable("cash_qr_receipts", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey().defaultRandom(),
-  numeroOperacion: text("numero_operacion").notNull().unique(),
-  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
-  estado: text("estado").notNull().default("pendiente"),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const cashQrReceipts = pgTable(
+  "cash_qr_receipts",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    numeroOperacion: text("numero_operacion").notNull(),
+    montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+    estado: text("estado").notNull().default("pendiente"),
+    idempotencyKey: text("idempotency_key").notNull(),
   // CAJA-S1 (migración 0022): fecha del comprobante e ingesta bot|gmail|manual.
   fechaOperacion: timestamp("fecha_operacion"),
   origen: text("origen").notNull().default("manual"),
   // CAJA-S1: movimiento asociado en auto, SET NULL al borrarlo.
   cashMovementId: uuid("cash_movement_id").references(() => cashMovements.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [
+    uniqueIndex("cash_qr_receipts_tenant_numero_uq").on(t.tenantId, t.numeroOperacion),
+    uniqueIndex("cash_qr_receipts_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey),
+  ],
+);
 
 export const cashDueItems = pgTable("cash_due_items", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   concepto: text("concepto").notNull(),
   venceEl: timestamp("vence_el").notNull(),
@@ -432,8 +473,7 @@ export const cashDueItems = pgTable("cash_due_items", {
 });
 
 export const ticketPayments = pgTable("ticket_payments", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   saleId: uuid("sale_id").notNull(),
   metodo: text("metodo").notNull(),
@@ -445,11 +485,12 @@ export const ticketPayments = pgTable("ticket_payments", {
 // PERS4-S1 (ADR-0079): trabajos y eventos OCR. tenant_id nullable (ADR-0116 C1).
 // idempotency_key único = replay de Idempotency-Key. Timestamps explícitos
 // (no default en creado/actualizado) porque el dominio ya trae ISO del caller.
-export const ocrJobs = pgTable("ocr_jobs", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
-  id: uuid("id").primaryKey(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const ocrJobs = pgTable(
+  "ocr_jobs",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull(),
   origen: text("origen").notNull(),
   bytesRef: text("bytes_ref").notNull(),
   emisor: text("emisor"),
@@ -459,11 +500,12 @@ export const ocrJobs = pgTable("ocr_jobs", {
   creadoEn: timestamp("creado_en").notNull(),
   actualizadoEn: timestamp("actualizado_en").notNull(),
   recordadoEn: timestamp("recordado_en"),
-});
+  },
+  (t) => [uniqueIndex("ocr_jobs_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 export const ocrEventos = pgTable("ocr_eventos", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   tipo: text("tipo").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
@@ -479,8 +521,7 @@ export const mpPreapprovalTenants = pgTable("mp_preapproval_tenants", {
 
 // P0-5: eventos del webhook de Mercado Pago. tenant_id nullable (ADR-0116 C1).
 export const mpWebhookEvents = pgTable("mp_webhook_events", {
-  // ADR-0116 C1: nullable; NOT NULL + unique compuesto en cierre.
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   clave: text("clave").primaryKey(),
   preapprovalId: text("preapproval_id").notNull(),
   estado: text("estado").notNull(),

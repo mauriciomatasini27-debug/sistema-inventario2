@@ -7,6 +7,7 @@ import { consultarNombre } from "../../src/lib/repos/busqueda-nombre.js";
 import { getTenantDb } from "../../src/lib/db.js";
 import { products } from "../../src/db/schema.js";
 import { productAliases } from "../../src/db/schema-whatsapp.js";
+import { filaPg } from "../helpers/pg-tenant-fixture.js";
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..", "..");
 
@@ -55,10 +56,10 @@ describe.skipIf(!hayPG)("consultarNombre con PG (integración)", () => {
   it("milca encuentra productos Milka vía SQL", async () => {
     const db = getTenantDb();
     await db.insert(products).values([
-      { sku: skuLeche, nombre: "Milka leche", precioCentavos: 100n, stockActual: 5, minStock: 2 },
-      { sku: skuOreo, nombre: "Milka oreo", precioCentavos: 100n, stockActual: 3, minStock: 2 },
+      filaPg({ sku: skuLeche, nombre: "Milka leche", precioCentavos: 100n, stockActual: 5, minStock: 2 }),
+      filaPg({ sku: skuOreo, nombre: "Milka oreo", precioCentavos: 100n, stockActual: 3, minStock: 2 }),
     ]);
-    await db.insert(productAliases).values({ sku: skuLeche, alias: "milka leche barra", aliasNorm: "milka leche barra" });
+    await db.insert(productAliases).values(filaPg({ sku: skuLeche, alias: "milka leche barra", aliasNorm: "milka leche barra" }));
 
     const { resolucion } = await consultarNombre({ tenantId: null, texto: "cuantos milca tengo" });
     expect(["directo", "desambiguar"]).toContain(resolucion.kind);

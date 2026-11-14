@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
+import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { customerMovements } from "../../db/schema-credito.js";
@@ -304,7 +305,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         // FOR UPDATE) en la misma tx que inserta sale_returns, igual que
         // las ventas con mostrador. El lock serializa devoluciones
         // concurrentes: sin 409 falsos y sin recorrer sale_returns.
-        let filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_DEVOLUCION)).for("update");
+        let filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_DEVOLUCION)).for("update");
         if (!filas[0]) {
           const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
           let maximo = 0;
@@ -312,8 +313,8 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
             const m = /^D-(\d+)$/.exec(f.numero);
             if (m) maximo = Math.max(maximo, Number(m[1]));
           }
-          await tx.insert(ticketCounters).values({ id: SERIE_DEVOLUCION, ultimo: maximo }).onConflictDoNothing();
-          filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_DEVOLUCION)).for("update");
+          await tx.insert(ticketCounters).values(filaContadorTicket(SERIE_DEVOLUCION, maximo)).onConflictDoNothing();
+          filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_DEVOLUCION)).for("update");
         }
         const ultimo = filas[0]?.ultimo ?? 0;
         const seq = ultimo > 0 ? { n: ultimo } : null;
@@ -339,7 +340,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
           motivo: input.motivo,
           actor: input.actor,
         });
-        await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_DEVOLUCION));
+        await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_DEVOLUCION));
         return { estado: "ok", numero: num, efecto: dev.efecto };
       });
       if (salida.estado === "repetida") {

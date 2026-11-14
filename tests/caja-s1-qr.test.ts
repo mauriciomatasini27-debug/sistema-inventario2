@@ -148,26 +148,31 @@ describe.skipIf(!hayPG)("CAJA-S1 PG: migración 0022 crea cash_qr_receipts y per
       if (stmt) await db.execute(sql.raw(stmt));
     }
     const movId = crypto.randomUUID();
-    await db.insert(cashMovements).values({
-      id: movId,
-      saleId: null,
-      idempotencyKey: `s1-pg-${Date.now()}`,
-      tipo: "ingreso",
-      metodo: "QR",
-      categoriaId: "general",
-      origen: "cobro_fiado",
-      montoCentavos: 1500n,
-    });
+    const { filaPg } = await import("./helpers/pg-tenant-fixture.js");
+    await db.insert(cashMovements).values(
+      filaPg({
+        id: movId,
+        saleId: null,
+        idempotencyKey: `s1-pg-${Date.now()}`,
+        tipo: "ingreso",
+        metodo: "QR",
+        categoriaId: "general",
+        origen: "cobro_fiado",
+        montoCentavos: 1500n,
+      }),
+    );
     const num = `OP-S1-PG-${Date.now()}`;
-    await db.insert(cashQrReceipts).values({
-      numeroOperacion: num,
-      montoCentavos: 1500n,
-      estado: "asociado",
-      idempotencyKey: `s1-pg-qr-${Date.now()}`,
-      fechaOperacion: new Date(),
-      origen: "manual",
-      cashMovementId: movId,
-    });
+    await db.insert(cashQrReceipts).values(
+      filaPg({
+        numeroOperacion: num,
+        montoCentavos: 1500n,
+        estado: "asociado",
+        idempotencyKey: `s1-pg-qr-${Date.now()}`,
+        fechaOperacion: new Date(),
+        origen: "manual",
+        cashMovementId: movId,
+      }),
+    );
     const filas = await db.select().from(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, num)).limit(1);
     expect(filas[0]?.cashMovementId).toBe(movId);
     await db.delete(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, num));

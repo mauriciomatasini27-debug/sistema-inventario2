@@ -6,6 +6,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { empujarOperacion, leerLote, type PushEntrada } from "../src/lib/repos/sync.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
@@ -125,14 +126,19 @@ describe.skipIf(!hayPG)("ADR-0116 outbox shared en Postgres", () => {
     await conTenant(tenantA, () =>
       getTenantDb()
         .insert(outbox)
-        .values({
-          opId: opNull,
-          deviceCode: "caja-shared",
-          deviceSeq: 9,
-          hlc: "9:1",
-          modulo: "ajuste",
-          payload: { marca: "huerfana" },
-        }),
+        .values(
+          filaPg(
+            {
+              opId: opNull,
+              deviceCode: "caja-shared",
+              deviceSeq: 9,
+              hlc: "9:1",
+              modulo: "ajuste",
+              payload: { marca: "huerfana" },
+            },
+            tenantA,
+          ),
+        ),
     );
 
     const loteA = await conTenant(tenantA, () => leerLote(0, 50));
