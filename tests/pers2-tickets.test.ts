@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -115,9 +116,10 @@ async function sembrarProductoPG() {
   await conTenant("tenant-a", async () => {
     const db = getTenantDb();
     // Sin la columna sector (deriva schema/migración): insert crudo mínimo.
-    await db.execute(
-      sql`insert into products (sku, nombre, precio_centavos, stock_actual) values (${skuPG}, 'Pers2 tickets', 15000, 10) on conflict (sku) do nothing`,
-    );
+    await db
+      .insert(products)
+      .values(filaPg({ sku: skuPG, nombre: "Pers2 tickets", precioCentavos: 15000n, stockActual: 10 }))
+      .onConflictDoNothing({ target: [products.tenantId, products.sku] });
   });
 }
 

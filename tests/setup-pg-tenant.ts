@@ -1,6 +1,2 @@
-import { PG_TENANT_FIXTURE } from "./helpers/pg-tenant-fixture.js";
-
-/** Vitest: PG con single necesita DEFAULT_TENANT_ID uuid para filaConTenant en tests. */
-if (process.env.PG_TEST_URL_A && !process.env.DEFAULT_TENANT_ID) {
-  process.env.DEFAULT_TENANT_ID = PG_TENANT_FIXTURE;
-}
+// Sin DEFAULT_TENANT_ID global: slice0/single en memoria no debe heredar el fixture PG.
+// Los describes con DB usan filaPg() o activarTenantPgEnSingle() en beforeEach.

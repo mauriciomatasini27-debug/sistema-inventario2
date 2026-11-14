@@ -103,11 +103,12 @@ describe.skipIf(!hayPG)("ADR-0116 outbox shared en Postgres", () => {
     }
   });
 
-  it("el pull de A no trae ops de B ni una fila sin tenant", async () => {
+  it("el pull de A no trae ops de B ni filas de otro tenant_id", async () => {
     const opA = randomUUID();
     const opB = randomUUID();
-    const opNull = randomUUID();
-    ops.push(opA, opB, opNull);
+    const opOtro = randomUUID();
+    const tenantC = randomUUID();
+    ops.push(opA, opB, opOtro);
 
     const a = await conTenant(tenantA, () => empujarOperacion(entrada(opA, 5, "A")));
     const b = await conTenant(tenantB, () => empujarOperacion(entrada(opB, 1, "B")));
@@ -129,14 +130,14 @@ describe.skipIf(!hayPG)("ADR-0116 outbox shared en Postgres", () => {
         .values(
           filaPg(
             {
-              opId: opNull,
+              opId: opOtro,
               deviceCode: "caja-shared",
               deviceSeq: 9,
               hlc: "9:1",
               modulo: "ajuste",
               payload: { marca: "huerfana" },
             },
-            tenantA,
+            tenantC,
           ),
         ),
     );
@@ -176,8 +177,9 @@ describe.skipIf(!hayPG)("ADR-0116 outbox shared en Postgres", () => {
     expect(loteB.movimientos.map((m) => m.op_id)).not.toContain(opA);
   });
 
-  it("en single el alta deja tenant_id null y el pull ve la fila", async () => {
+  it("en single con PG sella tenant_id y el pull ve la fila", async () => {
     process.env.TENANT_MODE = "single";
+    process.env.DEFAULT_TENANT_ID = filaPg({ x: 0 }).tenantId;
     const op = randomUUID();
     ops.push(op);
     const r = await empujarOperacion(entrada(op, 1, "single"));
@@ -186,7 +188,7 @@ describe.skipIf(!hayPG)("ADR-0116 outbox shared en Postgres", () => {
     const db = getTenantDb();
     const cruda = await db.select().from(outbox).where(inArray(outbox.opId, [op]));
     expect(cruda).toHaveLength(1);
-    expect(cruda[0]?.tenantId ?? null).toBeNull();
+    expect(cruda[0]?.tenantId).toBe(process.env.DEFAULT_TENANT_ID);
     const lote = await leerLote(0, 50);
     expect(lote.movimientos.some((m) => m.op_id === op)).toBe(true);
   });

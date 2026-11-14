@@ -133,6 +133,7 @@ describe("ISO-S4 aislamiento fiscal por tenant", () => {
 describe("ISO regresión modo single", () => {
   it("sin TENANT_MODE responde 200 sin sesión y muestra docs de slice0 y legados", async () => {
     delete process.env.TENANT_MODE;
+    store.fiscalDocs.set("doc-legado", docFiscal("doc-legado"));
     store.fiscalDocs.set("doc-s0", docFiscal("doc-s0", "slice0"));
     const r = await pedirHistory();
     expect(r.status).toBe(200);

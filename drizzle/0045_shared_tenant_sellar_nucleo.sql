@@ -3,7 +3,10 @@
 --   n=0 tenants → sin UPDATE; NOT NULL en tablas vacías OK.
 --   n=1 → ese uuid en toda fila NULL del núcleo y pricing.
 --   n>1 → inferir por relación (products.sku, sales.id, stock_counts.id, mp_preapproval, payload OCR);
---         resto → fallback = primer tenants.es_demo por creado_en, si no el tenant más viejo.
+--         resto → fallback = primer tenants.es_demo por created_at, id (desempate);
+--             si no hay demo, el tenant más viejo por created_at, id.
+--   n=0 tenants → borrar semillas globales ticket_counters (0008/0019: mostrador/devolucion
+--             con ultimo=0 y tenant_id NULL). Las filas por comercio las crea filaContadorTicket al vender.
 --   Si queda NULL con filas en la tabla → EXCEPTION con tabla.
 -- Idempotente: IF NOT EXISTS en índices; DROP CONSTRAINT IF EXISTS.
 -- Sin DROP de datos. Una transacción lógica por bloque DO.
@@ -24,10 +27,17 @@ BEGIN
     SELECT id INTO tid_unico FROM tenants LIMIT 1;
     tid_fallback := tid_unico;
   ELSIF n_tenants > 1 THEN
-    SELECT id INTO tid_fallback FROM tenants WHERE es_demo = true ORDER BY created_at ASC LIMIT 1;
+    SELECT id INTO tid_fallback FROM tenants WHERE es_demo = true ORDER BY created_at ASC, id ASC LIMIT 1;
     IF tid_fallback IS NULL THEN
-      SELECT id INTO tid_fallback FROM tenants ORDER BY created_at ASC LIMIT 1;
+      SELECT id INTO tid_fallback FROM tenants ORDER BY created_at ASC, id ASC LIMIT 1;
     END IF;
+  END IF;
+
+  IF n_tenants = 0 THEN
+    DELETE FROM ticket_counters
+    WHERE tenant_id IS NULL
+      AND id IN ('mostrador', 'devolucion')
+      AND COALESCE(ultimo, 0) = 0;
   END IF;
 
   IF n_tenants > 0 THEN
@@ -45,13 +55,19 @@ BEGIN
     FROM sales s WHERE tp.sale_id = s.id AND tp.tenant_id IS NULL AND s.tenant_id IS NOT NULL;
 
     UPDATE product_codes pc SET tenant_id = p.tenant_id
-    FROM products p WHERE pc.sku = p.sku AND pc.tenant_id IS NULL AND p.tenant_id IS NOT NULL;
+    FROM products p
+    WHERE pc.sku = p.sku AND pc.tenant_id IS NULL AND p.tenant_id IS NOT NULL
+      AND p.tenant_id = COALESCE(tid_unico, tid_fallback);
     UPDATE stock_lots sl SET tenant_id = p.tenant_id
-    FROM products p WHERE sl.sku = p.sku AND sl.tenant_id IS NULL AND p.tenant_id IS NOT NULL;
+    FROM products p
+    WHERE sl.sku = p.sku AND sl.tenant_id IS NULL AND p.tenant_id IS NOT NULL
+      AND p.tenant_id = COALESCE(tid_unico, tid_fallback);
     UPDATE stock_movements sm SET tenant_id = p.tenant_id
     FROM products p WHERE sm.sku = p.sku AND sm.tenant_id IS NULL AND p.tenant_id IS NOT NULL;
     UPDATE product_photos pp SET tenant_id = p.tenant_id
-    FROM products p WHERE pp.sku = p.sku AND pp.tenant_id IS NULL AND p.tenant_id IS NOT NULL;
+    FROM products p
+    WHERE pp.sku = p.sku AND pp.tenant_id IS NULL AND p.tenant_id IS NOT NULL
+      AND p.tenant_id = COALESCE(tid_unico, tid_fallback);
 
     UPDATE stock_count_lines scl SET tenant_id = sc.tenant_id
     FROM stock_counts sc WHERE scl.count_id = sc.id AND scl.tenant_id IS NULL AND sc.tenant_id IS NOT NULL;
@@ -167,6 +183,9 @@ BEGIN
       'cost_history','product_markups','price_settings','price_overrides','price_adjustments','pricing_audit_log'
     ]) AS tabla
   LOOP
+  IF to_regclass(format('public.%I', rec.tabla)) IS NULL THEN
+      CONTINUE;
+    END IF;
     EXECUTE format('SELECT count(*)::int FROM %I WHERE tenant_id IS NULL', rec.tabla) INTO n_null;
     IF n_null > 0 THEN
       RAISE EXCEPTION '0045: tabla % tiene % filas con tenant_id NULL tras backfill', rec.tabla, n_null;
@@ -175,9 +194,27 @@ BEGIN
 END
 $nullguard$;
 --> statement-breakpoint
+ALTER TABLE "product_codes" DROP CONSTRAINT IF EXISTS "product_codes_sku_products_sku_fk";
+--> statement-breakpoint
+ALTER TABLE "stock_lots" DROP CONSTRAINT IF EXISTS "stock_lots_sku_products_sku_fk";
+--> statement-breakpoint
+ALTER TABLE "product_photos" DROP CONSTRAINT IF EXISTS "product_photos_sku_products_sku_fk";
+--> statement-breakpoint
 ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "products_sku_unique";
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "products_tenant_sku_uq" ON "products" ("tenant_id", "sku");
+--> statement-breakpoint
+ALTER TABLE "product_codes" ADD CONSTRAINT "product_codes_tenant_sku_products_fk"
+  FOREIGN KEY ("tenant_id", "sku") REFERENCES "public"."products" ("tenant_id", "sku")
+  ON DELETE NO ACTION ON UPDATE NO ACTION;
+--> statement-breakpoint
+ALTER TABLE "stock_lots" ADD CONSTRAINT "stock_lots_tenant_sku_products_fk"
+  FOREIGN KEY ("tenant_id", "sku") REFERENCES "public"."products" ("tenant_id", "sku")
+  ON DELETE NO ACTION ON UPDATE NO ACTION;
+--> statement-breakpoint
+ALTER TABLE "product_photos" ADD CONSTRAINT "product_photos_tenant_sku_products_fk"
+  FOREIGN KEY ("tenant_id", "sku") REFERENCES "public"."products" ("tenant_id", "sku")
+  ON DELETE NO ACTION ON UPDATE NO ACTION;
 --> statement-breakpoint
 ALTER TABLE "devices" DROP CONSTRAINT IF EXISTS "devices_device_code_unique";
 --> statement-breakpoint

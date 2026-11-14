@@ -353,7 +353,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     expect(filas[0]?.tenantId).toBe(tenantA);
   });
 
-  it("mp_webhook sin vínculo usa plataforma shared (tenant_id null, sin 503)", async () => {
+  it("mp_webhook sin vínculo usa plataforma shared (tenant sentinel, sin 503)", async () => {
     const preId = `pre-sin-${randomUUID()}`;
     const clave = `${preId}:gracia`;
     clavesMp.push({ clave });
@@ -363,7 +363,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
       .select()
       .from(mpWebhookEvents)
       .where(eq(mpWebhookEvents.clave, clave));
-    expect(filas[0]?.tenantId).toBeNull();
+    expect(filas[0]?.tenantId).toBe("00000000-0000-4000-8000-00000000ff01");
   });
 });
 
