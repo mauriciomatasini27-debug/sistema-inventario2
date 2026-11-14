@@ -390,15 +390,10 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     }
     // ADR-0116 C3: en shared el alta pega tenant_id; uniques globales siguen hasta el cierre.
     const tid = tenantIdAlSellar();
-    if (tid) {
-      await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector, tenant_id) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}, ${tid}::uuid) on conflict do nothing`,
-      );
-    } else {
-      await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}) on conflict do nothing`,
-      );
-    }
+    if (!tid) throw new Error("Falta tenant_id para persistir");
+    await db.execute(
+      sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector, tenant_id) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}, ${tid}::uuid) on conflict do nothing`,
+    );
     if (cod) {
       await db.insert(productCodes).values(filaConTenant({ codigo: cod, sku, padre: null })).onConflictDoNothing();
     }

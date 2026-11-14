@@ -18,7 +18,8 @@ export function tenantIdShared(): string | null {
   return t;
 }
 
-function uuidMultiPorSlug(tenantSlug: string): string {
+/** ADR-0116: uuid estable por slug en multi (cada DB es propia; no reemplaza el id lógico del slug). */
+export function tenantUuidMulti(tenantSlug: string): string {
   const h = createHash("sha256").update(`adr-0116-multi-row:${tenantSlug}`).digest();
   const b = Uint8Array.from(h.subarray(0, 16));
   b[6] = (b[6]! & 0x0f) | 0x40;
@@ -38,7 +39,7 @@ export function tenantIdAlSellar(): string | undefined {
     const t = tenantActual();
     if (!t) return undefined;
     if (UUID_TENANT.test(t)) return t;
-    return uuidMultiPorSlug(t);
+    return tenantUuidMulti(t);
   }
   const ctx = tenantActual();
   if (ctx && UUID_TENANT.test(ctx)) return ctx;

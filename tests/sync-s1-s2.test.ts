@@ -229,9 +229,12 @@ describe.skipIf(!hayPG)("SYNC-S1/S2 en PG local: cursor por tenant + catalogo de
       // Columnas explícitas: la base local puede no tener sector/location_id
       // (mismo drift que tolera altaProducto con su insert crudo).
       const db = getTenantDb();
-      const valores = filas.map((f) => sql`(${f.sku}, ${f.nombre}, ${f.precioCentavos}, ${f.stockActual})`);
+      const valores = filas.map(
+        (f) =>
+          sql`(${f.sku}, ${f.nombre}, ${f.precioCentavos}, ${f.stockActual}, ${filaPg({ sku: f.sku }).tenantId}::uuid)`,
+      );
       await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual) values ${sql.join(valores, sql`, `)} on conflict do nothing`,
+        sql`insert into products (sku, nombre, precio_centavos, stock_actual, tenant_id) values ${sql.join(valores, sql`, `)} on conflict do nothing`,
       );
       await getTenantDb().insert(outbox).values(
         opIds.map((opId, i) =>
