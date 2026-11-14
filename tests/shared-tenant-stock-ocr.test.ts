@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mpWebhookEvents, stockLots } from "../src/db/schema.js";
 import type { ItemCatalogo } from "../src/modules/pricing/precios.js";
 import { crear_job } from "../src/modules/ocr/jobs.js";
-import { getTenantDb } from "../src/lib/db.js";
+import { getSharedDbPlataforma, getTenantDb } from "../src/lib/db.js";
 import { altaProducto } from "../src/lib/repos/catalogo.js";
 import { aplicarImportacionStock } from "../src/lib/repos/importaciones.js";
 import { crearLote, listarLotes } from "../src/lib/repos/lotes.js";
@@ -196,7 +196,7 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
   const tenantA = randomUUID();
   const tenantB = randomUUID();
   const loteIds: string[] = [];
-  const clavesMp: string[] = [];
+  const clavesMp: { clave: string; tenantId?: string }[] = [];
   let snap: ReturnType<typeof guardarEnv> = {};
 
   beforeEach(() => {
@@ -211,13 +211,21 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
 
   afterEach(async () => {
     try {
-      if (loteIds.length > 0 || clavesMp.length > 0) {
-        const db = getTenantDb();
-        for (const id of loteIds) {
-          await db.delete(stockLots).where(eq(stockLots.id, id));
-        }
-        for (const clave of clavesMp) {
-          await db.delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+      if (loteIds.length > 0) {
+        await conTenant(tenantA, async () => {
+          const db = getTenantDb();
+          for (const id of loteIds) {
+            await db.delete(stockLots).where(eq(stockLots.id, id));
+          }
+        });
+      }
+      for (const { clave, tenantId } of clavesMp) {
+        if (tenantId) {
+          await conTenant(tenantId, async () => {
+            await getTenantDb().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+          });
+        } else {
+          await getSharedDbPlataforma().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
         }
       }
     } finally {
@@ -266,11 +274,25 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     const preId = `pre-${randomUUID()}`;
     vincularPreaprobacionTenant(preId, tenantA);
     const clave = `${preId}:activo`;
-    clavesMp.push(clave);
+    clavesMp.push({ clave, tenantId: tenantA });
     const ok = await reclamarEventoMp(clave, preId, "activo");
     expect(ok).toBe(true);
-    const db = getTenantDb();
-    const filas = await db.select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+    const filas = await conTenant(tenantA, () =>
+      getTenantDb().select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave)),
+    );
     expect(filas[0]?.tenantId).toBe(tenantA);
+  });
+
+  it("mp_webhook sin vínculo usa plataforma shared (tenant_id null, sin 503)", async () => {
+    const preId = `pre-sin-${randomUUID()}`;
+    const clave = `${preId}:gracia`;
+    clavesMp.push({ clave });
+    const ok = await reclamarEventoMp(clave, preId, "gracia");
+    expect(ok).toBe(true);
+    const filas = await getSharedDbPlataforma()
+      .select()
+      .from(mpWebhookEvents)
+      .where(eq(mpWebhookEvents.clave, clave));
+    expect(filas[0]?.tenantId).toBeNull();
   });
 });
