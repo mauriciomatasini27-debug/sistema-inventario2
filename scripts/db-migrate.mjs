@@ -8,6 +8,7 @@ import {
   splitStatements,
   planPendientes,
   filtrarStatementsPorTablas,
+  sslPostgresDesdeUrl,
 } from "./db-migrate-lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +23,7 @@ async function main() {
 
   const journal = JSON.parse(readFileSync(resolve(root, "drizzle/meta/_journal.json"), "utf8"));
   const { default: postgres } = await import("postgres");
-  const sql = postgres(url, { ssl: url.includes("localhost") ? false : "require", max: 1 });
+  const sql = postgres(url, { ssl: sslPostgresDesdeUrl(url), max: 1 });
 
   try {
     await sql.unsafe('CREATE SCHEMA IF NOT EXISTS "drizzle"');

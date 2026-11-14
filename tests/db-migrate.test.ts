@@ -8,6 +8,7 @@ import {
   tablaDeStatement,
   planPendientes,
   filtrarStatementsPorTablas,
+  sslPostgresDesdeUrl,
 } from "../scripts/db-migrate-lib.mjs";
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
 
@@ -123,6 +124,24 @@ describe("P1-69 db-migrate-lib", () => {
     expect(tablaDeStatement('CREATE TABLE IF NOT EXISTS "foo" ("x" int);')).toBe("foo");
     expect(tablaDeStatement('CREATE TABLE "bar" ("x" int);')).toBe("bar");
   });
+
+  it("no toma FUNCTION... como ON tabla (0004 auth_append_only_guard)", () => {
+    const fn = splitStatements(readFileSync("drizzle/0004_auth_append_only.sql", "utf8"))[3];
+    expect(tablaDeStatement(fn)).toBeNull();
+    const { run, skip } = filtrarStatementsPorTablas({
+      statements: splitStatements(readFileSync("drizzle/0004_auth_append_only.sql", "utf8")),
+      tablasExistentes: ["sessions", "memberships", "auth_events"],
+    });
+    expect(skip).toEqual([]);
+    expect(run.some((s) => s.includes('FUNCTION "auth_append_only_guard"'))).toBe(true);
+  });
+
+  it("sslPostgresDesdeUrl: loopback sin SSL, remoto require", () => {
+    expect(sslPostgresDesdeUrl("postgres://u:p@localhost/x")).toBe(false);
+    expect(sslPostgresDesdeUrl("postgres://u:p@127.0.0.1:5432/x")).toBe(false);
+    expect(sslPostgresDesdeUrl("postgres://u:p@[::1]:5432/x")).toBe(false);
+    expect(sslPostgresDesdeUrl("postgres://u:p@aws-1.pooler.supabase.com/x")).toBe("require");
+  });
 });
 
 async function crearBaseSinKit(nombreDb: string, urlReferencia: string): Promise<string> {
@@ -131,7 +150,10 @@ async function crearBaseSinKit(nombreDb: string, urlReferencia: string): Promise
   const url = u.toString();
   const mantenimiento = new URL(urlReferencia);
   mantenimiento.pathname = "/postgres";
-  const admin = postgres(mantenimiento.toString(), { max: 1 });
+  const admin = postgres(mantenimiento.toString(), {
+    max: 1,
+    ssl: sslPostgresDesdeUrl(mantenimiento.toString()),
+  });
   try {
     await admin.unsafe(`CREATE DATABASE "${nombreDb}"`);
   } catch (e) {
@@ -146,16 +168,18 @@ describe.skipIf(!hayPG)("P1-69 db-migrate runner en Postgres", () => {
   it(
     "0001..0044 con el runner: 0044 crea tablas nuevas (estado tipo piloto al 0043)",
     async () => {
-      const url = await crearBaseSinKit("db_migrate_p69_run", process.env.PG_TEST_URL_A ?? "");
-      execFileSync("node", ["scripts/db-migrate.mjs"], {
+      const nombre = `db_migrate_p69_${Date.now()}`;
+      const url = await crearBaseSinKit(nombre, process.env.PG_TEST_URL_A ?? "");
+      const out = execFileSync("node", ["scripts/db-migrate.mjs"], {
         env: { ...process.env, TENANT_DATABASE_URL: url },
-        stdio: "pipe",
+        encoding: "utf8",
       });
+      expect(out).toContain("ok: migrate completo");
 
       const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
         entries: { tag: string }[];
       };
-      const db = postgres(url, { max: 1 });
+      const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
         expect(n[0]?.n).toBe(journal.entries.length);
