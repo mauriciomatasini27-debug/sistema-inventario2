@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { cashMovements } from "../../db/schema.js";
 import { emailOutbox, notificationEvents } from "../../db/schema-email.js";
+import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { conTenant, tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant } from "../server-db.js";
 import { crearAlmacenEmailEventos, crearAlmacenEmailOutbox, crearListaMovimientos } from "./_almacen.js";
@@ -99,21 +99,26 @@ export async function encolarEnvio(input: {
 // Snapshot de caja para el resumen: cash_movements del tenant con DB viva,
 // memoria particionada en single sin base. En multi sin base propaga.
 export async function resumenMovimientosCaja(tenantId?: string): Promise<{ total: bigint; porMedio: Record<string, bigint> }> {
-  const db = dbVivaTenant(tenantId);
-  if (db) {
-    try {
-      const filas = await db.select({ tipo: cashMovements.tipo, metodo: cashMovements.metodo, monto: cashMovements.montoCentavos }).from(cashMovements);
+  // ADR-0116 C5: el filtro usa el ALS. El id del argumento tiene que entrar antes de abrir la base.
+  const leer = async () => {
+    const db = dbVivaTenant();
+    if (!db) return null;
+    return listarMovimientosCaja(db);
+  };
+  try {
+    const filas = tenantId ? await conTenant(tenantId, leer) : await leer();
+    if (filas !== null) {
       const porMedio: Record<string, bigint> = {};
       let total = 0n;
       for (const m of filas) {
         const signo = m.tipo === "ingreso" ? 1n : -1n;
-        porMedio[m.metodo] = (porMedio[m.metodo] ?? 0n) + signo * m.monto;
-        total += signo * m.monto;
+        porMedio[m.metodo] = (porMedio[m.metodo] ?? 0n) + signo * m.montoCentavos;
+        total += signo * m.montoCentavos;
       }
       return { total, porMedio };
-    } catch (e) {
-      conParticion(tenantId, () => crearListaMovimientos()).anteFalloPersistencia(e);
     }
+  } catch (e) {
+    conParticion(tenantId, () => crearListaMovimientos()).anteFalloPersistencia(e);
   }
   if (!hayMemoria(tenantId)) return { total: 0n, porMedio: {} };
   return conParticion(tenantId, () => {

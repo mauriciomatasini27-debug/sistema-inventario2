@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { cashMovements } from "../../db/schema.js";
 import { payees, paymentOrderEvents, paymentOrders } from "../../db/schema-pagos.js";
+import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
@@ -483,11 +483,7 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
       return { status: 409, body: { error: "idempotency-key repetida" } };
     }
     // Replay en frio: el egreso durable con la misma key delata el pago ya hecho.
-    const pagoPrevio = await db
-      .select({ id: cashMovements.id })
-      .from(cashMovements)
-      .where(eq(cashMovements.idempotencyKey, input.key))
-      .limit(1);
+    const pagoPrevio = await listarMovimientosCaja(db, { tipo: "clave", idempotencyKey: input.key });
     if (pagoPrevio[0]) return { status: 409, body: { error: "idempotency-key repetida" } };
     const vistosTx = new Map<string, PagoConfirmado>();
     const r = confirmar_pago({

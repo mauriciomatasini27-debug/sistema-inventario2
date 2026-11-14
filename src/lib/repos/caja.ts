@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
-import { cashDueItems, cashMovements, cashQrReceipts } from "../../db/schema.js";
+import { cashDueItems, cashQrReceipts } from "../../db/schema.js";
+import { insertarMovimientosCaja, listarMovimientosCaja, type FilaMovimientoCaja } from "./movimientos-caja.js";
 import {
   cashAuditLog,
   cashDrawerDrops,
@@ -55,8 +56,6 @@ import type { SnapshotCaja } from "../../modules/whatsapp/resumen-cierre.js";
 // dbVivaTenant(); solo en single sin base usa la memoria particionada. En
 // multi sin base dbVivaTenant lanza BaseNoDisponible y se propaga (503).
 
-type FilaMovimiento = typeof cashMovements.$inferSelect;
-
 export type { QrRecibo, VencimientoCaja };
 
 function esUuid(v: string): boolean {
@@ -65,7 +64,7 @@ function esUuid(v: string): boolean {
 
 const MEDIOS: Medio[] = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
-function filaAMovimientoStore(f: FilaMovimiento): StoredMovement {
+function filaAMovimientoStore(f: FilaMovimientoCaja): StoredMovement {
   return {
     id: f.id,
     tipo: f.tipo as StoredMovement["tipo"],
@@ -84,13 +83,11 @@ export async function obtenerBalance(): Promise<{ porMedio: Record<string, strin
   const db = dbVivaTenant();
   if (!db) return balanceMemoria(movimientos.listar());
   try {
-    const filas = await db
-      .select({ tipo: cashMovements.tipo, metodo: cashMovements.metodo, monto: cashMovements.montoCentavos })
-      .from(cashMovements);
+    const filas = await listarMovimientosCaja(db);
     const porMedio = Object.fromEntries(MEDIOS.map((m) => [m, 0n])) as Record<Medio, bigint>;
     let total = 0n;
     for (const f of filas) {
-      const v = f.monto;
+      const v = f.montoCentavos;
       if ((MEDIOS as string[]).includes(f.metodo)) porMedio[f.metodo as Medio] += (f.tipo === "ingreso" ? 1n : -1n) * v;
       total += (f.tipo === "ingreso" ? 1n : -1n) * v;
     }
@@ -127,10 +124,7 @@ export async function listarMovimientos(): Promise<StoredMovement[]> {
   const db = dbVivaTenant();
   if (!db) return [...movimientos.listar()];
   try {
-    const filas = await db
-      .select()
-      .from(cashMovements)
-      .orderBy(asc(cashMovements.createdAt), asc(cashMovements.id));
+    const filas = await listarMovimientosCaja(db);
     return filas.map(filaAMovimientoStore);
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
@@ -153,15 +147,12 @@ export async function listarMovimientosConFecha(): Promise<MovimientoConFecha[]>
   const db = dbVivaTenant();
   if (!db) return movimientosConFechaMemoria(movimientos.listar());
   try {
-    const filas = await db
-      .select({ tipo: cashMovements.tipo, monto: cashMovements.montoCentavos, origen: cashMovements.origen, creado: cashMovements.createdAt })
-      .from(cashMovements)
-      .orderBy(asc(cashMovements.createdAt), asc(cashMovements.id));
+    const filas = await listarMovimientosCaja(db);
     return filas.map((f) => ({
       tipo: f.tipo as "ingreso" | "egreso",
-      montoCentavos: f.monto,
+      montoCentavos: f.montoCentavos,
       origen: f.origen,
-      ocurridoEn: f.creado.toISOString(),
+      ocurridoEn: f.createdAt.toISOString(),
     }));
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
@@ -192,10 +183,7 @@ function movimientosCierreMemoria(movsVivos: StoredMovement[], turnosVivos: Read
 }
 
 async function movimientosCierreEnDb(db: TenantDb): Promise<{ movs: Movimiento[]; ultimoId: string | null; enDisputa: number }> {
-  const filas = await db
-    .select()
-    .from(cashMovements)
-    .orderBy(asc(cashMovements.createdAt), asc(cashMovements.id));
+  const filas = await listarMovimientosCaja(db);
   const disputas = await db
     .select({ id: shiftHandovers.id })
     .from(shiftHandovers)
@@ -472,7 +460,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
     const memMov = movimientoReversionMemoria(movimientos.listar(), input.revierteA);
     let original: Movimiento & { id: string } | null = memMov;
     if (!original) {
-      const filas = await db.select().from(cashMovements).where(eq(cashMovements.id, input.revierteA)).limit(1);
+      const filas = await listarMovimientosCaja(db, { tipo: "id", id: input.revierteA });
       const f = filas[0];
       if (!f) return { status: 422, error: "revierte_a inexistente", fuente: "db" };
       original = { id: f.id, tipo: f.tipo as Movimiento["tipo"], metodo: f.metodo as Medio, monto_centavos: f.montoCentavos, origen: f.origen as Movimiento["origen"] };
@@ -490,7 +478,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
     if (r.status !== 201) return { ...r, fuente: "db" };
     const movId = esUuid(input.key) ? input.key : randomUUID();
     await db.transaction(async (tx) => {
-      await tx.insert(cashMovements).values({
+      await insertarMovimientosCaja(tx, [{
         id: movId,
         saleId: null,
         idempotencyKey: input.key,
@@ -499,7 +487,7 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
         categoriaId: "reversion",
         origen: r.movimiento.origen,
         montoCentavos: r.movimiento.monto_centavos,
-      });
+      }]);
       await tx.insert(cashReversals).values({
         idempotencyKey: input.key,
         revierteA: input.revierteA,
@@ -582,7 +570,7 @@ async function reconstruirReversion(
   actor: string,
   motivo: string | null,
 ): Promise<{ status: 201; movimiento: { id: string; tipo: Movimiento["tipo"]; metodo: Medio; monto_centavos: bigint; origen: Movimiento["origen"]; revierteA: string }; auditoria: { accion: "reversion"; movimientoId: string; revierteA: string; actor: string; motivo?: string | undefined } } | null> {
-  const filas = await db.select().from(cashMovements).where(eq(cashMovements.id, movimientoId)).limit(1);
+  const filas = await listarMovimientosCaja(db, { tipo: "id", id: movimientoId });
   const f = filas[0];
   if (!f) return null;
   return {
@@ -889,10 +877,7 @@ export type RegistrarQrResult =
 // createdAt como ocurrido_en; en memoria usa el ocurrido_en del espejo.
 async function candidatosQrSinComprobante(db: TenantDb | null, vinculadosMemoria: Set<string>): Promise<QrCandidato[]> {
   if (db) {
-    const movs = await db
-      .select({ id: cashMovements.id, monto: cashMovements.montoCentavos, creado: cashMovements.createdAt })
-      .from(cashMovements)
-      .where(eq(cashMovements.metodo, "QR"));
+    const movs = await listarMovimientosCaja(db, { tipo: "metodo", metodo: "QR" });
     const vinculados = await db
       .select({ id: cashQrReceipts.cashMovementId })
       .from(cashQrReceipts)
@@ -900,7 +885,7 @@ async function candidatosQrSinComprobante(db: TenantDb | null, vinculadosMemoria
     const usados = new Set(vinculados.map((v) => v.id).filter((v): v is string => v !== null));
     return movs
       .filter((m) => !usados.has(m.id))
-      .map((m) => ({ id: m.id, monto_centavos: m.monto.toString(), ocurrido_en: m.creado.toISOString() }));
+      .map((m) => ({ id: m.id, monto_centavos: m.montoCentavos.toString(), ocurrido_en: m.createdAt.toISOString() }));
   }
   return crearListaMovimientos()
     .listar()
@@ -1205,7 +1190,7 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
   const db = dbVivaTenant();
   if (!db) return pagarVencimientoMemoria({ ...input, metodo }, vencimientos, movimientos);
   try {
-    const previos = await db.select().from(cashMovements).where(eq(cashMovements.idempotencyKey, input.key)).limit(1);
+    const previos = await listarMovimientosCaja(db, { tipo: "clave", idempotencyKey: input.key });
     const previo = previos[0];
     if (previo && previo.origen === `vencimiento:${input.id}`) {
       // Replay: repara la fila si el corte quedó entre el insert y el update,
@@ -1233,7 +1218,7 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
         return { status: 409 as const, error: "ya_pagado" };
       }
       const movId = randomUUID();
-      await tx.insert(cashMovements).values({
+      await insertarMovimientosCaja(tx, [{
         id: movId,
         saleId: null,
         idempotencyKey: input.key,
@@ -1242,7 +1227,7 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
         categoriaId: "vencimiento",
         origen: `vencimiento:${input.id}`,
         montoCentavos: fila.montoCentavos,
-      });
+      }]);
       await tx.update(cashDueItems).set({ cashMovementId: movId }).where(eq(cashDueItems.id, input.id));
       return { status: 200 as const, egresoId: movId, fila };
     });
@@ -1310,7 +1295,7 @@ export async function registrarEgresoRetiro(input: {
     return mov;
   }
   try {
-    await db.insert(cashMovements).values({
+    await insertarMovimientosCaja(db, [{
       saleId: null,
       idempotencyKey: input.key,
       tipo: "egreso",
@@ -1318,7 +1303,7 @@ export async function registrarEgresoRetiro(input: {
       categoriaId: input.categoriaId ?? "pago_proveedor",
       origen: mov.origen,
       montoCentavos: input.montoCentavos,
-    });
+    }]);
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
   }
@@ -1353,7 +1338,7 @@ export async function registrarMovimientoDevolucion(input: {
     return mov;
   }
   try {
-    await db.insert(cashMovements).values({
+    await insertarMovimientosCaja(db, [{
       id: mov.id,
       saleId: input.saleId,
       idempotencyKey: input.key,
@@ -1362,7 +1347,7 @@ export async function registrarMovimientoDevolucion(input: {
       categoriaId: "devolucion_venta",
       origen: "devolucion",
       montoCentavos: input.montoCentavos,
-    });
+    }]);
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
   }
@@ -1394,7 +1379,7 @@ export async function registrarIngresoCobro(input: {
     return mov;
   }
   try {
-    await db.insert(cashMovements).values({
+    await insertarMovimientosCaja(db, [{
       saleId: null,
       idempotencyKey: input.key,
       tipo: "ingreso",
@@ -1402,7 +1387,7 @@ export async function registrarIngresoCobro(input: {
       categoriaId: "cobro_fiado",
       origen: "cobro_fiado",
       montoCentavos: input.montoCentavos,
-    });
+    }]);
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
   }

@@ -1,9 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
-  cashMovements,
   products,
   sales,
   stockMovements,
@@ -418,7 +418,8 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
           })),
         );
         if (e.ingresaACaja) {
-          await tx.insert(cashMovements).values(
+          await insertarMovimientosCaja(
+            tx,
             pagosConId.map((p) => ({
               id: p.cashMovementId,
               saleId,

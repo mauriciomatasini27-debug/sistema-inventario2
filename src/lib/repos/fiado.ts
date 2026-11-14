@@ -1,8 +1,8 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { customerMovements, customers } from "../../db/schema-credito.js";
+import { insertarMovimientosCaja } from "./movimientos-caja.js";
 import {
   SERIE_MOSTRADOR,
-  cashMovements,
   products,
   sales,
   ticketCounters,
@@ -405,7 +405,7 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
         idempotencyKey: input.key,
         clientOccurredAt: new Date(),
       });
-      await tx.insert(cashMovements).values({
+      await insertarMovimientosCaja(tx, [{
         id: crypto.randomUUID(),
         idempotencyKey: input.key,
         tipo: "ingreso",
@@ -413,7 +413,7 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
         categoriaId: "cobro_fiado",
         origen: "cobro_fiado",
         montoCentavos: input.montoCentavos,
-      });
+      }]);
     });
     espejoCredito();
     return { ok: true, customerId: input.customerId, haberCentavos: input.montoCentavos.toString(), fuente: "db" };

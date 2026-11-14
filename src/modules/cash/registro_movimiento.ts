@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
-import { getTenantDb } from "../../lib/db.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
-import { cashMovements } from "../../db/schema.js";
+import { insertarMovimientosCaja, listarMovimientosCaja, type FilaMovimientoCaja } from "../../lib/repos/movimientos-caja.js";
 import { store, type StoredMovement } from "../../lib/store.js";
 import type { Medio } from "../../lib/validation.js";
 
@@ -24,9 +22,6 @@ export type RegistroMovimientoFallo =
   | { readonly ok: false; readonly codigo: "VENTA_EXIGE_SALE_ID"; readonly status: 422 }
   | { readonly ok: false; readonly codigo: "REQUIERE_DUENO"; readonly status: 403 };
 
-type TenantDb = ReturnType<typeof getTenantDb>;
-type FilaMovimiento = typeof cashMovements.$inferSelect;
-
 // PERS2-S2: la disponibilidad de DB la resuelve el helper central
 // (dbVivaTenant: null en single, BaseNoDisponible en multi).
 
@@ -35,7 +30,7 @@ function esConflictoUnico(e: unknown): boolean {
 }
 
 // Response.json no serializa bigint: la fila sale con monto en string.
-function filaMovimientoJson(f: FilaMovimiento): Record<string, unknown> {
+function filaMovimientoJson(f: FilaMovimientoCaja): Record<string, unknown> {
   return { ...f, montoCentavos: f.montoCentavos.toString() };
 }
 
@@ -82,7 +77,7 @@ export async function registrar_movimiento_db_first(
   }
 
   try {
-    const previo = await db.select().from(cashMovements).where(eq(cashMovements.idempotencyKey, i.key)).limit(1);
+    const previo = await listarMovimientosCaja(db, { tipo: "clave", idempotencyKey: i.key });
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "DUPLICADO", status: 409, original: filaMovimientoJson(fila) };
   } catch {
@@ -92,7 +87,7 @@ export async function registrar_movimiento_db_first(
   }
 
   try {
-    await db.insert(cashMovements).values({
+    await insertarMovimientosCaja(db, [{
       saleId: i.sale_id ?? null,
       idempotencyKey: i.key,
       tipo: i.tipo,
@@ -100,12 +95,12 @@ export async function registrar_movimiento_db_first(
       categoriaId: i.categoria_id,
       origen: i.origen,
       montoCentavos: BigInt(i.monto_centavos),
-    });
+    }]);
   } catch (e) {
     // Carrera entre pre-check e insert: mismo 409 con relectura.
     if (esConflictoUnico(e)) {
       try {
-        const previo = await db.select().from(cashMovements).where(eq(cashMovements.idempotencyKey, i.key)).limit(1);
+        const previo = await listarMovimientosCaja(db, { tipo: "clave", idempotencyKey: i.key });
         const fila = previo[0];
         return { ok: false, codigo: "DUPLICADO", status: 409, original: fila ? filaMovimientoJson(fila) : null };
       } catch {
