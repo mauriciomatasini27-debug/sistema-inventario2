@@ -15,15 +15,20 @@ const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const tenantA = randomUUID();
 const tenantB = randomUUID();
 const sufijo = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`.toLowerCase();
+const sufijoB = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`.toLowerCase();
 const skuA = `ALIAS-A-${sufijo}`.toUpperCase();
-const skuB = `ALIAS-B-${sufijo}`.toUpperCase();
-const aliasA = `coca chica ${sufijo}`;
-const aliasB = `agua chica ${sufijo}`;
-// Solo dígitos: extraer_termino borra "de", "el", "la" aun dentro de palabras.
-const num = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
-const skuCafe = `ALIAS-CAFE-${num}`;
-const skuListas = Array.from({ length: 3 }, (_, i) => `ALIAS-YERBA${i}-${num}`);
-const skuMuchos = Array.from({ length: 6 }, (_, i) => `ALIAS-FIDEO${i}-${num}`);
+const skuB = `ALIAS-B-${sufijoB}`.toUpperCase();
+// Solo dígitos en consultas: extraer_termino borra "de", "el", "la" dentro de palabras.
+// Tokens aislados sin prefijo compartido: trgm emparejaba alias vecinos por el mismo num.
+const numCafe = `${Date.now()}c${Math.floor(Math.random() * 1e6)}`;
+const numMate = `${Date.now()}m${Math.floor(Math.random() * 1e6)}`;
+const numPasta = `${Date.now()}p${Math.floor(Math.random() * 1e6)}`;
+// Sin substring compartido entre A y B: trgm <% los confundía con el mismo sufijo.
+const aliasA = `rubia cola ${sufijo}`;
+const aliasB = `agua mineral ${sufijoB}`;
+const skuCafe = `ALIAS-CAFE-${numCafe}`;
+const skuListas = Array.from({ length: 3 }, (_, i) => `ALIAS-YERBA${i}-${numMate}`);
+const skuMuchos = Array.from({ length: 6 }, (_, i) => `ALIAS-FIDEO${i}-${numPasta}`);
 const todosSkus = () => [skuA, skuB, skuCafe, ...skuListas, ...skuMuchos];
 
 function fijarMulti() {
@@ -63,33 +68,31 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
     await conTenant(tenantA, async () => {
       const db = getTenantDb();
       const tidA = tenantIdParaFixture(tenantA);
+      await db.delete(productAliases).where(eq(productAliases.tenantId, tidA));
+      await db.delete(products).where(eq(products.tenantId, tidA));
       await db.insert(products).values(filaPg({ sku: skuA, nombre: "Gaseosa cola 500 ml", precioCentavos: 180000n, stockActual: 12 }, tidA));
       await db.insert(productAliases).values({ tenantId: tidA, sku: skuA, alias: aliasA, aliasNorm: aliasA });
-      // Alias de otro comercio en la misma base: el filtro por tenant lo deja afuera.
-      await db.insert(productAliases).values({ tenantId: tenantIdParaFixture(tenantB), sku: skuA, alias: aliasB, aliasNorm: aliasB });
-    });
-    await conTenant(tenantA, async () => {
-      const db = getTenantDb();
-      // Alias guardado con tildes y mayúsculas; dos alias del mismo producto.
-      const tidA = tenantIdParaFixture(tenantA);
-      await db.insert(products).values(filaPg({ sku: skuCafe, nombre: `Molienda tostada ${num}`, precioCentavos: 300000n, stockActual: 4 }, tidA));
+      await db.insert(products).values(filaPg({ sku: skuCafe, nombre: `Molienda tostada ${numCafe}`, precioCentavos: 300000n, stockActual: 4 }, tidA));
       await db.insert(productAliases).values([
-        { tenantId: tidA, sku: skuCafe, alias: `Café TOSTÁDO ${num}`, aliasNorm: `cafe tostado ${num}` },
-        { tenantId: tidA, sku: skuCafe, alias: `café ${num}`, aliasNorm: `cafe ${num}` },
+        { tenantId: tidA, sku: skuCafe, alias: `Café TOSTÁDO ${numCafe}`, aliasNorm: `cafe tostado ${numCafe}` },
+        { tenantId: tidA, sku: skuCafe, alias: `café ${numCafe}`, aliasNorm: `cafe ${numCafe}` },
       ]);
       for (const [i, sku] of skuListas.entries()) {
-        await db.insert(products).values(filaPg({ sku, nombre: `Producto lista ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
-        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `mate ${num} ${i}`, aliasNorm: `mate ${num} ${i}` });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto lista ${i} ${numMate}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
+        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `mate ${numMate} ${i}`, aliasNorm: `mate ${numMate} ${i}` });
       }
       for (const [i, sku] of skuMuchos.entries()) {
-        await db.insert(products).values(filaPg({ sku, nombre: `Producto pasta ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
-        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `pasta ${num} ${i}`, aliasNorm: `pasta ${num} ${i}` });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto pasta ${i} ${numPasta}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
+        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `pasta ${numPasta} ${i}`, aliasNorm: `pasta ${numPasta} ${i}` });
       }
     });
     await conTenant(tenantB, async () => {
       const db = getTenantDb();
-      await db.insert(products).values(filaPg({ sku: skuB, nombre: "Agua mineral 500 ml", precioCentavos: 90000n, stockActual: 7 }, tenantB));
-      await db.insert(productAliases).values({ tenantId: tenantB, sku: skuB, alias: aliasB, aliasNorm: aliasB });
+      const tidB = tenantIdParaFixture(tenantB);
+      await db.delete(productAliases).where(eq(productAliases.tenantId, tidB));
+      await db.delete(products).where(eq(products.tenantId, tidB));
+      await db.insert(products).values(filaPg({ sku: skuB, nombre: "Agua mineral 500 ml", precioCentavos: 90000n, stockActual: 7 }, tidB));
+      await db.insert(productAliases).values({ tenantId: tidB, sku: skuB, alias: aliasB, aliasNorm: aliasB });
     });
   });
 
@@ -120,24 +123,24 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
   });
 
   it("normaliza tildes y mayúsculas del alias y del texto", async () => {
-    const r = await consultar(tenantA, `cuantos CAFÉ TOSTADO ${num} tengo`);
+    const r = await consultar(tenantA, `cuantos CAFÉ TOSTADO ${numCafe} tengo`);
     expect(r.body).toMatchObject({ decision: "directo", sku: skuCafe, fuente: "db" });
   });
 
   it("dos alias que coinciden con el mismo producto dan una sola opción", async () => {
     // "cafe <num>" está contenido en los dos alias del producto: sigue siendo un candidato.
-    const r = await consultar(tenantA, `cuantos cafe ${num} tengo`);
+    const r = await consultar(tenantA, `cuantos cafe ${numCafe} tengo`);
     expect(r.body).toMatchObject({ decision: "directo", sku: skuCafe });
   });
 
   it("de 2 a 5 productos por alias arma la lista para elegir", async () => {
-    const r = await consultar(tenantA, `cuantos mate ${num} tengo`);
+    const r = await consultar(tenantA, `cuantos mate ${numMate} tengo`);
     expect(r.body).toMatchObject({ decision: "desambiguar", fuente: "db" });
     expect([...(r.body["opciones"] as string[])].sort()).toEqual([...skuListas].sort());
   });
 
   it("más de 5 productos por alias pide precisar", async () => {
-    const r = await consultar(tenantA, `cuantos pasta ${num} tengo`);
+    const r = await consultar(tenantA, `cuantos pasta ${numPasta} tengo`);
     expect(r.body).toMatchObject({ decision: "precisar", total: 6, fuente: "db" });
   });
 });
