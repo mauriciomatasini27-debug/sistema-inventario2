@@ -80,6 +80,13 @@ export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: str
   preapprovalPorTenant.set(preapprovalId, tenantId);
 }
 
+// P1-73: el webhook MP no pasa por conTenant; el mapa en memoria es la única
+// fuente hoy (no hay fila durable preapproval→tenant). Sin vínculo previo,
+// mp_webhook_events queda con tenant_id null hasta migración 0044 / cobro durable.
+export function tenantIdDePreapproval(preapprovalId: string): string | undefined {
+  return preapprovalPorTenant.get(preapprovalId);
+}
+
 export function registrarEstadoCobroMp(args: {
   readonly preapprovalId: string;
   readonly estado: "activo" | "gracia" | "suspendido";

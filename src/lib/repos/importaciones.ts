@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { products, stockImports, stockLots, stockMovements } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { altaProducto } from "./catalogo.js";
 import { crearLote } from "./lotes.js";
 import { crearAlmacenProductos, importacionesEnMemoria } from "./_almacen.js";
@@ -98,7 +99,8 @@ async function buscarPorIdemKey(
   db: TenantDb,
   idemKey: string,
 ): Promise<ImportacionRegistrada | null> {
-  const filas = await db.select().from(stockImports).where(eq(stockImports.idemKey, idemKey)).limit(1);
+  const w = dondeTenant(stockImports.tenantId, eq(stockImports.idemKey, idemKey)) ?? eq(stockImports.idemKey, idemKey);
+  const filas = await db.select().from(stockImports).where(w).limit(1);
   const fila = filas[0];
   return fila ? aRegistrada(fila) : null;
 }
@@ -114,14 +116,16 @@ export async function aplicarImportacionStock(
 
   try {
     const importacion = await db.transaction(async (tx) => {
+      const tid = tenantIdShared();
       const skus = entrada.filasValidas.map((f) => f.sku);
+      const wProd =
+        skus.length === 0
+          ? undefined
+          : dondeTenant(products.tenantId, inArray(products.sku, skus)) ?? inArray(products.sku, skus);
       const encontrados =
         skus.length === 0
           ? []
-          : await tx
-              .select({ sku: products.sku, stockActual: products.stockActual })
-              .from(products)
-              .where(inArray(products.sku, skus));
+          : await tx.select({ sku: products.sku, stockActual: products.stockActual }).from(products).where(wProd!);
       const existentes = new Map<string, number>(encontrados.map((p) => [p.sku.toUpperCase(), p.stockActual]));
       const nuevas = entrada.filasValidas.filter((f) => !existentes.has(f.sku));
       const filasNuevas = nuevas.length;
@@ -143,6 +147,7 @@ export async function aplicarImportacionStock(
           movimientos: entrada.filasValidas.length,
           creadoPor: entrada.creadoPor,
           creadoEn,
+          ...(tid ? { tenantId: tid } : {}),
         })
         .returning({ id: stockImports.id });
       const idImportacion = insertadas[0]?.id;
@@ -158,6 +163,7 @@ export async function aplicarImportacionStock(
               precioCentavos: BigInt(f.precioCentavos),
               stockActual: 0,
               sector: f.sector,
+              ...(tid ? { tenantId: tid } : {}),
             })),
           )
           .onConflictDoNothing();
@@ -172,6 +178,7 @@ export async function aplicarImportacionStock(
             cantidadRestante: fila.cantidad,
             venceEl: null,
             costoCentavos: 0n,
+            ...(tid ? { tenantId: tid } : {}),
           })
           .returning({ id: stockLots.id });
         const idLote = lotes[0]?.id;
@@ -183,11 +190,13 @@ export async function aplicarImportacionStock(
           delta: fila.cantidad,
           tipo: "ALTA",
           motivo: "importacion",
+          ...(tid ? { tenantId: tid } : {}),
         });
+        const wSku = dondeTenant(products.tenantId, eq(products.sku, fila.sku)) ?? eq(products.sku, fila.sku);
         await tx
           .update(products)
           .set({ stockActual: sql`${products.stockActual} + ${fila.cantidad}` })
-          .where(eq(products.sku, fila.sku));
+          .where(wSku);
       }
 
       return {

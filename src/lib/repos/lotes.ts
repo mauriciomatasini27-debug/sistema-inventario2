@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { stockLots } from "../../db/schema.js";
 import { dbVivaTenant } from "../server-db.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { costoUnitarioPorSku } from "../../modules/inventario/inventario.js";
 import { crearAlmacenLotes, crearListaMovimientosStock } from "./_almacen.js";
 import { aplicarMovimiento, movimientoDuplicado } from "./stock.js";
@@ -24,7 +25,8 @@ export async function listarLotes(): Promise<LoteVista[]> {
   const db = dbVivaTenant();
   if (!db) return [...almacenLotes.comoMapaSoloLectura().values()].map((l) => ({ id: l.id, sku: l.sku, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl }));
   try {
-    const filas = await db.select().from(stockLots);
+    const w = dondeTenant(stockLots.tenantId);
+    const filas = w ? await db.select().from(stockLots).where(w) : await db.select().from(stockLots);
     return filas.map((f) => ({ id: f.id, sku: f.sku, cantidadRestante: f.cantidadRestante, venceEl: f.venceEl ? f.venceEl.toISOString() : null }));
   } catch (e) {
     almacenLotes.anteFalloPersistencia(e);
@@ -116,7 +118,8 @@ async function ponerLoteEnCero(
   if (lote) almacenLotes.guardar(loteId, { ...lote, cantidadRestante: 0 });
   if (!db) return;
   try {
-    await db.update(stockLots).set({ cantidadRestante: 0 }).where(eq(stockLots.id, loteId));
+    const w = dondeTenant(stockLots.tenantId, eq(stockLots.id, loteId)) ?? eq(stockLots.id, loteId);
+    await db.update(stockLots).set({ cantidadRestante: 0 }).where(w);
   } catch (e) {
     almacenLotes.anteFalloPersistencia(e);
   }
@@ -138,7 +141,8 @@ export async function listarLotesDetalle(sku: string | null): Promise<LoteDetall
   const db = dbVivaTenant();
   if (!db) return ordenarFefo(filtrarLotes(sku));
   try {
-    const filas = await db.select().from(stockLots);
+    const w = dondeTenant(stockLots.tenantId);
+    const filas = w ? await db.select().from(stockLots).where(w) : await db.select().from(stockLots);
     const union = new Map<string, LoteDetalle>();
     for (const l of almacenLotes.comoMapaSoloLectura().values()) {
       union.set(l.id, { id: l.id, sku: l.sku, cantidad: l.cantidad, cantidadRestante: l.cantidadRestante, venceEl: l.venceEl, costoCentavos: l.costoCentavos });
@@ -242,14 +246,19 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
   try {
     // CAT-S4: el insert lleva el id generado para que la fila DB y el espejo
     // en memoria compartan id (el UPDATE de baja por id acierta).
-    await db.insert(stockLots).values({
-      id,
-      sku: input.sku,
-      cantidad: input.cantidad,
-      cantidadRestante: input.cantidad,
-      venceEl: input.venceEl ? new Date(input.venceEl) : null,
-      costoCentavos: BigInt(input.costoCentavos),
-    }).onConflictDoNothing();
+    const tid = tenantIdShared();
+    await db
+      .insert(stockLots)
+      .values({
+        id,
+        sku: input.sku,
+        cantidad: input.cantidad,
+        cantidadRestante: input.cantidad,
+        venceEl: input.venceEl ? new Date(input.venceEl) : null,
+        costoCentavos: BigInt(input.costoCentavos),
+        ...(tid ? { tenantId: tid } : {}),
+      })
+      .onConflictDoNothing();
     almacenLotes.guardar(id, { ...lote });
     const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     return { ok: true, lote, fuente: "db" };

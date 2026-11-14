@@ -82,6 +82,8 @@ export async function registrarAjuste(input: AjusteNuevo): Promise<RegistrarAjus
   }
 }
 
+// P1-73: tablas pricing sin tenant_id en DB (schema-precios.ts). El aislamiento
+// shared en Postgres queda para migración 0044; en memoria el store ya parte por tenant.
 async function registrarAjusteEnDb(
   db: TenantDb,
   almacen: Almacen<Ajuste>,

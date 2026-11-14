@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, notExists, sql, TransactionRollbackError } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
 import {
   crearAlmacenProductos,
@@ -59,23 +60,23 @@ async function listarPendientesDb(
 ): Promise<PendientesStockInicial> {
   const ventas30d = subconsultaVentas30d(db, desde);
   const vendidas = sql<number>`coalesce(${ventas30d.vendidas}, 0)`.mapWith(Number);
+  const movAlta = dondeTenant(
+    stockMovements.tenantId,
+    and(eq(stockMovements.sku, products.sku), eq(stockMovements.tipo, "ALTA")),
+  ) ?? and(eq(stockMovements.sku, products.sku), eq(stockMovements.tipo, "ALTA"));
   const pendiente = and(
     eq(products.origen, "alta_al_vender"),
-    notExists(
-      db
-        .select({ uno: sql`1` })
-        .from(stockMovements)
-        .where(and(eq(stockMovements.sku, products.sku), eq(stockMovements.tipo, "ALTA"))),
-    ),
+    notExists(db.select({ uno: sql`1` }).from(stockMovements).where(movAlta)),
   );
+  const wPend = dondeTenant(products.tenantId, pendiente) ?? pendiente;
   const filas = await db
     .select({ sku: products.sku, nombre: products.nombre, vendidas30d: vendidas })
     .from(products)
     .leftJoin(ventas30d, eq(ventas30d.productId, products.id))
-    .where(pendiente)
+    .where(wPend)
     .orderBy(desc(vendidas), asc(products.nombre))
     .limit(limite);
-  const totales = await db.select({ total: count() }).from(products).where(pendiente);
+  const totales = await db.select({ total: count() }).from(products).where(wPend);
   return {
     items: filas.map((f) => ({ sku: f.sku, nombre: f.nombre, vendidas30d: f.vendidas30d })),
     total: Number(totales[0]?.total ?? 0),
@@ -121,17 +122,15 @@ export async function cargarStockInicial(
   const db = dbVivaTenant();
   if (!db) return cargarStockInicialMemoria(sku, cantidad);
   try {
-    const provisorio = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(and(eq(products.sku, sku), eq(products.origen, "alta_al_vender")))
-      .limit(1);
+    const wProv =
+      dondeTenant(products.tenantId, and(eq(products.sku, sku), eq(products.origen, "alta_al_vender"))) ??
+      and(eq(products.sku, sku), eq(products.origen, "alta_al_vender"));
+    const provisorio = await db.select({ id: products.id }).from(products).where(wProv).limit(1);
     if (!provisorio[0]) return { ok: false, codigo: "NO_PENDIENTE" };
-    const alta = await db
-      .select({ id: stockMovements.id })
-      .from(stockMovements)
-      .where(and(eq(stockMovements.sku, sku), eq(stockMovements.tipo, "ALTA")))
-      .limit(1);
+    const wAlta =
+      dondeTenant(stockMovements.tenantId, and(eq(stockMovements.sku, sku), eq(stockMovements.tipo, "ALTA"))) ??
+      and(eq(stockMovements.sku, sku), eq(stockMovements.tipo, "ALTA"));
+    const alta = await db.select({ id: stockMovements.id }).from(stockMovements).where(wAlta).limit(1);
     if (alta[0]) return { ok: false, codigo: "NO_PENDIENTE" };
   } catch (e) {
     crearListaMovimientosStock().anteFalloPersistencia(e);
@@ -146,18 +145,20 @@ export async function cargarStockInicial(
     motivo: "stock inicial",
   };
   try {
+    const tid = tenantIdShared();
     await db.transaction(async (tx) => {
       const fila = await tx
         .insert(stockMovements)
-        .values(registro)
+        .values(tid ? { ...registro, tenantId: tid } : registro)
         .onConflictDoNothing()
         .returning({ id: stockMovements.id });
       // Sin fila, otro "Guardar" ganó el índice parcial: nada que sumar.
       if (!fila[0]) tx.rollback();
+      const wSku = dondeTenant(products.tenantId, eq(products.sku, sku)) ?? eq(products.sku, sku);
       await tx
         .update(products)
         .set({ stockActual: sql`${products.stockActual} + ${cantidad}` })
-        .where(eq(products.sku, sku));
+        .where(wSku);
     });
   } catch (e) {
     if (e instanceof TransactionRollbackError) return { ok: false, codigo: "NO_PENDIENTE" };

@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { products, stockCounts, stockCountLines, stockLots, stockMovements } from "../../db/schema.js";
 import type { Lote, LotId, Sku } from "../../modules/inventario/inventario.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant } from "../tenant-scope.js";
+import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
 import {
   crearAlmacenConteoVistos,
   crearAlmacenSectores,
@@ -102,11 +102,9 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
   const db = dbVivaTenant();
   if (!db) return false;
   try {
-    const filas = await db
-      .select({ id: stockMovements.id })
-      .from(stockMovements)
-      .where(eq(stockMovements.idemKey, idemKey))
-      .limit(1);
+    const w =
+      dondeTenant(stockMovements.tenantId, eq(stockMovements.idemKey, idemKey)) ?? eq(stockMovements.idemKey, idemKey);
+    const filas = await db.select({ id: stockMovements.id }).from(stockMovements).where(w).limit(1);
     return Boolean(filas[0]);
   } catch (e) {
     movimientos.anteFalloPersistencia(e);
@@ -133,6 +131,7 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
     return { fuente: "memoria" };
   }
   try {
+    const tid = tenantIdShared();
     await db.insert(stockMovements).values({
       idemKey: m.idemKey,
       sku: m.sku,
@@ -140,11 +139,13 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
       delta: m.delta,
       tipo: m.tipo,
       ...(m.motivo !== undefined ? { motivo: m.motivo } : {}),
+      ...(tid ? { tenantId: tid } : {}),
     });
+    const wProd = dondeTenant(products.tenantId, eq(products.sku, m.sku)) ?? eq(products.sku, m.sku);
     await db
       .update(products)
       .set({ stockActual: sql`${products.stockActual} + ${m.delta}` })
-      .where(eq(products.sku, m.sku));
+      .where(wProd);
     aplicarEnMemoria(registro, existencias, movimientos);
     return { fuente: "db" };
   } catch (e) {
