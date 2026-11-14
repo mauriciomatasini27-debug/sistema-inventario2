@@ -34,13 +34,28 @@ export function splitStatements(sqlText) {
  */
 export function tablaDeStatement(statement) {
   const s = String(statement ?? "");
+  if (/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+/i.test(s)) return null;
   const alter = s.match(/ALTER\s+TABLE\s+"([^"]+)"/i);
   if (alter) return alter[1];
-  const on = s.match(/ON\s+"([^"]+)"/i);
+  const on = s.match(/(?<![A-Za-z])ON\s+"([^"]+)"/i);
   if (on) return on[1];
   const create = s.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
   if (create) return create[1];
   return null;
+}
+
+/**
+ * @param {string} url
+ * @returns {false | "require"}
+ */
+export function sslPostgresDesdeUrl(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    return "require";
+  } catch {
+    return "require";
+  }
 }
 
 /**
@@ -62,20 +77,49 @@ export function planPendientes({ journalEntries, appliedCount }) {
   return { ok: true, pendientes: entries.slice(n) };
 }
 
+function esCreateTable(statement) {
+  return /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"/i.test(String(statement ?? ""));
+}
+
+function esDdlSiempreCorre(statement) {
+  const s = String(statement ?? "");
+  return (
+    esCreateTable(s) ||
+    /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+/i.test(s) ||
+    /CREATE\s+TYPE\s+/i.test(s) ||
+    /CREATE\s+EXTENSION\s+/i.test(s) ||
+    /CREATE\s+SCHEMA\s+/i.test(s)
+  );
+}
+
+function nombreFuncionCreada(statement) {
+  const m = String(statement).match(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+"([^"]+)"/i);
+  return m ? m[1] : null;
+}
+
 /**
  * @param {{ statements: string[], tablasExistentes: Iterable<string> }} args
  * @returns {{ run: string[], skip: { tabla: string, sql: string }[] }}
  */
 export function filtrarStatementsPorTablas({ statements, tablasExistentes }) {
   const hay = new Set(tablasExistentes);
+  const funciones = new Set();
   /** @type {string[]} */
   const run = [];
   /** @type {{ tabla: string, sql: string }[]} */
   const skip = [];
   for (const sql of statements) {
+    if (esDdlSiempreCorre(sql)) {
+      const creada = sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
+      if (creada) hay.add(creada[1]);
+      const fn = nombreFuncionCreada(sql);
+      if (fn) funciones.add(fn);
+      run.push(sql);
+      continue;
+    }
     const tabla = tablaDeStatement(sql);
-    // Sin tabla reconocida (p.ej. CREATE SCHEMA): se ejecuta igual.
-    if (tabla && !hay.has(tabla)) {
+    // Sin tabla reconocida (p.ej. UPDATE): se ejecuta igual.
+    if (tabla && !hay.has(tabla) && !funciones.has(tabla)) {
       skip.push({ tabla, sql });
       continue;
     }
