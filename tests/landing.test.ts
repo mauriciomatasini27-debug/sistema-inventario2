@@ -452,4 +452,11 @@ describe("landing LP3 (ADR-0030)", () => {
     expect(estado).toContain("Entrar a mi comercio");
     expect(estado).toContain('href="/panel"');
   });
+
+  it("ON1.5: Verificar después entra al comercio (/panel), no a la landing", () => {
+    const estado = src("pages/alta/estado.astro");
+    expect(estado).toContain("Verificar después");
+    expect(estado).toMatch(/\$\("despues"\)\.onclick\s*=\s*\(\)\s*=>\s*\{\s*location\.href\s*=\s*"\/panel"/);
+    expect(estado).not.toMatch(/\$\("despues"\)\.onclick\s*=\s*\(\)\s*=>\s*\{\s*location\.href\s*=\s*"\/"/);
+  });
 });
