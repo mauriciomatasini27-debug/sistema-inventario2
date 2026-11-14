@@ -28,7 +28,7 @@ export async function asegurarBasePrivada(nombreDb: string, urlReferencia: strin
   } finally {
     await admin.end();
   }
-  execFileSync("npx", ["drizzle-kit", "migrate"], {
+  execFileSync("npm", ["run", "db:migrate"], {
     env: { ...process.env, TENANT_DATABASE_URL: url },
     stdio: "pipe",
   });

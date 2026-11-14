@@ -3,6 +3,7 @@ import { whatsappUsage } from "../../db/schema-whatsapp.js";
 import { usageCounters } from "../../db/schema-planes.js";
 import { costoContabilidadBotConsultaUsdCentavos } from "../../modules/planes/catalogo.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { filaConTenant } from "../tenant-scope.js";
 import { crearAlmacenBotConsultas, crearAlmacenUsoPlanes } from "./_almacen.js";
 import { resumenConsultas, type ResumenConsultas } from "../../modules/whatsapp/tarjeta-bot.js";
 import { fechaAR, mesAR } from "../fecha-ar.js";
@@ -70,27 +71,31 @@ async function incrementarContadorBotConsulta(
   return db.transaction(async (tx) => {
     const insertados = await tx
       .insert(whatsappUsage)
-      .values({
-        tenantId: input.tenantId,
-        numeroE164: input.numeroE164,
-        wamid: input.wamid,
-        tipo: "consulta",
-        costoCentavos: 0n,
-        estado: "recibido",
-        createdAt: new Date(input.ahoraMs),
-      })
+      .values(
+        filaConTenant({
+          tenantId: input.tenantId,
+          numeroE164: input.numeroE164,
+          wamid: input.wamid,
+          tipo: "consulta",
+          costoCentavos: 0n,
+          estado: "recibido",
+          createdAt: new Date(input.ahoraMs),
+        }),
+      )
       .onConflictDoNothing({ target: whatsappUsage.wamid })
       .returning({ wamid: whatsappUsage.wamid });
     if (insertados.length === 0) return false;
     const filas = await tx
       .insert(usageCounters)
-      .values({
-        tenantId: input.tenantId,
-        mes,
-        feature: FEATURE_BOT_CONSULTA,
-        usado: 1,
-        costoCentavos,
-      })
+      .values(
+        filaConTenant({
+          tenantId: input.tenantId,
+          mes,
+          feature: FEATURE_BOT_CONSULTA,
+          usado: 1,
+          costoCentavos,
+        }),
+      )
       .onConflictDoUpdate({
         target: [usageCounters.tenantId, usageCounters.mes, usageCounters.feature],
         set: {
