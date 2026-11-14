@@ -62,6 +62,10 @@ export function planPendientes({ journalEntries, appliedCount }) {
   return { ok: true, pendientes: entries.slice(n) };
 }
 
+function esCreateTable(statement) {
+  return /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"/i.test(String(statement ?? ""));
+}
+
 /**
  * @param {{ statements: string[], tablasExistentes: Iterable<string> }} args
  * @returns {{ run: string[], skip: { tabla: string, sql: string }[] }}
@@ -73,8 +77,14 @@ export function filtrarStatementsPorTablas({ statements, tablasExistentes }) {
   /** @type {{ tabla: string, sql: string }[]} */
   const skip = [];
   for (const sql of statements) {
+    if (esCreateTable(sql)) {
+      const creada = sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
+      if (creada) hay.add(creada[1]);
+      run.push(sql);
+      continue;
+    }
     const tabla = tablaDeStatement(sql);
-    // Sin tabla reconocida (p.ej. CREATE SCHEMA): se ejecuta igual.
+    // Sin tabla reconocida (p.ej. CREATE SCHEMA, UPDATE): se ejecuta igual.
     if (tabla && !hay.has(tabla)) {
       skip.push({ tabla, sql });
       continue;
