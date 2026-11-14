@@ -1167,7 +1167,7 @@ export const POST: APIRoute = async ({ request }) => {
       let textoSel: string;
       try {
         const fuenteSel = dbVivaTenant(r.tenantId) ? "db" : "memoria";
-        const ficha = await leerFicha({ tenantId: r.tenantId, sku });
+        const ficha = await conTenant(r.tenantId, () => leerFicha({ tenantId: r.tenantId, sku }));
         textoSel = ficha
           ? redactarFicha({ ctx: ctxSel, ficha, comercio: comercioSel, permisos: membSel?.permisos ?? [] })
           : `No encontré esa opción en ${comercioSel}.`;
@@ -1205,7 +1205,7 @@ export const POST: APIRoute = async ({ request }) => {
       let textoDet: string;
       try {
         const fuenteDet = dbVivaTenant(r.tenantId) ? "db" : "memoria";
-        const ficha = await leerFicha({ tenantId: r.tenantId, sku });
+        const ficha = await conTenant(r.tenantId, () => leerFicha({ tenantId: r.tenantId, sku }));
         const detalle = ficha
           ? await textoDetalleSiCorresponde({
               tenantId: r.tenantId,
@@ -1306,7 +1306,9 @@ export const POST: APIRoute = async ({ request }) => {
   } else {
     try {
       const textoConsulta = pedidoDetalle && pedidoDetalle.texto !== "" ? pedidoDetalle.texto : msg.texto;
-      const { origen, resolucion } = await consultarNombre({ tenantId: r.tenantId, texto: textoConsulta });
+      const { origen, resolucion } = await conTenant(r.tenantId, () =>
+        consultarNombre({ tenantId: r.tenantId, texto: textoConsulta }),
+      );
       fuenteConsulta = origen;
       atencion = redactarConsulta({ ctx, resolucion, termino: extraer_termino(textoConsulta), comercio, permisos });
       if (resolucion.kind === "directo") {

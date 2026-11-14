@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { esModoShared, tenantActual, tenantPorDefecto } from "./tenant-mode.js";
 import { leerVarEntorno } from "./env.js";
 
-const UUID_TENANT = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const UUID_TENANT = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** P1-76: filas de plataforma (MP sin preapproval) en shared; NOT NULL en mp_webhook_events. */
 export const TENANT_PLATAFORMA_SHARED = "00000000-0000-4000-8000-00000000ff01";
