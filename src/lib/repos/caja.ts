@@ -11,6 +11,7 @@ import {
   shiftHandovers,
 } from "../../db/schema-caja.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenCierres,
   crearAlmacenDropVistos,
@@ -932,15 +933,17 @@ export async function registrarQr(input: RegistrarQrInput): Promise<RegistrarQrR
     }
     await db
       .insert(cashQrReceipts)
-      .values({
-        numeroOperacion: input.num,
-        montoCentavos: BigInt(input.montoCentavos),
-        estado: recibo.estado,
-        idempotencyKey: input.key,
-        ...(input.fechaOperacion !== undefined ? { fechaOperacion: new Date(input.fechaOperacion) } : {}),
-        origen,
-        ...(recibo.cashMovementId ? { cashMovementId: recibo.cashMovementId } : {}),
-      })
+      .values(
+        filaConTenant({
+          numeroOperacion: input.num,
+          montoCentavos: BigInt(input.montoCentavos),
+          estado: recibo.estado,
+          idempotencyKey: input.key,
+          ...(input.fechaOperacion !== undefined ? { fechaOperacion: new Date(input.fechaOperacion) } : {}),
+          origen,
+          ...(recibo.cashMovementId ? { cashMovementId: recibo.cashMovementId } : {}),
+        }),
+      )
       .onConflictDoNothing();
     qrRecibos.guardar(input.num, recibo);
     return { status: 201, recibo, ...(asociacion !== undefined ? { asociacion } : {}) };
@@ -1153,7 +1156,9 @@ export async function crearVencimiento(input: { concepto: string; venceEl: strin
     return d;
   }
   try {
-    await db.insert(cashDueItems).values({ id, concepto: d.concepto, venceEl: new Date(d.venceEl), montoCentavos: BigInt(d.montoCentavos), estado: "pendiente" });
+    await db
+      .insert(cashDueItems)
+      .values(filaConTenant({ id, concepto: d.concepto, venceEl: new Date(d.venceEl), montoCentavos: BigInt(d.montoCentavos), estado: "pendiente" }));
     vencimientos.guardar(id, d);
     return d;
   } catch (e) {

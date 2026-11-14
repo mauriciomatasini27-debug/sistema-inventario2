@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getControlDb } from "./db.js";
-import { tenantIdShared } from "./tenant-scope.js";
+import { filaConTenant } from "./tenant-scope.js";
 import {
   authEvents,
   devicePins,
@@ -302,7 +302,7 @@ export function persistirPinDispositivo(p: { deviceCode: string; pinHash: string
   return intentarControl((db) =>
     db
       .insert(devicePins)
-      .values({ deviceCode: p.deviceCode, pinHash: p.pinHash, bloqueado: p.bloqueado, actualizadoEn: new Date() })
+      .values(filaConTenant({ deviceCode: p.deviceCode, pinHash: p.pinHash, bloqueado: p.bloqueado, actualizadoEn: new Date() }))
       .onConflictDoUpdate({
         target: devicePins.deviceCode,
         set: { pinHash: p.pinHash, bloqueado: p.bloqueado, actualizadoEn: new Date() },
@@ -416,34 +416,34 @@ export function persistirOutboxOp(o: {
   modulo: string;
   payload: OutboxPayload;
 }): Promise<boolean> {
-  return intentarControl((db) => {
-    const tenantId = tenantIdShared();
-    return db
+  return intentarControl((db) =>
+    db
       .insert(outbox)
-      .values({
-        ...(tenantId ? { tenantId } : {}),
-        opId: o.opId,
-        deviceCode: o.deviceCode,
-        deviceSeq: o.deviceSeq,
-        hlc: o.hlc,
-        modulo: o.modulo,
-        payload: o.payload,
-      })
-      .onConflictDoNothing();
-  });
+      .values(
+        filaConTenant({
+          opId: o.opId,
+          deviceCode: o.deviceCode,
+          deviceSeq: o.deviceSeq,
+          hlc: o.hlc,
+          modulo: o.modulo,
+          payload: o.payload,
+        }),
+      )
+      .onConflictDoNothing(),
+  );
 }
 
 export function persistirIdMapping(m: { opId: string; idProvisorio: string; idDefinitivo: string }): Promise<boolean> {
-  return intentarControl((db) => {
-    const tenantId = tenantIdShared();
-    return db
+  return intentarControl((db) =>
+    db
       .insert(idMappings)
-      .values({
-        ...(tenantId ? { tenantId } : {}),
-        opId: m.opId,
-        idProvisorio: m.idProvisorio,
-        idDefinitivo: m.idDefinitivo,
-      })
-      .onConflictDoNothing();
-  });
+      .values(
+        filaConTenant({
+          opId: m.opId,
+          idProvisorio: m.idProvisorio,
+          idDefinitivo: m.idDefinitivo,
+        }),
+      )
+      .onConflictDoNothing(),
+  );
 }

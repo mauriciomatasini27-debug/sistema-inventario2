@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -170,7 +171,7 @@ async function sembrarVenta(tenant: "tenant-a" | "tenant-b", saleId: string) {
     const db = getTenantDb();
     await db
       .insert(sales)
-      .values({ id: saleId, idempotencyKey: `sem-${sufijoPG}-${saleId.slice(0, 8)}`, medio: "Efectivo", totalCentavos: 15000n, clientOccurredAt: new Date() })
+      .values(filaPg({ id: saleId, idempotencyKey: `sem-${sufijoPG}-${saleId.slice(0, 8)}`, medio: "Efectivo", totalCentavos: 15000n, clientOccurredAt: new Date() }))
       .onConflictDoNothing();
   });
 }

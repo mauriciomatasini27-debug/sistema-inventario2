@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { products, stockImports, stockLots, stockMovements } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { altaProducto } from "./catalogo.js";
 import { crearLote } from "./lotes.js";
 import { crearAlmacenProductos, importacionesEnMemoria } from "./_almacen.js";
@@ -116,7 +116,6 @@ export async function aplicarImportacionStock(
 
   try {
     const importacion = await db.transaction(async (tx) => {
-      const tid = tenantIdShared();
       const skus = entrada.filasValidas.map((f) => f.sku);
       const wProd =
         skus.length === 0
@@ -134,21 +133,22 @@ export async function aplicarImportacionStock(
 
       const insertadas = await tx
         .insert(stockImports)
-        .values({
-          idemKey: entrada.idemKey,
-          archivoNombre: entrada.archivo.nombre,
-          archivoSha256: entrada.archivo.sha256,
-          formato: entrada.archivo.formato,
-          filasTotal: entrada.totalFilas,
-          filasImportadas: entrada.filasValidas.length,
-          filasNuevas,
-          filasExistentes,
-          filasError: entrada.filasError,
-          movimientos: entrada.filasValidas.length,
-          creadoPor: entrada.creadoPor,
-          creadoEn,
-          ...(tid ? { tenantId: tid } : {}),
-        })
+        .values(
+          filaConTenant({
+            idemKey: entrada.idemKey,
+            archivoNombre: entrada.archivo.nombre,
+            archivoSha256: entrada.archivo.sha256,
+            formato: entrada.archivo.formato,
+            filasTotal: entrada.totalFilas,
+            filasImportadas: entrada.filasValidas.length,
+            filasNuevas,
+            filasExistentes,
+            filasError: entrada.filasError,
+            movimientos: entrada.filasValidas.length,
+            creadoPor: entrada.creadoPor,
+            creadoEn,
+          }),
+        )
         .returning({ id: stockImports.id });
       const idImportacion = insertadas[0]?.id;
       if (!idImportacion) throw new ImportacionPersistenciaError("insert-importacion", new Error("sin id"));
@@ -157,14 +157,15 @@ export async function aplicarImportacionStock(
         await tx
           .insert(products)
           .values(
-            nuevas.map((f) => ({
-              sku: f.sku,
-              nombre: f.nombre,
-              precioCentavos: BigInt(f.precioCentavos),
-              stockActual: 0,
-              sector: f.sector,
-              ...(tid ? { tenantId: tid } : {}),
-            })),
+            nuevas.map((f) =>
+              filaConTenant({
+                sku: f.sku,
+                nombre: f.nombre,
+                precioCentavos: BigInt(f.precioCentavos),
+                stockActual: 0,
+                sector: f.sector,
+              }),
+            ),
           )
           .onConflictDoNothing();
       }
@@ -172,26 +173,28 @@ export async function aplicarImportacionStock(
       for (const fila of entrada.filasValidas) {
         const lotes = await tx
           .insert(stockLots)
-          .values({
-            sku: fila.sku,
-            cantidad: fila.cantidad,
-            cantidadRestante: fila.cantidad,
-            venceEl: null,
-            costoCentavos: 0n,
-            ...(tid ? { tenantId: tid } : {}),
-          })
+          .values(
+            filaConTenant({
+              sku: fila.sku,
+              cantidad: fila.cantidad,
+              cantidadRestante: fila.cantidad,
+              venceEl: null,
+              costoCentavos: 0n,
+            }),
+          )
           .returning({ id: stockLots.id });
         const idLote = lotes[0]?.id;
         if (!idLote) throw new ImportacionPersistenciaError("crear-lote", new Error("stock_lots sin id"));
-        await tx.insert(stockMovements).values({
-          idemKey: `import:${idImportacion}:${fila.sku}`,
-          sku: fila.sku,
-          loteId: idLote,
-          delta: fila.cantidad,
-          tipo: "ALTA",
-          motivo: "importacion",
-          ...(tid ? { tenantId: tid } : {}),
-        });
+        await tx.insert(stockMovements).values(
+          filaConTenant({
+            idemKey: `import:${idImportacion}:${fila.sku}`,
+            sku: fila.sku,
+            loteId: idLote,
+            delta: fila.cantidad,
+            tipo: "ALTA",
+            motivo: "importacion",
+          }),
+        );
         const wSku = dondeTenant(products.tenantId, eq(products.sku, fila.sku)) ?? eq(products.sku, fila.sku);
         await tx
           .update(products)

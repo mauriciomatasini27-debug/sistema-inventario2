@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, notExists, sql, TransactionRollbackError } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
 import {
   crearAlmacenProductos,
@@ -145,11 +145,10 @@ export async function cargarStockInicial(
     motivo: "stock inicial",
   };
   try {
-    const tid = tenantIdShared();
     await db.transaction(async (tx) => {
       const fila = await tx
         .insert(stockMovements)
-        .values(tid ? { ...registro, tenantId: tid } : registro)
+        .values(filaConTenant(registro))
         .onConflictDoNothing()
         .returning({ id: stockMovements.id });
       // Sin fila, otro "Guardar" ganó el índice parcial: nada que sumar.

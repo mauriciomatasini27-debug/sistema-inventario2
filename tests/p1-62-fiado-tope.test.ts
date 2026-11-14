@@ -12,6 +12,7 @@ import { control, resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { POST as postCuenta } from "../src/pages/api/credit/sales-on-account.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { GET as getBalance } from "../src/pages/api/credit/balance.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
@@ -68,7 +69,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
     fijarMulti();
     resetStore();
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(products).values({ sku, nombre: "Fiado tope", precioCentavos: 6000n, stockActual: 80 });
+      await getTenantDb().insert(products).values(filaPg({ sku, nombre: "Fiado tope", precioCentavos: 6000n, stockActual: 80 }));
     });
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { ctx } from "./helpers/ctx.js";
+import { activarTenantPgEnSingle, filaPg } from "./helpers/pg-tenant-fixture.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
 
@@ -111,12 +112,15 @@ describe.skipIf(!hayPG)("CAJA-S4 PG: ticket_payments.cash_movement_id referencia
     modoSingleSinDb();
     resetStore();
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A ?? "";
+    activarTenantPgEnSingle();
     let saleId = "";
     try {
       const db = getTenantDb();
-      await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual) values (${skuPG}, 'Caja S4', 15000, 10) on conflict (sku) do nothing`,
-      );
+      const { products } = await import("../src/db/schema.js");
+      await db
+        .insert(products)
+        .values(filaPg({ sku: skuPG, nombre: "Caja S4", precioCentavos: 15000n, stockActual: 10 }))
+        .onConflictDoNothing({ target: [products.tenantId, products.sku] });
       const key = `caja-s4-pg-${sufijoPG}`;
       const r = (await postSales(
         ctx("http://x/api/sales", {

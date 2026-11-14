@@ -9,6 +9,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { products, stockCountLines, stockCounts, stockMovements } from "../src/db/schema.js";
 import { GET as getProducts, POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
 import { POST as postConteo } from "../src/pages/api/stock/conteo.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -165,7 +166,7 @@ describe.skipIf(!hayPG)("CAT-S7/S8/S11 multi con PG: sector durable por tenant",
     fijarMulti();
     const filas = await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(products).values({ sku: skuTipado, nombre: "Tipado", precioCentavos: 0n });
+      await db.insert(products).values(filaPg({ sku: skuTipado, nombre: "Tipado", precioCentavos: 0n }));
       return db.select({ sector: products.sector }).from(products).where(eq(products.sku, skuTipado));
     });
     expect(filas[0]?.sector).toBe("general");

@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { products, stockCounts, stockCountLines, stockLots, stockMovements } from "../../db/schema.js";
 import type { Lote, LotId, Sku } from "../../modules/inventario/inventario.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenConteoVistos,
   crearAlmacenSectores,
@@ -131,16 +131,16 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
     return { fuente: "memoria" };
   }
   try {
-    const tid = tenantIdShared();
-    await db.insert(stockMovements).values({
-      idemKey: m.idemKey,
-      sku: m.sku,
-      loteId: m.loteId,
-      delta: m.delta,
-      tipo: m.tipo,
-      ...(m.motivo !== undefined ? { motivo: m.motivo } : {}),
-      ...(tid ? { tenantId: tid } : {}),
-    });
+    await db.insert(stockMovements).values(
+      filaConTenant({
+        idemKey: m.idemKey,
+        sku: m.sku,
+        loteId: m.loteId,
+        delta: m.delta,
+        tipo: m.tipo,
+        ...(m.motivo !== undefined ? { motivo: m.motivo } : {}),
+      }),
+    );
     const wProd = dondeTenant(products.tenantId, eq(products.sku, m.sku)) ?? eq(products.sku, m.sku);
     await db
       .update(products)
@@ -277,14 +277,16 @@ export async function aplicarVentaLotes<T>(
   if (consumo.tomas.length > 0) {
     // P1-61: el orden FEFO vive en tomas[]; createdAt es el instante de la venta.
     await tx.insert(stockMovements).values(
-      consumo.tomas.map((t) => ({
-        idemKey: consumo.idemKey,
-        sku: t.sku,
-        loteId: loteIdParaFila(t.loteId),
-        delta: -t.cantidad,
-        tipo: "VENTA" as const,
-        createdAt: pedido.ahora,
-      })),
+      consumo.tomas.map((t) =>
+        filaConTenant({
+          idemKey: consumo.idemKey,
+          sku: t.sku,
+          loteId: loteIdParaFila(t.loteId),
+          delta: -t.cantidad,
+          tipo: "VENTA" as const,
+          createdAt: pedido.ahora,
+        }),
+      ),
     );
   }
   if (consumo.bajarCantidades) {
@@ -366,9 +368,11 @@ export async function crearConteo(input: CrearConteoInput): Promise<CrearConteoR
         return { ok: false, codigo: "DUPLICADO", error: "duplicado", original: { id: previas[0].id, idemKey: input.key } };
       }
       const id = crypto.randomUUID();
-      await db.insert(stockCounts).values({ id, idemKey: input.key, sector: "general", estado: "en_curso", contadoPor: input.contadoPor });
+      await db
+        .insert(stockCounts)
+        .values(filaConTenant({ id, idemKey: input.key, sector: "general", estado: "en_curso", contadoPor: input.contadoPor }));
       for (const d of diferencias) {
-        await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
+        await db.insert(stockCountLines).values(filaConTenant({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico }));
       }
       espejarCrearConteo({ id, sector: "general", idemKey: input.key, creadoEn: new Date().toISOString(), diferencias, estado: "en_curso" as const, contadoPor: input.contadoPor }, input.key, conteos, vistos);
       return { ok: true, id, diferencias };
@@ -495,9 +499,9 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
       const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
       if (previas[0]) return { ok: false, codigo: "DUPLICADO", conteoId: previas[0].id };
       const id = crypto.randomUUID();
-      await db.insert(stockCounts).values({ id, idemKey: input.key, sector: r.valor.sector, estado: "confirmado" });
+      await db.insert(stockCounts).values(filaConTenant({ id, idemKey: input.key, sector: r.valor.sector, estado: "confirmado" }));
       for (const d of diferencias) {
-        await db.insert(stockCountLines).values({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico });
+        await db.insert(stockCountLines).values(filaConTenant({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico }));
       }
       for (const m of r.valor.movimientos) {
         await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });

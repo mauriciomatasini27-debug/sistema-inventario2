@@ -5,5 +5,6 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
     exclude: [...configDefaults.exclude, "tests/arch/**", "tests/pers2-arch.test.ts", "tests/e2e/**"],
     environment: "node",
+    setupFiles: ["./tests/setup-pg-tenant.ts"],
   },
 });

@@ -21,6 +21,7 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { descontar, type Sku } from "../src/modules/inventario/inventario.js";
 import { registrar_venta } from "../src/modules/sales/registro_venta.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 // P1-60: VENTA no entra por aplicarMovimiento. Si el tipo vuelve a
 // aceptarla, esta asignación deja de compilar.
@@ -90,15 +91,17 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
 
   async function sembrar(sku: string, stock: number, lotes: ReadonlyArray<{ restante: number; vence: Date }>) {
     const db = getTenantDb();
-    await db.insert(products).values({ sku, nombre: sku, precioCentavos: 1000n, stockActual: stock });
+    await db.insert(products).values(filaPg({ sku, nombre: sku, precioCentavos: 1000n, stockActual: stock }));
     await db.insert(stockLots).values(
-      lotes.map((l) => ({
-        sku,
-        cantidad: l.restante,
-        cantidadRestante: l.restante,
-        venceEl: l.vence,
-        costoCentavos: 100n,
-      })),
+      lotes.map((l) =>
+        filaPg({
+          sku,
+          cantidad: l.restante,
+          cantidadRestante: l.restante,
+          venceEl: l.vence,
+          costoCentavos: 100n,
+        }),
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetStore } from "../src/lib/store.js";
@@ -272,16 +273,18 @@ describe.skipIf(!hayPG)("PERS2-S12/S13 multi con PG local: caja de A aislada de 
     fijarMulti();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(cashMovements).values({
-        id: movIdPG,
-        saleId: null,
-        idempotencyKey: movKeyPG,
-        tipo: "ingreso",
-        metodo: "Efectivo",
-        categoriaId: "general",
-        origen: "devolucion",
-        montoCentavos: 15000n,
-      });
+      await db.insert(cashMovements).values(
+        filaPg({
+          id: movIdPG,
+          saleId: null,
+          idempotencyKey: movKeyPG,
+          tipo: "ingreso",
+          metodo: "Efectivo",
+          categoriaId: "general",
+          origen: "devolucion",
+          montoCentavos: 15000n,
+        }),
+      );
     });
     const r1 = await conTenant("tenant-a", () =>
       postReversals(ctx("http://x/api/cash/reversals", { body: { revierte_a: movIdPG, actor: "duena" }, headers: { "Idempotency-Key": revKeyPG } })),

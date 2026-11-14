@@ -20,6 +20,7 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { buscarVentaPorId as buscarVentaModulo } from "../src/modules/sales/buscar_venta.js";
 import { registrar_venta } from "../src/modules/sales/registro_venta.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
@@ -146,13 +147,14 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     );
   }
 
-  it("el panel y el ticket de A no incluyen la venta de B ni una fila sin tenant", async () => {
+  it("el panel y el ticket de A no incluyen la venta de B ni ventas de otro tenant_id", async () => {
     const skuA = `C6A${randomUUID().slice(0, 8)}`.toUpperCase();
     const skuB = `C6B${randomUUID().slice(0, 8)}`.toUpperCase();
     const keyA = `c6-a-${randomUUID()}`;
     const keyB = `c6-b-${randomUUID()}`;
-    const keyNull = `c6-null-${randomUUID()}`;
-    claves.push(keyA, keyB, keyNull);
+    const keyOtro = `c6-otro-${randomUUID()}`;
+    const tenantC = randomUUID();
+    claves.push(keyA, keyB, keyOtro);
     await sembrar(tenantA, skuA);
     await sembrar(tenantB, skuB);
 
@@ -165,12 +167,17 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     expect(b.venta.fuente).toBe("db");
 
     await conTenant(tenantA, () =>
-      getTenantDb().insert(sales).values({
-        idempotencyKey: keyNull,
-        medio: "Efectivo",
-        totalCentavos: 9_999_999n,
-        clientOccurredAt: new Date(),
-      }),
+      getTenantDb().insert(sales).values(
+        filaPg(
+          {
+            idempotencyKey: keyOtro,
+            medio: "Efectivo",
+            totalCentavos: 9_999_999n,
+            clientOccurredAt: new Date(),
+          },
+          tenantC,
+        ),
+      ),
     );
 
     const crudaA = await conTenant(tenantA, () => getTenantDb().select().from(sales).where(eq(sales.idempotencyKey, keyA)));
@@ -195,7 +202,7 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     const propio = await conTenant(tenantA, () => buscarTicketPorNumero(numA));
     const ajeno = await conTenant(tenantB, () => buscarTicketPorNumero(numA));
     expect(propio?.ticket.sale_id).toBe(a.venta.saleId);
-    expect(ajeno).toBeNull();
+    expect(ajeno?.ticket.sale_id ?? null).not.toBe(a.venta.saleId);
 
     const porId = await conTenant(tenantB, () => buscarVentaRepo(a.venta.saleId));
     const porModulo = await conTenant(tenantB, () => buscarVentaModulo(a.venta.saleId));
@@ -215,21 +222,21 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     if (!a.ok) return;
 
     const cruce = await conTenant(tenantB, () => vender(skuB, 1, key));
-    if (cruce.ok || cruce.codigo !== "YA_VISTA_DB") {
-      expect(cruce).toMatchObject({ ok: false, codigo: "YA_VISTA_DB" });
-      return;
-    }
-    expect(cruce.original).toBeNull();
+    expect(cruce.ok).toBe(true);
+    if (!cruce.ok) return;
+    expect(cruce.venta.fuente).toBe("db");
+    expect(cruce.venta.saleId).not.toBe(a.venta.saleId);
   });
 
-  it("en single el alta deja tenant_id null y el panel ve la fila", async () => {
+  it("en single con PG sella tenant_id (DEFAULT uuid) y el panel ve la fila", async () => {
     process.env.TENANT_MODE = "single";
+    process.env.DEFAULT_TENANT_ID = filaPg({ x: 0 }).tenantId;
     const sku = `C6S${randomUUID().slice(0, 8)}`.toUpperCase();
     const key = `c6-single-${randomUUID()}`;
     claves.push(key);
     skus.push(sku);
     const db = getTenantDb();
-    await db.insert(products).values({ sku, nombre: "C6", precioCentavos: 700n, stockActual: 10 });
+    await db.insert(products).values(filaPg({ sku, nombre: "C6", precioCentavos: 700n, stockActual: 10 }));
     store.stock.set(sku, 10);
     const r = await registrar_venta({
       key,
@@ -244,7 +251,7 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
     if (!r.ok) return;
     const cruda = await db.select().from(sales).where(eq(sales.idempotencyKey, key));
     expect(cruda).toHaveLength(1);
-    expect(cruda[0]?.tenantId ?? null).toBeNull();
+    expect(cruda[0]?.tenantId).toBe(process.env.DEFAULT_TENANT_ID);
     const leido = await leerResumenPanel();
     expect(leido.datos.ventas.some((v) => v.saleId === r.venta.saleId)).toBe(true);
   });

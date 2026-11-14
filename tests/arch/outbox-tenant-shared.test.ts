@@ -26,7 +26,10 @@ describe("ADR-0116 SQL de outbox e id_mappings", () => {
       const rel = aPosix(f);
       if (EXCLUIDOS.has(rel)) continue;
       const texto = readFileSync(f, "utf8");
-      const sellos = texto.match(/tenantIdShared\(/g)?.length ?? 0;
+      const sellos =
+        (texto.match(/tenantIdShared\(/g)?.length ?? 0) +
+        (texto.match(/tenantIdAlSellar\(/g)?.length ?? 0) +
+        (texto.match(/filaConTenant\(/g)?.length ?? 0);
       for (const tabla of TABLAS) {
         const lecturas = texto.match(new RegExp(`\\.(?:from|update)\\(${tabla}\\b`, "g"))?.length ?? 0;
         const altas = texto.match(new RegExp(`\\.insert\\(${tabla}\\)`, "g"))?.length ?? 0;

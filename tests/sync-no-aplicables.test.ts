@@ -27,6 +27,7 @@ import {
 import { GET as getNoAplicables, POST as postNoAplicables } from "../src/pages/api/sync/no-aplicables.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
 
@@ -345,7 +346,7 @@ describe.skipIf(!hayPG)("P10-7 multi con PG local: estado en outbox, reintento y
       const db = getTenantDb();
       const ins = await db
         .insert(products)
-        .values({ sku: skuPG, nombre: "Producto P10-7", precioCentavos: 15000n, stockActual: 10 })
+        .values(filaPg({ sku: skuPG, nombre: "Producto P10-7", precioCentavos: 15000n, stockActual: 10 }))
         .returning({ id: products.id });
       return ins[0]?.id ?? "";
     });

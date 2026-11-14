@@ -1,7 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
-import { dondeTenant, tenantIdShared } from "../../lib/tenant-scope.js";
+import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
+import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
@@ -291,7 +292,8 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
   const db = dbVivaTenant();
   if (!db) return viaMemoria(i);
-  const tenantId = tenantIdShared();
+  const tenantId = tenantIdAlSellar();
+  if (!tenantId) return viaMemoria(i);
 
   // 409 antes de numerar, misma respuesta que el pre-check histórico.
   // La key es única en toda la base. Sin el filtro, el 409 devolvería la venta de otro comercio.
@@ -317,7 +319,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
   try {
     const salida = await db.transaction(async (tx) => {
       // Lock de secuencia: correlativo sin huecos, revierte con la tx.
-      const filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, "mostrador")).for("update");
+      let filas = await tx.select().from(ticketCounters).where(whereContadorTicket("mostrador")).for("update");
+      if (!filas[0] && tenantId) {
+        await tx.insert(ticketCounters).values(filaContadorTicket("mostrador", 0)).onConflictDoNothing();
+        filas = await tx.select().from(ticketCounters).where(whereContadorTicket("mostrador")).for("update");
+      }
       const ultimo = filas[0]?.ultimo ?? 0;
       // ADR-0106: el alta entra en la MISMA tx y antes del snapshot. Si el SKU
       // ya existe no lo pisa; la línea con alta no bloquea por stock inicial 0.
@@ -332,8 +338,9 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
             precioCentavos: BigInt(linea.precio_centavos),
             stockActual: 0,
             origen: "alta_al_vender",
+            tenantId,
           })
-          .onConflictDoNothing({ target: products.sku })
+          .onConflictDoNothing({ target: [products.tenantId, products.sku] })
           .returning({ id: products.id });
         if (insertado.length > 0) skusSinStockInicial.add(linea.product_id);
       }
@@ -397,13 +404,13 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
           sobreventa: e.ticket.sobreventa,
           offline: i.offline,
           clientOccurredAt: ahora,
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
         });
         await tx.insert(tickets).values({
           saleId,
           definitivo: e.ticket.definitivo,
           provisorio: e.ticket.provisorio,
-          ...(tenantId ? { tenantId } : {}),
+          tenantId,
         });
         // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
         const lineasDb = e.lineasConDescuento.flatMap((l) => {
@@ -418,6 +425,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
             qty: l.cantidad,
             precioCentavos: BigInt(linea.precio_centavos),
             costoCentavos: costo,
+            tenantId,
           }];
         });
         if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
@@ -452,11 +460,12 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
               metodo: p.medio,
               montoCentavos: BigInt(p.monto_centavos),
               cashMovementId: p.cashMovementId,
+              tenantId,
             })),
           );
         }
         if (e.ticket.definitivo) {
-          await tx.update(ticketCounters).set({ ultimo: ultimo + 1 }).where(eq(ticketCounters.id, "mostrador"));
+          await tx.update(ticketCounters).set({ ultimo: ultimo + 1 }).where(whereContadorTicket("mostrador"));
         }
         return {
           consumo: {

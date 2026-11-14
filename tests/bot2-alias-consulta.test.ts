@@ -9,6 +9,7 @@ import { products } from "../src/db/schema.js";
 import { productAliases } from "../src/db/schema-whatsapp.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as GETConsult } from "../src/pages/api/whatsapp/consult.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const tenantA = randomUUID();
@@ -61,7 +62,7 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
     resetStore();
     await conTenant(tenantA, async () => {
       const db = getTenantDb();
-      await db.insert(products).values({ sku: skuA, nombre: "Gaseosa cola 500 ml", precioCentavos: 180000n, stockActual: 12 });
+      await db.insert(products).values(filaPg({ sku: skuA, nombre: "Gaseosa cola 500 ml", precioCentavos: 180000n, stockActual: 12 }, tenantA));
       await db.insert(productAliases).values({ tenantId: tenantA, sku: skuA, alias: aliasA, aliasNorm: aliasA });
       // Alias de otro comercio en la misma base: el filtro por tenant lo deja afuera.
       await db.insert(productAliases).values({ tenantId: tenantB, sku: skuA, alias: aliasB, aliasNorm: aliasB });
@@ -69,23 +70,23 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
     await conTenant(tenantA, async () => {
       const db = getTenantDb();
       // Alias guardado con tildes y mayúsculas; dos alias del mismo producto.
-      await db.insert(products).values({ sku: skuCafe, nombre: `Molienda tostada ${num}`, precioCentavos: 300000n, stockActual: 4 });
+      await db.insert(products).values(filaPg({ sku: skuCafe, nombre: `Molienda tostada ${num}`, precioCentavos: 300000n, stockActual: 4 }, tenantA));
       await db.insert(productAliases).values([
         { tenantId: tenantA, sku: skuCafe, alias: `Café TOSTÁDO ${num}`, aliasNorm: `cafe tostado ${num}` },
         { tenantId: tenantA, sku: skuCafe, alias: `café ${num}`, aliasNorm: `cafe ${num}` },
       ]);
       for (const [i, sku] of skuListas.entries()) {
-        await db.insert(products).values({ sku, nombre: `Producto lista ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto lista ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tenantA));
         await db.insert(productAliases).values({ tenantId: tenantA, sku, alias: `mate ${num} ${i}`, aliasNorm: `mate ${num} ${i}` });
       }
       for (const [i, sku] of skuMuchos.entries()) {
-        await db.insert(products).values({ sku, nombre: `Producto pasta ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto pasta ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tenantA));
         await db.insert(productAliases).values({ tenantId: tenantA, sku, alias: `pasta ${num} ${i}`, aliasNorm: `pasta ${num} ${i}` });
       }
     });
     await conTenant(tenantB, async () => {
       const db = getTenantDb();
-      await db.insert(products).values({ sku: skuB, nombre: "Agua mineral 500 ml", precioCentavos: 90000n, stockActual: 7 });
+      await db.insert(products).values(filaPg({ sku: skuB, nombre: "Agua mineral 500 ml", precioCentavos: 90000n, stockActual: 7 }, tenantB));
       await db.insert(productAliases).values({ tenantId: tenantB, sku: skuB, alias: aliasB, aliasNorm: aliasB });
     });
   });

@@ -12,6 +12,7 @@ import { MS_POR_DIA, texto_bloqueo_mora } from "../src/modules/credit/saldos.js"
 import { POST as postCuenta } from "../src/pages/api/credit/sales-on-account.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 describe("P1-67 el cable de confirmado_exceso", () => {
   it("un string en confirmado_exceso es 422", async () => {
@@ -52,7 +53,7 @@ describe.skipIf(!hayPG)("P1-67 confirmación de exceso en la venta a cuenta", ()
     fijarMulti();
     resetStore();
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(products).values({ sku, nombre: "Fiado exceso", precioCentavos: 1500n, stockActual: 80 });
+      await getTenantDb().insert(products).values(filaPg({ sku, nombre: "Fiado exceso", precioCentavos: 1500n, stockActual: 80 }));
     });
   });
 

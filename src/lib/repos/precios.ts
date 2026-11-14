@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { priceAdjustments, pricingAuditLog } from "../../db/schema-precios.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { crearAlmacenAjustes, type Almacen } from "./_almacen.js";
 import {
   crearAjuste,
@@ -102,35 +102,36 @@ async function registrarAjusteEnDb(
     .where(wPrev ?? eq(priceAdjustments.idempotencyKey, key))
     .limit(1);
   if (previo[0]) return { ok: false, codigo: "CLAVE_REPETIDA", error: "idempotency-key repetida" };
-  const tid = tenantIdShared();
   const ahora = new Date();
   const ins = await db.transaction(async (tx) => {
     const filas = await tx
       .insert(priceAdjustments)
-      .values({
-        idempotencyKey: key,
-        direccion: ajuste.direccion,
-        porcentajeBp: Math.round(ajuste.porcentaje * 100),
-        pasoCentavos: ajuste.pasoCentavos,
-        vigenciaTipo: ajuste.vigenciaTipo,
-        aplicaEn: ajuste.aplicaEn ? new Date(ajuste.aplicaEn) : null,
-        estado: ajuste.estado,
-        confirmado,
-        creadoPor: ajuste.creadoPor,
-        createdAt: ahora,
-        ...(tid ? { tenantId: tid } : {}),
-      })
+      .values(
+        filaConTenant({
+          idempotencyKey: key,
+          direccion: ajuste.direccion,
+          porcentajeBp: Math.round(ajuste.porcentaje * 100),
+          pasoCentavos: ajuste.pasoCentavos,
+          vigenciaTipo: ajuste.vigenciaTipo,
+          aplicaEn: ajuste.aplicaEn ? new Date(ajuste.aplicaEn) : null,
+          estado: ajuste.estado,
+          confirmado,
+          creadoPor: ajuste.creadoPor,
+          createdAt: ahora,
+        }),
+      )
       .returning({ id: priceAdjustments.id });
     const fila = filas[0];
     if (!fila) throw new Error("ajuste sin fila");
-    await tx.insert(pricingAuditLog).values({
-      actor: ajuste.creadoPor,
-      ajusteId: fila.id,
-      motivo: auditoria.motivo,
-      antes: { texto: auditoria.antes },
-      despues: { texto: auditoria.despues },
-      ...(tid ? { tenantId: tid } : {}),
-    });
+    await tx.insert(pricingAuditLog).values(
+      filaConTenant({
+        actor: ajuste.creadoPor,
+        ajusteId: fila.id,
+        motivo: auditoria.motivo,
+        antes: { texto: auditoria.antes },
+        despues: { texto: auditoria.despues },
+      }),
+    );
     return fila.id;
   });
   almacen.guardar(key, ajuste);

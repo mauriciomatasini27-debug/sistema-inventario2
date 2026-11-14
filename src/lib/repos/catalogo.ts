@@ -3,7 +3,7 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { conTenant } from "../tenant-mode.js";
-import { dondeTenant, tenantIdShared } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../tenant-scope.js";
 import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
 import { normalizarSector } from "../../modules/inventario/sectores.js";
 import { nombresUbicacionesRubro } from "../../modules/onboarding/ubicaciones-rubro.js";
@@ -389,7 +389,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
       if (previoCod[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
     }
     // ADR-0116 C3: en shared el alta pega tenant_id; uniques globales siguen hasta el cierre.
-    const tid = tenantIdShared();
+    const tid = tenantIdAlSellar();
     if (tid) {
       await db.execute(
         sql`insert into products (sku, nombre, precio_centavos, stock_actual, sector, tenant_id) values (${sku}, ${input.nombre}, ${input.precioCentavos}, 0, ${ficha.sector}, ${tid}::uuid) on conflict do nothing`,
@@ -400,18 +400,13 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
       );
     }
     if (cod) {
-      await db
-        .insert(productCodes)
-        .values(tid ? { codigo: cod, sku, padre: null, tenantId: tid } : { codigo: cod, sku, padre: null })
-        .onConflictDoNothing();
+      await db.insert(productCodes).values(filaConTenant({ codigo: cod, sku, padre: null })).onConflictDoNothing();
     }
     if (input.foto) {
       await db
         .insert(productPhotos)
         .values(
-          tid
-            ? { sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes, tenantId: tid }
-            : { sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes },
+          filaConTenant({ sku, url: input.foto.url, ancho: input.foto.ancho, alto: input.foto.alto, bytes: input.foto.bytes }),
         );
     }
     // Por qué update separado: el insert crudo omite location_id a
@@ -586,7 +581,7 @@ export async function sembrarUbicacionesRubro(
     if (db) {
       try {
         // Un solo INSERT: o quedan todas las ubicaciones del rubro o ninguna.
-        await db.insert(locations).values(nuevas);
+        await db.insert(locations).values(nuevas.map((u) => filaConTenant(u)));
       } catch (e) {
         // Otra alta sembró primero (índice único por nombre): no es error.
         if (esChoqueUnicoUbicacion(e)) return { creadas: [], existentes: await leerUbicaciones(db, ubicaciones) };
@@ -614,7 +609,7 @@ export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResult
       }
       const u: Ubicacion = { id: randomUUID(), nombre: limpio, archivada: false };
       try {
-        await db.insert(locations).values(u);
+        await db.insert(locations).values(filaConTenant(u));
       } catch (ins) {
         if (esChoqueUnicoUbicacion(ins)) return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
         throw ins;

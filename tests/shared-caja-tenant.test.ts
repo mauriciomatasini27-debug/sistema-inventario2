@@ -13,6 +13,7 @@ import {
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { registrar_movimiento_db_first } from "../src/modules/cash/registro_movimiento.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
@@ -137,23 +138,29 @@ describe.skipIf(!hayPG)("ADR-0116 C5 caja shared en Postgres", () => {
     }
   });
 
-  it("A no ve la caja de B y una fila sin tenant queda invisible", async () => {
+  it("A no ve la caja de B ni filas de otro tenant_id", async () => {
     const keyA = `c5-a-${randomUUID()}`;
     const keyB = `c5-b-${randomUUID()}`;
-    const keyNull = `c5-null-${randomUUID()}`;
-    claves.push(keyA, keyB, keyNull);
+    const keyOtro = `c5-otro-${randomUUID()}`;
+    const tenantC = randomUUID();
+    claves.push(keyA, keyB, keyOtro);
 
     await conTenant(tenantA, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyA, 1000n)]));
     await conTenant(tenantB, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyB, 4000n)]));
     await conTenant(tenantA, () =>
-      getTenantDb().insert(cashMovements).values({
-        idempotencyKey: keyNull,
-        tipo: "ingreso",
-        metodo: "Efectivo",
-        categoriaId: "general",
-        origen: "ajuste",
-        montoCentavos: 9_999_999n,
-      }),
+      getTenantDb().insert(cashMovements).values(
+        filaPg(
+          {
+            idempotencyKey: keyOtro,
+            tipo: "ingreso",
+            metodo: "Efectivo",
+            categoriaId: "general",
+            origen: "ajuste",
+            montoCentavos: 9_999_999n,
+          },
+          tenantC,
+        ),
+      ),
     );
 
     const balA = await conTenant(tenantA, () => obtenerBalance());
@@ -171,26 +178,24 @@ describe.skipIf(!hayPG)("ADR-0116 C5 caja shared en Postgres", () => {
     const visto = await conTenant(tenantB, () => listarMovimientosCaja(getTenantDb(), { tipo: "clave", idempotencyKey: keyA }));
     expect(visto).toEqual([]);
 
-    let rechazo: unknown = null;
-    try {
-      await conTenant(tenantB, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyA, 1n)]));
-    } catch (e) {
-      rechazo = e;
-    }
-    expect(esClaveUnica(rechazo)).toBe(true);
-    const releido = await conTenant(tenantB, () => listarMovimientosCaja(getTenantDb(), { tipo: "clave", idempotencyKey: keyA }));
-    expect(releido).toEqual([]);
+    // P1-76: idempotency_key es único por (tenant_id, key); la misma clave en B no choca con A.
+    await conTenant(tenantB, () => insertarMovimientosCaja(getTenantDb(), [movimiento(keyA, 1n)]));
+    const histB2 = await conTenant(tenantB, () => listarMovimientos());
+    expect(histB2.map((m) => m.idempotency_key).sort()).toEqual([keyA, keyB].sort());
+    const histA2 = await conTenant(tenantA, () => listarMovimientos());
+    expect(histA2.map((m) => m.idempotency_key)).toEqual([keyA]);
   });
 
-  it("en single el alta deja tenant_id null y el listado ve la fila", async () => {
+  it("en single con PG sella tenant_id y el listado ve la fila", async () => {
     process.env.TENANT_MODE = "single";
+    process.env.DEFAULT_TENANT_ID = filaPg({ x: 0 }).tenantId;
     const key = `c5-single-${randomUUID()}`;
     claves.push(key);
     const db = getTenantDb();
     await insertarMovimientosCaja(db, [movimiento(key, 700n)]);
     const cruda = await db.select().from(cashMovements).where(eq(cashMovements.idempotencyKey, key));
     expect(cruda).toHaveLength(1);
-    expect(cruda[0]?.tenantId ?? null).toBeNull();
+    expect(cruda[0]?.tenantId).toBe(process.env.DEFAULT_TENANT_ID);
     const lista = await listarMovimientos();
     expect(lista.some((m) => m.idempotency_key === key)).toBe(true);
   });

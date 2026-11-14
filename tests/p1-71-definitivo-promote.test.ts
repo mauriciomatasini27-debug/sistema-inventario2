@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -53,12 +54,14 @@ describe.skipIf(!hayPG)("P1-71 promote completa tickets.definitivo", () => {
     resetStore();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(products).values({
-        sku,
-        nombre: "Producto P1-71",
-        precioCentavos: 15000n,
-        stockActual: 10,
-      });
+      await db.insert(products).values(
+        filaPg({
+          sku,
+          nombre: "Producto P1-71",
+          precioCentavos: 15000n,
+          stockActual: 10,
+        }),
+      );
     });
   });
 

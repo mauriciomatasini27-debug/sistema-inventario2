@@ -10,6 +10,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { outbox, products } from "../src/db/schema.js";
 import { buscarProductosLocal } from "../src/offline/busqueda-local.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -233,14 +234,16 @@ describe.skipIf(!hayPG)("SYNC-S1/S2 en PG local: cursor por tenant + catalogo de
         sql`insert into products (sku, nombre, precio_centavos, stock_actual) values ${sql.join(valores, sql`, `)} on conflict do nothing`,
       );
       await getTenantDb().insert(outbox).values(
-        opIds.map((opId, i) => ({
-          opId,
-          deviceCode: "caja-01",
-          deviceSeq: 1000 + i,
-          hlc: `${Date.now()}:${1000 + i}`,
-          modulo: "sales",
-          payload: { seq: i },
-        })),
+        opIds.map((opId, i) =>
+          filaPg({
+            opId,
+            deviceCode: "caja-01",
+            deviceSeq: 1000 + i,
+            hlc: `${Date.now()}:${1000 + i}`,
+            modulo: "sales",
+            payload: { seq: i },
+          }),
+        ),
       );
     });
 

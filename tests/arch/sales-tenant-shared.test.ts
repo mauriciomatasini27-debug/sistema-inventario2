@@ -29,7 +29,10 @@ describe("ADR-0116 C6 SQL de sales", () => {
       const altas = texto.match(/\.insert\(sales\)/g)?.length ?? 0;
       if (lecturas === 0 && altas === 0) continue;
       const filtros = texto.match(/dondeTenant\(sales\.tenantId/g)?.length ?? 0;
-      const sellos = texto.match(/tenantIdShared\(/g)?.length ?? 0;
+      const sellos =
+        (texto.match(/tenantIdShared\(/g)?.length ?? 0) +
+        (texto.match(/tenantIdAlSellar\(/g)?.length ?? 0) +
+        (texto.match(/filaConTenant\(/g)?.length ?? 0);
       if (lecturas > filtros || (altas > 0 && sellos < 1)) mal.push(`${rel} lecturas=${lecturas} filtros=${filtros} altas=${altas} sellos=${sellos}`);
     }
     expect(mal, mal.join("\n")).toEqual([]);

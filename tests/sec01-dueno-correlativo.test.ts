@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { control, resetStore, store } from "../src/lib/store.js";
@@ -396,10 +397,11 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
     resetStore();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual) values (${sku}, 'SEC PG', 15000, 10) on conflict (sku) do nothing`,
-      );
-      await db.insert(ticketCounters).values({ id: "mostrador", ultimo: 0 }).onConflictDoNothing();
+      await db
+        .insert(products)
+        .values(filaPg({ sku, nombre: "SEC PG", precioCentavos: 15000n, stockActual: 10 }))
+        .onConflictDoNothing({ target: [products.tenantId, products.sku] });
+      await db.insert(ticketCounters).values(filaPg({ id: "mostrador", ultimo: 0 })).onConflictDoNothing();
     });
     await conTenant("tenant-a", () => {
       store.nextTicket = 1;

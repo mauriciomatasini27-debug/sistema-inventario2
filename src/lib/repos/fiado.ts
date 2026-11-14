@@ -13,7 +13,8 @@ import { agregarDescuentoTicket, agregarLineaTicket, agregarStockMoveMemoria, gu
 import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { BaseNoDisponible, dbVivaTenant, intentarLeer } from "../server-db.js";
 import { tenantActual } from "../tenant-mode.js";
-import { tenantIdShared } from "../tenant-scope.js";
+import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
+import { filaConTenant, tenantIdAlSellar } from "../tenant-scope.js";
 import {
   crearAlmacenCreditoVistos,
   crearAlmacenStock,
@@ -154,7 +155,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   if (!db) {
     return { ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" };
   }
-  const tenantId = tenantIdShared();
+  const tenantId = tenantIdAlSellar();
 
   let costosDb: ReadonlyMap<string, bigint>;
   try {
@@ -168,10 +169,10 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       // PERS5-S3: el número sale de ticket_counters (serie mostrador,
       // FOR UPDATE) en la misma tx que inserta customer_movements, igual
       // que ventas y promote: sin T-* repetidos entre los tres.
-      let filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_MOSTRADOR)).for("update");
+      let filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_MOSTRADOR)).for("update");
       if (!filas[0]) {
-        await tx.insert(ticketCounters).values({ id: SERIE_MOSTRADOR, ultimo: 0 }).onConflictDoNothing();
-        filas = await tx.select().from(ticketCounters).where(eq(ticketCounters.id, SERIE_MOSTRADOR)).for("update");
+        await tx.insert(ticketCounters).values(filaContadorTicket(SERIE_MOSTRADOR, 0)).onConflictDoNothing();
+        filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_MOSTRADOR)).for("update");
       }
       const ultimo = filas[0]?.ultimo ?? 0;
       const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
@@ -284,22 +285,24 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           idempotencyKey: input.key,
           clientOccurredAt: ahora,
         });
-        await tx.insert(sales).values({
-          id: saleId,
-          idempotencyKey: input.key,
-          medio: "A cuenta",
-          totalCentavos: total,
-          sobreventa: r.efecto.faltantes.length > 0,
-          offline: false,
-          clientOccurredAt: ahora,
-          ...(tenantId ? { tenantId } : {}),
-        });
-        await tx.insert(tickets).values({
-          saleId,
-          definitivo: ticket,
-          provisorio: r.efecto.ticket.provisorio,
-          ...(tenantId ? { tenantId } : {}),
-        });
+        await tx.insert(sales).values(
+          filaConTenant({
+            id: saleId,
+            idempotencyKey: input.key,
+            medio: "A cuenta",
+            totalCentavos: total,
+            sobreventa: r.efecto.faltantes.length > 0,
+            offline: false,
+            clientOccurredAt: ahora,
+          }),
+        );
+        await tx.insert(tickets).values(
+          filaConTenant({
+            saleId,
+            definitivo: ticket,
+            provisorio: r.efecto.ticket.provisorio,
+          }),
+        );
         // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
         const lineasDb = input.lineas.flatMap((l) => {
           const productId = idPorSku.get(l.sku);
@@ -307,7 +310,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           const costo = costosDb.get(l.sku) ?? 0n;
           return [{ saleId, productId, qty: l.qty, precioCentavos: BigInt(l.precioCentavos), costoCentavos: costo }];
         });
-        if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+        if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb.map((fila) => filaConTenant(fila)));
         // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
         await tx.insert(ticketDiscounts).values(
           r.efecto.lineasConDescuento.map((l) => ({
@@ -320,7 +323,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
             netoCentavos: l.netoCentavos,
           })),
         );
-        if (ticket) await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, SERIE_MOSTRADOR));
+        if (ticket) await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_MOSTRADOR));
         return {
           consumo: {
             idemKey: input.key,

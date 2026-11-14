@@ -168,7 +168,7 @@ async function crearBaseSinKit(nombreDb: string, urlReferencia: string): Promise
 
 describe.skipIf(!hayPG)("P1-69 db-migrate runner en Postgres", () => {
   it(
-    "0001..0044 con el runner: 0044 crea tablas nuevas (estado tipo piloto al 0043)",
+    "0001..journal con el runner: último tag incluye tablas 0044 (piloto al 0043)",
     async () => {
       const nombre = `db_migrate_p69_${Date.now()}`;
       const url = await crearBaseSinKit(nombre, process.env.PG_TEST_URL_A ?? "");

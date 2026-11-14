@@ -6,6 +6,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { products, stockMovements } from "../src/db/schema.js";
 import { cargarStockInicial } from "../src/lib/repos/stock-inicial.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const sufijo = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`
@@ -28,13 +29,15 @@ describe.skipIf(!hayPG)("STOCK-S4b stock inicial: ALTA única bajo dos Guardar",
       const db = getTenantDb();
       await db.delete(stockMovements).where(eq(stockMovements.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
-      await db.insert(products).values({
-        sku,
-        nombre: "Race",
-        precioCentavos: 100n,
-        stockActual: 0,
-        origen: "alta_al_vender",
-      });
+      await db.insert(products).values(
+        filaPg({
+          sku,
+          nombre: "Race",
+          precioCentavos: 100n,
+          stockActual: 0,
+          origen: "alta_al_vender",
+        }),
+      );
     });
   });
 
