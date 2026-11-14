@@ -112,9 +112,9 @@ const modoVars = [
     padding-top: max(8px, env(safe-area-inset-top, 0px));
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
-    border-bottom: 1px solid var(--color-mid);
-    background: color-mix(in srgb, var(--color-void) 96%, transparent);
-    color: var(--color-star-white);
+    border-bottom: 1px solid var(--tema-linea);
+    background: var(--tema-barra);
+    color: var(--tema-texto);
     box-sizing: border-box;
   }
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -125,7 +125,7 @@ const modoVars = [
   }
   @media (prefers-reduced-transparency: reduce) {
     .topbar-panel {
-      background: var(--color-void);
+      background: var(--tema-fondo);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
     }
@@ -157,7 +157,7 @@ const modoVars = [
     gap: 5px;
     font-size: 11px;
     font-weight: 500;
-    color: var(--color-muted-dark);
+    color: var(--tema-texto-suave);
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -183,8 +183,8 @@ const modoVars = [
     min-width: 44px;
     min-height: 44px;
     border-radius: 999px;
-    border: 1px solid var(--color-mid);
-    background: var(--color-charcoal);
+    border: 1px solid var(--tema-linea);
+    background: var(--tema-superficie);
   }
   .topbar-panel-quien {
     display: none;
@@ -198,14 +198,14 @@ const modoVars = [
   }
   .topbar-panel-quien span {
     font-size: 11px;
-    color: var(--color-muted-dark);
+    color: var(--tema-texto-suave);
   }
   .topbar-panel-avatar {
     min-width: 44px;
     min-height: 44px;
     border-radius: 999px;
-    border: 1px solid var(--color-mid);
-    background: var(--color-mid);
+    border: 1px solid var(--tema-linea);
+    background: var(--tema-linea);
     display: grid;
     place-items: center;
     padding: 0;
@@ -213,7 +213,7 @@ const modoVars = [
     flex: none;
     font-weight: 700;
     font-size: 14px;
-    color: var(--color-star-white);
+    color: var(--tema-texto);
     letter-spacing: 0.02em;
   }
   .topbar-panel-avatar[aria-expanded="true"] {

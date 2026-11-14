@@ -5,13 +5,12 @@ import { describe, expect, it } from "vitest";
 const RAIZ = process.cwd();
 const leer = (p: string): string => readFileSync(join(RAIZ, p), "utf8");
 
-describe("TB-163: piel B en todo el panel", () => {
-  it("PanelShell oscurece cualquier .tablero, no solo Inicio", () => {
+describe("TB-163: piel B en todo el panel (solo oscuro tras TB-TEMA-CLARO)", () => {
+  it("PanelShell oscurece .tablero solo con data-tema=oscuro", () => {
     const shell = leer("src/components/panel/PanelShell.astro");
-    expect(shell).toContain("body:has(.tablero)");
-    expect(shell).toContain(".tablero.panel-shell {");
+    expect(shell).not.toMatch(/^\s*body:has\(\.tablero\)/m);
+    expect(shell).toContain(':root[data-tema="oscuro"] .tablero.panel-shell');
     expect(shell).toContain("--tema-fondo: var(--color-void)");
-    expect(shell).not.toMatch(/Las subpáginas siguen el tema/);
   });
 
   it("el contenido deja hueco para la barra a 390px", () => {
@@ -51,14 +50,14 @@ describe("TB-163: Productos y Fiado mobile-first", () => {
 });
 
 describe("TB-163: Vender y admin alineados al void", () => {
-  it("/venta usa fondo void del tablero", () => {
-    expect(leer("src/pages/venta.astro")).toContain("background: var(--color-void)");
+  it("/venta usa tokens tema en el body", () => {
+    expect(leer("src/pages/venta.astro")).toContain("background: var(--tema-fondo)");
   });
 
-  it("/admin declara piel oscura", () => {
+  it("/admin declara piel oscura solo en data-tema=oscuro", () => {
     const admin = leer("src/pages/admin.astro");
-    expect(admin).toContain("TB-163");
-    expect(admin).toContain("--papel: var(--color-void)");
-    expect(admin).toContain("--card: var(--color-charcoal)");
+    expect(admin).toContain(':root[data-tema="oscuro"]');
+    expect(admin).toMatch(/:root\[data-tema="oscuro"\]\s*\{[\s\S]*--papel:\s*var\(--color-void\)/);
+    expect(admin).toMatch(/:root\[data-tema="oscuro"\]\s*\{[\s\S]*--card:\s*var\(--color-charcoal\)/);
   });
 });

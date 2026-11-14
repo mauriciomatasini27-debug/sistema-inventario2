@@ -19,10 +19,11 @@ describe("TB-AUDIT-MOBILE: hallazgos tablero B", () => {
     expect(nav).toContain("data-abrir-reportes-comercio");
   });
 
-  it("/venta alinea vidrio-card al void del tablero B", () => {
+  it("/venta alinea vidrio-card a tokens de tema", () => {
     const venta = leer("src/pages/venta.astro");
-    expect(venta).toContain("TB-AUDIT-MOBILE");
-    expect(venta).toContain("--tema-superficie: var(--color-charcoal)");
+    expect(venta).toContain("TB-TEMA-CLARO");
+    expect(venta).toContain("background: var(--tema-superficie)");
     expect(venta).toContain(".tablero .vidrio-card");
+    expect(venta).toContain(':root[data-tema="oscuro"] .tablero .vidrio-card');
   });
 });

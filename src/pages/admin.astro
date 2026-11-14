@@ -30,23 +30,27 @@ const pills = [
     <TemaInicial />
     <style>
       :root {
-        /* TB-163: admin usa la misma piel oscura del tablero B. */
+        --papel: var(--tema-fondo); --canvas: var(--tema-linea); --tinta: var(--tema-texto);
+        --llama: var(--color-llama); --llama-hover: var(--color-llama-hover); --muted: var(--tema-texto-suave);
+        --card: var(--tema-superficie); --radio: 16px;
+      }
+      :root[data-tema="oscuro"] {
+        /* TB-163: en oscuro admin mantiene la piel B del tablero. */
         --papel: var(--color-void); --canvas: var(--color-mid); --tinta: var(--color-void);
-        --llama: var(--color-llama); --llama-hover: var(--color-llama-hover); --muted: var(--color-muted-dark);
-        --card: var(--color-charcoal); --radio: 16px;
+        --muted: var(--color-muted-dark); --card: var(--color-charcoal);
       }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--color-star-white); }
+      body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--tema-texto); }
       .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
       /* Barra superior */
       .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .logo { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
       nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
       nav.pills a { white-space: nowrap; text-decoration: none; color: var(--tema-texto-suave); font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center; }
-      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--color-star-white); }
+      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--tema-fondo); }
       .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
       .top-right input { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 44px; }
-      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--color-star-white); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--tema-fondo); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
       /* Saludo + KPIs */
       h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; }
       .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
@@ -80,8 +84,8 @@ const pills = [
       .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; }
       .ok { background: var(--estado-ok-tint); color: var(--estado-ok); } .warn { background: var(--estado-aviso-tint); color: var(--estado-aviso); } .pend { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
       /* Tarjeta oscura */
-      .dark { background: var(--tinta); color: var(--color-star-white); }
-      .dark h2 a { color: var(--color-star-white); border-color: var(--color-mid); }
+      .dark { background: var(--tinta); color: var(--tema-fondo); }
+      .dark h2 a { color: var(--tema-fondo); border-color: var(--tema-linea); }
       .heat { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 12px; }
       .heat i { aspect-ratio: 1; border-radius: 50%; background: var(--color-mid); }
       .heat i.on { background: var(--llama); }
@@ -91,7 +95,7 @@ const pills = [
       .dona { display: flex; align-items: center; justify-content: center; }
       .legend { display: flex; gap: 16px; justify-content: center; font-size: 14px; margin-top: 8px; }
       /* Banner plataforma + placeholders */
-      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--color-star-white); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
+      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--tema-fondo); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
       .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
       .mini { font-size: 13px; color: var(--tema-texto-suave); }
       .mini a { color: var(--tema-texto); font-weight: 600; }
