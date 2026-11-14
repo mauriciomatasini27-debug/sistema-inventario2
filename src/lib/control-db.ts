@@ -19,6 +19,7 @@ import {
 } from "../db/schema.js";
 import { whatsappCodes } from "../db/schema-whatsapp.js";
 import { deviceSyncState, offlineGrants } from "../db/schema-sync.js";
+import { rubroSchema } from "./validation.js";
 
 // Write-through de control best-effort (mismo patrón que server-db para el
 // tenant). El store en memoria sigue siendo la fuente de verdad en
@@ -262,10 +263,12 @@ export function asegurarAltaPendiente(a: {
   moneda: string;
   ownerGoogleSub: string;
   esDemo: boolean;
+  rubro?: string | undefined;
   requestKey: string;
   database: string;
   jobId: string;
 }): Promise<boolean> {
+  const rubroDb = a.rubro ? rubroSchema.safeParse(a.rubro) : undefined;
   return intentarControl(async (db) => {
     await db
       .insert(tenants)
@@ -279,6 +282,7 @@ export function asegurarAltaPendiente(a: {
         ownerGoogleSub: a.ownerGoogleSub,
         esDemo: a.esDemo,
         requestKey: a.requestKey,
+        ...(rubroDb?.success ? { rubro: rubroDb.data } : {}),
       })
       .onConflictDoNothing();
     await db

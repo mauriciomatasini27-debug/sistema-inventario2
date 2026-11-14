@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { memberships, tenants } from "../db/schema.js";
 import { getControlDb } from "./db.js";
 import { control } from "./store.js";
+import { rubroSchema } from "./validation.js";
 
 // Fila que devuelve la base de control. La memoria del proceso no sobrevive
 // a un reinicio, y el panel autoriza contra esa memoria.
@@ -19,8 +20,15 @@ export interface FilaMembresiaDurable {
   moneda: string;
   ownerGoogleSub: string | null;
   esDemo: boolean;
+  rubro: string | null;
   requestKey: string | null;
   trialHasta: Date | null;
+}
+
+function rubroDesdeDurable(raw: string | null): string | undefined {
+  if (!raw) return undefined;
+  const ok = rubroSchema.safeParse(raw);
+  return ok.success ? ok.data : undefined;
 }
 
 function comerciosActivos(googleSub: string): string[] {
@@ -36,6 +44,7 @@ function comerciosActivos(googleSub: string): string[] {
 function volcar(filas: readonly FilaMembresiaDurable[]): void {
   for (const f of filas) {
     if (!control.tenants.has(f.tenantId)) {
+      const rubro = rubroDesdeDurable(f.rubro);
       control.tenants.set(f.tenantId, {
         id: f.tenantId,
         nombreComercio: f.nombreComercio,
@@ -45,9 +54,16 @@ function volcar(filas: readonly FilaMembresiaDurable[]): void {
         moneda: f.moneda,
         ownerGoogleSub: f.ownerGoogleSub ?? f.googleSub,
         esDemo: f.esDemo,
+        ...(rubro ? { rubro } : {}),
         ...(f.requestKey ? { requestKey: f.requestKey } : {}),
         ...(f.trialHasta ? { trialHasta: f.trialHasta.toISOString() } : {}),
       });
+    } else {
+      const existente = control.tenants.get(f.tenantId);
+      if (existente && !existente.rubro) {
+        const rubro = rubroDesdeDurable(f.rubro);
+        if (rubro) existente.rubro = rubro;
+      }
     }
     if (!control.memberships.has(f.id)) {
       control.memberships.set(f.id, {
@@ -94,6 +110,7 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         moneda: tenants.moneda,
         ownerGoogleSub: tenants.ownerGoogleSub,
         esDemo: tenants.esDemo,
+        rubro: tenants.rubro,
         requestKey: tenants.requestKey,
         trialHasta: tenants.trialHasta,
       })
@@ -118,6 +135,7 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         moneda: f.moneda,
         ownerGoogleSub: f.ownerGoogleSub,
         esDemo: f.esDemo,
+        rubro: f.rubro,
         requestKey: f.requestKey,
         trialHasta: f.trialHasta,
       });
