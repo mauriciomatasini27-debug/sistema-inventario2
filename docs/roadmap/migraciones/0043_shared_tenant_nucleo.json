@@ -1,6 +1,6 @@
 {
   "tag": "0043_shared_tenant_nucleo",
-  "fecha": "2026-11-13",
+  "fecha": "2026-11-14",
   "aprobado_por": "Mauri",
-  "evidencia": "Aprobación en chat para ADR-0116 C1 (tenant_id nullable en núcleo). Aplicar en la base real antes o al merge del PR."
+  "evidencia": "Aplicada en la base real del piloto (2026-11-14). Confirmación de Mauri (ADR-0116 C1: tenant_id nullable en núcleo)."
 }
