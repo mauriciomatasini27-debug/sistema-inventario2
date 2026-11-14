@@ -24,7 +24,7 @@ El runbook P1-68 (`TENANT_MODE=multi` + `TENANT_DATABASE_URL_piloto1/2`) quedó 
 
 ## 0. Precondiciones
 
-1. Confirmá que `main` trae el carrito (P1-56), ADR-0116 (C0–C3) y la migración `0043_shared_tenant_nucleo`.
+1. Confirmá que `main` trae el carrito (P1-56), ADR-0116 aceptado (C0–C6 en código) y las migraciones `0042_proveedores_durable` y `0043_shared_tenant_nucleo` aplicadas en la base del piloto (registro 2026-11-14, confirmación de Mauri). Las tablas solo en schema (`platform_feedback_reports`, `inventory_counts`, `fiscal_customers`, `product_flags`, `report_exports`) siguen sin `CREATE` en `drizzle/*.sql`; ver propuesta de tag `0044_*` en [aud-piloto-modoops-2026-11-14.md](aud-piloto-modoops-2026-11-14.md).
 2. Tené a mano el dominio HTTPS del deploy (ejemplo `https://tu-app.vercel.app`). Las cookies de sesión usan el prefijo `__Host-` con `Secure`. Sin HTTPS el login no cierra.
 3. No uses solo el botón de laboratorio “2 comercios piloto”. El segundo comercio lleva `owner_google_sub: "piloto-basico-t2"` y no puede loguearse. Cada dueño real entra con Google y hace su propia alta.
 4. Un proyecto Supabase Free alcanza para control + negocio de todos los comercios del piloto.
@@ -58,7 +58,7 @@ Aislamiento = filas con `tenant_id` + sesión (ADR-0116). No hace falta una URL 
    TENANT_DATABASE_URL='postgresql://postgres.<ref>:<PASSWORD>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require' npm run db:migrate
    ```
 
-   Nunca migres por Transaction pooler (`:6543`). El journal aplica control + negocio en la misma base, incluida `0043` (`tenant_id` nullable en el núcleo).
+   Nunca migres por Transaction pooler (`:6543`). El journal aplica control + negocio en la misma base, incluidas `0042` y `0043` (`tenant_id` nullable en el núcleo). Usá `npm run db:migrate` (P1-69): saltea statements cuya tabla no existe (p. ej. `inventory_counts` si aún no hay `0044`); no uses `db:migrate:kit` crudo en una base sin todas las tablas del schema.
 
 3. En Vercel Production cargá:
 
@@ -152,7 +152,9 @@ node scripts/control-app/control-app.mjs apagar
 - FEFO en el cobro es agregado sobre stock visible, no descuento fila a fila de `stock_lots`.
 - Mercado Pago QR: registrá el medio a mano. No hay conciliación automática del webhook.
 - Cobro de suscripción: a mano. El webhook MP del repo no valida el `x-signature` real.
-- `tenant_id` en el núcleo aún es nullable (C1). El cierre `NOT NULL` + uniques compuestos es trabajo posterior. Catálogo/stock/sync ya filtran en shared (C3).
+- `tenant_id` en el núcleo aún es nullable (C1). El cierre `NOT NULL` + uniques compuestos es trabajo posterior. Catálogo/stock/sync de venta filtran en shared (C3); precios, lotes, importaciones, stock inicial, OCR y tablas de pricing sin columna `tenant_id` aún mezclan filas si dos tenants usan la misma base (ver [aud-piloto-modoops-2026-11-14.md](aud-piloto-modoops-2026-11-14.md)).
+- El rubro elegido en `/alta` no persiste en `tenants` (solo módulos/ubicaciones sembradas; issue #93).
+- Canal Problemas/sugerencias (TB-164) requiere `platform_feedback_reports` en Postgres control; sin migración `CREATE` la API responde 503 en serverless.
 
 ## 8. Orden de fallo típico
 

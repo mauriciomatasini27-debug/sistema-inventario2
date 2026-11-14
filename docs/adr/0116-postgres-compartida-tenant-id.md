@@ -1,7 +1,7 @@
 ---
 id: ADR-0116
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [tenant, persistencia, offline]
 depende_de: [ADR-0003, ADR-0048, ADR-0050, ADR-0051, ADR-0052, PRD-ISO-01, PRD-ISO-02]
 reemplaza: []
@@ -15,7 +15,7 @@ resumen: |
 ---
 # ADR-0116 - Postgres compartida con tenant_id
 
-Estado: propuesto. Fecha: 2026-11-13. Fuentes: ADR-0003, ADR-0048, ADR-0051, PRD-ISO-01, PRD-ISO-02, avance P1-68, plan opción C.
+Estado: aceptado. Fecha: 2026-11-13; C0–C6 mergeados en `main` (PRs #189, #191, #192 y PRs previos). Migración `0043_shared_tenant_nucleo` aplicada en la base real del piloto (confirmación de Mauri, 2026-11-14). Fuentes: ADR-0003, ADR-0048, ADR-0051, PRD-ISO-01, PRD-ISO-02, avance P1-68, plan opción C.
 
 ## Decisión
 

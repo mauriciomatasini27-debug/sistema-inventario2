@@ -1,7 +1,6 @@
 {
   "tag": "0042_proveedores_durable",
-  "fecha": "2026-10-25",
+  "fecha": "2026-11-14",
   "aprobado_por": "Mauri",
-  "evidencia": "Issue #68: Mauri aprueba el alcance. La migración es solo de invitaciones, contactos y cupo.",
-  "backup": "pendiente de que Mauri aplique 0042 y deje el backup"
+  "evidencia": "Aplicada en la base real del piloto (2026-11-14). Confirmación de Mauri."
 }
