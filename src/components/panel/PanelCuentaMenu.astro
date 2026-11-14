@@ -202,7 +202,7 @@ const subtituloCuenta = rol !== "—" && comercio.trim()
     background: var(--tema-superficie);
     color: var(--tema-texto);
     border: 1px solid var(--tema-linea);
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 -10px 40px color-mix(in srgb, var(--tema-texto) 28%, transparent);
     transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-sizing: border-box;
   }
@@ -305,7 +305,7 @@ const subtituloCuenta = rol !== "—" && comercio.trim()
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--color-star-white);
     transition: transform 0.2s;
   }
   .panel-cuenta-switch[aria-checked="true"] {
@@ -329,7 +329,7 @@ const subtituloCuenta = rol !== "—" && comercio.trim()
       padding: 16px 16px 12px;
       transform: translateY(-8px) scale(0.98);
       opacity: 0;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 16px 50px color-mix(in srgb, var(--tema-texto) 35%, transparent);
       transition: opacity 0.2s, transform 0.2s;
     }
     .panel-cuenta-menu--abierto {

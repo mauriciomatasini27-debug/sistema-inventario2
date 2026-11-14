@@ -59,12 +59,20 @@ describe("panel: los tokens --color-* existen donde se usan", () => {
     expect(panel).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it("el tablero usa void, charcoal y mid, sin tokens --mo-", () => {
+  it("el tablero: chrome con tokens --tema-*; piel B void/charcoal/mid solo en oscuro; sin --mo-", () => {
     const nav = leer("src/components/panel/NavTablero.astro");
     const shell = leer("src/components/panel/PanelShell.astro");
-    for (const token of ["var(--color-void)", "var(--color-charcoal)", "var(--color-mid)"]) {
-      expect(nav, token).toContain(token);
-      expect(shell, token).toContain(token);
+    const temaChrome = ["var(--tema-texto)", "var(--tema-fondo)", "var(--tema-superficie)", "var(--tema-linea)"];
+    for (const token of temaChrome) {
+      expect(nav, `nav ${token}`).toContain(token);
+    }
+    expect(nav, "nav sin void/charcoal/mid fijos").not.toMatch(/var\(--color-(?:void|charcoal|mid)\)/);
+    expect(shell).toContain(':root[data-tema="oscuro"] .tablero.panel-shell');
+    expect(shell).toMatch(/body\s*\{[^}]*var\(--tema-fondo\)/);
+    const pielB = shell.slice(shell.indexOf(':root[data-tema="oscuro"] .tablero.panel-shell'));
+    const bTres = ["var(--color-void)", "var(--color-charcoal)", "var(--color-mid)"];
+    for (const token of bTres) {
+      expect(pielB, `piel B oscura ${token}`).toContain(token);
     }
     expect(nav).not.toContain("--mo-");
     expect(shell).not.toContain("--mo-");
