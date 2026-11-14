@@ -1,10 +1,11 @@
-import { and, eq, isNull, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { notificationEvents, type AlertaStockPayload } from "../../db/schema-email.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
 import { suppliers } from "../../db/schema-proveedores.js";
 import { productAliases, whatsappSessions } from "../../db/schema-whatsapp.js";
 import { conTenant, tenantActual } from "../tenant-mode.js";
+import { tenantIdAlSellar } from "../tenant-scope.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   control,
@@ -50,17 +51,19 @@ function hayMemoria(tenantId?: string): boolean {
   }
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// BOT2 alias: product_aliases es compartida por comercios, products no.
-// El tenant explícito manda; sin él vale el contexto del request. En single
-// el tenant legado ("slice0") no es uuid y los alias viven con tenant_id null.
+// BOT2 alias: en shared/multi filtra por tenant_id de fila; en single con PG usa DEFAULT_TENANT_ID.
 async function aliasesPorSku(db: TenantDb, tenantId?: string): Promise<Map<string, string[]>> {
-  const tenant = tenantId ?? tenantActual();
+  const tid =
+    tenantId && /^[0-9a-f-]{36}$/i.test(tenantId)
+      ? tenantId
+      : tenantIdAlSellar() ?? (() => {
+          const t = tenantActual();
+          return t && /^[0-9a-f-]{36}$/i.test(t) ? t : null;
+        })();
   const filas = await db
     .select({ sku: productAliases.sku, aliasNorm: productAliases.aliasNorm })
     .from(productAliases)
-    .where(tenant && UUID.test(tenant) ? eq(productAliases.tenantId, tenant) : isNull(productAliases.tenantId));
+    .where(tid ? eq(productAliases.tenantId, tid) : undefined);
   const porSku = new Map<string, string[]>();
   for (const f of filas) {
     const lista = porSku.get(f.sku) ?? [];
