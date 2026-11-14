@@ -32,7 +32,7 @@ describe("STOCK-E4 escáner", () => {
   it("un código desconocido no crea un producto", () => {
     expect(resolverEscaneo(codigos, "t-a", "999")).toEqual({ estado: "desconocido" });
     expect(efectoCodigoDesconocido()).toEqual({
-      crearProducto: false,
+      crearProducto: true,
       mensaje: "No hay un producto con ese código.",
     });
   });

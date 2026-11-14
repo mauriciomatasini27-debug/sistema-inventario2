@@ -199,6 +199,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
         </div>
         <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
+        <p id="alta-precio-ayuda" class="estado" hidden>Si no tiene precio cargado, poné el de esta venta en el campo Precio de arriba.</p>
         <ul id="resultados" hidden aria-label="Resultados"></ul>
         <p id="catalogo-estado">Sin catálogo descargado</p>
         <section id="panel-carrito" aria-label="Ticket de la venta">
@@ -346,7 +347,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       let pedirNombre = false;
       const mostrarAlta = () => {
         const sku = $("sku").value.trim();
-        $("alta-nombre-label").hidden = !puedeCrear || !pedirNombre || sku === "" || precioLocal(catalogo, sku) !== null;
+        const altaVisible = puedeCrear && pedirNombre && sku !== "" && precioLocal(catalogo, sku) === null;
+        $("alta-nombre-label").hidden = !altaVisible;
+        const ayuda = $("alta-precio-ayuda");
+        if (ayuda) ayuda.hidden = !altaVisible || !puedeCrear;
       };
       const mostrarCatalogo = () => {
         // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).
@@ -571,6 +575,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           pedirNombre = true;
           $("sku").value = texto;
           skuElegido = texto;
+          precioEditado = false;
+          if (precioLocal(catalogo, texto) === null) $("precio").value = "";
           mostrarAlta();
           // TB-160: fusionarLinea acepta la línea sin alta. Sin nombre, el código no entra al ticket.
           if ($("alta-nombre-label").hidden || $("alta-nombre").value.trim() === "") {
