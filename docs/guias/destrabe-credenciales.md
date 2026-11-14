@@ -78,7 +78,7 @@ Desbloquea el envío real de `POST /api/email/send` y de la cola `email_outbox`.
 |---|---|
 | `MP_WEBHOOK_SECRET` | Verificación HMAC del webhook |
 
-El secreto se copia del panel de la aplicación de Mercado Pago, en la configuración de webhooks. Hoy el webhook del repo firma `JSON.stringify(body)` y no el esquema `x-signature` de Mercado Pago, así que cargar el secreto no lo hace funcionar con pagos reales. La validación correcta y la creación de preaprobaciones son PLAN3-S4 y PLAN3-S3. Conviene esperar a que ese código exista. Confirmar comisión y plazos antes de publicar precios.
+El secreto se copia del panel de la aplicación de Mercado Pago, en la configuración de webhooks. `POST /api/billing/webhooks/mercadopago` valida el header `x-signature` (`ts` en segundos + `v1`) con manifest `id:{data.id};request-id:{x-request-id};ts:{ts};` (partes ausentes omitidas; `data.id` en minúsculas si es alfanumérico). Sin secreto en producción responde 401. En laboratorio, sin secreto, solo con `MP_WEBHOOK_ALLOW_TEST=1`, `NODE_ENV` distinto de `production` y header `x-test: true`. La creación de preaprobaciones en MP sigue en PLAN3-S3.
 
 ## OCR Paddle
 

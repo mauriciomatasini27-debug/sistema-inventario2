@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { filaConTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import type { Medio } from "../validation.js";
 import {
@@ -234,7 +234,7 @@ export async function confirmarBorradorRepo(input: {
       const bloq = await tx
         .select()
         .from(supplierDrafts)
-        .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey))
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)))
         .for("update")
         .limit(1);
       if (!bloq[0] || bloq[0].estado !== "pendiente") throw RESUELTO;
@@ -260,7 +260,7 @@ export async function confirmarBorradorRepo(input: {
       await tx
         .update(supplierDrafts)
         .set({ estado: "confirmada", confirmadoPor: input.quien, facturaId: fila.id })
-        .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)));
       // Cierre durable dentro de la misma tx: solo si sigue abierta. Si la
       // cerro otro camino entre el matching y aca, la factura queda igual y
       // el motivo lo dice (el perdedor de una carrera revierte todo: ve el
@@ -272,9 +272,9 @@ export async function confirmarBorradorRepo(input: {
             .update(purchaseOrders)
             .set({ estado: "cerrada", cerradoEn: new Date(input.ahoraIso) })
             .where(
-              and(
-                eq(purchaseOrders.idempotencyKey, candidato.slice(3)),
-                eq(purchaseOrders.estado, "abierta"),
+              dondeTenant(
+                purchaseOrders.tenantId,
+                and(eq(purchaseOrders.idempotencyKey, candidato.slice(3)), eq(purchaseOrders.estado, "abierta")),
               ),
             )
             .returning({ id: purchaseOrders.id });
@@ -488,7 +488,7 @@ export async function descartarBorradorRepo(input: {
     await db
       .update(supplierDrafts)
       .set({ estado: r.borrador.estado })
-      .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)));
     borradores.guardar(r.borrador.id, r.borrador);
     borradorVistos.guardar(r.borrador.idempotencyKey, r.borrador);
     return { status: 200, body: { draft_id: r.borrador.id, estado: r.borrador.estado, fuente: "db" } };
@@ -750,7 +750,7 @@ async function facturaUuid(db: TenantDb, factura: Factura): Promise<string | nul
   const filas = await db
     .select({ id: supplierInvoices.id })
     .from(supplierInvoices)
-    .where(eq(supplierInvoices.idempotencyKey, factura.idempotencyKey))
+    .where(dondeTenant(supplierInvoices.tenantId, eq(supplierInvoices.idempotencyKey, factura.idempotencyKey)))
     .limit(1);
   return filas[0]?.id ?? null;
 }
@@ -940,7 +940,7 @@ export async function editarBorradorOcrRepo(input: {
       await db
         .update(supplierDrafts)
         .set(valores)
-        .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)));
     } else {
       await db
         .insert(supplierDrafts)
@@ -1017,7 +1017,7 @@ export async function confirmarBorradorOcrRepo(input: {
     await db
       .update(supplierDrafts)
       .set({ estado: "confirmada", confirmadoPor: input.quien, facturaId: fila.id })
-      .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)));
     espejo();
     return { status: 201, borrador: r.borrador, factura: r.factura, avisoRevisar: r.avisoRevisar };
   } catch (e) {
@@ -1051,7 +1051,7 @@ export async function descartarBorradorOcrRepo(input: {
     await db
       .update(supplierDrafts)
       .set({ estado: r.borrador.estado })
-      .where(eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey));
+        .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, r.borrador.idempotencyKey)));
     return r;
   } catch (e) {
     borradores.anteFalloPersistencia(e);

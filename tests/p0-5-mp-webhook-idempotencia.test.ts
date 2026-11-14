@@ -25,6 +25,9 @@ describe("P0-5 webhook MP single sin DB: 201 + 409 duplicado en memoria", () => 
     modoSingleSinDb();
     resetStore();
     olvidarEventosMpEnMemoria();
+    process.env.MP_WEBHOOK_ALLOW_TEST = "1";
+    delete process.env.MP_WEBHOOK_SECRET;
+    delete process.env.NODE_ENV;
   });
 
   it("con preapproval vinculado sin URL no abre getTenantDb y usa memoria", async () => {
@@ -53,6 +56,12 @@ const sufijoPG = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`
 
 describe.skipIf(!hayPG)("P0-5 webhook MP con PG: el replay sobrevive al olvido en memoria", () => {
   const claves: string[] = [];
+
+  beforeEach(() => {
+    process.env.MP_WEBHOOK_ALLOW_TEST = "1";
+    delete process.env.MP_WEBHOOK_SECRET;
+    delete process.env.NODE_ENV;
+  });
 
   afterAll(async () => {
     if (!process.env.TENANT_DATABASE_URL) return;

@@ -278,7 +278,10 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         const ticket = r.efecto.ticket.kind === "online" ? r.efecto.ticket.definitivo : null;
         const n = ticket ? ultimo + 1 : ultimo;
         const saleId = crypto.randomUUID();
-        const prods = await tx.select({ id: products.id, sku: products.sku }).from(products);
+        const prods = await tx
+          .select({ id: products.id, sku: products.sku })
+          .from(products)
+          .where(dondeTenant(products.tenantId));
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
         await tx.insert(customerMovements).values(
           filaConTenant({

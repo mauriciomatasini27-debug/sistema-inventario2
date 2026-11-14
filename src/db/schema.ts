@@ -202,6 +202,8 @@ export const tenants = pgTable("tenants", {
   moneda: varchar("moneda", { length: 3 }).notNull().default("ARS"),
   ownerGoogleSub: text("owner_google_sub").references(() => users.googleSub),
   esDemo: boolean("es_demo").notNull().default(false),
+  // P1-79: rubro del alta (ON1); nullable para comercios previos al deploy.
+  rubro: text("rubro"),
   requestKey: text("request_key"),
   trialHasta: timestamp("trial_hasta"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

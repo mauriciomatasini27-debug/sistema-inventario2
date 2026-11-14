@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { emailOutbox } from "../src/db/schema-email.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { encolarEnvio } from "../src/lib/repos/email.js";
 import { crearVencimiento, listarVencimientos } from "../src/lib/repos/caja.js";
-import { altaClienteRapida, listarClientes, saldoCliente } from "../src/lib/repos/fiado.js";
+import { ejecutar_resumen_mensual } from "../src/jobs/resumen-mensual.js";
+import { altaClienteRapida, listarClientes, listarClientesConSaldo, saldoCliente } from "../src/lib/repos/fiado.js";
 import { altaProveedor, listarProveedores } from "../src/lib/repos/proveedores.js";
 import { contactoPorNumero, guardarContacto } from "../src/lib/repos/proveedor-wa.js";
 import { dondeTenant } from "../src/lib/tenant-scope.js";
@@ -182,5 +183,87 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
     expect(enB).toHaveLength(1);
     expect(enA[0]?.debeCentavos).toBe(100n);
     expect(enB[0]?.debeCentavos).toBe(200n);
+  });
+
+  it("resumen mensual: email por comercio con datos y destino aislados", async () => {
+    vi.setSystemTime(new Date("2026-11-01T12:05:00.000Z"));
+    const emailA = "resumen-a@comercio.test";
+    const emailB = "resumen-b@comercio.test";
+    await conTenant(tenantA, () =>
+      altaClienteRapida({ nombre: "Cliente-Solo-A", telefono: "+54911" + randomUUID().replace(/-/g, "").slice(0, 8) }),
+    );
+    await conTenant(tenantB, () =>
+      altaClienteRapida({ nombre: "Cliente-Solo-B", telefono: "+54911" + randomUUID().replace(/-/g, "").slice(0, 8) }),
+    );
+
+    async function comercio(tid: string, nombre: string, destinoEmail: string) {
+      return conTenant(tid, async () => {
+        const { clientes } = await listarClientesConSaldo(Date.now());
+        return {
+          tenantId: tid,
+          nombreComercio: nombre,
+          modulos: ["cobranza"] as const,
+          movimientos: [] as const,
+          clientes,
+          pagos: [] as const,
+          prefsWa: { optIn: true, avisoHora: "08:00", pausadoHastaMs: null },
+          prefsEmail: { resumenCierre: true, pausadoHastaMs: null },
+          destinoEmail,
+        };
+      });
+    }
+
+    const { resultados } = await ejecutar_resumen_mensual({
+      comercios: [await comercio(tenantA, "Comercio A", emailA), await comercio(tenantB, "Comercio B", emailB)],
+      ahoraMs: Date.now(),
+      zona: "America/Argentina/Buenos_Aires",
+      yaEnviadosWa: new Set(),
+      enviarWa: async () => ({ ok: false, error: "skip" }),
+      encolarEmail: async (id, payload) => {
+        const r = await conTenant(id, () =>
+          encolarEnvio({
+            key: payload.clave,
+            stream: "resumen_mensual",
+            to: payload.destino,
+            plantilla: payload.asunto,
+            vars: { texto: payload.texto },
+          }),
+        );
+        return r.ok ? { ok: true } : { ok: false, codigo: "fallo", error: "dup" };
+      },
+    });
+
+    expect(resultados).toHaveLength(2);
+    const claveEmailA = resultados.find((r) => r.tenantId === tenantA)?.canales.find((c) => c.canal === "email")?.clave;
+    const claveEmailB = resultados.find((r) => r.tenantId === tenantB)?.canales.find((c) => c.canal === "email")?.clave;
+    expect(claveEmailA).toBeTruthy();
+    expect(claveEmailB).toBeTruthy();
+    const filasA = await conTenant(tenantA, () =>
+      getTenantDb()
+        .select()
+        .from(emailOutbox)
+        .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, claveEmailA!))),
+    );
+    const filasB = await conTenant(tenantB, () =>
+      getTenantDb()
+        .select()
+        .from(emailOutbox)
+        .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, claveEmailB!))),
+    );
+    const cruzada = await conTenant(tenantA, () =>
+      getTenantDb()
+        .select()
+        .from(emailOutbox)
+        .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, claveEmailB!))),
+    );
+    expect(filasA).toHaveLength(1);
+    expect(filasB).toHaveLength(1);
+    expect(cruzada).toHaveLength(0);
+    expect(filasA[0]?.destinatario).toBe(emailA);
+    expect(filasB[0]?.destinatario).toBe(emailB);
+    expect(filasA[0]?.texto).not.toEqual(filasB[0]?.texto);
+    expect(filasA[0]?.texto).toContain("Comercio A");
+    expect(filasB[0]?.texto).toContain("Comercio B");
+    vi.useRealTimers();
   });
 });

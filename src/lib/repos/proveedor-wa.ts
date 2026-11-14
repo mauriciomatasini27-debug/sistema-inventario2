@@ -90,7 +90,8 @@ function espejarCupo(numero: string, marcasMs: readonly number[], aviso: boolean
 function whereContactoPorNumero(numero: string) {
   // P1-81: en shared el mismo E.164 puede existir en dos comercios; sin contexto no adivinamos.
   const ctx = tenantActual();
-  if (esModoShared() && ctx) {
+  if (esModoShared()) {
+    if (!ctx) throw new Error("Falta tenant");
     return and(eq(proveedorContactos.numeroE164, numero), eq(proveedorContactos.tenantId, ctx));
   }
   return eq(proveedorContactos.numeroE164, numero);

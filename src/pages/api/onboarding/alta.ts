@@ -135,6 +135,7 @@ export const POST: APIRoute = async ({ request }) => {
     moneda: "ARS",
     ownerGoogleSub: ctx.googleSub,
     esDemo: true,
+    rubro: b.rubro,
     requestKey,
     database,
     jobId,

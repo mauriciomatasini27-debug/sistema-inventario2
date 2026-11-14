@@ -151,7 +151,7 @@ node scripts/control-app/control-app.mjs apagar
 - Offline fuerte en **venta**. No prometas caja, stock ni carga de mercadería offline completa.
 - FEFO en el cobro es agregado sobre stock visible, no descuento fila a fila de `stock_lots`.
 - Mercado Pago QR: registrá el medio a mano. No hay conciliación automática del webhook.
-- Cobro de suscripción: a mano. El webhook MP del repo no valida el `x-signature` real.
+- Cobro de suscripción: requiere `MP_WEBHOOK_SECRET` en producción; el webhook valida `x-signature` (manifest oficial `id` / `request-id` / `ts`, `ts` en segundos). **No** configures `MP_WEBHOOK_ALLOW_TEST` en producción ni en Vercel Production (solo laboratorio local junto con `x-test: true` y sin secreto).
 - `tenant_id` en el núcleo aún es nullable (C1). El cierre `NOT NULL` + uniques compuestos es trabajo posterior. Catálogo/stock/sync de venta filtran en shared (C3); precios, lotes, importaciones, stock inicial, OCR y tablas de pricing sin columna `tenant_id` aún mezclan filas si dos tenants usan la misma base (ver [aud-piloto-modoops-2026-11-14.md](aud-piloto-modoops-2026-11-14.md)).
 - El rubro elegido en `/alta` no persiste en `tenants` (solo módulos/ubicaciones sembradas; issue #93).
 - Canal Problemas/sugerencias (TB-164) requiere `platform_feedback_reports` en Postgres control; sin migración `CREATE` la API responde 503 en serverless.

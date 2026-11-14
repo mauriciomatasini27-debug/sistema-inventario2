@@ -21,6 +21,7 @@ function fila(extra: Partial<FilaMembresiaDurable> = {}): FilaMembresiaDurable {
     moneda: "ARS",
     ownerGoogleSub: SUB,
     esDemo: true,
+    rubro: null,
     requestKey: null,
     trialHasta: null,
     ...extra,
@@ -82,6 +83,24 @@ describe("rehidratar membresías después de un reinicio", () => {
 
     expect(control.memberships.size).toBe(0);
     expect(control.tenants.size).toBe(0);
+  });
+
+  it("rehidrata el rubro del comercio tras un reinicio simulado", async () => {
+    control.sessions.set("hash", {
+      idHash: "hash",
+      googleSub: SUB,
+      tenantId: null,
+      expiraAt: "2099-01-01T00:00:00.000Z",
+    });
+
+    await rehidratarMembresias(SUB, async () => [fila({ rubro: "libreria" })]);
+
+    expect(control.tenants.get(TENANT)?.rubro).toBe("libreria");
+  });
+
+  it("comercio viejo sin rubro en DB cae en otro al leer la plantilla", async () => {
+    await rehidratarMembresias(SUB, async () => [fila({ rubro: null })]);
+    expect(control.tenants.get(TENANT)?.rubro).toBeUndefined();
   });
 
   it("no elige un comercio si la persona tiene más de uno y la sesión no trae tenant", async () => {

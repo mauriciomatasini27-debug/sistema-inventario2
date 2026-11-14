@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { filaConTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { purchaseOrderLines, purchaseOrders } from "../../db/schema-proveedores.js";
 import { conTenant } from "../tenant-mode.js";
 import { dbVivaTenant, BaseNoDisponible } from "../server-db.js";
@@ -120,7 +120,7 @@ async function incorporarLinea(plan: PlanLinea): Promise<
     const heads = await tx
       .select()
       .from(purchaseOrders)
-      .where(eq(purchaseOrders.idempotencyKey, plan.clave))
+      .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, plan.clave)))
       .for("update")
       .limit(1);
     let visto: BorradorVisto = null;

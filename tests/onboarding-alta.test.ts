@@ -50,6 +50,7 @@ describe("alta autoservicio ON1", () => {
     const tenant = control.tenants.get(j.tenant_id);
     expect(tenant?.ownerGoogleSub).toBe("dueno-1");
     expect(tenant?.plan).toBe("demo");
+    expect(tenant?.rubro).toBe("kiosco");
     const memb = [...control.memberships.values()].find((m) => m.tenantId === j.tenant_id);
     expect(memb?.rol).toBe("dueno");
   });
