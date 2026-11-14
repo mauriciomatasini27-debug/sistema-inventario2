@@ -67,10 +67,11 @@ async function aplicarHasta(tag: string, url: string): Promise<void> {
 }
 
 describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
-  it("journal registra 0045", () => {
+  it("journal registra 0045 y 0047 periferia", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
     expect(journal.entries.some((e) => e.tag === "0045_shared_tenant_sellar_nucleo")).toBe(true);
-    expect(journal.entries.length).toBe(46);
+    expect(journal.entries.some((e) => e.tag === "0047_shared_tenant_periferia")).toBe(true);
+    expect(journal.entries.length).toBe(47);
   });
 });
 

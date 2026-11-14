@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { filaConTenant, dondeTenant } from "../tenant-scope.js";
 import { proveedorContactos, proveedorCupo, proveedorInvitaciones } from "../../db/schema-proveedores.js";
 import type { ContactoProveedor, EstadoContactoProveedor, InvitacionProveedor } from "../../modules/whatsapp/proveedor.js";
 import { idsConBasePropia } from "../db.js";
@@ -72,7 +73,11 @@ function espejarCupo(numero: string, marcasMs: readonly number[], aviso: boolean
 
 export async function contactoPorNumero(numero: string): Promise<ContactoProveedor | null> {
   const fila = await primeraFila(async (db) => {
-    const [f] = await db.select().from(proveedorContactos).where(eq(proveedorContactos.numeroE164, numero)).limit(1);
+    const [f] = await db
+      .select()
+      .from(proveedorContactos)
+      .where(eq(proveedorContactos.numeroE164, numero))
+      .limit(1);
     return f ?? null;
   });
   if (fila) {
@@ -204,9 +209,9 @@ export async function guardarCupo(
     (db) =>
       db
         .insert(proveedorCupo)
-        .values({ numeroE164: numero, marcasMs: marcas, aviso })
+        .values(filaConTenant({ numeroE164: numero, marcasMs: marcas, aviso }))
         .onConflictDoUpdate({
-          target: proveedorCupo.numeroE164,
+          target: [proveedorCupo.tenantId, proveedorCupo.numeroE164],
           set: { marcasMs: marcas, aviso },
         }),
     tenantId,
@@ -215,7 +220,10 @@ export async function guardarCupo(
 }
 
 export async function limpiarCupo(numero: string, tenantId: string): Promise<void> {
-  await intentarPersistir((db) => db.delete(proveedorCupo).where(eq(proveedorCupo.numeroE164, numero)), tenantId);
+  await intentarPersistir(
+    (db) => db.delete(proveedorCupo).where(dondeTenant(proveedorCupo.tenantId, eq(proveedorCupo.numeroE164, numero))),
+    tenantId,
+  );
   control.proveedorCupo.delete(numero);
   control.proveedorCupoAviso.delete(numero);
 }

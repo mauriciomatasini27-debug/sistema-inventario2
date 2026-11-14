@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { filaConTenant } from "../tenant-scope.js";
 import { purchaseOrderLines, purchaseOrders } from "../../db/schema-proveedores.js";
 import { conTenant } from "../tenant-mode.js";
 import { dbVivaTenant, BaseNoDisponible } from "../server-db.js";
@@ -137,34 +138,40 @@ async function incorporarLinea(plan: PlanLinea): Promise<
     if (efecto.tipo === "crear") {
       const ins = await tx
         .insert(purchaseOrders)
-        .values({
-          idempotencyKey: plan.clave,
-          supplierCuit: efecto.orden.supplierCuit,
-          estado: "abierta",
-          totalCentavos: efecto.orden.totalCentavos,
-          creadoPor: plan.creadoPor,
-          esSemanal: plan.esSemanal,
-          origen: "web",
-        })
+        .values(
+          filaConTenant({
+            idempotencyKey: plan.clave,
+            supplierCuit: efecto.orden.supplierCuit,
+            estado: "abierta",
+            totalCentavos: efecto.orden.totalCentavos,
+            creadoPor: plan.creadoPor,
+            esSemanal: plan.esSemanal,
+            origen: "web",
+          }),
+        )
         .returning({ id: purchaseOrders.id });
       const fila = ins[0];
       if (fila) {
-        await tx.insert(purchaseOrderLines).values({
-          orderId: fila.id,
-          sku: plan.linea.sku,
-          qty: plan.linea.qty,
-          costoCentavos: plan.linea.costoCentavos,
-        });
+        await tx.insert(purchaseOrderLines).values(
+          filaConTenant({
+            orderId: fila.id,
+            sku: plan.linea.sku,
+            qty: plan.linea.qty,
+            costoCentavos: plan.linea.costoCentavos,
+          }),
+        );
       }
       return efecto;
     }
     if (efecto.tipo === "agregar" && head) {
-      await tx.insert(purchaseOrderLines).values({
-        orderId: head.id,
-        sku: efecto.linea.sku,
-        qty: efecto.linea.qty,
-        costoCentavos: efecto.linea.costoCentavos,
-      });
+      await tx.insert(purchaseOrderLines).values(
+        filaConTenant({
+          orderId: head.id,
+          sku: efecto.linea.sku,
+          qty: efecto.linea.qty,
+          costoCentavos: efecto.linea.costoCentavos,
+        }),
+      );
       await tx
         .update(purchaseOrders)
         .set({ totalCentavos: efecto.orden.totalCentavos })

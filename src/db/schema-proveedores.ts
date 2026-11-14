@@ -5,8 +5,10 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -19,20 +21,28 @@ import {
 // (borrador OCR editable, vence 7 días). suppliers y purchase_orders son
 // editables en dominio solo mientras la orden está abierta.
 
-export const suppliers = pgTable("suppliers", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  cuit: text("cuit").notNull().unique(),
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    cuit: text("cuit").notNull(),
   nombre: text("nombre").notNull(),
   email: text("email"),
   telefono: text("telefono"),
   activo: boolean("activo").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
-});
+  },
+  (t) => [uniqueIndex("suppliers_tenant_cuit_uq").on(t.tenantId, t.cuit)],
+);
 
-export const purchaseOrders = pgTable("purchase_orders", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const purchaseOrders = pgTable(
+  "purchase_orders",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   supplierCuit: text("supplier_cuit").notNull(),
   estado: text("estado").notNull().default("abierta"),
   totalCentavos: bigint("total_centavos", { mode: "bigint" }).notNull(),
@@ -44,9 +54,12 @@ export const purchaseOrders = pgTable("purchase_orders", {
   canal: text("canal"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   cerradoEn: timestamp("cerrado_en"),
-});
+  },
+  (t) => [uniqueIndex("purchase_orders_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 export const purchaseOrderLines = pgTable("purchase_order_lines", {
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   orderId: uuid("order_id")
     .notNull()
@@ -60,9 +73,12 @@ export const purchaseOrderLines = pgTable("purchase_order_lines", {
 // por texto, lo confirma (registra factura) o lo descarta. Vence 7 días
 // (E5): confirmar/editar/descartar bloqueados, solo lectura. La confianza por
 // campo (alta/media/baja) viaja en jsonb; media => mostrar `revisá`.
-export const supplierDrafts = pgTable("supplier_drafts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const supplierDrafts = pgTable(
+  "supplier_drafts",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   origen: text("origen").notNull(),
   bytesRef: text("bytes_ref").notNull(),
   cuit: text("cuit"),
@@ -77,14 +93,19 @@ export const supplierDrafts = pgTable("supplier_drafts", {
   confirmadoPor: text("confirmado_por"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   venceAt: timestamp("vence_at").notNull(),
-});
+  },
+  (t) => [uniqueIndex("supplier_drafts_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 // Factura INMUTABLE: solo la crea el toque explícito [Confirmar]; jamás la
 // crea la ingesta ni el OCR. La corrección posterior es compensatorio
 // (tipo nota_credito con compensatoria_de), nunca UPDATE/DELETE.
-export const supplierInvoices = pgTable("supplier_invoices", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const supplierInvoices = pgTable(
+  "supplier_invoices",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   draftId: uuid("draft_id"),
   supplierCuit: text("supplier_cuit").notNull(),
   nombreProveedor: text("nombre_proveedor"),
@@ -95,14 +116,19 @@ export const supplierInvoices = pgTable("supplier_invoices", {
   compensatoriaDe: uuid("compensatoria_de"),
   creadoPor: text("creado_por").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("supplier_invoices_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 // Pago a proveedor INMUTABLE. El egreso en caja lo registra la ruta/capa HTTP
 // (fuera de este lane) usando categoria_id pago_proveedor; este lane solo
 // entrega el descriptor compatible, sin tocar cash/.
-export const supplierPayments = pgTable("supplier_payments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const supplierPayments = pgTable(
+  "supplier_payments",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   facturaId: uuid("factura_id"),
   supplierCuit: text("supplier_cuit").notNull(),
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
@@ -110,12 +136,15 @@ export const supplierPayments = pgTable("supplier_payments", {
   categoriaId: text("categoria_id").notNull().default("pago_proveedor"),
   creadoPor: text("creado_por").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("supplier_payments_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 // Matching determinista borrador↔purchase_orders: una fila por OC evaluada,
 // append-only, con motivo auditable (proveedor distinto, orden cerrada,
 // monto fuera de tolerancia 1%, match).
 export const supplierMatchLog = pgTable("supplier_match_log", {
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   draftId: text("draft_id").notNull(),
   orderId: uuid("order_id").notNull(),
@@ -129,13 +158,16 @@ export const supplierMatchLog = pgTable("supplier_match_log", {
 export const proveedorContactos = pgTable(
   "proveedor_contactos",
   {
-    numeroE164: text("numero_e164").primaryKey(),
     tenantId: text("tenant_id").notNull(),
+    numeroE164: text("numero_e164").notNull(),
     supplierCuit: text("supplier_cuit"),
     estado: text("estado").notNull(),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull(),
   },
-  (t) => [index("proveedor_contactos_tenant_idx").on(t.tenantId)],
+  (t) => [
+    index("proveedor_contactos_tenant_idx").on(t.tenantId),
+    primaryKey({ columns: [t.tenantId, t.numeroE164] }),
+  ],
 );
 
 export const proveedorInvitaciones = pgTable("proveedor_invitaciones", {
@@ -146,8 +178,13 @@ export const proveedorInvitaciones = pgTable("proveedor_invitaciones", {
   usado: boolean("usado").notNull().default(false),
 });
 
-export const proveedorCupo = pgTable("proveedor_cupo", {
-  numeroE164: text("numero_e164").primaryKey(),
-  marcasMs: jsonb("marcas_ms").$type<number[]>().notNull().default([]),
-  aviso: boolean("aviso").notNull().default(false),
-});
+export const proveedorCupo = pgTable(
+  "proveedor_cupo",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    numeroE164: text("numero_e164").notNull(),
+    marcasMs: jsonb("marcas_ms").$type<number[]>().notNull().default([]),
+    aviso: boolean("aviso").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.numeroE164] })],
+);

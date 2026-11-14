@@ -16,6 +16,7 @@ import { GET as GETBalance } from "../src/pages/api/credit/balance.js";
 import { cobroFiado } from "../src/lib/repos/fiado.js";
 import { costoUnitarioPorSku } from "../src/modules/inventario/inventario.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 function req(key: string, body: unknown) {
   return ctx("http://x/api/credit/sales-on-account", {
@@ -129,7 +130,7 @@ describe.skipIf(!(URL_A && URL_B))("P10-16 PG vivo: venta a cuenta y cobro aisla
       POSTIngreso(ctx("http://x/api/stock/ingreso", { body: { sku: "DEMO-SKU-1", cantidad: 5, costo_centavos: 4000 } })),
     )) as Response;
     expect([200, 201, 409]).toContain(ingreso.status);
-    await dbA.insert(customers).values({ id: cliente, nombre: "P10-16", topeCentavos: 0n }).onConflictDoNothing();
+    await dbA.insert(customers).values(filaPg({ id: cliente, nombre: "P10-16", topeCentavos: 0n })).onConflictDoNothing();
   });
 
   it("venta en A persiste ticket lines + snapshot en una tx, B no los ve", async () => {

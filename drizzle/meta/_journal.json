@@ -323,6 +323,13 @@
       "when": 1794784800000,
       "tag": "0045_shared_tenant_sellar_nucleo",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794871200000,
+      "tag": "0047_shared_tenant_periferia",
+      "breakpoints": true
     }
   ]
 }

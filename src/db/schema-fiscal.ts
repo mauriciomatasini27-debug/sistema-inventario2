@@ -1,4 +1,4 @@
-import { bigint, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { MarcaNoFacturar } from "../lib/store.js";
 
 // Slice fiscal mínimo (ADR-0019). DB del tenant. Dinero bigint centavos.
@@ -14,15 +14,21 @@ export const fiscalSettings = pgTable("fiscal_settings", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const fiscalSequences = pgTable("fiscal_sequences", {
-  puntoVenta: text("punto_venta").notNull(),
-  cbteTipo: text("cbte_tipo").notNull(),
-  lastNumber: bigint("last_number", { mode: "number" }).notNull().default(0),
-  lastCbteFch: text("last_cbte_fch"),
-  inFlightDocumentId: uuid("in_flight_document_id"),
-}, (t) => [primaryKey({ columns: [t.puntoVenta, t.cbteTipo] })]);
+export const fiscalSequences = pgTable(
+  "fiscal_sequences",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    puntoVenta: text("punto_venta").notNull(),
+    cbteTipo: text("cbte_tipo").notNull(),
+    lastNumber: bigint("last_number", { mode: "number" }).notNull().default(0),
+    lastCbteFch: text("last_cbte_fch"),
+    inFlightDocumentId: uuid("in_flight_document_id"),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.puntoVenta, t.cbteTipo] })],
+);
 
 export const fiscalCustomers = pgTable("fiscal_customers", {
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   docTipo: text("doc_tipo").notNull(),
   docNro: text("doc_nro").notNull(),
@@ -33,8 +39,11 @@ export const fiscalCustomers = pgTable("fiscal_customers", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const fiscalDocuments = pgTable("fiscal_documents", {  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+export const fiscalDocuments = pgTable(
+  "fiscal_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
   saleId: uuid("sale_id"),
   // Dueño del comprobante para aislamiento por tenant (ISO-S3, migración 0015).
   tenantId: text("tenant_id"),
@@ -65,7 +74,9 @@ export const fiscalDocuments = pgTable("fiscal_documents", {  id: uuid("id").pri
   request: jsonb("request"),
   response: jsonb("response"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [uniqueIndex("fiscal_documents_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
 export const fiscalWizard = pgTable("fiscal_wizard", {
   tenantId: text("tenant_id").primaryKey(),

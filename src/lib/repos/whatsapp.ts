@@ -1,4 +1,5 @@
 import { and, eq, isNull, like } from "drizzle-orm";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { products, stockMovements } from "../../db/schema.js";
 import { notificationEvents, type AlertaStockPayload } from "../../db/schema-email.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
@@ -364,10 +365,13 @@ export async function alertasPreviasDelDia(tenantId: string, fecha: string): Pro
       .select({ dedupeKey: notificationEvents.dedupeKey, refId: notificationEvents.refId })
       .from(notificationEvents)
       .where(
-        and(
-          eq(notificationEvents.tipo, "alerta_stock"),
-          like(notificationEvents.dedupeKey, `${prefijo}%`),
-          like(notificationEvents.dedupeKey, `%${sufijo}`),
+        dondeTenant(
+          notificationEvents.tenantId,
+          and(
+            eq(notificationEvents.tipo, "alerta_stock"),
+            like(notificationEvents.dedupeKey, `${prefijo}%`),
+            like(notificationEvents.dedupeKey, `%${sufijo}`),
+          ),
         ),
       );
     for (const f of filas) {
@@ -407,20 +411,22 @@ export async function registrarAlertasStock(
   }
   if (!db) return;
   try {
-    const tenantUuid = esUuid(tenantId) ? tenantId : null;
     await db
       .insert(notificationEvents)
-      .values(payloads.map((p) => ({
-        tenantId: tenantUuid,
-        tipo: "alerta_stock",
-        version: 1,
-        refTipo: "producto",
-        refId: p.sku,
-        payload: p,
-        dedupeKey: clave_alerta_stock(tenantId, p.sku, fecha),
-        estado: "enviado",
-      })))
-      .onConflictDoNothing({ target: notificationEvents.dedupeKey });
+      .values(
+        payloads.map((p) =>
+          filaConTenant({
+            tipo: "alerta_stock",
+            version: 1,
+            refTipo: "producto",
+            refId: p.sku,
+            payload: p,
+            dedupeKey: clave_alerta_stock(tenantId, p.sku, fecha),
+            estado: "enviado",
+          }),
+        ),
+      )
+      .onConflictDoNothing({ target: [notificationEvents.tenantId, notificationEvents.dedupeKey] });
   } catch (e) {
     console.warn("[whatsapp] registrar alertas stock: fallo de DB, queda en memoria", e);
   }

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { filaConTenant } from "../tenant-scope.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import type { Medio } from "../validation.js";
 import {
@@ -128,7 +129,7 @@ export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<
     }
     await db
       .insert(supplierDrafts)
-      .values({
+      .values(filaConTenant({
         idempotencyKey: input.key,
         origen: r.borrador.origen,
         bytesRef: r.borrador.bytesRef,
@@ -144,8 +145,8 @@ export async function ingerirBorradorRepo(input: IngestaBorradorInput): Promise<
         facturaId: null,
         createdAt: new Date(r.borrador.creadoEn),
         venceAt: new Date(r.borrador.venceAt),
-      })
-      .onConflictDoNothing({ target: supplierDrafts.idempotencyKey })
+      }))
+      .onConflictDoNothing({ target: [supplierDrafts.tenantId, supplierDrafts.idempotencyKey] })
       .returning({ id: supplierDrafts.id });
     // Carrera entre pre-check e insert: si el rival gano, 200 con existente.
     const carrera = await leerBorradorPorKey(db, input.key);
@@ -239,7 +240,7 @@ export async function confirmarBorradorRepo(input: {
       if (!bloq[0] || bloq[0].estado !== "pendiente") throw RESUELTO;
       const ins = await tx
         .insert(supplierInvoices)
-        .values({
+        .values(filaConTenant({
           idempotencyKey: r.factura.idempotencyKey,
           draftId: filaDraft.id,
           supplierCuit: r.factura.supplierCuit,
@@ -251,8 +252,8 @@ export async function confirmarBorradorRepo(input: {
           compensatoriaDe: null,
           creadoPor: r.factura.creadoPor,
           createdAt: new Date(r.factura.creadoEn),
-        })
-        .onConflictDoNothing({ target: supplierInvoices.idempotencyKey })
+        }))
+        .onConflictDoNothing({ target: [supplierInvoices.tenantId, supplierInvoices.idempotencyKey] })
         .returning({ id: supplierInvoices.id });
       const fila = ins[0];
       if (!fila) throw RESUELTO;
@@ -288,7 +289,7 @@ export async function confirmarBorradorRepo(input: {
         for (const e of m.log) {
           const orderUuid = uuidPorOrden.get(e.orderId);
           if (!orderUuid) continue;
-          await tx.insert(supplierMatchLog).values({
+          await tx.insert(supplierMatchLog).values(filaConTenant({
             draftId: r.borrador.id,
             orderId: orderUuid,
             coincide: e.coincide,
@@ -297,7 +298,7 @@ export async function confirmarBorradorRepo(input: {
                 ? "auto-exacto: OC cerrada al confirmar"
                 : e.motivo,
             createdAt: new Date(e.creadoEn),
-          });
+          }));
         }
       }
     });
@@ -352,7 +353,7 @@ async function asegurarFilaBorrador(db: TenantDb, base: Borrador): Promise<{ id:
   if (previo) return { id: previo.fila.id };
   await db
     .insert(supplierDrafts)
-    .values({
+    .values(filaConTenant({
       idempotencyKey: base.idempotencyKey,
       origen: base.origen,
       bytesRef: base.bytesRef,
@@ -368,8 +369,8 @@ async function asegurarFilaBorrador(db: TenantDb, base: Borrador): Promise<{ id:
       facturaId: null,
       createdAt: new Date(base.creadoEn),
       venceAt: new Date(base.venceAt),
-    })
-    .onConflictDoNothing({ target: supplierDrafts.idempotencyKey });
+    }))
+    .onConflictDoNothing({ target: [supplierDrafts.tenantId, supplierDrafts.idempotencyKey] });
   const fila = await leerBorradorPorKey(db, base.idempotencyKey);
   if (!fila) throw new Error("borrador sin fila");
   return { id: fila.fila.id };
@@ -702,7 +703,7 @@ export async function registrarPagoProveedorRepo(input: PagoProveedorInput): Pro
 
     const filas = await db
       .insert(supplierPayments)
-      .values({
+      .values(filaConTenant({
         idempotencyKey: input.key,
         facturaId: factura ? await facturaUuid(db, factura) : null,
         supplierCuit: r.pago.supplierCuit,
@@ -711,8 +712,8 @@ export async function registrarPagoProveedorRepo(input: PagoProveedorInput): Pro
         categoriaId: "pago_proveedor",
         creadoPor: r.pago.creadoPor,
         createdAt: new Date(r.pago.creadoEn),
-      })
-      .onConflictDoNothing({ target: supplierPayments.idempotencyKey })
+      }))
+      .onConflictDoNothing({ target: [supplierPayments.tenantId, supplierPayments.idempotencyKey] })
       .returning({ id: supplierPayments.id });
     if (!filas[0]) {
       // Carrera entre pre-check e insert: 409 con el mensaje del dominio.
@@ -853,7 +854,7 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
     }
     await db
       .insert(supplierDrafts)
-      .values({
+      .values(filaConTenant({
         idempotencyKey: input.key,
         origen: r.borrador.origen,
         bytesRef: r.borrador.bytesRef,
@@ -869,8 +870,8 @@ export async function ingerirBorradorOcrRepo(input: IngestaOcrInput): Promise<In
         facturaId: null,
         createdAt: new Date(r.borrador.creadoEn),
         venceAt: new Date(r.borrador.venceAt),
-      })
-      .onConflictDoNothing({ target: supplierDrafts.idempotencyKey });
+      }))
+      .onConflictDoNothing({ target: [supplierDrafts.tenantId, supplierDrafts.idempotencyKey] });
     espejo();
     return { status: 201, borrador: r.borrador, avisoRevisar: r.avisoRevisar };
   } catch (e) {
@@ -943,7 +944,7 @@ export async function editarBorradorOcrRepo(input: {
     } else {
       await db
         .insert(supplierDrafts)
-        .values({
+        .values(filaConTenant({
           idempotencyKey: r.borrador.idempotencyKey,
           origen: r.borrador.origen,
           bytesRef: r.borrador.bytesRef,
@@ -953,8 +954,8 @@ export async function editarBorradorOcrRepo(input: {
           createdAt: new Date(r.borrador.creadoEn),
           venceAt: new Date(r.borrador.venceAt),
           ...valores,
-        })
-        .onConflictDoNothing({ target: supplierDrafts.idempotencyKey });
+        }))
+        .onConflictDoNothing({ target: [supplierDrafts.tenantId, supplierDrafts.idempotencyKey] });
     }
     return r;
   } catch (e) {
@@ -996,7 +997,7 @@ export async function confirmarBorradorOcrRepo(input: {
     const filaDraft = await asegurarFilaBorrador(db, base);
     const ins = await db
       .insert(supplierInvoices)
-      .values({
+      .values(filaConTenant({
         idempotencyKey: r.factura.idempotencyKey,
         draftId: filaDraft.id,
         supplierCuit: r.factura.supplierCuit,
@@ -1008,8 +1009,8 @@ export async function confirmarBorradorOcrRepo(input: {
         compensatoriaDe: null,
         creadoPor: r.factura.creadoPor,
         createdAt: new Date(r.factura.creadoEn),
-      })
-      .onConflictDoNothing({ target: supplierInvoices.idempotencyKey })
+      }))
+      .onConflictDoNothing({ target: [supplierInvoices.tenantId, supplierInvoices.idempotencyKey] })
       .returning({ id: supplierInvoices.id });
     const fila = ins[0];
     if (!fila) return { status: 409, error: "borrador ya resuelto (confirmado o descartado)" };

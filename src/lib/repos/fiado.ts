@@ -14,7 +14,7 @@ import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { BaseNoDisponible, dbVivaTenant, intentarLeer } from "../server-db.js";
 import { tenantActual } from "../tenant-mode.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
-import { filaConTenant, tenantIdAlSellar } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant, tenantIdAlSellar } from "../tenant-scope.js";
 import {
   crearAlmacenCreditoVistos,
   crearAlmacenStock,
@@ -175,7 +175,11 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_MOSTRADOR)).for("update");
       }
       const ultimo = filas[0]?.ultimo ?? 0;
-      const previo = await tx.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+      const previo = await tx
+        .select()
+        .from(customerMovements)
+        .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, input.key)))
+        .limit(1);
       if (previo[0]) return { estado: "repetida" } as const;
       if (!esUuid(input.customerId)) {
         throw new FiadoRechazado({ ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" });
@@ -183,7 +187,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
       const fichas = await tx
         .select({ id: customers.id, tope: customers.topeCentavos })
         .from(customers)
-        .where(eq(customers.id, input.customerId))
+        .where(dondeTenant(customers.tenantId, eq(customers.id, input.customerId)))
         .for("update")
         .limit(1);
       const ficha = fichas[0];
@@ -199,7 +203,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           ocurridoEn: customerMovements.clientOccurredAt,
         })
         .from(customerMovements)
-        .where(eq(customerMovements.customerId, input.customerId));
+        .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.customerId, input.customerId)));
       const saldoCentavos = derivar_saldo(
         filasMov.map((f) => ({ debeCentavos: BigInt(f.debe), haberCentavos: BigInt(f.haber) })),
       );
@@ -276,15 +280,17 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         const saleId = crypto.randomUUID();
         const prods = await tx.select({ id: products.id, sku: products.sku }).from(products);
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
-        await tx.insert(customerMovements).values({
-          customerId: input.customerId,
-          tipo: "venta",
-          debeCentavos: total,
-          haberCentavos: 0n,
-          saleId,
-          idempotencyKey: input.key,
-          clientOccurredAt: ahora,
-        });
+        await tx.insert(customerMovements).values(
+          filaConTenant({
+            customerId: input.customerId,
+            tipo: "venta",
+            debeCentavos: total,
+            haberCentavos: 0n,
+            saleId,
+            idempotencyKey: input.key,
+            clientOccurredAt: ahora,
+          }),
+        );
         await tx.insert(sales).values(
           filaConTenant({
             id: saleId,
@@ -350,7 +356,11 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   } catch (e) {
     if (e instanceof FiadoRechazado) return e.resultado;
     if (esConflictoUnico(e)) {
-      const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+      const previo = await db
+      .select()
+      .from(customerMovements)
+      .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, input.key)))
+      .limit(1);
       if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     }
     throw e;
@@ -401,17 +411,23 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
   }
 
   try {
-    const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+    const previo = await db
+      .select()
+      .from(customerMovements)
+      .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, input.key)))
+      .limit(1);
     if (previo[0]) return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
     await db.transaction(async (tx) => {
-      await tx.insert(customerMovements).values({
-        customerId: input.customerId,
-        tipo: "cobro",
-        debeCentavos: 0n,
-        haberCentavos: input.montoCentavos,
-        idempotencyKey: input.key,
-        clientOccurredAt: new Date(),
-      });
+      await tx.insert(customerMovements).values(
+        filaConTenant({
+          customerId: input.customerId,
+          tipo: "cobro",
+          debeCentavos: 0n,
+          haberCentavos: input.montoCentavos,
+          idempotencyKey: input.key,
+          clientOccurredAt: new Date(),
+        }),
+      );
       await insertarMovimientosCaja(tx, [{
         id: crypto.randomUUID(),
         idempotencyKey: input.key,
@@ -430,7 +446,11 @@ export async function cobroFiado(input: CobroFiadoInput): Promise<CobroFiadoResu
     // espejo de memoria con la caja escrita aparte deja las dos mitades
     // separadas y responde 201 sin haber cobrado.
     if (!esConflictoUnico(e)) throw e;
-    const previo = await db.select().from(customerMovements).where(eq(customerMovements.idempotencyKey, input.key)).limit(1);
+    const previo = await db
+      .select()
+      .from(customerMovements)
+      .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, input.key)))
+      .limit(1);
     if (!previo[0]) throw e;
     return { ok: false, codigo: "idempotency-key repetida", status: 409, error: "idempotency-key repetida" };
   }
@@ -485,7 +505,7 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
         ocurridoEn: customerMovements.clientOccurredAt,
       })
       .from(customerMovements)
-      .where(eq(customerMovements.customerId, customerId));
+      .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.customerId, customerId)));
     const saldo = derivar_saldo(filas.map((f) => ({ debeCentavos: BigInt(f.debe), haberCentavos: BigInt(f.haber) })));
     const mora = situacion_mora(
       filas.flatMap((f) => (BigInt(f.debe) > 0n ? [{ fecha: new Date(f.ocurridoEn).getTime() }] : [])),
@@ -497,7 +517,7 @@ export async function saldoCliente(customerId: string, hoyMs: number): Promise<S
       const fichas = await db
         .select({ tope: customers.topeCentavos })
         .from(customers)
-        .where(eq(customers.id, customerId))
+        .where(dondeTenant(customers.tenantId, eq(customers.id, customerId)))
         .limit(1);
       const ficha = fichas[0];
       if (ficha) preview = previewDeTope(ficha.tope, saldo);
@@ -588,10 +608,12 @@ export async function listarClientesConSaldo(hoyMs: number): Promise<{ clientes:
         haber: customerMovements.haberCentavos,
         ocurridoEn: customerMovements.clientOccurredAt,
       })
-      .from(customerMovements);
+      .from(customerMovements)
+      .where(dondeTenant(customerMovements.tenantId));
     const fichas = await db
       .select({ id: customers.id, nombre: customers.nombre, telefono: customers.telefono, tope: customers.topeCentavos })
-      .from(customers);
+      .from(customers)
+      .where(dondeTenant(customers.tenantId));
     const mapa = new Map<string, FichaSaldo>(
       fichas.map((f) => [String(f.id), { nombre: f.nombre, telefono: f.telefono, topeCentavos: BigInt(f.tope) }]),
     );
@@ -649,6 +671,7 @@ export async function listarClientes(): Promise<{ clientes: ClienteLista[]; fuen
         plazo: customers.plazoDias,
       })
       .from(customers)
+      .where(dondeTenant(customers.tenantId))
       .orderBy(asc(customers.nombre));
     return filas.map((f) => ({
       customerId: String(f.id),
@@ -721,6 +744,7 @@ export async function altaClienteRapida(input: AltaClienteRapidaInput): Promise<
         dni: customers.dni,
       })
       .from(customers)
+      .where(dondeTenant(customers.tenantId))
       .orderBy(asc(customers.nombre), asc(customers.id));
     const fichas: FichaAltaVista[] = filas.map((f) => ({
       id: String(f.id),
@@ -744,14 +768,16 @@ export async function altaClienteRapida(input: AltaClienteRapidaInput): Promise<
     if (!decidido.ok) throw new Error("alta rapida no pide tope");
     const insertadas = await tx
       .insert(customers)
-      .values({
-        nombre: decidido.cliente.nombre,
-        telefono: decidido.cliente.telefono,
-        dni: decidido.cliente.dni,
-        notas: decidido.cliente.notas,
-        topeCentavos: decidido.cliente.topeCentavos,
-        plazoDias: decidido.cliente.plazoDias,
-      })
+      .values(
+        filaConTenant({
+          nombre: decidido.cliente.nombre,
+          telefono: decidido.cliente.telefono,
+          dni: decidido.cliente.dni,
+          notas: decidido.cliente.notas,
+          topeCentavos: decidido.cliente.topeCentavos,
+          plazoDias: decidido.cliente.plazoDias,
+        }),
+      )
       .returning({ id: customers.id });
     const id = insertadas[0]?.id;
     if (!id) throw new Error("customers.insert sin returning");
