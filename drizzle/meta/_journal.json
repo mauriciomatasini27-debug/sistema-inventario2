@@ -309,6 +309,13 @@
       "when": 1794612000000,
       "tag": "0043_shared_tenant_nucleo",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794698400000,
+      "tag": "0044_piloto_schema_tenant_precios",
+      "breakpoints": true
     }
   ]
 }

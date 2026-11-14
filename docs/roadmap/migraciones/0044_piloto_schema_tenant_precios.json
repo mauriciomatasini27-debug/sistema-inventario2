@@ -1,0 +1,6 @@
+{
+  "tag": "0044_piloto_schema_tenant_precios",
+  "fecha": "2026-11-14",
+  "aprobado_por": "Mauri",
+  "evidencia": "PENDIENTE de aplicar en la base real del piloto. Aplicar con TENANT_DATABASE_URL y npm run db:migrate tras merge de este PR."
+}

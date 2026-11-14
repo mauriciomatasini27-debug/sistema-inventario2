@@ -19,6 +19,8 @@ import type { SnapshotPrecios } from "../modules/pricing/precios.js";
 
 // GP1/GP5 v1: cada cambio de costo/precio deja fila inmutable con motivo.
 export const costHistory = pgTable("cost_history", {
+  // ADR-0116 / P1-74: nullable hasta cierre NOT NULL; migración 0044.
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   sku: text("sku").notNull(),
   costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull(),
@@ -30,8 +32,9 @@ export const costHistory = pgTable("cost_history", {
 
 // GP5: markup por producto + modo (manual prevalece; markup_fijo recalcula).
 export const productMarkups = pgTable("product_markups", {
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
-  sku: text("sku").notNull().unique(),
+  sku: text("sku").notNull(),
   modo: text("modo").notNull().default("manual"),
   markupBp: integer("markup_bp"),
   precioManualCentavos: bigint("precio_manual_centavos", { mode: "bigint" }),
@@ -40,6 +43,7 @@ export const productMarkups = pgTable("product_markups", {
 
 // GP7: config global de redondeo + topes (solo Dueño online en dominio).
 export const priceSettings = pgTable("price_settings", {
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   pasoCentavos: bigint("paso_centavos", { mode: "bigint" }).notNull().default(sql`1000`),
   direccion: text("direccion").notNull().default("arriba"),
@@ -51,8 +55,9 @@ export const priceSettings = pgTable("price_settings", {
 
 // GP7 overrides por producto (pasan sobre el setting global).
 export const priceOverrides = pgTable("price_overrides", {
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
-  sku: text("sku").notNull().unique(),
+  sku: text("sku").notNull(),
   pasoCentavos: bigint("paso_centavos", { mode: "bigint" }),
   motivo: text("motivo"),
   creadoPor: text("creado_por"),
@@ -62,8 +67,9 @@ export const priceOverrides = pgTable("price_overrides", {
 // GP1/GP3: ajustes masivos con vigencia Ahora/Programada + idempotencia.
 // 1 tx idempotente por idempotency_key; programados cancelables en dominio.
 export const priceAdjustments = pgTable("price_adjustments", {
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
+  idempotencyKey: text("idempotency_key").notNull(),
   direccion: text("direccion").notNull(),
   porcentajeBp: integer("porcentaje_bp").notNull(),
   pasoCentavos: bigint("paso_centavos", { mode: "bigint" }).notNull().default(sql`1000`),
@@ -80,6 +86,7 @@ export const priceAdjustments = pgTable("price_adjustments", {
 // GP8: auditoría inmutable quién/cuándo/antes/después (job = "sistema").
 // Montos viajan como strings dentro del jsonb (JSON no tiene bigint).
 export const pricingAuditLog = pgTable("pricing_audit_log", {
+  tenantId: uuid("tenant_id"),
   id: uuid("id").primaryKey().defaultRandom(),
   actor: text("actor").notNull(),
   ajusteId: uuid("ajuste_id"),

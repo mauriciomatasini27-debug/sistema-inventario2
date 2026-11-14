@@ -17,6 +17,7 @@ import {
   type Suscripcion,
 } from "../../modules/planes/proveedor.js";
 import { planVigenteDe } from "../../modules/planes/ciclo.js";
+import { mpPreapprovalTenants } from "../../db/schema.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
@@ -76,15 +77,49 @@ export function olvidarMoraCobroEnMemoria(): void {
   rechazoCobroPorTenant.clear();
 }
 
-export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: string): void {
-  preapprovalPorTenant.set(preapprovalId, tenantId);
+const RX_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function persistirVinculoPreaprobacionDb(preapprovalId: string, tenantId: string): Promise<void> {
+  if (!RX_UUID.test(tenantId)) return;
+  const db = dbVivaTenant();
+  if (!db) return;
+  try {
+    await db
+      .insert(mpPreapprovalTenants)
+      .values({ preapprovalId, tenantId })
+      .onConflictDoUpdate({
+        target: mpPreapprovalTenants.preapprovalId,
+        set: { tenantId },
+      });
+  } catch {
+    // Sin base o schema viejo: el mapa en memoria sigue siendo el respaldo del proceso.
+  }
 }
 
-// P1-73: el webhook MP no pasa por conTenant; el mapa en memoria es la única
-// fuente hoy (no hay fila durable preapproval→tenant). Sin vínculo previo,
-// mp_webhook_events queda con tenant_id null hasta migración 0044 / cobro durable.
-export function tenantIdDePreapproval(preapprovalId: string): string | undefined {
-  return preapprovalPorTenant.get(preapprovalId);
+export function vincularPreaprobacionTenant(preapprovalId: string, tenantId: string): void {
+  preapprovalPorTenant.set(preapprovalId, tenantId);
+  void persistirVinculoPreaprobacionDb(preapprovalId, tenantId);
+}
+
+// P1-74: memoria del proceso y fila en mp_preapproval_tenants (migración 0044).
+export async function tenantIdDePreapproval(preapprovalId: string): Promise<string | undefined> {
+  const mem = preapprovalPorTenant.get(preapprovalId);
+  if (mem) return mem;
+  const db = dbVivaTenant();
+  if (!db) return undefined;
+  try {
+    const filas = await db
+      .select({ tenantId: mpPreapprovalTenants.tenantId })
+      .from(mpPreapprovalTenants)
+      .where(eq(mpPreapprovalTenants.preapprovalId, preapprovalId))
+      .limit(1);
+    const tid = filas[0]?.tenantId;
+    if (tid) preapprovalPorTenant.set(preapprovalId, tid);
+    return tid;
+  } catch {
+    return undefined;
+  }
 }
 
 export function registrarEstadoCobroMp(args: {

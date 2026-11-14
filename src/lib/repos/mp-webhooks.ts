@@ -39,7 +39,7 @@ export async function reclamarEventoMp(clave: string, preapprovalId: string, est
     return true;
   }
   try {
-    const tenantId = tenantIdDePreapproval(preapprovalId);
+    const tenantId = await tenantIdDePreapproval(preapprovalId);
     await db.insert(mpWebhookEvents).values({
       clave,
       preapprovalId,

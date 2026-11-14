@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mpWebhookEvents, stockLots } from "../src/db/schema.js";
+import { priceAdjustments } from "../src/db/schema-precios.js";
 import type { ItemCatalogo } from "../src/modules/pricing/precios.js";
 import { crear_job } from "../src/modules/ocr/jobs.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -10,7 +11,7 @@ import { aplicarImportacionStock } from "../src/lib/repos/importaciones.js";
 import { crearLote, listarLotes } from "../src/lib/repos/lotes.js";
 import { reclamarEventoMp } from "../src/lib/repos/mp-webhooks.js";
 import { crearJobRegistro, listarJobs } from "../src/lib/repos/ocr.js";
-import { vincularPreaprobacionTenant } from "../src/lib/repos/planes.js";
+import { olvidarMoraCobroEnMemoria, vincularPreaprobacionTenant } from "../src/lib/repos/planes.js";
 import { registrarAjuste } from "../src/lib/repos/precios.js";
 import { crearAlmacenAjustes, crearAlmacenProductos } from "../src/lib/repos/_almacen.js";
 import { cargarStockInicial, listarPendientesStockInicial } from "../src/lib/repos/stock-inicial.js";
@@ -197,12 +198,14 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
   const tenantB = randomUUID();
   const loteIds: string[] = [];
   const clavesMp: string[] = [];
+  const clavesAjuste: string[] = [];
   let snap: ReturnType<typeof guardarEnv> = {};
 
   beforeEach(() => {
     snap = guardarEnv();
     loteIds.length = 0;
     clavesMp.length = 0;
+    clavesAjuste.length = 0;
     process.env.TENANT_MODE = "shared";
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A;
     delete process.env.CONTROL_DATABASE_URL;
@@ -211,13 +214,16 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
 
   afterEach(async () => {
     try {
-      if (loteIds.length > 0 || clavesMp.length > 0) {
+      if (loteIds.length > 0 || clavesMp.length > 0 || clavesAjuste.length > 0) {
         const db = getTenantDb();
         for (const id of loteIds) {
           await db.delete(stockLots).where(eq(stockLots.id, id));
         }
         for (const clave of clavesMp) {
           await db.delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+        }
+        for (const key of clavesAjuste) {
+          await db.delete(priceAdjustments).where(eq(priceAdjustments.idempotencyKey, key));
         }
       }
     } finally {
@@ -262,6 +268,32 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     expect(enB).toHaveLength(0);
   });
 
+  it("precios PG: mismo idempotency_key en A y B con tenant distinto", async () => {
+    const ahora = "2026-11-14T12:00:00.000Z";
+    const clave = `aj-pg-${randomUUID()}`;
+    clavesAjuste.push(clave);
+    const base = {
+      idempotencyKey: clave,
+      direccion: "suba" as const,
+      porcentaje: 5,
+      vigenciaTipo: "ahora" as const,
+      aplicaEn: null,
+      confirmado: true,
+      online: true,
+      creadoPor: "dueno",
+      ahoraIso: ahora,
+      items: ITEMS,
+    };
+    expect((await conTenant(tenantA, () => registrarAjuste(base))).ok).toBe(true);
+    expect((await conTenant(tenantB, () => registrarAjuste(base))).ok).toBe(true);
+    const filasA = await conTenant(tenantA, () => getTenantDb().select().from(priceAdjustments));
+    const filasB = await conTenant(tenantB, () => getTenantDb().select().from(priceAdjustments));
+    expect(filasA).toHaveLength(1);
+    expect(filasB).toHaveLength(1);
+    expect(filasA[0]?.tenantId).toBe(tenantA);
+    expect(filasB[0]?.tenantId).toBe(tenantB);
+  });
+
   it("mp_webhook sella tenant_id si hubo vincularPreaprobacionTenant", async () => {
     const preId = `pre-${randomUUID()}`;
     vincularPreaprobacionTenant(preId, tenantA);
@@ -272,5 +304,53 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     const db = getTenantDb();
     const filas = await db.select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
     expect(filas[0]?.tenantId).toBe(tenantA);
+  });
+
+  it("mp_webhook resuelve tenant desde DB sin mapa en memoria", async () => {
+    const preId = `pre-db-${randomUUID()}`;
+    vincularPreaprobacionTenant(preId, tenantA);
+    olvidarMoraCobroEnMemoria();
+    const clave = `${preId}:activo`;
+    clavesMp.push(clave);
+    expect(await reclamarEventoMp(clave, preId, "activo")).toBe(true);
+    const filas = await getTenantDb().select().from(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+    expect(filas[0]?.tenantId).toBe(tenantA);
+  });
+});
+
+describe.skipIf(!hayPG)("P1-74 tablas de migración 0044 en Postgres", () => {
+  let snap: ReturnType<typeof guardarEnv> = {};
+
+  beforeEach(() => {
+    snap = guardarEnv();
+    process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A;
+  });
+
+  afterEach(() => {
+    restaurarEnv(snap);
+  });
+
+  const TABLAS_0044 = [
+    "platform_feedback_reports",
+    "inventory_counts",
+    "fiscal_customers",
+    "product_flags",
+    "report_exports",
+    "mp_preapproval_tenants",
+  ] as const;
+
+  it.each(TABLAS_0044)("%s existe tras migrar", async (tabla) => {
+    const db = getTenantDb();
+    const r = await db.execute(sql`SELECT to_regclass(${`public.${tabla}`})::text AS reg`);
+    const reg = (r[0] as { reg: string | null } | undefined)?.reg;
+    expect(reg).toBe(`public.${tabla}`);
+  });
+
+  it("price_adjustments tiene columna tenant_id", async () => {
+    const db = getTenantDb();
+    const r = await db.execute(
+      sql`SELECT 1 FROM information_schema.columns WHERE table_name = 'price_adjustments' AND column_name = 'tenant_id'`,
+    );
+    expect(r.length).toBeGreaterThan(0);
   });
 });
