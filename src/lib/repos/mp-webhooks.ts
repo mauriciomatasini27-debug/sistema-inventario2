@@ -75,12 +75,6 @@ export async function reclamarEventoMp(clave: string, preapprovalId: string, est
     return reclamarEventoMpEnDb(getSharedDbPlataforma(), clave, preapprovalId, estado);
   }
 
-  if (tenantId) {
-    return conTenant(tenantId, () =>
-      reclamarEventoMpEnDb(getTenantDb(tenantId), clave, preapprovalId, estado, tenantId),
-    );
-  }
-
   const db = dbVivaTenant();
   if (!db) {
     if (vistos.has(clave)) return false;
