@@ -1,5 +1,5 @@
 import { and, eq, like, sql } from "drizzle-orm";
-import { idMappings, outbox, productCodes, products, ticketCounters, type OutboxPayload } from "../../db/schema.js";
+import { idMappings, outbox, productCodes, products, sales, ticketCounters, tickets, type OutboxPayload } from "../../db/schema.js";
 import { deviceSyncState, offlineGrants } from "../../db/schema-sync.js";
 import {
   CODIGO_NECESITA_CONEXION,
@@ -14,6 +14,7 @@ import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sy
 import {
   crearAlmacenCodigos,
   crearAlmacenDeviceSeq,
+  crearAlmacenIdempotenciaVentas,
   crearAlmacenDeviceSync,
   crearAlmacenDevices,
   crearAlmacenGrants,
@@ -528,6 +529,31 @@ function esPromovido(definitivo: string): boolean {
   return !definitivo.startsWith("srv-");
 }
 
+// P1-71: GET /api/tickets lee esta columna, no id_mappings.
+async function completarDefinitivoTicketPromote(
+  db: Pick<TenantDb, "execute">,
+  opId: string,
+  definitivo: string,
+): Promise<void> {
+  await db.execute(sql`
+    update ${tickets}
+    set definitivo = ${definitivo}
+    from ${sales}
+    where ${tickets.saleId} = ${sales.id}
+      and ${sales.idempotencyKey} = ${opId}
+      and (${tickets.definitivo} is null or ${tickets.definitivo} = ${definitivo})
+  `);
+}
+
+// P1-71: la lectura sin base, y el fallback si la base falla, miran esta idempotencia.
+function cerrarDefinitivoEnMemoria(opId: string, definitivo: string): void {
+  const idempotencia = crearAlmacenIdempotenciaVentas();
+  const ticket = idempotencia.obtener(opId);
+  if (!ticket) return;
+  if (ticket.ticket_definitivo !== null && ticket.ticket_definitivo !== definitivo) return;
+  idempotencia.guardar(opId, { ...ticket, ticket_definitivo: definitivo });
+}
+
 // Promote idempotente por op_id: el replay devuelve el mapeo original (200).
 // El número sale de ticket_counters con lock en la misma tx (DB) o del
 // contador del store compartido con ventas (memoria/single sin DB).
@@ -541,7 +567,9 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       const previoDb = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
       const previoDbRow = previoDb?.[0];
       if (previoDbRow && esPromovido(previoDbRow.idDefinitivo)) {
+        await completarDefinitivoTicketPromote(db, b.opId, previoDbRow.idDefinitivo);
         promociones.guardar(b.opId, { provisorio: previoDbRow.idProvisorio, definitivo: previoDbRow.idDefinitivo });
+        cerrarDefinitivoEnMemoria(b.opId, previoDbRow.idDefinitivo);
         return {
           status: 200,
           cuerpo: {
@@ -558,6 +586,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
   }
   const previo = promociones.obtener(b.opId);
   if (previo) {
+    cerrarDefinitivoEnMemoria(b.opId, previo.definitivo);
     return {
       status: 200,
       cuerpo: {
@@ -585,6 +614,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
     const definitivo = `T-${String(contador.leer()).padStart(6, "0")}`;
     contador.fijar(contador.leer() + 1);
     promociones.guardar(b.opId, { provisorio, definitivo });
+    cerrarDefinitivoEnMemoria(b.opId, definitivo);
     return {
       status: 201,
       cuerpo: {
@@ -608,6 +638,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
       const vigente = await tx.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
       const ya = vigente[0];
       if (ya && esPromovido(ya.idDefinitivo)) {
+        await completarDefinitivoTicketPromote(tx, b.opId, ya.idDefinitivo);
         return { definitivo: ya.idDefinitivo, provisorio: ya.idProvisorio, gano: false };
       }
       const ultimo = filas[0]?.ultimo ?? 0;
@@ -622,9 +653,11 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         });
       await tx.update(outbox).set({ estado: "confirmado" }).where(eq(outbox.opId, b.opId));
       await tx.update(ticketCounters).set({ ultimo: n }).where(eq(ticketCounters.id, "mostrador"));
+      await completarDefinitivoTicketPromote(tx, b.opId, definitivo);
       return { definitivo, provisorio, gano: true };
     });
     promociones.guardar(b.opId, { provisorio: salida.provisorio, definitivo: salida.definitivo });
+    cerrarDefinitivoEnMemoria(b.opId, salida.definitivo);
     contador.fijar(Math.max(contador.leer(), Number(salida.definitivo.slice(2)) + 1));
     return {
       status: salida.gano ? 201 : 200,
@@ -641,7 +674,9 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         const previo = await db.select().from(idMappings).where(eq(idMappings.opId, b.opId)).limit(1);
         const fila = previo[0];
         if (fila && esPromovido(fila.idDefinitivo)) {
+          await completarDefinitivoTicketPromote(db, b.opId, fila.idDefinitivo);
           promociones.guardar(b.opId, { provisorio: fila.idProvisorio, definitivo: fila.idDefinitivo });
+          cerrarDefinitivoEnMemoria(b.opId, fila.idDefinitivo);
           return {
             status: 200,
             cuerpo: {
@@ -660,6 +695,7 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
     const definitivo = `T-${String(contador.leer()).padStart(6, "0")}`;
     contador.fijar(contador.leer() + 1);
     promociones.guardar(b.opId, { provisorio, definitivo });
+    cerrarDefinitivoEnMemoria(b.opId, definitivo);
     return {
       status: 201,
       cuerpo: {

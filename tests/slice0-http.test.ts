@@ -141,13 +141,29 @@ describe("slice-0 HTTP E2E (ADR-0017)", () => {
     const pmj = (await pm.json()) as Record<string, unknown>;
     expect(pmj["ticket_provisorio"]).toBe("caja-01-5");
     expect(pmj["ticket_definitivo"]).toMatch(/^T-\d{6}$/);
+    const definitivo = String(pmj["ticket_definitivo"]);
+
+    const porDef = (await GETTickets(ctx(`http://localhost/api/tickets?numero=${definitivo}`))) as Response;
+    expect(porDef.status).toBe(200);
+    const cuerpoDef = (await porDef.json()) as Record<string, unknown>;
+    expect(cuerpoDef["ticket_definitivo"]).toBe(definitivo);
+    expect(cuerpoDef["ticket_provisorio"]).toBe(provisorio);
+    expect(cuerpoDef["total_centavos"]).toBe("15000");
+
+    const porProv = (await GETTickets(ctx(`http://localhost/api/tickets?numero=${provisorio}`))) as Response;
+    expect(porProv.status).toBe(200);
+    expect(((await porProv.json()) as Record<string, unknown>)["sale_id"]).toBe(cuerpoDef["sale_id"]);
 
     // Replay del promote devuelve el mismo mapeo (200), sin consumir número.
     const pm2 = (await POSTPromote(
       req("http://localhost/api/sync/promote", opId, { op_id: opId, device_code: "caja-01", device_seq: 5 }),
     )) as Response;
     expect(pm2.status).toBe(200);
-    expect(((await pm2.json()) as Record<string, unknown>)["ticket_definitivo"]).toBe(pmj["ticket_definitivo"]);
+    expect(((await pm2.json()) as Record<string, unknown>)["ticket_definitivo"]).toBe(definitivo);
+
+    const porDefReplay = (await GETTickets(ctx(`http://localhost/api/tickets?numero=${definitivo}`))) as Response;
+    expect(porDefReplay.status).toBe(200);
+    expect(((await porDefReplay.json()) as Record<string, unknown>)["ticket_definitivo"]).toBe(definitivo);
 
     // Push replay mismo payload -> 200, distinto payload -> 409.
     const push2 = (await POSTPush(
