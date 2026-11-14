@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
+import { manifestFirmaMp } from "../src/lib/mp-webhook-firma.js";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import {
@@ -63,38 +64,41 @@ describe("MORA-14 planIncluye tras pago rechazado", () => {
     vi.useRealTimers();
   });
 
-  it("webhook gracia + activo mantiene HMAC JSON.stringify(body) y reactiva módulos", async () => {
+  it("webhook gracia + activo con firma MP oficial reactiva módulos", async () => {
     const tenant = "t-mp";
     const preId = "pre-mora-test";
     vincularPreaprobacionTenant(preId, tenant);
     await crearProveedorCobro().crearSuscripcion({ tenantId: tenant, planId: "basico" });
     process.env.MP_WEBHOOK_SECRET = "mp-mora-secret";
-    const cuerpo = {
-      preapproval_id: preId,
-      estado: "gracia" as const,
-      occurred_at: "2026-10-01T00:00:00.000Z",
+    const dataId = "notif-mora-gracia";
+    const firmar = (id: string, estado: "activo" | "gracia" | "suspendido", occurred_at: string) => {
+      const ts = String(Date.now());
+      const manifest = manifestFirmaMp(id, "req-mora", ts);
+      const v1 = createHmac("sha256", "mp-mora-secret").update(manifest, "utf8").digest("hex");
+      return {
+        headers: {
+          "x-signature": `ts=${ts},v1=${v1}`,
+          "x-request-id": "req-mora",
+          "content-type": "application/json",
+        },
+        body: {
+          preapproval_id: preId,
+          estado,
+          occurred_at,
+          data: { id },
+        },
+      };
     };
-    const esperado = createHmac("sha256", "mp-mora-secret").update(JSON.stringify(cuerpo)).digest("hex");
-    const req = (body: typeof cuerpo) =>
-      postMpWebhook(
-        ctx("http://x/api/billing/webhooks/mercadopago", {
-          method: "POST",
-          headers: { "x-signature": esperado, "content-type": "application/json" },
-          body,
-        }),
-      );
-    expect((await req(cuerpo)).status).toBe(201);
+    const gracia = firmar(dataId, "gracia", "2026-10-01T00:00:00.000Z");
+    const req = (init: ReturnType<typeof firmar>) =>
+      postMpWebhook(ctx("http://x/api/billing/webhooks/mercadopago", { method: "POST", ...init }));
+    expect((await req(gracia)).status).toBe(201);
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-20T00:00:00.000Z"));
     expect(await planIncluye(tenant, "bot_consulta")).toMatchObject({ incluida: false });
-    const activo = { ...cuerpo, estado: "activo" as const, occurred_at: "2026-10-20T00:00:00.000Z" };
-    const sigActivo = createHmac("sha256", "mp-mora-secret").update(JSON.stringify(activo)).digest("hex");
+    const activo = firmar("notif-mora-activo", "activo", "2026-10-20T00:00:00.000Z");
     const r2 = await postMpWebhook(
-      ctx("http://x/api/billing/webhooks/mercadopago", {
-        method: "POST",
-        headers: { "x-signature": sigActivo },
-        body: activo,
-      }),
+      ctx("http://x/api/billing/webhooks/mercadopago", { method: "POST", ...activo }),
     );
     expect(r2.status).toBe(201);
     expect(await planIncluye(tenant, "bot_consulta")).toMatchObject({ incluida: true, cupo: 100 });
