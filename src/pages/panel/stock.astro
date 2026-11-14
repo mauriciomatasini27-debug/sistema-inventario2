@@ -16,11 +16,51 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
   <TableroAcciones
     acciones={[
+      ...(puedeCrear ? [{ href: "#alta-producto-card", label: "Agregar producto", ancho: "completo" as const }] : []),
       { href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" },
       { href: "/panel/alertas/umbrales", label: "Editar umbrales" },
       { href: "/panel/precios", label: "Precios" },
     ]}
   />
+  {puedeCrear ? (
+    <section class="card" id="alta-producto-card">
+      <h2>Agregar producto</h2>
+      <p class="estado">Nombre obligatorio. El código es opcional; si no ponés uno, generamos un SKU interno.</p>
+      <form id="alta-producto-form">
+        <div class="fila">
+          <label>Nombre
+            <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Código de barras (opcional)
+            <input id="alta-codigo" data-campo="codigo" type="text" maxlength="64" autocomplete="off" inputmode="numeric" />
+          </label>
+          <button id="alta-leer-camara" type="button">Escanear</button>
+        </div>
+        <div class="fila">
+          <label>Precio de venta (pesos, opcional)
+            <input id="alta-precio" data-campo="precio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 1.234,50" />
+          </label>
+          <label>Cantidad inicial (opcional)
+            <input id="alta-cantidad" data-campo="cantidad" type="number" min="0" max="99999" step="1" inputmode="numeric" />
+          </label>
+        </div>
+        <div class="fila">
+          <label>Ubicación (opcional)
+            <select id="alta-ubicacion" data-campo="location_id">
+              <option value="">Sin ubicación</option>
+            </select>
+          </label>
+        </div>
+        <button id="alta-producto-enviar" type="submit">Guardar producto</button>
+        <div class="estado" id="estado-alta-producto" role="status"></div>
+        <div class="fila" id="alta-duplicado-acciones" hidden>
+          <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
+        </div>
+      </form>
+    </section>
+  ) : null}
   <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
   <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
@@ -225,6 +265,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
   import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
   import {
+    accionSiCodigoDuplicado,
+    armarAltaProducto,
+    mensajeErrorAlta,
+  } from "../../modules/stock/alta-producto-panel.js";
+  import {
     efectoCodigoDesconocido,
     efectoDeTecla,
     resolverLectura,
@@ -233,6 +278,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 
   const $ = (id) => document.getElementById(id);
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
+  const puedeCrearProducto = $("catalogo-sugerido")?.dataset.puedeCrear !== "no";
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
@@ -682,7 +728,26 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     input.select();
   };
 
+  const pintarSelectUbicaciones = (ubicaciones: UbicacionPanel[]) => {
+    const select = $("alta-ubicacion");
+    if (!(select instanceof HTMLSelectElement)) return;
+    const elegida = select.value;
+    select.replaceChildren();
+    const vacia = document.createElement("option");
+    vacia.value = "";
+    vacia.textContent = "Sin ubicación";
+    select.appendChild(vacia);
+    ubicaciones.filter((u) => !u.archivada).forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = u.nombre;
+      select.appendChild(opt);
+    });
+    if (elegida && [...select.options].some((o) => o.value === elegida)) select.value = elegida;
+  };
+
   const pintarUbicaciones = (ubicaciones: UbicacionPanel[], sembradas: boolean) => {
+    pintarSelectUbicaciones(ubicaciones);
     const lista = $("ubicaciones-lista");
     lista.textContent = "";
     ubicaciones.forEach((u) => {
@@ -776,6 +841,157 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     }
   });
 
+  const abrirAltaConCodigo = (codigo: string, destinoSku?: HTMLInputElement | null) => {
+    const seccion = $("alta-producto-card");
+    const codigoInput = $("alta-codigo");
+    if (!(seccion instanceof HTMLElement) || !(codigoInput instanceof HTMLInputElement)) return;
+    seccion.scrollIntoView({ behavior: "smooth", block: "start" });
+    codigoInput.value = codigo.trim();
+    $("alta-nombre").focus();
+    if (destinoSku) destinoSku.value = "";
+  };
+
+  const mostrarDesconocidoConAlta = (estado: HTMLElement, codigo: string, destinoSku?: HTMLInputElement | null) => {
+    const efecto = efectoCodigoDesconocido();
+    estado.replaceChildren();
+    estado.append(efecto.mensaje + " ");
+    if (!puedeCrearProducto || !efecto.crearProducto) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Crear producto con este código";
+    btn.addEventListener("click", () => abrirAltaConCodigo(codigo, destinoSku));
+    estado.appendChild(btn);
+  };
+
+  const ocultarDuplicadoAlta = () => {
+    const acciones = $("alta-duplicado-acciones");
+    if (acciones) acciones.hidden = true;
+  };
+
+  $("alta-producto-form")?.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = evento.currentTarget as HTMLFormElement;
+    limpiarErrores(form);
+    ocultarDuplicadoAlta();
+    const estado = $("estado-alta-producto");
+    const nombre = $("alta-nombre").value.trim();
+    const codigo = $("alta-codigo").value.trim();
+    const errores: Record<string, string> = {};
+    if (!nombre) errores.nombre = mensajeCampo("nombre", REQUERIDO);
+    const precio = parsearPesos($("alta-precio").value);
+    if ($("alta-precio").value.trim() !== "" && !precio.ok) errores.precio = mensajePesos(precio.motivo);
+    const cantidadRaw = $("alta-cantidad").value.trim();
+    const cantidad = cantidadRaw === "" ? 0 : Number($("alta-cantidad").value);
+    if (cantidadRaw !== "" && (!Number.isInteger(cantidad) || cantidad < 0)) {
+      errores.cantidad = mensajeCampo("cantidad", enteroMin(0));
+    }
+    if (Object.keys(errores).length > 0) {
+      mostrarErrores(form, errores);
+      estado.textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const ubicacion = $("alta-ubicacion");
+    const locationId = ubicacion instanceof HTMLSelectElement && ubicacion.value ? ubicacion.value : undefined;
+    const cuerpo = armarAltaProducto({
+      nombre,
+      ...(codigo ? { codigo } : {}),
+      precioCentavos: precio.ok ? precio.centavos : 0,
+      entropiaSku: crypto.randomUUID(),
+      ...(locationId ? { locationId } : {}),
+    });
+    estado.textContent = "Guardando producto…";
+    const idemAlta = crypto.randomUUID();
+    try {
+      const r = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idemAlta },
+        body: JSON.stringify(cuerpo),
+      });
+      const j = await r.json().catch((error) => {
+        console.warn("[panel/stock] alta producto sin JSON", r.status, error);
+        return {};
+      });
+      if (!r.ok) {
+        if (mostrarErrores(form, erroresDesdeZod(j.error))) {
+          estado.textContent = "Revisá los campos marcados.";
+          return;
+        }
+        const accionDuplicado = accionSiCodigoDuplicado(
+          r.status,
+          j.error,
+          Array.isArray(j.productos) ? j.productos : [],
+        );
+        if (accionDuplicado.tipo === "abrir") {
+          estado.textContent = accionDuplicado.mensaje;
+          const acciones = $("alta-duplicado-acciones");
+          const abrir = $("alta-abrir-existente");
+          if (acciones && abrir) {
+            acciones.hidden = false;
+            abrir.onclick = () => {
+              marcarSkuSeleccionado(accionDuplicado.sku);
+              $("lote-sku").value = accionDuplicado.sku;
+              $("ingreso-sku").value = accionDuplicado.sku;
+              toast.success("SKU " + accionDuplicado.sku + " listo para ingreso o lotes.");
+            };
+          }
+          return;
+        }
+        if (r.status === 409 && codigo) {
+          const busqueda = await fetch("/api/products?codigo=" + encodeURIComponent(codigo));
+          if (busqueda.ok) {
+            const jb = await busqueda.json();
+            const dup = accionSiCodigoDuplicado(409, "codigo duplicado", jb.productos ?? []);
+            if (dup.tipo === "abrir") {
+              estado.textContent = dup.mensaje;
+              const acciones = $("alta-duplicado-acciones");
+              const abrir = $("alta-abrir-existente");
+              if (acciones && abrir) {
+                acciones.hidden = false;
+                abrir.onclick = () => {
+                  marcarSkuSeleccionado(dup.sku);
+                  $("lote-sku").value = dup.sku;
+                  $("ingreso-sku").value = dup.sku;
+                };
+              }
+              return;
+            }
+          }
+        }
+        toast.error(mensajeErrorAlta(r.status, j.error));
+        estado.textContent = mensajeErrorAlta(r.status, j.error);
+        return;
+      }
+      const skuCreado = typeof j.sku === "string" ? j.sku : cuerpo.sku;
+      if (cantidad > 0) {
+        const idemIngreso = idemAlta;
+        const ingreso = await fetch("/api/stock/ingreso", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": idemIngreso },
+          body: JSON.stringify({
+            sku: skuCreado,
+            cantidad,
+            costo_centavos: precio.ok ? precio.centavos : 0,
+            controla_vencimiento: false,
+            vence_el: null,
+          }),
+        });
+        if (!ingreso.ok) {
+          toast.error("Producto creado, pero no se cargó el stock inicial.");
+          estado.textContent = "Producto creado. Revisá el ingreso de mercadería para cargar stock.";
+        }
+      }
+      toast.success("Producto guardado.");
+      estado.textContent = "Producto " + skuCreado + " guardado.";
+      form.reset();
+      ocultarDuplicadoAlta();
+      cargarCatalogo();
+      marcarSkuSeleccionado(skuCreado);
+    } catch (error) {
+      console.warn("[panel/stock] alta producto", error);
+      estado.textContent = mensaje("error", "");
+    }
+  });
+
   ["lote-sku", "ingreso-sku"].forEach((id) =>
     $(id).addEventListener("input", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLInputElement).value)),
   );
@@ -788,9 +1004,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     skusLocales: [],
     fetch: (url) => fetch(url),
   });
-  const avisarDesconocido = (estado: HTMLElement) => {
-    const efecto = efectoCodigoDesconocido();
-    estado.textContent = efecto.mensaje;
+  const avisarDesconocido = (estado: HTMLElement, codigo: string, destinoSku?: HTMLInputElement | null) => {
+    mostrarDesconocidoConAlta(estado, codigo, destinoSku);
   };
   const alEnter = (input: HTMLInputElement, estado: HTMLElement, despues: (sku: string) => void) => {
     input.addEventListener("keydown", async (ev) => {
@@ -804,15 +1019,22 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         despues(res.sku);
         return;
       }
-      if (res.estado === "desconocido") avisarDesconocido(estado);
+      if (res.estado === "desconocido") avisarDesconocido(estado, input.value, input);
     });
   };
   alEnter($("lote-sku"), $("estado-lotes"), () => { buscarLotes(); });
   alEnter($("ingreso-sku"), $("estado-ingreso"), () => {});
   let campoCamara = $("lote-sku");
-  for (const id of ["lote-sku", "ingreso-sku"]) {
-    $(id).addEventListener("focus", () => { campoCamara = $(id); });
+  for (const id of ["lote-sku", "ingreso-sku", "alta-codigo"]) {
+    $(id)?.addEventListener("focus", () => { campoCamara = $(id); });
   }
+  $("alta-leer-camara")?.addEventListener("click", () => {
+    const altaCodigo = $("alta-codigo");
+    if (altaCodigo instanceof HTMLInputElement) {
+      campoCamara = altaCodigo;
+      $("leer-camara").click();
+    }
+  });
   let sesion: { cerrar: () => void } | null = null;
   $("leer-camara").addEventListener("click", async () => {
     const video = $("camara-video");
@@ -828,7 +1050,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       const codigo = await sesion.leer();
       sesion = null;
       if (!codigo) return;
-      const estado = destino.id === "ingreso-sku" ? $("estado-ingreso") : $("estado-lotes");
+      const estado =
+        destino.id === "ingreso-sku"
+          ? $("estado-ingreso")
+          : destino.id === "alta-codigo"
+            ? $("estado-alta-producto")
+            : $("estado-lotes");
       const res = await resolverEnPantalla(codigo);
       if (res.estado === "encontrado") {
         destino.value = res.sku;
@@ -836,7 +1063,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         if (destino.id === "lote-sku") buscarLotes();
         return;
       }
-      avisarDesconocido(estado);
+      avisarDesconocido(estado, codigo, destino);
     } catch (error) {
       console.warn("[panel/stock] cámara", error);
       if (sesion) sesion.cerrar();

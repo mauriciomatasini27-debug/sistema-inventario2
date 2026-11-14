@@ -69,6 +69,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
   const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : b.permisos;
+  if (estadoAltaDesdeRol(rol, permisos) !== "activo") {
+    return Response.json({ error: "Necesitás permiso de alta de productos." }, { status: 403 });
+  }
   let r: Awaited<ReturnType<typeof altaProducto>>;
   try {
     r = await altaProducto({

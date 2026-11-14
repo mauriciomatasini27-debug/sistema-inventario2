@@ -18,7 +18,7 @@ export type ResolucionEscaneo =
 
 export type EfectoTecla = { readonly buscar: boolean; readonly abrirCamara: false };
 
-export type EfectoDesconocido = { readonly crearProducto: false; readonly mensaje: string };
+export type EfectoDesconocido = { readonly crearProducto: boolean; readonly mensaje: string };
 
 export type LectoresDeCuadro = {
   readonly barcodeDetector: (cuadro: CanvasImageSource) => Promise<string | null>;
@@ -43,7 +43,7 @@ export function efectoDeTecla(tecla: string): EfectoTecla {
 }
 
 export function efectoCodigoDesconocido(): EfectoDesconocido {
-  return { crearProducto: false, mensaje: "No hay un producto con ese código." };
+  return { crearProducto: true, mensaje: "No hay un producto con ese código." };
 }
 
 export function resolverEscaneo(

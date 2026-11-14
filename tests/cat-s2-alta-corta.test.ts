@@ -80,8 +80,7 @@ describe("P3-1 CAT-S2 alta corta precargada + pendiente revision", () => {
     tenantConMiembro("t-alta", "emp-1", "empleado");
     const planoEmp = sesionDe("emp-1", "t-alta");
     const altaPend = (await POSTProducts(conSesion("http://x/api/products", planoEmp, { sku: "ALTA-2", nombre: "Pend", precio_centavos: 100, codigo: "779998", rol: "dueno", permisos: ["crear_productos"] }))) as Response;
-    expect(altaPend.status).toBe(201);
-    expect(((await altaPend.json()) as { estado: string }).estado).toBe("pendiente_revision");
+    expect(altaPend.status).toBe(403);
 
     tenantConMiembro("t-alta", "emp-2", "empleado", ["crear_productos"]);
     const planoPermiso = sesionDe("emp-2", "t-alta");
@@ -108,7 +107,7 @@ function fijarMulti(): void {
   process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
 }
 
-describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: estado pendiente_revision al leer por codigo", () => {
+describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: sin permiso no da de alta", () => {
   const skuPG = `S2-${sufijoPG}`.slice(0, 32);
   const codPG = `S2C-${sufijoPG}`.slice(0, 32);
 
@@ -122,19 +121,16 @@ describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: estado pendiente_revisi
     modoSingleSinDb();
   });
 
-  it("alta de empleado sin permiso queda pendiente_revision tambien leida desde la DB", async () => {
+  it("empleado sin crear_productos recibe 403 y no escribe en la DB", async () => {
     fijarMulti();
     tenantConMiembro("tenant-a", "emp-s2", "empleado");
     const plano = sesionDe("emp-s2", "tenant-a");
     const alta = (await conTenant("tenant-a", () =>
       POSTProducts(conSesion("http://x/api/products", plano, { sku: skuPG, nombre: "Pend DB", precio_centavos: 100, codigo: codPG, rol: "dueno", permisos: ["crear_productos"] })),
     )) as Response;
-    expect(alta.status).toBe(201);
-    expect(((await alta.json()) as { estado: string }).estado).toBe("pendiente_revision");
+    expect(alta.status).toBe(403);
     const leido = (await conTenant("tenant-a", () => GETProducts(ctx(`http://x/api/products?codigo=${codPG}`)))) as Response;
-    const j = (await leido.json()) as { productos: Array<{ sku: string; estado: string }>; fuente?: string; alta_corta?: unknown };
-    expect(j.fuente).toBe("db");
-    expect(j.productos.map((p) => [p.sku, p.estado])).toEqual([[skuPG, "pendiente_revision"]]);
-    expect(j.alta_corta).toBeUndefined();
+    const j = (await leido.json()) as { productos: unknown[] };
+    expect(j.productos).toEqual([]);
   });
 });
