@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { getTenantDb } from "../src/lib/db.js";
+import { tenants } from "../src/db/schema.js";
 import { usageCounters } from "../src/db/schema-planes.js";
 import { whatsappUsage } from "../src/db/schema-whatsapp.js";
 import { olvidarPlanesEnMemoria, leerUso } from "../src/lib/repos/planes.js";
@@ -52,10 +53,23 @@ describe("PLAN-S10 contador bot_consulta en memoria", () => {
 });
 
 describe.skipIf(!hayPG)("PLAN-S10 contador bot_consulta en Postgres", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     resetStore();
     fijarMulti();
     olvidarPlanesEnMemoria();
+    await conTenant(tenantA, async () => {
+      const db = getTenantDb();
+      await db
+        .insert(tenants)
+        .values({
+          id: tenantA,
+          nombreComercio: "PLAN-S10 PG",
+          slug: `plan-s10-${sufijo}`.slice(0, 40),
+          plan: "demo",
+          estado: "activo",
+        })
+        .onConflictDoNothing();
+    });
   });
 
   afterAll(async () => {

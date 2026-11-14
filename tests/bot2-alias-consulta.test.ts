@@ -71,18 +71,19 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
     await conTenant(tenantA, async () => {
       const db = getTenantDb();
       // Alias guardado con tildes y mayúsculas; dos alias del mismo producto.
-      await db.insert(products).values(filaPg({ sku: skuCafe, nombre: `Molienda tostada ${num}`, precioCentavos: 300000n, stockActual: 4 }, tenantA));
+      const tidA = tenantIdParaFixture(tenantA);
+      await db.insert(products).values(filaPg({ sku: skuCafe, nombre: `Molienda tostada ${num}`, precioCentavos: 300000n, stockActual: 4 }, tidA));
       await db.insert(productAliases).values([
-        { tenantId: tenantA, sku: skuCafe, alias: `Café TOSTÁDO ${num}`, aliasNorm: `cafe tostado ${num}` },
-        { tenantId: tenantA, sku: skuCafe, alias: `café ${num}`, aliasNorm: `cafe ${num}` },
+        { tenantId: tidA, sku: skuCafe, alias: `Café TOSTÁDO ${num}`, aliasNorm: `cafe tostado ${num}` },
+        { tenantId: tidA, sku: skuCafe, alias: `café ${num}`, aliasNorm: `cafe ${num}` },
       ]);
       for (const [i, sku] of skuListas.entries()) {
-        await db.insert(products).values(filaPg({ sku, nombre: `Producto lista ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tenantA));
-        await db.insert(productAliases).values({ tenantId: tenantA, sku, alias: `mate ${num} ${i}`, aliasNorm: `mate ${num} ${i}` });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto lista ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
+        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `mate ${num} ${i}`, aliasNorm: `mate ${num} ${i}` });
       }
       for (const [i, sku] of skuMuchos.entries()) {
-        await db.insert(products).values(filaPg({ sku, nombre: `Producto pasta ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tenantA));
-        await db.insert(productAliases).values({ tenantId: tenantA, sku, alias: `pasta ${num} ${i}`, aliasNorm: `pasta ${num} ${i}` });
+        await db.insert(products).values(filaPg({ sku, nombre: `Producto pasta ${i} ${num}`, precioCentavos: 100000n, stockActual: 3 }, tidA));
+        await db.insert(productAliases).values({ tenantId: tidA, sku, alias: `pasta ${num} ${i}`, aliasNorm: `pasta ${num} ${i}` });
       }
     });
     await conTenant(tenantB, async () => {
