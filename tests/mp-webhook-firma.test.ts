@@ -8,7 +8,6 @@ import { mpWebhookEvents } from "../src/db/schema.js";
 import { manifestFirmaMp } from "../src/lib/mp-webhook-firma.js";
 import { olvidarEventosMpEnMemoria } from "../src/lib/repos/mp-webhooks.js";
 import { POST as postMpWebhook } from "../src/pages/api/billing/webhooks/mercadopago.js";
-import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 const SECRETO = "p178-mp-secret";
 
@@ -159,20 +158,24 @@ const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 
 describe.skipIf(!hayPG)("P1-78 firma inválida no escribe en mp_webhook_events", () => {
   const claves: string[] = [];
+  let urlAnterior: string | undefined;
 
   afterEach(async () => {
-    if (!process.env.TENANT_DATABASE_URL) return;
-    for (const clave of claves) {
-      await getTenantDb().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+    if (process.env.TENANT_DATABASE_URL) {
+      for (const clave of claves) {
+        await getTenantDb().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
+      }
     }
-    delete process.env.TENANT_DATABASE_URL;
+    if (urlAnterior === undefined) delete process.env.TENANT_DATABASE_URL;
+    else process.env.TENANT_DATABASE_URL = urlAnterior;
     delete process.env.MP_WEBHOOK_SECRET;
+    claves.length = 0;
   });
 
   it("401 y cero filas tras firma inválida", async () => {
-    const url = await asegurarBasePrivada("p178_mp_firma", process.env.PG_TEST_URL_A ?? "");
+    urlAnterior = process.env.TENANT_DATABASE_URL;
     delete process.env.TENANT_MODE;
-    process.env.TENANT_DATABASE_URL = url;
+    process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A ?? "";
     process.env.MP_WEBHOOK_SECRET = SECRETO;
     resetStore();
     olvidarEventosMpEnMemoria();
