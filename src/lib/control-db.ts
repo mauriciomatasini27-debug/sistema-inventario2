@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getControlDb } from "./db.js";
 import { filaConTenant } from "./tenant-scope.js";
 import {
@@ -19,6 +19,7 @@ import {
 } from "../db/schema.js";
 import { whatsappCodes } from "../db/schema-whatsapp.js";
 import { deviceSyncState, offlineGrants } from "../db/schema-sync.js";
+import { rubroSchema } from "./validation.js";
 
 // Write-through de control best-effort (mismo patrón que server-db para el
 // tenant). El store en memoria sigue siendo la fuente de verdad en
@@ -262,10 +263,12 @@ export function asegurarAltaPendiente(a: {
   moneda: string;
   ownerGoogleSub: string;
   esDemo: boolean;
+  rubro?: string | undefined;
   requestKey: string;
   database: string;
   jobId: string;
 }): Promise<boolean> {
+  const rubroDb = a.rubro ? rubroSchema.safeParse(a.rubro) : undefined;
   return intentarControl(async (db) => {
     await db
       .insert(tenants)
@@ -279,8 +282,16 @@ export function asegurarAltaPendiente(a: {
         ownerGoogleSub: a.ownerGoogleSub,
         esDemo: a.esDemo,
         requestKey: a.requestKey,
+        ...(rubroDb?.success ? { rubro: rubroDb.data } : {}),
       })
       .onConflictDoNothing();
+    // P1-79: reintento idempotente del alta; no pisa rubro ya persistido.
+    if (rubroDb?.success) {
+      await db
+        .update(tenants)
+        .set({ rubro: rubroDb.data })
+        .where(and(eq(tenants.id, a.id), isNull(tenants.rubro)));
+    }
     await db
       .insert(tenantDatabases)
       .values({ tenantId: a.id, database: a.database, estado: "pendiente" })
