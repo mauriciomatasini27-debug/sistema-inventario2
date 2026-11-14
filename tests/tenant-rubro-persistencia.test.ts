@@ -65,7 +65,7 @@ async function plantillaDe(tenantId: string, rubroEsperado?: string) {
   return j;
 }
 
-describe("P1-78 persistencia del rubro por comercio", () => {
+describe("P1-79 persistencia del rubro por comercio", () => {
   beforeEach(() => {
     resetStore();
   });

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getControlDb } from "./db.js";
 import { filaConTenant } from "./tenant-scope.js";
 import {
@@ -285,6 +285,13 @@ export function asegurarAltaPendiente(a: {
         ...(rubroDb?.success ? { rubro: rubroDb.data } : {}),
       })
       .onConflictDoNothing();
+    // P1-79: reintento idempotente del alta; no pisa rubro ya persistido.
+    if (rubroDb?.success) {
+      await db
+        .update(tenants)
+        .set({ rubro: rubroDb.data })
+        .where(and(eq(tenants.id, a.id), isNull(tenants.rubro)));
+    }
     await db
       .insert(tenantDatabases)
       .values({ tenantId: a.id, database: a.database, estado: "pendiente" })
