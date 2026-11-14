@@ -1,105 +1,83 @@
 ---
 // Pantalla de estado ON3: avance, verificación WA y video mientras se crea.
 // Polling cada 2 s con reconexión al volver a la pestaña.
-import "../../styles/tokens-papel.css";
+// TB-ALTA: mismo chrome tablero B + toggle de tema.
+import AltaShell from "../../components/alta/AltaShell.astro";
 const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\D/g, "");
 ---
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Preparando tu comercio</title>
-    <style>
-      body { margin: 0; font-family: var(--font-sans); background: var(--color-canvas); }
-      main { max-width: 360px; margin: 0 auto; padding: 12px; }
-      button, a.btn { min-height: 44px; font-size: 16px; width: 100%; margin: 6px 0; box-sizing: border-box; display: block; text-align: center; }
-      button { background: var(--color-void); color: var(--color-star-white); border: 0; border-radius: 8px; }
-      a.btn { background: var(--color-whatsapp); color: var(--color-void); border-radius: 8px; text-decoration: none; line-height: 44px; }
-      a.ghost { background: var(--color-star-white); color: var(--color-void); border: 1px solid var(--color-ash); }
-      .card { background: var(--color-star-white); border-radius: 12px; padding: 12px; margin: 8px 0; }
-      .ok { color: var(--color-ok); font-weight: bold; }
-      #error { color: var(--color-star-glow); font-size: 14px; }
-      .hint { font-size: 13px; color: var(--color-ash); }
-      ul { padding-left: 20px; font-size: 14px; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1 id="titulo">Estamos preparando tu comercio</h1>
-      <div class="card">
-        <ul id="pasos">
-          <li>Creando tu base de datos…</li>
-          <li>Preparando tus ubicaciones…</li>
-          <li>Conectando tu WhatsApp…</li>
-        </ul>
-        <div id="wa-estado">Verificando WhatsApp…</div>
-        <div id="error" role="alert"></div>
-        <div id="aviso" role="status"></div>
-      </div>
-      <div class="card" id="wa-card">
-        <a class="btn" id="vincular" href="#">Vincular por WhatsApp</a>
-        <button id="codigo" type="button">¿No podés abrir WhatsApp? Recibí un código</button>
-        <button id="despues" type="button">Verificar después</button>
-        <p class="hint">El mensaje VINCULAR es gratis y abre la ventana de 24 h para la bienvenida.</p>
-      </div>
-      <div class="card" id="listo-card" hidden>
-        <p class="ok">¡Listo!</p>
-        <a class="btn" id="entrar" href="/panel">Entrar a mi comercio</a>
-      </div>
-    </main>
-    <script define:vars={{ central }}>
-      const params = new URLSearchParams(location.search);
-      const tenantId = params.get("tenant_id") ?? "";
-      const $ = (id) => document.getElementById(id);
-      let codigo = null;
+<AltaShell tituloPagina="Preparando tu comercio">
+  <h1 id="titulo">Estamos preparando tu comercio</h1>
+  <div class="card">
+    <ul id="pasos">
+      <li>Creando tu base de datos…</li>
+      <li>Preparando tus ubicaciones…</li>
+      <li>Conectando tu WhatsApp…</li>
+    </ul>
+    <div id="wa-estado">Verificando WhatsApp…</div>
+    <div id="error" role="alert"></div>
+    <div id="aviso" role="status"></div>
+  </div>
+  <div class="card" id="wa-card">
+    <a class="btn btn--wa" id="vincular" href="#">Vincular por WhatsApp</a>
+    <button id="codigo" type="button" class="btn-secundario">¿No podés abrir WhatsApp? Recibí un código</button>
+    <button id="despues" type="button" class="btn-secundario">Verificar después</button>
+    <p class="hint">El mensaje VINCULAR es gratis y abre la ventana de 24 h para la bienvenida.</p>
+  </div>
+  <div class="card" id="listo-card" hidden>
+    <p class="ok">¡Listo!</p>
+    <a class="btn btn--primario" id="entrar" href="/panel">Entrar a mi comercio</a>
+  </div>
+  <script define:vars={{ central }}>
+    const params = new URLSearchParams(location.search);
+    const tenantId = params.get("tenant_id") ?? "";
+    const $ = (id) => document.getElementById(id);
+    let codigo = null;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("alta-vincular") ?? "{}");
+      if (saved.tenant_id === tenantId && saved.vincular) codigo = saved.vincular.codigo;
+    } catch { /* sin código guardado */ }
+    const waLink = () => "https://wa.me/" + central + "?text=" + encodeURIComponent("VINCULAR " + (codigo ?? ""));
+    async function refrescar() {
+      if (!tenantId) { $("error").textContent = "Falta el comercio."; return; }
       try {
-        const saved = JSON.parse(sessionStorage.getItem("alta-vincular") ?? "{}");
-        if (saved.tenant_id === tenantId && saved.vincular) codigo = saved.vincular.codigo;
-      } catch { /* sin código guardado */ }
-      const waLink = () => "https://wa.me/" + central + "?text=" + encodeURIComponent("VINCULAR " + (codigo ?? ""));
-      async function refrescar() {
-        if (!tenantId) { $("error").textContent = "Falta el comercio."; return; }
-        try {
-          const r = await fetch("/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId));
-          const j = await r.json();
-          if (j.comercio) {
-            $("titulo").textContent = "Estamos preparando " + (j.comercio.nombre ?? "tu comercio");
-            if (j.comercio.estado === "activo") {
-              $("pasos").innerHTML = "<li>Base lista ✓</li><li>Ubicaciones listas ✓</li>";
-              $("listo-card").hidden = false;
-            }
+        const r = await fetch("/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId));
+        const j = await r.json();
+        if (j.comercio) {
+          $("titulo").textContent = "Estamos preparando " + (j.comercio.nombre ?? "tu comercio");
+          if (j.comercio.estado === "activo") {
+            $("pasos").innerHTML = "<li>Base lista ✓</li><li>Ubicaciones listas ✓</li>";
+            $("listo-card").hidden = false;
           }
-          if (j.whatsapp?.verificado) {
-            $("wa-estado").innerHTML = "<span class='ok'>WhatsApp verificado ✓</span>";
-            $("wa-card").hidden = true;
-          } else {
-            $("vincular").href = waLink();
-          }
-        } catch { /* se reintenta en el próximo ciclo */ }
-      }
-      $("vincular").onclick = () => { location.href = waLink(); return false; };
-      $("codigo").onclick = async () => {
-        const numero = prompt("Tu número de WhatsApp (ej. 11 5555-1234)", "") ?? "";
-        if (!numero) return;
-        const r = await fetch("/api/whatsapp/vincular-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, numero }),
-        });
-        const j = await r.json().catch((error) => { console.warn("[alta-estado] respuesta sin JSON", r.status, error); return {}; });
-        if (r.status === 201) {
-          codigo = j.codigo;
-          $("aviso").textContent = "Te enviamos el código por WhatsApp. Escribilo cuando lo recibas.";
-        } else {
-          $("error").textContent = j.error ?? ("Error " + r.status);
         }
-      };
-      // ON1.5: "Verificar después" entra al comercio; WA queda pendiente en checklist.
-      $("despues").onclick = () => { location.href = "/panel"; };
-      document.addEventListener("visibilitychange", () => { if (!document.hidden) refrescar(); });
-      setInterval(refrescar, 2000);
-      refrescar();
-    </script>
-  </body>
-</html>
+        if (j.whatsapp?.verificado) {
+          $("wa-estado").innerHTML = "<span class='ok'>WhatsApp verificado ✓</span>";
+          $("wa-card").hidden = true;
+        } else {
+          $("vincular").href = waLink();
+        }
+      } catch { /* se reintenta en el próximo ciclo */ }
+    }
+    $("vincular").onclick = () => { location.href = waLink(); return false; };
+    $("codigo").onclick = async () => {
+      const numero = prompt("Tu número de WhatsApp (ej. 11 5555-1234)", "") ?? "";
+      if (!numero) return;
+      const r = await fetch("/api/whatsapp/vincular-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantId, numero }),
+      });
+      const j = await r.json().catch((error) => { console.warn("[alta-estado] respuesta sin JSON", r.status, error); return {}; });
+      if (r.status === 201) {
+        codigo = j.codigo;
+        $("aviso").textContent = "Te enviamos el código por WhatsApp. Escribilo cuando lo recibas.";
+      } else {
+        $("error").textContent = j.error ?? ("Error " + r.status);
+      }
+    };
+    // ON1.5: "Verificar después" entra al comercio; WA queda pendiente en checklist.
+    $("despues").onclick = () => { location.href = "/panel"; };
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refrescar(); });
+    setInterval(refrescar, 2000);
+    refrescar();
+  </script>
+</AltaShell>

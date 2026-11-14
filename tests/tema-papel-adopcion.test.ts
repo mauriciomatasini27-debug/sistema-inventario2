@@ -29,11 +29,19 @@ function walk(rel: string): string[] {
   return salida;
 }
 
+function usaTokensPapel(pageSrc: string, f: string): boolean {
+  if (/import\s+["']\.\.?\/(?:\.\.\/)?styles\/tokens-papel\.css["']/.test(pageSrc)) return true;
+  if (pageSrc.includes("AltaShell")) {
+    return leer("src/components/alta/AltaShell.astro").includes("tokens-papel.css");
+  }
+  return false;
+}
+
 describe("Tema Papel: adopción en páginas standalone (DS-S3/S7)", () => {
   for (const f of PAGINAS) {
     it(`${f} importa tokens-papel.css y no deja colores sueltos fuera del dark`, () => {
       const src = leer(f);
-      expect(src).toMatch(/import\s+["']\.\.?\/(?:\.\.\/)?styles\/tokens-papel\.css["']/);
+      expect(usaTokensPapel(src, f), f).toBe(true);
       const claro = sinBloqueDark(src);
       expect(claro, f).not.toMatch(HEX_SUELTOS);
     });
