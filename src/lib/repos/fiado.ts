@@ -13,6 +13,7 @@ import { agregarDescuentoTicket, agregarLineaTicket, agregarStockMoveMemoria, gu
 import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { BaseNoDisponible, dbVivaTenant, intentarLeer } from "../server-db.js";
 import { tenantActual } from "../tenant-mode.js";
+import { tenantIdShared } from "../tenant-scope.js";
 import {
   crearAlmacenCreditoVistos,
   crearAlmacenStock,
@@ -153,6 +154,7 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
   if (!db) {
     return { ok: false, codigo: "CLIENTE_DESCONOCIDO", status: 404, error: "CLIENTE_DESCONOCIDO" };
   }
+  const tenantId = tenantIdShared();
 
   let costosDb: ReadonlyMap<string, bigint>;
   try {
@@ -290,11 +292,13 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
           sobreventa: r.efecto.faltantes.length > 0,
           offline: false,
           clientOccurredAt: ahora,
+          ...(tenantId ? { tenantId } : {}),
         });
         await tx.insert(tickets).values({
           saleId,
           definitivo: ticket,
           provisorio: r.efecto.ticket.provisorio,
+          ...(tenantId ? { tenantId } : {}),
         });
         // P10-16 GP4: costo congelado por SKU, calculado antes de la tx.
         const lineasDb = input.lineas.flatMap((l) => {

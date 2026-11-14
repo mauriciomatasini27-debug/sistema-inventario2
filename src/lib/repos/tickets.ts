@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq, or } from "drizzle-orm";
 import { products, sales, ticketLines, tickets } from "../../db/schema.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { ticketDiscounts, ticketLinkRevocations, ticketLinks } from "../../db/schema-tickets.js";
 import { listarDescuentosTicket, listarLineasTicket, listarTicketsFiado } from "../ticket-memoria.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -176,7 +177,7 @@ export async function buscarTicketPorNumero(
       })
       .from(tickets)
       .innerJoin(sales, eq(tickets.saleId, sales.id))
-      .where(or(eq(tickets.definitivo, numero), eq(tickets.provisorio, numero)))
+      .where(dondeTenant(sales.tenantId, or(eq(tickets.definitivo, numero), eq(tickets.provisorio, numero))))
       .limit(1);
     const f = filas[0];
     if (!f) return null;

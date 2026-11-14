@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { customerMovements } from "../../db/schema-credito.js";
 import { dbVivaTenant } from "../server-db.js";
@@ -75,7 +76,11 @@ export async function buscarVentaPorId(saleId: string): Promise<VentaParaDevoluc
   const db = dbVivaTenant();
   if (!db) return null;
   try {
-    const filas = await db.select().from(sales).where(eq(sales.id, saleId)).limit(1);
+    const filas = await db
+      .select()
+      .from(sales)
+      .where(dondeTenant(sales.tenantId, eq(sales.id, saleId)))
+      .limit(1);
     const f = filas[0];
     if (!f) return null;
     return {

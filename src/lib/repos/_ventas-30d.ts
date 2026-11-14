@@ -1,6 +1,7 @@
 import { eq, gte, sql } from "drizzle-orm";
 import { sales, ticketLines } from "../../db/schema.js";
 import type { TenantDb } from "../server-db.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { listarTodasLasLineasTicket } from "../ticket-memoria.js";
 
 // Ventas por producto compartidas por las cargas progresivas de /panel/stock
@@ -14,7 +15,7 @@ export function subconsultaVentas30d(db: TenantDb, desde: Date) {
     })
     .from(ticketLines)
     .innerJoin(sales, eq(ticketLines.saleId, sales.id))
-    .where(gte(sales.createdAt, desde))
+    .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)))
     .groupBy(ticketLines.productId)
     .as("ventas_30d");
 }
