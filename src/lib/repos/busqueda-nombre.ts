@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { decidir_respuesta, extraer_termino, type Candidato } from "../../modules/whatsapp/consulta.js";
 import { puntuarMemoria } from "../../modules/whatsapp/puntaje-memoria.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { esModoShared } from "../tenant-mode.js";
+import { tenantIdAlSellar, tenantIdShared, tenantUuidMulti } from "../tenant-scope.js";
 import { listarCatalogoVivo } from "./whatsapp.js";
 
 /** Mitad del umbral de decidir_respuesta (0.3): umbral local de pg_trgm en la transacción. */
@@ -47,9 +49,10 @@ export async function consultarNombre(pedido: PedidoNombre): Promise<ResultadoNo
     return { origen: "memoria", resolucion: decidirDesdeFilas(filas) };
   }
 
+  const tid = tenantIdFilaSql(pedido);
   let filas: FilaRankeada[];
   try {
-    filas = await rankearSql(db, term);
+    filas = await rankearSql(db, term, tid);
   } catch {
     throw new BaseNoDisponible();
   }
@@ -63,10 +66,13 @@ export async function leerFicha(pedido: { tenantId: string | null; sku: string }
     return item ? fichaDesdeVivo(item) : null;
   }
   try {
+    const tid = tenantIdFilaSql({ tenantId: pedido.tenantId, texto: "" });
+    const filtro = tid ? sql`AND tenant_id = ${tid}::uuid` : sql``;
     const filas = await db.execute(sql`
       SELECT sku, nombre, stock_actual AS stock, COALESCE(min_stock, 0) AS umbral, precio_centavos AS precio
       FROM products
       WHERE sku = ${pedido.sku}
+      ${filtro}
       LIMIT 1
     `);
     const row = parsearFilaSql((filas as unknown[])[0]);
@@ -97,7 +103,12 @@ function fichaDesdeVivo(item: {
 }
 
 function decidirDesdeFilas(filas: ReadonlyArray<FilaRankeada>): ResolucionNombre {
-  const candidatos: Candidato[] = filas.map((f) => ({ sku: f.sku, nombre: f.nombre, score: f.score }));
+  const conExacto = filas.filter((f) => f.score >= 0.99);
+  const base =
+    conExacto.length > 0
+      ? conExacto
+      : filas;
+  const candidatos: Candidato[] = base.map((f) => ({ sku: f.sku, nombre: f.nombre, score: f.score }));
   const d = decidir_respuesta(candidatos);
   const porSku = new Map(filas.map((f) => [f.sku, f]));
 
@@ -132,7 +143,25 @@ function fichaDesdeSql(f: FilaRankeada): FichaProducto {
   };
 }
 
-async function rankearSql(db: TenantDb, term: string): Promise<FilaRankeada[]> {
+function tenantIdFilaSql(pedido: PedidoNombre): string | null {
+  if (esModoShared()) {
+    try {
+      return tenantIdShared();
+    } catch {
+      return null;
+    }
+  }
+  const sellado = tenantIdAlSellar();
+  if (sellado) return sellado;
+  const t = pedido.tenantId;
+  if (!t) return null;
+  if (/^[0-9a-f-]{36}$/i.test(t)) return t;
+  return tenantUuidMulti(t);
+}
+
+async function rankearSql(db: TenantDb, term: string, tenantRowId: string | null): Promise<FilaRankeada[]> {
+  const filtroProd = tenantRowId ? sql`AND p.tenant_id = ${tenantRowId}::uuid` : sql``;
+  const filtroAlias = tenantRowId ? sql`AND a.tenant_id = ${tenantRowId}::uuid AND p.tenant_id = ${tenantRowId}::uuid` : sql``;
   return db.transaction(async (tx) => {
     await tx.execute(sql`SELECT set_config('pg_trgm.word_similarity_threshold', ${UMBRAL_TRGM_WORD}, true)`);
     const result = await tx.execute(sql`
@@ -140,6 +169,7 @@ async function rankearSql(db: TenantDb, term: string): Promise<FilaRankeada[]> {
         SELECT p.sku, p.nombre, p.stock_actual, p.min_stock, p.precio_centavos, 1.0::float8 AS score
         FROM products p
         WHERE f_norm(p.sku) = f_norm(${term})
+        ${filtroProd}
 
         UNION ALL
 
@@ -147,14 +177,33 @@ async function rankearSql(db: TenantDb, term: string): Promise<FilaRankeada[]> {
           word_similarity(f_norm(${term}), f_norm(p.nombre))::float8 AS score
         FROM products p
         WHERE f_norm(${term}) <% f_norm(p.nombre)
+        ${filtroProd}
+
+        UNION ALL
+
+        SELECT p.sku, p.nombre, p.stock_actual, p.min_stock, p.precio_centavos, 1.0::float8 AS score
+        FROM product_aliases a
+        INNER JOIN products p ON p.sku = a.sku AND p.tenant_id = a.tenant_id
+        WHERE f_norm(a.alias) = f_norm(${term})
+        ${filtroAlias}
+
+        UNION ALL
+
+        SELECT p.sku, p.nombre, p.stock_actual, p.min_stock, p.precio_centavos, 1.0::float8 AS score
+        FROM product_aliases a
+        INNER JOIN products p ON p.sku = a.sku AND p.tenant_id = a.tenant_id
+        WHERE f_norm(a.alias_norm) = f_norm(${term})
+        ${filtroAlias}
 
         UNION ALL
 
         SELECT p.sku, p.nombre, p.stock_actual, p.min_stock, p.precio_centavos,
           word_similarity(f_norm(${term}), f_norm(a.alias))::float8 AS score
         FROM product_aliases a
-        INNER JOIN products p ON p.sku = a.sku
+        INNER JOIN products p ON p.sku = a.sku AND p.tenant_id = a.tenant_id
         WHERE f_norm(${term}) <% f_norm(a.alias)
+          AND f_norm(a.alias) <> f_norm(${term})
+        ${filtroAlias}
       ),
       ranked AS (
         SELECT sku, nombre, stock_actual, min_stock, precio_centavos, MAX(score) AS score
