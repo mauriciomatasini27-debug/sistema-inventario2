@@ -7,6 +7,7 @@ import { getTenantDb } from "../src/lib/db.js";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { POST as ventaFiadoPOST } from "../src/pages/api/credit/sales-on-account.js";
 import { GET as saldoGET } from "../src/pages/api/credit/balance.js";
+import { sembrarDemoSku1 } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const cliente = randomUUID();
@@ -58,7 +59,9 @@ describe.skipIf(!hayPG)("PERS2-S4 Postgres local por tenant", () => {
   it("el fiado de A se lee con fuente db y B no lo ve", async () => {
     fijarMulti();
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customers).values({ id: cliente, nombre: "Pers2", topeCentavos: 0n }).onConflictDoNothing();
+      const db = getTenantDb();
+      await db.insert(customers).values({ id: cliente, nombre: "Pers2", topeCentavos: 0n }).onConflictDoNothing();
+      await sembrarDemoSku1(db);
     });
     const creado = await conTenant("tenant-a", () =>
       ventaFiadoPOST(peticionVenta(clave)),

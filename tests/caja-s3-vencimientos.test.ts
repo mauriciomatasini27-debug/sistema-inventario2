@@ -4,6 +4,7 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { GET as getDue, POST as postDue, PATCH as patchDue } from "../src/pages/api/cash/due-items.js";
 import { POST as postJobCaja } from "../src/pages/api/jobs/vencimientos-caja.js";
+import { activarSinglePgDesdeEnv } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -138,7 +139,7 @@ describe.skipIf(!hayPG)("CAJA-S3 PG: migracion 0023 crea cash_due_items y el rep
     const { crearVencimiento, marcarAvisados, pagarVencimiento } = await import("../src/lib/repos/caja.js");
     modoSingleSinDb();
     resetStore();
-    process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A ?? "";
+    activarSinglePgDesdeEnv();
     try {
       const db = getTenantDb();
       const mig = readFileSync("drizzle/0023_cash_due_items.sql", "utf8");

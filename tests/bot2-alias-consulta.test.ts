@@ -9,7 +9,7 @@ import { products } from "../src/db/schema.js";
 import { productAliases } from "../src/db/schema-whatsapp.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as GETConsult } from "../src/pages/api/whatsapp/consult.js";
-import { filaPg } from "./helpers/pg-tenant-fixture.js";
+import { filaPg, tenantIdParaFixture } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const tenantA = randomUUID();
@@ -62,10 +62,11 @@ describe.skipIf(!hayPG)("BOT2 alias en consulta de stock", () => {
     resetStore();
     await conTenant(tenantA, async () => {
       const db = getTenantDb();
-      await db.insert(products).values(filaPg({ sku: skuA, nombre: "Gaseosa cola 500 ml", precioCentavos: 180000n, stockActual: 12 }, tenantA));
-      await db.insert(productAliases).values({ tenantId: tenantA, sku: skuA, alias: aliasA, aliasNorm: aliasA });
+      const tidA = tenantIdParaFixture(tenantA);
+      await db.insert(products).values(filaPg({ sku: skuA, nombre: "Gaseosa cola 500 ml", precioCentavos: 180000n, stockActual: 12 }, tidA));
+      await db.insert(productAliases).values({ tenantId: tidA, sku: skuA, alias: aliasA, aliasNorm: aliasA });
       // Alias de otro comercio en la misma base: el filtro por tenant lo deja afuera.
-      await db.insert(productAliases).values({ tenantId: tenantB, sku: skuA, alias: aliasB, aliasNorm: aliasB });
+      await db.insert(productAliases).values({ tenantId: tenantIdParaFixture(tenantB), sku: skuA, alias: aliasB, aliasNorm: aliasB });
     });
     await conTenant(tenantA, async () => {
       const db = getTenantDb();

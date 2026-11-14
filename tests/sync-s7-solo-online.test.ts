@@ -9,6 +9,7 @@ import { POST as POSTPush } from "../src/pages/api/sync/push.js";
 import { GET as GETPull } from "../src/pages/api/sync/pull.js";
 import { OPERACIONES_SOLO_ONLINE, NecesitaConexionError } from "../src/lib/offline-gate.js";
 import { encolar, pendientes, resetOutbox } from "../src/offline/outbox-store.js";
+import { activarSinglePgDesdeEnv } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -111,7 +112,7 @@ const hayPG = Boolean(PG_URL);
 
 describe.skipIf(!hayPG)("SYNC-S7 PG: batch sensible no persiste en outbox del tenant", () => {
   it("venta en outbox, sensible ausente", async () => {
-    process.env.TENANT_DATABASE_URL = PG_URL;
+    activarSinglePgDesdeEnv();
     delete process.env.TENANT_MODE;
     resetStore();
     const device = `caja-s7pg-${Date.now().toString(36)}`.slice(0, 32);

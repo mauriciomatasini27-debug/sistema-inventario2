@@ -7,6 +7,7 @@ import { whatsappUsage } from "../src/db/schema-whatsapp.js";
 import { olvidarPlanesEnMemoria, leerUso } from "../src/lib/repos/planes.js";
 import { registrarConsultaBot } from "../src/lib/repos/bot-consultas.js";
 import { resetStore } from "../src/lib/store.js";
+import { conTenant } from "../src/lib/tenant-mode.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const tenantA = randomUUID();
@@ -74,9 +75,9 @@ describe.skipIf(!hayPG)("PLAN-S10 contador bot_consulta en Postgres", () => {
       numeroE164: "+5491100000001",
       ahoraMs: AHORA,
     };
-    await registrarConsultaBot({ ...base, wamid: `pg-a-${sufijo}` });
-    await registrarConsultaBot({ ...base, wamid: `pg-a-${sufijo}` });
-    await registrarConsultaBot({ ...base, wamid: `pg-b-${sufijo}` });
+    await conTenant(tenantA, () => registrarConsultaBot({ ...base, wamid: `pg-a-${sufijo}` }));
+    await conTenant(tenantA, () => registrarConsultaBot({ ...base, wamid: `pg-a-${sufijo}` }));
+    await conTenant(tenantA, () => registrarConsultaBot({ ...base, wamid: `pg-b-${sufijo}` }));
 
     const db = getTenantDb(tenantA);
     const [wa] = await db
