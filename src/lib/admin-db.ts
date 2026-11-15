@@ -376,7 +376,6 @@ function isoFecha(d: Date | null | undefined): string | null {
   return d.toISOString();
 }
 
-// ADMIN-PANEL-WIRE: la fila de control se vuelve Admin*Mem acá. El merge no ve columnas.
 export async function leerActosAdminMem(limite = TOPE_HIDRATAR): Promise<AdminActoMem[]> {
   try {
     const filas = await getControlDb()

@@ -21,11 +21,12 @@ describe("ADMIN-PANEL-WIRE tarjetas", () => {
     expect(html).toContain("accion: \"estado\"");
     expect(html).toContain("confirmo_id");
     expect(html).toContain("idempotency_key");
-    expect(html).toContain("r.status === 409 && abierta === key && key");
+    expect(html).toContain("duplicadoMismoIntento");
     expect(html).toContain("ultimaSenalEn");
     expect(html).toContain("b.consumidas");
     expect(html).toContain("b.descartadas");
-    expect(html).toContain("for (let i = 0; i < 12; i++)");
+    expect(html).toContain("HEAT_SLOTS");
+    expect(html).toContain("pintarHeatPorUltimaSenalEn");
   });
 
   it("manda la suspensión a Tenants y no promete mora/suspender ni regularizar", () => {

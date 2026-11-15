@@ -35,7 +35,6 @@ export function exigirAdmin(request: Request): AdminCtx | Response {
   return { googleSub: ctx.googleSub };
 }
 
-// ADMIN-PANEL-WIRE: la auth no lee la base. El store se llena una vez por proceso, después del allowlist.
 export async function exigirAdminListo(request: Request): Promise<AdminCtx | Response> {
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;

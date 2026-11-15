@@ -6,9 +6,7 @@ import TemaToggle from "../components/ui/TemaToggle.astro";
 import CerrarSesion from "../components/ui/CerrarSesion.astro";
 // Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
 // craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
-// pills, segbar, bignums, cards, heatmap dark y SVG propios. En vivo: salud,
-// actos, uso, tenants, rollouts, flags, cobros, señales y reportes.
-// ADMIN-PANEL-WIRE: si esa API no responde, la tarjeta queda en demo.
+// pills, segbar, bignums, cards, heatmap dark y SVG propios.
 // Sin datos de negocio jamás (Ley 25.326): solo contadores de gestión.
 // ADMIN-USO-DIARIO: la tarjeta Uso lee GET /api/admin/uso. La marca "Costo alto"
 // es texto, y el precio que muestra es el de referencia del catálogo de ejemplo.
@@ -249,7 +247,6 @@ const pills = [
             <line x1="270" y1="10" x2="270" y2="150" stroke="var(--tema-texto)" stroke-width="1" />
             <g font-size="10" fill="var(--tema-texto-suave)"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
           </svg>
-          <!-- ADMIN-PANEL-WIRE: un solo camino. Suspender vive en Tenants; esta tarjeta no llama a mora/suspender. -->
           <div class="mini">Suspender y reactivar están en <a href="#tenants">Tenants</a>.</div>
         </section>
 
@@ -401,7 +398,7 @@ const pills = [
         document.getElementById("n-senales").textContent = filas.length;
         document.getElementById("mora-estado").textContent = "En vivo: " + activos + " al día, " + mora + " suspendidos.";
         marca("b-senales", true);
-        pintarHeatDesdeSalud(filas);
+        pintarHeatPorUltimaSenalEn(filas);
         if (tenantsEnVivo) return;
         pintarFlota(activos, mora, filas.length);
         document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
@@ -716,7 +713,9 @@ const pills = [
           ? msgSinAdmin
           : "Sin conexión: mostrando demo.";
       });
-      // ADMIN-PANEL-WIRE: el color va inline porque Astro no alcanza a los <i> creados por JS.
+      // El color va inline porque Astro no alcanza a los <i> creados por JS.
+      const HEAT_SLOTS = 12;
+      const HEAT_VENTANA_HORAS = 11;
       function celdaHeat(v) {
         const i = document.createElement("i");
         i.style.cssText = "aspect-ratio:1;border-radius:50%;background:" + (v ? "var(--color-llama)" : "var(--color-mid)");
@@ -729,24 +728,22 @@ const pills = [
         seed.forEach((v) => heat.appendChild(celdaHeat(!!v)));
         marca("b-senales-tarjeta", false);
       }
-      // ADMIN-PANEL-WIRE: doce cubos de reloj. Una hora queda en true si alguna
-      // ultimaSenalEn cae ahí. No se escala con salud.length.
-      function pintarHeatDesdeSalud(filas) {
+      function pintarHeatPorUltimaSenalEn(filas) {
         const heat = document.getElementById("heat");
         if (!heat) return;
         const horaMs = 60 * 60 * 1000;
         const hora0 = new Date();
         hora0.setMinutes(0, 0, 0);
-        const inicio = hora0.getTime() - 11 * horaMs;
+        const inicio = hora0.getTime() - HEAT_VENTANA_HORAS * horaMs;
         const on = [];
-        for (let i = 0; i < 12; i++) on.push(false);
+        for (let i = 0; i < HEAT_SLOTS; i++) on.push(false);
         for (const f of filas || []) {
           const raw = f && f.ultimaSenalEn;
           if (!raw) continue;
           const t = new Date(raw).getTime();
           if (!Number.isFinite(t)) continue;
           const idx = Math.floor((t - inicio) / horaMs);
-          if (idx >= 0 && idx < 12) on[idx] = true;
+          if (idx >= 0 && idx < HEAT_SLOTS) on[idx] = true;
         }
         heat.replaceChildren();
         on.forEach((v) => heat.appendChild(celdaHeat(v)));
@@ -1005,12 +1002,13 @@ const pills = [
         const clave = document.getElementById("cobros-idempotency");
         if (clave && crypto.randomUUID) clave.value = crypto.randomUUID();
       }
-      // ADMIN-PANEL-WIRE: 409 cuenta como el mismo cobro solo si la clave del
-      // formulario abierto sigue siendo la que se acaba de enviar.
+      function duplicadoMismoIntento(status, keyEnviada, keyActual) {
+        return status === 409 && !!keyEnviada && keyActual === keyEnviada;
+      }
       async function asentarCobro() {
         const form = document.getElementById("cobros-form");
         const estado = document.getElementById("cobros-estado");
-        const key = form.idempotency_key.value.trim();
+        const keyEnviada = form.idempotency_key.value.trim();
         let r;
         try {
           r = await fetch("/api/admin/ledger/asentar", {
@@ -1022,16 +1020,15 @@ const pills = [
               monto_centavos: form.monto_centavos.value.trim(),
               medio: form.medio.value.trim(),
               referencia_externa: form.referencia_externa.value.trim(),
-              idempotency_key: key,
+              idempotency_key: keyEnviada,
             }),
           });
         } catch (err) {
           estado.textContent = err && err.message ? err.message : "red";
           return;
         }
-        const abierta = form.idempotency_key.value.trim();
         const json = await leerCuerpo(r);
-        if (r.status === 409 && abierta === key && key) {
+        if (duplicadoMismoIntento(r.status, keyEnviada, form.idempotency_key.value.trim())) {
           estado.textContent = "En vivo: ese cobro ya estaba asentado.";
           marca("b-cobros", true);
           rotarClaveCobro();
@@ -1068,7 +1065,6 @@ const pills = [
         estado.textContent = "En vivo: " + String(b.consumidas ?? 0) + " consumidas, " + String(b.descartadas ?? 0) + " descartadas.";
         void cargarSalud();
       }
-      // ADMIN-PANEL-WIRE: un solo listener. El DOM declara data-admin-accion.
       async function ejecutarAccionAdmin(btn) {
         const accion = btn.getAttribute("data-admin-accion");
         if (accion === "rollout-reintentar") return reintentarRollout(btn.getAttribute("data-rollout-id"));

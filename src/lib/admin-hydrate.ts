@@ -1,5 +1,3 @@
-// ADMIN-PANEL-WIRE: un proceso, una lectura. Las escrituras de este PID no se pisan.
-
 import { resetAdmin, adminStore } from "./admin-store.js";
 import type {
   AdminActoMem,
@@ -71,17 +69,29 @@ function esSemilla(plan: string, mem: DunningPolicyMem): boolean {
   );
 }
 
+function cargarActosSoloSiProcesoFrio(actosDb: AdminActoMem[]): number {
+  if (adminStore.actos.length > 0) return 0;
+  const ordenados = [...actosDb].sort(porCreadoEn).slice(-500);
+  adminStore.actos = ordenados;
+  return ordenados.length;
+}
+
+function fusionarAsientosSinDuplicarIdempotency(asientosDb: AdminAsientoMem[]): number {
+  const claves = new Set([...adminStore.asientos.values()].map((a) => a.idempotencyKey));
+  let asientos = 0;
+  for (const a of asientosDb) {
+    if (claves.has(a.idempotencyKey) || adminStore.asientos.has(a.id)) continue;
+    adminStore.asientos.set(a.id, a);
+    claves.add(a.idempotencyKey);
+    asientos += 1;
+  }
+  return asientos;
+}
+
 export function fusionarHidratacion(leido: HidratacionLeida): Partial<Record<HydratePhase, number>> {
   const merged: Partial<Record<HydratePhase, number>> = {};
 
-  // La cadena vive en el último hash. Si este PID ya escribió, mezclar la base la parte.
-  if (adminStore.actos.length > 0) {
-    merged.actos = 0;
-  } else {
-    const ordenados = [...leido.actos].sort(porCreadoEn).slice(-500);
-    adminStore.actos = ordenados;
-    merged.actos = ordenados.length;
-  }
+  merged.actos = cargarActosSoloSiProcesoFrio(leido.actos);
 
   let health = 0;
   for (const h of leido.health) {
@@ -92,16 +102,7 @@ export function fusionarHidratacion(leido: HidratacionLeida): Partial<Record<Hyd
   }
   merged.health = health;
 
-  // Un cobro repetido después del reinicio tiene que seguir respondiendo 409.
-  const claves = new Set([...adminStore.asientos.values()].map((a) => a.idempotencyKey));
-  let asientos = 0;
-  for (const a of leido.asientos) {
-    if (claves.has(a.idempotencyKey) || adminStore.asientos.has(a.id)) continue;
-    adminStore.asientos.set(a.id, a);
-    claves.add(a.idempotencyKey);
-    asientos += 1;
-  }
-  merged.asientos = asientos;
+  merged.asientos = fusionarAsientosSinDuplicarIdempotency(leido.asientos);
 
   const vistas = new Set(adminStore.eventosVida.map((e) => e.idempotencyKey));
   let eventos = 0;
