@@ -335,9 +335,11 @@ describe("ADMIN-USO-DIARIO GET /api/admin/tenants", () => {
     expect(caro?.["uso_wa"]).toBe(0);
     expect(caro?.["costo_alto"]).toBe(true);
     expect(body.tenants.map((t) => t["id"])).not.toContain("ajeno");
+    expect(barato?.["nombre"]).toBe("Kiosco Secreto");
+    expect(caro?.["nombre"]).toBe("Otro Secreto");
     const crudo = JSON.stringify(body);
-    expect(crudo).not.toContain("Kiosco Secreto");
-    expect(crudo).not.toContain("Otro Secreto");
+    expect(crudo).not.toContain("dueno-1");
+    expect(crudo).not.toContain("dueno-2");
   });
 });
 
