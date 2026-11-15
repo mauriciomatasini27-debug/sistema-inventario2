@@ -19,6 +19,7 @@ import {
 } from "../db/schema.js";
 import { whatsappCodes } from "../db/schema-whatsapp.js";
 import { deviceSyncState, offlineGrants } from "../db/schema-sync.js";
+import { control, type ControlTenant } from "./store.js";
 import { rubroSchema } from "./validation.js";
 
 // Write-through de control best-effort (mismo patrón que server-db para el
@@ -231,6 +232,78 @@ export function listarIdsTenantsControl(): Promise<string[]> {
     const filas = await db.select({ id: tenants.id }).from(tenants);
     return filas.map((f) => f.id);
   }).then((r) => r ?? []);
+}
+
+type FilaTenantControl = {
+  id: string;
+  nombreComercio: string;
+  slug: string;
+  estado: string;
+  plan: string;
+  moneda: string;
+  ownerGoogleSub: string | null;
+  esDemo: boolean;
+  rubro: string | null;
+  trialHasta: Date | null;
+};
+
+// P1-87: la fila de DB pisa estado/plan/slug/nombre/trial/demo/rubro/dueño.
+// Una entrada que la DB no devolvió se queda: el Map también tiene altas solo-memoria.
+function fusionarFilasTenantsControl(filas: readonly FilaTenantControl[]): number {
+  for (const f of filas) {
+    const previo = control.tenants.get(f.id);
+    const trial = f.trialHasta ? f.trialHasta.toISOString() : undefined;
+    const rubroOk = f.rubro ? rubroSchema.safeParse(f.rubro) : null;
+    const desdeDb = {
+      nombreComercio: f.nombreComercio,
+      slug: f.slug,
+      estado: f.estado,
+      plan: f.plan,
+      esDemo: f.esDemo,
+      ownerGoogleSub: f.ownerGoogleSub ?? "",
+      ...(rubroOk?.success ? { rubro: rubroOk.data } : {}),
+      ...(trial ? { trialHasta: trial } : {}),
+    };
+    if (!previo) {
+      control.tenants.set(f.id, { id: f.id, moneda: f.moneda || "ARS", ...desdeDb });
+      continue;
+    }
+    const siguiente: ControlTenant = { ...previo, ...desdeDb };
+    if (!rubroOk?.success) delete siguiente.rubro;
+    if (!trial) delete siguiente.trialHasta;
+    control.tenants.set(f.id, siguiente);
+  }
+  return filas.length;
+}
+
+// P1-87: el allowlist admin no tiene membership, así que el cold start no ve
+// tenants. Este vuelco best-effort llena el Map; sin URL o si la lectura falla, devuelve 0.
+export async function listarYSincronizarTenantsControl(): Promise<number> {
+  const filas = await leerControl((db) =>
+    db
+      .select({
+        id: tenants.id,
+        nombreComercio: tenants.nombreComercio,
+        slug: tenants.slug,
+        estado: tenants.estado,
+        plan: tenants.plan,
+        moneda: tenants.moneda,
+        ownerGoogleSub: tenants.ownerGoogleSub,
+        esDemo: tenants.esDemo,
+        rubro: tenants.rubro,
+        trialHasta: tenants.trialHasta,
+      })
+      .from(tenants),
+  );
+  if (!filas) return 0;
+  return fusionarFilasTenantsControl(filas);
+}
+
+// P1-87: el POST ya cambió el Map; esto deja el mismo estado en la tabla tenants.
+export function persistirEstadoTenant(tenantId: string, estado: "activo" | "suspendido"): Promise<boolean> {
+  return intentarControl((db) =>
+    db.update(tenants).set({ estado }).where(eq(tenants.id, tenantId)),
+  );
 }
 
 export function buscarDatabasePorTenant(tenantId: string): Promise<string | null> {

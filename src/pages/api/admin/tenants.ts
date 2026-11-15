@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { resumenUsoEnListadoTenants, sincronizarUsoDiarioDesdeContadores } from "../../../lib/admin-db.js";
+import { listarYSincronizarTenantsControl, persistirEstadoTenant } from "../../../lib/control-db.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
@@ -15,11 +16,14 @@ export const GET: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
   const estado = url.searchParams.get("estado") ?? "";
   const dia = fechaAR();
+  // P1-87: sin este vuelco, un proceso frío con allowlist no lista los tenants de la DB.
+  await listarYSincronizarTenantsControl();
   await sincronizarUsoDiarioDesdeContadores(dia);
   let lista = [...control.tenants.values()].map((t) => {
     const uso = resumenUsoEnListadoTenants(t.id, t.plan, dia);
     return {
       id: t.id,
+      nombre: t.nombreComercio,
       slug: t.slug,
       estado: t.estado,
       plan: t.plan,
@@ -34,7 +38,6 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 // POST /api/admin/tenants — accion suspender|reactivar con confirmo_id + motivo.
-// El cambio de estado lo consume control vía evento (admin nunca UPDATE directo).
 export const POST: APIRoute = async ({ request }) => {
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;
@@ -44,15 +47,21 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: "Datos inválidos." }, { status: 422 });
   const conf = exigirConfirmacion(body as Record<string, unknown>, parsed.data.tenant_id);
   if (conf instanceof Response) return conf;
-  const t = control.tenants.get(parsed.data.tenant_id);
+  // P1-87: el id puede existir solo en la DB (proceso recién levantado). Un vuelco y se reintenta.
+  let t = control.tenants.get(parsed.data.tenant_id);
+  if (!t) {
+    await listarYSincronizarTenantsControl();
+    t = control.tenants.get(parsed.data.tenant_id);
+  }
   if (!t) return Response.json({ error: "Tenant desconocido." }, { status: 404 });
-  // 409 ya en estado pedido, 422 gracia no cumplida (suspender exige mora previa simplificada: estado activo->suspendido ok, resto 422).
   if (t.estado === (parsed.data.accion === "suspender" ? "suspendido" : "activo")) {
     return Response.json({ error: parsed.data.accion === "suspender" ? "ya suspendido" : "ya activo" }, { status: 409 });
   }
   const de = t.estado;
-  t.estado = parsed.data.accion === "suspender" ? "suspendido" : "activo";
+  const estadoNuevo = parsed.data.accion === "suspender" ? "suspendido" : "activo";
+  t.estado = estadoNuevo;
   control.tenants.set(t.id, t);
+  void persistirEstadoTenant(t.id, estadoNuevo);
   adminStore.eventosVida.push({ id: crypto.randomUUID(), tenantId: t.id, deEstado: de, aEstado: t.estado, motivo: (conf as { motivo: string }).motivo, actor: (admin as { googleSub: string }).googleSub, idempotencyKey: crypto.randomUUID(), creadoEn: new Date().toISOString() });
   auditar({ kind: parsed.data.accion === "suspender" ? "tenant_suspendido" : "tenant_reactivado", tenantId: t.id }, (admin as { googleSub: string }).googleSub, "panel");
   return Response.json({ tenant_id: t.id, estado: t.estado });

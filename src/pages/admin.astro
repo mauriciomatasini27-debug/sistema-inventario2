@@ -6,8 +6,9 @@ import TemaToggle from "../components/ui/TemaToggle.astro";
 import CerrarSesion from "../components/ui/CerrarSesion.astro";
 // Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
 // craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
-// pills, segbar, bignums, cards, heatmap dark y SVG propios. Solo consume GET
-// /api/admin/salud y GET /api/admin/actos en vivo; el resto es demo marcado.
+// pills, segbar, bignums, cards, heatmap dark y SVG propios. En vivo: GET
+// /api/admin/salud, GET /api/admin/actos, GET /api/admin/uso y GET/POST
+// /api/admin/tenants. El resto es demo marcado.
 // Sin datos de negocio jamás (Ley 25.326): solo contadores de gestión.
 // ADMIN-USO-DIARIO: la tarjeta Uso lee GET /api/admin/uso. La marca "Costo alto"
 // es texto, y el precio que muestra es el de referencia del catálogo de ejemplo.
@@ -65,7 +66,7 @@ const pills = [
       .grid { display: grid; gap: 16px; }
       .grid.r1 { grid-template-columns: 240px 1fr 300px; }
       .grid.r2 { grid-template-columns: 1fr 300px; margin-top: 16px; }
-      .grid.r3 { grid-template-columns: repeat(5, 1fr); margin-top: 16px; }
+      .grid.r3 { grid-template-columns: repeat(4, 1fr); margin-top: 16px; }
       .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); min-width: 0; }
       .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
       .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid var(--tema-linea); border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
@@ -107,6 +108,12 @@ const pills = [
         display: inline-flex; align-items: center; margin-top: 10px; font: inherit;
       }
       .cta-piloto:disabled { opacity: 0.55; cursor: wait; }
+      #tenants-confirmar { margin-top: 12px; display: grid; gap: 8px; max-width: 420px; }
+      #tenants-confirmar[hidden] { display: none; }
+      #tenants-confirmar input {
+        border: 1px solid var(--tema-linea); border-radius: 12px; padding: 8px 12px;
+        font: inherit; background: var(--papel); color: var(--tema-texto); min-height: 44px;
+      }
       :target { outline: 2px solid var(--llama); outline-offset: 4px; }
       /* En oscuro, .dark y .banner quedan void sobre void: un borde los separa.
          El primer segmento y el avatar invierten como en el panel. */
@@ -247,14 +254,41 @@ const pills = [
         <div class="estado" id="uso-estado">Uso: cargando…</div>
       </section>
 
+      <section class="card" id="tenants" style="margin-top:16px;overflow-x:auto">
+        <h2>Tenants <span class="demo" id="b-tenants">demo</span> <a href="#tenants" aria-label="Ir a tenants">↗</a></h2>
+        <div class="mini">Directorio de gestión. Suspender y reactivar piden motivo y el id escrito.<br /><span style="font-family:monospace">GET/POST /api/admin/tenants</span></div>
+        <button type="button" class="cta-piloto" id="btn-piloto-dos">Cargar 2 comercios piloto</button>
+        <div class="estado" id="piloto-resultado" aria-live="polite"></div>
+        <table class="mov" id="tenants-tabla">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Slug</th>
+              <th>Estado</th>
+              <th>Plan</th>
+              <th>Vencimiento</th>
+              <th>Id</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tenants-body">
+            <tr><td colspan="7">Cargando…</td></tr>
+          </tbody>
+        </table>
+        <form id="tenants-confirmar" hidden>
+          <p class="mini" id="tenants-confirmar-texto"></p>
+          <p class="mini">Id completo: <code id="tenants-id-visible"></code></p>
+          <input id="tenants-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo" />
+          <input id="tenants-confirmo" name="confirmo_id" required placeholder="Escribí el id del tenant" aria-label="Confirmación del id" autocomplete="off" />
+          <div>
+            <button type="submit" class="cta-piloto" id="tenants-enviar" style="margin-top:0">Confirmar</button>
+            <button type="button" class="cta-piloto" id="tenants-cancelar" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Cancelar</button>
+          </div>
+        </form>
+        <div class="estado" id="tenants-estado" aria-live="polite">—</div>
+      </section>
+
       <div class="grid r3">
-        <section class="card" id="tenants">
-          <h2>Tenants <a href="#tenants">↗</a></h2>
-          <div class="mini">Directorio mínimo (PA5).<br /><span style="font-family:monospace">GET /api/admin/salud</span></div>
-          <button type="button" class="cta-piloto" id="btn-piloto-dos">Cargar 2 comercios piloto</button>
-          <div class="estado" id="piloto-resultado" aria-live="polite"></div>
-          <div class="estado" id="tenants-estado">—</div>
-        </section>
         <section class="card" id="cobros"><h2>Cobros <a href="#cobros">↗</a></h2><div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div></section>
         <section class="card" id="flags"><h2>Flags <a href="#flags">↗</a></h2><div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div></section>
         <section class="card" id="infra"><h2>Infra <a href="#infra">↗</a></h2><div class="mini"><b>Próximamente</b> (PA11).<br />Re-ejecutar migración Drizzle.</div></section>
@@ -292,14 +326,13 @@ const pills = [
         .catch(() => {
           msgSinAdmin = "Sin sesión: entrá con Admin desde la landing.";
         });
-      const pintarSalud = (b) => {
-        const filas = b.salud || [];
-        const activos = filas.filter((f) => f.estadoVisto === "activo").length;
-        const mora = filas.filter((f) => f.estadoVisto === "suspendido").length;
-        document.getElementById("n-activos").textContent = activos;
-        document.getElementById("n-mora").textContent = mora;
-        document.getElementById("n-senales").textContent = filas.length;
-        const total = Math.max(filas.length, 1);
+      // P1-87: si el listado de tenants respondió, esos conteos pisan el demo y la proyección de salud.
+      let tenantsEnVivo = false;
+      let pendienteTenant = null;
+      const pintarFlota = (activos, mora, totalFilas) => {
+        document.getElementById("n-activos").textContent = String(activos);
+        document.getElementById("n-mora").textContent = String(mora);
+        const total = Math.max(totalFilas, 1);
         const pct = Math.round((activos / total) * 100);
         document.getElementById("dona-pct").textContent = pct + "%";
         document.getElementById("dona-arco").setAttribute("stroke-dasharray", Math.round(377 * activos / total) + " 377");
@@ -310,28 +343,183 @@ const pills = [
         document.getElementById("seg-mora").textContent = "Mora " + (100 - pct) + "%";
         document.getElementById("seg-mora").style.width = (100 - pct) + "%";
         document.getElementById("seg-prueba").style.width = "0%";
-        document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
+      };
+      const pintarSalud = (b) => {
+        const filas = b.salud || [];
+        const activos = filas.filter((f) => f.estadoVisto === "activo").length;
+        const mora = filas.filter((f) => f.estadoVisto === "suspendido").length;
+        document.getElementById("n-senales").textContent = filas.length;
         document.getElementById("mora-estado").textContent = "En vivo: " + activos + " al día, " + mora + " suspendidos.";
-        marca("b-activos", true); marca("b-mora", true); marca("b-senales", true);
+        marca("b-senales", true);
+        if (tenantsEnVivo) return;
+        pintarFlota(activos, mora, filas.length);
+        document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
+        marca("b-activos", true); marca("b-mora", true);
       };
       const cargarSalud = () => get("/api/admin/salud").then(pintarSalud).catch((e) => {
         if (e.message === "forbidden") {
-          document.getElementById("n-activos").textContent = "—";
-          document.getElementById("n-mora").textContent = "—";
+          if (!tenantsEnVivo) {
+            document.getElementById("n-activos").textContent = "—";
+            document.getElementById("n-mora").textContent = "—";
+            document.getElementById("tenants-estado").textContent = msgSinAdmin;
+          }
           document.getElementById("n-senales").textContent = "—";
-          document.getElementById("tenants-estado").textContent = msgSinAdmin;
           document.getElementById("mora-estado").textContent = msgSinAdmin;
           document.getElementById("actos-estado").textContent = msgSinAdmin;
           return;
         }
-        // Demo marcados: mientras no haya agregados reales.
+        if (tenantsEnVivo) {
+          document.getElementById("n-senales").textContent = "5";
+          document.getElementById("mora-estado").textContent = "Sin conexión: mostrando demo.";
+          return;
+        }
         document.getElementById("n-activos").textContent = "12";
         document.getElementById("n-mora").textContent = "3";
         document.getElementById("n-senales").textContent = "5";
         document.getElementById("tenants-estado").textContent = "Sin conexión: mostrando demo.";
         document.getElementById("mora-estado").textContent = "Sin conexión: mostrando demo.";
       });
+      const idCorto = (id) => (id.length > 8 ? id.slice(0, 8) + "…" : id);
+      const celda = (texto) => {
+        const td = document.createElement("td");
+        td.textContent = texto;
+        return td;
+      };
+      const pintarTablaTenants = (lista) => {
+        const body = document.getElementById("tenants-body");
+        body.replaceChildren();
+        if (lista.length === 0) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 7;
+          td.textContent = "No hay tenants en control.";
+          tr.appendChild(td);
+          body.appendChild(tr);
+          return;
+        }
+        for (const t of lista) {
+          const tr = document.createElement("tr");
+          tr.appendChild(celda(t.nombre || "—"));
+          tr.appendChild(celda(t.slug || "—"));
+          const tdEst = document.createElement("td");
+          const pill = document.createElement("span");
+          const etiqueta = { activo: "Activo", suspendido: "Suspendido", pendiente: "Pendiente", baja: "Baja" };
+          const clase = { activo: "ok", suspendido: "warn", pendiente: "pend", baja: "pend" };
+          pill.className = "pill " + (clase[t.estado] || "pend");
+          pill.textContent = etiqueta[t.estado] || t.estado || "—";
+          tdEst.appendChild(pill);
+          tr.appendChild(tdEst);
+          tr.appendChild(celda(t.plan || "—"));
+          tr.appendChild(celda(t.vencimiento ? String(t.vencimiento).slice(0, 10) : "—"));
+          const idTd = celda(idCorto(String(t.id || "")));
+          idTd.title = String(t.id || "");
+          tr.appendChild(idTd);
+          const acc = document.createElement("td");
+          if (t.estado === "activo" || t.estado === "suspendido") {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "cta-piloto";
+            btn.style.marginTop = "0";
+            btn.textContent = t.estado === "activo" ? "Suspender" : "Reactivar";
+            btn.addEventListener("click", () => abrirConfirmacion(t));
+            acc.appendChild(btn);
+          }
+          tr.appendChild(acc);
+          body.appendChild(tr);
+        }
+      };
+      const abrirConfirmacion = (t) => {
+        pendienteTenant = { id: t.id, accion: t.estado === "activo" ? "suspender" : "reactivar" };
+        document.getElementById("tenants-confirmar-texto").textContent =
+          (pendienteTenant.accion === "suspender" ? "Suspender " : "Reactivar ") +
+          (t.nombre || t.slug || "tenant") +
+          ". Escribí el id completo y el motivo.";
+        document.getElementById("tenants-id-visible").textContent = t.id;
+        document.getElementById("tenants-motivo").value = "";
+        document.getElementById("tenants-confirmo").value = "";
+        document.getElementById("tenants-confirmar").hidden = false;
+        document.getElementById("tenants-motivo").focus();
+      };
+      const cargarTenants = async () => {
+        const estado = document.getElementById("tenants-estado");
+        try {
+          const r = await fetch("/api/admin/tenants", { credentials: "same-origin" });
+          if (r.status === 403) {
+            estado.textContent = msgSinAdmin;
+            return;
+          }
+          if (!r.ok) {
+            estado.textContent = "No se pudo listar tenants (http " + r.status + ").";
+            return;
+          }
+          const b = await r.json();
+          const lista = Array.isArray(b.tenants) ? b.tenants : [];
+          pintarTablaTenants(lista);
+          tenantsEnVivo = true;
+          marca("b-tenants", true);
+          estado.textContent = lista.length === 0
+            ? "En vivo: no hay tenants en control."
+            : ("En vivo: " + lista.length + " tenants.");
+          const activos = lista.filter((t) => t.estado === "activo").length;
+          const mora = lista.filter((t) => t.estado === "suspendido").length;
+          pintarFlota(activos, mora, lista.length);
+          marca("b-activos", true);
+          marca("b-mora", true);
+        } catch {
+          estado.textContent = "Sin conexión: el directorio no cargó.";
+        }
+      };
+      document.getElementById("tenants-cancelar").addEventListener("click", () => {
+        pendienteTenant = null;
+        document.getElementById("tenants-confirmar").hidden = true;
+      });
+      document.getElementById("tenants-confirmar").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!pendienteTenant) return;
+        const enviar = document.getElementById("tenants-enviar");
+        const estado = document.getElementById("tenants-estado");
+        const motivo = document.getElementById("tenants-motivo").value.trim();
+        const confirmo = document.getElementById("tenants-confirmo").value.trim();
+        enviar.disabled = true;
+        try {
+          const r = await fetch("/api/admin/tenants", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenant_id: pendienteTenant.id,
+              accion: pendienteTenant.accion,
+              confirmo_id: confirmo,
+              motivo,
+            }),
+          });
+          const texto = await r.text();
+          let json = {};
+          try {
+            json = texto ? JSON.parse(texto) : {};
+          } catch {
+            json = {};
+          }
+          if (!r.ok) {
+            const crudo = json && json.error ? json.error : ("http " + r.status);
+            estado.textContent = crudo === "ya suspendido"
+              ? "Ese comercio ya está suspendido."
+              : crudo === "ya activo"
+                ? "Ese comercio ya está activo."
+                : crudo;
+            return;
+          }
+          pendienteTenant = null;
+          document.getElementById("tenants-confirmar").hidden = true;
+          await cargarTenants();
+        } catch (err) {
+          estado.textContent = err && err.message ? err.message : "red";
+        } finally {
+          enviar.disabled = false;
+        }
+      });
       cargarSalud();
+      void cargarTenants();
       // P1-32/P1-33: un comercio por google_sub. Primer alta = sesión; el segundo
       // owner distinto. 201|409 con tenant_id = OK. P1-33: no await salud (si
       // cuelga dejaba el botón disabled) y timeout 50s por POST.
@@ -387,6 +575,7 @@ const pills = [
           if (ok1 && ok2) {
             resultado.textContent = "Piloto OK: t1=" + t1 + " t2=" + t2 + " (status " + a1.status + "/" + a2.status + ").";
             void cargarSalud();
+            void cargarTenants();
           } else {
             const e1 = a1.json && a1.json.error ? a1.json.error : ("http " + a1.status);
             const e2 = a2.json && a2.json.error ? a2.json.error : ("http " + a2.status);
