@@ -1,6 +1,6 @@
 {
   "tag": "0045_shared_tenant_sellar_nucleo",
-  "fecha": "2026-11-14",
+  "fecha": "2026-11-15",
   "aprobado_por": "Mauri",
-  "evidencia": "PENDIENTE de aplicar en la base real del piloto. Aplicar con TENANT_DATABASE_URL y npm run db:migrate tras merge de este PR."
+  "evidencia": "Aplicada en la base real del piloto el 2026-11-15 con npm run db:migrate (session pooler :5432), tras 0044. Fila de journal id 48 hash sha256 0fff62c757c1df39b4f4a93e50b631c62161ffc1f5380c16e576dee064552c54 igual al archivo. 69 statements, 0 salteados."
 }

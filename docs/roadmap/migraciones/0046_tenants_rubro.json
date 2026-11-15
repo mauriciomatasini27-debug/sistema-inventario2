@@ -1,6 +1,6 @@
 {
   "tag": "0046_tenants_rubro",
-  "fecha": "2026-11-14",
+  "fecha": "2026-11-15",
   "aprobado_por": "Mauri",
-  "evidencia": "PENDIENTE de aplicar en la base real del piloto. Aplicar con TENANT_DATABASE_URL y npm run db:migrate tras merge de este PR."
+  "evidencia": "Aplicada en la base real del piloto el 2026-11-15 con npm run db:migrate (session pooler :5432), tras 0045. Fila de journal id 49 hash sha256 75a7ef2174a65946d8733599fb352ed52b80aa7537721bfdb4183543329fa386 igual al archivo. Columna tenants.rubro presente. 1 statement, 0 salteados."
 }
