@@ -13,7 +13,7 @@ const MARKS = ['Caja', 'Fiado', 'Precios'] as const;
 ---
 
 <Section variant={beat.variant} id={beat.id}>
-  <p class="text-sm font-medium text-ash-gray">{beat.eyebrow}</p>
+  <p class="landing-overline text-ash-gray">{beat.eyebrow}</p>
   <SectionHeading title={beat.title} lead={`${beat.body} (${beat.fictitious}).`} />
   <div class="grid gap-6 md:grid-cols-2">
     <div>
@@ -21,18 +21,18 @@ const MARKS = ['Caja', 'Fiado', 'Precios'] as const;
         {
           beat.signs.map((sign, i) => (
             <li class="galaxy-card rounded-[var(--radius-card)] p-5">
-              <span class="text-xs font-medium uppercase tracking-wide text-ash-gray">
+              <span class="landing-overline text-ash-gray">
                 {MARKS[i] ?? '·'}
               </span>
-              <p class="mt-1 text-[length:var(--text-body-lg)]">{sign}</p>
+              <p class="mt-1 text-[length:var(--text-body-lg)] leading-snug">{sign}</p>
             </li>
           ))
         }
       </ul>
-      <p class="mt-6 text-ash-gray">{beat.closing}</p>
+      <p class="mt-6 text-[length:var(--text-body)] text-ash-gray">{beat.closing}</p>
     </div>
     <aside class="galaxy-card h-fit rounded-[var(--radius-card)] p-6" aria-hidden="true">
-      <p class="text-[length:var(--text-subheading)] font-medium">Kiosco Lo de Marta</p>
+      <p class="landing-card-title">Kiosco Lo de Marta</p>
       <p class="mt-1 text-sm text-ash-gray">1 local · ejemplo</p>
       <div class="mt-4 grid gap-2 text-sm">
         <p class="rounded-[var(--radius-button)] border border-nebula-cyan/20 px-3 py-2">Caja del mostrador</p>

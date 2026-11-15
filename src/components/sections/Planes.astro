@@ -14,15 +14,15 @@ const { beat } = Astro.props;
 <Section variant={beat.variant} id={beat.id}>
   <SectionHeading title={beat.title} lead={beat.lead} />
   <div class="mb-12 max-w-5xl">
-    <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.empezar.title}</h3>
-    <p class="mt-4 max-w-3xl text-[length:var(--text-body-lg)] text-ash-gray">{beat.empezar.lead}</p>
+    <h3 class="landing-card-title">{beat.empezar.title}</h3>
+    <p class="landing-lead mt-4 max-w-3xl text-ash-gray">{beat.empezar.lead}</p>
     <ol class="mt-6 grid gap-6 md:grid-cols-3">
       {
         beat.empezar.steps.map((step) => (
           <li class="galaxy-card rounded-[var(--radius-card)] p-6">
-            <p class="text-sm font-medium text-ash-gray">{step.step}</p>
-            <p class="mt-2 text-[length:var(--text-subheading)] font-medium">{step.title}</p>
-            <p class="mt-2 text-ash-gray">{step.detail}</p>
+            <p class="landing-overline text-ash-gray">{step.step}</p>
+            <p class="mt-2 text-[length:var(--text-body-lg)] font-semibold leading-snug">{step.title}</p>
+            <p class="mt-2 text-[length:var(--text-body)] text-ash-gray">{step.detail}</p>
           </li>
         ))
       }
@@ -37,8 +37,8 @@ const { beat } = Astro.props;
             plan.destacado && "border-2 border-trust-slate",
           ]}
         >
-          <p class="text-sm font-medium text-ash-gray">{plan.nombre}</p>
-          <p class="mt-2 text-[length:var(--text-heading)] font-medium">{plan.precioUnico}</p>
+          <p class="landing-overline text-ash-gray">{plan.nombre}</p>
+          <p class="landing-card-title mt-2 tnum">{plan.precioUnico}</p>
           {plan.destacado && (
             <p class="mt-2 inline-block rounded-[var(--radius-button)] bg-trust-slate px-3 py-1 text-xs font-medium text-star-white">
               Recomendado

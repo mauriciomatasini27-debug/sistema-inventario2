@@ -91,8 +91,29 @@ describe("landing LP-S1/S7 (ADR-0010)", () => {
       expect(c, a).toContain("var(--color-star-white)");
     }
     expect(src("components/ui/ChatLanding.astro")).toContain("var(--color-galaxy-deep)");
-    expect(src("components/ui/SectionHeading.astro")).toContain("var(--text-heading)");
-    expect(src("components/ui/SectionHeading.astro")).toContain("var(--text-subheading)");
+  });
+
+  it("LAND-TYPE: roles tipográficos display > sección > tarjeta > overline", () => {
+    const css = src("styles/global.css");
+    for (const rol of [
+      "landing-display",
+      "landing-section-title",
+      "landing-card-title",
+      "landing-overline",
+      "landing-lead",
+    ]) {
+      expect(css, rol).toContain(`.${rol}`);
+    }
+    expect(css).toMatch(/--text-heading:\s*1\.75rem/);
+    expect(css).toMatch(/--text-subheading:\s*1\.25rem/);
+    expect(src("components/ui/SectionHeading.astro")).toContain("landing-section-title");
+    expect(src("components/ui/SectionHeading.astro")).toContain("landing-card-title");
+    expect(src("components/sections/Hero.astro")).toContain("landing-display");
+    expect(src("components/sections/Hero.astro")).toContain("landing-overline");
+    expect(src("components/sections/Planes.astro")).toContain("landing-card-title");
+    expect(src("components/sections/Planes.astro")).not.toMatch(
+      /plan\.precioUnico[\s\S]*text-heading/,
+    );
   });
 
   it("AT2: Button siempre renderiza <a> (nunca <button>)", () => {

@@ -14,14 +14,14 @@ const { beat } = Astro.props;
   <SectionHeading title={beat.title} lead={beat.lead} />
   <div class="grid max-w-3xl gap-8 md:grid-cols-2">
     <div>
-      <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.yesTitle}</h3>
-      <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)]">
+      <h3 class="landing-card-title">{beat.yesTitle}</h3>
+      <ul class="mt-4 grid gap-2 text-[length:var(--text-body)] leading-relaxed">
         {beat.yes.map((item) => <li>{item}</li>)}
       </ul>
     </div>
     <div>
-      <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.noTitle}</h3>
-      <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)] text-ash-gray">
+      <h3 class="landing-card-title">{beat.noTitle}</h3>
+      <ul class="mt-4 grid gap-2 text-[length:var(--text-body)] leading-relaxed text-ash-gray">
         {beat.no.map((item) => <li>{item}</li>)}
       </ul>
     </div>
