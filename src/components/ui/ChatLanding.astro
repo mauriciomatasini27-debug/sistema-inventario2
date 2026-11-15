@@ -7,6 +7,14 @@ const waDirecto = whatsappWithUtm('chat');
 ---
 
 <div class="chat-landing" data-chat-landing>
+  <div class="chat-invitacion" data-chat-invitacion hidden aria-live="polite">
+    <p class="chat-invitacion-texto" data-chat-invitacion-texto></p>
+    <div class="chat-invitacion-acciones" data-chat-invitacion-acciones></div>
+    <button type="button" class="chat-invitacion-cerrar" data-chat-invitacion-cerrar aria-label="Cerrar sugerencia">
+      ×
+    </button>
+  </div>
+
   <button
     type="button"
     class="chat-burbuja"
@@ -49,7 +57,7 @@ const waDirecto = whatsappWithUtm('chat');
     </div>
 
     <div class="chat-derivacion" data-chat-derivacion hidden>
-      <a href={waDirecto} target="_blank" rel="noopener noreferrer" data-chat-derivacion-wa class="chat-wa">
+      <a href={waDirecto} target="_blank" rel="noopener noreferrer" data-chat-derivacion-wa class="chat-wa chat-wa--cta">
         Seguir por WhatsApp
       </a>
       <a href="#contacto" class="chat-form">O dejános tu consulta en el formulario</a>
@@ -82,9 +90,124 @@ const waDirecto = whatsappWithUtm('chat');
     var mensajes = raiz.querySelector('[data-chat-mensajes]');
     var derivacion = raiz.querySelector('[data-chat-derivacion]');
     var derivacionWa = raiz.querySelector('[data-chat-derivacion-wa]');
+    var invitacion = raiz.querySelector('[data-chat-invitacion]');
+    var invitacionTexto = raiz.querySelector('[data-chat-invitacion-texto]');
+    var invitacionAcciones = raiz.querySelector('[data-chat-invitacion-acciones]');
+    var invitacionCerrar = raiz.querySelector('[data-chat-invitacion-cerrar]');
     if (!(abrir instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) return;
     var waHeader = raiz.querySelector('[data-cta="chat-whatsapp"]');
     if (waHeader instanceof HTMLAnchorElement) waHeader.href = whatsappWithUtm('chat');
+
+    var waUrl = whatsappWithUtm('chat-invite');
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var inviteTimer = 0;
+    var rotateTimer = 0;
+    var invitePaso = 0;
+    var inviteDescartada = false;
+
+    var pasos = [
+      {
+        texto: '¿Dudas del sistema? Preguntame acá.',
+        acciones: [{ label: 'Abrir chat', tipo: 'abrir' }],
+      },
+      {
+        texto: 'Si preferís, seguimos por WhatsApp.',
+        acciones: [
+          { label: 'WhatsApp', tipo: 'wa', href: waUrl },
+          { label: 'Abrir chat', tipo: 'abrir' },
+        ],
+      },
+      {
+        texto: 'También podés dejarnos un mensaje en el formulario.',
+        acciones: [
+          { label: 'Ir al formulario', tipo: 'hash', href: '#contacto' },
+          { label: 'WhatsApp', tipo: 'wa', href: waUrl },
+        ],
+      },
+    ];
+
+    function limpiarTimers() {
+      if (inviteTimer) window.clearTimeout(inviteTimer);
+      if (rotateTimer) window.clearTimeout(rotateTimer);
+      inviteTimer = 0;
+      rotateTimer = 0;
+    }
+
+    function ocultarInvitacion() {
+      if (!(invitacion instanceof HTMLElement)) return;
+      invitacion.classList.remove('chat-invitacion--visible');
+      invitacion.hidden = true;
+      abrir.classList.remove('chat-burbuja--aviso');
+      limpiarTimers();
+    }
+
+    function pintarPaso(paso) {
+      if (!(invitacionTexto instanceof HTMLElement) || !(invitacionAcciones instanceof HTMLElement)) return;
+      invitacionTexto.textContent = paso.texto;
+      invitacionAcciones.replaceChildren();
+      paso.acciones.forEach(function (accion) {
+        var el;
+        if (accion.tipo === 'abrir') {
+          el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'chat-invitacion-btn';
+          el.textContent = accion.label;
+          el.addEventListener('click', function () {
+            ocultarInvitacion();
+            abrirChat();
+          });
+        } else {
+          el = document.createElement('a');
+          el.className = accion.tipo === 'wa' ? 'chat-invitacion-btn chat-invitacion-btn--wa' : 'chat-invitacion-btn';
+          el.textContent = accion.label;
+          el.href = accion.href;
+          if (accion.tipo === 'wa') {
+            el.target = '_blank';
+            el.rel = 'noopener noreferrer';
+            el.setAttribute('data-cta', 'chat-invite-whatsapp');
+          }
+        }
+        invitacionAcciones.appendChild(el);
+      });
+    }
+
+    function mostrarInvitacion() {
+      if (inviteDescartada || !(invitacion instanceof HTMLElement) || !panel.hidden) return;
+      var paso = pasos[invitePaso % pasos.length];
+      pintarPaso(paso);
+      invitacion.hidden = false;
+      void invitacion.offsetWidth;
+      invitacion.classList.add('chat-invitacion--visible');
+      if (!reduced) {
+        abrir.classList.remove('chat-burbuja--aviso');
+        void abrir.offsetWidth;
+        abrir.classList.add('chat-burbuja--aviso');
+      }
+      rotateTimer = window.setTimeout(function () {
+        invitePaso += 1;
+        if (invitePaso >= pasos.length) {
+          ocultarInvitacion();
+          return;
+        }
+        invitacion.classList.remove('chat-invitacion--visible');
+        window.setTimeout(function () {
+          mostrarInvitacion();
+        }, reduced ? 0 : 180);
+      }, reduced ? 5000 : 6500);
+    }
+
+    function programarInvitacion() {
+      if (inviteDescartada) return;
+      limpiarTimers();
+      inviteTimer = window.setTimeout(mostrarInvitacion, reduced ? 1200 : 3500);
+    }
+
+    if (invitacionCerrar instanceof HTMLButtonElement) {
+      invitacionCerrar.addEventListener('click', function () {
+        inviteDescartada = true;
+        ocultarInvitacion();
+      });
+    }
 
     var ultimoFoco = null;
     function enfocables() {
@@ -92,6 +215,7 @@ const waDirecto = whatsappWithUtm('chat');
       return Array.prototype.filter.call(nodos, function (el) { return el.offsetParent !== null; });
     }
     function abrirChat() {
+      ocultarInvitacion();
       ultimoFoco = document.activeElement;
       panel.hidden = false;
       abrir.setAttribute('aria-expanded', 'true');
@@ -102,6 +226,7 @@ const waDirecto = whatsappWithUtm('chat');
       panel.hidden = true;
       abrir.setAttribute('aria-expanded', 'false');
       if (ultimoFoco instanceof HTMLElement) ultimoFoco.focus();
+      if (!inviteDescartada && invitePaso < pasos.length) programarInvitacion();
     }
     abrir.addEventListener('click', function () {
       if (panel.hidden) abrirChat();
@@ -136,7 +261,11 @@ const waDirecto = whatsappWithUtm('chat');
       mensajes.scrollTop = mensajes.scrollHeight;
     }
     function mostrarDerivacion(datos) {
-      if (derivacion instanceof HTMLElement) derivacion.hidden = false;
+      if (derivacion instanceof HTMLElement) {
+        derivacion.hidden = false;
+        void derivacion.offsetWidth;
+        derivacion.classList.add('chat-derivacion--visible');
+      }
       if (derivacionWa instanceof HTMLAnchorElement && typeof datos.whatsapp === 'string') {
         derivacionWa.href = datos.whatsapp;
       }
@@ -156,6 +285,7 @@ const waDirecto = whatsappWithUtm('chat');
         .catch(function (error) {
           console.warn('[chat] no se pudo enviar el mensaje', error);
           agregarMensaje('chat', 'No pude enviar tu mensaje. Probá por WhatsApp.');
+          mostrarDerivacion({ whatsapp: waUrl });
         });
     }
     if (form instanceof HTMLFormElement && entrada instanceof HTMLInputElement) {
@@ -167,19 +297,22 @@ const waDirecto = whatsappWithUtm('chat');
         enviarTexto(texto);
       });
     }
-    var sugerencias = raiz.querySelectorAll('[data-chat-sugerencia]');
-    Array.prototype.forEach.call(sugerencias, function (b) {
+    var sugerenciasEls = raiz.querySelectorAll('[data-chat-sugerencia]');
+    Array.prototype.forEach.call(sugerenciasEls, function (b) {
       if (!(b instanceof HTMLButtonElement)) return;
       b.addEventListener('click', function () {
         var texto = b.getAttribute('data-chat-sugerencia') || '';
         if (texto) enviarTexto(texto);
       });
     });
+
+    programarInvitacion();
   })();
 </script>
 
 <style>
   .chat-landing {
+    --chat-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     position: fixed;
     z-index: 30;
     bottom: max(1.5rem, env(safe-area-inset-bottom));
@@ -188,6 +321,70 @@ const waDirecto = whatsappWithUtm('chat');
     flex-direction: column;
     align-items: flex-end;
     gap: 0.75rem;
+  }
+  .chat-invitacion {
+    position: relative;
+    max-width: min(16.5rem, calc(100vw - 5.5rem));
+    padding: 0.75rem 2rem 0.75rem 0.85rem;
+    border-radius: 1rem;
+    background: var(--color-star-white);
+    color: var(--color-void);
+    border: 1px solid var(--color-linen);
+    box-shadow: 0 0.5rem 1.25rem rgb(26 26 26 / 0.12);
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.96);
+    transform-origin: bottom right;
+    pointer-events: none;
+    transition:
+      opacity 200ms var(--chat-ease-out),
+      transform 200ms var(--chat-ease-out);
+  }
+  .chat-invitacion--visible {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .chat-invitacion-texto {
+    margin: 0;
+    font-size: var(--text-body-sm);
+    line-height: 1.35;
+  }
+  .chat-invitacion-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+  }
+  .chat-invitacion-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--color-ash);
+    background: transparent;
+    color: var(--color-void);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .chat-invitacion-btn--wa {
+    border-color: transparent;
+    background: var(--color-whatsapp);
+    color: var(--color-void);
+  }
+  .chat-invitacion-cerrar {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.35rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-ash);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
   }
   .chat-burbuja {
     display: flex;
@@ -199,6 +396,20 @@ const waDirecto = whatsappWithUtm('chat');
     background: var(--color-void);
     color: var(--color-star-white);
     box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.4);
+  }
+  .chat-burbuja--aviso {
+    animation: chat-aviso 420ms var(--chat-ease-out) 1;
+  }
+  @keyframes chat-aviso {
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.06);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
   .chat-icono {
     width: 1.75rem;
@@ -226,6 +437,14 @@ const waDirecto = whatsappWithUtm('chat');
     font-weight: 600;
     text-decoration: underline;
   }
+  .chat-wa--cta {
+    display: inline-flex;
+    text-decoration: none;
+    border-radius: var(--radius-button);
+    background: var(--color-whatsapp);
+    color: var(--color-void);
+    padding: 0.55rem 0.9rem;
+  }
   .chat-mensajes {
     display: flex;
     flex-direction: column;
@@ -237,13 +456,36 @@ const waDirecto = whatsappWithUtm('chat');
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  .chat-derivacion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin: 0.75rem 0;
+    opacity: 0;
+    transform: translateY(0.4rem);
+    transition:
+      opacity 220ms var(--chat-ease-out),
+      transform 220ms var(--chat-ease-out);
+  }
+  .chat-derivacion--visible {
+    opacity: 1;
+    transform: none;
+  }
+  .chat-form {
+    font-size: var(--text-body-sm);
+  }
   .chat-aviso {
     font-size: 0.8rem;
     opacity: 0.8;
   }
   @media (prefers-reduced-motion: reduce) {
-    .chat-landing * {
-      transition: none;
+    .chat-invitacion,
+    .chat-derivacion {
+      transition: opacity 160ms ease;
+      transform: none;
+    }
+    .chat-burbuja--aviso {
+      animation: none;
     }
   }
 </style>

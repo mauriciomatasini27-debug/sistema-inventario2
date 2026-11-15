@@ -135,4 +135,14 @@ describe("landing-chat PRD-LP-04 (solo datos de ejemplo)", () => {
     expect(layout).toContain("ChatLanding");
     expect(layout).not.toContain("FloatingWhatsApp");
   });
+
+  it("LP4 invite: el bot ofrece chat, WhatsApp y formulario con reduced-motion", () => {
+    const widget = fuente("components/ui/ChatLanding.astro");
+    expect(widget).toContain("data-chat-invitacion");
+    expect(widget).toContain("chat-invite-whatsapp");
+    expect(widget).toContain("Seguir por WhatsApp");
+    expect(widget).toContain("prefers-reduced-motion");
+    expect(widget).toContain("chat-derivacion--visible");
+  });
 });
+
