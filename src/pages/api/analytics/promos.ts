@@ -6,6 +6,7 @@ import { confirmar_promo, sugerir_promo } from "../../../modules/analytics/promo
 import { puede_marcar_promo } from "../../../modules/analytics/permisos.js";
 import type { SkuRot } from "../../../modules/analytics/tipos.js";
 import { intentarLeer, intentarPersistir, BaseNoDisponible } from "../../../lib/server-db.js";
+import { dondeTenant, filaConTenant } from "../../../lib/tenant-scope.js";
 import { promoIntents } from "../../../db/schema-analytics.js";
 
 export const prerender = false;
@@ -48,7 +49,11 @@ export const POST: APIRoute = async ({ request }) => {
     let previos: Awaited<ReturnType<typeof intentarLeer<unknown[]>>>;
     try {
       previos = await intentarLeer((db) =>
-        db.select().from(promoIntents).where(eq(promoIntents.idempotencyKey, key)).limit(1),
+        db
+          .select()
+          .from(promoIntents)
+          .where(dondeTenant(promoIntents.tenantId, eq(promoIntents.idempotencyKey, key)))
+          .limit(1),
       );
     } catch (e) {
       if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
@@ -85,14 +90,16 @@ export const POST: APIRoute = async ({ request }) => {
       await intentarPersistir((db) =>
         db
           .insert(promoIntents)
-          .values({
-            idempotencyKey: key,
-            skus: [r.valor.sku],
-            pct: r.valor.pct,
-            estado: "confirmada",
-            creadoPor: ctx?.googleSub || "sin-sesion",
-            createdAt: new Date(),
-          })
+          .values(
+            filaConTenant({
+              idempotencyKey: key,
+              skus: [r.valor.sku],
+              pct: r.valor.pct,
+              estado: "confirmada",
+              creadoPor: ctx?.googleSub || "sin-sesion",
+              createdAt: new Date(),
+            }),
+          )
           .onConflictDoNothing(),
       );
     } catch (e) {

@@ -73,16 +73,20 @@ export const botTurnos = pgTable("bot_turnos", {
 // El TTL se aplica en el adaptador (expiración por updatedAt).
 export type ContextoSesionWhatsapp = Record<string, unknown>;
 
-export const whatsappSessions = pgTable("whatsapp_sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  numeroE164: text("numero_e164").notNull().unique(),
-  paso: text("paso").notNull().default("libre"),
-  contexto: jsonb("contexto").$type<ContextoSesionWhatsapp>().notNull().default({}),
-  // B4-B10: TTL de sesión corta (30 min). El adaptador la expira por updatedAt
-  // o por esta columna cuando hay reloj real; en memoria equivale al TTL.
-  expiraEn: timestamp("expira_en"),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+// P1-83: tenant_id NOT NULL; unique (tenant_id, numero_e164) — 0048.
+export const whatsappSessions = pgTable(
+  "whatsapp_sessions",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    numeroE164: text("numero_e164").notNull(),
+    paso: text("paso").notNull().default("libre"),
+    contexto: jsonb("contexto").$type<ContextoSesionWhatsapp>().notNull().default({}),
+    expiraEn: timestamp("expira_en"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("whatsapp_sessions_tenant_numero_uq").on(t.tenantId, t.numeroE164)],
+);
 
 // Alias de producto por comercio para la búsqueda del bot (PRD 6.5, F1.5):
 // GIN `f_norm(alias)` en migración 0041; aliasNorm se mantiene para otros usos.

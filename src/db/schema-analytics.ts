@@ -1,10 +1,9 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
-// Analytics por comercio (PRD 6.1: una DB por cliente, sin tenant_id).
-// Fuente de verdad: stock_movements. Todo lo demás es derivado y
-// reconstruible. Inmutabilidad runtime (REVOKE + triggers) en migración.
+// Analytics por comercio. P1-83: tenant_id NOT NULL (0048 / ADR-0116 shared).
 
 export const rotationSettings = pgTable("rotation_settings", {
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   ventanaCoberturaDias: integer("ventana_cobertura_dias").notNull().default(28),
   dormidoN: integer("dormido_n").notNull().default(30),
@@ -18,6 +17,7 @@ export const rotationSettings = pgTable("rotation_settings", {
 });
 
 export const productFlags = pgTable("product_flags", {
+  tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),
   productId: text("product_id").notNull(),
   flag: text("flag").notNull(),
@@ -27,33 +27,48 @@ export const productFlags = pgTable("product_flags", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const rotationSnapshots = pgTable("rotation_snapshots", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  dedupeKey: text("dedupe_key").notNull().unique(),
-  desde: text("desde").notNull(),
-  hasta: text("hasta").notNull(),
-  payload: jsonb("payload").notNull(),
-  payloadHash: text("payload_hash").notNull(),
-  origen: text("origen").notNull().default("manual"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const rotationSnapshots = pgTable(
+  "rotation_snapshots",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    dedupeKey: text("dedupe_key").notNull(),
+    desde: text("desde").notNull(),
+    hasta: text("hasta").notNull(),
+    payload: jsonb("payload").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+    origen: text("origen").notNull().default("manual"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("rotation_snapshots_tenant_dedupe_uq").on(t.tenantId, t.dedupeKey)],
+);
 
-export const reportExports = pgTable("report_exports", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
-  formato: text("formato").notNull(),
-  filtros: jsonb("filtros").notNull(),
-  estado: text("estado").notNull().default("pendiente"),
-  rowCount: integer("row_count"),
-  creadoPor: text("creado_por").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const reportExports = pgTable(
+  "report_exports",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    formato: text("formato").notNull(),
+    filtros: jsonb("filtros").notNull(),
+    estado: text("estado").notNull().default("pendiente"),
+    rowCount: integer("row_count"),
+    creadoPor: text("creado_por").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("report_exports_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
+);
 
-export const promoIntents = pgTable("promo_intents", {
-  idempotencyKey: text("idempotency_key").primaryKey(),
-  skus: jsonb("skus").notNull(),
-  pct: integer("pct").notNull(),
-  estado: text("estado").notNull().default("confirmada"),
-  creadoPor: text("creado_por").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const promoIntents = pgTable(
+  "promo_intents",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    skus: jsonb("skus").notNull(),
+    pct: integer("pct").notNull(),
+    estado: text("estado").notNull().default("confirmada"),
+    creadoPor: text("creado_por").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.idempotencyKey] })],
+);

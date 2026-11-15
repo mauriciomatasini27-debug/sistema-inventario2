@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
-import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
+import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
 import { dbVivaTenant } from "../../lib/server-db.js";
 import {
@@ -429,16 +429,19 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
           }];
         });
         if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb);
+        // P1-84: ticket_discounts con tenant_id (0048).
         await tx.insert(ticketDiscounts).values(
-          e.lineasConDescuento.map((l) => ({
-            saleId,
-            lineaIdx: l.idx,
-            sku: l.sku,
-            brutoCentavos: l.brutoCentavos,
-            descLineaCentavos: l.descLineaCentavos,
-            descTicketCentavos: l.descTicketCentavos,
-            netoCentavos: l.netoCentavos,
-          })),
+          e.lineasConDescuento.map((l) =>
+            filaConTenant({
+              saleId,
+              lineaIdx: l.idx,
+              sku: l.sku,
+              brutoCentavos: l.brutoCentavos,
+              descLineaCentavos: l.descLineaCentavos,
+              descTicketCentavos: l.descTicketCentavos,
+              netoCentavos: l.netoCentavos,
+            }),
+          ),
         );
         if (e.ingresaACaja) {
           await insertarMovimientosCaja(

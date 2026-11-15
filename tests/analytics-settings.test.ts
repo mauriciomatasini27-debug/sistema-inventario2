@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -230,7 +231,7 @@ describe.skipIf(!URL_A)("analytics settings Postgres", () => {
 
   it("GET devuelve los valores de la fila y no los defaults", async () => {
     const plano = prepararControl();
-    await db.insert(rotationSettings).values({
+    await db.insert(rotationSettings).values(filaPg({
       id: ID_SETTINGS,
       ventanaCoberturaDias: 14,
       dormidoN: 12,
@@ -241,7 +242,7 @@ describe.skipIf(!URL_A)("analytics settings Postgres", () => {
       abcMinDias: 20,
       markupMinBp: 100,
       updatedAt: new Date(),
-    });
+    }));
     const g = await leerSettings(plano);
     expect(g.status).toBe(200);
     expect(await g.json()).toEqual({

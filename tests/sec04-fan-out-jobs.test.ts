@@ -1,4 +1,5 @@
 import { describe, expect, it, afterEach, beforeAll, afterAll } from "vitest";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
 import { gateJob } from "../src/lib/tenant-context.js";
@@ -312,33 +313,37 @@ describe.skipIf(!hayPG)("SEC4-S2 fan-out con PG local: vencimientos-servicios po
         const db = getTenantDb();
         const [cuenta] = await db
           .insert(serviceAccounts)
-          .values({ servicio: "luz", proveedor: "Edenor", titular: concepto, activa: true })
+          .values(filaPg({ servicio: "luz", proveedor: "Edenor", titular: concepto, activa: true }))
           .returning({ id: serviceAccounts.id });
-        await db.insert(utilityBills).values({
-          accountId: cuenta!.id,
-          messageId: msg,
-          periodo: "2026-10",
-          vencimiento: ayerIso,
-          montoCentavos: 100n,
-          estado: "pendiente",
-          necesitaRevision: false,
-          origen: "pdf_digital",
-          confianza: {},
-        });
+        await db.insert(utilityBills).values(
+          filaPg({
+            accountId: cuenta!.id,
+            messageId: msg,
+            periodo: "2026-10",
+            vencimiento: ayerIso,
+            montoCentavos: 100n,
+            estado: "pendiente",
+            necesitaRevision: false,
+            origen: "pdf_digital",
+            confianza: {},
+          }),
+        );
         const [orden] = await db
           .insert(paymentOrders)
-          .values({
-            idempotencyKey: `sec04-ord-${tenant}-${sufijo}`,
-            numero: numero.slice(0, 16),
-            payeeId: crypto.randomUUID(),
-            concepto,
-            montoCentavos: 100000n,
-            venceEl: new Date(ayerMs),
-            metodoSugerido: "Transferencia",
-            instruccionTipo: "transferencia",
-            instruccionSnapshot: { medioSugerido: "Transferencia" },
-            creadoPor: "sistema",
-          })
+          .values(
+            filaPg({
+              idempotencyKey: `sec04-ord-${tenant}-${sufijo}`,
+              numero: numero.slice(0, 16),
+              payeeId: crypto.randomUUID(),
+              concepto,
+              montoCentavos: 100000n,
+              venceEl: new Date(ayerMs),
+              metodoSugerido: "Transferencia",
+              instruccionTipo: "transferencia",
+              instruccionSnapshot: { medioSugerido: "Transferencia" },
+              creadoPor: "sistema",
+            }),
+          )
           .returning({ id: paymentOrders.id });
         return orden!.id;
       });

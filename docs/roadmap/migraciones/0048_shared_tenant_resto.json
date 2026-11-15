@@ -1,0 +1,6 @@
+{
+  "tag": "0048_shared_tenant_resto",
+  "fecha": "2026-11-15",
+  "aprobado_por": "Mauri",
+  "evidencia": "PENDIENTE de aplicar en la base real del piloto. Aplicar con TENANT_DATABASE_URL y npm run db:migrate tras merge de este PR."
+}

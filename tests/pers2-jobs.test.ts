@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, afterEach, beforeEach, beforeAll, afterAll } from "vitest";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { eq } from "drizzle-orm";
 import { gateJob } from "../src/lib/tenant-context.js";
 import { control, resetStore, store } from "../src/lib/store.js";
@@ -475,13 +476,53 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
       const db = getTenantDb();
       const [cuenta] = await db
         .insert(serviceAccounts)
-        .values({ servicio: "luz", proveedor: "Edenor", titular: `Job PG ${sufijoJobs}`, activa: true })
+        .values(filaPg({ servicio: "luz", proveedor: "Edenor", titular: `Job PG ${sufijoJobs}`, activa: true }))
         .returning({ id: serviceAccounts.id });
       const [bill] = await db
         .insert(utilityBills)
-        .values({
+        .values(
+          filaPg({
+            accountId: cuenta!.id,
+            messageId: msgA,
+            periodo: "2026-10",
+            vencimiento: ayerIso,
+            montoCentavos: 100n,
+            estado: "pendiente",
+            necesitaRevision: false,
+            origen: "pdf_digital",
+            confianza: {},
+          }),
+        )
+        .returning({ id: utilityBills.id });
+      const [orden] = await db
+        .insert(paymentOrders)
+        .values(
+          filaPg({
+            idempotencyKey: `pers2-job-ord-a-${sufijoJobs}`,
+            numero: `OP-PG-A-${sufijoJobs}`.slice(0, 16),
+            payeeId: crypto.randomUUID(),
+            concepto: `Job PG ${sufijoJobs}`,
+            montoCentavos: 100000n,
+            venceEl: new Date(ayerMs),
+            metodoSugerido: "Transferencia",
+            instruccionTipo: "transferencia",
+            instruccionSnapshot: { medioSugerido: "Transferencia" },
+            creadoPor: "sistema",
+          }),
+        )
+        .returning({ id: paymentOrders.id });
+      return { billId: bill!.id, ordenId: orden!.id };
+    });
+    await conTenant("tenant-b", async () => {
+      const db = getTenantDb();
+      const [cuenta] = await db
+        .insert(serviceAccounts)
+        .values(filaPg({ servicio: "luz", proveedor: "Edenor", titular: `Job PG ${sufijoJobs}`, activa: true }))
+        .returning({ id: serviceAccounts.id });
+      await db.insert(utilityBills).values(
+        filaPg({
           accountId: cuenta!.id,
-          messageId: msgA,
+          messageId: msgB,
           periodo: "2026-10",
           vencimiento: ayerIso,
           montoCentavos: 100n,
@@ -489,13 +530,12 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
           necesitaRevision: false,
           origen: "pdf_digital",
           confianza: {},
-        })
-        .returning({ id: utilityBills.id });
-      const [orden] = await db
-        .insert(paymentOrders)
-        .values({
-          idempotencyKey: `pers2-job-ord-a-${sufijoJobs}`,
-          numero: `OP-PG-A-${sufijoJobs}`.slice(0, 16),
+        }),
+      );
+      await db.insert(paymentOrders).values(
+        filaPg({
+          idempotencyKey: `pers2-job-ord-b-${sufijoJobs}`,
+          numero: `OP-PG-B-${sufijoJobs}`.slice(0, 16),
           payeeId: crypto.randomUUID(),
           concepto: `Job PG ${sufijoJobs}`,
           montoCentavos: 100000n,
@@ -504,39 +544,8 @@ describe.skipIf(!hayPGJobs)("PERS2-S19 multi con PG local: vencimientos solo del
           instruccionTipo: "transferencia",
           instruccionSnapshot: { medioSugerido: "Transferencia" },
           creadoPor: "sistema",
-        })
-        .returning({ id: paymentOrders.id });
-      return { billId: bill!.id, ordenId: orden!.id };
-    });
-    await conTenant("tenant-b", async () => {
-      const db = getTenantDb();
-      const [cuenta] = await db
-        .insert(serviceAccounts)
-        .values({ servicio: "luz", proveedor: "Edenor", titular: `Job PG ${sufijoJobs}`, activa: true })
-        .returning({ id: serviceAccounts.id });
-      await db.insert(utilityBills).values({
-        accountId: cuenta!.id,
-        messageId: msgB,
-        periodo: "2026-10",
-        vencimiento: ayerIso,
-        montoCentavos: 100n,
-        estado: "pendiente",
-        necesitaRevision: false,
-        origen: "pdf_digital",
-        confianza: {},
-      });
-      await db.insert(paymentOrders).values({
-        idempotencyKey: `pers2-job-ord-b-${sufijoJobs}`,
-        numero: `OP-PG-B-${sufijoJobs}`.slice(0, 16),
-        payeeId: crypto.randomUUID(),
-        concepto: `Job PG ${sufijoJobs}`,
-        montoCentavos: 100000n,
-        venceEl: new Date(ayerMs),
-        metodoSugerido: "Transferencia",
-        instruccionTipo: "transferencia",
-        instruccionSnapshot: { medioSugerido: "Transferencia" },
-        creadoPor: "sistema",
-      });
+        }),
+      );
     });
 
     const res = await conTenant("tenant-a", () =>

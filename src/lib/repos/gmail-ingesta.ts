@@ -6,6 +6,7 @@ import {
 } from "../../db/schema-servicios.js";
 import { emailIngestionDrafts } from "../../db/schema-google.js";
 import { getTenantDb } from "../db.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import type {
   CuentaCatalogo,
   DecisionIngesta,
@@ -56,7 +57,7 @@ export interface RemitenteIngestaPanel {
 // GGL-REMITENTES: pausar aplica al siguiente mensaje (activo=false en capa 1).
 export async function listarRemitentesIngesta(tenantId: string): Promise<ReadonlyArray<RemitenteIngestaPanel>> {
   const db = getTenantDb(tenantId);
-  const filas = await db.select().from(emailIngestionFilters);
+  const filas = await db.select().from(emailIngestionFilters).where(eq(emailIngestionFilters.tenantId, tenantId));
   return filas.map((f) => ({
     id: f.id,
     remitente: f.remitente,
@@ -75,14 +76,14 @@ export async function actualizarActivoRemitenteIngesta(input: {
   const actualizados = await db
     .update(emailIngestionFilters)
     .set({ activo: input.activo })
-    .where(eq(emailIngestionFilters.id, input.filtroId))
+    .where(and(eq(emailIngestionFilters.tenantId, input.tenantId), eq(emailIngestionFilters.id, input.filtroId)))
     .returning({ id: emailIngestionFilters.id });
   return actualizados.length > 0;
 }
 
 export async function leerFiltrosIngesta(tenantId: string): Promise<ReadonlyArray<FiltroIngesta>> {
   const db = getTenantDb(tenantId);
-  const filas = await db.select().from(emailIngestionFilters);
+  const filas = await db.select().from(emailIngestionFilters).where(eq(emailIngestionFilters.tenantId, tenantId));
   return filas.map((f) => ({
     id: f.id,
     remitente: f.remitente,
@@ -95,7 +96,7 @@ export async function leerFiltrosIngesta(tenantId: string): Promise<ReadonlyArra
 
 export async function leerCatalogoCuentas(tenantId: string): Promise<ReadonlyArray<CuentaCatalogo>> {
   const db = getTenantDb(tenantId);
-  const filas = await db.select().from(serviceAccounts);
+  const filas = await db.select().from(serviceAccounts).where(eq(serviceAccounts.tenantId, tenantId));
   return filas.map((c) => ({
     accountId: c.id,
     servicio: c.servicio,
@@ -109,7 +110,7 @@ export async function existeLogIngesta(tenantId: string, messageId: string): Pro
   const [fila] = await db
     .select({ id: emailIngestionLog.id })
     .from(emailIngestionLog)
-    .where(eq(emailIngestionLog.messageId, messageId))
+    .where(and(eq(emailIngestionLog.tenantId, tenantId), eq(emailIngestionLog.messageId, messageId)))
     .limit(1);
   return Boolean(fila);
 }
@@ -162,16 +163,20 @@ export async function guardarBorradorIngesta(
 
 export async function registrarLogIngesta(input: LogIngestaInput): Promise<void> {
   const db = getTenantDb(input.tenantId);
+  // P1-84: email_ingestion_log con tenant_id (0048).
   await db
     .insert(emailIngestionLog)
-    .values({
-      messageId: input.messageId,
-      historyId: input.historyId,
-      remitenteDominio: input.remitenteDominio,
-      decision: input.decision,
-      motivo: input.motivo,
-      filtroId: input.filtroId,
-      accountId: input.accountId,
-    })
-    .onConflictDoNothing({ target: emailIngestionLog.messageId });
+    .values(
+      filaConTenant({
+        messageId: input.messageId,
+        historyId: input.historyId,
+        remitenteDominio: input.remitenteDominio,
+        decision: input.decision,
+        motivo: input.motivo,
+        filtroId: input.filtroId,
+        accountId: input.accountId,
+        tenantId: input.tenantId,
+      }),
+    )
+    .onConflictDoNothing({ target: [emailIngestionLog.tenantId, emailIngestionLog.messageId] });
 }

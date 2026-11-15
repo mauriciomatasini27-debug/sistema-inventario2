@@ -131,7 +131,11 @@ export async function leerSesion(numero: string, ahoraMs: number, tenantId?: str
   const db = dbVivaTenant(tenantId);
   if (db) {
     try {
-      const filas = await db.select().from(whatsappSessions).where(eq(whatsappSessions.numeroE164, numero)).limit(1);
+      const filas = await db
+        .select()
+        .from(whatsappSessions)
+        .where(dondeTenant(whatsappSessions.tenantId, eq(whatsappSessions.numeroE164, numero)))
+        .limit(1);
       const fila = filas[0];
       if (fila) {
         if (fila.expiraEn && ahoraMs > fila.expiraEn.getTime()) return null;
@@ -154,11 +158,20 @@ export async function guardarSesion(numero: string, paso: string, contexto: Reco
   const db = dbVivaTenant(tenantId);
   if (db) {
     try {
+      // P1-84: sesión WA por (tenant_id, numero) — 0048.
       await db
         .insert(whatsappSessions)
-        .values({ numeroE164: numero, paso, contexto, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) })
+        .values(
+          filaConTenant({
+            numeroE164: numero,
+            paso,
+            contexto,
+            expiraEn: new Date(ahoraMs + SESION_TTL_MS),
+            updatedAt: new Date(ahoraMs),
+          }),
+        )
         .onConflictDoUpdate({
-          target: whatsappSessions.numeroE164,
+          target: [whatsappSessions.tenantId, whatsappSessions.numeroE164],
           set: { paso, contexto, expiraEn: new Date(ahoraMs + SESION_TTL_MS), updatedAt: new Date(ahoraMs) },
         });
     } catch (e) {

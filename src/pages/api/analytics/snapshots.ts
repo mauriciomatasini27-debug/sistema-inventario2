@@ -13,6 +13,7 @@ import type { RotationSettings, SnapshotRotacion, SkuRot } from "../../../module
 import { intentarLeer, intentarPersistir, BaseNoDisponible } from "../../../lib/server-db.js";
 import { leerRotationSettings } from "../../../lib/repos/rotation-settings.js";
 import { tenantActual } from "../../../lib/tenant-mode.js";
+import { dondeTenant, filaConTenant } from "../../../lib/tenant-scope.js";
 import { rotationSnapshots } from "../../../db/schema-analytics.js";
 
 export const prerender = false;
@@ -81,16 +82,18 @@ export const POST: APIRoute = async ({ request }) => {
     await intentarPersistir((db) =>
       db
         .insert(rotationSnapshots)
-        .values({
-          id: snap.id,
-          dedupeKey: snap.dedupeKey,
-          desde: snap.desde,
-          hasta: snap.hasta,
-          payload: { filas: bodyJson, creadoEn: snap.creadoEn, origen: snap.origen },
-          payloadHash: shaSnapshot(snap, bodyJson),
-          origen: snap.origen,
-          createdAt: new Date(snap.creadoEn),
-        })
+        .values(
+          filaConTenant({
+            id: snap.id,
+            dedupeKey: snap.dedupeKey,
+            desde: snap.desde,
+            hasta: snap.hasta,
+            payload: { filas: bodyJson, creadoEn: snap.creadoEn, origen: snap.origen },
+            payloadHash: shaSnapshot(snap, bodyJson),
+            origen: snap.origen,
+            createdAt: new Date(snap.creadoEn),
+          }),
+        )
         .onConflictDoNothing(),
     );
   } catch (e) {
@@ -122,7 +125,11 @@ export const GET: APIRoute = async ({ url }) => {
   // P10-19: DB primero; sin base o sin fila cae al espejo memoria.
   try {
     const filas = await intentarLeer((db) =>
-      db.select().from(rotationSnapshots).where(eq(rotationSnapshots.dedupeKey, key)).limit(1),
+      db
+        .select()
+        .from(rotationSnapshots)
+        .where(dondeTenant(rotationSnapshots.tenantId, eq(rotationSnapshots.dedupeKey, key)))
+        .limit(1),
     );
     const fila = filas?.[0];
     if (fila) {
