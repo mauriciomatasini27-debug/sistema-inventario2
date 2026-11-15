@@ -6,9 +6,9 @@ import TemaToggle from "../components/ui/TemaToggle.astro";
 import CerrarSesion from "../components/ui/CerrarSesion.astro";
 // Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
 // craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
-// pills, segbar, bignums, cards, heatmap dark y SVG propios. En vivo: GET
-// /api/admin/salud, GET /api/admin/actos, GET /api/admin/uso y GET/POST
-// /api/admin/tenants. El resto es demo marcado.
+// pills, segbar, bignums, cards, heatmap dark y SVG propios. En vivo: salud,
+// actos, uso, tenants, rollouts, flags, cobros, señales y reportes.
+// ADMIN-PANEL-WIRE: si esa API no responde, la tarjeta queda en demo.
 // Sin datos de negocio jamás (Ley 25.326): solo contadores de gestión.
 // ADMIN-USO-DIARIO: la tarjeta Uso lee GET /api/admin/uso. La marca "Costo alto"
 // es texto, y el precio que muestra es el de referencia del catálogo de ejemplo.
@@ -108,12 +108,21 @@ const pills = [
         display: inline-flex; align-items: center; margin-top: 10px; font: inherit;
       }
       .cta-piloto:disabled { opacity: 0.55; cursor: wait; }
-      #tenants-confirmar { margin-top: 12px; display: grid; gap: 8px; max-width: 420px; }
-      #tenants-confirmar[hidden] { display: none; }
-      #tenants-confirmar input {
+      #tenants-confirmar,
+      #flags-form,
+      #cobros-form,
+      #reportes-confirmar { margin-top: 12px; display: grid; gap: 8px; max-width: 420px; }
+      #tenants-confirmar[hidden],
+      #reportes-confirmar[hidden] { display: none; }
+      #tenants-confirmar input,
+      #flags-form input,
+      #cobros-form input,
+      #reportes-confirmar input,
+      #reportes-confirmar select {
         border: 1px solid var(--tema-linea); border-radius: 12px; padding: 8px 12px;
-        font: inherit; background: var(--papel); color: var(--tema-texto); min-height: 44px;
+        font: inherit; background: var(--papel); color: var(--tema-texto); min-height: 44px; width: 100%;
       }
+      #flags-form input[type="checkbox"] { width: auto; min-height: 44px; }
       :target { outline: 2px solid var(--llama); outline-offset: 4px; }
       /* En oscuro, .dark y .banner quedan void sobre void: un borde los separa.
          El primer segmento y el avatar invierten como en el panel. */
@@ -170,14 +179,10 @@ const pills = [
       </div>
 
       <div class="grid r1">
-        <section class="card" id="rollouts">
-          <h2>Rollouts <a href="#rollouts" aria-label="Ir a rollouts">↗</a></h2>
-          <ul class="tl">
-            <li><span class="hora">control</span><b>Base estable</b> <span class="demo">demo</span><br />canario → lotes · freno auto</li>
-            <li><span class="hora">canario</span><b>Migración 0001 admin</b><br />re-ejecutar desde PA11</li>
-            <li><span class="hora">lotes</span><b>Disparo y rollback</b><br />P1 · workflow_dispatch</li>
-          </ul>
-          <div class="mini">Vista de estado (PA14). Disparar/rollback en P1.</div>
+        <section class="card" id="rollouts" data-admin-tarjeta="rollouts">
+          <h2>Rollouts <span class="demo" id="b-rollouts">demo</span> <a href="#rollouts" aria-label="Ir a rollouts">↗</a></h2>
+          <ul class="tl" id="rollouts-lista" aria-live="polite"></ul>
+          <div class="estado" id="rollouts-estado">—</div>
         </section>
 
         <section class="card" id="auditoria">
@@ -194,11 +199,13 @@ const pills = [
           <div class="estado" id="actos-estado">Auditoría: cargando…</div>
         </section>
 
-        <section class="card dark" id="senales">
-          <h2>Señales por hora <a href="#senales" aria-label="Ir a señales">↗</a></h2>
+        <section class="card dark" id="senales" data-admin-tarjeta="senales">
+          <h2>Señales por hora <span class="demo" id="b-senales-tarjeta">demo</span> <a href="#senales" aria-label="Ir a señales">↗</a></h2>
           <div><span class="bign"><span id="heat-ok">0</span> ↗</span> &nbsp; <span class="bign" style="color:var(--color-muted-dark)"><span id="heat-pend">0</span> ↘</span></div>
-          <div class="mini" style="color:var(--color-muted-dark)">consumidas · pendientes <span class="demo">demo</span></div>
+          <div class="mini" style="color:var(--color-muted-dark)">consumidas · descartadas</div>
           <div class="heat" id="heat" aria-hidden="true"></div>
+          <button type="button" class="cta-piloto" id="btn-senales-consumir" data-admin-accion="senales-consumir">Consumir señales</button>
+          <div class="estado" id="senales-estado">—</div>
         </section>
       </div>
 
@@ -212,6 +219,21 @@ const pills = [
           <button type="button" class="cta-piloto" data-rep-filtro="resuelto" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Resuelto</button>
         </div>
         <ul class="tl" id="rep-admin-lista" aria-live="polite"></ul>
+        <form id="reportes-confirmar" hidden>
+          <p class="mini" id="reportes-confirmar-texto"></p>
+          <p class="mini">Id completo: <code id="reportes-id-visible"></code></p>
+          <select id="reportes-estado" name="estado" aria-label="Estado del reporte">
+            <option value="recibido">Recibido</option>
+            <option value="en_revision">En revisión</option>
+            <option value="resuelto">Resuelto</option>
+          </select>
+          <input id="reportes-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo del cambio de estado" />
+          <input id="reportes-confirmo" name="confirmo_id" required placeholder="Escribí el id del reporte" aria-label="Confirmación del id del reporte" autocomplete="off" />
+          <div>
+            <button type="submit" class="cta-piloto" id="reportes-enviar" style="margin-top:0">Confirmar estado</button>
+            <button type="button" class="cta-piloto" id="reportes-cancelar" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Cancelar</button>
+          </div>
+        </form>
         <div class="estado" id="rep-admin-estado">Cargando bandeja…</div>
       </section>
 
@@ -289,8 +311,34 @@ const pills = [
       </section>
 
       <div class="grid r3">
-        <section class="card" id="cobros"><h2>Cobros <a href="#cobros">↗</a></h2><div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div></section>
-        <section class="card" id="flags"><h2>Flags <a href="#flags">↗</a></h2><div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div></section>
+        <section class="card" id="cobros" data-admin-tarjeta="cobros">
+          <h2>Cobros <span class="demo" id="b-cobros">demo</span> <a href="#cobros">↗</a></h2>
+          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div>
+          <form id="cobros-form">
+            <input id="cobros-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del cobro" />
+            <input id="cobros-monto" name="monto_centavos" required inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
+            <input id="cobros-medio" name="medio" required placeholder="medio" aria-label="Medio de pago" />
+            <input id="cobros-referencia" name="referencia_externa" required placeholder="referencia_externa" aria-label="Referencia externa" />
+            <input id="cobros-idempotency" name="idempotency_key" required placeholder="idempotency_key" aria-label="Clave de idempotencia" />
+            <button type="button" class="cta-piloto" data-admin-accion="cobro-asentar" style="margin-top:0">Asentar cobro</button>
+          </form>
+          <div class="estado" id="cobros-estado">—</div>
+        </section>
+        <section class="card" id="flags" data-admin-tarjeta="flags">
+          <h2>Flags <span class="demo" id="b-flags">demo</span> <a href="#flags">↗</a></h2>
+          <div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div>
+          <ul class="tl" id="flags-lista" aria-live="polite"></ul>
+          <form id="flags-form">
+            <input id="flags-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del flag" />
+            <input id="flags-nombre" name="flag" required placeholder="flag" aria-label="Nombre del flag" />
+            <label class="mini"><input id="flags-valor" name="valor" type="checkbox" /> valor</label>
+            <input id="flags-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo del flag" />
+            <input id="flags-confirmo" name="confirmo_id" required placeholder="Escribí el id del tenant" aria-label="Confirmación del id del tenant" autocomplete="off" />
+            <input id="flags-expira" name="expira_en" placeholder="expira_en (opcional, ISO)" aria-label="Vencimiento del flag" />
+            <button type="button" class="cta-piloto" data-admin-accion="flags-guardar" style="margin-top:0">Guardar flag</button>
+          </form>
+          <div class="estado" id="flags-estado">—</div>
+        </section>
         <section class="card" id="infra"><h2>Infra <a href="#infra">↗</a></h2><div class="mini"><b>Próximamente</b> (PA11).<br />Re-ejecutar migración Drizzle.</div></section>
         <section class="card" id="apis"><h2>APIs <a href="#apis">↗</a></h2><div class="mini">Índice JSON en vivo:<br /><a href="/api/admin/salud">/api/admin/salud</a><br /><a href="/api/admin/actos">/api/admin/actos</a><br /><a href="/api/admin/uso">/api/admin/uso</a></div></section>
       </div>
@@ -351,6 +399,7 @@ const pills = [
         document.getElementById("n-senales").textContent = filas.length;
         document.getElementById("mora-estado").textContent = "En vivo: " + activos + " al día, " + mora + " suspendidos.";
         marca("b-senales", true);
+        pintarHeatDesdeSalud(filas);
         if (tenantsEnVivo) return;
         pintarFlota(activos, mora, filas.length);
         document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
@@ -664,17 +713,43 @@ const pills = [
           ? msgSinAdmin
           : "Sin conexión: mostrando demo.";
       });
-      // Heatmap demo 5x12. Estilo inline: Astro scopa el <style> y los <i>
-      // creados por JS no heredan el scope, así que el CSS no los alcanzaría.
-      const heat = document.getElementById("heat");
-      const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
-      seed.forEach((v) => {
+      // ADMIN-PANEL-WIRE: el color va inline porque Astro no alcanza a los <i> creados por JS.
+      function celdaHeat(v) {
         const i = document.createElement("i");
         i.style.cssText = "aspect-ratio:1;border-radius:50%;background:" + (v ? "var(--color-llama)" : "var(--color-mid)");
-        heat.appendChild(i);
-      });
-      document.getElementById("heat-ok").textContent = "0";
-      document.getElementById("heat-pend").textContent = "0";
+        return i;
+      }
+      function pintarHeatDemo() {
+        const heat = document.getElementById("heat");
+        const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
+        heat.replaceChildren();
+        seed.forEach((v) => heat.appendChild(celdaHeat(!!v)));
+        document.getElementById("heat-ok").textContent = "0";
+        document.getElementById("heat-pend").textContent = "0";
+      }
+      // ADMIN-PANEL-WIRE: doce cubos de reloj. Una hora queda en true si alguna
+      // ultimaSenalEn cae ahí. No se escala con salud.length.
+      function pintarHeatDesdeSalud(filas) {
+        const heat = document.getElementById("heat");
+        if (!heat) return;
+        const horaMs = 60 * 60 * 1000;
+        const hora0 = new Date();
+        hora0.setMinutes(0, 0, 0);
+        const inicio = hora0.getTime() - 11 * horaMs;
+        const on = [];
+        for (let i = 0; i < 12; i++) on.push(false);
+        for (const f of filas || []) {
+          const raw = f && f.ultimaSenalEn;
+          if (!raw) continue;
+          const t = new Date(raw).getTime();
+          if (!Number.isFinite(t)) continue;
+          const idx = Math.floor((t - inicio) / horaMs);
+          if (idx >= 0 && idx < 12) on[idx] = true;
+        }
+        heat.replaceChildren();
+        on.forEach((v) => heat.appendChild(celdaHeat(v)));
+      }
+      pintarHeatDemo();
       // Buscador filtra la tabla de auditoría.
       document.getElementById("q").addEventListener("input", (e) => {
         const q = e.target.value.toLowerCase();
@@ -685,16 +760,36 @@ const pills = [
       const repLista = document.getElementById("rep-admin-lista");
       const repEstado = document.getElementById("rep-admin-estado");
       let repFiltro = "";
+      let pendienteReporte = null;
       const cargarRepAdmin = () => {
-        const url = repFiltro ? "/api/admin/reportes?estado=" + repFiltro : "/api/admin/reportes";
+        const url = repFiltro ? "/api/admin/reportes?estado=" + encodeURIComponent(repFiltro) : "/api/admin/reportes";
         get(url).then((b) => {
           repLista.replaceChildren();
           (b.items || []).forEach((it) => {
             const li = document.createElement("li");
-            const tipo = it.tipo === "problema" ? "Problema" : "Sugerencia";
-            const est = it.estado === "en_revision" ? "En revisión" : (it.estado === "resuelto" ? "Resuelto" : "Recibido");
-            li.innerHTML = "<b>" + tipo + "</b> · <span class='pill pend'>" + est + "</span><br />" +
-              (it.nombre_comercio || "—") + " · " + String(it.texto || "").slice(0, 120);
+            const tipo = document.createElement("b");
+            tipo.textContent = it.tipo === "problema" ? "Problema" : "Sugerencia";
+            li.appendChild(tipo);
+            li.appendChild(document.createTextNode(" · "));
+            const pill = document.createElement("span");
+            pill.className = "pill pend";
+            pill.textContent = it.estado === "en_revision" ? "En revisión" : (it.estado === "resuelto" ? "Resuelto" : "Recibido");
+            li.appendChild(pill);
+            li.appendChild(document.createElement("br"));
+            li.appendChild(document.createTextNode((it.nombre_comercio || "—") + " · " + String(it.texto || "").slice(0, 120)));
+            if (it.estado === "recibido" || it.estado === "en_revision") {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "cta-piloto";
+              btn.style.marginTop = "8px";
+              btn.setAttribute("data-admin-accion", "reporte-estado");
+              btn.setAttribute("data-reporte-id", String(it.id || ""));
+              const siguiente = it.estado === "recibido" ? "en_revision" : "resuelto";
+              btn.setAttribute("data-reporte-estado", siguiente);
+              btn.textContent = siguiente === "en_revision" ? "Pasar a revisión" : "Marcar resuelto";
+              li.appendChild(document.createElement("br"));
+              li.appendChild(btn);
+            }
             repLista.appendChild(li);
           });
           repEstado.textContent = "En vivo: " + (b.items || []).length + " reportes.";
@@ -702,6 +797,56 @@ const pills = [
           repEstado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión.";
         });
       };
+      const abrirReporteEstado = (btn) => {
+        pendienteReporte = {
+          id: btn.getAttribute("data-reporte-id") || "",
+          estado: btn.getAttribute("data-reporte-estado") || "en_revision",
+        };
+        document.getElementById("reportes-confirmar-texto").textContent =
+          "Pasar el reporte a " + pendienteReporte.estado + ". Escribí el id completo y el motivo.";
+        document.getElementById("reportes-id-visible").textContent = pendienteReporte.id;
+        document.getElementById("reportes-motivo").value = "";
+        document.getElementById("reportes-confirmo").value = "";
+        document.getElementById("reportes-confirmar").hidden = false;
+        document.getElementById("reportes-motivo").focus();
+      };
+      document.getElementById("reportes-cancelar").addEventListener("click", () => {
+        pendienteReporte = null;
+        document.getElementById("reportes-confirmar").hidden = true;
+      });
+      document.getElementById("reportes-confirmar").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!pendienteReporte) return;
+        const enviar = document.getElementById("reportes-enviar");
+        const motivo = document.getElementById("reportes-motivo").value.trim();
+        const confirmo = document.getElementById("reportes-confirmo").value.trim();
+        enviar.disabled = true;
+        try {
+          const r = await fetch("/api/admin/reportes/" + encodeURIComponent(pendienteReporte.id), {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              accion: "estado",
+              estado: pendienteReporte.estado,
+              confirmo_id: confirmo,
+              motivo,
+            }),
+          });
+          const json = await leerCuerpo(r);
+          if (!r.ok) {
+            repEstado.textContent = json && json.error ? json.error : ("http " + r.status);
+            return;
+          }
+          pendienteReporte = null;
+          document.getElementById("reportes-confirmar").hidden = true;
+          cargarRepAdmin();
+        } catch (err) {
+          repEstado.textContent = err && err.message ? err.message : "red";
+        } finally {
+          enviar.disabled = false;
+        }
+      });
       document.querySelectorAll("[data-rep-filtro]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const f = btn.getAttribute("data-rep-filtro");
@@ -710,6 +855,234 @@ const pills = [
         });
       });
       cargarRepAdmin();
+
+      async function leerCuerpo(r) {
+        const texto = await r.text();
+        try {
+          return texto ? JSON.parse(texto) : {};
+        } catch {
+          return {};
+        }
+      }
+      function pintarRollouts(lista) {
+        const ul = document.getElementById("rollouts-lista");
+        ul.replaceChildren();
+        if (lista.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No hay rollouts.";
+          ul.appendChild(li);
+          return;
+        }
+        for (const row of lista) {
+          const id = String(row.id || row.rollout_id || "");
+          const li = document.createElement("li");
+          const hora = document.createElement("span");
+          hora.className = "hora";
+          hora.textContent = row.estado || "—";
+          li.appendChild(hora);
+          const b = document.createElement("b");
+          b.textContent = id || "—";
+          li.appendChild(b);
+          li.appendChild(document.createTextNode(" · " + (row.tenantId || row.tenant_id || "—") + " · intentos " + String(row.intentos ?? 0)));
+          if (id) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "cta-piloto";
+            btn.style.marginTop = "0";
+            btn.setAttribute("data-admin-accion", "rollout-reintentar");
+            btn.setAttribute("data-rollout-id", id);
+            btn.textContent = "Reintentar";
+            li.appendChild(document.createTextNode(" "));
+            li.appendChild(btn);
+          }
+          ul.appendChild(li);
+        }
+      }
+      async function cargarRollouts() {
+        const estado = document.getElementById("rollouts-estado");
+        try {
+          const b = await get("/api/admin/rollouts");
+          const lista = b.rollouts || [];
+          pintarRollouts(lista);
+          marca("b-rollouts", true);
+          estado.textContent = "En vivo: " + lista.length + " rollouts.";
+        } catch (e) {
+          marca("b-rollouts", false);
+          estado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión: sin rollouts.";
+          document.getElementById("rollouts-lista").replaceChildren();
+        }
+      }
+      async function reintentarRollout(rolloutId) {
+        const estado = document.getElementById("rollouts-estado");
+        if (!rolloutId) return;
+        try {
+          const r = await fetch("/api/admin/rollouts", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rollout_id: rolloutId }),
+          });
+          if (!r.ok) {
+            estado.textContent = "No se pudo reintentar (http " + r.status + ").";
+            return;
+          }
+          await cargarRollouts();
+        } catch (err) {
+          estado.textContent = err && err.message ? err.message : "red";
+        }
+      }
+      function pintarFlags(lista) {
+        const ul = document.getElementById("flags-lista");
+        ul.replaceChildren();
+        if (lista.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "Sin overrides.";
+          ul.appendChild(li);
+          return;
+        }
+        for (const f of lista) {
+          const li = document.createElement("li");
+          const vence = f.expiraEn ? " · vence " + String(f.expiraEn).slice(0, 10) : "";
+          li.textContent = (f.tenantId || "—") + " · " + (f.flag || "—") + " · " + (f.valor ? "sí" : "no") + " · " + (f.motivo || "—") + vence;
+          ul.appendChild(li);
+        }
+      }
+      async function cargarFlags() {
+        const estado = document.getElementById("flags-estado");
+        try {
+          const b = await get("/api/admin/flags");
+          pintarFlags(b.flags || []);
+          marca("b-flags", true);
+          estado.textContent = "En vivo: " + (b.flags || []).length + " overrides.";
+        } catch (e) {
+          marca("b-flags", false);
+          estado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión: sin flags.";
+        }
+      }
+      async function guardarFlag() {
+        const form = document.getElementById("flags-form");
+        const estado = document.getElementById("flags-estado");
+        const tenantId = form.tenant_id.value.trim();
+        const flag = form.flag.value.trim();
+        const motivo = form.motivo.value.trim();
+        const confirmo = form.confirmo_id.value.trim();
+        const expira = form.expira_en.value.trim();
+        if (confirmo !== tenantId) {
+          estado.textContent = "Escribí el id del tenant para confirmar.";
+          return;
+        }
+        const cuerpo = {
+          tenant_id: tenantId,
+          flag,
+          valor: form.valor.checked,
+          motivo,
+        };
+        if (expira) cuerpo.expira_en = expira;
+        try {
+          const r = await fetch("/api/admin/flags", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cuerpo),
+          });
+          const json = await leerCuerpo(r);
+          if (!r.ok) {
+            estado.textContent = json && json.error ? json.error : ("http " + r.status);
+            return;
+          }
+          marca("b-flags", true);
+          await cargarFlags();
+        } catch (err) {
+          estado.textContent = err && err.message ? err.message : "red";
+        }
+      }
+      function rotarClaveCobro() {
+        const clave = document.getElementById("cobros-idempotency");
+        if (clave && crypto.randomUUID) clave.value = crypto.randomUUID();
+      }
+      // ADMIN-PANEL-WIRE: 409 cuenta como el mismo cobro solo si la clave del
+      // formulario abierto sigue siendo la que se acaba de enviar.
+      async function asentarCobro() {
+        const form = document.getElementById("cobros-form");
+        const estado = document.getElementById("cobros-estado");
+        const key = form.idempotency_key.value.trim();
+        let r;
+        try {
+          r = await fetch("/api/admin/ledger/asentar", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenant_id: form.tenant_id.value.trim(),
+              monto_centavos: form.monto_centavos.value.trim(),
+              medio: form.medio.value.trim(),
+              referencia_externa: form.referencia_externa.value.trim(),
+              idempotency_key: key,
+            }),
+          });
+        } catch (err) {
+          estado.textContent = err && err.message ? err.message : "red";
+          return;
+        }
+        const abierta = form.idempotency_key.value.trim();
+        if (r.status === 409 && abierta === key && key) {
+          estado.textContent = "En vivo: ese cobro ya estaba asentado.";
+          marca("b-cobros", true);
+          rotarClaveCobro();
+          return;
+        }
+        const json = await leerCuerpo(r);
+        if (!r.ok) {
+          estado.textContent = json && json.error ? json.error : ("http " + r.status);
+          return;
+        }
+        estado.textContent = "En vivo: cobro asentado.";
+        marca("b-cobros", true);
+        rotarClaveCobro();
+      }
+      async function consumirSenales() {
+        const estado = document.getElementById("senales-estado");
+        let r;
+        try {
+          r = await fetch("/api/admin/senales/consumir", {
+            method: "POST",
+            credentials: "same-origin",
+          });
+        } catch (err) {
+          estado.textContent = err && err.message ? err.message : "red";
+          return;
+        }
+        const b = await leerCuerpo(r);
+        if (!r.ok) {
+          estado.textContent = b && b.error ? b.error : ("http " + r.status);
+          return;
+        }
+        document.getElementById("heat-ok").textContent = String(b.consumidas ?? 0);
+        document.getElementById("heat-pend").textContent = String(b.descartadas ?? 0);
+        marca("b-senales", true);
+        estado.textContent = "En vivo: " + String(b.consumidas ?? 0) + " consumidas, " + String(b.descartadas ?? 0) + " descartadas.";
+        void cargarSalud();
+      }
+      // ADMIN-PANEL-WIRE: un solo listener. El DOM declara data-admin-accion.
+      async function ejecutarAccionAdmin(btn) {
+        const accion = btn.getAttribute("data-admin-accion");
+        if (accion === "rollout-reintentar") return reintentarRollout(btn.getAttribute("data-rollout-id"));
+        if (accion === "flags-guardar") return guardarFlag();
+        if (accion === "cobro-asentar") return asentarCobro();
+        if (accion === "senales-consumir") return consumirSenales();
+        if (accion === "reporte-estado") return abrirReporteEstado(btn);
+      }
+      document.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("[data-admin-accion]");
+        if (!btn) return;
+        void ejecutarAccionAdmin(btn);
+      });
+      async function refrescarTarjetasAdmin() {
+        await Promise.all([cargarRollouts(), cargarFlags()]);
+      }
+      const claveCobro = document.getElementById("cobros-idempotency");
+      if (claveCobro && !claveCobro.value && crypto.randomUUID) claveCobro.value = crypto.randomUUID();
+      void refrescarTarjetasAdmin();
     </script>
   </body>
 </html>
