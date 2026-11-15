@@ -5,13 +5,13 @@ import { listarYSincronizarTenantsControl, persistirEstadoTenant } from "../../.
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
-import { auditar, exigirAdmin, exigirConfirmacion, leerJson } from "./_guard.js";
+import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
 
 export const prerender = false;
 
 // GET /api/admin/tenants — OP-S1 lista gestión (slug, estado, plan, vencimiento).
 export const GET: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   const url = new URL(request.url);
   const estado = url.searchParams.get("estado") ?? "";
@@ -39,7 +39,7 @@ export const GET: APIRoute = async ({ request }) => {
 
 // POST /api/admin/tenants — accion suspender|reactivar con confirmo_id + motivo.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   const body = await leerJson(request);
   if (body instanceof Response) return body;

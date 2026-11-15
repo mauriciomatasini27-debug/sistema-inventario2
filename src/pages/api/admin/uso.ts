@@ -4,14 +4,14 @@ import { adminStore } from "../../../lib/admin-store.js";
 import { jsonError } from "../../../lib/control.js";
 import { control } from "../../../lib/store.js";
 import { filasUsoMargen } from "../../../modules/admin/uso-margen.js";
-import { exigirAdmin } from "./_guard.js";
+import { exigirAdminListo } from "./_guard.js";
 
 export const prerender = false;
 
 // ADMIN-USO-DIARIO: GET de gestión. Arma cada fila con id, slug y plan; no
 // copia el nombre del comercio ni abre la base del tenant (ADR-0006).
 export const GET: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
 
   const url = new URL(request.url);

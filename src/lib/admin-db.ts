@@ -4,12 +4,13 @@
 // agrega copia durable cuando hay CONTROL_DATABASE_URL viva. Nunca lanza:
 // sin env/tabla/conexión el caller sigue con memoria.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getControlDb } from "./db.js";
 import type { ActoAdmin } from "../modules/admin/actos.js";
 import {
   adminAuditLog,
   billingLedgerEntries,
+  dunningPolicies,
   migrationRollouts,
   platformAdmins,
   tenantDailyUsage,
@@ -18,7 +19,14 @@ import {
   tenantLifecycleEvents,
 } from "../db/schema-admin.js";
 import { usageCounters } from "../db/schema-planes.js";
-import { adminStore } from "./admin-store.js";
+import {
+  adminStore,
+  type AdminActoMem,
+  type AdminAsientoMem,
+  type AdminEventoVidaMem,
+  type AdminHealthMem,
+  type AdminOverrideMem,
+} from "./admin-store.js";
 import { fechaAR } from "./fecha-ar.js";
 import { crearAlmacenUsoPlanes } from "./repos/_almacen.js";
 import { control } from "./store.js";
@@ -351,4 +359,197 @@ export function resumenUsoEnListadoTenants(
   const mes = dia.slice(0, 7);
   const marcado = estimarMargen({ tenantId, plan, mes, usos }).marcado;
   return { uso_wa: fila?.mensajesWa ?? 0, costo_alto: marcado };
+}
+
+export type DunningPolicyMem = {
+  plan: string;
+  diasGracia: number;
+  diasASuspension: number;
+  diasABaja: number;
+  activa: boolean;
+};
+
+const TOPE_HIDRATAR = 500;
+
+function isoFecha(d: Date | null | undefined): string | null {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+// ADMIN-PANEL-WIRE: la fila de control se vuelve Admin*Mem acá. El merge no ve columnas.
+export async function leerActosAdminMem(limite = TOPE_HIDRATAR): Promise<AdminActoMem[]> {
+  try {
+    const filas = await getControlDb()
+      .select()
+      .from(adminAuditLog)
+      .orderBy(asc(adminAuditLog.creadoEn))
+      .limit(limite);
+    const salida: AdminActoMem[] = [];
+    for (const f of filas) {
+      const creadoEn = isoFecha(f.creadoEn);
+      if (!creadoEn || typeof f.hash !== "string" || !f.detalle) continue;
+      salida.push({
+        id: f.hash,
+        actorGoogleSub: f.actorGoogleSub,
+        actoKind: f.actoKind,
+        tenantId: f.tenantId,
+        detalle: f.detalle,
+        prevHash: f.prevHash,
+        hash: f.hash,
+        origen: f.origen,
+        creadoEn,
+      });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+export async function leerHealthAdminBatch(): Promise<AdminHealthMem[]> {
+  try {
+    const filas = await getControlDb().select().from(tenantHealthSignals);
+    const salida: AdminHealthMem[] = [];
+    for (const f of filas) {
+      const actualizadoEn = isoFecha(f.actualizadoEn);
+      if (!actualizadoEn || typeof f.tenantId !== "string" || typeof f.plan !== "string") continue;
+      salida.push({
+        tenantId: f.tenantId,
+        plan: f.plan,
+        estadoVisto: f.estadoVisto,
+        ticketsHoy: f.ticketsHoy,
+        demosPurgadas: f.demosPurgadas,
+        cobrosCentavos: f.cobrosCentavos,
+        ultimaSenalEn: isoFecha(f.ultimaSenalEn),
+        actualizadoEn,
+      });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+export async function leerAsientosAdminBatch(limite = TOPE_HIDRATAR): Promise<AdminAsientoMem[]> {
+  try {
+    const filas = await getControlDb()
+      .select()
+      .from(billingLedgerEntries)
+      .orderBy(asc(billingLedgerEntries.creadoEn))
+      .limit(limite);
+    const salida: AdminAsientoMem[] = [];
+    for (const f of filas) {
+      const creadoEn = isoFecha(f.creadoEn);
+      if (!creadoEn || typeof f.id !== "string" || typeof f.idempotencyKey !== "string") continue;
+      salida.push({
+        id: f.id,
+        tenantId: f.tenantId,
+        montoCentavos: f.montoCentavos,
+        medio: f.medio,
+        referenciaExterna: f.referenciaExterna,
+        idempotencyKey: f.idempotencyKey,
+        asientoCompensatorioDe: f.asientoCompensatorioDe ?? undefined,
+        creadoPor: f.creadoPor,
+        creadoEn,
+      });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+export async function leerEventosVidaAdminBatch(limite = TOPE_HIDRATAR): Promise<AdminEventoVidaMem[]> {
+  try {
+    const filas = await getControlDb()
+      .select()
+      .from(tenantLifecycleEvents)
+      .orderBy(asc(tenantLifecycleEvents.creadoEn))
+      .limit(limite);
+    const salida: AdminEventoVidaMem[] = [];
+    for (const f of filas) {
+      const creadoEn = isoFecha(f.creadoEn);
+      if (!creadoEn || typeof f.id !== "string") continue;
+      salida.push({
+        id: f.id,
+        tenantId: f.tenantId,
+        deEstado: f.deEstado,
+        aEstado: f.aEstado,
+        motivo: f.motivo,
+        actor: f.actor,
+        idempotencyKey: f.idempotencyKey || f.id,
+        creadoEn,
+      });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+export async function leerOverridesAdminBatch(): Promise<AdminOverrideMem[]> {
+  try {
+    const filas = await getControlDb().select().from(tenantFeatureOverrides);
+    const salida: AdminOverrideMem[] = [];
+    for (const f of filas) {
+      const creadoEn = isoFecha(f.creadoEn);
+      if (!creadoEn || typeof f.tenantId !== "string" || typeof f.flag !== "string") continue;
+      salida.push({
+        tenantId: f.tenantId,
+        flag: f.flag,
+        valor: f.valor,
+        motivo: f.motivo,
+        expiraEn: isoFecha(f.expiraEn),
+        creadoPor: f.creadoPor ?? undefined,
+        creadoEn,
+      });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+export async function leerPoliciesMoraAdminBatch(): Promise<Map<string, DunningPolicyMem>> {
+  const salida = new Map<string, DunningPolicyMem>();
+  try {
+    const filas = await getControlDb().select().from(dunningPolicies);
+    for (const f of filas) {
+      if (typeof f.plan !== "string") continue;
+      if (![f.diasGracia, f.diasASuspension, f.diasABaja].every((n) => Number.isInteger(n))) continue;
+      salida.set(f.plan, {
+        plan: f.plan,
+        diasGracia: f.diasGracia,
+        diasASuspension: f.diasASuspension,
+        diasABaja: f.diasABaja,
+        activa: f.activa,
+      });
+    }
+  } catch {
+    return new Map();
+  }
+  return salida;
+}
+
+export async function leerUsoDiarioAdminBatch(dia?: string): Promise<Map<string, UsoDiarioContadores>> {
+  const salida = new Map<string, UsoDiarioContadores>();
+  try {
+    const q = getControlDb().select().from(tenantDailyUsage);
+    const filas = dia ? await q.where(eq(tenantDailyUsage.dia, dia)) : await q;
+    for (const f of filas) {
+      if (typeof f.tenantId !== "string" || typeof f.dia !== "string") continue;
+      const uso: UsoDiarioContadores = {
+        tenantId: f.tenantId,
+        dia: f.dia,
+        mensajesWa: f.usoWa,
+        consultasLlm: 0,
+        costoWaCentavos: 0n,
+        costoLlmCentavos: 0n,
+      };
+      salida.set(`${f.tenantId}|${f.dia}`, uso);
+    }
+  } catch {
+    return new Map();
+  }
+  return salida;
 }

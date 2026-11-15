@@ -1,14 +1,14 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
-import { exigirAdmin } from "./_guard.js";
+import { exigirAdminListo } from "./_guard.js";
 
 export const prerender = false;
 
 // GET /api/admin/salud — contadores por tenant (PA4). Solo gestión: id, plan,
 // estado visto y contadores. Nunca email/nombre del comerciante, nunca negocio.
 export const GET: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
 
   const tenantId = new URL(request.url).searchParams.get("tenant_id");
