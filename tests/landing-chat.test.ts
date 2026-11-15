@@ -10,6 +10,7 @@ import {
   reiniciarLimiteLanding,
   responderLanding,
 } from "../src/modules/landing/chat.js";
+import { beatPorId } from "../src/data/business.js";
 import { CLAVE_LLM_ASISTENTE } from "../src/modules/ia/proveedor.js";
 import { POST } from "../src/pages/api/landing-chat.js";
 
@@ -36,8 +37,20 @@ describe("landing-chat PRD-LP-04 (solo datos de ejemplo)", () => {
     expect(r.texto).toContain("venta real en el mostrador");
   });
 
-  it("feliz: responde planes y rubro desde business.ts", () => {
-    expect(responderLanding("¿qué planes tienen?").texto).toContain("Plus");
+  it("feliz: cómo empezar y planes salen de los beats", () => {
+    const oferta = beatPorId("planes");
+    const inicio = responderLanding("cómo empiezo");
+    expect(inicio.fuente).toBe("inicio");
+    expect(inicio.texto).toContain(oferta.empezar.lead);
+    for (const paso of oferta.empezar.steps) expect(inicio.texto).toContain(paso.title);
+    expect(inicio.texto).not.toContain("Propuesta válida");
+    const planes = responderLanding("qué planes tienen");
+    expect(planes.fuente).toBe("planes");
+    expect(planes.texto).toContain(oferta.nota);
+    expect(planes.texto).toContain("Plus");
+    const faq = responderLanding("¿Mis datos?");
+    expect(faq.fuente).toBe("faq");
+    expect(faq.texto).toContain("te llevás tu información");
     expect(responderLanding("¿sirve para mi almacén?").texto.toLowerCase()).toContain("mostrador");
   });
 

@@ -1,5 +1,5 @@
 ---
-import { nav, brand, accesos } from '../../data/business';
+import { nav, brand, accesos, ctaPrueba } from '../../data/business';
 ---
 
 <header
@@ -26,10 +26,10 @@ import { nav, brand, accesos } from '../../data/business';
         {accesos.comercio.label}
       </a>
       <a
-        href="#contacto"
+        href={ctaPrueba.href}
         class="sg-flame-cta rounded-[var(--radius-button)] px-4 py-2 text-sm"
       >
-        Pedir demo
+        {ctaPrueba.label}
       </a>
       <a
         href={accesos.admin.href}

@@ -2,20 +2,20 @@
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
 import Button from '../ui/Button.astro';
-import { checklist } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "checklist" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 ---
 
-<Section variant="linen" id="checklist" embedded={embedded}>
-  <SectionHeading title={checklist.title} lead={checklist.lead} />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} />
   <ul class="grid max-w-3xl gap-3">
     {
-      checklist.items.map((item) => (
+      beat.items.map((item) => (
         <li>
           <label class="galaxy-card flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] p-5">
             <input type="checkbox" class="mt-1 h-5 w-5 shrink-0" />
@@ -25,8 +25,8 @@ const { embedded = false } = Astro.props;
       ))
     }
   </ul>
-  <p class="mt-6 max-w-2xl text-ash-gray">{checklist.closing}</p>
+  <p class="mt-6 max-w-2xl text-ash-gray">{beat.closing}</p>
   <div class="mt-6">
-    <Button href="#contacto" variant="primary">{checklist.cta}</Button>
+    <Button href="#contacto" variant="primary">{beat.cta}</Button>
   </div>
 </Section>

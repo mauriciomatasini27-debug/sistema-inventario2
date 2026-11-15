@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { landingBeats, type LandingBeat } from "../src/data/business.js";
 
 const RAIZ = process.cwd();
 const leer = (f: string) => readFileSync(join(RAIZ, f), "utf8");
@@ -57,11 +58,29 @@ function clases(src: string): string[] {
   return salida;
 }
 
-function seccionesCon(variant: string): string[] {
-  return readdirSync(join(RAIZ, SECCIONES))
-    .filter((n) => n.endsWith(".astro"))
-    .map((n) => `${SECCIONES}/${n}`)
-    .filter((f) => new RegExp(`variant="${variant}"`).test(leer(f)));
+const ARCHIVO: Partial<Record<LandingBeat["id"], string>> = {
+  problema: "Problema.astro",
+  ejemplo: "Ejemplo.astro",
+  contraste: "Contraste.astro",
+  circuito: "Circuito.astro",
+  planes: "Planes.astro",
+  checklist: "Checklist.astro",
+  publico: "Publico.astro",
+  faq: "Faq.astro",
+  contacto: "Contacto.astro",
+  migracion: "Nota.astro",
+  fiscal: "Nota.astro",
+  despues: "Nota.astro",
+};
+
+function seccionesCon(variant: "dark" | "linen" | "white"): string[] {
+  const files = new Set<string>();
+  for (const beat of landingBeats) {
+    if (!("variant" in beat) || beat.variant !== variant) continue;
+    const nombre = ARCHIVO[beat.id];
+    if (nombre) files.add(`${SECCIONES}/${nombre}`);
+  }
+  return [...files];
 }
 
 describe("landing legible sobre papel (HIGH AUDITORIA-DS)", () => {

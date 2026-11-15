@@ -1,0 +1,28 @@
+---
+import Section from '../ui/Section.astro';
+import SectionHeading from '../ui/SectionHeading.astro';
+import type { LandingBeat } from '../../data/business';
+
+interface Props {
+  beat: Extract<LandingBeat, { tipo: "nota" }>;
+}
+
+const { beat } = Astro.props;
+const reglas = "reglas" in beat ? beat.reglas : undefined;
+---
+
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} size="nota" />
+  <p class="galaxy-card max-w-3xl rounded-[var(--radius-card)] p-5 text-[length:var(--text-body-lg)]">
+    {beat.detail}
+  </p>
+  {
+    reglas && (
+      <ul class="mt-6 grid max-w-3xl gap-4 text-[length:var(--text-body-lg)]">
+        {reglas.map((regla) => (
+          <li>{regla}</li>
+        ))}
+      </ul>
+    )
+  }
+</Section>

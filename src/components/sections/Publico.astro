@@ -1,28 +1,28 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { audience } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "publico" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 ---
 
-<Section variant="linen" id="publico" embedded={embedded}>
-  <SectionHeading title={audience.title} lead={audience.lead} />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} />
   <div class="grid max-w-3xl gap-8 md:grid-cols-2">
     <div>
-      <h3 class="text-[length:var(--text-subheading)] font-medium">{audience.yesTitle}</h3>
+      <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.yesTitle}</h3>
       <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)]">
-        {audience.yes.map((item) => <li>{item}</li>)}
+        {beat.yes.map((item) => <li>{item}</li>)}
       </ul>
     </div>
     <div>
-      <h3 class="text-[length:var(--text-subheading)] font-medium">{audience.noTitle}</h3>
+      <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.noTitle}</h3>
       <ul class="mt-4 grid gap-2 text-[length:var(--text-body-lg)] text-ash-gray">
-        {audience.no.map((item) => <li>{item}</li>)}
+        {beat.no.map((item) => <li>{item}</li>)}
       </ul>
     </div>
   </div>

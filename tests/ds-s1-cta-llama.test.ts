@@ -112,9 +112,9 @@ describe("DS-S1: los CTA primarios usan sg-flame-cta", () => {
     expect(primary).not.toContain("bg-star-glow");
   });
 
-  it("SiteHeader: Pedir demo", () => {
+  it("SiteHeader: Probar 14 días", () => {
     const header = leer("src/components/ui/SiteHeader.astro");
-    const ancla = header.match(/<a\s+href="#contacto"[\s\S]*?>/)?.[0] ?? "";
+    const ancla = header.match(/<a\s+href=\{ctaPrueba\.href\}[\s\S]*?>/)?.[0] ?? "";
     expect(ancla).toContain("sg-flame-cta");
     expect(ancla).not.toContain("hover:bg-void");
   });

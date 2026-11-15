@@ -1,20 +1,20 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { faq } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "faq" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 ---
 
-<Section variant="white" id="faq" embedded={embedded}>
-  <SectionHeading title={faq.title} lead={faq.lead} />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} />
   <div class="grid max-w-3xl gap-4">
     {
-      faq.items.map((item) => (
+      beat.items.map((item) => (
         <details class="galaxy-card rounded-[var(--radius-card)] p-5">
           <summary class="cursor-pointer font-medium">{item.q}</summary>
           <p class="mt-2 text-sm text-ash-gray">{item.a}</p>
