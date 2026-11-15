@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { auditar, exigirAdmin } from "./_guard.js";
+import { auditar, exigirAdminListo } from "./_guard.js";
 import { leerRolloutsAdmin, persistirRolloutAdmin } from "../../../lib/admin-db.js";
 
 export const prerender = false;
@@ -9,7 +9,7 @@ const rollouts = new Map<string, { id: string; tenantId: string; estado: string;
 
 // POST /api/admin/rollouts/reintentar — OP-S1/S2 202 rollout_id.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   let body: unknown;
   try {
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
 };
 
 export const GET: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   // P10-17: la memoria sigue siendo la verdad en slice-0; la base agrega los intentos durables.
   const db = await leerRolloutsAdmin();
