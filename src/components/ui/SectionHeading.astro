@@ -14,10 +14,7 @@ const { title, lead, invert = false, size = "seccion" } = Astro.props;
     title && (
       <h2
         class:list={[
-          size === "nota"
-            ? "text-[length:var(--text-subheading)]"
-            : "text-[length:var(--text-heading)]",
-          "font-medium tracking-tight",
+          size === "nota" ? "landing-card-title" : "landing-section-title",
           invert ? "text-canvas-white" : "text-core-cream",
         ]}
       >
@@ -29,7 +26,7 @@ const { title, lead, invert = false, size = "seccion" } = Astro.props;
     lead && (
       <p
         class:list={[
-          "text-[length:var(--text-body-lg)]",
+          "landing-lead",
           invert ? "text-canvas-white/80" : "text-ash-gray",
           title && "mt-4",
         ]}
