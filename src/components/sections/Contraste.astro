@@ -1,30 +1,42 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { contraste } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "contraste" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 ---
 
-<Section variant="dark" id="contraste" embedded={embedded}>
-  <SectionHeading title={contraste.title} lead={contraste.lead} invert />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} invert={beat.variant === "dark"} />
   <ul class="grid max-w-4xl gap-4">
     {
-      contraste.rows.map((row) => (
+      beat.rows.map((row) => (
         <li class="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
           <div class="galaxy-card rounded-[var(--radius-card)] p-5">
             <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Hoy</p>
             <p class="mt-1 text-ash-gray">{row.hoy}</p>
           </div>
-          <span class="hidden text-star-white md:block" aria-hidden="true">→</span>
+          <span class="hidden text-star-white md:block" aria-hidden="true">
+            →
+          </span>
           <div class="galaxy-card rounded-[var(--radius-card)] border-2 border-trust-slate bg-star-white p-5 text-void">
             <p class="text-xs font-medium uppercase tracking-wide text-ash-gray">Con Inventario</p>
             <p class="mt-1 font-medium">{row.con}</p>
           </div>
+        </li>
+      ))
+    }
+  </ul>
+  <ul class="mt-10 grid gap-3 md:grid-cols-2">
+    {
+      beat.highlights.map((item) => (
+        <li class="galaxy-card rounded-[var(--radius-card)] p-5 text-void">
+          <strong>{item.title}</strong>
+          {item.detail ? ` — ${item.detail}` : ""}
         </li>
       ))
     }

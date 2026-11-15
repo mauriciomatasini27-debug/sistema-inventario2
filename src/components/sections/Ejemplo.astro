@@ -1,25 +1,25 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { ejemplo } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "ejemplo" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 
 const MARKS = ['Caja', 'Fiado', 'Precios'] as const;
 ---
 
-<Section variant="white" id="ejemplo" embedded={embedded}>
-  <p class="text-sm font-medium text-ash-gray">{ejemplo.eyebrow}</p>
-  <SectionHeading title={ejemplo.title} lead={`${ejemplo.body} (${ejemplo.fictitious}).`} />
+<Section variant={beat.variant} id={beat.id}>
+  <p class="text-sm font-medium text-ash-gray">{beat.eyebrow}</p>
+  <SectionHeading title={beat.title} lead={`${beat.body} (${beat.fictitious}).`} />
   <div class="grid gap-6 md:grid-cols-2">
     <div>
       <ul class="grid gap-3">
         {
-          ejemplo.signs.map((sign, i) => (
+          beat.signs.map((sign, i) => (
             <li class="galaxy-card rounded-[var(--radius-card)] p-5">
               <span class="text-xs font-medium uppercase tracking-wide text-ash-gray">
                 {MARKS[i] ?? '·'}
@@ -29,7 +29,7 @@ const MARKS = ['Caja', 'Fiado', 'Precios'] as const;
           ))
         }
       </ul>
-      <p class="mt-6 text-ash-gray">{ejemplo.closing}</p>
+      <p class="mt-6 text-ash-gray">{beat.closing}</p>
     </div>
     <aside class="galaxy-card h-fit rounded-[var(--radius-card)] p-6" aria-hidden="true">
       <p class="text-[length:var(--text-subheading)] font-medium">Kiosco Lo de Marta</p>

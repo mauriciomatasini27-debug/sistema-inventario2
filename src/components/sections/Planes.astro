@@ -2,24 +2,39 @@
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
 import Button from '../ui/Button.astro';
-import { business, planesPage } from '../../data/business';
+import { business, ctaAltaLabel, type LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "oferta" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 ---
 
-<Section variant="white" id="planes" embedded={embedded}>
-  <SectionHeading title={planesPage.title} lead={planesPage.lead} />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} />
+  <div class="mb-12 max-w-5xl">
+    <h3 class="text-[length:var(--text-subheading)] font-medium">{beat.empezar.title}</h3>
+    <p class="mt-4 max-w-3xl text-[length:var(--text-body-lg)] text-ash-gray">{beat.empezar.lead}</p>
+    <ol class="mt-6 grid gap-6 md:grid-cols-3">
+      {
+        beat.empezar.steps.map((step) => (
+          <li class="galaxy-card rounded-[var(--radius-card)] p-6">
+            <p class="text-sm font-medium text-ash-gray">{step.step}</p>
+            <p class="mt-2 text-[length:var(--text-subheading)] font-medium">{step.title}</p>
+            <p class="mt-2 text-ash-gray">{step.detail}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
   <ul class="grid gap-6 md:grid-cols-3">
     {
       business.planes.map((plan) => (
         <li
           class:list={[
-            'galaxy-card rounded-[var(--radius-card)] p-6',
-            plan.destacado && 'border-2 border-trust-slate',
+            "galaxy-card rounded-[var(--radius-card)] p-6",
+            plan.destacado && "border-2 border-trust-slate",
           ]}
         >
           <p class="text-sm font-medium text-ash-gray">{plan.nombre}</p>
@@ -30,15 +45,19 @@ const { embedded = false } = Astro.props;
             </p>
           )}
           <ul class="mt-4 grid gap-2 text-[length:var(--text-body)] text-ash-gray">
-            {plan.features.map((feature) => <li>{feature}</li>)}
+            {plan.features.map((feature) => (
+              <li>{feature}</li>
+            ))}
           </ul>
           <div class="mt-6">
-            <Button href={`/alta?plan=${plan.nombre.toLowerCase()}`} variant="primary">Probar 14 días</Button>
+            <Button href={`/alta?plan=${plan.nombre.toLowerCase()}`} variant="primary">
+              {ctaAltaLabel}
+            </Button>
           </div>
         </li>
       ))
     }
   </ul>
-  <p class="mt-8 text-sm text-ash-gray">{planesPage.nota}</p>
-  <p class="mt-2 text-sm text-ash-gray">Plus Precio a confirmar al alta.</p>
+  <p class="mt-8 text-sm text-ash-gray">{beat.nota}</p>
+  <p class="mt-2 text-sm text-ash-gray">{beat.garantia}</p>
 </Section>

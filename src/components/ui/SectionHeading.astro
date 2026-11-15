@@ -3,9 +3,10 @@ interface Props {
   title?: string;
   lead?: string;
   invert?: boolean;
+  size?: "seccion" | "nota";
 }
 
-const { title, lead, invert = false } = Astro.props;
+const { title, lead, invert = false, size = "seccion" } = Astro.props;
 ---
 
 <header class="mb-10 max-w-3xl">
@@ -13,8 +14,11 @@ const { title, lead, invert = false } = Astro.props;
     title && (
       <h2
         class:list={[
-          'text-[length:var(--text-display-sm)] font-medium tracking-tight',
-          invert ? 'text-canvas-white' : 'text-core-cream',
+          size === "nota"
+            ? "text-[length:var(--text-subheading)]"
+            : "text-[length:var(--text-heading)]",
+          "font-medium tracking-tight",
+          invert ? "text-canvas-white" : "text-core-cream",
         ]}
       >
         {title}
@@ -25,9 +29,9 @@ const { title, lead, invert = false } = Astro.props;
     lead && (
       <p
         class:list={[
-          'text-[length:var(--text-body-lg)]',
-          invert ? 'text-canvas-white/80' : 'text-ash-gray',
-          title && 'mt-4',
+          "text-[length:var(--text-body-lg)]",
+          invert ? "text-canvas-white/80" : "text-ash-gray",
+          title && "mt-4",
         ]}
       >
         {lead}

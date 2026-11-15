@@ -1,7 +1,13 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { contact, contactConfigured, brand, footer, whatsappWithUtm } from '../../data/business';
+import { contact, contactConfigured, brand, footer, whatsappWithUtm, type LandingBeat } from '../../data/business';
+
+interface Props {
+  beat: Extract<LandingBeat, { tipo: "contacto" }>;
+}
+
+const { beat } = Astro.props;
 
 const formId = import.meta.env.PUBLIC_FORMSPREE_FORM_ID?.trim();
 const newsletterFormId = import.meta.env.PUBLIC_NEWSLETTER_FORM_ID?.trim() || formId;
@@ -25,8 +31,8 @@ const inputClass =
   'w-full rounded-[var(--radius-card)] border border-nebula-cyan/35 bg-space-mist px-4 py-3 text-void placeholder:text-ash-gray';
 ---
 
-<Section variant="dark" id="contacto">
-  <SectionHeading title="Contacto" lead={footer.contactLead} invert />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.nav} lead={footer.contactLead} invert={beat.variant === "dark"} />
 
   {
     sent && (

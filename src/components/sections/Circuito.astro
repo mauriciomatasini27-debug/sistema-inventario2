@@ -1,22 +1,22 @@
 ---
 import Section from '../ui/Section.astro';
 import SectionHeading from '../ui/SectionHeading.astro';
-import { circuito } from '../../data/business';
+import type { LandingBeat } from '../../data/business';
 
 interface Props {
-  embedded?: boolean;
+  beat: Extract<LandingBeat, { tipo: "circuito" }>;
 }
 
-const { embedded = false } = Astro.props;
+const { beat } = Astro.props;
 
 const SHORT = ['Depósito', 'Mostrador', 'Venta', 'Cobro', 'Cierre'] as const;
 ---
 
-<Section variant="linen" id="circuito" embedded={embedded}>
-  <SectionHeading title={circuito.title} lead={circuito.lead} />
+<Section variant={beat.variant} id={beat.id}>
+  <SectionHeading title={beat.title} lead={beat.lead} />
   <ol class="grid gap-4 md:grid-cols-5">
     {
-      circuito.steps.map((step, i) => (
+      beat.steps.map((step, i) => (
         <li class="galaxy-card rounded-[var(--radius-card)] p-5">
           <p class="text-sm font-medium text-ash-gray">
             Paso {i + 1} · {SHORT[i] ?? `Paso ${i + 1}`}

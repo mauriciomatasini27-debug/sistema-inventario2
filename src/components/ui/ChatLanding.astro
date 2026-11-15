@@ -1,8 +1,8 @@
 ---
-import { faq, whatsappWithUtm } from '../../data/business';
+import { beatPorId, whatsappWithUtm } from '../../data/business';
 import { AVISO_LEY_25326 } from '../../modules/landing/chat';
 
-const sugerencias = faq.items.slice(0, 3);
+const sugerencias = beatPorId("faq").items.slice(0, 3);
 const waDirecto = whatsappWithUtm('chat');
 ---
 
@@ -196,8 +196,8 @@ const waDirecto = whatsappWithUtm('chat');
     width: 3.5rem;
     height: 3.5rem;
     border-radius: 999px;
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--color-void);
+    color: var(--color-star-white);
     box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.4);
   }
   .chat-icono {
@@ -208,7 +208,7 @@ const waDirecto = whatsappWithUtm('chat');
     width: min(22rem, calc(100vw - 2rem));
     max-height: min(28rem, calc(100dvh - 7rem));
     overflow-y: auto;
-    background: #fff;
+    background: var(--color-galaxy-deep);
     border-radius: 1rem;
     box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.35);
     padding: 1rem;

@@ -5,20 +5,13 @@ import Problema from '../components/sections/Problema.astro';
 import Ejemplo from '../components/sections/Ejemplo.astro';
 import Contraste from '../components/sections/Contraste.astro';
 import Circuito from '../components/sections/Circuito.astro';
-import Solucion from '../components/sections/Solucion.astro';
-import Checklist from '../components/sections/Checklist.astro';
-import Camino from '../components/sections/Camino.astro';
 import Planes from '../components/sections/Planes.astro';
-import Migracion from '../components/sections/Migracion.astro';
-import Fiscal from '../components/sections/Fiscal.astro';
+import Checklist from '../components/sections/Checklist.astro';
+import Nota from '../components/sections/Nota.astro';
 import Publico from '../components/sections/Publico.astro';
-import ComoTrabajamos from '../components/sections/ComoTrabajamos.astro';
-import Despues from '../components/sections/Despues.astro';
-import Crecer from '../components/sections/Crecer.astro';
-import Garantia from '../components/sections/Garantia.astro';
 import Faq from '../components/sections/Faq.astro';
 import Contacto from '../components/sections/Contacto.astro';
-import { seo } from '../data/business';
+import { landingBeats, seo } from '../data/business';
 import { mensajeIngresoLanding } from '../modules/auth/mensaje-ingreso';
 
 // P1-27: el callback deja /?alta=pendiente (PRD-AU-02) y esta página abre el alta.
@@ -47,23 +40,32 @@ const description = seo.description;
         </p>
       )
     }
-    <Hero />
-    <Problema />
-    <Ejemplo />
-    <Contraste />
-    <Circuito />
-    <Solucion />
-    <Checklist />
-    <Camino />
-    <Planes />
-    <Migracion />
-    <Fiscal />
-    <Publico />
-    <ComoTrabajamos />
-    <Despues />
-    <Crecer />
-    <Garantia />
-    <Faq />
-    <Contacto />
+    {
+      landingBeats.map((beat) =>
+        beat.tipo === "hero" ? (
+          <Hero beat={beat} />
+        ) : beat.tipo === "problema" ? (
+          <Problema beat={beat} />
+        ) : beat.tipo === "ejemplo" ? (
+          <Ejemplo beat={beat} />
+        ) : beat.tipo === "contraste" ? (
+          <Contraste beat={beat} />
+        ) : beat.tipo === "circuito" ? (
+          <Circuito beat={beat} />
+        ) : beat.tipo === "oferta" ? (
+          <Planes beat={beat} />
+        ) : beat.tipo === "checklist" ? (
+          <Checklist beat={beat} />
+        ) : beat.tipo === "nota" ? (
+          <Nota beat={beat} />
+        ) : beat.tipo === "publico" ? (
+          <Publico beat={beat} />
+        ) : beat.tipo === "faq" ? (
+          <Faq beat={beat} />
+        ) : (
+          <Contacto beat={beat} />
+        ),
+      )
+    }
   </main>
 </BaseLayout>

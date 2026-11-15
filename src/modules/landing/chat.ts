@@ -1,4 +1,4 @@
-import { audience, business, contact, faq, path, planesPage } from "../../data/business.js";
+import { beatPorId, business, contact } from "../../data/business.js";
 import type { MensajeLLM, ProveedorLLM, ResultadoLLM } from "../ia/proveedor.js";
 
 export const CLAVE_LLM_LANDING = "LANDING_LLM_KEY";
@@ -45,17 +45,20 @@ function derivar(texto: string, fuente: FuenteRespuesta): RespuestaLanding {
 }
 
 function textoPlanes(): string {
+  const oferta = beatPorId("planes");
   const lista = business.planes.map((p) => `${p.nombre} (${p.precioUnico}): ${p.features.join(" ")}`).join(" ");
-  return `Trabajamos con estos planes: ${lista} ${planesPage.nota}`;
+  return `Trabajamos con estos planes: ${lista} ${oferta.nota}`;
 }
 
 function textoRubro(): string {
-  return `Sí: está pensado para ${audience.yes.join(" ")} Arrancamos con un local de mostrador.`;
+  const publico = beatPorId("publico");
+  return `Sí: está pensado para ${publico.yes.join(" ")} Arrancamos con un local de mostrador.`;
 }
 
 function textoInicio(): string {
-  const pasos = path.steps.map((p) => `${p.title}: ${p.detail}`).join(" ");
-  return `${path.lead} ${pasos} ${path.footnote}`;
+  const empezar = beatPorId("planes").empezar;
+  const pasos = empezar.steps.map((p) => `${p.title}: ${p.detail}`).join(" ");
+  return `${empezar.lead} ${pasos}`;
 }
 
 export function responderLanding(pregunta: string): RespuestaLanding {
@@ -69,7 +72,7 @@ export function responderLanding(pregunta: string): RespuestaLanding {
       "inyeccion",
     );
   }
-  for (const item of faq.items) {
+  for (const item of beatPorId("faq").items) {
     const qn = sinTildes(item.q);
     if (qn.length > 10 && (n.includes(qn) || qn.includes(n))) {
       return { texto: item.a, deriva: false, fuente: "faq" };
