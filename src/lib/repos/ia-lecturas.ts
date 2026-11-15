@@ -35,8 +35,8 @@ import { leerResumenPanel } from "./panel.js";
 import { listarCatalogoVivo } from "./whatsapp.js";
 
 // IA-S4 / IA-S2 (PRD-IA-01, ADR-0044): lecturas reales del asistente. Cada
-// herramienta conectada lee datos del tenant del comercio, nunca números
-// inventados, y devuelve la fuente usada.
+// herramienta lee datos del comercio en contexto (P1-86, dondeTenant), nunca
+// números inventados, y devuelve la fuente usada.
 type Fuente = "db" | "memoria";
 
 function limiteDe(params: unknown, porDefecto: number, max: number): number {
@@ -73,6 +73,7 @@ function costosMemoria(): Map<string, bigint> {
   return costos;
 }
 
+// P1-86: lotes del comercio en contexto. dbVivaTenant() no recibe argumento.
 async function leerCostosVigentes(): Promise<{ costos: Map<string, bigint>; fuente: Fuente }> {
   const db = dbVivaTenant();
   if (!db) return { costos: costosMemoria(), fuente: "memoria" };
@@ -80,6 +81,7 @@ async function leerCostosVigentes(): Promise<{ costos: Map<string, bigint>; fuen
     const filas = await db
       .select({ sku: stockLots.sku, costo: stockLots.costoCentavos })
       .from(stockLots)
+      .where(dondeTenant(stockLots.tenantId))
       .orderBy(asc(stockLots.createdAt));
     const costos = new Map<string, bigint>();
     for (const fila of filas) costos.set(fila.sku, fila.costo);
@@ -100,13 +102,15 @@ function catalogoStockMemoria(): ProductoStock[] {
   }));
 }
 
+// P1-86: catálogo y stock del comercio en contexto.
 async function leerCatalogoStock(): Promise<{ productos: ProductoStock[]; fuente: Fuente }> {
   const db = dbVivaTenant();
   if (!db) return { productos: catalogoStockMemoria(), fuente: "memoria" };
   try {
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual })
-      .from(products);
+      .from(products)
+      .where(dondeTenant(products.tenantId));
     return { productos: filas, fuente: "db" };
   } catch (e) {
     crearAlmacenProductos().anteFalloPersistencia(e);
@@ -134,6 +138,8 @@ function movimientosMemoria(): MovimientoRotacion[] {
     .map((m) => aMovimientoRotacion({ sku: m.sku, delta: m.delta, creadoEn: null }));
 }
 
+// P1-86: movimientos del comercio en contexto. La devolución también filtra
+// stock_movements, porque la clave de idempotencia no aísla comercios.
 async function leerMovimientosRotacion(desde: Date): Promise<{ movimientos: MovimientoRotacion[]; fuente: Fuente }> {
   const db = dbVivaTenant();
   if (!db) return { movimientos: movimientosMemoria(), fuente: "memoria" };
@@ -145,7 +151,7 @@ async function leerMovimientosRotacion(desde: Date): Promise<{ movimientos: Movi
         creadoEn: stockMovements.createdAt,
       })
       .from(stockMovements)
-      .where(and(eq(stockMovements.tipo, "VENTA"), gte(stockMovements.createdAt, desde)));
+      .where(dondeTenant(stockMovements.tenantId, and(eq(stockMovements.tipo, "VENTA"), gte(stockMovements.createdAt, desde))));
     const devoluciones = await db
       .select({
         sku: stockMovements.sku,
@@ -154,7 +160,12 @@ async function leerMovimientosRotacion(desde: Date): Promise<{ movimientos: Movi
       })
       .from(stockMovements)
       .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
-      .where(and(eq(stockMovements.tipo, "COMPENSATORIO"), gte(stockMovements.createdAt, desde)));
+      .where(
+        dondeTenant(
+          stockMovements.tenantId,
+          and(eq(stockMovements.tipo, "COMPENSATORIO"), gte(stockMovements.createdAt, desde)),
+        ),
+      );
     return { movimientos: [...ventas, ...devoluciones].map(aMovimientoRotacion), fuente: "db" };
   } catch (e) {
     crearListaMovimientosStock().anteFalloPersistencia(e);

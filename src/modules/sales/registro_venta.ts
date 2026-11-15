@@ -346,25 +346,28 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       }
       // Provisorios ya creados (origen alta_al_vender) sin ALTA todavía.
       const skusLinea = [...new Set(i.lineas.map((l) => l.product_id))];
+      const filtroProv = and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender"));
       const provisorios = await tx
         .select({ sku: products.sku })
         .from(products)
-        .where(and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender")));
+        .where(dondeTenant(products.tenantId, filtroProv) ?? filtroProv);
       if (provisorios.length > 0) {
+        const filtroAlta = and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA"));
         const conAlta = await tx
           .select({ sku: stockMovements.sku })
           .from(stockMovements)
-          .where(and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA")));
+          .where(dondeTenant(stockMovements.tenantId, filtroAlta) ?? filtroAlta);
         const yaCargados = new Set(conAlta.map((m) => m.sku));
         for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
       }
       // P1-60: el corte de vencido es el instante de la venta.
       const ahora = new Date(i.clientOccurredAt);
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
+        const filtroSkus = inArray(products.sku, skusLinea);
         const prods = await tx
           .select({ id: products.id, sku: products.sku })
           .from(products)
-          .where(inArray(products.sku, skusLinea));
+          .where(dondeTenant(products.tenantId, filtroSkus) ?? filtroSkus);
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
         const r = vender_mostrador({
           idempotencyKey: i.key,

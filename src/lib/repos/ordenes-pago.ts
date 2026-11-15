@@ -103,7 +103,7 @@ async function eventosDeOrden(db: TenantDb, ordenId: string): Promise<EventoOrde
   const filas = await db
     .select()
     .from(paymentOrderEvents)
-    .where(eq(paymentOrderEvents.paymentOrderId, ordenId));
+    .where(dondeTenant(paymentOrderEvents.tenantId, eq(paymentOrderEvents.paymentOrderId, ordenId)));
   return filas.map(eventoDeFila);
 }
 
@@ -398,7 +398,7 @@ export async function cancelarOrdenRepo(input: {
     const tocadas = await db
       .update(paymentOrders)
       .set({ estado: r.orden.estado, version: r.orden.version, cancelMotivo: r.orden.motivoCancelacion ?? null })
-      .where(eq(paymentOrders.id, r.orden.id))
+      .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, r.orden.id)))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
     await db.insert(paymentOrderEvents).values(
@@ -525,7 +525,7 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
         nota: r.efecto.orden.nota ?? null,
         comprobanteRef: r.efecto.orden.comprobanteRef ?? null,
       })
-      .where(eq(paymentOrders.id, r.efecto.orden.id))
+      .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, r.efecto.orden.id)))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
     await db.insert(paymentOrderEvents).values(
@@ -690,7 +690,7 @@ export async function persistirOrdenesVencidas(input: {
       await db
         .update(paymentOrders)
         .set({ estado: "vencida", version: o.version })
-        .where(eq(paymentOrders.id, o.id));
+        .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, o.id)));
       await db.insert(paymentOrderEvents).values(
       filaConTenant({
         paymentOrderId: o.id,

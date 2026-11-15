@@ -172,7 +172,7 @@ export async function cuentaActiva(tenantId: string, accountId: string): Promise
   const filas = await db
     .select({ activa: serviceAccounts.activa })
     .from(serviceAccounts)
-    .where(eq(serviceAccounts.id, accountId))
+    .where(and(eq(serviceAccounts.tenantId, tenantId), eq(serviceAccounts.id, accountId)))
     .limit(1);
   return Boolean(filas[0]?.activa);
 }

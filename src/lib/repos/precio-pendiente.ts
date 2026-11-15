@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { products } from "../../db/schema.js";
 import { pricingAuditLog } from "../../db/schema-precios.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
-import { filaConTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
 import {
   crearAlmacenPrecios,
@@ -71,10 +71,11 @@ async function listarPendientesDb(
 ): Promise<PendientesPrecio> {
   const ventas30d = subconsultaVentas30d(db, desde);
   const vendidas = sql<number>`coalesce(${ventas30d.vendidas}, 0)`.mapWith(Number);
-  const pendiente = and(
+  const soloPendiente = and(
     eq(products.precioCentavos, 0n),
     inArray(products.origen, [...ORIGENES_PENDIENTES]),
   );
+  const pendiente = dondeTenant(products.tenantId, soloPendiente) ?? soloPendiente;
   const filas = await db
     .select({ sku: products.sku, nombre: products.nombre, vendidas30d: vendidas })
     .from(products)
@@ -147,16 +148,15 @@ export async function guardarPrecioPendiente(
   if (!db) return guardarPrecioMemoria(sku, precioCentavos, actor);
   try {
     const resultado = await db.transaction(async (tx): Promise<GuardarPrecioResultado> => {
+      const filtroPrecio = and(
+        eq(products.sku, sku),
+        eq(products.precioCentavos, 0n),
+        inArray(products.origen, [...ORIGENES_PENDIENTES]),
+      );
       const actualizados = await tx
         .update(products)
         .set({ precioCentavos: BigInt(precioCentavos) })
-        .where(
-          and(
-            eq(products.sku, sku),
-            eq(products.precioCentavos, 0n),
-            inArray(products.origen, [...ORIGENES_PENDIENTES]),
-          ),
-        )
+        .where(dondeTenant(products.tenantId, filtroPrecio) ?? filtroPrecio)
         .returning({ sku: products.sku });
       if (actualizados.length === 0) return { ok: false, codigo: "NO_PENDIENTE" };
       await tx.insert(pricingAuditLog).values(

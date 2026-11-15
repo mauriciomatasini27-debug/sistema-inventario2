@@ -279,6 +279,7 @@ export async function leerSaludConexionGmail(tenantId: string): Promise<SaludCon
   const [ultimaLog] = await dbTenant
     .select({ createdAt: emailIngestionLog.createdAt })
     .from(emailIngestionLog)
+    .where(eq(emailIngestionLog.tenantId, tenantId))
     .orderBy(desc(emailIngestionLog.createdAt))
     .limit(1);
   const [pendientes] = await getControlDb()

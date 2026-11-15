@@ -151,7 +151,8 @@ export async function reencolarFiscalDoc(
   ];
   if (corr.docNro !== undefined) sets.push(sql`doc_nro = ${BigInt(corr.docNro)}`);
   if (corr.condIva !== undefined) sets.push(sql`cond_iva_receptor = ${corr.condIva}`);
-  const q = sql`update fiscal_documents set ${sql.join(sets, sql`, `)} where id = ${id} and estado in ('rechazado', 'pendiente') and no_facturar is null returning intentos, idempotency_key`;
+  const porId = dondeTenant(fiscalDocuments.tenantId, eq(fiscalDocuments.id, id)) ?? eq(fiscalDocuments.id, id);
+  const q = sql`update fiscal_documents set ${sql.join(sets, sql`, `)} where ${porId} and estado in ('rechazado', 'pendiente') and no_facturar is null returning intentos, idempotency_key`;
   const filas = (await db.execute(q)) as unknown as Array<{ intentos: unknown; idempotency_key: unknown }>;
   const ganada = filas[0];
   if (!ganada) {
