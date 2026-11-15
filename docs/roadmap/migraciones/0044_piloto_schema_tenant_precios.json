@@ -1,6 +1,6 @@
 {
   "tag": "0044_piloto_schema_tenant_precios",
-  "fecha": "2026-11-14",
+  "fecha": "2026-11-15",
   "aprobado_por": "Mauri",
-  "evidencia": "PENDIENTE de aplicar en la base real del piloto. Aplicar con TENANT_DATABASE_URL y npm run db:migrate tras merge de este PR."
+  "evidencia": "Aplicada en la base real del piloto el 2026-11-15 con npm run db:migrate (session pooler :5432). Journal pasó de 44 a 48; fila id 47 hash sha256 07f0ed8ec8114e4ea52c9518362b4c6b796dbd77007fb862564c2f5b131b68d9 igual al archivo. Tablas platform_feedback_reports, inventory_counts, fiscal_customers, product_flags, report_exports y mp_preapproval_tenants presentes. db:migrate:check: nada pendiente. Cierra #199."
 }
