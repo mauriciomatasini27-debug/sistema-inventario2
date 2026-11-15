@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-// Landing LAND-S11: 13 beats en orden, hero con dos CTA, contacto que llega.
 test("landing renderiza los 13 beats en orden", async ({ page }) => {
   await page.goto("/");
   for (const id of [

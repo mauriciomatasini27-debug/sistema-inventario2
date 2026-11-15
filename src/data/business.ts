@@ -221,7 +221,6 @@ export type LandingBeat =
       nav: "Contacto";
     };
 
-// LAND-S11: el orden de este array es el orden de la página.
 export const landingBeats: readonly LandingBeat[] = [
   {
     tipo: "hero",
