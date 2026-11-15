@@ -1,0 +1,207 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import { exigirDuenoDeRequest } from "../../lib/tenant-context.js";
+
+// P1-88: esconder el ítem de Más no alcanza. El empleado que escribe la URL vuelve al panel.
+const acceso = exigirDuenoDeRequest(Astro.request);
+if (!acceso.ok) return Astro.redirect("/panel");
+---
+<PanelShell titulo="Usuarios" subtitulo="Invitá a alguien del local. Entra con su cuenta de Google.">
+  <section class="card" id="equipo">
+    <h2>Equipo</h2>
+    <p class="estado" id="cupo" role="status">Cargando…</p>
+    <ul class="lista" id="miembros"></ul>
+  </section>
+
+  <section class="card" id="invitar">
+    <h2>Invitar</h2>
+    <form id="form-invitar">
+      <label>Email
+        <input id="email" name="email" type="email" autocomplete="email" required />
+      </label>
+      <button type="submit" id="enviar">Invitar</button>
+    </form>
+    <p id="aviso-invitar" class="estado" role="status"></p>
+    <div id="link-listo" hidden>
+      <label>Enlace de invitación
+        <input id="link" type="text" readonly />
+      </label>
+      <button type="button" id="copiar">Copiar enlace</button>
+      <p id="aviso-correo" class="estado"></p>
+    </div>
+  </section>
+
+  <section class="card" id="pendientes">
+    <h2>Pendientes</h2>
+    <ul class="lista" id="lista-pendientes"></ul>
+    <p id="vacio-pendientes" class="estado" hidden>No hay invitaciones pendientes.</p>
+  </section>
+</PanelShell>
+
+<script>
+  import { toast } from "sonner";
+
+  type Miembro = { email: string; rol: "dueno" | "empleado" };
+  type Invitacion = { email: string; estado: "pendiente" | "vencida"; expiraAt: string };
+  type Vista = { limite: number; ocupados: number; miembros: Miembro[]; invitaciones: Invitacion[] };
+  type Cuerpo = {
+    resultado?: string;
+    link?: string;
+    expira_at?: string;
+    aviso?: string;
+    limite?: number;
+    ocupados?: number;
+    error?: string;
+    codigo?: string;
+  };
+
+  const $ = (id: string) => document.getElementById(id);
+  const cupo = $("cupo");
+  const miembros = $("miembros");
+  const lista = $("lista-pendientes");
+  const vacio = $("vacio-pendientes");
+  const aviso = $("aviso-invitar");
+  const linkListo = $("link-listo");
+  const linkInput = $("link");
+  const avisoCorreo = $("aviso-correo");
+  const form = $("form-invitar");
+  const enviarBtn = $("enviar");
+  const copiar = $("copiar");
+
+  function fecha(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("es-AR");
+  }
+
+  function pintar(vista: Vista) {
+    if (cupo) cupo.textContent = `${vista.ocupados} de ${vista.limite} usuarios`;
+    if (miembros) {
+      miembros.replaceChildren();
+      for (const m of vista.miembros) {
+        const li = document.createElement("li");
+        li.textContent = `${m.email} · ${m.rol === "dueno" ? "Dueño" : "Empleado"}`;
+        miembros.append(li);
+      }
+    }
+    if (!lista || !vacio) return;
+    lista.replaceChildren();
+    const pendientes = vista.invitaciones.filter((inv) => inv.estado === "pendiente");
+    vacio.hidden = pendientes.length > 0;
+    for (const inv of pendientes) {
+      const li = document.createElement("li");
+      const texto = document.createElement("span");
+      texto.textContent = `${inv.email} · vence ${fecha(inv.expiraAt)}`;
+      const boton = document.createElement("button");
+      boton.type = "button";
+      boton.textContent = "Reenviar";
+      boton.addEventListener("click", () => {
+        void enviar(inv.email, "reenviar");
+      });
+      li.append(texto, boton);
+      lista.append(li);
+    }
+  }
+
+  async function cargar() {
+    const res = await fetch("/api/invitations", { credentials: "same-origin" });
+    if (res.status === 403) {
+      window.location.href = "/panel";
+      return;
+    }
+    if (!res.ok) {
+      if (cupo) cupo.textContent = "No se pudo cargar el equipo.";
+      return;
+    }
+    pintar((await res.json()) as Vista);
+  }
+
+  function mostrarLink(link: string, avisoMail: string | undefined) {
+    if (!(linkInput instanceof HTMLInputElement) || !linkListo) return;
+    linkInput.value = link;
+    linkListo.hidden = false;
+    if (avisoCorreo) {
+      avisoCorreo.textContent =
+        avisoMail === "enviado" ? "También mandamos el enlace por correo." : "No salió el correo. Este enlace alcanza.";
+    }
+  }
+
+  function textoResultado(cuerpo: Cuerpo): string {
+    switch (cuerpo.resultado) {
+      case "ya_pendiente":
+        return "Ya hay una invitación pendiente. Reenviá si necesitás un enlace nuevo.";
+      case "ya_miembro":
+        return "Esa persona ya está en el equipo.";
+      case "cupo_lleno":
+        return `El plan no tiene lugar. Ocupan ${cuerpo.ocupados ?? "?"} de ${cuerpo.limite ?? "?"}.`;
+      case "nada_que_reenviar":
+        return "No hay una invitación vigente para reenviar.";
+      default:
+        return cuerpo.error ?? "No se pudo invitar.";
+    }
+  }
+
+  async function enviar(email: string, intencion: "crear" | "reenviar") {
+    if (enviarBtn instanceof HTMLButtonElement) enviarBtn.disabled = true;
+    if (aviso) aviso.textContent = "";
+    try {
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, intencion }),
+      });
+      let cuerpo: Cuerpo = {};
+      try {
+        cuerpo = (await res.json()) as Cuerpo;
+      } catch (error) {
+        console.error("P1-88 respuesta de invitación ilegible", error instanceof Error ? error.message : "error");
+        if (aviso) aviso.textContent = "No se pudo invitar.";
+        return;
+      }
+      if (res.status === 401 && cuerpo.codigo === "reauth_requerida") {
+        window.location.href = "/api/auth/reauth?continuar=/panel/usuarios";
+        return;
+      }
+      if ((cuerpo.resultado === "creada" || cuerpo.resultado === "reenviada") && typeof cuerpo.link === "string") {
+        mostrarLink(cuerpo.link, cuerpo.aviso);
+        if (aviso) aviso.textContent = cuerpo.resultado === "reenviada" ? "Listo. El enlace anterior ya no sirve." : "Listo.";
+        toast.success("Enlace listo para copiar");
+        await cargar();
+        return;
+      }
+      if (linkListo && cuerpo.resultado !== "creada" && cuerpo.resultado !== "reenviada") linkListo.hidden = true;
+      if (aviso) aviso.textContent = textoResultado(cuerpo);
+      if (!res.ok) toast.error(textoResultado(cuerpo));
+      await cargar();
+    } finally {
+      if (enviarBtn instanceof HTMLButtonElement) enviarBtn.disabled = false;
+    }
+  }
+
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener("submit", (evento) => {
+      evento.preventDefault();
+      const email = form.querySelector("#email");
+      if (!(email instanceof HTMLInputElement)) return;
+      void enviar(email.value, "crear");
+    });
+  }
+
+  if (copiar instanceof HTMLButtonElement && linkInput instanceof HTMLInputElement) {
+    copiar.addEventListener("click", async () => {
+      const valor = linkInput.value;
+      if (!valor) return;
+      try {
+        await navigator.clipboard.writeText(valor);
+        toast.success("Enlace copiado");
+      } catch (error) {
+        console.error("P1-88 no se pudo copiar el enlace", error instanceof Error ? error.message : "error");
+        linkInput.select();
+        toast.error("No se pudo copiar. Seleccioná el enlace.");
+      }
+    });
+  }
+
+  void cargar();
+</script>

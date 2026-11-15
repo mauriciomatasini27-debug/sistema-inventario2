@@ -297,6 +297,8 @@ export const ENTRADAS_MAS: readonly EntradaMas[] = Object.freeze([
   { id: "bot", label: "Bot", href: "/panel/bot/config", grupo: "ajustes", indice: "bot" },
   { id: "bot-historial", label: "Historial del bot", href: "/panel/bot/historial", grupo: "ajustes", indice: "bot" },
   { id: "plan", label: "Plan", href: "/panel/plan", grupo: "ajustes" },
+  // P1-88: Más → Ajustes → Usuarios. Sin indice: no se esconde si el plan no carga.
+  { id: "usuarios", label: "Usuarios", href: "/panel/usuarios", grupo: "ajustes", soloDueno: true },
   { id: "fiscal", label: "Facturación ARCA", href: "/panel/fiscal/delegacion", grupo: "ajustes" },
   { id: "pronto", label: "Pronto", href: "/panel/pronto", grupo: "ajustes" },
   {
