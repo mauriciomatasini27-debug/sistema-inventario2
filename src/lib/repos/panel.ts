@@ -32,10 +32,12 @@ export async function leerResumenPanel(
       .select({ id: sales.id, medio: sales.medio, total: sales.totalCentavos, ocurrido: sales.clientOccurredAt })
       .from(sales)
       .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
+    // P1-82: sale_returns aún sin tenant_id; aislar por join a sales (0048 lo sella).
     const devolucionesFilas = await db
       .select({ monto: saleReturns.montoCentavos, medio: saleReturns.medio, ocurrido: saleReturns.createdAt })
       .from(saleReturns)
-      .where(gte(saleReturns.createdAt, desde));
+      .innerJoin(sales, eq(saleReturns.saleId, sales.id))
+      .where(dondeTenant(sales.tenantId, gte(saleReturns.createdAt, desde)));
     const correccionesFilas = await db
       .select({
         saleId: ticketPaymentCorrections.saleId,
@@ -45,9 +47,11 @@ export async function leerResumenPanel(
       .from(ticketPaymentCorrections)
       .innerJoin(sales, eq(ticketPaymentCorrections.saleId, sales.id))
       .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
+    // P1-82: products y shift_handovers ya tienen tenant_id NOT NULL; sin filtro mezclan comercios.
     const productosFilas = await db
       .select({ stockActual: products.stockActual, minStock: products.minStock })
-      .from(products);
+      .from(products)
+      .where(dondeTenant(products.tenantId));
     const turnosFilas = await db
       .select({
         fechaJornada: shiftHandovers.fechaJornada,
@@ -57,7 +61,7 @@ export async function leerResumenPanel(
         creadoEn: shiftHandovers.createdAt,
       })
       .from(shiftHandovers)
-      .where(eq(shiftHandovers.fechaJornada, hoy))
+      .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.fechaJornada, hoy)))
       .orderBy(desc(shiftHandovers.createdAt));
     return {
       ventas: ventasFilas.map((f) => ({ saleId: f.id, medio: f.medio, totalCentavos: f.total, ocurridoEn: f.ocurrido })),
