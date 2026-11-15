@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq, or } from "drizzle-orm";
 import { products, sales, ticketLines, tickets } from "../../db/schema.js";
-import { dondeTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { ticketDiscounts, ticketLinkRevocations, ticketLinks } from "../../db/schema-tickets.js";
 import { listarDescuentosTicket, listarLineasTicket, listarTicketsFiado } from "../ticket-memoria.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
@@ -63,7 +63,10 @@ export async function leerLineasTicket(saleId: string): Promise<TicketLineaResum
         .from(ticketLines)
         .leftJoin(products, eq(ticketLines.productId, products.id))
         .where(eq(ticketLines.saleId, saleId));
-      const desc = await db.select().from(ticketDiscounts).where(eq(ticketDiscounts.saleId, saleId));
+      const desc = await db
+        .select()
+        .from(ticketDiscounts)
+        .where(dondeTenant(ticketDiscounts.tenantId, eq(ticketDiscounts.saleId, saleId)));
       const porSku = new Map(desc.map((d) => [d.sku, d] as const));
       return filas.map((f, idx) => {
         const bruto = f.precio * BigInt(f.qty);
@@ -265,7 +268,7 @@ export async function crearLinkPublico(input: {
         const previo = await db
           .select()
           .from(ticketLinks)
-          .where(eq(ticketLinks.idempotencyKey, input.idempotencyKey))
+          .where(dondeTenant(ticketLinks.tenantId, eq(ticketLinks.idempotencyKey, input.idempotencyKey)))
           .limit(1);
         const filaPrevia = previo[0];
         if (filaPrevia) return { ok: false, codigo: "YA_VISTO", original: filaALink(filaPrevia) };
@@ -288,9 +291,14 @@ async function crearLinkEnDb(
   porHash: AlmacenVivo<TicketLinkEmitido>,
   vistos: AlmacenVivo<TicketLinkEmitido>,
 ): Promise<CrearLinkResultado> {
-  const previo = await db.select().from(ticketLinks).where(eq(ticketLinks.idempotencyKey, input.idempotencyKey)).limit(1);
+  const previo = await db
+    .select()
+    .from(ticketLinks)
+    .where(dondeTenant(ticketLinks.tenantId, eq(ticketLinks.idempotencyKey, input.idempotencyKey)))
+    .limit(1);
   const filaPrevia = previo[0];
   if (filaPrevia) return { ok: false, codigo: "YA_VISTO", original: filaALink(filaPrevia) };
+  // token_hash unique global (opaco); el choque no filtra por tenant.
   const choque = await db.select({ id: ticketLinks.id }).from(ticketLinks).where(eq(ticketLinks.tokenHash, hash)).limit(1);
   const r = crear_link({
     saleId: input.saleId,
@@ -307,13 +315,16 @@ async function crearLinkEnDb(
     if (r.codigo === "YA_VISTO") return { ok: false, codigo: "YA_VISTO", original: r.original };
     return { ok: false, codigo: "LINK_INVALIDO" };
   }
-  await db.insert(ticketLinks).values({
-    id: r.link.id,
-    idempotencyKey: input.idempotencyKey,
-    saleId: input.saleId,
-    tokenHash: r.link.tokenHash,
-    expiraAt: new Date(r.link.expiraAtMs),
-  });
+  // P1-84: ticket_links con tenant_id (0048).
+  await db.insert(ticketLinks).values(
+    filaConTenant({
+      id: r.link.id,
+      idempotencyKey: input.idempotencyKey,
+      saleId: input.saleId,
+      tokenHash: r.link.tokenHash,
+      expiraAt: new Date(r.link.expiraAtMs),
+    }),
+  );
   espejoLink(r.link, links, porHash, vistos);
   return { ok: true, link: r.link, fuente: "db" };
 }
@@ -433,8 +444,14 @@ export async function revocarLinksPorVenta(input: {
   const db = dbVivaTenant();
   if (!db) return revocarLinksEnMemoria(input, links, revocaciones, revokeVistos);
   try {
-    const linksDb = await db.select().from(ticketLinks).where(eq(ticketLinks.saleId, input.saleId));
-    const revsDb = await db.select().from(ticketLinkRevocations).where(eq(ticketLinkRevocations.saleId, input.saleId));
+    const linksDb = await db
+      .select()
+      .from(ticketLinks)
+      .where(dondeTenant(ticketLinks.tenantId, eq(ticketLinks.saleId, input.saleId)));
+    const revsDb = await db
+      .select()
+      .from(ticketLinkRevocations)
+      .where(dondeTenant(ticketLinkRevocations.tenantId, eq(ticketLinkRevocations.saleId, input.saleId)));
     const emitidas = revsDb.map(filaARevocacion).filter((x) => x.idempotencyKey.startsWith(`${input.idempotencyKey}:`));
     const r = revocar_por_venta({
       saleId: input.saleId,
@@ -452,13 +469,15 @@ export async function revocarLinksPorVenta(input: {
     }
     if (r.revocaciones.length > 0) {
       await db.insert(ticketLinkRevocations).values(
-        r.revocaciones.map((rev) => ({
-          idempotencyKey: rev.idempotencyKey,
-          linkId: rev.linkId,
-          saleId: rev.saleId,
-          actor: rev.actor,
-          motivo: rev.motivo,
-        })),
+        r.revocaciones.map((rev) =>
+          filaConTenant({
+            idempotencyKey: rev.idempotencyKey,
+            linkId: rev.linkId,
+            saleId: rev.saleId,
+            actor: rev.actor,
+            motivo: rev.motivo,
+          }),
+        ),
       );
     }
     for (const rev of r.revocaciones) {

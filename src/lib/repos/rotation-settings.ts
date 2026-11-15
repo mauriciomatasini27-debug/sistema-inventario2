@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { rotationSettings } from "../../db/schema-analytics.js";
 import { intentarLeer, intentarPersistir } from "../server-db.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { DEFAULT_SETTINGS, type RotationSettings } from "../../modules/analytics/tipos.js";
 
 // Analytics es una base por comercio: una sola fila de settings por DB. El id
@@ -44,8 +45,9 @@ function aColumnas(settings: RotationSettings) {
 }
 
 export async function leerRotationSettings(): Promise<RotationSettings> {
+  // P1-84: una fila por comercio (tenant_id), no id global.
   const filas = await intentarLeer((db) =>
-    db.select().from(rotationSettings).where(eq(rotationSettings.id, ID_SETTINGS)).limit(1),
+    db.select().from(rotationSettings).where(dondeTenant(rotationSettings.tenantId)).limit(1),
   );
   const fila = filas?.[0];
   if (fila) return aDominio(fila);
@@ -56,14 +58,16 @@ export async function guardarRotationSettings(settings: RotationSettings): Promi
   memoria = settings;
   const columnas = aColumnas(settings);
   const ahora = new Date();
-  await intentarPersistir((db) =>
-    db
-      .insert(rotationSettings)
-      .values({ id: ID_SETTINGS, ...columnas, updatedAt: ahora })
-      .onConflictDoUpdate({
-        target: rotationSettings.id,
-        set: { ...columnas, updatedAt: ahora },
-      }),
-  );
+  await intentarPersistir(async (db) => {
+    const prev = await db.select({ id: rotationSettings.id }).from(rotationSettings).where(dondeTenant(rotationSettings.tenantId)).limit(1);
+    if (prev[0]) {
+      await db
+        .update(rotationSettings)
+        .set({ ...columnas, updatedAt: ahora })
+        .where(eq(rotationSettings.id, prev[0].id));
+      return;
+    }
+    await db.insert(rotationSettings).values(filaConTenant({ ...columnas, updatedAt: ahora }));
+  });
   return settings;
 }

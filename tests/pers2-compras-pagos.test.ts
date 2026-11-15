@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from "vitest";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { eq } from "drizzle-orm";
 import { resetStore, store, control } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
@@ -291,7 +292,7 @@ async function sembrarPayeePG(tenant: "tenant-a" | "tenant-b", nombre: string): 
   const id = randomUUID();
   await conTenant(tenant, async () => {
     const db = getTenantDb();
-    await db.insert(payees).values({ id, nombre, tipo: "proveedor", medioPreferido: "Transferencia" });
+    await db.insert(payees).values(filaPg({ id, nombre, tipo: "proveedor", medioPreferido: "Transferencia" }));
   });
   return id;
 }

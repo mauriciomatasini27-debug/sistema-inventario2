@@ -4,6 +4,7 @@ import { payees, paymentOrderEvents, paymentOrders } from "../../db/schema-pagos
 import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenPayees,
   crearAlmacenPaymentOrders,
@@ -76,7 +77,7 @@ function payeeDeFila(f: typeof payees.$inferSelect): Payee {
 async function payeesVivos(db: TenantDb, payeesAlm: AlmacenVivo<Payee>): Promise<Map<string, Payee>> {
   const vivos = new Map<string, Payee>(payeesAlm.comoMapaSoloLectura());
   try {
-    const filas = await db.select().from(payees).where(eq(payees.activo, true));
+    const filas = await db.select().from(payees).where(dondeTenant(payees.tenantId, eq(payees.activo, true)));
     for (const f of filas) {
       if (!vivos.has(f.id)) vivos.set(f.id, payeeDeFila(f));
     }
@@ -144,7 +145,7 @@ function ordenDeFila(
 
 async function leerOrdenFria(db: TenantDb, orderId: string): Promise<PaymentOrder | null> {
   if (!esUuid(orderId)) return null;
-  const filas = await db.select().from(paymentOrders).where(eq(paymentOrders.id, orderId)).limit(1);
+  const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, orderId))).limit(1);
   const fila = filas[0];
   if (!fila) return null;
   return ordenDeFila(fila, await eventosDeOrden(db, fila.id));
@@ -154,7 +155,7 @@ async function leerOrdenPorKey(db: TenantDb, key: string): Promise<PaymentOrder 
   const filas = await db
     .select()
     .from(paymentOrders)
-    .where(eq(paymentOrders.idempotencyKey, key))
+    .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   if (!fila) return null;
@@ -184,7 +185,7 @@ async function siguienteNumero(
   ordenes: AlmacenVivo<PaymentOrder>,
   vistos: AlmacenVivo<PaymentOrder>,
 ): Promise<{ numero: string; n: number }> {
-  const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders);
+  const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders).where(dondeTenant(paymentOrders.tenantId));
   const numeros = filas.map((f) => f.numero);
   for (const o of ordenes.comoMapaSoloLectura().values()) numeros.push(o.numero);
   for (const o of vistos.comoMapaSoloLectura().values()) numeros.push(o.numero);
@@ -276,36 +277,41 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
     const payee = (await payeesVivos(db, payees)).get(input.payeeId);
     try {
       await db.transaction(async (tx) => {
-        await tx.insert(paymentOrders).values({
-          id: r.orden.id,
-          idempotencyKey: input.key,
-          numero: r.orden.numero,
-          payeeId: esUuid(input.payeeId) ? input.payeeId : (payee && esUuid(payee.id) ? payee.id : r.orden.id),
-          tipo: r.orden.tipo,
-          concepto: r.orden.concepto,
-          categoria: r.orden.categoria,
-          montoCentavos: r.orden.montoCentavos,
-          venceEl: new Date(r.orden.venceElMs),
-          metodoSugerido: r.orden.medioSugerido,
-          instruccionTipo: r.orden.instruccion,
-          instruccionSnapshot: {
-            ...(input.linkUrl !== undefined ? { linkUrl: input.linkUrl } : {}),
-            ...(input.referencia !== undefined ? { referencia: input.referencia } : {}),
-            medioSugerido: r.orden.medioSugerido,
-          },
-          referencia: r.orden.referencia ?? null,
-          estado: r.orden.estado,
-          version: r.orden.version,
-          creadoPor: input.creadoPor,
-        });
-        await tx.insert(paymentOrderEvents).values({
-          paymentOrderId: r.orden.id,
-          deEstado: null,
-          aEstado: r.orden.estado,
-          version: r.orden.version,
-          actor: input.creadoPor,
-          origen: "web",
-        });
+        // P1-84: payment_orders / events con tenant_id (0048).
+        await tx.insert(paymentOrders).values(
+          filaConTenant({
+            id: r.orden.id,
+            idempotencyKey: input.key,
+            numero: r.orden.numero,
+            payeeId: esUuid(input.payeeId) ? input.payeeId : (payee && esUuid(payee.id) ? payee.id : r.orden.id),
+            tipo: r.orden.tipo,
+            concepto: r.orden.concepto,
+            categoria: r.orden.categoria,
+            montoCentavos: r.orden.montoCentavos,
+            venceEl: new Date(r.orden.venceElMs),
+            metodoSugerido: r.orden.medioSugerido,
+            instruccionTipo: r.orden.instruccion,
+            instruccionSnapshot: {
+              ...(input.linkUrl !== undefined ? { linkUrl: input.linkUrl } : {}),
+              ...(input.referencia !== undefined ? { referencia: input.referencia } : {}),
+              medioSugerido: r.orden.medioSugerido,
+            },
+            referencia: r.orden.referencia ?? null,
+            estado: r.orden.estado,
+            version: r.orden.version,
+            creadoPor: input.creadoPor,
+          }),
+        );
+        await tx.insert(paymentOrderEvents).values(
+          filaConTenant({
+            paymentOrderId: r.orden.id,
+            deEstado: null,
+            aEstado: r.orden.estado,
+            version: r.orden.version,
+            actor: input.creadoPor,
+            origen: "web",
+          }),
+        );
       });
     } catch (e) {
       const rival = await ordenRivalTrasConflicto(db, input.key);
@@ -395,7 +401,8 @@ export async function cancelarOrdenRepo(input: {
       .where(eq(paymentOrders.id, r.orden.id))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
-    await db.insert(paymentOrderEvents).values({
+    await db.insert(paymentOrderEvents).values(
+      filaConTenant({
       paymentOrderId: r.orden.id,
       deEstado: orden.estado,
       aEstado: r.orden.estado,
@@ -403,7 +410,8 @@ export async function cancelarOrdenRepo(input: {
       actor: input.actor,
       origen: "web",
       detalle: { motivo: r.orden.motivoCancelacion ?? null },
-    });
+      }),
+    );
     ordenes.guardar(r.orden.id, r.orden);
     return { status: 200, body: { order_id: r.orden.id, estado: r.orden.estado, fuente: "db" } };
   } catch (e) {
@@ -520,14 +528,16 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
       .where(eq(paymentOrders.id, r.efecto.orden.id))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
-    await db.insert(paymentOrderEvents).values({
+    await db.insert(paymentOrderEvents).values(
+      filaConTenant({
       paymentOrderId: r.efecto.orden.id,
       deEstado: orden.estado,
       aEstado: r.efecto.orden.estado,
       version: r.efecto.orden.version,
       actor: input.actor,
       origen: "web",
-    });
+      }),
+    );
     ordenes.guardar(r.efecto.orden.id, r.efecto.orden);
     pagosVistos.guardar(input.key, r.efecto);
     return {
@@ -621,7 +631,7 @@ async function listarOrdenesSugerencia(): Promise<PaymentOrder[]> {
   const db = dbVivaTenant();
   if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(paymentOrders);
+    const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId));
     const union = new Map<string, PaymentOrder>();
     for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
@@ -642,7 +652,7 @@ export async function listarOrdenesJob(): Promise<PaymentOrder[]> {
   const db = dbVivaTenant();
   if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(paymentOrders);
+    const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId));
     const union = new Map<string, PaymentOrder>();
     for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
@@ -681,14 +691,16 @@ export async function persistirOrdenesVencidas(input: {
         .update(paymentOrders)
         .set({ estado: "vencida", version: o.version })
         .where(eq(paymentOrders.id, o.id));
-      await db.insert(paymentOrderEvents).values({
+      await db.insert(paymentOrderEvents).values(
+      filaConTenant({
         paymentOrderId: o.id,
         deEstado: "preparada",
         aEstado: "vencida",
         version: o.version,
         actor: "sistema",
         origen: "sistema",
-      });
+      }),
+    );
     }
   } catch (e) {
     ordenes.anteFalloPersistencia(e);
@@ -724,7 +736,7 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
     const vivos = [...payeesAlm.comoMapaSoloLectura().values()];
     if (!db) return vivos;
     try {
-      const filas = await db.select().from(payees).where(eq(payees.activo, true));
+      const filas = await db.select().from(payees).where(dondeTenant(payees.tenantId, eq(payees.activo, true)));
       const union = new Map<string, Payee>();
       for (const p of vivos) union.set(p.id, p);
       for (const f of filas) {
@@ -757,16 +769,18 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
   try {
     await db
       .insert(payees)
-      .values({
-        id: r.payee.id,
-        nombre: r.payee.nombre,
-        tipo: r.payee.tipo,
-        ...(r.payee.cuit !== undefined ? { cuit: r.payee.cuit } : {}),
-        ...(r.payee.cbu !== undefined ? { cbu: r.payee.cbu } : {}),
-        ...(r.payee.alias !== undefined ? { alias: r.payee.alias } : {}),
-        medioPreferido: r.payee.medioPreferido,
-        ...(r.payee.linkPagoUrl !== undefined ? { linkPagoUrl: r.payee.linkPagoUrl } : {}),
-      })
+      .values(
+        filaConTenant({
+          id: r.payee.id,
+          nombre: r.payee.nombre,
+          tipo: r.payee.tipo,
+          ...(r.payee.cuit !== undefined ? { cuit: r.payee.cuit } : {}),
+          ...(r.payee.cbu !== undefined ? { cbu: r.payee.cbu } : {}),
+          ...(r.payee.alias !== undefined ? { alias: r.payee.alias } : {}),
+          medioPreferido: r.payee.medioPreferido,
+          ...(r.payee.linkPagoUrl !== undefined ? { linkPagoUrl: r.payee.linkPagoUrl } : {}),
+        }),
+      )
       .onConflictDoNothing();
     payeesAlm.guardar(r.payee.id, r.payee);
     return { ok: true, payeeId: r.payee.id, nombre: r.payee.nombre, fuente: "db" };

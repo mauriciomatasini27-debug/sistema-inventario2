@@ -32,12 +32,11 @@ export async function leerResumenPanel(
       .select({ id: sales.id, medio: sales.medio, total: sales.totalCentavos, ocurrido: sales.clientOccurredAt })
       .from(sales)
       .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
-    // P1-82: sale_returns aún sin tenant_id; aislar por join a sales (0048 lo sella).
+    // P1-84: sale_returns ya tiene tenant_id (0048); filtro directo.
     const devolucionesFilas = await db
       .select({ monto: saleReturns.montoCentavos, medio: saleReturns.medio, ocurrido: saleReturns.createdAt })
       .from(saleReturns)
-      .innerJoin(sales, eq(saleReturns.saleId, sales.id))
-      .where(dondeTenant(sales.tenantId, gte(saleReturns.createdAt, desde)));
+      .where(dondeTenant(saleReturns.tenantId, gte(saleReturns.createdAt, desde)));
     const correccionesFilas = await db
       .select({
         saleId: ticketPaymentCorrections.saleId,
@@ -45,8 +44,7 @@ export async function leerResumenPanel(
         ocurrido: ticketPaymentCorrections.createdAt,
       })
       .from(ticketPaymentCorrections)
-      .innerJoin(sales, eq(ticketPaymentCorrections.saleId, sales.id))
-      .where(dondeTenant(sales.tenantId, gte(sales.createdAt, desde)));
+      .where(dondeTenant(ticketPaymentCorrections.tenantId, gte(ticketPaymentCorrections.createdAt, desde)));
     // P1-82: products y shift_handovers ya tienen tenant_id NOT NULL; sin filtro mezclan comercios.
     const productosFilas = await db
       .select({ stockActual: products.stockActual, minStock: products.minStock })

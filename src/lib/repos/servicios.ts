@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { serviceAccounts, utilityBills } from "../../db/schema-servicios.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenCuentasServicio,
   crearAlmacenFacturasServicio,
@@ -90,33 +91,44 @@ export async function registrarFactura(
     return { ok: true, factura: r.factura, advertencias: r.advertencias, fuente: "memoria" };
   }
   try {
-    const previo = await db.select().from(utilityBills).where(eq(utilityBills.messageId, input.messageId)).limit(1);
+    const previo = await db
+      .select()
+      .from(utilityBills)
+      .where(dondeTenant(utilityBills.tenantId, eq(utilityBills.messageId, input.messageId)))
+      .limit(1);
     if (previo[0]) {
       const f = filaAFactura(previo[0]);
       espejoFactura(f);
       return { ok: false, codigo: "MENSAJE_REPETIDO", error: "message-id repetido" };
     }
-    await db.insert(utilityBills).values({
-      id: r.factura.id,
-      accountId: r.factura.accountId,
-      messageId: r.factura.messageId,
-      periodo: r.factura.periodo,
-      vencimiento: r.factura.vencimiento,
-      montoCentavos: r.factura.montoCentavos,
-      estado: "pendiente",
-      necesitaRevision: r.factura.necesitaRevision,
-      origen: r.factura.origen,
-      confianza: { monto: r.factura.confianzaMonto, vencimiento: r.factura.confianzaVencimiento },
-      canal: input.canal ?? "manual",
-      gmailAttachmentId: input.gmailAttachmentId ?? null,
-    });
+    // P1-84: utility_bills con tenant_id (0048).
+    await db.insert(utilityBills).values(
+      filaConTenant({
+        id: r.factura.id,
+        accountId: r.factura.accountId,
+        messageId: r.factura.messageId,
+        periodo: r.factura.periodo,
+        vencimiento: r.factura.vencimiento,
+        montoCentavos: r.factura.montoCentavos,
+        estado: "pendiente",
+        necesitaRevision: r.factura.necesitaRevision,
+        origen: r.factura.origen,
+        confianza: { monto: r.factura.confianzaMonto, vencimiento: r.factura.confianzaVencimiento },
+        canal: input.canal ?? "manual",
+        gmailAttachmentId: input.gmailAttachmentId ?? null,
+      }),
+    );
     espejoFactura(r.factura);
     return { ok: true, factura: r.factura, advertencias: r.advertencias, fuente: "db" };
   } catch (e) {
     if (opciones.requerirDb) {
       if (esConflictoUnico(e)) {
         try {
-          const previo = await db.select().from(utilityBills).where(eq(utilityBills.messageId, input.messageId)).limit(1);
+          const previo = await db
+            .select()
+            .from(utilityBills)
+            .where(dondeTenant(utilityBills.tenantId, eq(utilityBills.messageId, input.messageId)))
+            .limit(1);
           if (previo[0]) {
             const f = filaAFactura(previo[0]);
             espejoFactura(f);
@@ -130,7 +142,11 @@ export async function registrarFactura(
     }
     if (esConflictoUnico(e)) {
       try {
-        const previo = await db.select().from(utilityBills).where(eq(utilityBills.messageId, input.messageId)).limit(1);
+        const previo = await db
+          .select()
+          .from(utilityBills)
+          .where(dondeTenant(utilityBills.tenantId, eq(utilityBills.messageId, input.messageId)))
+          .limit(1);
         if (previo[0]) {
           const f = filaAFactura(previo[0]);
           espejoFactura(f);
@@ -169,11 +185,12 @@ function filaAFactura(f: FilaFactura): FacturaServicio {
 
 // Vencimientos: todas las facturas del tenant con DB viva, memoria
 // particionada solo en single sin base. En multi sin base propaga.
-export async function listarFacturas(): Promise<FacturaServicio[]> {  const db = dbVivaTenant();
+export async function listarFacturas(): Promise<FacturaServicio[]> {
+  const db = dbVivaTenant();
   const facturas = crearAlmacenFacturasServicio();
   if (!db) return [...facturas.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(utilityBills);
+    const filas = await db.select().from(utilityBills).where(dondeTenant(utilityBills.tenantId));
     return filas.map(filaAFactura);
   } catch (e) {
     facturas.anteFalloPersistencia(e);
@@ -182,7 +199,11 @@ export async function listarFacturas(): Promise<FacturaServicio[]> {  const db =
 }
 
 async function leerFacturaEnDb(db: TenantDb, billId: string): Promise<FacturaServicio | null> {
-  const filas = await db.select().from(utilityBills).where(eq(utilityBills.id, billId)).limit(1);
+  const filas = await db
+    .select()
+    .from(utilityBills)
+    .where(dondeTenant(utilityBills.tenantId, eq(utilityBills.id, billId)))
+    .limit(1);
   const f = filas[0];
   if (!f) return null;
   const factura = filaAFactura(f);
@@ -278,7 +299,10 @@ export async function listarCuentas(): Promise<Map<string, { proveedor: string; 
     return new Map([...cuentas.comoMapaSoloLectura().values()].map((c) => [c.id, { proveedor: c.proveedor, servicio: c.servicio }]));
   }
   try {
-    const filas = await db.select({ id: serviceAccounts.id, proveedor: serviceAccounts.proveedor, servicio: serviceAccounts.servicio }).from(serviceAccounts);
+    const filas = await db
+      .select({ id: serviceAccounts.id, proveedor: serviceAccounts.proveedor, servicio: serviceAccounts.servicio })
+      .from(serviceAccounts)
+      .where(dondeTenant(serviceAccounts.tenantId));
     return new Map(filas.map((f) => [f.id, { proveedor: f.proveedor, servicio: f.servicio }]));
   } catch (e) {
     cuentas.anteFalloPersistencia(e);
@@ -320,7 +344,8 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
     try {
       const filas = await db
         .select({ servicio: serviceAccounts.servicio, proveedor: serviceAccounts.proveedor, titular: serviceAccounts.titular, numeroCuenta: serviceAccounts.numeroCuenta })
-        .from(serviceAccounts);
+        .from(serviceAccounts)
+        .where(dondeTenant(serviceAccounts.tenantId));
       const union = new Map<string, CuentaExistente>();
       for (const e of vivas) union.set(`${e.servicio}|${e.proveedor}|${e.titular}|${e.numeroCuenta ?? ""}`, e);
       for (const f of filas) {
@@ -364,18 +389,20 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
     }
     await db
       .insert(serviceAccounts)
-      .values({
-        id: r.cuenta.id,
-        servicio: r.cuenta.servicio,
-        proveedor: r.cuenta.proveedor,
-        titular: r.cuenta.titular,
-        numeroCuenta: r.cuenta.numeroCuenta,
-        alias: r.cuenta.alias,
-        vencimientoTipicoDia: r.cuenta.vencimientoTipicoDia,
-        emailOrigen: r.cuenta.emailOrigen,
-        medioHabitual: r.cuenta.medioHabitual,
-        debitoAutomatico: r.cuenta.debitoAutomatico,
-      })
+      .values(
+        filaConTenant({
+          id: r.cuenta.id,
+          servicio: r.cuenta.servicio,
+          proveedor: r.cuenta.proveedor,
+          titular: r.cuenta.titular,
+          numeroCuenta: r.cuenta.numeroCuenta,
+          alias: r.cuenta.alias,
+          vencimientoTipicoDia: r.cuenta.vencimientoTipicoDia,
+          emailOrigen: r.cuenta.emailOrigen,
+          medioHabitual: r.cuenta.medioHabitual,
+          debitoAutomatico: r.cuenta.debitoAutomatico,
+        }),
+      )
       .onConflictDoNothing();
     cuentas.guardar(r.cuenta.id, r.cuenta);
     return { ok: true, accountId: r.cuenta.id, servicio: r.cuenta.servicio, fuente: "db" };
@@ -389,7 +416,8 @@ export async function altaCuenta(input: AltaCuentaInput): Promise<AltaCuentaResu
 async function esCuentaDuplicadaEnDb(db: TenantDb, cuenta: CuentaServicio): Promise<boolean> {
   const filas = await db
     .select({ servicio: serviceAccounts.servicio, proveedor: serviceAccounts.proveedor, titular: serviceAccounts.titular, numeroCuenta: serviceAccounts.numeroCuenta })
-    .from(serviceAccounts);
+    .from(serviceAccounts)
+    .where(dondeTenant(serviceAccounts.tenantId));
   return es_cuenta_duplicada(
     { servicio: cuenta.servicio, proveedor: cuenta.proveedor, titular: cuenta.titular, numeroCuenta: cuenta.numeroCuenta },
     filas.map((f) => ({ servicio: f.servicio, proveedor: f.proveedor, titular: f.titular, numeroCuenta: f.numeroCuenta })),
@@ -412,7 +440,7 @@ export async function listarCuentasDetalle(): Promise<CuentaVista[]> {
   const cuentas = crearAlmacenCuentasServicio();
   if (!db) return [...cuentas.comoMapaSoloLectura().values()].map(aVista);
   try {
-    const filas = await db.select().from(serviceAccounts);
+    const filas = await db.select().from(serviceAccounts).where(dondeTenant(serviceAccounts.tenantId));
     const union = new Map<string, CuentaVista>();
     for (const c of cuentas.comoMapaSoloLectura().values()) union.set(c.id, aVista(c));
     for (const f of filas) {

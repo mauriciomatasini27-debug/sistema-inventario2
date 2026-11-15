@@ -127,7 +127,11 @@ export async function leerVistoDevolucion(key: string): Promise<VistoDevolucion 
   const db = dbVivaTenant();
   if (!db) return null;
   try {
-    const filas = await db.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, key)).limit(1);
+    const filas = await db
+      .select()
+      .from(saleReturns)
+      .where(dondeTenant(saleReturns.tenantId, eq(saleReturns.idempotencyKey, key)))
+      .limit(1);
     const f = filas[0];
     if (!f) return null;
     const visto: VistoDevolucion = { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId };
@@ -149,7 +153,10 @@ export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
   const db = dbVivaTenant();
   if (!db) return [...vistos.values()].reduce((a, b) => a + b, 0n);
   try {
-    const filas = await db.select().from(saleReturns).where(eq(saleReturns.saleId, saleId));
+    const filas = await db
+      .select()
+      .from(saleReturns)
+      .where(dondeTenant(saleReturns.tenantId, eq(saleReturns.saleId, saleId)));
     for (const f of filas) {
       if (!vistos.has(f.numeroDevolucion)) vistos.set(f.numeroDevolucion, f.montoCentavos);
     }
@@ -307,7 +314,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         // concurrentes: sin 409 falsos y sin recorrer sale_returns.
         let filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_DEVOLUCION)).for("update");
         if (!filas[0]) {
-          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
+          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns).where(dondeTenant(saleReturns.tenantId));
           let maximo = 0;
           for (const f of previas) {
             const m = /^D-(\d+)$/.exec(f.numero);
@@ -318,7 +325,11 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         }
         const ultimo = filas[0]?.ultimo ?? 0;
         const seq = ultimo > 0 ? { n: ultimo } : null;
-        const previo = await tx.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
+        const previo = await tx
+          .select()
+          .from(saleReturns)
+          .where(dondeTenant(saleReturns.tenantId, eq(saleReturns.idempotencyKey, input.key)))
+          .limit(1);
         if (previo[0]) {
           const v: VistoDevolucion = { numero_devolucion: previo[0].numeroDevolucion, sale_id: previo[0].saleId };
           return { estado: "repetida", original: v };
@@ -327,19 +338,22 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         if (!dev.ok) return { estado: "fallo", fallo: dev };
         const n = ultimo + 1;
         const num = siguiente_numero_devolucion(seq);
-        await tx.insert(saleReturns).values({
-          id: returnId,
-          idempotencyKey: input.key,
-          saleId: input.saleId,
-          numeroDevolucion: num,
-          montoCentavos: input.montoCentavos,
-          acumuladoPrevioCentavos: acumuladoPrevio,
-          acumuladoNuevoCentavos: acumuladoPrevio + input.montoCentavos,
-          medio: input.medio,
-          fueAcuenta: venta.fueAcuenta,
-          motivo: input.motivo,
-          actor: input.actor,
-        });
+        // P1-84: sale_returns exige tenant_id (0048).
+        await tx.insert(saleReturns).values(
+          filaConTenant({
+            id: returnId,
+            idempotencyKey: input.key,
+            saleId: input.saleId,
+            numeroDevolucion: num,
+            montoCentavos: input.montoCentavos,
+            acumuladoPrevioCentavos: acumuladoPrevio,
+            acumuladoNuevoCentavos: acumuladoPrevio + input.montoCentavos,
+            medio: input.medio,
+            fueAcuenta: venta.fueAcuenta,
+            motivo: input.motivo,
+            actor: input.actor,
+          }),
+        );
         await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_DEVOLUCION));
         return { estado: "ok", numero: num, efecto: dev.efecto };
       });
@@ -354,7 +368,11 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
     } catch (err) {
       if (esConflictoUnico(err)) {
         try {
-          const previo = await db.select().from(saleReturns).where(eq(saleReturns.idempotencyKey, input.key)).limit(1);
+          const previo = await db
+            .select()
+            .from(saleReturns)
+            .where(dondeTenant(saleReturns.tenantId, eq(saleReturns.idempotencyKey, input.key)))
+            .limit(1);
           const f = previo[0];
           if (f) {
             const v: VistoDevolucion = { numero_devolucion: f.numeroDevolucion, sale_id: f.saleId };
@@ -564,7 +582,7 @@ export async function vistosCorreccion(): Promise<Map<string, CorreccionOk>> {
   const db = dbVivaTenant();
   if (!db) return union;
   try {
-    const filas = await db.select().from(ticketPaymentCorrections);
+    const filas = await db.select().from(ticketPaymentCorrections).where(dondeTenant(ticketPaymentCorrections.tenantId));
     for (const f of filas) {
       if (!union.has(f.idempotencyKey)) union.set(f.idempotencyKey, filaACorreccion(f));
     }
@@ -616,7 +634,7 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
     const previo = await db
       .select()
       .from(ticketPaymentCorrections)
-      .where(eq(ticketPaymentCorrections.idempotencyKey, input.key))
+      .where(dondeTenant(ticketPaymentCorrections.tenantId, eq(ticketPaymentCorrections.idempotencyKey, input.key)))
       .limit(1);
     if (previo[0]) {
       const original = filaACorreccion(previo[0]);
@@ -625,21 +643,25 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
     }
     const filas = await db
       .insert(ticketPaymentCorrections)
-      .values({
-        idempotencyKey: input.key,
-        saleId: input.saleId,
-        medioOriginal: venta.medio,
-        medioNuevo: input.medioNuevo,
-        motivo: input.motivo,
-        actor: input.actor,
+      .values(
+        filaConTenant({
+          idempotencyKey: input.key,
+          saleId: input.saleId,
+          medioOriginal: venta.medio,
+          medioNuevo: input.medioNuevo,
+          motivo: input.motivo,
+          actor: input.actor,
+        }),
+      )
+      .onConflictDoNothing({
+        target: [ticketPaymentCorrections.tenantId, ticketPaymentCorrections.idempotencyKey],
       })
-      .onConflictDoNothing({ target: ticketPaymentCorrections.idempotencyKey })
       .returning({ id: ticketPaymentCorrections.id });
     if (!filas[0]) {
       const carrera = await db
         .select()
         .from(ticketPaymentCorrections)
-        .where(eq(ticketPaymentCorrections.idempotencyKey, input.key))
+        .where(dondeTenant(ticketPaymentCorrections.tenantId, eq(ticketPaymentCorrections.idempotencyKey, input.key)))
         .limit(1);
       const original = carrera[0] ? filaACorreccion(carrera[0]) : r;
       correcciones.guardar(input.key, original);
@@ -653,7 +675,7 @@ export async function registrarCorreccion(input: RegistrarCorreccionInput): Prom
         const previo = await db
           .select()
           .from(ticketPaymentCorrections)
-          .where(eq(ticketPaymentCorrections.idempotencyKey, input.key))
+          .where(dondeTenant(ticketPaymentCorrections.tenantId, eq(ticketPaymentCorrections.idempotencyKey, input.key)))
           .limit(1);
         if (previo[0]) {
           const original = filaACorreccion(previo[0]);

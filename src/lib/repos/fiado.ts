@@ -321,16 +321,19 @@ export async function ventaACuenta(input: VentaACuentaInput): Promise<VentaACuen
         });
         if (lineasDb.length > 0) await tx.insert(ticketLines).values(lineasDb.map((fila) => filaConTenant(fila)));
         // P10-16: snapshot por línea en ticket_discounts, misma tx que la venta.
+        // P1-84: ticket_discounts con tenant_id (0048).
         await tx.insert(ticketDiscounts).values(
-          r.efecto.lineasConDescuento.map((l) => ({
-            saleId,
-            lineaIdx: l.idx,
-            sku: l.sku,
-            brutoCentavos: l.brutoCentavos,
-            descLineaCentavos: l.descLineaCentavos,
-            descTicketCentavos: l.descTicketCentavos,
-            netoCentavos: l.netoCentavos,
-          })),
+          r.efecto.lineasConDescuento.map((l) =>
+            filaConTenant({
+              saleId,
+              lineaIdx: l.idx,
+              sku: l.sku,
+              brutoCentavos: l.brutoCentavos,
+              descLineaCentavos: l.descLineaCentavos,
+              descTicketCentavos: l.descTicketCentavos,
+              netoCentavos: l.netoCentavos,
+            }),
+          ),
         );
         if (ticket) await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_MOSTRADOR));
         return {

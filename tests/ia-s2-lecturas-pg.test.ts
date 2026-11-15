@@ -65,23 +65,27 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
         }),
       );
       await db.insert(ticketLines).values(filaPg({ saleId: saleA, productId: idA, qty: 4, precioCentavos: 10000n }));
-      await db.insert(ticketDiscounts).values({
-        saleId: saleA,
-        lineaIdx: 0,
-        sku: skuA,
-        brutoCentavos: 40000n,
-        netoCentavos: 40000n,
-      });
-      await db.insert(saleReturns).values({
-        idempotencyKey: `${keyA}-dev`,
-        saleId: saleA,
-        numeroDevolucion: `D-IA2-${sufijo}`,
-        montoCentavos: 10000n,
-        acumuladoNuevoCentavos: 10000n,
-        medio: "Efectivo",
-        motivo: "prueba ia2",
-        actor: "test",
-      });
+      await db.insert(ticketDiscounts).values(
+        filaPg({
+          saleId: saleA,
+          lineaIdx: 0,
+          sku: skuA,
+          brutoCentavos: 40000n,
+          netoCentavos: 40000n,
+        }),
+      );
+      await db.insert(saleReturns).values(
+        filaPg({
+          idempotencyKey: `${keyA}-dev`,
+          saleId: saleA,
+          numeroDevolucion: `D-IA2-${sufijo}`,
+          montoCentavos: 10000n,
+          acumuladoNuevoCentavos: 10000n,
+          medio: "Efectivo",
+          motivo: "prueba ia2",
+          actor: "test",
+        }),
+      );
       await db.insert(stockMovements).values([
         filaPg({ idemKey: keyA, sku: skuA, delta: -4, tipo: "VENTA", createdAt: momento }),
         filaPg({ idemKey: `${keyA}-dev`, sku: skuA, delta: 1, tipo: "COMPENSATORIO", createdAt: momento }),
@@ -109,13 +113,15 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
         }),
       );
       await db.insert(ticketLines).values(filaPg({ saleId: saleB, productId: idB, qty: 9, precioCentavos: 10000n }));
-      await db.insert(ticketDiscounts).values({
-        saleId: saleB,
-        lineaIdx: 0,
-        sku: skuB,
-        brutoCentavos: 90000n,
-        netoCentavos: 90000n,
-      });
+      await db.insert(ticketDiscounts).values(
+        filaPg({
+          saleId: saleB,
+          lineaIdx: 0,
+          sku: skuB,
+          brutoCentavos: 90000n,
+          netoCentavos: 90000n,
+        }),
+      );
       await db.insert(stockMovements).values(filaPg({ idemKey: keyB, sku: skuB, delta: -9, tipo: "VENTA", createdAt: momento }));
     });
   });

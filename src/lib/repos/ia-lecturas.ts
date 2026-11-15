@@ -226,10 +226,13 @@ async function ventasTopDb(desde: Date, hasta: Date): Promise<{ ventas: LineaVen
     .from(stockMovements)
     .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
     .where(
-      and(
-        eq(stockMovements.tipo, "COMPENSATORIO"),
-        gte(stockMovements.createdAt, desde),
-        lt(stockMovements.createdAt, hasta),
+      dondeTenant(
+        saleReturns.tenantId,
+        and(
+          eq(stockMovements.tipo, "COMPENSATORIO"),
+          gte(stockMovements.createdAt, desde),
+          lt(stockMovements.createdAt, hasta),
+        ),
       ),
     );
 

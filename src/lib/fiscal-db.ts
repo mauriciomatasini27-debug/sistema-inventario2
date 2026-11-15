@@ -106,7 +106,11 @@ export async function leerNdPorHeaderKey(db: TenantDb, key: string): Promise<Sto
 /** Lee un doc fiscal por id (uuid). Sin uuid válido resuelve null sin tocar DB. */
 export async function leerFiscalDocPorId(db: TenantDb, id: string): Promise<StoredFiscalDoc | null> {
   if (!esUuid(id)) return null;
-  const filas = await db.select().from(fiscalDocuments).where(eq(fiscalDocuments.id, id)).limit(1);
+  const filas = await db
+    .select()
+    .from(fiscalDocuments)
+    .where(dondeTenant(fiscalDocuments.tenantId, eq(fiscalDocuments.id, id)))
+    .limit(1);
   const fila = filas[0];
   return fila ? filaAFiscalDoc(fila) : null;
 }
@@ -185,7 +189,7 @@ export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promi
         id: d.id,
         idempotencyKey: d.idempotency_key,
         saleId: d.sale_id,
-        tenantId: dueno,
+        tenantId: dueno as string,
         cbteTipo: d.cbte_tipo,
         ptoVta: d.pto_vta,
         cbteNro: d.cbte_nro,
@@ -316,7 +320,7 @@ export async function asegurarFiscalDoc(
         id: d.id,
         idempotencyKey: d.idempotency_key,
         saleId: d.sale_id,
-        tenantId: dueno,
+        tenantId: dueno as string,
         cbteTipo: d.cbte_tipo,
         ptoVta: d.pto_vta,
         cbteNro: d.cbte_nro,
