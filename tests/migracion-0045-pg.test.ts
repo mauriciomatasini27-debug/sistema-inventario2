@@ -67,10 +67,17 @@ async function aplicarHasta(tag: string, url: string): Promise<void> {
 }
 
 describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
-  it("journal registra 0045", () => {
+  it("journal registra 0045, 0046 rubro y 0047 periferia", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
     expect(journal.entries.some((e) => e.tag === "0045_shared_tenant_sellar_nucleo")).toBe(true);
-    expect(journal.entries.length).toBe(47);
+    expect(journal.entries.some((e) => e.tag === "0046_tenants_rubro")).toBe(true);
+    expect(journal.entries.some((e) => e.tag === "0047_shared_tenant_periferia")).toBe(true);
+    expect(journal.entries.length).toBe(48);
+    const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
+    const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
+    expect(i46).toBe(46);
+    expect(i47).toBe(47);
+    expect(journal.entries[i47]!.when).toBeGreaterThan(journal.entries[i46]!.when);
   });
 });
 
@@ -214,7 +221,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
   );
 
   it(
-    "base vacía: runner 0001..0045 sin error",
+    "base vacía: runner 0001..0047 sin error",
     async () => {
       const nombre = `m45_vacia_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
@@ -223,6 +230,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
         encoding: "utf8",
       });
       expect(out).toContain("ok: migrate completo");
+      expect(out).toContain("0047_shared_tenant_periferia");
       const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: unknown[] };
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
@@ -230,6 +238,47 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
         expect(n[0]?.n).toBe(journal.entries.length);
         const tc = await db`select count(*)::int as n from ticket_counters`;
         expect(tc[0]?.n).toBe(0);
+        const custNn = await db`
+          select is_nullable from information_schema.columns
+          where table_schema='public' and table_name='customers' and column_name='tenant_id'`;
+        expect(custNn[0]?.is_nullable).toBe("NO");
+      } finally {
+        await db.end();
+      }
+    },
+    300_000,
+  );
+});
+
+describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
+  it(
+    "con 0046 aplicada solo corre 0047; reintento sin error",
+    async () => {
+      const nombre = `m47_post46_${Date.now()}`;
+      const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
+      await aplicarHasta("0046_tenants_rubro", url);
+      const db0 = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
+      try {
+        const n = await db0`select count(*)::int as n from drizzle.__drizzle_migrations`;
+        expect(n[0]?.n).toBe(47);
+      } finally {
+        await db0.end();
+      }
+      const out1 = execFileSync("node", ["scripts/db-migrate.mjs"], {
+        env: { ...process.env, TENANT_DATABASE_URL: url },
+        encoding: "utf8",
+      });
+      expect(out1).toMatch(/pendientes=1|0047_shared_tenant_periferia/);
+      expect(out1).toContain("0047_shared_tenant_periferia");
+      const out2 = execFileSync("node", ["scripts/db-migrate.mjs"], {
+        env: { ...process.env, TENANT_DATABASE_URL: url },
+        encoding: "utf8",
+      });
+      expect(out2).toContain("nada pendiente");
+      const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
+      try {
+        const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
+        expect(n[0]?.n).toBe(48);
       } finally {
         await db.end();
       }

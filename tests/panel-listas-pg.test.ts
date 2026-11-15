@@ -7,6 +7,7 @@ import { suppliers } from "../src/db/schema-proveedores.js";
 import { customers } from "../src/db/schema-credito.js";
 import { GET as GETSuppliers } from "../src/pages/api/suppliers.js";
 import { GET as GETCustomers } from "../src/pages/api/credit/customers.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 const marca = Date.now().toString(36);
@@ -54,7 +55,7 @@ describe.skipIf(!hayPG)("P3-7d listados del panel: aislamiento por tenant en Pos
     fijarMulti();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(suppliers).values({ cuit: cuitA, nombre: nombreA });
+      await db.insert(suppliers).values(filaPg({ cuit: cuitA, nombre: nombreA }));
     });
 
     const a = await listarProveedoresDe("tenant-a");
@@ -69,7 +70,7 @@ describe.skipIf(!hayPG)("P3-7d listados del panel: aislamiento por tenant en Pos
     fijarMulti();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(customers).values({ nombre: clienteA });
+      await db.insert(customers).values(filaPg({ nombre: clienteA }));
     });
 
     const a = await listarClientesDe("tenant-a");

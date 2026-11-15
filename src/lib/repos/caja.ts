@@ -11,7 +11,7 @@ import {
   shiftHandovers,
 } from "../../db/schema-caja.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { filaConTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenCierres,
   crearAlmacenDropVistos,
@@ -188,7 +188,7 @@ async function movimientosCierreEnDb(db: TenantDb): Promise<{ movs: Movimiento[]
   const disputas = await db
     .select({ id: shiftHandovers.id })
     .from(shiftHandovers)
-    .where(eq(shiftHandovers.estado, "en_disputa"));
+    .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.estado, "en_disputa")));
   return {
     movs: filas.map((f) => ({
       tipo: f.tipo as Movimiento["tipo"],
@@ -255,7 +255,11 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
       return { status: 409, error: "idempotency-key repetida", original: porKey, wa: aviso, fuente: "memoria" };
     }
     if (cierres.contiene(input.fechaJornada)) return { status: 409, error: "jornada ya cerrada", fuente: "memoria" };
-    const prevKey = await db.select().from(closingSummaries).where(eq(closingSummaries.idempotencyKey, input.key)).limit(1);
+    const prevKey = await db
+      .select()
+      .from(closingSummaries)
+      .where(dondeTenant(closingSummaries.tenantId, eq(closingSummaries.idempotencyKey, input.key)))
+      .limit(1);
     if (prevKey[0]) {
       const orig = cierreDesdeFila(prevKey[0]);
       cierres.guardar(input.key, orig);
@@ -264,7 +268,11 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
       const aviso = asegurarAviso(wa.vivos(), snapshotAviso(orig.cierre.fechaJornada, input.key, orig.cierre.totalCentavos, derivar_balance(balance).porMedio, orig.cierre.closeType));
       return { status: 409, error: "idempotency-key repetida", original: orig, wa: aviso, fuente: "db" };
     }
-    const prevFecha = await db.select().from(closingSummaries).where(eq(closingSummaries.fechaJornada, input.fechaJornada)).limit(1);
+    const prevFecha = await db
+      .select()
+      .from(closingSummaries)
+      .where(dondeTenant(closingSummaries.tenantId, eq(closingSummaries.fechaJornada, input.fechaJornada)))
+      .limit(1);
     if (prevFecha[0]) return { status: 409, error: "jornada ya cerrada", fuente: "db" };
     const estado = await movimientosCierreEnDb(db);
     const r = cerrar_jornada({
@@ -278,14 +286,16 @@ export async function cerrarCaja(input: { key: string; fechaJornada: string; clo
     });
     if (r.status !== 201) return { ...r, fuente: "db" };
     const porMedio = derivar_balance(estado.movs).porMedio;
-    await db.insert(closingSummaries).values({
-      idempotencyKey: input.key,
-      fechaJornada: r.cierre.fechaJornada,
-      closeType: r.cierre.closeType,
-      totalCentavos: r.cierre.totalCentavos,
-      porMedio: Object.fromEntries(Object.entries(porMedio).map(([k, v]) => [k, v.toString()])),
-      ultimoMovimientoId: r.cierre.ultimoMovimientoId && esUuid(r.cierre.ultimoMovimientoId) ? r.cierre.ultimoMovimientoId : null,
-    });
+    await db.insert(closingSummaries).values(
+      filaConTenant({
+        idempotencyKey: input.key,
+        fechaJornada: r.cierre.fechaJornada,
+        closeType: r.cierre.closeType,
+        totalCentavos: r.cierre.totalCentavos,
+        porMedio: Object.fromEntries(Object.entries(porMedio).map(([k, v]) => [k, v.toString()])),
+        ultimoMovimientoId: r.cierre.ultimoMovimientoId && esUuid(r.cierre.ultimoMovimientoId) ? r.cierre.ultimoMovimientoId : null,
+      }),
+    );
     cierres.guardar(input.key, r);
     cierres.guardar(r.cierre.fechaJornada, r);
     const aviso = asegurarAviso(wa.vivos(), snapshotAviso(r.cierre.fechaJornada, input.key, r.cierre.totalCentavos, porMedio, r.cierre.closeType));
@@ -405,7 +415,11 @@ export async function leerCierre(fecha: string): Promise<CierreOk | null> {
   if (!db) return mem ?? null;
   try {
     if (mem) return mem;
-    const filas = await db.select().from(closingSummaries).where(eq(closingSummaries.fechaJornada, fecha)).limit(1);
+    const filas = await db
+      .select()
+      .from(closingSummaries)
+      .where(dondeTenant(closingSummaries.tenantId, eq(closingSummaries.fechaJornada, fecha)))
+      .limit(1);
     if (!filas[0]) return null;
     const orig = cierreDesdeFila(filas[0]);
     cierres.guardar(fecha, orig);
@@ -435,7 +449,11 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
   try {
     const visto = reversionVistos.obtener(input.key);
     if (visto) return { status: 409, error: "idempotency-key repetida", original: visto, fuente: "memoria" };
-    const prevKey = await db.select().from(cashReversals).where(eq(cashReversals.idempotencyKey, input.key)).limit(1);
+    const prevKey = await db
+      .select()
+      .from(cashReversals)
+      .where(dondeTenant(cashReversals.tenantId, eq(cashReversals.idempotencyKey, input.key)))
+      .limit(1);
     if (prevKey[0]) {
       const orig = await reconstruirReversion(db, prevKey[0].revierteA, prevKey[0].movimientoId, prevKey[0].actor, prevKey[0].motivo);
       if (orig) {
@@ -456,7 +474,11 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
       return { status: 409, error: "idempotency-key repetida", fuente: "db" };
     }
     if (!esUuid(input.revierteA)) return { status: 422, error: "revierte_a inexistente", fuente: "db" };
-    const yaRevertido = await db.select({ id: cashReversals.id }).from(cashReversals).where(eq(cashReversals.revierteA, input.revierteA)).limit(1);
+    const yaRevertido = await db
+      .select({ id: cashReversals.id })
+      .from(cashReversals)
+      .where(dondeTenant(cashReversals.tenantId, eq(cashReversals.revierteA, input.revierteA)))
+      .limit(1);
     if (yaRevertido[0]) return { status: 409, error: "movimiento ya revertido", fuente: "db" };
     const memMov = movimientoReversionMemoria(movimientos.listar(), input.revierteA);
     let original: Movimiento & { id: string } | null = memMov;
@@ -489,20 +511,24 @@ export async function revertirCaja(input: { key: string; revierteA: string; moti
         origen: r.movimiento.origen,
         montoCentavos: r.movimiento.monto_centavos,
       }]);
-      await tx.insert(cashReversals).values({
-        idempotencyKey: input.key,
-        revierteA: input.revierteA,
-        movimientoId: movId,
-        actor: input.actor,
-        ...(input.motivo !== undefined ? { motivo: input.motivo } : {}),
-      });
-      await tx.insert(cashAuditLog).values({
-        accion: "reversion",
-        movimientoId: movId,
-        revierteA: input.revierteA,
-        detalle: { motivo: input.motivo ?? null },
-        actor: input.actor,
-      });
+      await tx.insert(cashReversals).values(
+        filaConTenant({
+          idempotencyKey: input.key,
+          revierteA: input.revierteA,
+          movimientoId: movId,
+          actor: input.actor,
+          ...(input.motivo !== undefined ? { motivo: input.motivo } : {}),
+        }),
+      );
+      await tx.insert(cashAuditLog).values(
+        filaConTenant({
+          accion: "reversion",
+          movimientoId: movId,
+          revierteA: input.revierteA,
+          detalle: { motivo: input.motivo ?? null },
+          actor: input.actor,
+        }),
+      );
     });
     const ok = {
       status: 201 as const,
@@ -611,7 +637,11 @@ export async function abrirTurno(input: { key: string; fechaJornada: string; tur
       const previo = turnos.obtener(previoId);
       if (previo) return { status: 409, error: "idempotency-key repetida", original: { turno_id: previo.id }, fuente: "memoria" };
     }
-    const prev = await db.select().from(shiftHandovers).where(eq(shiftHandovers.idempotencyKey, input.key)).limit(1);
+    const prev = await db
+      .select()
+      .from(shiftHandovers)
+      .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.idempotencyKey, input.key)))
+      .limit(1);
     if (prev[0]) {
       const t = filaATurno(prev[0]);
       turnos.guardar(t.id, t);
@@ -626,15 +656,17 @@ export async function abrirTurno(input: { key: string; fechaJornada: string; tur
       esperadoCentavos: input.esperadoCentavos,
       estado: "pendiente",
     };
-    await db.insert(shiftHandovers).values({
-      id: turno.id,
-      idempotencyKey: input.key,
-      fechaJornada: turno.fechaJornada,
-      turno: turno.turno,
-      entregadoPor: turno.entregadoPor,
-      esperadoCentavos: turno.esperadoCentavos,
-      estado: "pendiente",
-    });
+    await db.insert(shiftHandovers).values(
+      filaConTenant({
+        id: turno.id,
+        idempotencyKey: input.key,
+        fechaJornada: turno.fechaJornada,
+        turno: turno.turno,
+        entregadoPor: turno.entregadoPor,
+        esperadoCentavos: turno.esperadoCentavos,
+        estado: "pendiente",
+      }),
+    );
     turnos.guardar(turno.id, turno);
     shiftKeys.guardar(input.key, turno.id);
     return { status: 201, turno, fuente: "db" };
@@ -703,7 +735,11 @@ export async function conciliarCaja(input: {
   try {
     const visto = turnoVistos.obtener(input.key);
     if (visto) return { status: 409, error: "idempotency-key repetida", original: visto, fuente: "memoria" };
-    const filas = await db.select().from(shiftHandovers).where(eq(shiftHandovers.id, input.turnoId)).limit(1);
+    const filas = await db
+      .select()
+      .from(shiftHandovers)
+      .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.id, input.turnoId)))
+      .limit(1);
     const fila = filas[0];
     if (!fila) return { status: 404, error: "turno inexistente", fuente: "db" };
     const r = conciliar_turno({
@@ -719,9 +755,11 @@ export async function conciliarCaja(input: {
       contadoCentavos: r.turno.contadoCentavos ?? null,
       diferenciaCentavos: r.turno.diferenciaCentavos ?? null,
       estado: r.turno.estado,
-    }).where(eq(shiftHandovers.id, fila.id));
+    }).where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.id, fila.id)));
     await db.insert(handoverCounts).values(
-      input.conteosPorMedio.map((c) => ({ handoverId: fila.id, medio: c.medio, montoCentavos: c.montoCentavos })),
+      input.conteosPorMedio.map((c) =>
+        filaConTenant({ handoverId: fila.id, medio: c.medio, montoCentavos: c.montoCentavos }),
+      ),
     );
     turnos.guardar(r.turno.id, r.turno);
     turnoVistos.guardar(input.key, { status: 201, turno: r.turno });
@@ -746,13 +784,20 @@ export async function resolverCaja(input: { turnoId: string; nota: string; rol: 
   try {
     let turno = turnos.obtener(input.turnoId);
     if (!turno) {
-      const filas = await db.select().from(shiftHandovers).where(eq(shiftHandovers.id, input.turnoId)).limit(1);
+      const filas = await db
+      .select()
+      .from(shiftHandovers)
+      .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.id, input.turnoId)))
+      .limit(1);
       if (!filas[0]) return { status: 404, error: "turno inexistente" };
       turno = filaATurno(filas[0]);
     }
     const r = resolver_disputa({ turnoId: input.turnoId, nota: input.nota, rol: input.rol, resueltoPor: input.resueltoPor, turnos: new Map([[turno.id, turno]]) });
     if (r.status !== 200) return r;
-    await db.update(shiftHandovers).set({ estado: "resuelto", resolucionNota: input.nota, resueltoPor: input.resueltoPor }).where(eq(shiftHandovers.id, turno.id));
+    await db
+      .update(shiftHandovers)
+      .set({ estado: "resuelto", resolucionNota: input.nota, resueltoPor: input.resueltoPor })
+      .where(dondeTenant(shiftHandovers.tenantId, eq(shiftHandovers.id, turno.id)));
     turnos.guardar(r.turno.id, r.turno);
     return r;
   } catch (e) {
@@ -778,7 +823,11 @@ export async function registrarRetiro(input: {
   try {
     const visto = dropVistos.obtener(input.key);
     if (visto) return { status: 409, error: "idempotency-key repetida", original: visto, fuente: "memoria" };
-    const prev = await db.select().from(cashDrawerDrops).where(eq(cashDrawerDrops.idempotencyKey, input.key)).limit(1);
+    const prev = await db
+      .select()
+      .from(cashDrawerDrops)
+      .where(dondeTenant(cashDrawerDrops.tenantId, eq(cashDrawerDrops.idempotencyKey, input.key)))
+      .limit(1);
     if (prev[0]) {
       const f = prev[0];
       const ok = {
@@ -807,14 +856,16 @@ export async function registrarRetiro(input: {
       vistos: new Map(),
     });
     if (r.status !== 201) return { ...r, fuente: "db" };
-    await db.insert(cashDrawerDrops).values({
-      idempotencyKey: input.key,
-      fechaJornada: input.fechaJornada,
-      montoCentavos: input.montoCentavos,
-      motivo: input.motivo ?? null,
-      creadoPor: input.creadoPor,
-      sorpresa: input.sorpresa,
-    });
+    await db.insert(cashDrawerDrops).values(
+      filaConTenant({
+        idempotencyKey: input.key,
+        fechaJornada: input.fechaJornada,
+        montoCentavos: input.montoCentavos,
+        motivo: input.motivo ?? null,
+        creadoPor: input.creadoPor,
+        sorpresa: input.sorpresa,
+      }),
+    );
     drops.guardar(r.drop.id, r.drop);
     dropVistos.guardar(input.key, { status: 201, drop: r.drop });
     return { ...r, fuente: "db" };
@@ -882,7 +933,12 @@ async function candidatosQrSinComprobante(db: TenantDb | null, vinculadosMemoria
     const vinculados = await db
       .select({ id: cashQrReceipts.cashMovementId })
       .from(cashQrReceipts)
-      .where(and(ne(cashQrReceipts.estado, "pendiente"), isNotNull(cashQrReceipts.cashMovementId)));
+      .where(
+        dondeTenant(
+          cashQrReceipts.tenantId,
+          and(ne(cashQrReceipts.estado, "pendiente"), isNotNull(cashQrReceipts.cashMovementId)),
+        ),
+      );
     const usados = new Set(vinculados.map((v) => v.id).filter((v): v is string => v !== null));
     return movs
       .filter((m) => !usados.has(m.id))
@@ -910,7 +966,11 @@ export async function registrarQr(input: RegistrarQrInput): Promise<RegistrarQrR
   if (!db) return registrarQrMemoria(input, qrRecibos);
   try {
     if (qrRecibos.contiene(input.num)) return { status: 409, error: "ya registrado", numero_operacion: input.num };
-    const prev = await db.select().from(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, input.num)).limit(1);
+    const prev = await db
+      .select()
+      .from(cashQrReceipts)
+      .where(dondeTenant(cashQrReceipts.tenantId, eq(cashQrReceipts.numeroOperacion, input.num)))
+      .limit(1);
     if (prev[0]) {
       const recibo = filaAQrRecibo(prev[0]);
       qrRecibos.guardar(input.num, recibo);
@@ -982,7 +1042,11 @@ export async function listarQr(filtro: string): Promise<QrRecibo[]> {
   const db = dbVivaTenant();
   if (!db) return listarQrMemoria(filtro, qrRecibos);
   try {
-    const filas = await db.select().from(cashQrReceipts).orderBy(asc(cashQrReceipts.createdAt));
+    const filas = await db
+      .select()
+      .from(cashQrReceipts)
+      .where(dondeTenant(cashQrReceipts.tenantId))
+      .orderBy(asc(cashQrReceipts.createdAt));
     let lista = filas.map(filaAQrRecibo);
     if (filtro === "sin_comprobante") lista = lista.filter((r) => r.estado === "pendiente");
     for (const r of lista) qrRecibos.guardar(r.numeroOperacion, r);
@@ -1023,7 +1087,11 @@ export async function deshacerQr(num: string): Promise<{ status: 200; num: strin
     const mem = qrRecibos.obtener(num);
     let estado = mem?.estado;
     if (estado === undefined) {
-      const filas = await db.select().from(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, num)).limit(1);
+      const filas = await db
+        .select()
+        .from(cashQrReceipts)
+        .where(dondeTenant(cashQrReceipts.tenantId, eq(cashQrReceipts.numeroOperacion, num)))
+        .limit(1);
       if (!filas[0]) return { status: 404, error: "desconocido" };
       estado = filas[0].estado;
     }
@@ -1032,13 +1100,13 @@ export async function deshacerQr(num: string): Promise<{ status: 200; num: strin
       await db
         .update(cashQrReceipts)
         .set({ estado: "pendiente", cashMovementId: null })
-        .where(eq(cashQrReceipts.numeroOperacion, num));
+        .where(dondeTenant(cashQrReceipts.tenantId, eq(cashQrReceipts.numeroOperacion, num)));
       const actual = qrRecibos.obtener(num);
       if (actual) qrRecibos.guardar(num, { ...actual, estado: "pendiente", cashMovementId: null });
       return { status: 200, num, estado: "pendiente" };
     }
     if (estado !== "pendiente") return { status: 409, error: "no deshace confirmado" };
-    await db.delete(cashQrReceipts).where(eq(cashQrReceipts.numeroOperacion, num));
+    await db.delete(cashQrReceipts).where(dondeTenant(cashQrReceipts.tenantId, eq(cashQrReceipts.numeroOperacion, num)));
     qrRecibos.mapaVivo().delete(num);
     return { status: 200, num, estado: "deshecho" };
   } catch (e) {
@@ -1081,7 +1149,11 @@ export async function listarVencimientos(): Promise<VencimientoCaja[]> {
   const db = dbVivaTenant();
   if (!db) return [...vencimientos.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(cashDueItems).orderBy(asc(cashDueItems.createdAt));
+    const filas = await db
+      .select()
+      .from(cashDueItems)
+      .where(dondeTenant(cashDueItems.tenantId))
+      .orderBy(asc(cashDueItems.createdAt));
     const lista = filas.map(filaAVencimiento);
     for (const d of lista) vencimientos.guardar(d.id, d);
     return lista;
@@ -1098,7 +1170,11 @@ export async function obtenerVencimiento(id: string): Promise<VencimientoCaja | 
   const db = dbVivaTenant();
   if (!db) return null;
   try {
-    const filas = await db.select().from(cashDueItems).where(eq(cashDueItems.id, id)).limit(1);
+    const filas = await db
+      .select()
+      .from(cashDueItems)
+      .where(dondeTenant(cashDueItems.tenantId, eq(cashDueItems.id, id)))
+      .limit(1);
     const f = filas[0];
     if (!f) return null;
     const d = filaAVencimiento(f);
@@ -1132,7 +1208,12 @@ export async function marcarAvisados(ids: string[], ahoraIso: string): Promise<s
     const reclamados = await db
       .update(cashDueItems)
       .set({ avisadoEl: new Date(ahoraIso) })
-      .where(and(inArray(cashDueItems.id, ids), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.avisadoEl)))
+      .where(
+        dondeTenant(
+          cashDueItems.tenantId,
+          and(inArray(cashDueItems.id, ids), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.avisadoEl)),
+        ),
+      )
       .returning({ id: cashDueItems.id });
     for (const f of reclamados) {
       const d = vencimientos.obtener(f.id);
@@ -1203,7 +1284,7 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
       await db
         .update(cashDueItems)
         .set({ estado: "pagada", pagadoEl: new Date(), cashMovementId: previo.id })
-        .where(and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente")));
+        .where(dondeTenant(cashDueItems.tenantId, and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente"))));
       const d = vencimientos.obtener(input.id);
       if (d) vencimientos.guardar(input.id, { ...d, estado: "pagada", cashMovementId: previo.id });
       return { status: 200, id: input.id, egresoId: previo.id };
@@ -1214,11 +1295,20 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
       const reclamadas = await tx
         .update(cashDueItems)
         .set({ estado: "pagada", pagadoEl: new Date(ahoraIso) })
-        .where(and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.pagadoEl)))
+        .where(
+          dondeTenant(
+            cashDueItems.tenantId,
+            and(eq(cashDueItems.id, input.id), eq(cashDueItems.estado, "pendiente"), isNull(cashDueItems.pagadoEl)),
+          ),
+        )
         .returning();
       const fila = reclamadas[0];
       if (!fila) {
-        const existentes = await tx.select({ id: cashDueItems.id }).from(cashDueItems).where(eq(cashDueItems.id, input.id)).limit(1);
+        const existentes = await tx
+          .select({ id: cashDueItems.id })
+          .from(cashDueItems)
+          .where(dondeTenant(cashDueItems.tenantId, eq(cashDueItems.id, input.id)))
+          .limit(1);
         if (!existentes[0]) return { status: 404 as const, error: "desconocido" };
         return { status: 409 as const, error: "ya_pagado" };
       }
@@ -1233,7 +1323,10 @@ export async function pagarVencimiento(input: { id: string; key: string; metodo?
         origen: `vencimiento:${input.id}`,
         montoCentavos: fila.montoCentavos,
       }]);
-      await tx.update(cashDueItems).set({ cashMovementId: movId }).where(eq(cashDueItems.id, input.id));
+      await tx
+        .update(cashDueItems)
+        .set({ cashMovementId: movId })
+        .where(dondeTenant(cashDueItems.tenantId, eq(cashDueItems.id, input.id)));
       return { status: 200 as const, egresoId: movId, fila };
     });
     if (salida.status !== 200) return salida;

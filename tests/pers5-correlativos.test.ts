@@ -153,7 +153,7 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
         .onConflictDoNothing();
       await db.insert(ticketCounters).values(filaPg({ id: "mostrador", ultimo: 0 })).onConflictDoNothing();
       await db.insert(ticketCounters).values(filaPg({ id: "devolucion", ultimo: 0 })).onConflictDoNothing();
-      await db.insert(customers).values({ id: cliente, nombre: "PERS5 fiado", topeCentavos: 0n }).onConflictDoNothing();
+      await db.insert(customers).values(filaPg({ id: cliente, nombre: "PERS5 fiado", topeCentavos: 0n })).onConflictDoNothing();
     });
     await conTenant("tenant-a", () => {
       store.nextTicket = 1;

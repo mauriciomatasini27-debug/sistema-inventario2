@@ -23,7 +23,7 @@ export const whatsappCodes = pgTable("whatsapp_codes", {
 // por comercio. Respuestas libres dentro de ventana 24h no usan plantilla.
 export const whatsappUsage = pgTable("whatsapp_usage", {
   id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   numeroE164: text("numero_e164").notNull(),
   wamid: text("wamid").notNull().unique(),
   tipo: text("tipo").notNull(),
@@ -38,7 +38,7 @@ export const whatsappUsage = pgTable("whatsapp_usage", {
 // El opt-in de WhatsApp no es el canal: ALTA y BAJA no escriben `canal`.
 export const notificationPreferences = pgTable("notification_preferences", {
   id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   googleSub: text("google_sub").notNull(),
   canal: text("canal").notNull().default("email"),
   optIn: boolean("opt_in").notNull().default(false),
@@ -88,7 +88,7 @@ export const whatsappSessions = pgTable("whatsapp_sessions", {
 // GIN `f_norm(alias)` en migración 0041; aliasNorm se mantiene para otros usos.
 export const productAliases = pgTable("product_aliases", {
   id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id"),
+  tenantId: uuid("tenant_id").notNull(),
   sku: text("sku").notNull(),
   alias: text("alias").notNull(),
   aliasNorm: text("alias_norm").notNull(),

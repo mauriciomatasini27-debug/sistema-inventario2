@@ -1,4 +1,5 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { dondeTenant, filaConTenant } from "./tenant-scope.js";
 import { fiscalDocuments, fiscalSequences } from "../db/schema-fiscal.js";
 import { leerFiscalDocPorId, type TenantDb } from "./fiscal-db.js";
 import { store as memoria, type StoredFiscalDoc } from "./store.js";
@@ -18,6 +19,10 @@ export interface SequenceKey {
 
 export function claveDeDoc(doc: StoredFiscalDoc): SequenceKey {
   return { puntoVenta: doc.pto_vta, cbteTipo: doc.cbte_tipo };
+}
+
+function filtroSeq(extra?: SQL): SQL | undefined {
+  return dondeTenant(fiscalSequences.tenantId, extra);
 }
 
 export type EmisionDurable =
@@ -122,11 +127,14 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
     const remoto = await ultimoRemoto(ctx, clave);
     const sellado = await db.transaction(async (tx) => {
       await tx.execute(sqlCandado(textoClave(ctx.cuit, clave)));
-      await tx.insert(fiscalSequences).values({ puntoVenta: clave.puntoVenta, cbteTipo: clave.cbteTipo }).onConflictDoNothing();
+      await tx
+        .insert(fiscalSequences)
+        .values(filaConTenant({ puntoVenta: clave.puntoVenta, cbteTipo: clave.cbteTipo }))
+        .onConflictDoNothing();
       const fila = await tx
         .select({ lastNumber: fiscalSequences.lastNumber, titular: fiscalSequences.inFlightDocumentId })
         .from(fiscalSequences)
-        .where(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo)))
+        .where(filtroSeq(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo))))
         .limit(1);
       const vigente = fila[0];
       if (vigente && vigente.titular !== null && vigente.titular !== ctx.docId) {
@@ -138,10 +146,12 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
           .update(fiscalSequences)
           .set({ inFlightDocumentId: ctx.docId })
           .where(
-            and(
-              eq(fiscalSequences.puntoVenta, clave.puntoVenta),
-              eq(fiscalSequences.cbteTipo, clave.cbteTipo),
-              isNull(fiscalSequences.inFlightDocumentId),
+            filtroSeq(
+              and(
+                eq(fiscalSequences.puntoVenta, clave.puntoVenta),
+                eq(fiscalSequences.cbteTipo, clave.cbteTipo),
+                isNull(fiscalSequences.inFlightDocumentId),
+              ),
             ),
           )
           .returning({ puntoVenta: fiscalSequences.puntoVenta });
@@ -157,10 +167,12 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
           .update(fiscalSequences)
           .set({ inFlightDocumentId: null })
           .where(
-            and(
-              eq(fiscalSequences.puntoVenta, clave.puntoVenta),
-              eq(fiscalSequences.cbteTipo, clave.cbteTipo),
-              eq(fiscalSequences.inFlightDocumentId, ctx.docId),
+            filtroSeq(
+              and(
+                eq(fiscalSequences.puntoVenta, clave.puntoVenta),
+                eq(fiscalSequences.cbteTipo, clave.cbteTipo),
+                eq(fiscalSequences.inFlightDocumentId, ctx.docId),
+              ),
             ),
           );
         return { estado: "no-facturar" as const };
@@ -186,7 +198,7 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
       const fila = await tx
         .select({ lastNumber: fiscalSequences.lastNumber })
         .from(fiscalSequences)
-        .where(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo)))
+        .where(filtroSeq(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo))))
         .limit(1);
       const vigente = fila[0]?.lastNumber ?? 0;
       switch (salida) {
@@ -196,7 +208,7 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
           await tx
             .update(fiscalSequences)
             .set({ lastNumber: Math.max(vigente, nro), lastCbteFch: resultado.doc.cbte_fch, inFlightDocumentId: null })
-            .where(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo)));
+            .where(filtroSeq(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo))));
           return resultado.doc;
         }
         case "rechazado": {

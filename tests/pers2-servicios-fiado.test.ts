@@ -15,6 +15,7 @@ import { POST as payBill } from "../src/pages/api/utility-bills/pay.js";
 import { POST as postSale } from "../src/pages/api/credit/sales-on-account.js";
 import { POST as postPayment } from "../src/pages/api/credit/payments.js";
 import { GET as getBalance } from "../src/pages/api/credit/balance.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const RUTAS_SIN_STORE = [
   "src/pages/api/utility-bills/pay.ts",
@@ -283,7 +284,7 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
       seq_local: 1,
     };
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customers).values({ id: clientePG, nombre: "Pers2 svc", topeCentavos: 0n }).onConflictDoNothing();
+      await getTenantDb().insert(customers).values(filaPg({ id: clientePG, nombre: "Pers2 svc", topeCentavos: 0n })).onConflictDoNothing();
     });
     const venta = await conTenant("tenant-a", () =>
       postSale(ctx("http://x/api/credit/sales-on-account", { body: cuerpo, headers: { "Idempotency-Key": claveVentaPG } })),

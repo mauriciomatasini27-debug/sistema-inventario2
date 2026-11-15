@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { purchaseOrderLines, purchaseOrders, suppliers } from "../../db/schema-proveedores.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
 import {
@@ -59,19 +60,25 @@ export async function altaProveedor(input: ProveedorNuevo): Promise<AltaProveedo
 }
 
 async function altaProveedorEnDb(db: TenantDb, cuit: string, supplier: Supplier): Promise<AltaProveedorResultado> {
-  const previo = await db.select().from(suppliers).where(eq(suppliers.cuit, cuit)).limit(1);
+  const previo = await db
+    .select()
+    .from(suppliers)
+    .where(dondeTenant(suppliers.tenantId, eq(suppliers.cuit, cuit)))
+    .limit(1);
   if (previo[0]) return { ok: false, codigo: "CUIT_EXISTE", error: "proveedor ya existe" };
   // El id de dominio (sup-<cuit>) no es uuid: la copia durable va sin id
   // (defaultRandom) con cuit UNIQUE.
   const filas = await db
     .insert(suppliers)
-    .values({
-      cuit: supplier.cuit,
-      nombre: supplier.nombre,
-      email: supplier.email,
-      telefono: supplier.telefono,
-    })
-    .onConflictDoNothing({ target: suppliers.cuit })
+    .values(
+      filaConTenant({
+        cuit: supplier.cuit,
+        nombre: supplier.nombre,
+        email: supplier.email,
+        telefono: supplier.telefono,
+      }),
+    )
+    .onConflictDoNothing({ target: [suppliers.tenantId, suppliers.cuit] })
     .returning({ id: suppliers.id });
   if (!filas[0]) return { ok: false, codigo: "CUIT_EXISTE", error: "proveedor ya existe" };
   crearAlmacenSuppliers().guardar(cuit, supplier);
@@ -116,6 +123,7 @@ export async function listarProveedores(): Promise<{ proveedores: ProveedorLista
         activo: suppliers.activo,
       })
       .from(suppliers)
+      .where(dondeTenant(suppliers.tenantId))
       .orderBy(asc(suppliers.cuit)),
   );
   if (enDb !== null) return { proveedores: enDb, fuente: "db" };
@@ -168,20 +176,26 @@ export async function crearOrdenRepo(input: CrearOrdenRepoInput): Promise<CrearO
   }
 
   try {
-    const previo = await db.select().from(purchaseOrders).where(eq(purchaseOrders.idempotencyKey, input.key)).limit(1);
+    const previo = await db
+      .select()
+      .from(purchaseOrders)
+      .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, input.key)))
+      .limit(1);
     if (previo[0]) return { ok: false, codigo: "DUPLICADA", error: "idempotency-key repetida" };
     let repetida = false;
     await db.transaction(async (tx) => {
       const filas = await tx
         .insert(purchaseOrders)
-        .values({
-          idempotencyKey: input.key,
-          supplierCuit: r.orden.supplierCuit,
-          estado: r.orden.estado,
-          totalCentavos: r.orden.totalCentavos,
-          creadoPor: r.orden.creadoPor,
-        })
-        .onConflictDoNothing({ target: purchaseOrders.idempotencyKey })
+        .values(
+          filaConTenant({
+            idempotencyKey: input.key,
+            supplierCuit: r.orden.supplierCuit,
+            estado: r.orden.estado,
+            totalCentavos: r.orden.totalCentavos,
+            creadoPor: r.orden.creadoPor,
+          }),
+        )
+        .onConflictDoNothing({ target: [purchaseOrders.tenantId, purchaseOrders.idempotencyKey] })
         .returning({ id: purchaseOrders.id });
       const fila = filas[0];
       if (!fila) {
@@ -189,12 +203,14 @@ export async function crearOrdenRepo(input: CrearOrdenRepoInput): Promise<CrearO
         return;
       }
       await tx.insert(purchaseOrderLines).values(
-        r.orden.lineas.map((l) => ({
-          orderId: fila.id,
-          sku: l.sku,
-          qty: l.qty,
-          costoCentavos: l.costoCentavos,
-        })),
+        r.orden.lineas.map((l) =>
+          filaConTenant({
+            orderId: fila.id,
+            sku: l.sku,
+            qty: l.qty,
+            costoCentavos: l.costoCentavos,
+          }),
+        ),
       );
     });
     if (repetida) return { ok: false, codigo: "DUPLICADA", error: "idempotency-key repetida" };
@@ -284,7 +300,7 @@ async function reconstruirOrden(db: TenantDb, orderId: string): Promise<Purchase
   const heads = await db
     .select()
     .from(purchaseOrders)
-    .where(eq(purchaseOrders.idempotencyKey, key))
+    .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, key)))
     .limit(1);
   const head = heads[0];
   if (!head) return null;
@@ -299,34 +315,38 @@ async function persistirCierre(db: TenantDb, orden: PurchaseOrder): Promise<void
   const tocadas = await db
     .update(purchaseOrders)
     .set({ estado: orden.estado, cerradoEn: orden.cerradoEn ? new Date(orden.cerradoEn) : null })
-    .where(eq(purchaseOrders.idempotencyKey, orden.idempotencyKey))
+    .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, orden.idempotencyKey)))
     .returning({ id: purchaseOrders.id });
   if (tocadas[0]) return;
   const filas = await db
     .insert(purchaseOrders)
-    .values({
-      idempotencyKey: orden.idempotencyKey,
-      supplierCuit: orden.supplierCuit,
-      estado: orden.estado,
-      totalCentavos: orden.totalCentavos,
-      creadoPor: orden.creadoPor,
-    })
-    .onConflictDoNothing({ target: purchaseOrders.idempotencyKey })
+    .values(
+      filaConTenant({
+        idempotencyKey: orden.idempotencyKey,
+        supplierCuit: orden.supplierCuit,
+        estado: orden.estado,
+        totalCentavos: orden.totalCentavos,
+        creadoPor: orden.creadoPor,
+      }),
+    )
+    .onConflictDoNothing({ target: [purchaseOrders.tenantId, purchaseOrders.idempotencyKey] })
     .returning({ id: purchaseOrders.id });
   const fila = filas[0];
   if (!fila) {
     await db
       .update(purchaseOrders)
       .set({ estado: orden.estado, cerradoEn: orden.cerradoEn ? new Date(orden.cerradoEn) : null })
-      .where(eq(purchaseOrders.idempotencyKey, orden.idempotencyKey));
+      .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, orden.idempotencyKey)));
     return;
   }
   await db.insert(purchaseOrderLines).values(
-    orden.lineas.map((l) => ({
-      orderId: fila.id,
-      sku: l.sku,
-      qty: l.qty,
-      costoCentavos: l.costoCentavos,
-    })),
+    orden.lineas.map((l) =>
+      filaConTenant({
+        orderId: fila.id,
+        sku: l.sku,
+        qty: l.qty,
+        costoCentavos: l.costoCentavos,
+      }),
+    ),
   );
 }

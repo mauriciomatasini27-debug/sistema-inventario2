@@ -1,9 +1,20 @@
 import { and, eq } from "drizzle-orm";
+import { tenantUuidMulti } from "../tenant-scope.js";
 import { proveedorContactos, proveedorCupo, proveedorInvitaciones } from "../../db/schema-proveedores.js";
 import type { ContactoProveedor, EstadoContactoProveedor, InvitacionProveedor } from "../../modules/whatsapp/proveedor.js";
 import { idsConBasePropia } from "../db.js";
+import { esModoShared, tenantActual } from "../tenant-mode.js";
 import { control } from "./_almacen.js";
 import { BaseNoDisponible, intentarLeer, intentarPersistir, dbVivaTenant, type TenantDb } from "../server-db.js";
+
+const UUID_TENANT = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function tenantIdCupoPersistido(tenantId: string): string {
+  if (UUID_TENANT.test(tenantId)) return tenantId;
+  const ctx = tenantActual();
+  if (esModoShared() && ctx && UUID_TENANT.test(ctx)) return ctx;
+  return tenantUuidMulti(tenantId);
+}
 
 // #68: un E.164 (o un hash) pertenece a un solo comercio, y la fila se escribe
 // en la base de ese comercio. El webhook no conoce el comercio hasta leerla,
@@ -64,23 +75,43 @@ function marcasDe(valor: unknown): number[] {
   return marcas;
 }
 
+function claveEspejoContacto(numero: string): string {
+  const ctx = tenantActual();
+  if (esModoShared() && ctx) return `${ctx}\0${numero}`;
+  return numero;
+}
+
 function espejarCupo(numero: string, marcasMs: readonly number[], aviso: boolean): void {
   control.proveedorCupo.set(numero, [...marcasMs]);
   if (aviso) control.proveedorCupoAviso.set(numero, true);
   else control.proveedorCupoAviso.delete(numero);
 }
 
+function whereContactoPorNumero(numero: string) {
+  // P1-81: en shared el mismo E.164 puede existir en dos comercios; sin contexto no adivinamos.
+  const ctx = tenantActual();
+  if (esModoShared()) {
+    if (!ctx) throw new Error("Falta tenant");
+    return and(eq(proveedorContactos.numeroE164, numero), eq(proveedorContactos.tenantId, ctx));
+  }
+  return eq(proveedorContactos.numeroE164, numero);
+}
+
 export async function contactoPorNumero(numero: string): Promise<ContactoProveedor | null> {
   const fila = await primeraFila(async (db) => {
-    const [f] = await db.select().from(proveedorContactos).where(eq(proveedorContactos.numeroE164, numero)).limit(1);
+    const [f] = await db
+      .select()
+      .from(proveedorContactos)
+      .where(whereContactoPorNumero(numero))
+      .limit(1);
     return f ?? null;
   });
   if (fila) {
     const contacto = contactoDe(fila);
-    control.proveedorContactos.set(numero, contacto);
+    control.proveedorContactos.set(claveEspejoContacto(numero), contacto);
     return contacto;
   }
-  return control.proveedorContactos.get(numero) ?? null;
+  return control.proveedorContactos.get(claveEspejoContacto(numero)) ?? null;
 }
 
 export async function listarContactos(tenantId: string): Promise<ContactoProveedor[]> {
@@ -96,7 +127,7 @@ export async function listarContactos(tenantId: string): Promise<ContactoProveed
     for (const fila of filas) {
       const contacto = contactoDe(fila);
       porNumero.set(contacto.numeroE164, contacto);
-      control.proveedorContactos.set(contacto.numeroE164, contacto);
+      control.proveedorContactos.set(claveEspejoContacto(contacto.numeroE164), contacto);
     }
   }
   return [...porNumero.values()];
@@ -104,7 +135,7 @@ export async function listarContactos(tenantId: string): Promise<ContactoProveed
 
 export async function guardarContacto(contacto: ContactoProveedor): Promise<void> {
   const previo = await contactoPorNumero(contacto.numeroE164);
-  if (previo && previo.tenantId !== contacto.tenantId) {
+  if (previo && previo.tenantId !== contacto.tenantId && !esModoShared()) {
     await intentarPersistir(
       (db) =>
         db
@@ -125,7 +156,7 @@ export async function guardarContacto(contacto: ContactoProveedor): Promise<void
           creadoEn: new Date(contacto.creadoEn),
         })
         .onConflictDoUpdate({
-          target: proveedorContactos.numeroE164,
+          target: [proveedorContactos.tenantId, proveedorContactos.numeroE164],
           set: {
             tenantId: contacto.tenantId,
             supplierCuit: contacto.supplierCuit,
@@ -135,7 +166,7 @@ export async function guardarContacto(contacto: ContactoProveedor): Promise<void
         }),
     contacto.tenantId,
   );
-  control.proveedorContactos.set(contacto.numeroE164, contacto);
+  control.proveedorContactos.set(claveEspejoContacto(contacto.numeroE164), contacto);
 }
 
 export async function invitacionPorHash(codigoHash: string): Promise<InvitacionProveedor | null> {
@@ -178,8 +209,13 @@ export async function guardarInvitacion(invitacion: InvitacionProveedor): Promis
 }
 
 export async function leerCupo(numero: string, tenantId: string): Promise<{ marcasMs: number[]; aviso: boolean }> {
+  const tid = tenantIdCupoPersistido(tenantId);
   const fila = await intentarLeer(async (db) => {
-    const [f] = await db.select().from(proveedorCupo).where(eq(proveedorCupo.numeroE164, numero)).limit(1);
+    const [f] = await db
+      .select()
+      .from(proveedorCupo)
+      .where(and(eq(proveedorCupo.tenantId, tid), eq(proveedorCupo.numeroE164, numero)))
+      .limit(1);
     return f ?? null;
   }, tenantId);
   if (fila) {
@@ -200,13 +236,14 @@ export async function guardarCupo(
   aviso: boolean,
 ): Promise<void> {
   const marcas = [...marcasMs];
+  const tid = tenantIdCupoPersistido(tenantId);
   await intentarPersistir(
     (db) =>
       db
         .insert(proveedorCupo)
-        .values({ numeroE164: numero, marcasMs: marcas, aviso })
+        .values({ tenantId: tid, numeroE164: numero, marcasMs: marcas, aviso })
         .onConflictDoUpdate({
-          target: proveedorCupo.numeroE164,
+          target: [proveedorCupo.tenantId, proveedorCupo.numeroE164],
           set: { marcasMs: marcas, aviso },
         }),
     tenantId,
@@ -215,7 +252,11 @@ export async function guardarCupo(
 }
 
 export async function limpiarCupo(numero: string, tenantId: string): Promise<void> {
-  await intentarPersistir((db) => db.delete(proveedorCupo).where(eq(proveedorCupo.numeroE164, numero)), tenantId);
+  const tid = tenantIdCupoPersistido(tenantId);
+  await intentarPersistir(
+    (db) => db.delete(proveedorCupo).where(and(eq(proveedorCupo.tenantId, tid), eq(proveedorCupo.numeroE164, numero))),
+    tenantId,
+  );
   control.proveedorCupo.delete(numero);
   control.proveedorCupoAviso.delete(numero);
 }

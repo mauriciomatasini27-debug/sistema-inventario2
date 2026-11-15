@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { dondeTenant } from "./tenant-scope.js";
 import { getTenantDb } from "./db.js";
 import {
   purchaseOrderLines,
@@ -102,7 +103,7 @@ export async function leerBorradorPorKey(
   const filas = await db
     .select()
     .from(supplierDrafts)
-    .where(eq(supplierDrafts.idempotencyKey, key))
+    .where(dondeTenant(supplierDrafts.tenantId, eq(supplierDrafts.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   if (!fila) return null;
@@ -156,7 +157,7 @@ export async function leerFacturaPorKey(
   const filas = await db
     .select()
     .from(supplierInvoices)
-    .where(eq(supplierInvoices.idempotencyKey, key))
+    .where(dondeTenant(supplierInvoices.tenantId, eq(supplierInvoices.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   if (!fila) return null;
@@ -199,7 +200,7 @@ export async function leerPagoPorKey(
   const filas = await db
     .select()
     .from(supplierPayments)
-    .where(eq(supplierPayments.idempotencyKey, key))
+    .where(dondeTenant(supplierPayments.tenantId, eq(supplierPayments.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   if (!fila) return null;
@@ -211,7 +212,7 @@ export async function leerFacturasPorCuit(db: TenantDb, cuit: string): Promise<F
   const filas = await db
     .select()
     .from(supplierInvoices)
-    .where(eq(supplierInvoices.supplierCuit, cuit));
+    .where(dondeTenant(supplierInvoices.tenantId, eq(supplierInvoices.supplierCuit, cuit)));
   const out: Factura[] = [];
   for (const fila of filas) {
     const draftId = fila.draftId
@@ -226,7 +227,10 @@ export async function leerFacturasPorCuit(db: TenantDb, cuit: string): Promise<F
 }
 
 export async function leerPagosPorCuit(db: TenantDb, cuit: string): Promise<PagoProveedor[]> {
-  const filas = await db.select().from(supplierPayments).where(eq(supplierPayments.supplierCuit, cuit));
+  const filas = await db
+    .select()
+    .from(supplierPayments)
+    .where(dondeTenant(supplierPayments.tenantId, eq(supplierPayments.supplierCuit, cuit)));
   const out: PagoProveedor[] = [];
   for (const fila of filas) {
     const facturaId = fila.facturaId ? await facturaIdDominioDeUuid(db, fila.facturaId) : null;
@@ -246,7 +250,7 @@ export interface OrdenDb {
 }
 
 export async function leerOrdenesDb(db: TenantDb): Promise<OrdenDb[]> {
-  const heads = await db.select().from(purchaseOrders);
+  const heads = await db.select().from(purchaseOrders).where(dondeTenant(purchaseOrders.tenantId));
   return heads.map((h) => ({
     uuid: h.id,
     matchable: {
@@ -305,13 +309,13 @@ export async function leerOrdenCompleta(
   const heads = await db
     .select()
     .from(purchaseOrders)
-    .where(eq(purchaseOrders.idempotencyKey, orderId.slice(3)))
+    .where(dondeTenant(purchaseOrders.tenantId, eq(purchaseOrders.idempotencyKey, orderId.slice(3))))
     .limit(1);
   const head = heads[0];
   if (!head) return null;
   const lineas = await db
     .select()
     .from(purchaseOrderLines)
-    .where(eq(purchaseOrderLines.orderId, head.id));
+    .where(dondeTenant(purchaseOrderLines.tenantId, eq(purchaseOrderLines.orderId, head.id)));
   return ordenCompletaDeFilas(head, lineas);
 }

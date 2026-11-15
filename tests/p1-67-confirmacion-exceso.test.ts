@@ -88,7 +88,7 @@ describe.skipIf(!hayPG)("P1-67 confirmación de exceso en la venta a cuenta", ()
     const id = randomUUID();
     ids.push(id);
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customers).values({ id, nombre: "Ana", topeCentavos });
+      await getTenantDb().insert(customers).values(filaPg({ id, nombre: "Ana", topeCentavos }));
     });
     return id;
   }
@@ -98,14 +98,16 @@ describe.skipIf(!hayPG)("P1-67 confirmación de exceso en la venta a cuenta", ()
     keys.push(key);
     const cuando = new Date(Date.now() - (dias * MS_POR_DIA + 1000));
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customerMovements).values({
-        customerId,
-        tipo: "venta",
-        debeCentavos: debe,
-        haberCentavos: 0n,
-        idempotencyKey: key,
-        clientOccurredAt: cuando,
-      });
+      await getTenantDb().insert(customerMovements).values(
+        filaPg({
+          customerId,
+          tipo: "venta",
+          debeCentavos: debe,
+          haberCentavos: 0n,
+          idempotencyKey: key,
+          clientOccurredAt: cuando,
+        }),
+      );
     });
   }
 

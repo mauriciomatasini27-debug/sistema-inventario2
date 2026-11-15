@@ -3,6 +3,7 @@ import { z } from "zod";
 import { crear_padron_stub_homo } from "../../../modules/fiscal/padron.js";
 import { intentarPersistir } from "../../../lib/server-db.js";
 import { fiscalCustomers } from "../../../db/schema-fiscal.js";
+import { filaConTenant } from "../../../lib/tenant-scope.js";
 
 export const prerender = false;
 
@@ -27,7 +28,19 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = z.object({ doc_tipo: z.string().min(1).max(4), doc_nro: z.string().min(1).max(13), nombre: z.string().min(1).max(200), domicilio: z.string().max(300).optional(), cond_iva: z.string().min(1).max(4).default("5") }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   void intentarPersistir((db) =>
-    db.insert(fiscalCustomers).values({ docTipo: parsed.data.doc_tipo, docNro: parsed.data.doc_nro, nombre: parsed.data.nombre, domicilio: parsed.data.domicilio ?? null, condIva: parsed.data.cond_iva, origen: "declarado" }).onConflictDoNothing(),
+    db
+      .insert(fiscalCustomers)
+      .values(
+        filaConTenant({
+          docTipo: parsed.data.doc_tipo,
+          docNro: parsed.data.doc_nro,
+          nombre: parsed.data.nombre,
+          domicilio: parsed.data.domicilio ?? null,
+          condIva: parsed.data.cond_iva,
+          origen: "declarado",
+        }),
+      )
+      .onConflictDoNothing(),
   );
   return Response.json({ ...parsed.data, origen: "declarado" }, { status: 201 });
 };

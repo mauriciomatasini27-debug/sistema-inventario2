@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { emailOutbox, notificationEvents } from "../../db/schema-email.js";
 import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { conTenant, tenantActual } from "../tenant-mode.js";
@@ -68,19 +69,25 @@ export async function encolarEnvio(input: {
     return { ok: true, key: input.key, fuente: "memoria" };
   }
   try {
-    const previo = await db.select({ id: emailOutbox.id }).from(emailOutbox).where(eq(emailOutbox.idempotencyKey, input.key)).limit(1);
+    const previo = await db
+      .select({ id: emailOutbox.id })
+      .from(emailOutbox)
+      .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, input.key)))
+      .limit(1);
     if (previo[0]) return { ok: false, codigo: "DUPLICADO", key: input.key };
     const texto = Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla;
-    await db.insert(emailOutbox).values({
-      categoria: input.stream,
-      plantilla: input.plantilla,
-      destinatario: input.to,
-      asunto: input.plantilla,
-      html: `<p>${input.plantilla}</p>`,
-      texto,
-      idempotencyKey: input.key,
-      estado: "pendiente",
-    });
+    await db.insert(emailOutbox).values(
+      filaConTenant({
+        categoria: input.stream,
+        plantilla: input.plantilla,
+        destinatario: input.to,
+        asunto: input.plantilla,
+        html: `<p>${input.plantilla}</p>`,
+        texto,
+        idempotencyKey: input.key,
+        estado: "pendiente",
+      }),
+    );
   } catch (e) {
     conParticion(input.tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);
     conParticion(input.tenantId, () => {
@@ -164,33 +171,34 @@ export async function encolarResumen(input: {
   const db = dbVivaTenant(input.tenantId);
   if (!db) return r;
   try {
-    const tenantUuid = esUuid(input.tenantId) ? input.tenantId : null;
     await db.transaction(async (tx) => {
       await tx
         .insert(notificationEvents)
-        .values({
-          tenantId: tenantUuid,
-          tipo: r.evento.tipo,
-          version: 1,
-          payload: r.evento.payload,
-          dedupeKey: r.evento.dedupeKey,
-          estado: "pendiente",
-        })
-        .onConflictDoNothing({ target: notificationEvents.dedupeKey });
+        .values(
+          filaConTenant({
+            tipo: r.evento.tipo,
+            version: 1,
+            payload: r.evento.payload,
+            dedupeKey: r.evento.dedupeKey,
+            estado: "pendiente",
+          }),
+        )
+        .onConflictDoNothing({ target: [notificationEvents.tenantId, notificationEvents.dedupeKey] });
       await tx
         .insert(emailOutbox)
-        .values({
-          tenantId: tenantUuid,
-          categoria: "cierre",
-          plantilla: "cierre_v1",
-          destinatario: r.envio.destinatario,
-          asunto: r.envio.asunto,
-          html: r.envio.html,
-          texto: r.envio.texto,
-          idempotencyKey: r.envio.idempotencyKey,
-          estado: "pendiente",
-        })
-        .onConflictDoNothing({ target: emailOutbox.idempotencyKey });
+        .values(
+          filaConTenant({
+            categoria: "cierre",
+            plantilla: "cierre_v1",
+            destinatario: r.envio.destinatario,
+            asunto: r.envio.asunto,
+            html: r.envio.html,
+            texto: r.envio.texto,
+            idempotencyKey: r.envio.idempotencyKey,
+            estado: "pendiente",
+          }),
+        )
+        .onConflictDoNothing({ target: [emailOutbox.tenantId, emailOutbox.idempotencyKey] });
     });
   } catch (e) {
     conParticion(input.tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);

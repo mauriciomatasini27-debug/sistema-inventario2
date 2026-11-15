@@ -104,7 +104,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
     const id = randomUUID();
     ids.push(id);
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customers).values({ id, nombre: "Ana", topeCentavos: tope });
+      await getTenantDb().insert(customers).values(filaPg({ id, nombre: "Ana", topeCentavos: tope }));
     });
     return id;
   }

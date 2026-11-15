@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
-import { dondeTenant } from "../tenant-scope.js";
+import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { customerMovements } from "../../db/schema-credito.js";
 import { dbVivaTenant } from "../server-db.js";
@@ -106,7 +106,7 @@ async function clienteDeVenta(key: string): Promise<string | undefined> {
     const filas = await db
       .select({ customerId: customerMovements.customerId })
       .from(customerMovements)
-      .where(eq(customerMovements.idempotencyKey, key))
+      .where(dondeTenant(customerMovements.tenantId, eq(customerMovements.idempotencyKey, key)))
       .limit(1);
     return filas[0]?.customerId;
   } catch {
@@ -406,16 +406,18 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       try {
         await db
           .insert(customerMovements)
-          .values({
-            customerId: e.credito.customerId,
-            tipo: "devolucion",
-            debeCentavos: 0n,
-            haberCentavos: e.credito.haberCentavos,
-            saleId: input.saleId,
-            idempotencyKey: key,
-            motivo: e.credito.motivo,
-            clientOccurredAt: new Date(input.clientOccurredAt),
-          })
+          .values(
+            filaConTenant({
+              customerId: e.credito.customerId,
+              tipo: "devolucion",
+              debeCentavos: 0n,
+              haberCentavos: e.credito.haberCentavos,
+              saleId: input.saleId,
+              idempotencyKey: key,
+              motivo: e.credito.motivo,
+              clientOccurredAt: new Date(input.clientOccurredAt),
+            }),
+          )
           .onConflictDoNothing();
       } catch (err) {
         credito.anteFalloPersistencia(err);

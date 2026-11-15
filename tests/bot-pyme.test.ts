@@ -20,6 +20,7 @@ import { listarClientesConSaldo } from "../src/lib/repos/fiado.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
+import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const SECRET = "test-secret-jobs";
 const DIA = 86_400_000;
@@ -412,15 +413,19 @@ describe.skipIf(!hayPG)("BOT-S4 listarClientesConSaldo en Postgres por tenant", 
     fijarMulti();
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
-      await db.insert(customers).values({ id: idCliente, nombre: "Cliente PG BOT-S4", telefono: "1155550000", topeCentavos: 100_000n });
-      await db.insert(customerMovements).values({
-        customerId: idCliente,
-        tipo: "venta",
-        debeCentavos: 150_000n,
-        haberCentavos: 0n,
-        idempotencyKey: claveMov,
-        clientOccurredAt: new Date(ahoraMs - 20 * DIA),
-      });
+      await db
+        .insert(customers)
+        .values(filaPg({ id: idCliente, nombre: "Cliente PG BOT-S4", telefono: "1155550000", topeCentavos: 100_000n }));
+      await db.insert(customerMovements).values(
+        filaPg({
+          customerId: idCliente,
+          tipo: "venta",
+          debeCentavos: 150_000n,
+          haberCentavos: 0n,
+          idempotencyKey: claveMov,
+          clientOccurredAt: new Date(ahoraMs - 20 * DIA),
+        }),
+      );
     });
   });
 

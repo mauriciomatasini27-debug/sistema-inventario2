@@ -105,7 +105,7 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
     const id = randomUUID();
     ids.push(id);
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customers).values({ id, nombre: "Ana", topeCentavos: 0n });
+      await getTenantDb().insert(customers).values(filaPg({ id, nombre: "Ana", topeCentavos: 0n }));
     });
     return id;
   }
@@ -115,14 +115,16 @@ describe.skipIf(!hayPG)("P1-66 el empleado no vende a cuenta en mora", () => {
     keys.push(key);
     const cuando = new Date(Date.now() - (dias * MS_POR_DIA + 1000));
     await conTenant("tenant-a", async () => {
-      await getTenantDb().insert(customerMovements).values({
-        customerId,
-        tipo: debe > 0n ? "venta" : "cobro",
-        debeCentavos: debe,
-        haberCentavos: haber,
-        idempotencyKey: key,
-        clientOccurredAt: cuando,
-      });
+      await getTenantDb().insert(customerMovements).values(
+        filaPg({
+          customerId,
+          tipo: debe > 0n ? "venta" : "cobro",
+          debeCentavos: debe,
+          haberCentavos: haber,
+          idempotencyKey: key,
+          clientOccurredAt: cuando,
+        }),
+      );
     });
   }
 

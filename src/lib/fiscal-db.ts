@@ -1,7 +1,8 @@
 import { eq, like, sql } from "drizzle-orm";
 import { BaseNoDisponible, intentarLeer, intentarPersistir } from "./server-db.js";
 import { getTenantDb } from "./db.js";
-import { esModoMulti, tenantActual } from "./tenant-mode.js";
+import { esModoMulti, esModoShared, tenantActual } from "./tenant-mode.js";
+import { dondeTenant } from "./tenant-scope.js";
 import { fiscalDocuments, fiscalWizard } from "../db/schema-fiscal.js";
 import type { StoredFiscalDoc } from "./store.js";
 import type { DelegacionEstado, WizardEstado } from "../modules/fiscal/wizard.js";
@@ -80,7 +81,7 @@ export async function leerFiscalDocPorKey(db: TenantDb, key: string): Promise<St
   const filas = await db
     .select()
     .from(fiscalDocuments)
-    .where(eq(fiscalDocuments.idempotencyKey, key))
+    .where(dondeTenant(fiscalDocuments.tenantId, eq(fiscalDocuments.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   return fila ? filaAFiscalDoc(fila) : null;
@@ -96,7 +97,7 @@ export async function leerNdPorHeaderKey(db: TenantDb, key: string): Promise<Sto
   const filas = await db
     .select()
     .from(fiscalDocuments)
-    .where(like(fiscalDocuments.idempotencyKey, `nd:${key}:%`))
+    .where(dondeTenant(fiscalDocuments.tenantId, like(fiscalDocuments.idempotencyKey, `nd:${key}:%`)))
     .limit(1);
   const fila = filas[0];
   return fila ? filaAFiscalDoc(fila) : null;
@@ -176,6 +177,7 @@ export async function reencolarFiscalDoc(
 // solo memoria hasta el cutover con lock de numeración.
 export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promise<boolean> {
   const dueno = tenantId ?? d.tenant_id ?? tenantActual() ?? null;
+  if (esModoShared() && !dueno) throw new Error("Falta tenant");
   return intentarPersistir((db) =>
     db
       .insert(fiscalDocuments)
@@ -201,15 +203,20 @@ export function persistirFiscalDoc(d: StoredFiscalDoc, tenantId?: string): Promi
         caeVto: d.cae_vto,
         qrPayload: d.qr_payload,
       })
-      .onConflictDoNothing({ target: fiscalDocuments.idempotencyKey }),
+      .onConflictDoNothing({ target: [fiscalDocuments.tenantId, fiscalDocuments.idempotencyKey] }),
     dueno ?? undefined,
   );
 }
 
 /** Lee los docs fiscales del tenant desde DB, o null sin DB (el caller usa memoria). */
 export async function leerFiscalDocs(tenantId?: string): Promise<StoredFiscalDoc[] | null> {
+  if (esModoShared() && !tenantId && !tenantActual()) throw new Error("Falta tenant");
   try {
     return await intentarLeer(async (db) => {
+      if (esModoShared()) {
+        const filas = await db.select().from(fiscalDocuments).where(dondeTenant(fiscalDocuments.tenantId));
+        return filas.map(filaAFiscalDoc);
+      }
       if (tenantId === undefined) {
         const filas = await db.select().from(fiscalDocuments);
         return filas.map(filaAFiscalDoc);
@@ -328,7 +335,7 @@ export async function asegurarFiscalDoc(
         caeVto: d.cae_vto,
         qrPayload: d.qr_payload,
       })
-      .onConflictDoNothing({ target: fiscalDocuments.idempotencyKey })
+      .onConflictDoNothing({ target: [fiscalDocuments.tenantId, fiscalDocuments.idempotencyKey] })
       .returning({ id: fiscalDocuments.id });
     if (!filas[0]) {
       const carrera = await leerFiscalDocPorKey(db, d.idempotency_key);
