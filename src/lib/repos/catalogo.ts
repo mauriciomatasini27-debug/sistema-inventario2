@@ -71,10 +71,11 @@ async function ubicacionesDb(db: TenantDb, skus: readonly string[]): Promise<Map
   const mapa = new Map<string, string | null>();
   if (skus.length === 0) return mapa;
   try {
+    const porSku = inArray(products.sku, [...skus]);
     const filas = await db
       .select({ sku: products.sku, locationId: products.locationId })
       .from(products)
-      .where(inArray(products.sku, [...skus]));
+      .where(dondeTenant(products.tenantId, porSku) ?? porSku);
     for (const f of filas) mapa.set(f.sku, f.locationId);
   } catch (e) {
     if (!esColumnaLocationFaltante(e)) throw e;
@@ -84,7 +85,8 @@ async function ubicacionesDb(db: TenantDb, skus: readonly string[]): Promise<Map
 
 async function fijarLocationDb(db: TenantDb, sku: string, locationId: string | null): Promise<void> {
   try {
-    await db.update(products).set({ locationId }).where(eq(products.sku, sku));
+    const porSku = eq(products.sku, sku);
+    await db.update(products).set({ locationId }).where(dondeTenant(products.tenantId, porSku) ?? porSku);
   } catch (e) {
     if (!esColumnaLocationFaltante(e)) throw e;
   }
@@ -103,10 +105,11 @@ async function umbralesDb(db: TenantDb, skus: readonly string[]): Promise<Map<st
   const mapa = new Map<string, { minStock: number | null; reorderQty: number | null }>();
   if (skus.length === 0) return mapa;
   try {
+    const porSku = inArray(products.sku, [...skus]);
     const filas = await db
       .select({ sku: products.sku, minStock: products.minStock, reorderQty: products.reorderQty })
       .from(products)
-      .where(inArray(products.sku, [...skus]));
+      .where(dondeTenant(products.tenantId, porSku) ?? porSku);
     for (const f of filas) mapa.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
   } catch (e) {
     if (!esColumnaUmbralFaltante(e)) throw e;
@@ -116,7 +119,8 @@ async function umbralesDb(db: TenantDb, skus: readonly string[]): Promise<Map<st
 
 async function fijarUmbralesDb(db: TenantDb, sku: string, umbrales: { minStock: number | null; reorderQty: number | null }): Promise<void> {
   try {
-    await db.update(products).set(umbrales).where(eq(products.sku, sku));
+    const porSku = eq(products.sku, sku);
+    await db.update(products).set(umbrales).where(dondeTenant(products.tenantId, porSku) ?? porSku);
   } catch (e) {
     if (!esColumnaUmbralFaltante(e)) throw e;
   }
@@ -298,10 +302,11 @@ export async function leerStockActualPorSkus(skus: readonly string[]): Promise<M
     }
     return resultado;
   }
+  const porSku = inArray(products.sku, claves);
   const filas = await db
     .select({ sku: products.sku, stockActual: products.stockActual })
     .from(products)
-    .where(inArray(products.sku, claves));
+    .where(dondeTenant(products.tenantId, porSku) ?? porSku);
   for (const fila of filas) resultado.set(fila.sku.toUpperCase(), fila.stockActual);
   return resultado;
 }
@@ -479,10 +484,11 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
   }
   try {
+    const porSku = eq(products.sku, sku);
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
       .from(products)
-      .where(eq(products.sku, sku))
+      .where(dondeTenant(products.tenantId, porSku) ?? porSku)
       .limit(1);
     const fila = filas[0];
     const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
@@ -495,7 +501,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
         precioCentavos: BigInt(next.precioCentavos),
         ...(parche.sector !== undefined ? { sector: next.sector } : {}),
       })
-      .where(eq(products.sku, sku));
+      .where(dondeTenant(products.tenantId, porSku) ?? porSku);
     if (parche.locationId !== undefined) await fijarLocationDb(db, sku, parche.locationId);
     // Por qué separado: fijarUmbralesDb tolera bases sin la 0027 igual
     // que fijarLocationDb tolera las sin la 0021.
@@ -537,7 +543,7 @@ async function leerUbicaciones(db: TenantDb | null, ubicaciones: AlmacenVivo<Ubi
   const memoria = [...ubicaciones.comoMapaSoloLectura().values()];
   if (!db) return memoria;
   try {
-    const filas = await db.select().from(locations);
+    const filas = await db.select().from(locations).where(dondeTenant(locations.tenantId));
     const union = new Map<string, Ubicacion>();
     for (const u of memoria) union.set(u.id, u);
     for (const f of filas) {
@@ -603,7 +609,10 @@ export async function altaUbicacion(nombre: string): Promise<AltaUbicacionResult
   const db = dbVivaTenant();
   if (db) {
     try {
-      const previas = await db.select({ nombre: locations.nombre }).from(locations);
+      const previas = await db
+        .select({ nombre: locations.nombre })
+        .from(locations)
+        .where(dondeTenant(locations.tenantId));
       if (previas.some((p) => p.nombre.toLowerCase() === limpio.toLowerCase())) {
         return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
       }
@@ -643,7 +652,8 @@ export async function renombrarUbicacion(id: string, nombre: string): Promise<Re
     try {
       const previas = await db
         .select({ id: locations.id, nombre: locations.nombre, archivada: locations.archivada })
-        .from(locations);
+        .from(locations)
+        .where(dondeTenant(locations.tenantId));
       const actual = previas.find((p) => p.id === id);
       if (!actual) return { ok: false, codigo: "DESCONOCIDA", error: "ubicacion desconocida" };
       if (previas.some((p) => p.id !== id && p.nombre.toLowerCase() === limpio.toLowerCase())) {
@@ -651,7 +661,8 @@ export async function renombrarUbicacion(id: string, nombre: string): Promise<Re
       }
       const u: Ubicacion = { id, nombre: limpio, archivada: actual.archivada ?? false };
       try {
-        await db.update(locations).set({ nombre: limpio }).where(eq(locations.id, id));
+        const porId = eq(locations.id, id);
+        await db.update(locations).set({ nombre: limpio }).where(dondeTenant(locations.tenantId, porId) ?? porId);
       } catch (upd) {
         if (esChoqueUnicoUbicacion(upd)) return { ok: false, codigo: "DUPLICADA", error: "ubicacion duplicada" };
         throw upd;
@@ -707,10 +718,11 @@ export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Prom
       const enMemoria = productos.obtener(sku);
       let base: FichaProducto | null = enMemoria ?? null;
       if (!base && db) {
+        const porSku = eq(products.sku, sku);
         const filas = await db
           .select({ sku: products.sku, nombre: products.nombre, precioCentavos: products.precioCentavos, sector: products.sector })
           .from(products)
-          .where(eq(products.sku, sku))
+          .where(dondeTenant(products.tenantId, porSku) ?? porSku)
           .limit(1);
         const fila = filas[0];
         if (!fila) {

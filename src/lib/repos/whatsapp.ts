@@ -1,4 +1,5 @@
-import { and, eq, isNull, like } from "drizzle-orm";
+import { and, eq, isNull, like, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { products, stockMovements } from "../../db/schema.js";
 import { notificationEvents, type AlertaStockPayload } from "../../db/schema-email.js";
@@ -53,6 +54,14 @@ function hayMemoria(tenantId?: string): boolean {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// P1-86: el webhook pasa el comercio y puede correr fuera del ALS, así que
+// el uuid explícito va en eq. Sin uuid (single "slice0" o sin argumento)
+// dondeTenant lee el contexto y en single o multi no agrega predicado.
+function dondeFila(col: AnyPgColumn, tenantId?: string): SQL | undefined {
+  if (tenantId && UUID.test(tenantId)) return eq(col, tenantId);
+  return dondeTenant(col);
+}
+
 // BOT2 alias: product_aliases es compartida por comercios, products no.
 // El tenant explícito manda; sin él vale el contexto del request. En single
 // el tenant legado ("slice0") no es uuid y los alias viven con tenant_id null.
@@ -72,15 +81,17 @@ async function aliasesPorSku(db: TenantDb, tenantId?: string): Promise<Map<strin
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
-// ALR-S1: el umbral sale de products.min_stock (DB primero); sin mínimo
-// vale 0 y el job usa el fallback de rotación 7d.
+// P1-86: en shared solo filas del comercio. ALR-S1: el umbral sale de
+// products.min_stock (DB primero). Sin mínimo vale 0 y el job usa el
+// fallback de rotación 7d.
 export async function listarCatalogoConFuente(tenantId?: string): Promise<{ items: ItemVivo[]; fuente: FuenteTurno }> {
   const db = dbVivaTenant(tenantId);
   if (!db) return { items: conParticion(tenantId, catalogoVivoMemoria), fuente: "memoria" };
   try {
     const filas = await db
       .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
-      .from(products);
+      .from(products)
+      .where(dondeFila(products.tenantId, tenantId));
     const aliases = await aliasesPorSku(db, tenantId);
     return {
       items: filas.map((p) => ({
@@ -220,12 +231,12 @@ export function agregarListaViernes(tenantId: string, friday: ListaViernes, ahor
   });
 }
 
-// Pedidos del tenant a la vista del día a día.
+// Pedidos y proveedores del comercio a la vista del día a día (P1-86).
 export async function listarPedidosDia(tenantId?: string): Promise<PedidoDia[]> {
   const db = dbVivaTenant(tenantId);
   if (db) {
     try {
-      return await pedidosDiaEnDb(db);
+      return await pedidosDiaEnDb(db, tenantId);
     } catch (e) {
       conParticion(tenantId, () => crearAlmacenPurchaseOrders()).anteFalloPersistencia(e);
     }
@@ -234,11 +245,15 @@ export async function listarPedidosDia(tenantId?: string): Promise<PedidoDia[]> 
   return conParticion(tenantId, pedidosDiaEnMemoria);
 }
 
-async function pedidosDiaEnDb(db: TenantDb): Promise<PedidoDia[]> {
+async function pedidosDiaEnDb(db: TenantDb, tenantId?: string): Promise<PedidoDia[]> {
   const ordenes = await db
     .select({ id: purchaseOrders.id, supplierCuit: purchaseOrders.supplierCuit, estado: purchaseOrders.estado, creadoEn: purchaseOrders.createdAt, total: purchaseOrders.totalCentavos })
-    .from(purchaseOrders);
-  const provs = await db.select({ cuit: suppliers.cuit, nombre: suppliers.nombre }).from(suppliers);
+    .from(purchaseOrders)
+    .where(dondeFila(purchaseOrders.tenantId, tenantId));
+  const provs = await db
+    .select({ cuit: suppliers.cuit, nombre: suppliers.nombre })
+    .from(suppliers)
+    .where(dondeFila(suppliers.tenantId, tenantId));
   const porCuit = new Map(provs.map((p) => [p.cuit, p.nombre]));
   return ordenes.map((o) => ({
     id: o.id,
@@ -266,12 +281,15 @@ function pedidosDiaEnMemoria(): PedidoDia[] {
   return out;
 }
 
-// Movimientos a la vista del día a día.
+// Movimientos de stock del comercio a la vista del día a día (P1-86).
 export async function listarMovimientosVista(ahoraMs: number, tenantId?: string): Promise<MovimientoVista[]> {
   const db = dbVivaTenant(tenantId);
   if (db) {
     try {
-      const filas = await db.select({ idemKey: stockMovements.idemKey, sku: stockMovements.sku, delta: stockMovements.delta, tipo: stockMovements.tipo }).from(stockMovements);
+      const filas = await db
+        .select({ idemKey: stockMovements.idemKey, sku: stockMovements.sku, delta: stockMovements.delta, tipo: stockMovements.tipo })
+        .from(stockMovements)
+        .where(dondeFila(stockMovements.tenantId, tenantId));
       return filas.map((m) => ({ idemKey: m.idemKey, sku: m.sku, delta: m.delta, tipo: m.tipo as MovimientoVista["tipo"], fechaMs: ahoraMs }));
     } catch (e) {
       conParticion(tenantId, () => crearListaMovimientosStock()).anteFalloPersistencia(e);
@@ -485,18 +503,20 @@ export function calculoSemanalMemoria(tenantId?: string): CalculoSemanal {
   });
 }
 
-// Resumen semanal vivo (NE3.1/B9.1): products + stock_movements con DB viva,
-// memoria particionada solo en single sin base. En multi sin base propaga.
+// Resumen semanal vivo (NE3.1/B9.1). P1-86: products y stock_movements del
+// comercio. Memoria particionada solo en single sin base. En multi sin base propaga.
 export async function calculoSemanalVivo(tenantId?: string): Promise<CalculoSemanal> {
   const db = dbVivaTenant(tenantId);
   if (!db) return calculoSemanalMemoria(tenantId);
   try {
     const prods = await db
       .select({ sku: products.sku, nombre: products.nombre, precio: products.precioCentavos })
-      .from(products);
+      .from(products)
+      .where(dondeFila(products.tenantId, tenantId));
     const movs = await db
       .select({ sku: stockMovements.sku, delta: stockMovements.delta, tipo: stockMovements.tipo })
-      .from(stockMovements);
+      .from(stockMovements)
+      .where(dondeFila(stockMovements.tenantId, tenantId));
     const porSku = new Map(prods.map((p) => [p.sku, p]));
     const ventas = new Map<string, { unidades: number; importe: bigint }>();
     for (const m of movs) {

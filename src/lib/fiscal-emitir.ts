@@ -270,19 +270,24 @@ export function puertoPostgres(db: TenantDb): PuertoFiscalDurable {
     const inciertas = await db
       .select({ id: fiscalDocuments.id })
       .from(fiscalDocuments)
-      .where(eq(fiscalDocuments.estado, "respuesta_incierta"));
+      .where(dondeTenant(fiscalDocuments.tenantId, eq(fiscalDocuments.estado, "respuesta_incierta")));
     for (const f of inciertas) ids.set(f.id, true);
     const retenidas = await db
       .select({ titular: fiscalSequences.inFlightDocumentId })
       .from(fiscalSequences)
-      .where(isNotNull(fiscalSequences.inFlightDocumentId));
+      .where(dondeTenant(fiscalSequences.tenantId, isNotNull(fiscalSequences.inFlightDocumentId)));
     for (const f of retenidas) {
       if (f.titular !== null) ids.set(f.titular, true);
     }
     const difieren = await db
       .select({ id: fiscalDocuments.id })
       .from(fiscalDocuments)
-      .where(and(eq(fiscalDocuments.estado, "pendiente"), eq(fiscalDocuments.ultimoErrorCodigo, "difiere")));
+      .where(
+        dondeTenant(
+          fiscalDocuments.tenantId,
+          and(eq(fiscalDocuments.estado, "pendiente"), eq(fiscalDocuments.ultimoErrorCodigo, "difiere")),
+        ),
+      );
     for (const f of difieren) ids.set(f.id, true);
     for (const id of ids.keys()) {
       const doc = await leerFiscalDocPorId(db, id);
@@ -303,7 +308,7 @@ async function liberarSecuencia(tx: TxEmision, clave: SequenceKey): Promise<void
   await tx
     .update(fiscalSequences)
     .set({ inFlightDocumentId: null })
-    .where(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo)));
+    .where(filtroSeq(and(eq(fiscalSequences.puntoVenta, clave.puntoVenta), eq(fiscalSequences.cbteTipo, clave.cbteTipo))));
 }
 
 function columnasDeDoc(doc: StoredFiscalDoc) {
