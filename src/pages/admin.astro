@@ -173,9 +173,9 @@ const pills = [
       </div>
 
       <div class="banner">
-        <div><b>Mora 14 días · suspensión día 15</b><br /><span class="mini" style="color:var(--color-muted-dark)">Suspender/reactivar piden motivo + ID escrito. Todo acto queda auditado.</span></div>
+        <div><b>Mora 14 días · suspensión día 15</b><br /><span class="mini" style="color:var(--color-muted-dark)">Suspender y reactivar se hacen en Tenants, con motivo y el id escrito.</span></div>
         <span style="margin-left:auto"></span>
-        <a href="#mora">Ver mora →</a>
+        <a href="#tenants">Ir a Tenants →</a>
       </div>
 
       <div class="grid r1">
@@ -249,7 +249,8 @@ const pills = [
             <line x1="270" y1="10" x2="270" y2="150" stroke="var(--tema-texto)" stroke-width="1" />
             <g font-size="10" fill="var(--tema-texto-suave)"><text x="30" y="165">Ene</text><text x="150" y="165">Mar</text><text x="270" y="165">Jun</text><text x="330" y="165">Jul</text><text x="570" y="165">Nov</text></g>
           </svg>
-          <div class="mini">Suspender/reactivar: <span style="font-family:monospace">POST /api/admin/mora/suspender</span> y <span style="font-family:monospace">.../regularizar</span> (motivo + ID escrito).</div>
+          <!-- ADMIN-PANEL-WIRE: un solo camino. Suspender vive en Tenants; esta tarjeta no llama a mora/suspender. -->
+          <div class="mini">Suspender y reactivar están en <a href="#tenants">Tenants</a>.</div>
         </section>
 
         <section class="card" id="composicion">
@@ -263,6 +264,7 @@ const pills = [
             </svg>
           </div>
           <div class="legend"><span>◉ <span id="leg-ok">70%</span> Al día</span><span>● <span id="leg-mora">30%</span> Mora</span></div>
+          <div class="mini">La suspensión se hace en <a href="#tenants">Tenants</a>.</div>
           <div class="estado" id="mora-estado"><span class="demo">demo</span> — en vivo con señales de cobranza.</div>
         </section>
       </div>
@@ -313,7 +315,7 @@ const pills = [
       <div class="grid r3">
         <section class="card" id="cobros" data-admin-tarjeta="cobros">
           <h2>Cobros <span class="demo" id="b-cobros">demo</span> <a href="#cobros">↗</a></h2>
-          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span></div>
+          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span><br />Suspender y reactivar están en <a href="#tenants">Tenants</a>. Regularizar con cobro queda fuera de este panel.</div>
           <form id="cobros-form">
             <input id="cobros-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del cobro" />
             <input id="cobros-monto" name="monto_centavos" required inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
@@ -406,6 +408,7 @@ const pills = [
         marca("b-activos", true); marca("b-mora", true);
       };
       const cargarSalud = () => get("/api/admin/salud").then(pintarSalud).catch((e) => {
+        pintarHeatDemo();
         if (e.message === "forbidden") {
           if (!tenantsEnVivo) {
             document.getElementById("n-activos").textContent = "—";
@@ -724,8 +727,7 @@ const pills = [
         const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
         heat.replaceChildren();
         seed.forEach((v) => heat.appendChild(celdaHeat(!!v)));
-        document.getElementById("heat-ok").textContent = "0";
-        document.getElementById("heat-pend").textContent = "0";
+        marca("b-senales-tarjeta", false);
       }
       // ADMIN-PANEL-WIRE: doce cubos de reloj. Una hora queda en true si alguna
       // ultimaSenalEn cae ahí. No se escala con salud.length.
@@ -748,6 +750,7 @@ const pills = [
         }
         heat.replaceChildren();
         on.forEach((v) => heat.appendChild(celdaHeat(v)));
+        marca("b-senales-tarjeta", true);
       }
       pintarHeatDemo();
       // Buscador filtra la tabla de auditoría.
@@ -805,6 +808,8 @@ const pills = [
         document.getElementById("reportes-confirmar-texto").textContent =
           "Pasar el reporte a " + pendienteReporte.estado + ". Escribí el id completo y el motivo.";
         document.getElementById("reportes-id-visible").textContent = pendienteReporte.id;
+        const selEstado = document.getElementById("reportes-estado");
+        if (selEstado) selEstado.value = pendienteReporte.estado;
         document.getElementById("reportes-motivo").value = "";
         document.getElementById("reportes-confirmo").value = "";
         document.getElementById("reportes-confirmar").hidden = false;
@@ -828,7 +833,7 @@ const pills = [
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               accion: "estado",
-              estado: pendienteReporte.estado,
+              estado: (document.getElementById("reportes-estado") && document.getElementById("reportes-estado").value) || pendienteReporte.estado,
               confirmo_id: confirmo,
               motivo,
             }),
@@ -1025,13 +1030,13 @@ const pills = [
           return;
         }
         const abierta = form.idempotency_key.value.trim();
+        const json = await leerCuerpo(r);
         if (r.status === 409 && abierta === key && key) {
           estado.textContent = "En vivo: ese cobro ya estaba asentado.";
           marca("b-cobros", true);
           rotarClaveCobro();
           return;
         }
-        const json = await leerCuerpo(r);
         if (!r.ok) {
           estado.textContent = json && json.error ? json.error : ("http " + r.status);
           return;

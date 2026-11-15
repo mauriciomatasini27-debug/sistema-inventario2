@@ -20,4 +20,11 @@ describe("ADMIN-PANEL-WIRE tarjetas", () => {
     expect(html).toContain("b.descartadas");
     expect(html).toContain("for (let i = 0; i < 12; i++)");
   });
+
+  it("manda la suspensión a Tenants y no promete mora/suspender ni regularizar", () => {
+    expect(html).toContain('href="#tenants"');
+    expect(html).toContain("Suspender y reactivar están en");
+    expect(html).not.toContain("/api/admin/mora/");
+    expect(html).not.toContain("data-admin-accion=\"mora-");
+  });
 });
