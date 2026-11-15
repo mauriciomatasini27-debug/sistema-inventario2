@@ -12,6 +12,7 @@ import { registrar_acto, type ActoAdmin } from "../../../modules/admin/actos.js"
 import type { OrigenAdmin } from "../../../modules/admin/boundary.js";
 import { adminStore, ultimoHashAdmin, type AdminActoMem } from "../../../lib/admin-store.js";
 import { persistirAdminPlataforma, persistirActoAdmin } from "../../../lib/admin-db.js";
+import { asegurarAdminHidratado } from "../../../lib/admin-hydrate.js";
 import { jsonError, resolverSesion } from "../../../lib/control.js";
 
 export interface AdminCtx {
@@ -32,6 +33,13 @@ export function exigirAdmin(request: Request): AdminCtx | Response {
   // P10-17: el uso del panel registra al sub como admin de plataforma (copia durable best-effort; la verdad sigue en la allowlist).
   void persistirAdminPlataforma(ctx.googleSub);
   return { googleSub: ctx.googleSub };
+}
+
+export async function exigirAdminListo(request: Request): Promise<AdminCtx | Response> {
+  const admin = exigirAdmin(request);
+  if (admin instanceof Response) return admin;
+  await asegurarAdminHidratado();
+  return admin;
 }
 
 export function auditar(acto: ActoAdmin, actorGoogleSub: string, origen: OrigenAdmin): AdminActoMem {

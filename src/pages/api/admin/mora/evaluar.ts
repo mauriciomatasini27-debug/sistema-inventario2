@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
-import { auditar, exigirAdmin, leerJson } from "../_guard.js";
+import { auditar, exigirAdminListo, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { evaluar_mora } from "../../../../modules/admin/mora.js";
 
@@ -11,7 +11,7 @@ export const prerender = false;
 // Cobranza automática (cargos/MP webhook) vive en fase 2; hoy el panel opera
 // en manual MVP: el operador informa días de atraso y saldo deudor.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
 
   const parsed = await leerJson(request);

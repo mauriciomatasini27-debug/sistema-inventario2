@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirEventoVidaAdmin } from "../../../../lib/admin-db.js";
-import { auditar, exigirAdmin, exigirConfirmacion, leerJson } from "../_guard.js";
+import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { aplicar_evento_vida } from "../../../../modules/admin/mora.js";
 import { fechaAR } from "../../../../lib/fecha-ar.js";
@@ -13,7 +13,7 @@ export const prerender = false;
 // (mismo proceso; el worker control lo aplicará en multiproceso, fase 2).
 // Admin NUNCA importa server-db ni schemas de negocio (PA3).
 export const POST: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
 
   const parsed = await leerJson(request);

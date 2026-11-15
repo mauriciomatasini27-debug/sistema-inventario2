@@ -8,7 +8,7 @@ import { registrar_acto } from "../../../../modules/admin/actos.js";
 import { ultimoHashAdmin } from "../../../../lib/admin-store.js";
 import { getControlDb } from "../../../../lib/db.js";
 import { opsSignalsOutbox } from "../../../../db/schema.js";
-import { exigirAdmin } from "../_guard.js";
+import { exigirAdminListo } from "../_guard.js";
 
 export const prerender = false;
 
@@ -18,7 +18,7 @@ export const prerender = false;
 // consumida. Una caída a mitad de camino deja reclamadas que el próximo
 // consumo reanuda (nunca splice destructivo). Sin DB drena memoria.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   const actor = admin.googleSub;
   const worker = `senales-${process.pid}`;

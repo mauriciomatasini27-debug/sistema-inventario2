@@ -1,13 +1,13 @@
 import type { APIRoute } from "astro";
 import { adminStore } from "../../../lib/admin-store.js";
-import { exigirAdmin } from "./_guard.js";
+import { exigirAdminListo } from "./_guard.js";
 
 export const prerender = false;
 
 // GET /api/admin/actos?limite= — últimos actos (PA2). Sin prev_hash crudo ni
 // detalle con PII: hash corto + kind + tenant + actor + fecha + origen.
 export const GET: APIRoute = async ({ request }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
 
   const url = new URL(request.url);
