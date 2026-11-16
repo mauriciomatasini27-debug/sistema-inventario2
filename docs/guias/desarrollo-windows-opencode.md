@@ -124,7 +124,7 @@ En `~/.bashrc` agregá (el default de `pg-local.sh` es `/workspace/.pgdata`, que
 
 ```bash
 export PGDATA_LOCAL="$HOME/.pgdata-inventario"
-export OPENCODE_BIN="$(command -v opencode)"   # pstack-run.sh busca ~/.local/bin/opencode por defecto
+export OPENCODE_BIN="$(command -v opencode)"   # opcional: pstack-run.sh, modelos.mjs y bench-modelos también resuelven desde el PATH
 ```
 
 Probá la base: `bash scripts/pg-local.sh start` tiene que imprimir `ok pers_tenant_a ...` y `ok pers_tenant_b ...` (puerto 54329, auth trust solo en 127.0.0.1, migra con drizzle). El cluster que Ubuntu arranca en 5432 no molesta.

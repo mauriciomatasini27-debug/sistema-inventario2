@@ -152,7 +152,7 @@ La asignación por agente sale del mismo JSON. `poteto-agent` usa razon, `pstack
 
 **Resolución.** `perfilDe` limpia una barra inicial, busca el nombre en `perfiles`, después en `agentes`, después en `skills` y cae a `perfilPorDefecto`. `resolver` filtra los modelos que existen y los que no están caídos, y devuelve `perfil`, `asignado`, `elegido`, `disponibles` y `descartados`. Si no queda ninguno, `elegido` es `null` y la CLI sale con exit 3.
 
-**Detección de disponibilidad.** `opencode models opencode` lista los modelos de Zen sin gastar tokens. El resultado se cachea `ttlMinutos` (10 por defecto, o `PSTACK_MODELOS_TTL_MIN`) en `~/.cache/pstack-modelos/estado.json`, movible con `XDG_CACHE_HOME` o `PSTACK_MODELOS_CACHE`. Si el comando falla, sigue sin filtrar para no bloquear por un problema del binario. `PSTACK_MODELOS_DISPONIBLES` reemplaza la lista y existe para tests. `OPENCODE_BIN` cambia el binario, con default `$HOME/.local/bin/opencode`. `PSTACK_MODELOS_CONFIG` cambia la ruta del JSON de perfiles.
+**Detección de disponibilidad.** `opencode models opencode` lista los modelos de Zen sin gastar tokens. El resultado se cachea `ttlMinutos` (10 por defecto, o `PSTACK_MODELOS_TTL_MIN`) en `~/.cache/pstack-modelos/estado.json`, movible con `XDG_CACHE_HOME` o `PSTACK_MODELOS_CACHE`. Si el comando falla, sigue sin filtrar para no bloquear por un problema del binario. `PSTACK_MODELOS_DISPONIBLES` reemplaza la lista y existe para tests. `OPENCODE_BIN` cambia el binario; si falta, `buscarBin` toma `opencode` del PATH y después prueba `~/.opencode/bin/opencode`, `~/.local/bin/opencode`, `/usr/local/bin/opencode` y `/usr/bin/opencode`. `PSTACK_MODELOS_CONFIG` cambia la ruta del JSON de perfiles.
 
 **Cache de caídos.** `caido <modelo> [motivo]` guarda `{ hasta, motivo }` con vencimiento a `PSTACK_MODELOS_TTL_MIN` minutos. Mientras no vence, `resolver` lo saltea sin volver a probarlo. `revivir <modelo>` borra esa entrada para volver a probarlo sin esperar el vencimiento. La misma cache guardada por `PSTACK_MODELOS_CACHE` contiene la lista de modelos, así que un `caido` sobre una cache válida sin la clave `caidos` no rompe.
 
@@ -166,7 +166,7 @@ La asignación por agente sale del mismo JSON. `poteto-agent` usa razon, `pstack
 
 ## Cómo funciona en Ubuntu/WSL de Mauri
 
-Requisitos: Node 22, el binario de OpenCode en `~/.local/bin/opencode` o en `OPENCODE_BIN`, y bash con `curl`, `timeout`, `pgrep` y `seq`. No hay `npm install` ni dependencias nuevas. `modelos.mjs` usa solo módulos `node:`.
+Requisitos: Node 22, el binario de OpenCode en el PATH o en `OPENCODE_BIN` (si falta, se prueban `~/.opencode/bin` y `~/.local/bin`), y bash con `curl`, `timeout`, `pgrep` y `seq`. No hay `npm install` ni dependencias nuevas. `modelos.mjs` usa solo módulos `node:`.
 
 ```bash
 cd ~/sistema-inventario
