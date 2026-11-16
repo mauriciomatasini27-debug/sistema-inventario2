@@ -19,7 +19,10 @@ import {
 } from "../db/schema.js";
 import { whatsappCodes } from "../db/schema-whatsapp.js";
 import { deviceSyncState, offlineGrants } from "../db/schema-sync.js";
-import { control, type ControlTenant } from "./store.js";
+import { normalizarEmail } from "../modules/auth/oidc.js";
+import type { EfectoInvitacion } from "../modules/tenants/invitar-empleado.js";
+import type { RegistroInvitacion } from "../modules/tenants/invitaciones.js";
+import { control, type ControlInvitation, type ControlTenant } from "./store.js";
 import { rubroSchema } from "./validation.js";
 
 // Write-through de control best-effort (mismo patrón que server-db para el
@@ -195,6 +198,94 @@ export function persistirInvitacionEstado(tokenHash: string, estado: string, ace
       .set({ estado, ...(aceptadaPor !== undefined ? { aceptadaPor } : {}) })
       .where(eq(invitations.tokenHash, tokenHash)),
   );
+}
+
+export function insertarInvitacionControl(registro: RegistroInvitacion): Promise<boolean> {
+  return intentarControl((db) =>
+    db
+      .insert(invitations)
+      .values({
+        tokenHash: registro.tokenHash,
+        tenantId: registro.tenantId,
+        email: registro.email,
+        rol: registro.rol,
+        permisos: registro.permisos,
+        estado: registro.estado,
+        expiraAt: new Date(registro.expiraAt),
+        creadaPor: registro.creadaPor ?? null,
+      })
+      .onConflictDoNothing({ target: invitations.tokenHash }),
+  );
+}
+
+const ESTADOS_INVITACION = new Set(["pendiente", "aceptada", "vencida", "cancelada"]);
+
+function estadoInvitacion(valor: string): ControlInvitation["estado"] | null {
+  return ESTADOS_INVITACION.has(valor) ? (valor as ControlInvitation["estado"]) : null;
+}
+
+function hayPendienteVigente(tenantId: string, email: string, ahora: Date): boolean {
+  const buscado = normalizarEmail(email);
+  for (const inv of control.invitations.values()) {
+    if (inv.tenantId !== tenantId || normalizarEmail(inv.email) !== buscado) continue;
+    if (inv.estado === "pendiente" && new Date(inv.expiraAt).getTime() > ahora.getTime()) return true;
+  }
+  return false;
+}
+
+// P1-88: el mapa es lo que lee el accept. Si la copia durable falla, el mapa
+// queda escrito: intentarControl no lanza y la memoria sigue siendo la fuente.
+export async function aplicarEfectoInvitacion(efecto: EfectoInvitacion): Promise<"ok" | "carrera"> {
+  const ahora = new Date();
+  if (efecto.entrega === "nueva" && hayPendienteVigente(efecto.insertar.tenantId, efecto.insertar.email, ahora)) {
+    return "carrera";
+  }
+  for (const hash of efecto.cancelarHashes) {
+    const fila = control.invitations.get(hash);
+    if (fila) fila.estado = "cancelada";
+  }
+  control.invitations.set(efecto.insertar.tokenHash, {
+    tokenHash: efecto.insertar.tokenHash,
+    tenantId: efecto.insertar.tenantId,
+    email: efecto.insertar.email,
+    rol: efecto.insertar.rol,
+    permisos: [...efecto.insertar.permisos],
+    estado: efecto.insertar.estado,
+    expiraAt: efecto.insertar.expiraAt,
+    ...(efecto.insertar.creadaPor !== undefined ? { creadaPor: efecto.insertar.creadaPor } : {}),
+    ...(efecto.insertar.aceptadaPor !== undefined ? { aceptadaPor: efecto.insertar.aceptadaPor } : {}),
+  });
+  await insertarInvitacionControl(efecto.insertar);
+  for (const hash of efecto.cancelarHashes) {
+    await persistirInvitacionEstado(hash, "cancelada");
+  }
+  return "ok";
+}
+
+export async function leerInvitacionPorHash(tokenHash: string): Promise<ControlInvitation | null> {
+  const previa = control.invitations.get(tokenHash);
+  if (previa) return previa;
+  const filas = await leerControl((db) =>
+    db.select().from(invitations).where(eq(invitations.tokenHash, tokenHash)).limit(1),
+  );
+  const row = filas?.[0];
+  if (!row?.tenantId) return null;
+  const estado = estadoInvitacion(row.estado);
+  const rol = row.rol === "dueno" || row.rol === "empleado" ? row.rol : null;
+  if (!estado || !rol) return null;
+  const inv: ControlInvitation = {
+    tokenHash: row.tokenHash,
+    tenantId: row.tenantId,
+    email: row.email,
+    rol,
+    permisos: Array.isArray(row.permisos) ? row.permisos.filter((p): p is string => typeof p === "string") : [],
+    estado,
+    expiraAt: row.expiraAt.toISOString(),
+    ...(row.creadaPor ? { creadaPor: row.creadaPor } : {}),
+    ...(row.aceptadaPor ? { aceptadaPor: row.aceptadaPor } : {}),
+  };
+  control.invitations.set(inv.tokenHash, inv);
+  return inv;
 }
 
 async function leerControl<T>(fn: (db: ControlDb) => Promise<T>): Promise<T | null> {

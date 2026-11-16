@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { acceptInvitationSchema } from "../../../lib/validation.js";
 import { control } from "../../../lib/store.js";
 import { contarMiembrosActivos, jsonError, resolverSesion } from "../../../lib/control.js";
+import { leerInvitacionPorHash } from "../../../lib/control-db.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { crearSesion } from "../../../modules/auth/sesiones.js";
@@ -28,7 +29,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return jsonError("Falta el token de invitación.", 422);
   }
 
-  const inv = control.invitations.get(hashToken(parsed.data.token));
+  const hash = hashToken(parsed.data.token);
+  // P1-88: después de un reinicio el mapa está vacío y la fila sigue en control.
+  let inv = control.invitations.get(hash) ?? (await leerInvitacionPorHash(hash));
   // Por qué 403 genérico si no existe: no revelar invitaciones ajenas (AU6.5).
   if (!inv) return jsonError("Esta invitación no es válida.", 403);
   const tenant = control.tenants.get(inv.tenantId);

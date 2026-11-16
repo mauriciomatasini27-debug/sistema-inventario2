@@ -10,7 +10,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
-import { persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
+import { leerInvitacionPorHash, persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
 import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
 
@@ -165,6 +165,8 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const tokenInvitacion = pendiente.invitationToken;
   // El token viaja plano en el link; se hashea para comparar (AU6.2).
   const hashBuscado = tokenInvitacion ? hashToken(tokenInvitacion) : null;
+  // P1-88: tras reinicio el mapa está vacío; el link de login relee la fila de control.
+  if (hashBuscado) await leerInvitacionPorHash(hashBuscado);
   const candidatas = [...control.invitations.values()].filter((c) => {
     if (hashBuscado) return c.tokenHash === hashBuscado;
     return c.estado === "pendiente" && normalizarEmail(c.email) === email;
