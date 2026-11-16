@@ -124,7 +124,7 @@ En `~/.bashrc` agregá (el default de `pg-local.sh` es `/workspace/.pgdata`, que
 
 ```bash
 export PGDATA_LOCAL="$HOME/.pgdata-inventario"
-export OPENCODE_BIN="$(command -v opencode)"   # pstack-run.sh busca ~/.local/bin/opencode por defecto
+export OPENCODE_BIN="$(command -v opencode)"   # opcional: pstack-run.sh, modelos.mjs y bench-modelos también resuelven desde el PATH
 ```
 
 Probá la base: `bash scripts/pg-local.sh start` tiene que imprimir `ok pers_tenant_a ...` y `ok pers_tenant_b ...` (puerto 54329, auth trust solo en 127.0.0.1, migra con drizzle). El cluster que Ubuntu arranca en 5432 no molesta.
@@ -226,7 +226,7 @@ Si dice "No se verificó nada" y sale 0, falta Java o la red: no es verde. Si di
 - `Falta Postgres: sudo apt-get install -y postgresql`: `pg-local.sh` no encontró `/usr/lib/postgresql/*/bin`. Instalá `postgresql-17` o exportá `PGBIN`.
 - `initdb` no puede crear `/workspace/.pgdata`: falta `PGDATA_LOCAL` en `~/.bashrc`.
 - Puerto 54329 ocupado: `export PG_LOCAL_PORT=<otro>` (`verify` respeta la variable).
-- `pstack-run: opencode serve did not start`: revisá `OPENCODE_BIN` y `/tmp/opencode-serve.log`.
+- `pstack-run: opencode serve did not start`: revisá `OPENCODE_BIN` y `.pstack-tmp/opencode-serve.log`.
 - `database is locked` en OpenCode: hay dos sesiones abiertas. Cerrá una o usá `pstack-run.sh`.
 - `gh pr view N` falla por scopes: usá `gh pr view N --json title,body,state` o `gh api`.
 - Tests lentos o archivos con CRLF: el repo está en `/mnt/c`. Clonalo en `~/`. `.gitattributes` fuerza LF; nunca renormalices un archivo entero.

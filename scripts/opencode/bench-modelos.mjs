@@ -1,11 +1,14 @@
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buscarBin } from "../../.opencode/modelos.mjs";
 
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BIN = process.env.OPENCODE_BIN || path.join(homedir(), ".local/bin/opencode");
+// P10-21: la misma resolución que modelos.mjs y pstack-run.sh (OPENCODE_BIN, PATH,
+// ~/.opencode/bin, ~/.local/bin). El default fijo a ~/.local/bin rompía en WSL,
+// donde el binario vive en el PATH.
+const BIN = buscarBin();
 const SALIDA = path.join(DIR, ".pstack-tmp/bench-modelos/resultados.jsonl");
 
 const args = process.argv.slice(2);
@@ -24,6 +27,12 @@ for (let i = 0; i < args.length; i++) {
 }
 if (!modelos.length) {
   console.error("uso: node scripts/opencode/bench-modelos.mjs [--url <url>] <modelo> [...]");
+  process.exit(2);
+}
+if (!BIN) {
+  console.error(
+    "bench-modelos: no encontré el binario de opencode (miré OPENCODE_BIN, PATH, ~/.opencode/bin y ~/.local/bin)",
+  );
   process.exit(2);
 }
 
