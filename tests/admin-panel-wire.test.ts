@@ -29,7 +29,7 @@ describe("ADMIN-PANEL-WIRE tarjetas", () => {
     expect(html).toContain("pintarHeatPorUltimaSenalEn");
   });
 
-  it("mora reusa el confirm de Tenants y no llama /api/admin/mora", () => {
+  it("mora reusa el confirm de Tenants y cablea los endpoints de mora", () => {
     expect(html).toContain('id="mora-tabla"');
     expect(html).toContain('id="mora-body"');
     expect(html).toContain('id="tenants-confirmar"');
@@ -37,10 +37,10 @@ describe("ADMIN-PANEL-WIRE tarjetas", () => {
     expect(html).toContain("abrirConfirmacion");
     expect(html).toContain("hashchange");
     expect(html).toContain("nav.pills a");
-    expect(html).toContain('href="#tenants"');
-    expect(html).toContain("Suspender y reactivar están en");
-    expect(html).not.toContain("/api/admin/mora/");
-    expect(html).not.toContain("data-admin-accion=\"mora-");
+    expect(html).toContain('id="mora-dryrun"');
+    expect(html).toContain('data-admin-accion="mora-evaluar"');
+    expect(html).toContain("ejecutarAccionMora");
+    expect(html).toContain('id="tenants-cobro"');
     expect(html).not.toContain('id="composicion"');
     expect(html).not.toContain('id="dona-');
   });

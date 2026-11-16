@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirAsientoAdmin, persistirEventoVidaAdmin } from "../../../../lib/admin-db.js";
+import { persistirEstadoTenant } from "../../../../lib/control-db.js";
 import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { asentar_cobro } from "../../../../modules/admin/ledger.js";
@@ -32,61 +33,87 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return jsonError("monto_centavos inválido.", 422);
   }
-  const r = asentar_cobro({
-    input: {
-      tenantId,
-      montoCentavos: monto,
-      medio: typeof cobro["medio"] === "string" ? cobro["medio"] : "",
-      referenciaExterna: typeof cobro["referencia_externa"] === "string" ? cobro["referencia_externa"] : "",
-      idempotencyKey: typeof cobro["idempotency_key"] === "string" ? cobro["idempotency_key"] : "",
-    },
-    creadoPor: admin.googleSub,
-    vistos: new Set([...adminStore.asientos.values()].map((a) => a.idempotencyKey)),
-  });
-  if (!r.ok) return jsonError(r.error, r.status);
-  adminStore.asientos.set(r.asiento.id, { ...r.asiento, creadoEn: r.asiento.creadoEn });
-  void persistirAsientoAdmin({
-    tenantId,
-    montoCentavos: r.asiento.montoCentavos,
-    medio: r.asiento.medio,
-    referenciaExterna: r.asiento.referenciaExterna,
-    idempotencyKey: r.asiento.idempotencyKey,
-    creadoPor: admin.googleSub,
-  });
+  const idempotencyKey =
+    typeof cobro["idempotency_key"] === "string" ? cobro["idempotency_key"].trim() : "";
+  const previo = [...adminStore.asientos.values()].find((a) => a.idempotencyKey === idempotencyKey);
+  if (previo && previo.tenantId !== tenantId) {
+    return jsonError("idempotency-key ya asentada en otro tenant.", 409);
+  }
 
-  const idemKey = `regularizar:${tenantId}:${r.asiento.idempotencyKey}`;
+  // #223: el reintento del operador cae en el mismo asiento y solo asegura el
+  // estado activo; no duplica el cobro ni el evento de vida.
+  let asientoId: string;
+  let montoAsentado: bigint;
+  if (previo) {
+    asientoId = previo.id;
+    montoAsentado = previo.montoCentavos;
+  } else {
+    const r = asentar_cobro({
+      input: {
+        tenantId,
+        montoCentavos: monto,
+        medio: typeof cobro["medio"] === "string" ? cobro["medio"] : "",
+        referenciaExterna: typeof cobro["referencia_externa"] === "string" ? cobro["referencia_externa"] : "",
+        idempotencyKey,
+      },
+      creadoPor: admin.googleSub,
+      vistos: new Set([...adminStore.asientos.values()].map((a) => a.idempotencyKey)),
+    });
+    if (!r.ok) return jsonError(r.error, r.status);
+    adminStore.asientos.set(r.asiento.id, { ...r.asiento, creadoEn: r.asiento.creadoEn });
+    void persistirAsientoAdmin({
+      tenantId,
+      montoCentavos: r.asiento.montoCentavos,
+      medio: r.asiento.medio,
+      referenciaExterna: r.asiento.referenciaExterna,
+      idempotencyKey: r.asiento.idempotencyKey,
+      creadoPor: admin.googleSub,
+    });
+    asientoId = r.asiento.id;
+    montoAsentado = r.asiento.montoCentavos;
+  }
+
+  const idemKey = `regularizar:${tenantId}:${idempotencyKey}`;
   const deEstado = tenant.estado;
   const aEstado = aplicar_evento_vida(deEstado, "activo");
   tenant.estado = aEstado;
-  adminStore.eventosVida.push({
-    id: `evt:${idemKey}`,
-    tenantId,
-    deEstado,
-    aEstado,
-    motivo: conf.motivo,
-    actor: `panel:${admin.googleSub}`,
-    idempotencyKey: idemKey,
-    creadoEn: new Date().toISOString(),
-  });
-  void persistirEventoVidaAdmin({
-    tenantId,
-    deEstado,
-    aEstado,
-    motivo: conf.motivo,
-    actor: `panel:${admin.googleSub}`,
-    idempotencyKey: idemKey,
-  });
-  auditar(
-    { kind: "regularizacion_asentada", tenantId, ledgerEntryId: r.asiento.id },
-    admin.googleSub,
-    "panel",
-  );
+  // Ya activo no emite evento de vida: no hay transición que registrar.
+  if (aEstado !== deEstado && !adminStore.eventosVida.some((e) => e.idempotencyKey === idemKey)) {
+    adminStore.eventosVida.push({
+      id: `evt:${idemKey}`,
+      tenantId,
+      deEstado,
+      aEstado,
+      motivo: conf.motivo,
+      actor: `panel:${admin.googleSub}`,
+      idempotencyKey: idemKey,
+      creadoEn: new Date().toISOString(),
+    });
+    void persistirEventoVidaAdmin({
+      tenantId,
+      deEstado,
+      aEstado,
+      motivo: conf.motivo,
+      actor: `panel:${admin.googleSub}`,
+      idempotencyKey: idemKey,
+    });
+  }
+  // #223: regularizar deja el tenant activo en la fila, no solo en memoria.
+  if (deEstado !== "activo") void persistirEstadoTenant(tenantId, "activo");
+  if (!previo) {
+    auditar(
+      { kind: "regularizacion_asentada", tenantId, ledgerEntryId: asientoId },
+      admin.googleSub,
+      "panel",
+    );
+  }
   return Response.json(
     {
       tenant_id: tenantId,
       estado: aEstado,
-      asiento_id: r.asiento.id,
-      monto_centavos: r.asiento.montoCentavos.toString(),
+      asiento_id: asientoId,
+      monto_centavos: montoAsentado.toString(),
+      ya: Boolean(previo),
     },
     { status: 200 },
   );

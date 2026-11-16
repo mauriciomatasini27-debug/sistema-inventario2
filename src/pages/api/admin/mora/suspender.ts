@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirEventoVidaAdmin } from "../../../../lib/admin-db.js";
+import { persistirEstadoTenant } from "../../../../lib/control-db.js";
 import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { aplicar_evento_vida } from "../../../../modules/admin/mora.js";
@@ -44,6 +45,10 @@ export const POST: APIRoute = async ({ request }) => {
     creadoEn: new Date().toISOString(),
   };
   adminStore.eventosVida.push(evento);
+  // #222: la suspensión tiene que sobrevivir un reinicio. El event es la
+  // fuente de verdad para control, pero el worker que lo consume es fase 2;
+  // hasta entonces la ruta también escribe la fila del tenant.
+  void persistirEstadoTenant(tenantId, "suspendido");
   void persistirEventoVidaAdmin({
     tenantId,
     deEstado: evento.deEstado,
