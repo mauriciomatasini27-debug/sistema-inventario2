@@ -29,11 +29,20 @@ describe("ADMIN-PANEL-WIRE tarjetas", () => {
     expect(html).toContain("pintarHeatPorUltimaSenalEn");
   });
 
-  it("manda la suspensión a Tenants y no promete mora/suspender ni regularizar", () => {
+  it("mora reusa el confirm de Tenants y no llama /api/admin/mora", () => {
+    expect(html).toContain('id="mora-tabla"');
+    expect(html).toContain('id="mora-body"');
+    expect(html).toContain('id="tenants-confirmar"');
+    expect(html.match(/id="tenants-confirmar"/g)).toHaveLength(1);
+    expect(html).toContain("abrirConfirmacion");
+    expect(html).toContain("hashchange");
+    expect(html).toContain("nav.pills a");
     expect(html).toContain('href="#tenants"');
     expect(html).toContain("Suspender y reactivar están en");
     expect(html).not.toContain("/api/admin/mora/");
     expect(html).not.toContain("data-admin-accion=\"mora-");
+    expect(html).not.toContain('id="composicion"');
+    expect(html).not.toContain('id="dona-');
   });
 });
 

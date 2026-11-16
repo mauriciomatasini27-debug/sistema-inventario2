@@ -21,14 +21,14 @@ describe("marca 2: toggle de tema en /admin", () => {
     expect(admin).toContain("<TemaToggle />");
   });
 
-  it("mora en ember coral y Al día/Cobrado con el token de estado ok", () => {
+  it("el segmento de mora del admin queda en ember coral", () => {
     expect(admin).toMatch(/id="seg-mora" class="ember-coral"/);
-    expect(admin).toMatch(/id="dona-arco"[^>]*stroke="var\(--estado-ok\)"/);
     expect(admin).not.toContain("var(--serie-ember)");
+    expect(admin).not.toContain('id="dona-arco"');
+    expect(admin).not.toContain('id="dona-pct"');
   });
 
-  it("el porcentaje de la dona sigue el color del texto (se lee en oscuro)", () => {
-    expect(admin).toMatch(/id="dona-pct"[^>]*fill="currentColor"/);
+  it("el porcentaje de la dona del panel sigue el color del texto", () => {
     expect(leer("src/components/panel/MixDonut.astro")).toMatch(/id="dona-pct"[^>]*fill="currentColor"/);
   });
 
