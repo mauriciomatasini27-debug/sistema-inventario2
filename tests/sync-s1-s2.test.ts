@@ -206,16 +206,19 @@ describe.skipIf(!hayPG)("SYNC-S1/S2 en PG local: cursor por tenant + catalogo de
     resetStore();
   });
 
-  afterAll(async () => {
-    fijarMulti();
-    await conTenant("tenant-a", async () => {
-      const db = getTenantDb();
-      await db.delete(outbox).where(inArray(outbox.opId, opIds));
-      await db.delete(products).where(sql`${products.sku} LIKE ${`${prefijoPG}%`}`);
-    });
-    resetStore();
-    limpiarMulti();
-  });
+  afterAll(
+    async () => {
+      fijarMulti();
+      await conTenant("tenant-a", async () => {
+        const db = getTenantDb();
+        await db.delete(outbox).where(inArray(outbox.opId, opIds));
+        await db.delete(products).where(sql`${products.sku} LIKE ${`${prefijoPG}%`}`);
+      });
+      resetStore();
+      limpiarMulti();
+    },
+    30_000,
+  );
 
   it("siembra 10k productos en A, pagina el outbox sin perder filas y B no ve el catalogo", async () => {
     fijarMulti();
