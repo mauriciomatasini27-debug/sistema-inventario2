@@ -14,3 +14,4 @@ playwright-report/
 vitest-report.json
 .pstack-tmp/
 .opencode/modelos-caidos.log
+docs/_origen-docx/

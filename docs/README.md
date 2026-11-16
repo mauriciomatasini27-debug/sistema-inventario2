@@ -8,7 +8,7 @@ Desarrollo local en Windows con OpenCode (WSL2, `npm run verify`, PRs y conviven
 Deploy del piloto (Google HTTPS, Postgres, Vercel, altas reales): [guias/deploy-piloto.md](guias/deploy-piloto.md).
 
 Organización por dominio, espejo de `src/modules/`. Cada carpeta = una funcionalidad del código.
-Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales en `docs/_origen-docx/`).
+Origen: 30 `.docx` de raíz convertidos a `.md` el 2026-10-11 (originales fuera del repo: se versionan solo los `.md`).
 ADRs en `docs/adr/` y PRDs de diseño en `docs/diseno/` se referencian, no se duplican.
 Checklist de gaps 2026-10-11: `archivo/CHECKLIST-documentacion.md` (PRDs `PRD-SYNC-01`, `PRD-PERS-01`, `PRD-PWA-01`, `PRD-CAT-01`, `PRD-CAJA-01`, `PRD-CH-01`, `PRD-OP-01` + ADRs `0023`-`0031`).
 Estado de implementación y roadmap: `ROADMAP.md` (reemplaza al checklist como fuente de estado; última revisión 2026-10-21).
