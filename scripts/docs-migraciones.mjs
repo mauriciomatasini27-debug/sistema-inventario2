@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderMigraciones, validarRegistros } from "./docs-migraciones-lib.mjs";
-import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
+import { esRamaDeTrabajo, modoChequeo, ramaActual } from "./rama-lib.mjs";
 
 const args = process.argv.slice(2);
 let raiz = "docs";
@@ -35,6 +35,10 @@ if (errores.length > 0) {
 const contenido = renderMigraciones(registros);
 const ruta = join(raiz, "roadmap", "migraciones-aplicadas.md");
 if (check) {
+  if (modoChequeo({ rama: ramaActual() }) === "saltar") {
+    console.log("docs:migraciones --check: en rama de trabajo se omite; los regenera main");
+    process.exit(0);
+  }
   const viejo = existsSync(ruta) ? readFileSync(ruta, "utf8") : null;
   if (viejo !== contenido) {
     console.error(`${ruta} desactualizado: corré npm run docs:migraciones`);

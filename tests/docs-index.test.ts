@@ -257,7 +257,7 @@ describe("docs:index CLI --raiz/--check", () => {
     let estado = 0;
     let salida = "";
     try {
-      execFileSync(process.execPath, [CLI, "--raiz", raiz, "--check"], { stdio: "pipe" });
+      execFileSync(process.execPath, [CLI, "--raiz", raiz, "--check"], { stdio: "pipe", cwd: raiz });
     } catch (e) {
       estado = (e as { status?: number }).status ?? 99;
       const err = e as { stdout?: Buffer; stderr?: Buffer };

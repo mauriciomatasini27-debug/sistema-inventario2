@@ -167,7 +167,8 @@ describe("modoEstado", () => {
     expect(modoEstado({ rama: "mauri/x", forzar: false, check: false })).toBe("imprimir");
     expect(modoEstado({ rama: "main", forzar: false, check: false })).toBe("escribir");
     expect(modoEstado({ rama: "mauri/x", forzar: true, check: false })).toBe("escribir");
-    expect(modoEstado({ rama: "mauri/x", forzar: false, check: true })).toBe("chequear");
+    expect(modoEstado({ rama: "mauri/x", forzar: false, check: true })).toBe("saltar");
+    expect(modoEstado({ rama: "main", forzar: false, check: true })).toBe("chequear");
   });
 });
 

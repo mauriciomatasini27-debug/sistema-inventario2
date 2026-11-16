@@ -60,6 +60,8 @@ if (modo === "chequear") {
     process.exit(1);
   }
   console.log("docs:estado al día");
+} else if (modo === "saltar") {
+  console.log("docs:estado --check: en rama de trabajo se omite; los regenera main");
 } else if (modo === "imprimir") {
   process.stdout.write(contenido);
 } else {

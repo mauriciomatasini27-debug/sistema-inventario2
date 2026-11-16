@@ -20,3 +20,9 @@ export function esRamaDeTrabajo(nombre) {
   const n = String(nombre ?? "").trim();
   return n !== "" && !esRamaPrincipal(n);
 }
+
+// DOCS-GATE-CHECK: los generados los regenera main, así que en rama de
+// trabajo el --check se omite (igual que la frescura de INDEX/graph en docs-check).
+export function modoChequeo({ rama }) {
+  return esRamaDeTrabajo(rama) ? "saltar" : "chequear";
+}

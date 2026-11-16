@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generarContenidos } from "./docs-index-lib.mjs";
-import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
+import { esRamaDeTrabajo, modoChequeo, ramaActual } from "./rama-lib.mjs";
 
 const args = process.argv.slice(2);
 let raiz = "docs";
@@ -19,6 +19,10 @@ const rutaGrafo = join(raiz, "graph.json");
 const { index, grafo } = generarContenidos(raiz);
 
 if (check) {
+  if (modoChequeo({ rama: ramaActual() }) === "saltar") {
+    console.log("docs:index --check: en rama de trabajo se omite; los regenera main");
+    process.exit(0);
+  }
   let viejoIndice = null;
   let viejoGrafo = null;
   try {

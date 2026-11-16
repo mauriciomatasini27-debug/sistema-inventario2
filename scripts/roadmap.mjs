@@ -7,7 +7,7 @@ import {
   recortarPrologo,
   renderizarSeccion,
 } from "./roadmap-lib.mjs";
-import { esRamaDeTrabajo, ramaActual } from "./rama-lib.mjs";
+import { esRamaDeTrabajo, modoChequeo, ramaActual } from "./rama-lib.mjs";
 
 const INICIO = "<!-- roadmap:avances:inicio -->";
 
@@ -69,6 +69,10 @@ const roadmap = readFileSync(rutaRoadmap, "utf8");
 const nuevo = recortarPrologo(aplicarSeccion(roadmap, renderizarSeccion(avances)));
 
 if (check) {
+  if (modoChequeo({ rama: ramaActual() }) === "saltar") {
+    console.log("roadmap --check: en rama de trabajo se omite; los regenera main");
+    process.exit(0);
+  }
   if (!roadmap.includes(INICIO)) {
     console.log("sin marcadores todavía");
     process.exit(0);
