@@ -190,6 +190,7 @@ describe.skipIf(!URL_A)("ALR durable contra PG", () => {
     delete process.env.TENANT_MODE;
     sql = postgres(url, { max: 1 });
     tenantId = randomUUID();
+    process.env.DEFAULT_TENANT_ID = tenantId;
     limpiarAlertasStockMemoria();
     await sql`delete from notification_events where tipo = 'alerta_stock'`;
   });
@@ -197,6 +198,7 @@ describe.skipIf(!URL_A)("ALR durable contra PG", () => {
   afterAll(async () => {
     await sql?.end();
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.DEFAULT_TENANT_ID;
     limpiarAlertasStockMemoria();
   });
 

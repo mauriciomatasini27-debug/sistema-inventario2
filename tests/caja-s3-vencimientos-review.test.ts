@@ -4,6 +4,7 @@ import { resetStore } from "../src/lib/store.js";
 import { control } from "../src/lib/store.js";
 import { POST as postJobCaja } from "../src/pages/api/jobs/vencimientos-caja.js";
 import { POST as postJobLotes } from "../src/pages/api/jobs/vencimientos-lotes.js";
+import { activarTenantPgEnSingle } from "./helpers/pg-tenant-fixture.js";
 
 const SECRETO = "review-s3-secreto";
 
@@ -115,6 +116,7 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 function modoSinglePG(url: string) {
   modoSingle();
   process.env.TENANT_DATABASE_URL = url;
+  activarTenantPgEnSingle();
 }
 
 describe.skipIf(!hayPG)("CAJA-S3 review H3 PG", () => {
@@ -125,6 +127,7 @@ describe.skipIf(!hayPG)("CAJA-S3 review H3 PG", () => {
   });
   afterEach(() => {
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.DEFAULT_TENANT_ID;
     modoSingle();
     resetStore();
   });
