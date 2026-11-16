@@ -1,5 +1,5 @@
 ---
-import { beatPorId, whatsappWithUtm } from '../../data/business';
+import { beatPorId, contact, whatsappWithUtm } from '../../data/business';
 import { AVISO_LEY_25326 } from '../../modules/landing/chat';
 
 const sugerencias = beatPorId("faq").items.slice(0, 3);
@@ -17,14 +17,30 @@ const waDirecto = whatsappWithUtm('chat');
 
   <button
     type="button"
-    class="chat-burbuja"
+    class="chat-burbuja chat-burbuja--modo"
     data-chat-abrir
     aria-expanded="false"
     aria-controls="chat-panel"
-    aria-label="Abrir chat de ayuda"
+    aria-label="Abrir chat con Modo"
   >
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="chat-icono" aria-hidden="true">
-      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.4 14.1c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a7.6 7.6 0 0 1-1.4-.5 8.4 8.4 0 0 1-4.3-3.8c-.1-.2-1-1.4-1-2.6s.6-1.8.9-2.1c.2-.2.5-.3.7-.3h.5c.1 0 .3 0 .5.4l.8 1.9c.1.1.1.3 0 .4l-.4.5c-.1.1-.3.3-.1.6.1.2.6 1 1.4 1.7 1 .9 1.8 1.1 2 1.2.3.1.4 0 .5-.1l.8-1c.2-.2.4-.2.6-.1l1.7.8c.3.1.4.2.5.3 0 .1 0 .6-.2 1.1z"/>
+    <svg xmlns="http://www.w3.org/2000/svg" class="chat-icono" viewBox="0 0 36 36" aria-hidden="true">
+      <defs>
+        <linearGradient id="llama-modo-chat" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--color-llama)"></stop>
+          <stop offset="45%" stop-color="var(--color-naranja)"></stop>
+          <stop offset="100%" stop-color="var(--color-star-warm)"></stop>
+        </linearGradient>
+      </defs>
+      <line x1="18" y1="8" x2="18" y2="4.2" stroke="var(--color-void)" stroke-width="1.4"></line>
+      <circle cx="18" cy="3" r="2.1" fill="var(--color-llama)"></circle>
+      <rect x="6" y="8" width="24" height="22" rx="8" fill="url(#llama-modo-chat)"></rect>
+      <rect x="9" y="13" width="18" height="8" rx="3" fill="var(--color-void)"></rect>
+      <g class="chat-modo-ojos">
+        <circle cx="14" cy="17" r="2.15" fill="var(--color-llama)"></circle>
+        <circle cx="22" cy="17" r="2.15" fill="var(--color-llama)"></circle>
+        <circle cx="14.7" cy="16.3" r="0.65" fill="var(--color-star-white)"></circle>
+        <circle cx="22.7" cy="16.3" r="0.65" fill="var(--color-star-white)"></circle>
+      </g>
     </svg>
   </button>
 
@@ -37,16 +53,20 @@ const waDirecto = whatsappWithUtm('chat');
     aria-label="Chat de ayuda"
   >
     <header class="chat-cabecera">
-      <span class="chat-saludo">Hola, ¿en qué te ayudo?</span>
+      <span class="chat-saludo">Hola, soy Modo. ¿En qué te ayudo?</span>
+      <button type="button" data-chat-cerrar aria-label="Cerrar chat" class="chat-cerrar">×</button>
+    </header>
+
+    <div class="chat-wa-bloque">
       <a
         href={waDirecto}
         target="_blank"
         rel="noopener noreferrer"
         data-cta="chat-whatsapp"
-        class="chat-wa"
-      >WhatsApp</a>
-      <button type="button" data-chat-cerrar aria-label="Cerrar chat" class="chat-cerrar">×</button>
-    </header>
+        class="chat-wa chat-wa--cta chat-wa--panel"
+      >Escribinos por WhatsApp</a>
+      <span class="chat-wa-numero">{contact.whatsappLabel}</span>
+    </div>
 
     <div class="chat-mensajes" data-chat-mensajes aria-live="polite"></div>
 
@@ -324,6 +344,7 @@ const waDirecto = whatsappWithUtm('chat');
   }
   .chat-invitacion {
     position: relative;
+    order: 0;
     max-width: min(16.5rem, calc(100vw - 5.5rem));
     padding: 0.75rem 2rem 0.75rem 0.85rem;
     border-radius: 1rem;
@@ -387,6 +408,7 @@ const waDirecto = whatsappWithUtm('chat');
     cursor: pointer;
   }
   .chat-burbuja {
+    order: 2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -396,6 +418,20 @@ const waDirecto = whatsappWithUtm('chat');
     background: var(--color-void);
     color: var(--color-star-white);
     box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.4);
+  }
+  .chat-burbuja--modo {
+    width: 4rem;
+    height: 4rem;
+    background: var(--color-star-white);
+    border: 1px solid var(--color-linen);
+  }
+  .chat-burbuja--modo .chat-icono {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .chat-modo-ojos {
+    transform-box: fill-box;
+    transform-origin: center;
   }
   .chat-burbuja--aviso {
     animation: chat-aviso 420ms var(--chat-ease-out) 1;
@@ -411,11 +447,41 @@ const waDirecto = whatsappWithUtm('chat');
       transform: scale(1);
     }
   }
+  @keyframes chat-modo-flotar {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-2px);
+    }
+  }
+  @keyframes chat-modo-parpadeo {
+    0%,
+    86%,
+    100% {
+      transform: scaleY(1);
+    }
+    92% {
+      transform: scaleY(0.12);
+    }
+  }
+  @keyframes chat-panel-baja {
+    from {
+      opacity: 0;
+      transform: translateY(-0.6rem) scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
   .chat-icono {
     width: 1.75rem;
     height: 1.75rem;
   }
   .chat-panel {
+    order: 1;
     width: min(22rem, calc(100vw - 2rem));
     max-height: min(28rem, calc(100dvh - 7rem));
     overflow-y: auto;
@@ -423,6 +489,10 @@ const waDirecto = whatsappWithUtm('chat');
     border-radius: 1rem;
     box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.35);
     padding: 1rem;
+    transform-origin: bottom right;
+  }
+  .chat-panel:not([hidden]) {
+    animation: chat-panel-baja 240ms var(--chat-ease-out) 1;
   }
   .chat-cabecera {
     display: flex;
@@ -444,6 +514,20 @@ const waDirecto = whatsappWithUtm('chat');
     background: var(--color-whatsapp);
     color: var(--color-void);
     padding: 0.55rem 0.9rem;
+  }
+  .chat-wa-bloque {
+    margin-top: 0.75rem;
+  }
+  .chat-wa--panel {
+    width: 100%;
+    justify-content: center;
+    font-weight: 600;
+  }
+  .chat-wa-numero {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    opacity: 0.8;
   }
   .chat-mensajes {
     display: flex;
@@ -478,6 +562,14 @@ const waDirecto = whatsappWithUtm('chat');
     font-size: 0.8rem;
     opacity: 0.8;
   }
+  @media (prefers-reduced-motion: no-preference) {
+    .chat-burbuja--modo .chat-icono {
+      animation: chat-modo-flotar 2.8s ease-in-out infinite;
+    }
+    .chat-modo-ojos {
+      animation: chat-modo-parpadeo 3.6s ease-in-out infinite;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .chat-invitacion,
     .chat-derivacion {
@@ -485,6 +577,11 @@ const waDirecto = whatsappWithUtm('chat');
       transform: none;
     }
     .chat-burbuja--aviso {
+      animation: none;
+    }
+    .chat-panel:not([hidden]),
+    .chat-burbuja--modo .chat-icono,
+    .chat-modo-ojos {
       animation: none;
     }
   }
