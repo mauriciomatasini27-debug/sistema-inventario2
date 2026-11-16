@@ -15,6 +15,9 @@ function clientFor(url: string) {
       max: isLocal ? 10 : isTxPooler ? 1 : 5,
       prepare: !isTxPooler,
       ssl: isLocal ? false : "require",
+      // Una base caída no puede colgar un job o una request 30s (default de
+      // postgres.js): local falla en 3s, remoto da margen al TLS.
+      connect_timeout: isLocal ? 3 : 10,
     });
     clients.set(url, c);
   }

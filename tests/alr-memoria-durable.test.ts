@@ -149,7 +149,9 @@ describe("ALR-S2 memoria durable", () => {
       warn.mockRestore();
       delete process.env.TENANT_DATABASE_URL;
     }
-  });
+    // Cada toque a la base caída paga el connect_timeout (3s local); el job
+    // hace más de uno antes de caer a memoria.
+  }, 15_000);
 
   it("la clave incluye tenant, sku y fecha", () => {
     const k = clave_alerta_stock("t-a", "sku-1", "2026-10-16");
