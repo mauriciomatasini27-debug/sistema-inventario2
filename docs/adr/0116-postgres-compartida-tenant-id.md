@@ -59,6 +59,6 @@ Redefinir `TENANT_MODE=single` para exigir UUID de sesión. Choca con ISO-S1 en 
 
 ## Pendientes
 
-- Waves siguientes: `NOT NULL` + uniques compuestos `(tenant_id, …)` y filtros en caja/fiado/precios/etc.
+- Waves siguientes: filtros `tenant_id` en caja/fiado/precios/etc. (los `NOT NULL` y los uniques compuestos `(tenant_id, …)` ya quedaron aplicados por `0045_shared_tenant_sellar_nucleo` y `0047_shared_tenant_periferia`, que suman 57 `SET NOT NULL` y los uniques de `src/db/schema-precios.ts`; actualizado 2026-11-15).
 - Decidir si el código `multi` de P1-68 se borra o queda dormido.
 - Dueño del backfill para filas ya existentes en la DB single de producción (usar `--shared --tenant-id`).

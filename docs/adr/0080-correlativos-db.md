@@ -39,7 +39,7 @@ Devoluciones concurrentes dejan de devolver 409 falsos y el número no depende d
 
 ## Pendientes
 
-Retiro del espejo memoria (P2.2 / ARQ-S4). Ticket de la venta a cuenta sin tabla propia (solo se devuelve en la respuesta). Stock, caja y documento fiscal de la devolución fuera de la transacción del número. Aplicar `0019` a bases reales con aprobación del dueño.
+Retiro del espejo memoria (P2.2 / ARQ-S4). Stock, caja y documento fiscal de la devolución fuera de la transacción del número. Aplicar `0019` a bases reales con aprobación del dueño. Actualización 2026-11-15: el ticket de la venta a cuenta ya se persiste en `tickets` (`fiado.ts:308-314`, P10-2), así que la limitación "sin tabla propia" quedó resuelta. Queda abierto el fallback de `promote` en `sync.ts:690-727`: si la tx falla con base viva numera `T-*` desde memoria y responde 201, contra esta decisión (P10-17).
 
 ## Evidencia de aceptación (2026-10-14)
 

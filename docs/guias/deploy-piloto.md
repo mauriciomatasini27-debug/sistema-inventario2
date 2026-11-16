@@ -24,7 +24,7 @@ El runbook P1-68 (`TENANT_MODE=multi` + `TENANT_DATABASE_URL_piloto1/2`) quedó 
 
 ## 0. Precondiciones
 
-1. Confirmá que `main` trae el carrito (P1-56), ADR-0116 aceptado (C0–C6 en código) y las migraciones `0042_proveedores_durable` y `0043_shared_tenant_nucleo` aplicadas en la base del piloto (registro 2026-11-14, confirmación de Mauri). Las tablas solo en schema (`platform_feedback_reports`, `inventory_counts`, `fiscal_customers`, `product_flags`, `report_exports`) siguen sin `CREATE` en `drizzle/*.sql`; ver propuesta de tag `0044_*` en [aud-piloto-modoops-2026-11-14.md](aud-piloto-modoops-2026-11-14.md).
+1. Confirmá que `main` trae el carrito (P1-56), ADR-0116 aceptado (C0–C6 en código) y las migraciones hasta `0047_shared_tenant_periferia` aplicadas en la base del piloto (registro 2026-11-15, `npm run db:migrate:check` sin pendientes). Las tablas del piloto (`platform_feedback_reports`, `inventory_counts`, `fiscal_customers`, `product_flags`, `report_exports`) ya tienen `CREATE TABLE IF NOT EXISTS` en `drizzle/0044_piloto_schema_tenant_precios.sql`; la nota "sin CREATE" de [aud-piloto-modoops-2026-11-14.md](aud-piloto-modoops-2026-11-14.md) quedó cerrada.
 2. Tené a mano el dominio HTTPS del deploy (ejemplo `https://tu-app.vercel.app`). Las cookies de sesión usan el prefijo `__Host-` con `Secure`. Sin HTTPS el login no cierra.
 3. No uses solo el botón de laboratorio “2 comercios piloto”. El segundo comercio lleva `owner_google_sub: "piloto-basico-t2"` y no puede loguearse. Cada dueño real entra con Google y hace su propia alta.
 4. Un proyecto Supabase Free alcanza para control + negocio de todos los comercios del piloto.

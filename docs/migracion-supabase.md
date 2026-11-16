@@ -7,8 +7,8 @@ Estado: guía. Fecha: 2026-10-22. Alcance: `drizzle.config.ts`, `src/lib/db.ts`,
 - Drizzle con `dialect: "postgresql"` y driver `postgres-js` (`src/lib/db.ts`). El schema vive en `src/db/*.ts`.
 - `.env` define `CONTROL_DATABASE_URL` y `TENANT_DATABASE_URL`. En local apuntan a `localhost` con usuario `postgres`.
 - `drizzle.config.ts` toma un solo schema (`./src/db`) y usa `TENANT_DATABASE_URL`. Las migraciones crean todas las tablas, de control y de tenant, en una sola base.
-- `drizzle/` llega a `0038_analytics_snapshot`. Hay 39 archivos `.sql` y 39 entradas en `drizzle/meta/_journal.json`.
-- La última migración aplicada en la base real es `0038_analytics_snapshot`. Cada migración se registra en `docs/roadmap/migraciones/<tag>.json`; `docs/roadmap/migraciones-aplicadas.md` es el índice derivado que regenera `main`.
+- `drizzle/` llega a `0047_shared_tenant_periferia`. Hay 48 archivos `.sql` y 48 entradas en `drizzle/meta/_journal.json` (2026-11-15).
+- La última migración aplicada en la base real es `0047_shared_tenant_periferia` (registro 2026-11-15, `docs/roadmap/migraciones/0047_shared_tenant_periferia.json`). Cada migración se registra en `docs/roadmap/migraciones/<tag>.json`; `docs/roadmap/migraciones-aplicadas.md` es el índice derivado que regenera `main`.
 
 ## 1. Crear el proyecto en Supabase
 

@@ -55,7 +55,7 @@ Arch-tests: AT1 las rutas de venta/fiado/caja no importan `src/pages/api` entre 
 
 ## Pendientes detectados en la auditoría 2026-10-21
 
-- El fallback de `cobroFiado` cuando la transacción falla escribe el crédito en memoria y después llama a `registrarIngresoCobro`, que puede escribir la caja en la base viva. Un fallo deja caja en DB y crédito solo en memoria (`src/lib/repos/fiado.ts:300-317`). Es el ítem P10-15.
+- El fallback de `cobroFiado` cuando la transacción falla escribe el crédito en memoria y después llama a `registrarIngresoCobro`, que puede escribir la caja en la base viva. Un fallo deja caja en DB y crédito solo en memoria (`src/lib/repos/fiado.ts:300-317`). Es el ítem P10-15. Resuelto: `cobroFiado` propaga el error si no es 23505 y no vuelve a escribir caja a medias (`src/lib/repos/fiado.ts:446-458`, avance `docs/roadmap/avances/P10-15.md`).
 - `ticket_lines` no tiene columna de costo (`src/db/schema.ts:92-98`), así que la promesa de costo congelado no se cumple. Es el ítem P10-16. Resuelto: migración 0039 agrega `costo_centavos` y `registrar_venta`/`ventaACuenta` congelan el costo unitario vigente.
 - `ventaACuenta` no inserta `ticket_discounts`; los descuentos del fiado no quedan persistidos. Es el ítem P10-16. Resuelto en `src/lib/repos/fiado.ts`.
 - `ventaACuenta` y `cobroFiado` no tienen test contra Postgres vivo; los casos PG quedan skipped sin base. Es el ítem P10-16. Resuelto en `tests/p10-16-fiado-descuentos.test.ts` (PG A/B + memoria).
