@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -67,6 +67,9 @@ function mesSiguiente(mes: string): string {
 }
 
 beforeEach(() => {
+  // P10-20: la sesión del fixture vence a los 30 días de AHORA; con el reloj
+  // real el test se rompía solo al día 30. Fijar solo Date deja vivos los timers.
+  vi.useFakeTimers({ now: AHORA, toFake: ["Date"] });
   singleSinDb();
   resetStore();
   olvidarPlanesEnMemoria();
@@ -74,6 +77,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   singleSinDb();
 });
 
