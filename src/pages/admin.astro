@@ -232,13 +232,20 @@ const pills = [
 
       <section class="card" id="mora" style="margin-top:16px;overflow-x:auto">
         <h2>Mora <a href="#mora" aria-label="Ir a mora">↗</a></h2>
-        <div class="mini">Gracia 14 días. El día 15 se puede suspender. Reactivar vuelve un suspendido. Motivo e id se confirman en el formulario de Tenants.</div>
+        <div class="mini">Gracia 14 días. El día 15 se puede suspender. Suspender usa <code>POST /api/admin/mora/suspender</code>; reactivar con cobro usa <code>POST /api/admin/mora/regularizar</code>. El dry-run de <code>POST /api/admin/mora/evaluar</code> no muta estado.</div>
         <div class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
           <button type="button" class="cta-piloto" data-mora-filtro="todos" aria-pressed="true" style="margin-top:0">Todos</button>
           <button type="button" class="cta-piloto" data-mora-filtro="en_gracia" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">En gracia</button>
           <button type="button" class="cta-piloto" data-mora-filtro="por_suspender" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Por suspender</button>
           <button type="button" class="cta-piloto" data-mora-filtro="suspendido" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Suspendidos</button>
         </div>
+        <form id="mora-dryrun" class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px">
+          <input id="mora-dryrun-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant a evaluar" />
+          <input id="mora-dryrun-dias" name="dias_atraso" type="number" min="0" step="1" required placeholder="días de atraso" aria-label="Días de atraso" />
+          <input id="mora-dryrun-saldo" name="saldo_deudor_centavos" inputmode="numeric" required placeholder="saldo_deudor_centavos" aria-label="Saldo deudor en centavos" />
+          <button type="submit" class="cta-piloto" id="mora-dryrun-enviar" data-admin-accion="mora-evaluar" style="margin-top:0">Evaluar (dry-run)</button>
+        </form>
+        <div class="estado" id="mora-dryrun-estado" aria-live="polite">Dry-run: no muta estado.</div>
         <table class="mov" id="mora-tabla">
           <thead>
             <tr>
@@ -292,6 +299,13 @@ const pills = [
           <p class="mini">Id completo: <code id="tenants-id-visible"></code></p>
           <input id="tenants-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo" />
           <input id="tenants-confirmo" name="confirmo_id" required placeholder="Escribí el id del tenant" aria-label="Confirmación del id" autocomplete="off" />
+          <fieldset id="tenants-cobro" hidden>
+            <p class="mini">Cobro a asentar (solo reactivar con cobro).</p>
+            <input id="tenants-monto" name="monto_centavos" inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
+            <input id="tenants-medio" name="medio" placeholder="medio (transferencia, efectivo…)" aria-label="Medio de pago" />
+            <input id="tenants-referencia" name="referencia_externa" placeholder="referencia_externa" aria-label="Referencia externa" />
+            <input id="tenants-idempotency" name="idempotency_key" placeholder="idempotency_key" aria-label="Clave de idempotencia" />
+          </fieldset>
           <div>
             <button type="submit" class="cta-piloto" id="tenants-enviar" style="margin-top:0">Confirmar</button>
             <button type="button" class="cta-piloto" id="tenants-cancelar" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Cancelar</button>
@@ -303,7 +317,7 @@ const pills = [
       <div class="grid r3">
         <section class="card" id="cobros" data-admin-tarjeta="cobros">
           <h2>Cobros <span class="demo" id="b-cobros">demo</span> <a href="#cobros">↗</a></h2>
-          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span><br />Suspender y reactivar están en <a href="#tenants">Tenants</a>. Regularizar con cobro queda fuera de este panel.</div>
+          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span><br />Suspender está en <a href="#mora">Mora</a> y reactivar con cobro usa el formulario de <a href="#mora">Mora</a>; acá solo se asienta el cobro.</div>
           <form id="cobros-form">
             <input id="cobros-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del cobro" />
             <input id="cobros-monto" name="monto_centavos" required inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
@@ -341,6 +355,12 @@ const pills = [
         particionarMoraVista,
       } from "../modules/admin/mora-vista.js";
       import { fechaAR } from "../lib/fecha-ar.js";
+      import {
+        ejecutarAccionMora,
+        sugerirIdempotencyKey,
+        textoResultadoMora,
+        validarAccionMora,
+      } from "../modules/admin/mora-acciones.js";
       // En vivo con degradado (CA3): si falla, todo sigue renderizado.
       const marca = (id, viva) => {
         const el = document.getElementById(id);
@@ -463,26 +483,55 @@ const pills = [
             btn.className = "cta-piloto";
             btn.style.marginTop = "0";
             btn.textContent = t.estado === "activo" ? "Suspender" : "Reactivar";
-            btn.addEventListener("click", () => abrirConfirmacion(t));
+            btn.addEventListener("click", () =>
+              abrirConfirmacion(t, t.estado === "activo" ? "suspender" : "reactivar"),
+            );
             acc.appendChild(btn);
           }
           tr.appendChild(acc);
           body.appendChild(tr);
         }
       };
-      const abrirConfirmacion = (t) => {
-        pendienteTenant = { id: t.id, accion: t.estado === "activo" ? "suspender" : "reactivar" };
+      const abrirConfirmacion = (t, accion) => {
+        pendienteTenant = { id: String(t.id), accion };
+        const verbo = accion === "suspender"
+          ? "Suspender "
+          : accion === "regularizar"
+            ? "Reactivar con cobro "
+            : "Reactivar ";
         document.getElementById("tenants-confirmar-texto").textContent =
-          (pendienteTenant.accion === "suspender" ? "Suspender " : "Reactivar ") +
-          (t.nombre || t.slug || "tenant") +
-          ". Escribí el id completo y el motivo.";
+          verbo + (t.nombre || t.slug || "tenant") + ". Escribí el id completo y el motivo.";
         document.getElementById("tenants-id-visible").textContent = t.id;
         document.getElementById("tenants-motivo").value = "";
         document.getElementById("tenants-confirmo").value = "";
+        const cobro = document.getElementById("tenants-cobro");
+        cobro.hidden = accion !== "regularizar";
+        if (accion === "regularizar") {
+          document.getElementById("tenants-monto").value = "";
+          document.getElementById("tenants-medio").value = "";
+          document.getElementById("tenants-referencia").value = "";
+          document.getElementById("tenants-idempotency").value = sugerirIdempotencyKey(String(t.id), fechaAR());
+        }
         const form = document.getElementById("tenants-confirmar");
         form.hidden = false;
         form.scrollIntoView({ block: "nearest" });
         document.getElementById("tenants-motivo").focus();
+      };
+      const botonAccion = (texto, onClick) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cta-piloto";
+        btn.style.marginTop = "0";
+        btn.style.marginRight = "6px";
+        btn.textContent = texto;
+        btn.addEventListener("click", onClick);
+        return btn;
+      };
+      const abrirDryRun = (fila) => {
+        document.getElementById("mora-dryrun-tenant").value = String(fila.tenant.id);
+        document.getElementById("mora-dryrun-dias").value = String(fila.diasAtraso);
+        document.getElementById("mora-dryrun").scrollIntoView({ block: "nearest" });
+        document.getElementById("mora-dryrun-saldo").focus();
       };
       const ponerFilaUnica = (bodyId, columnas, texto) => {
         const body = document.getElementById(bodyId);
@@ -532,14 +581,11 @@ const pills = [
             idTd.title = String(t.id || "");
             tr.appendChild(idTd);
             const acc = document.createElement("td");
-            if (fila.accion === "suspender" || fila.accion === "reactivar") {
-              const btn = document.createElement("button");
-              btn.type = "button";
-              btn.className = "cta-piloto";
-              btn.style.marginTop = "0";
-              btn.textContent = fila.accion === "suspender" ? "Suspender" : "Reactivar";
-              btn.addEventListener("click", () => abrirConfirmacion(t));
-              acc.appendChild(btn);
+            acc.appendChild(botonAccion("Evaluar", () => abrirDryRun(fila)));
+            if (fila.accion === "suspender") {
+              acc.appendChild(botonAccion("Suspender", () => abrirConfirmacion(t, "suspender")));
+            } else if (fila.accion === "reactivar") {
+              acc.appendChild(botonAccion("Reactivar con cobro", () => abrirConfirmacion(t, "regularizar")));
             }
             tr.appendChild(acc);
             body.appendChild(tr);
@@ -589,6 +635,38 @@ const pills = [
           pintarTablaMora();
         });
       });
+      // #221: dry-run explícito. No pide confirmo_id porque no muta estado.
+      document.getElementById("mora-dryrun").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const estado = document.getElementById("mora-dryrun-estado");
+        const tenantId = document.getElementById("mora-dryrun-tenant").value.trim();
+        const diasCrudo = document.getElementById("mora-dryrun-dias").value.trim();
+        const saldoCrudo = document.getElementById("mora-dryrun-saldo").value.trim();
+        if (!diasCrudo || !saldoCrudo) {
+          estado.textContent = "Completá días de atraso y saldo deudor.";
+          return;
+        }
+        let saldo;
+        try {
+          saldo = BigInt(saldoCrudo);
+        } catch {
+          estado.textContent = "Saldo inválido: usá centavos enteros.";
+          return;
+        }
+        const accion = {
+          tipo: "evaluar",
+          tenantId,
+          diasAtraso: Number(diasCrudo),
+          saldoDeudorCentavos: saldo,
+        };
+        const invalido = validarAccionMora(accion);
+        if (invalido) {
+          estado.textContent = invalido;
+          return;
+        }
+        estado.textContent = "Evaluando…";
+        estado.textContent = textoResultadoMora(await ejecutarAccionMora(accion, { fetch }));
+      });
       document.getElementById("tenants-cancelar").addEventListener("click", () => {
         pendienteTenant = null;
         document.getElementById("tenants-confirmar").hidden = true;
@@ -601,37 +679,71 @@ const pills = [
         const motivo = document.getElementById("tenants-motivo").value.trim();
         const confirmo = document.getElementById("tenants-confirmo").value.trim();
         enviar.disabled = true;
+        let mensajeExito = "";
         try {
-          const r = await fetch("/api/admin/tenants", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tenant_id: pendienteTenant.id,
-              accion: pendienteTenant.accion,
-              confirmo_id: confirmo,
-              motivo,
-            }),
-          });
-          const texto = await r.text();
-          let json = {};
-          try {
-            json = texto ? JSON.parse(texto) : {};
-          } catch {
-            json = {};
-          }
-          if (!r.ok) {
-            const crudo = json && json.error ? json.error : ("http " + r.status);
-            estado.textContent = crudo === "ya suspendido"
-              ? "Ese comercio ya está suspendido."
-              : crudo === "ya activo"
-                ? "Ese comercio ya está activo."
-                : crudo;
-            return;
+          if (pendienteTenant.accion === "suspender" || pendienteTenant.accion === "regularizar") {
+            const base = { tenantId: pendienteTenant.id, motivo, confirmoId: confirmo };
+            let accion;
+            if (pendienteTenant.accion === "suspender") {
+              accion = { tipo: "suspender", ...base };
+            } else {
+              let monto;
+              try {
+                monto = BigInt(document.getElementById("tenants-monto").value.trim());
+              } catch {
+                estado.textContent = "Monto inválido: usá centavos enteros.";
+                return;
+              }
+              accion = {
+                tipo: "regularizar",
+                ...base,
+                cobro: {
+                  montoCentavos: monto,
+                  medio: document.getElementById("tenants-medio").value.trim(),
+                  referenciaExterna: document.getElementById("tenants-referencia").value.trim(),
+                  idempotencyKey: document.getElementById("tenants-idempotency").value.trim(),
+                },
+              };
+            }
+            const r = await ejecutarAccionMora(accion, { fetch });
+            if (!r.ok) {
+              estado.textContent = textoResultadoMora(r);
+              return;
+            }
+            mensajeExito = textoResultadoMora(r);
+          } else {
+            const r = await fetch("/api/admin/tenants", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tenant_id: pendienteTenant.id,
+                accion: pendienteTenant.accion,
+                confirmo_id: confirmo,
+                motivo,
+              }),
+            });
+            const texto = await r.text();
+            let json = {};
+            try {
+              json = texto ? JSON.parse(texto) : {};
+            } catch {
+              json = {};
+            }
+            if (!r.ok) {
+              const crudo = json && json.error ? json.error : ("http " + r.status);
+              estado.textContent = crudo === "ya suspendido"
+                ? "Ese comercio ya está suspendido."
+                : crudo === "ya activo"
+                  ? "Ese comercio ya está activo."
+                  : crudo;
+              return;
+            }
           }
           pendienteTenant = null;
           document.getElementById("tenants-confirmar").hidden = true;
           await cargarTenants();
+          if (mensajeExito) estado.textContent = mensajeExito;
         } catch (err) {
           estado.textContent = err && err.message ? err.message : "red";
         } finally {
