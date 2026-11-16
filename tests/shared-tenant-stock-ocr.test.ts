@@ -13,7 +13,6 @@ import { reclamarEventoMp } from "../src/lib/repos/mp-webhooks.js";
 import { crearJobRegistro, listarJobs } from "../src/lib/repos/ocr.js";
 import {
   olvidarMoraCobroEnMemoria,
-  tenantIdDePreapproval,
   vincularPreaprobacionTenant,
 } from "../src/lib/repos/planes.js";
 import { registrarAjuste } from "../src/lib/repos/precios.js";
@@ -342,7 +341,20 @@ describe.skipIf(!hayPG)("P1-73 aislamiento shared Postgres", () => {
     const preId = `pre-db-${randomUUID()}`;
     preapprovalVinculos.push(preId);
     vincularPreaprobacionTenant(preId, tenantA);
-    await tenantIdDePreapproval(preId);
+    // El vinculo se persiste fire-and-forget (planes.ts); sin esperar la fila,
+    // el select del webhook compite con un insert todavia en vuelo.
+    await expect
+      .poll(
+        async () => {
+          const filas = await getSharedDbPlataforma()
+            .select({ tenantId: mpPreapprovalTenants.tenantId })
+            .from(mpPreapprovalTenants)
+            .where(eq(mpPreapprovalTenants.preapprovalId, preId));
+          return filas[0]?.tenantId;
+        },
+        { timeout: 3000 },
+      )
+      .toBe(tenantA);
     olvidarMoraCobroEnMemoria();
     const clave = `${preId}:activo`;
     clavesMp.push({ clave, tenantId: tenantA });
