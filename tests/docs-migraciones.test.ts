@@ -102,7 +102,7 @@ describe("docs:migraciones CLI", () => {
     const md = readFileSync(join(raiz, "roadmap", "migraciones-aplicadas.md"), "utf8");
     expect(md).toContain("- 0001_uno");
 
-    const check = spawnSync("node", [CLI, "--raiz", raiz, "--check"], { encoding: "utf8" });
+    const check = spawnSync("node", [CLI, "--raiz", raiz, "--check"], { encoding: "utf8", cwd: raiz });
     expect(check.status).toBe(0);
   });
 
@@ -110,7 +110,7 @@ describe("docs:migraciones CLI", () => {
     const { raiz } = raizDePrueba();
     spawnSync("node", [CLI, "--raiz", raiz, "--forzar"], { encoding: "utf8" });
     writeFileSync(join(raiz, "roadmap", "migraciones", "0002_dos.json"), registro({ tag: "0002_dos" }));
-    const check = spawnSync("node", [CLI, "--raiz", raiz, "--check"], { encoding: "utf8" });
+    const check = spawnSync("node", [CLI, "--raiz", raiz, "--check"], { encoding: "utf8", cwd: raiz });
     expect(check.status).toBe(1);
     expect(check.stderr).toContain("desactualizado");
   });

@@ -14,6 +14,25 @@ describe("verify: plan de pasos", () => {
     const nombres = planDePasos().map((p) => p.nombre);
     for (const n of ["typecheck", "arch", "test", "skips", "build"]) expect(nombres).toContain(n);
   });
+
+  it("los checks de docs corren antes de los writers y llevan --check", () => {
+    const pasos = planDePasos({ docsOnly: true });
+    expect(pasos.map((p) => p.nombre)).toEqual([
+      "docs:generados",
+      "docs:estado-check",
+      "docs:index-check",
+      "docs:migraciones-check",
+      "roadmap-check",
+      "docs:migraciones",
+      "roadmap",
+      "docs:estado",
+      "docs:index",
+      "docs:check",
+    ]);
+    for (const n of ["docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check"]) {
+      expect(pasos.find((p) => p.nombre === n)?.extra).toEqual(["--check"]);
+    }
+  });
 });
 
 describe("verify: resumen", () => {

@@ -1,8 +1,8 @@
 import { parseFrontmatter } from "./docs-lib.mjs";
-import { esRamaDeTrabajo } from "./rama-lib.mjs";
+import { esRamaDeTrabajo, modoChequeo } from "./rama-lib.mjs";
 
 export function modoEstado({ rama, forzar, check }) {
-  if (check) return "chequear";
+  if (check) return modoChequeo({ rama });
   if (forzar || !esRamaDeTrabajo(rama)) return "escribir";
   return "imprimir";
 }
