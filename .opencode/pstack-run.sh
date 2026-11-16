@@ -89,7 +89,7 @@ if [ -z "${PSTACK_FALLBACK_MODELS:-}" ] && command -v node >/dev/null; then
 fi
 if [ -n "${PSTACK_FALLBACK_MODELS:-}" ]; then
   read -ra modelos <<<"$PSTACK_FALLBACK_MODELS"
-  resto=(); default="${pedido:-opencode/deepseek-v4.1-flash-free}"
+  resto=(); default="${pedido:-opencode-go/deepseek-v4.1-flash}"
   for m in "${modelos[@]}"; do [ "$m" = "$default" ] || resto+=("$m"); done
   modelos=("$default" "${resto[@]}")
 elif [ "$lista_rc" -eq 3 ] && [ -z "$pedido" ]; then
@@ -103,7 +103,7 @@ else
   if [ "$lista_rc" -ne 0 ]; then
     echo "pstack-run: modelos.mjs lista falló (rc=$lista_rc); uso la cadena de respaldo" >&2
   fi
-  modelos=(opencode/deepseek-v4.1-flash-free opencode/longcat-2.5-preview-free opencode/glm-5.3-flash-free opencode/big-pickle)
+  modelos=(opencode-go/deepseek-v4.1-flash opencode-go/glm-5.3-flash opencode/deepseek-v4.1-flash-free opencode/longcat-2.5-preview-free opencode/glm-5.3-flash-free opencode/big-pickle)
 fi
 if [ -n "$pedido" ]; then
   resto=()
