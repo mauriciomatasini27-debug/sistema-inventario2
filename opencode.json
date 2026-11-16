@@ -77,5 +77,18 @@
         }
       }
     }
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".astro/**",
+      ".vercel/**",
+      "test-results/**",
+      "playwright-report/**",
+      ".pstack-tmp/**",
+      "docs/_origen-docx/**",
+      "*.log"
+    ]
   }
 }
