@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { getTenantDb } from "../src/lib/db.js";
+import { tenants } from "../src/db/schema.js";
 import { usageCounters } from "../src/db/schema-planes.js";
 import { whatsappUsage } from "../src/db/schema-whatsapp.js";
 import { olvidarPlanesEnMemoria, leerUso } from "../src/lib/repos/planes.js";
@@ -51,10 +52,16 @@ describe("PLAN-S10 contador bot_consulta en memoria", () => {
 });
 
 describe.skipIf(!hayPG)("PLAN-S10 contador bot_consulta en Postgres", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     resetStore();
     fijarMulti();
     olvidarPlanesEnMemoria();
+    // usage_counters referencia tenants(id): el uuid del test necesita su fila.
+    await getTenantDb(tenantA).insert(tenants).values({
+      id: tenantA,
+      nombreComercio: "Plan S10",
+      slug: `plan-s10-${sufijo}`,
+    });
   });
 
   afterAll(async () => {
@@ -62,6 +69,7 @@ describe.skipIf(!hayPG)("PLAN-S10 contador bot_consulta en Postgres", () => {
       const db = getTenantDb(tenantA);
       await db.delete(whatsappUsage).where(eq(whatsappUsage.tenantId, tenantA));
       await db.delete(usageCounters).where(eq(usageCounters.tenantId, tenantA));
+      await db.delete(tenants).where(eq(tenants.id, tenantA));
     }
     delete process.env.TENANT_MODE;
     delete process.env[`TENANT_DATABASE_URL_${tenantA}`];

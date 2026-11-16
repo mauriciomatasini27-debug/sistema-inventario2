@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getTenantDb } from "../src/lib/db.js";
+import { tenants } from "../src/db/schema.js";
+import { usageCounters } from "../src/db/schema-planes.js";
 import { whatsappUsage } from "../src/db/schema-whatsapp.js";
 import { resetStore } from "../src/lib/store.js";
 import { contarConsultasBotDelMes, leerResumenConsultasBot, registrarConsultaBot } from "../src/lib/repos/bot-consultas.js";
@@ -22,15 +24,30 @@ function fijarMulti() {
 }
 
 describe.skipIf(!hayPG)("DASH-S3 consultas del bot en Postgres", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     resetStore();
     fijarMulti();
+    // usage_counters referencia tenants(id): los uuid del test necesitan su fila.
+    await getTenantDb(tenantA).insert(tenants).values({
+      id: tenantA,
+      nombreComercio: "Dash S3 A",
+      slug: `dash-s3-a-${sufijo}`,
+    });
+    await getTenantDb(tenantB).insert(tenants).values({
+      id: tenantB,
+      nombreComercio: "Dash S3 B",
+      slug: `dash-s3-b-${sufijo}`,
+    });
   });
 
   afterAll(async () => {
     if (hayPG) {
       await getTenantDb(tenantA).delete(whatsappUsage).where(eq(whatsappUsage.tenantId, tenantA));
       await getTenantDb(tenantB).delete(whatsappUsage).where(eq(whatsappUsage.tenantId, tenantB));
+      await getTenantDb(tenantA).delete(usageCounters).where(eq(usageCounters.tenantId, tenantA));
+      await getTenantDb(tenantB).delete(usageCounters).where(eq(usageCounters.tenantId, tenantB));
+      await getTenantDb(tenantA).delete(tenants).where(eq(tenants.id, tenantA));
+      await getTenantDb(tenantB).delete(tenants).where(eq(tenants.id, tenantB));
     }
     delete process.env.TENANT_MODE;
     delete process.env[`TENANT_DATABASE_URL_${tenantA}`];
