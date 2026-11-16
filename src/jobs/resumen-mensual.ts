@@ -17,6 +17,9 @@ import {
 
 export const ZONA_DEFECTO = "America/Argentina/Buenos_Aires";
 export const HORA_RESUMEN_MENSUAL = 9;
+// Plantilla Meta del resumen (ADR-0040). Fuera de la ventana 24h el guard de
+// envío solo deja pasar el mensaje si el nombre resuelve a un id aprobado.
+export const PLANTILLA_RESUMEN_MENSUAL = "resumen_mensual" as const;
 
 export type CanalResumen = "wa" | "email";
 

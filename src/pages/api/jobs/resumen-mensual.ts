@@ -6,7 +6,7 @@ import { listarMovimientosConFecha, listarVencimientos } from "../../../lib/repo
 import { listarCatalogoVivo, marcarWaEnviado, obtenerComercioBot, waEnviadosVivos } from "../../../lib/repos/whatsapp.js";
 import { encolarEnvio } from "../../../lib/repos/email.js";
 import { control } from "../../../lib/store.js";
-import { ZONA_DEFECTO, ejecutar_resumen_mensual, en_ventana_mensual, mes_cerrado } from "../../../jobs/resumen-mensual.js";
+import { ZONA_DEFECTO, PLANTILLA_RESUMEN_MENSUAL, ejecutar_resumen_mensual, en_ventana_mensual, mes_cerrado } from "../../../jobs/resumen-mensual.js";
 import type { PagoPyme } from "../../../jobs/bot-pyme.js";
 import { acciones_a_botones } from "../../../modules/bot/acciones-propuestas.js";
 import { construir_botones, construir_texto } from "../../../modules/whatsapp/envio.js";
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
           acciones.length > 0 && payload.texto.length <= MAX_CUERPO_INTERACTIVO
             ? construir_botones(payload.texto, acciones_a_botones(acciones))
             : construir_texto(payload.texto);
-        const ok = await enviar_payload_wa(comercio.numero, salida);
+        const ok = await enviar_payload_wa(comercio.numero, salida, { nombrePlantilla: PLANTILLA_RESUMEN_MENSUAL });
         return ok ? { ok: true } : { ok: false, error: "fallo_envio" };
       },
       encolarEmail: async (_id, payload) => {
