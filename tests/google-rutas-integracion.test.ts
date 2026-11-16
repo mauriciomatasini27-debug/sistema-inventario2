@@ -29,6 +29,9 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
   beforeAll(async () => {
     const url = await asegurarBasePrivada("google_rutas_integracion", URL_A!);
     process.env.TENANT_DATABASE_URL = url;
+    // disconnect descarta jobs de ingesta en control: la base privada tiene
+    // también el esquema de control.
+    process.env.CONTROL_DATABASE_URL = url;
     process.env.DEFAULT_TENANT_ID = tenantId;
     delete process.env.TENANT_MODE;
     process.env.GOOGLE_INTEGRATIONS_CLIENT_ID = clientId;
@@ -95,6 +98,7 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
     globalThis.fetch = fetchOriginal;
     await sql?.end();
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.CONTROL_DATABASE_URL;
     delete process.env.DEFAULT_TENANT_ID;
     delete process.env.GOOGLE_INTEGRATIONS_CLIENT_ID;
     delete process.env.GOOGLE_INTEGRATIONS_CLIENT_SECRET;
