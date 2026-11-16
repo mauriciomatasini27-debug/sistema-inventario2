@@ -281,8 +281,8 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
     keys.push(key);
     const visto = await conTenant("tenant-a", async () => {
       await sembrar(sku, 13, [
-        { restante: 10, vence: new Date("2026-12-01T00:00:00.000Z") },
-        { restante: 3, vence: new Date("2026-11-07T00:00:00.000Z") },
+        { restante: 10, vence: new Date(Date.now() + 45 * 86_400_000) },
+        { restante: 3, vence: new Date(Date.now() + 15 * 86_400_000) },
       ]);
       const cliente = crypto.randomUUID();
       await getTenantDb().insert(customers).values(filaPg({ id: cliente, nombre: "FEFO fiado", topeCentavos: 0n }));

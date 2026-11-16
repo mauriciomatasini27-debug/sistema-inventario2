@@ -10,7 +10,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { outbox, products } from "../src/db/schema.js";
 import { buscarProductosLocal } from "../src/offline/busqueda-local.js";
-import { filaPg } from "./helpers/pg-tenant-fixture.js";
+import { filaPg, tenantIdParaFixture } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -229,9 +229,10 @@ describe.skipIf(!hayPG)("SYNC-S1/S2 en PG local: cursor por tenant + catalogo de
       // Columnas explícitas: la base local puede no tener sector/location_id
       // (mismo drift que tolera altaProducto con su insert crudo).
       const db = getTenantDb();
-      const valores = filas.map((f) => sql`(${f.sku}, ${f.nombre}, ${f.precioCentavos}, ${f.stockActual})`);
+      const tid = tenantIdParaFixture();
+      const valores = filas.map((f) => sql`(${tid}, ${f.sku}, ${f.nombre}, ${f.precioCentavos}, ${f.stockActual})`);
       await db.execute(
-        sql`insert into products (sku, nombre, precio_centavos, stock_actual) values ${sql.join(valores, sql`, `)} on conflict do nothing`,
+        sql`insert into products (tenant_id, sku, nombre, precio_centavos, stock_actual) values ${sql.join(valores, sql`, `)} on conflict do nothing`,
       );
       await getTenantDb().insert(outbox).values(
         opIds.map((opId, i) =>

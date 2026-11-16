@@ -30,7 +30,9 @@ describe("PERS2-S6/S7 AT7b: prices/adjustments y suppliers sin store (ADR-0053)"
   });
 });
 
-const AHORA = new Date("2026-10-10T12:00:00.000Z");
+// La sesión se valida contra el reloj real de la ruta (inactividad 30 días):
+// una fecha fija deja de servir en cuanto pasa la ventana.
+const AHORA = new Date();
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;

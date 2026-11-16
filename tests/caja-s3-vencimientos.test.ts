@@ -4,6 +4,7 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore } from "../src/lib/store.js";
 import { GET as getDue, POST as postDue, PATCH as patchDue } from "../src/pages/api/cash/due-items.js";
 import { POST as postJobCaja } from "../src/pages/api/jobs/vencimientos-caja.js";
+import { activarTenantPgEnSingle } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -139,6 +140,7 @@ describe.skipIf(!hayPG)("CAJA-S3 PG: migracion 0023 crea cash_due_items y el rep
     modoSingleSinDb();
     resetStore();
     process.env.TENANT_DATABASE_URL = process.env.PG_TEST_URL_A ?? "";
+    activarTenantPgEnSingle();
     try {
       const db = getTenantDb();
       const mig = readFileSync("drizzle/0023_cash_due_items.sql", "utf8");
@@ -183,6 +185,7 @@ describe.skipIf(!hayPG)("CAJA-S3 PG: migracion 0023 crea cash_due_items y el rep
       await db.delete(cashMovements).where(eq(cashMovements.id, egresoId));
     } finally {
       delete process.env.TENANT_DATABASE_URL;
+      delete process.env.DEFAULT_TENANT_ID;
     }
   });
 });

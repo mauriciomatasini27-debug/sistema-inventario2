@@ -3,6 +3,7 @@ import { ctx } from "./helpers/ctx.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { POST as postDue, PATCH as patchDue } from "../src/pages/api/cash/due-items.js";
 import { crearVencimiento, pagarVencimiento } from "../src/lib/repos/caja.js";
+import { activarTenantPgEnSingle } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -51,6 +52,7 @@ const hayPG = Boolean(PG_URL);
 function modoSinglePG(url: string) {
   modoSingleSinDb();
   process.env.TENANT_DATABASE_URL = url;
+  activarTenantPgEnSingle();
 }
 
 async function prepararTablas() {
@@ -90,6 +92,7 @@ describe.skipIf(!hayPG)("M2 PG: pago concurrente del mismo vencimiento", () => {
   });
   afterEach(() => {
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.DEFAULT_TENANT_ID;
     modoSingleSinDb();
     resetStore();
   });

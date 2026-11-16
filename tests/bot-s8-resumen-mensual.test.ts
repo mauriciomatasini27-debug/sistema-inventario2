@@ -3,6 +3,7 @@ import { ctx } from "./helpers/ctx.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 import {
   ZONA_DEFECTO,
+  PLANTILLA_RESUMEN_MENSUAL,
   armar_snapshot_mensual,
   ejecutar_resumen_mensual,
   limpiar_corridas_mensual,
@@ -167,6 +168,7 @@ describe("BOT-S8 ruta del resumen: WhatsApp interactivo solo con acciones", () =
   function conCredenciales(): void {
     process.env.WHATSAPP_PHONE_NUMBER_ID = "123456";
     process.env.WHATSAPP_TOKEN = "tok-opaco";
+    process.env.WHATSAPP_PLANTILLAS_APROBADAS = JSON.stringify({ [PLANTILLA_RESUMEN_MENSUAL]: "tpl-bot-s8" });
     vi.stubGlobal("fetch", async (_url: unknown, init: { body?: string } = {}) => {
       enviados.push(JSON.parse(init.body ?? "{}") as Record<string, unknown>);
       return new Response(JSON.stringify({ messages: [{ id: `wamid.out.${enviados.length}` }] }), {
@@ -186,6 +188,7 @@ describe("BOT-S8 ruta del resumen: WhatsApp interactivo solo con acciones", () =
     vi.unstubAllGlobals();
     delete process.env.WHATSAPP_PHONE_NUMBER_ID;
     delete process.env.WHATSAPP_TOKEN;
+    delete process.env.WHATSAPP_PLANTILLAS_APROBADAS;
   });
 
   afterAll(() => {

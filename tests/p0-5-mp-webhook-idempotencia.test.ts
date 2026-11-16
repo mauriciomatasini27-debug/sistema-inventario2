@@ -8,6 +8,7 @@ import { olvidarEventosMpEnMemoria, reclamarEventoMp } from "../src/lib/repos/mp
 import { vincularPreaprobacionTenant } from "../src/lib/repos/planes.js";
 import { POST as POSTMp } from "../src/pages/api/billing/webhooks/mercadopago.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
+import { activarTenantPgEnSingle } from "./helpers/pg-tenant-fixture.js";
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
@@ -69,12 +70,14 @@ describe.skipIf(!hayPG)("P0-5 webhook MP con PG: el replay sobrevive al olvido e
       await getTenantDb().delete(mpWebhookEvents).where(eq(mpWebhookEvents.clave, clave));
     }
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.DEFAULT_TENANT_ID;
   });
 
   it("tras limpiar la memoria el evento repetido sigue dando 409 por la tabla", async () => {
     const url = await asegurarBasePrivada("p05_mp_webhook", process.env.PG_TEST_URL_A ?? "");
     delete process.env.TENANT_MODE;
     process.env.TENANT_DATABASE_URL = url;
+    activarTenantPgEnSingle();
     resetStore();
     olvidarEventosMpEnMemoria();
 

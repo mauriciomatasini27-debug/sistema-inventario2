@@ -7,6 +7,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { utilityBills } from "../src/db/schema-servicios.js";
 import { cashMovements } from "../src/db/schema.js";
+import { products } from "../src/db/schema.js";
 import { randomUUID } from "node:crypto";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
 import { POST as postBill } from "../src/pages/api/utility-bills.js";
@@ -160,6 +161,7 @@ function fijarMulti() {
 const messagePG = `pers2-svc-${sufijo}@test.local`;
 const montoPG = 1000000 + Math.floor(Math.random() * 8999999);
 const clientePG = randomUUID();
+const skuPG = `pers2svc-${sufijo}`;
 const claveVentaPG = `pers2-pg-vta-${sufijo}`;
 const claveCobroPG = `pers2-pg-cob-${sufijo}`;
 const retiroKeysPG: string[] = [];
@@ -175,6 +177,7 @@ async function borrarRastroPG() {
       await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, claveCobroPG));
       await db.delete(customerMovements).where(eq(customerMovements.customerId, clientePG));
       await db.delete(customers).where(eq(customers.id, clientePG));
+      await db.delete(products).where(eq(products.sku, skuPG));
       await db.delete(utilityBills).where(eq(utilityBills.messageId, messagePG));
     });
   }
@@ -279,11 +282,12 @@ describe.skipIf(!hayPG)("PERS2-S17 multi con PG local: venta a cuenta y cobro ai
     fijarMulti();
     const cuerpo = {
       customer_id: clientePG,
-      lineas: [{ product_id: "demo-sku-1", qty: 1, precio_centavos: 20000 }],
+      lineas: [{ product_id: skuPG, qty: 1, precio_centavos: 20000 }],
       device_code: "caja-01",
       seq_local: 1,
     };
     await conTenant("tenant-a", async () => {
+      await getTenantDb().insert(products).values(filaPg({ sku: skuPG, nombre: "Pers2 svc", precioCentavos: 20000n, stockActual: 10 }));
       await getTenantDb().insert(customers).values(filaPg({ id: clientePG, nombre: "Pers2 svc", topeCentavos: 0n })).onConflictDoNothing();
     });
     const venta = await conTenant("tenant-a", () =>

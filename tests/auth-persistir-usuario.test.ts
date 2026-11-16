@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { getControlDb } from "../src/lib/db.js";
-import { users } from "../src/db/schema.js";
+import { users, sessions } from "../src/db/schema.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 import { GET as getLogin } from "../src/pages/api/auth/login.js";
 import { GET as getCallback } from "../src/pages/api/auth/callback.js";
@@ -78,6 +78,9 @@ const hayPG = Boolean(process.env.PG_TEST_URL_A && process.env.PG_TEST_URL_B);
 describe.skipIf(!hayPG)("login persiste el usuario en control (FK de tenants)", () => {
   afterAll(async () => {
     if (!process.env.CONTROL_DATABASE_URL) return;
+    // sessions referencia users(google_sub): sin borrar la sesión el delete
+    // de users choca con el FK.
+    await getControlDb().delete(sessions).where(eq(sessions.googleSub, SUB));
     await getControlDb().delete(users).where(eq(users.googleSub, SUB));
     delete process.env.CONTROL_DATABASE_URL;
   });
@@ -88,6 +91,7 @@ describe.skipIf(!hayPG)("login persiste el usuario en control (FK de tenants)", 
     process.env.CONTROL_DATABASE_URL = url;
     resetStore();
     fijarLogin();
+    await getControlDb().delete(sessions).where(eq(sessions.googleSub, SUB));
     await getControlDb().delete(users).where(eq(users.googleSub, SUB));
 
     const antes = await getControlDb().select().from(users).where(eq(users.googleSub, SUB));

@@ -29,6 +29,7 @@ describe.skipIf(!hayPG)("GGL-REMITENTES pausar remitente", () => {
     `;
     if (!t) throw new Error("sin tenant");
     tenantId = t.id;
+    process.env.DEFAULT_TENANT_ID = tenantId;
     const [f] = await sql<{ id: string }[]>`
       insert into email_ingestion_filters (remitente, servicio, keywords, activo)
       values ('edenor.com', 'Edenor', '[]'::jsonb, true)
@@ -41,6 +42,7 @@ describe.skipIf(!hayPG)("GGL-REMITENTES pausar remitente", () => {
   afterAll(async () => {
     await sql?.end();
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.DEFAULT_TENANT_ID;
   });
 
   it("lista remitentes para el panel", async () => {
@@ -64,7 +66,9 @@ describe.skipIf(!hayPG)("GGL-REMITENTES pausar remitente", () => {
       filtros,
       [],
     );
-    expect(clas.decision).toBe("ignorado");
+    // Pausado deja de matchear (avance GGL-REMITENTES): cae como remitente
+    // desconocido a revisión, no como ignorado.
+    expect(clas.decision).toBe("necesita_revision");
     expect(clas.filtroId).toBeNull();
   });
 });
