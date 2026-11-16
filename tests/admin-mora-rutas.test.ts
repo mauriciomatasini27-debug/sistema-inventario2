@@ -117,6 +117,22 @@ describe("rutas de mora cableadas", () => {
     expect(adminStore.asientos.size).toBe(1);
   });
 
+  it("la misma idempotency-key con otro monto no reescribe el asiento", async () => {
+    const plano = adminSesion("admin-1");
+    control.tenants.set("t1", tenant("t1", "suspendido"));
+
+    await regularizarMora(req("http://x/api/admin/mora/regularizar", plano, cobro("k1")));
+    const distinto = cobro("k1");
+    distinto.cobro.monto_centavos = "9000";
+    const r = (await regularizarMora(
+      req("http://x/api/admin/mora/regularizar", plano, distinto),
+    )) as Response;
+
+    expect(r.status).toBe(409);
+    expect(adminStore.asientos.size).toBe(1);
+    expect([...adminStore.asientos.values()][0]?.montoCentavos).toBe(5000n);
+  });
+
   it("el dry-run devuelve la decisión sin mutar estado ni emitir eventos", async () => {
     const plano = adminSesion("admin-1");
     control.tenants.set("t1", tenant("t1", "activo"));

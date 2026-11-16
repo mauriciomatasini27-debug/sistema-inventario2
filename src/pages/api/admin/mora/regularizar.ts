@@ -39,6 +39,9 @@ export const POST: APIRoute = async ({ request }) => {
   if (previo && previo.tenantId !== tenantId) {
     return jsonError("idempotency-key ya asentada en otro tenant.", 409);
   }
+  if (previo && previo.montoCentavos !== monto) {
+    return jsonError("idempotency-key ya asentada con otro monto.", 409);
+  }
 
   // #223: el reintento del operador cae en el mismo asiento y solo asegura el
   // estado activo; no duplica el cobro ni el evento de vida.
