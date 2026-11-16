@@ -52,7 +52,14 @@ describe("T-UI-04: cada formulario del panel y alta usa errores-campo", () => {
   });
 
   it("ninguna otra página del panel con <form> queda sin el helper", () => {
+    // Formularios sin campos de dominio: botón de pausar/activar y alta de
+    // invitación con códigos de resultado del servidor, no errores de Zod.
+    const SIN_CAMPOS = new Set([
+      "src/pages/panel/integraciones-remitentes.astro",
+      "src/pages/panel/usuarios.astro",
+    ]);
     const faltantes = paginas("src/pages/panel").filter((p) => {
+      if (SIN_CAMPOS.has(p)) return false;
       const src = leer(p);
       if (!/<form[\s>]/.test(src)) return false;
       return !/lib\/errores-campo/.test(src);
