@@ -11,8 +11,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-// Integración Google (ADR-0102/0099/0100). Las cuatro tablas se crean en todas
-// las bases por el stream único de migraciones; el handle decide qué se usa:
+// Integración Google (ADR-0102/0099/0100). Las cinco tablas se crean en todas
+// las bases por el stream único de migraciones (0030 crea cuatro, 0031 agrega
+// gmail_ingestion_jobs); el handle decide qué se usa:
 // google_connections, drafts y events por tenant; gmail_watch_routes por control.
 // Tokens solo cifrados; el plano vive en memoria y nunca se persiste.
 

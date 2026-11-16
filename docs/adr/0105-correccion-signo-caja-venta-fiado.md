@@ -19,10 +19,10 @@ Estado: aceptado. Fecha: 2026-10-20. Fuentes: `docs/roadmap/auditorias/2026-10-2
 ## Decisión
 
 1. El cobro de una venta se registra en `cash_movements` con `tipo: "ingreso"` (no `"egreso"`), `origen: "venta"` y `categoriaId: "venta"`. Se corrigió `registro_venta.ts`, `vender_mostrador.ts` y `confirmar_venta.ts`; `tests/slice0-http.test.ts` espera saldo positivo.
-2. `ventaACuenta` de fiado persiste `sales`, `tickets`, `ticket_lines` y `stock_movements` en la misma transacción que `customer_movements`, con contador `ticket_counters` y 409 por idempotency key. `ticket_discounts` del fiado queda pendiente (P10-16).
-3. `cobroFiado` escribe `customer_movements` y la entrada de caja dentro de una sola transacción; en modo memoria usa espejo atómico. El fallback del `catch` todavía puede escribir caja en la DB con el crédito solo en memoria: es el defecto P10-15.
+2. `ventaACuenta` de fiado persiste `sales`, `tickets`, `ticket_lines`, `ticket_discounts` y `stock_movements` en la misma transacción que `customer_movements`, con contador `ticket_counters` y 409 por idempotency key (P10-16 cerrado).
+3. `cobroFiado` escribe `customer_movements` y la entrada de caja dentro de una sola transacción; en modo memoria usa espejo atómico. El fallback del `catch` propaga el error si no es 23505 y ya no escribe caja a medias (P10-15 cerrado, `src/lib/repos/fiado.ts:446-458`).
 4. `registrar_devolucion` acepta `fueAcuenta` según el medio de pago; cuando es true, reintegra `customer_movements` del cliente con el monto devuelto. El valor por defecto para devoluciones no a cuenta sigue siendo false.
-5. `ticket_lines` y `ticket_discounts` se insertan al emitir una venta al contado; el fiado inserta `ticket_lines` pero no `ticket_discounts`. El snapshot es de precio; `ticket_lines` no tiene columna de costo (P10-16), así que el costo congelado de GP4 sigue pendiente.
+5. `ticket_lines` y `ticket_discounts` se insertan al emitir una venta al contado y el fiado inserta ambos. La migración 0039 agregó `costo_centavos` a `ticket_lines` y el costo queda congelado al emitir (P10-16 cerrado).
 
 ## Por qué
 
@@ -38,6 +38,5 @@ El signo "egreso" en ventas deja la caja con saldo negativo y contradice C8.8 (e
 
 ## Pendientes
 
-- P10-15: cerrar el fallback de `cobroFiado` que puede dejar caja en DB y crédito en memoria.
-- P10-16: persistir `ticket_discounts` del fiado, agregar el costo a `ticket_lines` y cubrir `ventaACuenta`/`cobroFiado` con Postgres vivo.
+Ninguno propio: P10-15 y P10-16 quedaron cerrados (migración 0039, `src/lib/repos/fiado.ts:446-458`, `docs/roadmap/avances/P10-15.md` y `P10-16.md`). El ticket de la venta a cuenta se persiste en `tickets` (`fiado.ts:308-314`), así que la limitación que anotaba ADR-0080 también quedó resuelta.
 - P10-1 a P10-5 están mergeados y verificados.
