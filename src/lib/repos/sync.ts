@@ -710,20 +710,12 @@ export async function promoverOperacion(b: PromoteEntrada): Promise<RespuestaRep
         // Cae al 503/throw de abajo.
       }
     }
+    console.warn("[sync] promote no pudo numerar en base", b.opId, e);
     promociones.anteFalloPersistencia(e);
-    const definitivo = `T-${String(contador.leer()).padStart(6, "0")}`;
-    contador.fijar(contador.leer() + 1);
-    promociones.guardar(b.opId, { provisorio, definitivo });
-    cerrarDefinitivoEnMemoria(b.opId, definitivo);
-    return {
-      status: 201,
-      cuerpo: {
-        op_id: b.opId,
-        ticket_definitivo: definitivo,
-        ticket_provisorio: provisorio,
-        id_mapeado: definitivo,
-      },
-    };
+    // P10-17: con base viva el T-* sale solo de ticket_counters (ADR-0080).
+    // Numerar desde memoria y responder 201 falsifica el ticket y duplica T-*,
+    // así que un fallo de la transacción se propaga y la ruta responde 503.
+    throw e;
   }
 }
 

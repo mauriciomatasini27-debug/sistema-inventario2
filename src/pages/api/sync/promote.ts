@@ -29,7 +29,10 @@ export const POST: APIRoute = async ({ request }) => {
     const r = await promoverOperacion({ opId: b.op_id, deviceCode: b.device_code, deviceSeq: b.device_seq });
     return Response.json(r.cuerpo, { status: r.status });
   } catch (e) {
+    // P10-17: con base viva un fallo de la transacción no se re-numera en memoria.
+    // El device reintenta ante cualquier 503; un 201 con un T-* inventado
+    // falsificaría la venta y permitiría duplicados (ADR-0080).
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
-    throw e;
+    return Response.json({ error: "promote_no_disponible" }, { status: 503 });
   }
 };
