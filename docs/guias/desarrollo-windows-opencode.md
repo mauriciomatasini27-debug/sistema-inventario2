@@ -20,6 +20,82 @@ Todo el tooling del repo asume Linux con bash: `scripts/pg-local.sh`, `.opencode
 
 Windows nativo sirve solo para `npm run dev`, `npm test -- <archivo>` sin Postgres y `npm run verify -- --docs-only` (no probado en Windows).
 
+## Modo espejo: editar en Windows, correr en WSL
+
+Si editás en Windows (checkout en `C:\Users\mauri\sistema-inventario2` con Cursor u OpenCode de Windows), no hace falta mudar el checkout: espejalo con rsync a un clone ext4 y corré todo ahí. El espejo trae `.git` y los cambios sin commitear, excluye `node_modules`.
+
+Setup, una vez, dentro de WSL:
+
+```bash
+mkdir -p ~/dev ~/.local/node22
+curl -fsSL https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz \
+  | tar -xJ -C ~/.local/node22 --strip-components=1
+git clone /mnt/c/Users/mauri/sistema-inventario2 ~/dev/sistema-inventario2
+git -C ~/dev/sistema-inventario2 remote set-url origin \
+  https://github.com/mauriciomatasini27-debug/sistema-inventario2.git
+git -C ~/dev/sistema-inventario2 remote add windows /mnt/c/Users/mauri/sistema-inventario2
+cd ~/dev/sistema-inventario2 && npm ci
+```
+
+El PATH del Node va en `~/.profile`, no en `~/.bashrc`. El `.bashrc` de Ubuntu corta en shells no interactivos (`bash -lc`), un export al final nunca corre y los procesos hijos quedan con el Node del sistema, que Astro 7 rechaza.
+
+```bash
+echo 'if [ -d "$HOME/.local/node22/bin" ]; then PATH="$HOME/.local/node22/bin:$PATH"; fi' >> ~/.profile
+```
+
+Scripts en `~/bin` (`chmod +x` después de crearlos):
+
+```bash
+cat > ~/bin/win-sync <<'EOF'
+#!/usr/bin/env bash
+set -e
+SRC=/mnt/c/Users/mauri/sistema-inventario2/
+DST=$HOME/dev/sistema-inventario2/
+STAMP=$HOME/.cache/win-dev-lock-stamp
+rsync -a --delete --exclude node_modules "$SRC" "$DST"
+mkdir -p "$(dirname "$STAMP")"
+if [ -f "$STAMP" ] && ! cmp -s "${DST}package-lock.json" "$STAMP"; then
+  echo "package-lock cambió: npm ci"
+  (cd "$DST" && npm ci --no-audit --no-fund >/dev/null)
+fi
+cp "${DST}package-lock.json" "$STAMP"
+cd "$DST"
+echo "ext4: $(git branch --show-current) @ $(git rev-parse --short HEAD)"
+EOF
+cat > ~/bin/wt <<'EOF'
+#!/usr/bin/env bash
+set -e
+win-sync
+cd ~/dev/sistema-inventario2
+exec node_modules/.bin/vitest run --testTimeout=120000 "$@"
+EOF
+cat > ~/bin/win-test <<'EOF'
+#!/usr/bin/env bash
+set -e
+cd ~/dev/sistema-inventario2
+exec node_modules/.bin/vitest run --testTimeout=120000 "$@"
+EOF
+cat > ~/bin/win-verify <<'EOF'
+#!/usr/bin/env bash
+set -e
+cd ~/dev/sistema-inventario2
+node_modules/.bin/tsc --noEmit
+node_modules/.bin/vitest run --config vitest.arch.config.ts --testTimeout=120000
+node_modules/.bin/vitest run --testTimeout=120000
+EOF
+```
+
+Uso diario, desde PowerShell:
+
+```powershell
+wsl -d Ubuntu -- bash -lc "wt tests/admin-mora-rutas.test.ts"   # sync + esos tests
+wsl -d Ubuntu -- bash -lc "wt"                                   # sync + suite completa
+```
+
+Medido el 2026-11-16 con el mismo trabajo sobre `/mnt/c` y sobre el espejo ext4: `npm ci` 5 min → 42 s (9 s en caliente), 3 archivos de tests 35 s → 2 s, suite completa de 3370 tests 16 min → 122 s, `astro build` 4 min 42 s → 8 s. La sincronización incremental cuesta 13 s.
+
+El `--testTimeout=120000` es solo por la lentitud heredada de `/mnt/c`; sobre ext4 casi ningún test lo necesita. No corras `win-sync` mientras un comando de git está a medias en Windows: el rsync copia `.git` también. Sin Postgres exportado, los tests que piden base se skipean (283); para activarlos exportá `CONTROL_DATABASE_URL` y `TENANT_DATABASE_URL` apuntando al cluster de `pg-local.sh`.
+
 ## Requisitos
 
 - WSL2 con Ubuntu 24.04 y una terminal moderna (Windows Terminal).
