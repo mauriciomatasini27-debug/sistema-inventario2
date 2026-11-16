@@ -38,7 +38,9 @@ describe("PERS2-S10/S11 AT9: whatsapp/email sin store (ADR-0055)", () => {
   });
 });
 
-const AHORA = new Date("2026-10-12T12:00:00.000Z");
+// La sesión se valida contra el reloj real de la ruta (inactividad 30 días):
+// una fecha fija deja de servir en cuanto pasa la ventana.
+const AHORA = new Date();
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;

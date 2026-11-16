@@ -11,16 +11,19 @@ import { POST as postPurgar } from "../src/pages/api/jobs/purgar-demos.js";
 import { POST as postAdjust } from "../src/pages/api/prices/adjustments.js";
 
 const AHORA = new Date("2026-10-10T12:00:00.000Z");
+// La sesión se valida contra el reloj real de la ruta (inactividad 30 días):
+// una fecha fija deja de servir en cuanto pasa la ventana.
+const AHORA_SESION = new Date();
 
 function sesion(sub: string): string {
-  const c = crearSesion({ googleSub: sub, tenantId: null, ahora: AHORA });
+  const c = crearSesion({ googleSub: sub, tenantId: null, ahora: AHORA_SESION });
   control.sessions.set(c.registro.idHash, {
     idHash: c.registro.idHash,
     googleSub: sub,
     tenantId: null,
     expiraAt: c.registro.expiraAt,
     expiraAbsoluta: c.registro.expiraAbsoluta,
-    lastSeenAt: AHORA.toISOString(),
+    lastSeenAt: AHORA_SESION.toISOString(),
   });
   return c.idPlano;
 }

@@ -5,7 +5,9 @@ import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as GETConsult } from "../src/pages/api/whatsapp/consult.js";
 import { POST as POSTClose } from "../src/pages/api/email/close-summary.js";
 
-const AHORA = new Date("2026-10-12T12:00:00.000Z");
+// La sesión se valida contra el reloj real de la ruta (inactividad 30 días):
+// una fecha fija deja de servir en cuanto pasa la ventana.
+const AHORA = new Date();
 
 function sesion(sub: string): string {
   const c = crearSesion({ googleSub: sub, tenantId: null, ahora: AHORA });
