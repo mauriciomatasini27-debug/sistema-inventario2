@@ -118,12 +118,15 @@ function existentes(config, cache) {
   }
   let salida;
   try {
-    salida = execFileSync(bin, ["models", "opencode"], { encoding: "utf8", timeout: 20_000, stdio: ["ignore", "pipe", "ignore"] });
+    salida = execFileSync(bin, ["models"], { encoding: "utf8", timeout: 20_000, stdio: ["ignore", "pipe", "ignore"] });
   } catch (e) {
     process.stderr.write(`pstack-modelos: no pude listar modelos (${e.code ?? e.status}); sigo sin filtrar\n`);
     return null;
   }
-  const modelos = salida.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("opencode/"));
+  const modelos = salida
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("opencode/") || l.startsWith("opencode-go/"));
   cache.lista = { en: ahora, modelos };
   guardarCache(cache);
   return new Set(modelos);

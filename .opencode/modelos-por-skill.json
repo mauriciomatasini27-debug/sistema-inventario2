@@ -1,14 +1,21 @@
 {
-  "$comentario": "Modelo free por skill/agente (ADR-0109, PRD-OPENCODE-01). Cada perfil es una lista en orden de preferencia; .opencode/modelos.mjs toma el primero disponible y avisa si cae. Benchmark 2026-10-20 en docs/diseno/PRD-OPENCODE-01-modelos-por-skill.md.",
+  "$comentario": "Modelo por skill/agente (ADR-0109, actualizado local 2026-11-15 con OpenCode Go). Cada perfil es una lista en orden de preferencia; .opencode/modelos.mjs toma el primero disponible y avisa si cae. Primarios = opencode-go (suscripcion Go $10, allowance por modelo en docs/console/go); sin key de Go el resolver cae solo a la cadena free del box. Go bloquea por default los endpoints pagos que entrenan con datos (opencode.ai/docs/console/go/#privacy), por eso los Go van en sinRetencion; Muse Spark queda fuera porque exige habilitar training.",
   "ttlMinutos": 10,
-  "perfilPorDefecto": "razon",
+  "perfilPorDefecto": "codigo",
   "privacidad": {
-    "$comentario": "opencode.ai/docs/zen (2026-10-20). Mandan código del repo: el primero de cada perfil debe ser sinRetencion; entrenan/retienen solo como último respaldo.",
+    "$comentario": "Mandan codigo del repo: el primero de cada perfil debe ser sinRetencion; entrenan/retienen solo como ultimo respaldo. Go: allowance por docs/console/go (2026-11-15): deepseek-v4.1-flash 43330 req/5h, mimo-v2.6-flash 30100, longcat-2.0 11400, glm-5.3-flash 6320, claude-haiku-5-5 3850, gpt-6-luna 4230, kimi-k2.7-code 1350, deepseek-v4-pro 1050.",
     "sinRetencion": [
       "opencode/glm-5.3-flash-free",
       "opencode/deepseek-v4.1-flash-free",
       "opencode/minimax-m3.1-flash-free",
-      "opencode/longcat-2.5-preview-free"
+      "opencode/longcat-2.5-preview-free",
+      "opencode-go/deepseek-v4.1-flash",
+      "opencode-go/deepseek-v4-pro",
+      "opencode-go/glm-5.3-flash",
+      "opencode-go/claude-haiku-5-5",
+      "opencode-go/gpt-6-luna",
+      "opencode-go/kimi-k2.7-code",
+      "opencode-go/longcat-2.0"
     ],
     "retiene30dSinEntrenar": [
       "opencode/beam-free"
@@ -26,6 +33,8 @@
   },
   "perfiles": {
     "codigo": [
+      "opencode-go/deepseek-v4.1-flash",
+      "opencode-go/glm-5.3-flash",
       "opencode/deepseek-v4.1-flash-free",
       "opencode/glm-5.3-flash-free",
       "opencode/longcat-2.5-preview-free",
@@ -34,6 +43,9 @@
       "opencode/big-pickle"
     ],
     "razon": [
+      "opencode-go/deepseek-v4-pro",
+      "opencode-go/gpt-6-luna",
+      "opencode-go/deepseek-v4.1-flash",
       "opencode/deepseek-v4.1-flash-free",
       "opencode/glm-5.3-flash-free",
       "opencode/longcat-2.5-preview-free",
@@ -41,6 +53,8 @@
       "opencode/big-pickle"
     ],
     "juez": [
+      "opencode-go/kimi-k2.7-code",
+      "opencode-go/glm-5.3-flash",
       "opencode/glm-5.3-flash-free",
       "opencode/longcat-2.5-preview-free",
       "opencode/minimax-m3.1-flash-free",
@@ -49,18 +63,22 @@
       "opencode/big-pickle"
     ],
     "prosa": [
+      "opencode-go/claude-haiku-5-5",
+      "opencode-go/gpt-6-luna",
       "opencode/deepseek-v4.1-flash-free",
       "opencode/glm-5.3-flash-free",
       "opencode/longcat-2.5-preview-free",
       "opencode/minimax-m3.1-flash-free"
     ],
     "rapido": [
+      "opencode-go/glm-5.3-flash",
       "opencode/deepseek-v4.1-flash-free",
       "opencode/glm-5.3-flash-free",
       "opencode/beam-free",
       "opencode/mimo-v2.6-flash-free"
     ],
     "largo": [
+      "opencode-go/longcat-2.0",
       "opencode/minimax-m3.1-flash-free",
       "opencode/beam-free",
       "opencode/deepseek-v4.1-flash-free"
@@ -79,12 +97,21 @@
     "blast-radius": "razon",
     "figure-it-out": "razon",
     "arena": "razon",
+    "bro": "razon",
+    "benchmark-checklist": "razon",
     "interrogate": "juez",
     "interface-review": "juez",
     "swarm": "codigo",
     "prototype": "codigo",
     "tdd": "codigo",
     "correct": "codigo",
+    "statechart": "codigo",
+    "typescript-best-practices": "codigo",
+    "make-bot-ui": "codigo",
+    "create-verification-skill": "codigo",
+    "create-formal-verification-skill": "codigo",
+    "maintain-verification-skill": "codigo",
+    "maintain-formal-verification-skill": "codigo",
     "verify-inventario": "codigo",
     "verify-plan-cambio": "codigo",
     "verify-venta-sync": "codigo",
@@ -94,8 +121,37 @@
     "writing-guidelines": "prosa",
     "better-writing": "prosa",
     "show-me-your-work": "prosa",
+    "teach": "prosa",
+    "in-your-own-words": "prosa",
+    "ketchup": "prosa",
+    "ketchup-video": "prosa",
+    "sharpen": "prosa",
     "no-comments": "rapido",
     "setup-pstack": "rapido",
+    "principle-attack-the-premise": "rapido",
+    "principle-boundary-discipline": "rapido",
+    "principle-build-the-lever": "rapido",
+    "principle-encode-lessons-in-structure": "rapido",
+    "principle-exhaust-the-design-space": "rapido",
+    "principle-experience-first": "rapido",
+    "principle-explain-the-number": "rapido",
+    "principle-fix-root-causes": "rapido",
+    "principle-foundational-thinking": "rapido",
+    "principle-guard-the-context-window": "rapido",
+    "principle-laziness-protocol": "rapido",
+    "principle-make-operations-idempotent": "rapido",
+    "principle-migrate-callers-then-delete-legacy-apis": "rapido",
+    "principle-minimize-reader-load": "rapido",
+    "principle-model-the-domain": "rapido",
+    "principle-never-block-on-the-human": "rapido",
+    "principle-outcome-oriented-execution": "rapido",
+    "principle-prove-it-works": "rapido",
+    "principle-redesign-from-first-principles": "rapido",
+    "principle-separate-before-serializing-shared-state": "rapido",
+    "principle-sequence-verifiable-units": "rapido",
+    "principle-subtract-before-you-add": "rapido",
+    "principle-test-behavior-not-implementation": "rapido",
+    "principle-type-system-discipline": "rapido",
     "recall": "largo",
     "automate-me": "largo"
   }

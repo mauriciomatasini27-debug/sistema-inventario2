@@ -17,12 +17,12 @@
   "agent": {
     "pstack-worker": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4.1-flash-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "description": "pstack worker role: swarm workers, explorers, investigators, arena/architect runners."
     },
     "pstack-judge": {
       "mode": "subagent",
-      "model": "opencode/glm-5.3-flash-free",
+      "model": "opencode-go/kimi-k2.7-code",
       "description": "pstack judgment/prose role: synthesizers, explainers, judges, reviewers."
     }
   },

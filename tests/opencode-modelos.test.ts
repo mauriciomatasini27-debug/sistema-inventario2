@@ -15,7 +15,7 @@ describe("modelos por skill (ADR-0109)", () => {
     for (const p of [...Object.values(config.skills), ...Object.values(config.agentes)]) {
       expect(config.perfiles[p as string], `perfil ${p}`).toBeDefined();
     }
-    for (const m of todos) expect(m).toMatch(/^opencode\/(.+-free|big-pickle)$/);
+    for (const m of todos) expect(m).toMatch(/^(opencode\/(.+-free|big-pickle)|opencode-go\/.+)$/);
   });
 
   it("los agentes de opencode.json coinciden con el modelo asignado", () => {
@@ -177,6 +177,14 @@ describe("modelos por skill (ADR-0109)", () => {
 
 describe("pstack-run.sh usa el resolver", () => {
   const sh = readFileSync(".opencode/pstack-run.sh", "utf8");
+  // El default del runner se lee del propio sh: las expectativas no se pinan a un
+  // slug, así cambiar el default del runner no rompe el test.
+  const defaultRun = /default="\$\{pedido:-([^}]+)\}"/.exec(sh)?.[1] ?? "";
+  const FALLBACK = "opencode/glm-5.3-flash-free"; // el env de los tests de abajo lo setea así
+
+  it("el default del runner difiere del fallback de los tests (si no, las cadenas se achican)", () => {
+    expect(defaultRun).not.toBe(FALLBACK);
+  });
 
   async function correrConSalida(
     salida: string | string[],
@@ -228,7 +236,7 @@ describe("pstack-run.sh usa el resolver", () => {
       OPENCODE_BIN: fake,
       PSTACK_PORT: String(port),
       FAKE_OC_DIR: dir,
-      PSTACK_FALLBACK_MODELS: "opencode/glm-5.3-flash-free",
+      PSTACK_FALLBACK_MODELS: FALLBACK,
       PSTACK_MODELOS_DISPONIBLES: [...todos].join(","),
       PSTACK_MODELOS_CACHE: join(dir, "estado.json"),
       PSTACK_MODELOS_LOG: join(dir, "caidos.log"),
@@ -258,7 +266,7 @@ describe("pstack-run.sh usa el resolver", () => {
   it("Upstream y después éxito: reintenta el MISMO modelo y no lo marca caído", async () => {
     const { r, caidos, modelos } = await correrConSalida([upstream, "OK al segundo intento"]);
     expect(r.status).toBe(0);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/deepseek-v4.1-flash-free"]);
+    expect(modelos).toEqual([defaultRun, defaultRun]);
     expect(caidos).toEqual([]);
     expect(r.stdout).toContain("OK al segundo intento");
     expect(r.stderr).toContain("reintento 1/2");
@@ -270,10 +278,10 @@ describe("pstack-run.sh usa el resolver", () => {
     const { r, caidos, modelos } = await correrConSalida([upstream, upstream, upstream, "OK con el siguiente"]);
     expect(r.status).toBe(0);
     expect(modelos).toEqual([
-      "opencode/deepseek-v4.1-flash-free",
-      "opencode/deepseek-v4.1-flash-free",
-      "opencode/deepseek-v4.1-flash-free",
-      "opencode/glm-5.3-flash-free",
+      defaultRun,
+      defaultRun,
+      defaultRun,
+      FALLBACK,
     ]);
     expect(caidos).toEqual([]);
     expect(r.stdout).toContain("OK con el siguiente");
@@ -283,15 +291,15 @@ describe("pstack-run.sh usa el resolver", () => {
   it("Upstream con códigos ANSI también se reintenta sin marcar caído", async () => {
     const { r, caidos, modelos } = await correrConSalida(["\u001b[31mError: Upstream request failed\u001b[0m", "OK final"]);
     expect(r.status).toBe(0);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/deepseek-v4.1-flash-free"]);
+    expect(modelos).toEqual([defaultRun, defaultRun]);
     expect(caidos).toEqual([]);
   });
 
   it('rc=0 con Error: {"name":"UnknownError"} marca caído y prueba el siguiente', async () => {
     const { r, caidos, modelos } = await correrConSalida(['Error: {"name":"UnknownError","message":"boom"}', "OK con el siguiente"]);
     expect(r.status).toBe(0);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/glm-5.3-flash-free"]);
-    expect(caidos).toEqual(["opencode/deepseek-v4.1-flash-free"]);
+    expect(modelos).toEqual([defaultRun, FALLBACK]);
+    expect(caidos).toEqual([defaultRun]);
     expect(r.stderr).toContain("trying next");
   });
 
@@ -319,7 +327,7 @@ describe("pstack-run.sh usa el resolver", () => {
     const { r, caidos } = await correrConSalida('Error: {\n  "name": "UnknownError",\n  "message": "boom"\n}');
     expect(r.status).toBe(1);
     expect(caidos).toEqual(
-      expect.arrayContaining(["opencode/deepseek-v4.1-flash-free", "opencode/glm-5.3-flash-free"]),
+      expect.arrayContaining([defaultRun, FALLBACK]),
     );
     expect(r.stderr).toContain("trying next");
   });
@@ -335,7 +343,7 @@ describe("pstack-run.sh usa el resolver", () => {
   it("rc=1 con Error: Upstream al final también reintenta el mismo modelo", async () => {
     const { r, caidos, modelos } = await correrConSalida([upstream, "OK al segundo intento"], { rcs: [1, 0] });
     expect(r.status).toBe(0);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/deepseek-v4.1-flash-free"]);
+    expect(modelos).toEqual([defaultRun, defaultRun]);
     expect(caidos).toEqual([]);
     expect(r.stderr).toContain("reintento 1/2");
   });
@@ -343,7 +351,7 @@ describe("pstack-run.sh usa el resolver", () => {
   it("rc=124 por timeout no marca caído y pasa al siguiente modelo", async () => {
     const { r, caidos, modelos } = await correrConSalida("sesión colgada", { rcs: [124, 124] });
     expect(r.status).toBe(1);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free", "opencode/glm-5.3-flash-free"]);
+    expect(modelos).toEqual([defaultRun, FALLBACK]);
     expect(caidos).toEqual([]);
     expect(r.stderr).toContain("no lo marco caído");
   });
@@ -351,7 +359,7 @@ describe("pstack-run.sh usa el resolver", () => {
   it("rc=137 por muerte del entorno corta sin marcar caído", async () => {
     const { r, caidos, modelos } = await correrConSalida("proceso muerto", { rcs: [137] });
     expect(r.status).toBe(137);
-    expect(modelos).toEqual(["opencode/deepseek-v4.1-flash-free"]);
+    expect(modelos).toEqual([defaultRun]);
     expect(caidos).toEqual([]);
     expect(r.stderr).toContain("no pude ejecutar");
   });
