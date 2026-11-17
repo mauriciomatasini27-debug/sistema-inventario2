@@ -166,12 +166,15 @@ export async function ejecutarJobGmail(
       persistencia: persistenciaDe(job.tenantId),
     });
 
-    // GGL-P0-HUECOS: Publicar evento filtros_cambiados en gmail_connection_events
+    // GGL-P0-HUECOS: Publicar evento de cambio de filtros en
+    // gmail_connection_events. Nombre filtros_actualizados, no
+    // filtros_cambiados: es el único valor que el CHECK de la tabla acepta
+    // (0030 ya contemplaba este evento con ese nombre).
     const dbControl = getControlDb();
     await dbControl.insert(gmailConnectionEvents).values({
       tenantId: job.tenantId,
       connectionId: job.connectionId,
-      evento: "filtros_cambiados",
+      evento: "filtros_actualizados",
       actor: deps?.actor ?? "sistema",
     });
 

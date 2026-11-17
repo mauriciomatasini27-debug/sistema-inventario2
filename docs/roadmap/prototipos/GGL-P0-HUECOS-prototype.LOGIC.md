@@ -11,8 +11,8 @@
 
 ### Hueco 2: Evento en `gmail_connection_events` al cambiar filtros
 - [x] **Validado**: Hoy no hay evento publicado cuando el usuario cambia filtros en Gmail.
-- [ ] **Falta**: Publicar evento `filtros_cambiados` en la tabla `gmail_connection_events` cuando el consumidor detecte cambios en la configuración de labels/filters de la conexión.
-- **Decisión**: Agregar publicación de evento en el job de consumo de ingesta Gmail, con tipo `filtros_cambiados` y metadatos del usuario que cambió.
+- [ ] **Falta**: Publicar evento `filtros_actualizados` en la tabla `gmail_connection_events` cuando el consumidor detecte cambios en la configuración de labels/filters de la conexión.
+- **Decisión**: Agregar publicación de evento en el job de consumo de ingesta Gmail, con tipo `filtros_actualizados` (el único valor que el CHECK de la tabla acepta desde 0030) y metadatos del usuario que cambió.
 
 ### Hueco 3: Label elegible para `users.watch`
 - [x] **Validado**: `users.watch` hoy solo observa `INBOX` fijo.
