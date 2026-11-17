@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GGL-P0-HUECOS: Gmail Ingesta - Huecos P0</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #fafafa; color: #333; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+    .gap-card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 20px 0; background: white; }
+    .gap-card h3 { margin-top: 0; color: #2c3e50; }
+    .gap-card p { margin-bottom: 15px; }
+    .controls { margin: 20px 0; }
+    .btn { padding: 8px 16px; margin-right: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-secondary { background: #7f8c8d; }
+    .btn-success { background: #27ae60; }
+    .btn-danger { background: #e74c3c; }
+    .status { padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-weight: bold; }
+    .status-ok { background: #d5f5e3; color: #27ae60; border: 1px solid #27ae60; }
+    .status-problem { background: #fadbd8; color: #e74c3c; border: 1px solid #e74c3c; }
+    .log { background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; margin: 10px 0; white-space: pre; font-size: 12px; height: 100px; overflow-y: auto; }
+    .tab { display: none; padding: 10px; border: 1px solid #ddd; border-top: none; }
+    .tab.active { display: block; }
+    .hint { color: #7f8c8d; font-size: 12px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GGL-P0-HUECOS: Cerrar los 5 huecos de la ingesta Gmail</h1>
+    <p>Auditación 2026-11-15: 5 huecos detectados entre ADR-0103 y el código actual.</p>
+
+    <!-- Gap 1: Dedupe por messageId -->
+    <div class="gap-card" id="gap1">
+      <h3>🔍 Hueco 1: Dedupe explícita por messageId</h3>
+      <p><strong>Problema:</strong> El webhook lo descarta, la cola deduplica por <code>(connection_id, history_id)</code>.</p>
+      <p><strong>Ubicación:</strong> <code>src/pages/api/gmail/webhook.ts:51-57</code>, <code>src/lib/repos/gmail-cola.ts:45-47</code></p>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="testGap1a()">Simular webhook sin dedupe</button>
+        <button class="btn btn-secondary" onclick="testGap1b()">Simular cola con dedupe actual</button>
+        <button class="btn btn-success" onclick="testGap1c()">Probar dedupe por messageId</button>
+      </div>
+      <div class="log" id="log1"></div>
+      <div class="hint">Expected: Webhook descarta duplicados por messageId; cola debería dedupe por (connection_id, history_id) pero hoy no usa messageId</div>
+    </div>
+
+    <!-- Gap 2: Evento gmail_connection_events al cambiar filtros -->
+    <div class="gap-card" id="gap2">
+      <h3>🔔 Hueco 2: Evento en gmail_connection_events al cambiar filtros</h3>
+      <p><strong>Problema:</strong> Hoy solo se manejan eventos de conexión/desconexión/error.</p>
+      <p><strong>Ubicación:</strong> <code>src/lib/repos/google-conexiones.ts:171,446</code></p>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="testGap2a()">Ver eventos actuales</button>
+        <button class="btn btn-secondary" onclick="testGap2b()">Simular cambio de filtros</button>
+        <button class="btn btn-success" onclick="testGap2c()">Añadir evento filtros cambiados</button>
+      </div>
+      <div class="log" id="log2"></div>
+      <div class="hint">Expected: No hay evento cuando el usuario cambia filtros en Gmail. Se necesita publicar en gmail_connection_events con tipo 'filtros_cambiados'</div>
+    </div>
+
+    <!-- Gap 3: Label elegible para users.watch -->
+    <div class="gap-card" id="gap3">
+      <h3>🏷️ Hueco 3: Label elegible para users.watch</h3>
+      <p><strong>Problema:</strong> Hoy <code>INBOX</code> fijo, no hay configuración de labels elegibles.</p>
+      <p><strong>Ubicación:</strong> <code>src/jobs/gmail.ts:212</code></p>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="testGap3a()">Ver configuración actual</button>
+        <button class="btn btn-secondary" onclick="testGap3b()">Simular users.watch con label</button>
+        <button class="btn btn-success" onclick="testGap3c()">Probar label configurable INBOX+OTROS</button>
+      </div>
+      <div class="log" id="log3"></div>
+      <div class="hint">Expected: users.watch hoy solo usa INBOX. Falta configurar labels observables y publicarlos en la conexión</div>
+    </div>
+
+    <!-- Gap 4: Rechazo casilla ya activa en otro comercio -->
+    <div class="gap-card" id="gap4">
+      <h3>⚠️ Hueco 4: Rechazo casilla ya activa en otro comercio al conectar</h3>
+      <p><strong>Problema:</strong> El 409 salta recién al registrar el watch, no al conectar.</p>
+      <p><strong>Ubicación:</strong> <code>src/lib/repos/gmail-watch.ts:51-53</code></p>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="testGap4a()">Simular conexión existente</button>
+        <button class="btn btn-secondary" onclick="testGap4b()">Intentar conectar misma casilla</button>
+        <button class="btn btn-success" onclick="testGap4c()">Probar validación anticipada</button>
+      </div>
+      <div class="log" id="log4"></div>
+      <div class="hint">Expected: Hoy el error 409 solo ocurre al registrar el watch (POST /api/gmail/watch). Falta validar antes al dar de alta la conexión.</div>
+    </div>
+
+    <!-- Gap 5: Scheduler del watch -->
+    <div class="gap-card" id="gap5">
+      <h3>⏰ Hueco 5: Scheduler del watch (<12h de vida, nada lo invoca cada 24h)</h3>
+      <p><strong>Problema:</strong> <code>src/pages/api/jobs/gmail-poll.ts</code> renueva con <12h de vida pero nada lo invoca cada 24h.</p>
+      <p><strong>Ubicación:</strong> <code>src/pages/api/jobs/gmail-poll.ts</code></p>
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="testGap5a()">Ver estado watch actual</button>
+        <button class="btn btn-secondary" onclick="testGap5b()">Simular renovación <12h</button>
+        <button class="btn btn-success" onclick="testGap5c()">Programar renovación cada 24h</button>
+      </div>
+      <div class="log" id="log5"></div>
+      <div class="hint">Expected: El watch expira <12h, pero no hay un job programado para renovarlo cada 24h. Falta scheduler independiente del polling job.</div>
+    </div>
+
+    <hr>
+    <p><small>Prototipo throwaway para GGL-P0-HUECOS. Este HTML prueba los 5 huecos detectados en la auditoría 2026-11-15.</small></p>
+  </div>
+
+  <script>
+    // State shared across gaps
+    let state = {
+      gap1: { webhookDedupe: false, colaDedupe: false, messageId: null },
+      gap2: { eventos: [], filtrosCambiados: false },
+      gap3: { labelsWatch: ['INBOX'], labelConfigurable: false },
+      gap4: { casillaActivaOtroComercio: false, error409AlConectar: false },
+      gap5: { watchVidaMs: 12 * 60 * 60 * 1000, renovacionProgramada: false }
+    };
+
+    function log(id, msg) { document.getElementById('log' + id).innerHTML += '> ' + msg + '\n'; }
+
+    // GAP 1: Dedupe por messageId
+    function testGap1a() {
+      state.gap1 = { webhookDedupe: false, colaDedupe: false, messageId: null };
+      log(1, 'Test A: Simular webhook sin dedupe por messageId');
+      log(1, '→ Webhook procesa el push pero no verifica messageId duplicado');
+      log(1, '→ El server de Gmail ya descarta por messageId, pero esto es invisible para nuestro codigo');
+    }
+
+    function testGap1b() {
+      state.gap1 = { ...state.gap1, colaDedupe: true };
+      log(1, 'Test B: Cola actual usa dedupe por (connection_id, history_id)');
+      log(1, '→ gmail-cola.ts:45-47 usa uniqueIndex(connectionId, historyId)');
+      log(1, '→ Falta: dedupe también por messageId para cubrir el caso webhook');
+    }
+
+    function testGap1c() {
+      state.gap1 = { ...state.gap1, webhookDedupe: true, messageId: 'msg_' + Date.now() };
+      log(1, 'Test C: Probar dedupe explícita por messageId');
+      log(1, '→ Webhook verifica messageId antes de encolar');
+      log(1, '→ Si messageId ya existe en la session/tenant: retorna 204 sin encolar');
+      log(1, '→ Esto cubre el hueco: webhook descarta, cola debería igualar');
+    }
+
+    // GAP 2: Evento al cambiar filtros
+    function testGap2a() {
+      state.gap2 = { eventos: [], filtrosCambiados: false };
+      log(2, 'Test A: Ver eventos actuales');
+      log(2, '→ Eventos guardados: conexión/desconexión/error solo');
+      log(2, '→ No hay evento "filtros_cambiados" en gmail_connection_events');
+    }
+
+    function testGap2b() {
+      state.gap2 = { ...state.gap2, eventos: ['conexion', 'desconexion', 'error'] };
+      log(2, 'Test B: Simular cambio de filtros');
+      log(2, '→ Cuando el usuario cambia filtros en Gmail, no se publica nada');
+      log(2, '→ Se necesita: publicar evento "filtros_cambiados" en gmail_connection_events');
+    }
+
+    function testGap2c() {
+      state.gap2 = { ...state.gap2, eventos: ['conexion', 'desconexion', 'error', 'filtros_cambiados'], filtrosCambiados: true };
+      log(2, 'Test C: Añadir evento filtros cambiados');
+      log(2, '→ Se inserta fila en gmail_connection_events con evento=filtros_cambiados');
+      log(2, '→ El job consumidor puede reaccionar actualizando la conexión');
+    }
+
+    // GAP 3: Label elegible para users.watch
+    function testGap3a() {
+      state.gap3 = { labelsWatch: ['INBOX'], labelConfigurable: false };
+      log(3, 'Test A: Ver configuración actual');
+      log(3, '→ labelsWatch = ["INBOX"] fijo');
+      log(3, '→ users.watch solo observa INBOX');
+      log(3, '→ No hay forma de configurar otros labels a observar');
+    }
+
+    function testGap3b() {
+      state.gap3 = { ...state.gap3, labelsWatch: ['INBOX', 'IMPORTANT', 'STARRED'] };
+      log(3, 'Test B: Simular users.watch con labels múltiples');
+      log(3, '→ users.watch necesita ver múltiples labels');
+      log(3, '→ La conexión necesita field "labels" que liste qué labels observar');
+    }
+
+    function testGap3c() {
+      state.gap3 = { ...state.gap3, labelsWatch: ['INBOX', 'IMPORTANT', 'STARRED'], labelConfigurable: true };
+      log(3, 'Test C: Probar label configurable INBOX+OTROS');
+      log(3, '→ El usuario puede elegir qué labels observar via UI');
+      log(3, '→ Las labels se guardan en la conexión Google');
+      log(3, '→ users.watch se inicia con los labels seleccionados');
+    }
+
+    // GAP 4: Rechazo casilla ya activa en otro comercio
+    function testGap4a() {
+      state.gap4 = { casillaActivaOtroComercio: false, error409AlConectar: false };
+      log(4, 'Test A: Simular conexión existente en otro comercio');
+      log(4, '→ gmail-watch.ts:51-53 lanza CasillaEnOtroComercio error');
+      log(4, '→ Pero esto ocurre al registrar el watch, no al dar de alta la conexión');
+    }
+
+    function testGap4b() {
+      state.gap4 = { ...state.gap4, casillaActivaOtroComercio: true };
+      log(4, 'Test B: Intentar conectar misma casilla en distinto comercio');
+      log(4, '→ La casilla ya está conectada al comercio A');
+      log(4, '→ Si intentas conectar al comercio B: error 409 solo al registrar watch');
+      log(4, '→ Falta validar al dar de alta la conexión (antes del watch)');
+    }
+
+    function testGap4c() {
+      state.gap4 = { ...state.gap4, casillaActivaOtroComercio: true, error409AlConectar: true };
+      log(4, 'Test C: Probar validación anticipada al conectar');
+      log(4, '→ Al dar de alta la conexión: valida si el email_hmac ya existe');
+      log(4, '→ Si existe y es de otro comercio: error 409 inmediato al conectar');
+      log(4, '→ Esto evita el error sorpresivo al intentar usar el watch');
+    }
+
+    // GAP 5: Scheduler del watch
+    function testGap5a() {
+      state.gap5 = { watchVidaMs: 12 * 60 * 60 * 1000, renovacionProgramada: false };
+      log(5, 'Test A: Ver estado watch actual');
+      log(5, '→ watchExpiraAt es null o < 12h en el futuro');
+      log(5, '→ El poll job en gmail-poll.ts lo renueva cada corrida');
+      log(5, '→ Pero no hay scheduler independiente que corra cada 24h');
+    }
+
+    function testGap5b() {
+      state.gap5 = { ...state.gap5, watchVidaMs: 12 * 60 * 60 * 1000 };
+      log(5, 'Test B: Simular renovación <12h');
+      log(5, '→ renovarWatchGmail() se ejecuta en el job de polling');
+      log(5, '→ Veo avisos: "watch renovado" o error si ya expiró');
+      log(5, '→ La renovación depende del job de polling, no de scheduler fijo');
+    }
+
+    function testGap5c() {
+      state.gap5 = { ...state.gap5, watchVidaMs: 12 * 60 * 60 * 1000, renovacionProgramada: true };
+      log(5, 'Test C: Programar renovación cada 24h');
+      log(5, '→ Se crea un job programado (cron o similar) que corre cada 24h');
+      log(5, '→ Su único trabajo: renovar el watch si está por expirar');
+      log(5, '→ Independiente del job de polling que procesa ingesta');
+      log(5, '→ Ejemplo: node_cron "0 6 * * *" que llame a renovarWatchGmail');
+    }
+  </script>
+</body>
+</html>
