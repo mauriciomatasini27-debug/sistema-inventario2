@@ -72,7 +72,7 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0045_shared_tenant_sellar_nucleo")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0046_tenants_rubro")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0047_shared_tenant_periferia")).toBe(true);
-    expect(journal.entries.length).toBe(48);
+    expect(journal.entries.length).toBe(49);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -278,7 +278,7 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        expect(n[0]?.n).toBe(48);
+        expect(n[0]?.n).toBe(49);
       } finally {
         await db.end();
       }

@@ -23,6 +23,9 @@ describe.skipIf(!hayPG)("GGL-PANEL salud, desconexión e invalid_grant", () => {
   const env = {
     INTEGRATIONS_KMS_KEY_B64: Buffer.alloc(32, 11).toString("base64"),
     INTEGRATIONS_KMS_KEY_ID: "kms-panel-test",
+    // Hueco 4 (GGL-P0-HUECOS): guardarConexionGmail ahora calcula el HMAC de
+    // la casilla para rechazar 409 anticipado, así que el pepper es obligatorio.
+    GMAIL_ROUTE_PEPPER: "pepper-panel-test",
     GOOGLE_INTEGRATIONS_CLIENT_ID: "cliente-panel",
     GOOGLE_INTEGRATIONS_CLIENT_SECRET: "secreto-panel",
     GOOGLE_INTEGRATIONS_REDIRECT: "http://localhost/api/integrations/callback",

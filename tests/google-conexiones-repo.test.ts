@@ -21,6 +21,12 @@ describe.skipIf(!hayPG)("repositorio de conexiones Google", () => {
   beforeAll(async () => {
     const url = await asegurarBasePrivada("google_conexiones_repo", URL_A!);
     process.env.TENANT_DATABASE_URL = url;
+    // Hueco 4 (GGL-P0-HUECOS): guardarConexionGmail calcula el HMAC de la
+    // casilla para el 409 anticipado; sin pepper falla antes de cualquier test.
+    process.env.GMAIL_ROUTE_PEPPER = "pepper-repo-test";
+    // La validación de 409 consulta gmail_watch_routes por control DB
+    // (mismo patrón que google-rutas-integracion; base privada con control).
+    process.env.CONTROL_DATABASE_URL = url;
     delete process.env.TENANT_MODE;
     sql = postgres(url, { max: 1 });
     const [tenant] = await sql<{ id: string }[]>`
@@ -35,6 +41,8 @@ describe.skipIf(!hayPG)("repositorio de conexiones Google", () => {
   afterAll(async () => {
     await sql?.end();
     delete process.env.TENANT_DATABASE_URL;
+    delete process.env.CONTROL_DATABASE_URL;
+    delete process.env.GMAIL_ROUTE_PEPPER;
   });
 
   it("guarda el token cifrado, reconecta y revoca sin dejar el plano", async () => {
