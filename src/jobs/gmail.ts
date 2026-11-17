@@ -2,6 +2,7 @@ import {
   ErrorGmailTransitorio,
   crearClienteGmail,
 } from "../modules/integraciones/gmail-cliente.js";
+import { getControlDb } from "../lib/db.js";
 import {
   ErrorOAuthGoogle,
   leerConfigIntegracionGmail,
@@ -27,6 +28,7 @@ import {
 } from "../lib/repos/gmail-ingesta.js";
 import { marcarJobGmailError, marcarJobGmailHecho, type JobGmail } from "../lib/repos/gmail-cola.js";
 import { sincronizarGmail, type PersistenciaSyncGmail } from "../modules/integraciones/gmail-sync.js";
+import { gmailConnectionEvents } from "../db/schema-google.js";
 import type { MotorOcr } from "../modules/ocr/motor.js";
 import type { ExtractadorPdfDigital } from "../modules/utilities/extraer-pdf-digital.js";
 
@@ -36,6 +38,7 @@ export interface DepsJobGmail {
   readonly motor?: MotorOcr | null;
   readonly extraerPdfTexto?: ExtractadorPdfDigital;
   readonly ahoraMs?: number;
+  readonly actor?: string;
 }
 
 function envDe(deps: DepsJobGmail | undefined): NodeJS.ProcessEnv {
@@ -162,6 +165,16 @@ export async function ejecutarJobGmail(
       ...(deps?.extraerPdfTexto !== undefined ? { extraerPdfTexto: deps.extraerPdfTexto } : {}),
       persistencia: persistenciaDe(job.tenantId),
     });
+
+    // GGL-P0-HUECOS: Publicar evento filtros_cambiados en gmail_connection_events
+    const dbControl = getControlDb();
+    await dbControl.insert(gmailConnectionEvents).values({
+      tenantId: job.tenantId,
+      connectionId: job.connectionId,
+      evento: "filtros_cambiados",
+      actor: deps?.actor ?? "sistema",
+    });
+
     await marcarJobGmailHecho(job.id);
     return "hecho";
   } catch (e) {
