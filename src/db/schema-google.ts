@@ -109,6 +109,7 @@ export const gmailIngestionJobs = pgTable(
     tenantId: uuid("tenant_id").notNull(),
     connectionId: uuid("connection_id").notNull(),
     historyId: text("history_id").notNull(),
+    messageId: text("message_id"),
     motivo: text("motivo").notNull().default("push"),
     estado: text("estado").notNull().default("pendiente"),
     intentos: integer("intentos").notNull().default(0),
@@ -123,5 +124,6 @@ export const gmailIngestionJobs = pgTable(
       t.connectionId,
       t.historyId,
     ),
+    uniqueIndex("gmail_ingestion_jobs_message_id_unique").on(t.messageId),
   ],
 );
