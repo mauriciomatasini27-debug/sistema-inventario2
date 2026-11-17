@@ -4,10 +4,12 @@ import { getControlDb, getTenantDb } from "../db.js";
 import {
   gmailConnectionEvents,
   gmailIngestionJobs,
+  gmailWatchRoutes,
   googleConnections,
 } from "../../db/schema-google.js";
 import { emailIngestionLog } from "../../db/schema-servicios.js";
 import { kms_integraciones_desde_env, type Kms } from "../../modules/fiscal/kms.js";
+import { hmacCasilla } from "../repos/gmail-watch.js";
 
 // Repositorio de conexiones Google (ADR-0102). La fila vive en la base del
 // tenant y el token solo se guarda cifrado. El AAD ata el ciphertext a
@@ -94,6 +96,27 @@ export async function guardarConexionGmail(
   const emailCambio = Boolean(existente && existente.cuentaEmail !== input.cuentaEmail);
   if (emailCambio && input.refreshToken === null) {
     throw new Error("Cambió la casilla y Google no devolvió refresh token");
+  }
+  // GGL-P0-HUECOS: Validar anticipadamente si la casilla ya está activa en otro comercio
+  const emailHmac = hmacCasilla(input.cuentaEmail);
+  const dbControl = getControlDb();
+  const [rutaExistente] = await dbControl
+    .select()
+    .from(gmailWatchRoutes)
+    .where(
+      and(
+        eq(gmailWatchRoutes.emailHmac, emailHmac),
+        eq(gmailWatchRoutes.activo, true),
+      ),
+    )
+    .limit(1);
+  if (rutaExistente) {
+    if (
+      rutaExistente.tenantId !== input.tenantId ||
+      rutaExistente.connectionId !== existente?.id
+    ) {
+      throw new Error("La casilla ya está conectada a otro comercio (error 409 anticipado)");
+    }
   }
   const kms = kmsPara(input.env ?? process.env, input.kms);
   const token =
