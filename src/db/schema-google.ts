@@ -25,6 +25,7 @@ export const googleConnections = pgTable(
     tipo: text("tipo").notNull(),
     cuentaEmail: text("cuenta_email").notNull(),
     scopes: text("scopes").array().notNull().default([]),
+    labels: text("labels").array().notNull().default(['INBOX']),
     refreshTokenCifrado: text("refresh_token_cifrado"),
     refreshTokenIv: text("refresh_token_iv"),
     refreshTokenTag: text("refresh_token_tag"),

@@ -70,6 +70,7 @@ export interface GuardarConexionGmailInput {
   readonly tenantId: string;
   readonly cuentaEmail: string;
   readonly scopes: ReadonlyArray<string>;
+  readonly labels?: ReadonlyArray<string>;
   readonly refreshToken: string | null;
   readonly consentimientoVersion: string;
   readonly consentidoPor: string;
@@ -166,6 +167,7 @@ export async function guardarConexionGmail(
             watchHistoryId: existente.watchHistoryId,
             watchExpiraAt: existente.watchExpiraAt,
             photosAlbumes: existente.photosAlbumes,
+            labels: existente.labels ?? ['INBOX'],
           }
         : {}),
     })
