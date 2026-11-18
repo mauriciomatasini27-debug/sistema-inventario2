@@ -1,6 +1,6 @@
 import { control } from "./store.js";
 import { esDueno, jsonError, membershipActiva, resolverSesion, type ContextoAuth } from "./control.js";
-import { esModoAisladoPorTenant, esModoMulti, esModoShared, tenantPorDefecto } from "./tenant-mode.js";
+import { esModoAisladoPorTenant, esModoMulti, esModoShared, tenantPorDefecto } from "./tenant.js";
 
 export { esModoAisladoPorTenant, esModoMulti, esModoShared, tenantPorDefecto };
 
