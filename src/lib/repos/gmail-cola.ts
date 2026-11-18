@@ -18,6 +18,7 @@ export interface EncolarIngestaInput {
   readonly tenantId: string;
   readonly connectionId: string;
   readonly historyId: string;
+  readonly messageId?: string | null;
   readonly motivo: MotivoJobGmail;
 }
 
@@ -34,12 +35,25 @@ function aJob(fila: typeof gmailIngestionJobs.$inferSelect): JobGmail {
 
 export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGmail | null> {
   const db = getControlDb();
+  // GGL-P0-HUECOS: Validación de dedupe por messageId
+  if (input.messageId) {
+    const [existentePorMessageId] = await db
+      .select()
+      .from(gmailIngestionJobs)
+      .where(eq(gmailIngestionJobs.messageId, input.messageId))
+      .limit(1);
+    if (existentePorMessageId) {
+      // Já hay un job con este messageId: retornarlo sin encolar nuevamente
+      return aJob(existentePorMessageId);
+    }
+  }
   const [creado] = await db
     .insert(gmailIngestionJobs)
     .values({
       tenantId: input.tenantId,
       connectionId: input.connectionId,
       historyId: input.historyId,
+      messageId: input.messageId,
       motivo: input.motivo,
     })
     .onConflictDoNothing({

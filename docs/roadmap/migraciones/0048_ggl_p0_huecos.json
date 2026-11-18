@@ -1,0 +1,6 @@
+{
+  "tag": "0048_ggl_p0_huecos",
+  "fecha": "2026-11-17",
+  "aprobado_por": "Mauri",
+  "evidencia": "Aprobada por Mauri en la sesión de cierre de GGL-P0-HUECOS (gate duro de verify). Aplicada con npm run db:migrate (wrapper P1-69) en las bases locales de test pers_tenant_a y pers_tenant_b el 2026-11-17: 0048 ok run=3 skip=0, db:migrate:check journal=49 aplicadas=49 pendientes=0. Pendiente de aplicar en la base real del piloto antes del merge."
+}

@@ -337,6 +337,13 @@
       "when": 1794964800000,
       "tag": "0047_shared_tenant_periferia",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1795051200000,
+      "tag": "0048_ggl_p0_huecos",
+      "breakpoints": true
     }
   ]
 }

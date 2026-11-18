@@ -66,6 +66,9 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/jobs/gmail-ingesta",
   "/api/jobs/gmail-poll",
   "/api/jobs/gmail-watch",
+  // GGL-P0-HUECOS: renueva el watch si expira en <12h; ruta de control jobs/*
+  // con X-Job-Secret por correrJob y tenant explícito, igual que gmail-poll.
+  "/api/jobs/gmail-watch-renewer",
   "/api/admin/fiscal/certificados-vencimiento",
 ]);
 
@@ -82,7 +85,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(25);
+    expect(EXCEPCIONES_CONTROL.size).toBe(26);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

@@ -42,6 +42,9 @@ describe.skipIf(!hayPG)("rutas de integración Google", () => {
     process.env.GOOGLE_INTEGRATIONS_MODO = "verificada";
     process.env.INTEGRATIONS_KMS_KEY_B64 = secretoKms;
     process.env.INTEGRATIONS_KMS_KEY_ID = "kms-integracion-test";
+    // Hueco 4 (GGL-P0-HUECOS): guardarConexionGmail calcula el HMAC de la
+    // casilla para el 409 anticipado al conectar.
+    process.env.GMAIL_ROUTE_PEPPER = "pepper-rutas-test";
 
     sql = postgres(url, { max: 1 });
     await sql`

@@ -24,8 +24,12 @@ const numCafe = `${Date.now()}c${Math.floor(Math.random() * 1e6)}`;
 const numMate = `${Date.now()}m${Math.floor(Math.random() * 1e6)}`;
 const numPasta = `${Date.now()}p${Math.floor(Math.random() * 1e6)}`;
 // Sin substring compartido entre A y B: trgm <% los confundía con el mismo sufijo.
+// sufijoB usa alfabeto propio (wxyz+dígitos): Date.now().toString(36) es el mismo
+// en ambos (mismo milisegundo) y word_similarity cruzaba 0.3 ~13% de las corridas,
+// haciendo que "agua mineral <B>" resolviera directo al aliasA de este tenant.
 const aliasA = `rubia cola ${sufijo}`;
-const aliasB = `agua mineral ${sufijoB}`;
+const sufijoBA = Array.from({ length: 10 }, () => "wxyz"[Math.floor(Math.random() * 4)]).join("");
+const aliasB = `agua mineral ${sufijoBA}${Math.floor(Math.random() * 1e6)}`;
 const skuCafe = `ALIAS-CAFE-${numCafe}`;
 const skuListas = Array.from({ length: 3 }, (_, i) => `ALIAS-YERBA${i}-${numMate}`);
 const skuMuchos = Array.from({ length: 6 }, (_, i) => `ALIAS-FIDEO${i}-${numPasta}`);

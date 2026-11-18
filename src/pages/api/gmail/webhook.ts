@@ -53,6 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
       tenantId: ruta.tenantId,
       connectionId: ruta.connectionId,
       historyId: push.historyId,
+      messageId: push.messageId,
       motivo: "push",
     });
   } catch (e) {

@@ -22,13 +22,21 @@ function fijarMulti() {
 }
 
 async function listarProveedoresDe(tenant: string): Promise<{ items: Array<{ nombre: string }>; fuente: string }> {
-  const res = (await conTenant(tenant, () => GETSuppliers(ctx("http://test/api/suppliers")))) as Response;
+  // P3-7d: ?q= con la marca única filtra server-side ANTES de paginar. Sin el
+  // filtro, el limit default 20 tapa al proveedor nuevo si la base compartida
+  // A acumula residuos de otros tests (en multi no hay filtro por fila: el
+  // aislamiento es por base, y los residuos viven en la misma base física).
+  const res = (await conTenant(tenant, () =>
+    GETSuppliers(ctx(`http://test/api/suppliers?q=${encodeURIComponent(nombreA)}`)),
+  )) as Response;
   expect(res.status).toBe(200);
   return (await res.json()) as { items: Array<{ nombre: string }>; fuente: string };
 }
 
 async function listarClientesDe(tenant: string): Promise<{ items: Array<{ nombre: string } & Record<string, unknown>>; fuente: string }> {
-  const res = (await conTenant(tenant, () => GETCustomers(ctx("http://test/api/credit/customers")))) as Response;
+  const res = (await conTenant(tenant, () =>
+    GETCustomers(ctx(`http://test/api/credit/customers?q=${encodeURIComponent(clienteA)}`)),
+  )) as Response;
   expect(res.status).toBe(200);
   return (await res.json()) as { items: Array<{ nombre: string } & Record<string, unknown>>; fuente: string };
 }

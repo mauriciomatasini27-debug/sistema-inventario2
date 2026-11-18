@@ -97,36 +97,20 @@ describe.skipIf(!hayPG)("watch de Gmail", () => {
     });
   });
 
-  it("no registra el watch si la casilla ya está en otro comercio", async () => {
-    const conexion = await guardarConexionGmail({
-      tenantId: otroTenantId,
-      cuentaEmail: "watch@ejemplo.com",
-      scopes: ["openid", "email", "gmail.readonly"],
-      refreshToken: "refresh-otro",
-      consentimientoVersion: "v1",
-      consentidoPor: "sub-otro",
-      env,
-    });
-    let watchLlamado = false;
-    const fetchImpl = (async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === "https://oauth2.googleapis.com/token") {
-        return Response.json({ access_token: "access-otro", expires_in: 3600 });
-      }
-      if (url.includes("/users/me/watch")) {
-        watchLlamado = true;
-        return Response.json({ historyId: "999", expiration: "1792000000000" });
-      }
-      throw new Error(`fetch inesperado: ${url}`);
-    }) as typeof fetch;
-
+  it("rechaza al conectar si la casilla ya está en otro comercio (409 anticipado)", async () => {
+    // GGL-P0-HUECOS: el 409 ahora salta en guardarConexionGmail (validación
+    // por emailHmac contra gmail_watch_routes) antes de tocar Google, así que
+    // ni se crea la fila ni se llama a users/watch.
     await expect(
-      renovarWatchGmail({
+      guardarConexionGmail({
         tenantId: otroTenantId,
-        connectionId: conexion.id,
-        deps: { env, fetchImpl },
+        cuentaEmail: "watch@ejemplo.com",
+        scopes: ["openid", "email", "gmail.readonly"],
+        refreshToken: "refresh-otro",
+        consentimientoVersion: "v1",
+        consentidoPor: "sub-otro",
+        env,
       }),
     ).rejects.toThrow(/otro comercio/);
-    expect(watchLlamado).toBe(false);
   });
 });
