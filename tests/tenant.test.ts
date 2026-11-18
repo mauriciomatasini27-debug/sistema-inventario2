@@ -6,7 +6,10 @@ import {
   conTenant,
   dondeTenant,
   esModoAisladoPorTenant,
+  esModoMulti,
+  esModoShared,
   filaConTenant,
+  tenantActual,
   tenantIdAlSellar,
   tenantIdShared,
   tenantPorDefecto,
@@ -28,6 +31,20 @@ describe("tenant module — mode flags and helpers", () => {
   it("tenantPorDefecto returns the injected default", () => {
     expect(conModoTenant(modoSingle, () => tenantPorDefecto())).toBe(UUID_DEFECTO);
     expect(conModoTenant(modoMulti, () => tenantPorDefecto())).toBe("slice0");
+  });
+  it("esModoMulti and esModoShared reflect the injected mode", () => {
+    expect(conModoTenant(modoSingle, () => esModoMulti())).toBe(false);
+    expect(conModoTenant(modoSingle, () => esModoShared())).toBe(false);
+    expect(conModoTenant(modoMulti, () => esModoMulti())).toBe(true);
+    expect(conModoTenant(modoShared, () => esModoShared())).toBe(true);
+  });
+  it("whereTenant combines extra with the tenant predicate in shared mode", () => {
+    const cond = conModoTenant(modoShared, () => conTenant(UUID_CONTEXTO, () => dondeTenant(t.id, sql`true`)));
+    expect(cond).toBeDefined();
+  });
+  it("conTenant/tenantActual expose the current tenant within the callback", () => {
+    expect(conTenant(UUID_CONTEXTO, () => tenantActual())).toBe(UUID_CONTEXTO);
+    expect(conTenant(UUID_CONTEXTO, () => tenantActual() ?? "none")).toBe(UUID_CONTEXTO);
   });
   it("esModoAisladoPorTenant is true for multi and shared, false for single", () => {
     expect(conModoTenant(modoSingle, () => esModoAisladoPorTenant())).toBe(false);
