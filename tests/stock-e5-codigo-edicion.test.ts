@@ -5,7 +5,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { products, productCodes } from "../src/db/schema.js";
-import { POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
+import { GET as getProducts, POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 
 // STOCK-E5: edición de códigos de un producto existente vía PATCH
@@ -116,6 +116,26 @@ describe("STOCK-E5 PATCH codigo en modo memoria", () => {
     expect(c.status).toBe(201);
     const p = (await patchProducts(patch(`http://x/api/products?sku=${sku}`, { codigo: cod }))) as Response;
     expect(p.status).toBe(200);
+  });
+
+  it("al limpiar el codigo, buscar por el codigo viejo ya no devuelve el producto", async () => {
+    const sku = skuDe("M5");
+    const cod = codDe("m5");
+    const alta = (await postProducts(
+      post("http://x/api/products", { sku, nombre: "Limpia", precio_centavos: 100, codigo: cod }),
+    )) as Response;
+    expect(alta.status).toBe(201);
+
+    const antes = (await getProducts(ctx(`http://x/api/products?codigo=${cod}`))) as Response;
+    const jsonAntes = (await antes.json()) as { productos: unknown[] };
+    expect(jsonAntes.productos).toHaveLength(1);
+
+    const p = (await patchProducts(patch(`http://x/api/products?sku=${sku}`, { codigo: "" }))) as Response;
+    expect(p.status).toBe(200);
+
+    const despues = (await getProducts(ctx(`http://x/api/products?codigo=${cod}`))) as Response;
+    const jsonDespues = (await despues.json()) as { productos: unknown[] };
+    expect(jsonDespues.productos).toEqual([]);
   });
 });
 

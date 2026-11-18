@@ -20,6 +20,12 @@ import {
   type FichaCatalogo,
   type UbicacionCatalogo,
 } from "./_almacen.js";
+import {
+  FalloBorradoCodigo,
+  normalizarCodigo,
+  reemplazarCodigo,
+  type PersistenciaCodigos,
+} from "./codigo-producto.js";
 
 // PERS2-S23 (ADR-0062): catálogo DB-first, memoria solo en single sin base.
 
@@ -180,7 +186,8 @@ async function presentarDb(db: TenantDb, fichas: FichaProducto[]): Promise<Ficha
 export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: FichaListado; fuente: "db" | "memoria" } | null> {
   const productos = crearAlmacenProductos();
   const codigos = crearAlmacenCodigos();
-  const cod = codigo.trim().toUpperCase();
+  const cod = normalizarCodigo(codigo);
+  if (!cod) return null;
   const enMemoria = codigos.obtener(cod);
   const memoria = enMemoria ? (productos.obtener(enMemoria) ?? null) : null;
   const db = dbVivaTenant();
@@ -345,8 +352,11 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
   if (productos.contiene(sku) || existencias.contiene(sku) || existencias.contiene(input.sku)) {
     if (productos.contiene(sku)) return { ok: false, codigo: "SKU_DUPLICADO", error: "sku duplicado" };
   }
-  const cod = input.codigo?.trim().toUpperCase() || null;
-  if (cod && codigos.contiene(cod)) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+  const cod = normalizarCodigo(input.codigo);
+  if (cod) {
+    const dueno = await persistenciaCodigosMemoria(codigos).dueno(cod);
+    if (dueno !== null) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+  }
   // Por qué validar ubicación: products.location_id referencia locations;
   // un id inexistente se rechaza con 422 en vez de romper la FK.
   if (input.locationId !== undefined && !(await ubicacionExiste(input.locationId))) {
@@ -380,13 +390,8 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
       .limit(1);
     if (previoSku[0]) return { ok: false, codigo: "SKU_DUPLICADO", error: "sku duplicado" };
     if (cod) {
-      const wCod = dondeTenant(productCodes.tenantId, eq(productCodes.codigo, cod));
-      const previoCod = await db
-        .select({ codigo: productCodes.codigo })
-        .from(productCodes)
-        .where(wCod ?? eq(productCodes.codigo, cod))
-        .limit(1);
-      if (previoCod[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+      const dueno = await persistenciaCodigosDb(db, codigos).dueno(cod);
+      if (dueno !== null) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
     }
     // ADR-0116 C3: en shared el alta pega tenant_id; uniques globales siguen hasta el cierre.
     const tid = tenantIdAlSellar();
@@ -424,6 +429,57 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "memoria" };
   }
+}
+
+function persistenciaCodigosDb(db: TenantDb, codigos: AlmacenVivo<string>): PersistenciaCodigos {
+  return {
+    async codigoViejo(sku) {
+      const wSku = dondeTenant(productCodes.tenantId, eq(productCodes.sku, sku));
+      const filas = await db
+        .select({ codigo: productCodes.codigo })
+        .from(productCodes)
+        .where(wSku ?? eq(productCodes.sku, sku))
+        .limit(1);
+      return filas[0]?.codigo ?? null;
+    },
+    async dueno(codigo) {
+      const wCod = dondeTenant(productCodes.tenantId, eq(productCodes.codigo, codigo));
+      const filas = await db
+        .select({ sku: productCodes.sku })
+        .from(productCodes)
+        .where(wCod ?? eq(productCodes.codigo, codigo))
+        .limit(1);
+      return filas[0]?.sku ?? null;
+    },
+    async borrar(_sku, codigo) {
+      await db.delete(productCodes).where(
+        sql`${productCodes.tenantId} = ${tenantIdAlSellar()} AND ${productCodes.codigo} = ${codigo}`,
+      );
+      codigos.mapaVivo().delete(codigo);
+    },
+    async guardar(sku, codigo) {
+      await db.insert(productCodes).values(filaConTenant({ codigo, sku, padre: null })).onConflictDoNothing();
+      codigos.guardar(codigo, sku);
+    },
+  };
+}
+
+function persistenciaCodigosMemoria(codigos: AlmacenVivo<string>): PersistenciaCodigos {
+  return {
+    async codigoViejo(sku) {
+      for (const [cod, dueno] of codigos.comoMapaSoloLectura()) if (dueno === sku) return cod;
+      return null;
+    },
+    async dueno(codigo) {
+      return codigos.obtener(codigo) ?? null;
+    },
+    async borrar(_sku, codigo) {
+      codigos.mapaVivo().delete(codigo);
+    },
+    async guardar(sku, codigo) {
+      codigos.guardar(codigo, sku);
+    },
+  };
 }
 
 function espejoProducto(
@@ -478,18 +534,9 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    // STOCK-E5: en modo memoria el almacén de códigos es la autoridad (igual
-    // que en altaProducto): dedupe 409 antes de guardar. No hay borrado porque
-    // AlmacenVivo no expone delete; limpiar queda para la ruta con DB.
     if (parche.codigo !== undefined) {
-      const cod = (parche.codigo ?? "").trim().toUpperCase() || null;
-      if (cod) {
-        const duenoActual = codigos.obtener(cod);
-        if (duenoActual !== undefined && duenoActual !== sku) {
-          return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
-        }
-        codigos.guardar(cod, sku);
-      }
+      const r = await reemplazarCodigo(sku, parche.codigo, persistenciaCodigosMemoria(codigos));
+      if (!r.ok) return { ok: false, codigo: r.codigo, error: "codigo duplicado" };
     }
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
   }
@@ -502,38 +549,9 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     const fila = filas[0];
     const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    // STOCK-E5: manejar actualización de codigo (borrar viejo, insertar nuevo si cambió)
     if (parche.codigo !== undefined) {
-      const nuevoCodigo = (parche.codigo ?? "").trim().toUpperCase() || null;
-      // Consultar si el producto ya tiene código en la DB
-      const rowViejo = await db.select({ codigo: productCodes.codigo }).from(productCodes).where(eq(productCodes.sku, sku)).limit(1);
-      const codigoViejo = rowViejo[0]?.codigo ?? null;
-      // Si el código va a borrarse (nuevoCodigo es null) o cambiarse
-      if (nuevoCodigo !== codigoViejo) {
-        // Borrar código viejo si existía y es diferente al nuevo
-        if (codigoViejo) {
-          try {
-            // Usar sql para la condición compuesta (tenantId + codigo)
-            await db.delete(productCodes).where(
-              sql`${productCodes.tenantId} = ${tenantIdAlSellar()} AND ${productCodes.codigo} = ${codigoViejo}`,
-            );
-          } catch {
-            // ignored: si falla el borrado, el nuevo insert intentará onConflictDoNothing
-          }
-        }
-        // Insertar nuevo código si hay uno nuevo (validar duplo antes)
-        if (nuevoCodigo) {
-          // Verificar que el nuevo código no exista ya en otro producto (23505)
-          const conflicto = await db.select({ codigo: productCodes.codigo }).from(productCodes).where(eq(productCodes.codigo, nuevoCodigo)).limit(1);
-          if (conflicto[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
-          try {
-            await db.insert(productCodes).values(filaConTenant({ codigo: nuevoCodigo, sku, padre: null })).onConflictDoNothing();
-          } catch {
-            // 23505 race condition a pesar del check previo
-            return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
-          }
-        }
-      }
+      const r = await reemplazarCodigo(sku, parche.codigo, persistenciaCodigosDb(db, codigos));
+      if (!r.ok) return { ok: false, codigo: r.codigo, error: "codigo duplicado" };
     }
     const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
@@ -550,14 +568,9 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     if (parche.minStock !== undefined || parche.reorderQty !== undefined) {
       await fijarUmbralesDb(db, sku, { minStock: next.minStock, reorderQty: next.reorderQty });
     }
-    // Sincronizar código al store de memoria (mejor esfuerzo; DB es fuente verdadera)
-    if (parche.codigo !== undefined) {
-      const cod = (parche.codigo ?? "").trim().toUpperCase() || null;
-      if (cod) codigos.guardar(cod, sku);
-      // No hay método delete en AlmacenVivo; la DB es autoridad y el store es volátil por diseño
-    }
     return { ok: true, ficha: next };
   } catch (e) {
+    if (e instanceof FalloBorradoCodigo) throw e;
     productos.anteFalloPersistencia(e);
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };

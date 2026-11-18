@@ -61,7 +61,7 @@ export const SCRIPT_TEMA_TOGGLE = `(function(){
   function alternar(){
     var t=temaActual()==="oscuro"?"claro":"oscuro";
     document.documentElement.dataset.tema=t;
-    try{localStorage.setItem("tema",t);}catch(e){/* Safari privado: sin persistencia */}
+    try{localStorage.setItem("tema",t);}catch(e){console.warn("[tema] sin persistencia", e);}
     pintar();
   }
   w.__temaPintar=pintar;
