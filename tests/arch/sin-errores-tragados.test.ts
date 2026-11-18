@@ -23,8 +23,17 @@ export function clave(archivo: string, linea: string): string {
   return `${archivo} :: ${linea.trim()}`;
 }
 
+// ADR-0082: el detector debe ver también los catch cuyo cuerpo es solo un
+// comentario (p.ej. `catch { // ignored }`), que antes escapaban al regex.
+export function sinComentarios(linea: string): string {
+  return linea
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/\/\/.*$/, (m) => " ".repeat(m.length));
+}
+
 export function esErrorTragado(linea: string): boolean {
-  return RX_VACIO.test(linea) || RX_FLECHA.test(linea) || RX_FUNCION.test(linea);
+  const sin = sinComentarios(linea);
+  return RX_VACIO.test(sin) || RX_FLECHA.test(sin) || RX_FUNCION.test(sin);
 }
 
 describe("E7 sin errores tragados nuevos", () => {

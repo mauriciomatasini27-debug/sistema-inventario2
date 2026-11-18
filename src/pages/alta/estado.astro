@@ -35,7 +35,7 @@ const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\
     try {
       const saved = JSON.parse(sessionStorage.getItem("alta-vincular") ?? "{}");
       if (saved.tenant_id === tenantId && saved.vincular) codigo = saved.vincular.codigo;
-    } catch { /* sin código guardado */ }
+    } catch (e) { console.warn("[alta/estado] sin código guardado", e); }
     const waLink = () => "https://wa.me/" + central + "?text=" + encodeURIComponent("VINCULAR " + (codigo ?? ""));
     async function refrescar() {
       if (!tenantId) { $("error").textContent = "Falta el comercio."; return; }
@@ -55,7 +55,7 @@ const central = (import.meta.env.PUBLIC_WA_CENTRAL ?? "541100000000").replace(/\
         } else {
           $("vincular").href = waLink();
         }
-      } catch { /* se reintenta en el próximo ciclo */ }
+      } catch (e) { console.warn("[alta/estado] se reintenta en el próximo ciclo", e); }
     }
     $("vincular").onclick = () => { location.href = waLink(); return false; };
     $("codigo").onclick = async () => {

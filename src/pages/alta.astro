@@ -47,7 +47,7 @@ import AltaShell from "../components/alta/AltaShell.astro";
       if (saved.rubro) $("rubro").value = saved.rubro;
       if (saved.detalle) $("detalle").value = saved.detalle;
       if (saved.numero) $("numero").value = saved.numero;
-    } catch { /* sin guardado previo */ }
+    } catch (e) { console.warn("[alta] sin guardado previo", e); }
     const syncDetalle = () => { $("detalle-wrap").hidden = $("rubro").value !== "otro"; };
     $("rubro").onchange = syncDetalle;
     syncDetalle();
@@ -94,7 +94,7 @@ import AltaShell from "../components/alta/AltaShell.astro";
         if ((r.status === 201 || r.status === 409) && j.tenant_id) {
           try {
             sessionStorage.setItem("alta-vincular", JSON.stringify({ tenant_id: j.tenant_id, numero: j.numero ?? "", vincular: j.vincular ?? null }));
-          } catch { /* sin session storage */ }
+          } catch (e) { console.warn("[alta] sin session storage", e); }
           localStorage.removeItem(KEY);
           location.href = "/alta/estado?tenant_id=" + encodeURIComponent(j.tenant_id);
           return;
