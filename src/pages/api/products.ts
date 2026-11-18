@@ -113,7 +113,7 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional(), min_stock: z.number().int().min(0).nullable().optional(), reorder_qty: z.number().int().min(1).nullable().optional() }).safeParse(body);
+  const parsed = z.object({ nombre: z.string().min(1).max(200).optional(), precio_centavos: z.number().int().min(0).optional(), sector: z.string().max(64).optional(), location_id: z.string().uuid().nullable().optional(), archivado: z.boolean().optional(), min_stock: z.number().int().min(0).nullable().optional(), reorder_qty: z.number().int().min(1).nullable().optional(), codigo: z.string().max(64).optional() }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const rolEfectivo = resolverRolEfectivo(request);
   if (rolEfectivo.estado === "sin_permiso") {
@@ -126,7 +126,7 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   }
   let r: Awaited<ReturnType<typeof actualizarProducto>>;
   try {
-    r = await actualizarProducto(sku, {
+    const parche: Record<string, any> = {
       ...(parsed.data.nombre !== undefined ? { nombre: parsed.data.nombre } : {}),
       ...(parsed.data.precio_centavos !== undefined ? { precioCentavos: parsed.data.precio_centavos } : {}),
       ...(parsed.data.sector !== undefined ? { sector: parsed.data.sector } : {}),
@@ -134,7 +134,9 @@ export const PATCH: APIRoute = async ({ request, url }) => {
       ...(parsed.data.archivado !== undefined ? { archivado: parsed.data.archivado } : {}),
       ...(parsed.data.min_stock !== undefined ? { minStock: parsed.data.min_stock } : {}),
       ...(parsed.data.reorder_qty !== undefined ? { reorderQty: parsed.data.reorder_qty } : {}),
-    });
+    };
+    if (parsed.data.codigo !== undefined) parche.codigo = parsed.data.codigo;
+    r = await actualizarProducto(sku, parche);
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;
@@ -142,6 +144,7 @@ export const PATCH: APIRoute = async ({ request, url }) => {
   if (!r.ok) {
     if (r.codigo === "UBICACION_DESCONOCIDA") return Response.json({ error: "ubicacion desconocida" }, { status: 422 });
     if (r.codigo === "UMBRAL_INVALIDO") return Response.json({ error: r.error }, { status: 422 });
+    if (r.codigo === "CODIGO_DUPLICADO") return Response.json({ error: "codigo duplicado" }, { status: 409 });
     return Response.json({ error: "desconocido" }, { status: 404 });
   }
   return Response.json(conLocationId(r.ficha));
