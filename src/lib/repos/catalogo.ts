@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { conTenant } from "../tenant-mode.js";
@@ -457,14 +457,16 @@ export interface ParcheProducto {
   readonly archivado?: boolean | undefined;
   readonly minStock?: number | null | undefined;
   readonly reorderQty?: number | null | undefined;
+  readonly codigo?: string | undefined; // STOCK-E5: gestión de product_codes
 }
 
 export type ActualizarProductoResultado =
   | { ok: true; ficha: FichaProducto }
-  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO"; error: string };
+  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO" | "CODIGO_DUPLICADO"; error: string };
 
 export async function actualizarProducto(sku: string, parche: ParcheProducto): Promise<ActualizarProductoResultado> {
   const productos = crearAlmacenProductos();
+  const codigos = crearAlmacenCodigos();
   const sectores = crearAlmacenSectores();
   const precios = crearAlmacenPrecios();
   const db = dbVivaTenant();
@@ -476,6 +478,19 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+    // STOCK-E5: en modo memoria el almacén de códigos es la autoridad (igual
+    // que en altaProducto): dedupe 409 antes de guardar. No hay borrado porque
+    // AlmacenVivo no expone delete; limpiar queda para la ruta con DB.
+    if (parche.codigo !== undefined) {
+      const cod = (parche.codigo ?? "").trim().toUpperCase() || null;
+      if (cod) {
+        const duenoActual = codigos.obtener(cod);
+        if (duenoActual !== undefined && duenoActual !== sku) {
+          return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+        }
+        codigos.guardar(cod, sku);
+      }
+    }
     return { ok: true, ficha: aplicarParche(enMemoria, parche, productos, precios, sectores) };
   }
   try {
@@ -487,6 +502,39 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     const fila = filas[0];
     const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+    // STOCK-E5: manejar actualización de codigo (borrar viejo, insertar nuevo si cambió)
+    if (parche.codigo !== undefined) {
+      const nuevoCodigo = (parche.codigo ?? "").trim().toUpperCase() || null;
+      // Consultar si el producto ya tiene código en la DB
+      const rowViejo = await db.select({ codigo: productCodes.codigo }).from(productCodes).where(eq(productCodes.sku, sku)).limit(1);
+      const codigoViejo = rowViejo[0]?.codigo ?? null;
+      // Si el código va a borrarse (nuevoCodigo es null) o cambiarse
+      if (nuevoCodigo !== codigoViejo) {
+        // Borrar código viejo si existía y es diferente al nuevo
+        if (codigoViejo) {
+          try {
+            // Usar sql para la condición compuesta (tenantId + codigo)
+            await db.delete(productCodes).where(
+              sql`${productCodes.tenantId} = ${tenantIdAlSellar()} AND ${productCodes.codigo} = ${codigoViejo}`,
+            );
+          } catch {
+            // ignored: si falla el borrado, el nuevo insert intentará onConflictDoNothing
+          }
+        }
+        // Insertar nuevo código si hay uno nuevo (validar duplo antes)
+        if (nuevoCodigo) {
+          // Verificar que el nuevo código no exista ya en otro producto (23505)
+          const conflicto = await db.select({ codigo: productCodes.codigo }).from(productCodes).where(eq(productCodes.codigo, nuevoCodigo)).limit(1);
+          if (conflicto[0]) return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+          try {
+            await db.insert(productCodes).values(filaConTenant({ codigo: nuevoCodigo, sku, padre: null })).onConflictDoNothing();
+          } catch {
+            // 23505 race condition a pesar del check previo
+            return { ok: false, codigo: "CODIGO_DUPLICADO", error: "codigo duplicado" };
+          }
+        }
+      }
+    }
     const next = aplicarParche(base, parche, productos, precios, sectores);
     await db
       .update(products)
@@ -501,6 +549,12 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     // que fijarLocationDb tolera las sin la 0021.
     if (parche.minStock !== undefined || parche.reorderQty !== undefined) {
       await fijarUmbralesDb(db, sku, { minStock: next.minStock, reorderQty: next.reorderQty });
+    }
+    // Sincronizar código al store de memoria (mejor esfuerzo; DB es fuente verdadera)
+    if (parche.codigo !== undefined) {
+      const cod = (parche.codigo ?? "").trim().toUpperCase() || null;
+      if (cod) codigos.guardar(cod, sku);
+      // No hay método delete en AlmacenVivo; la DB es autoridad y el store es volátil por diseño
     }
     return { ok: true, ficha: next };
   } catch (e) {
