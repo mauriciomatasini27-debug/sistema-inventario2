@@ -24,6 +24,20 @@ Reglas cortas para agentes en este repo.
 - La descripción del PR explica comportamiento, diseño, tests y cómo verificarlo (comandos concretos).
 - Tests de bordes sacados de los AC del PRD/ADR (cambio de día, otro tenant, fallo de base, permisos por rol, estado vacío), y comprobá que cada uno falla si rompés el comportamiento que cubre.
 - Antes del PR: `npm run typecheck`, `npm run check:arch` y `npm run verify` en verde. No hay ESLint/Biome/Prettier: esos pasos más el `astro build` de `verify` son el lint.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context. See `docs/agents/domain.md`.
 - Sin `drizzle/*.sql` salvo pedido explícito de Mauri (ver migraciones abajo). Nunca edites un `drizzle/*.sql` ya aplicado en alguna base: el cambio va en un tag nuevo. `npm run db:migrate` usa el wrapper P1-69 (pendientes por idx del journal; saltea tablas ausentes); `db:migrate:kit` queda el drizzle-kit crudo.
 
 ## Gate de merge
