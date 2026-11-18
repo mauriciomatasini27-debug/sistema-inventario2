@@ -10,4 +10,4 @@ _Avoid_: SKU, código de barras, barcode, PLU
 
 **Tenant (Comercio)**:
 Organización propietaria de los datos (productos, ventas, clientes, caja) en el sistema. Cada request de datos se resuelve a un único tenant, que determina qué base o filas se usan.
-_Avoid_: comercio, organization, cuenta, tenant_id
+_Avoid_: organization, cuenta, tenant_id

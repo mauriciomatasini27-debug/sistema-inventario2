@@ -5,9 +5,11 @@ import {
   conModoTenant,
   conTenant,
   dondeTenant,
+  esModoAisladoPorTenant,
   filaConTenant,
   tenantIdAlSellar,
   tenantIdShared,
+  tenantPorDefecto,
   tenantUuidMulti,
   UUID_TENANT,
   type ModoTenant,
@@ -18,9 +20,32 @@ const UUID_CONTEXTO = "00000000-0000-4000-8000-000000000002";
 
 const t = pgTable("t", { id: text("id") });
 
-const modoSingle: ModoTenant = { esModoMulti: false, esModoShared: false, tenantPorDefecto: UUID_DEFECTO };
-const modoMulti: ModoTenant = { esModoMulti: true, esModoShared: false, tenantPorDefecto: "slice0" };
-const modoShared: ModoTenant = { esModoMulti: false, esModoShared: true, tenantPorDefecto: "slice0" };
+const modoSingle: ModoTenant = { multi: false, shared: false, tenantPorDefecto: UUID_DEFECTO };
+const modoMulti: ModoTenant = { multi: true, shared: false, tenantPorDefecto: "slice0" };
+const modoShared: ModoTenant = { multi: false, shared: true, tenantPorDefecto: "slice0" };
+
+describe("tenant module — mode flags and helpers", () => {
+  it("tenantPorDefecto returns the injected default", () => {
+    expect(conModoTenant(modoSingle, () => tenantPorDefecto())).toBe(UUID_DEFECTO);
+    expect(conModoTenant(modoMulti, () => tenantPorDefecto())).toBe("slice0");
+  });
+  it("esModoAisladoPorTenant is true for multi and shared, false for single", () => {
+    expect(conModoTenant(modoSingle, () => esModoAisladoPorTenant())).toBe(false);
+    expect(conModoTenant(modoMulti, () => esModoAisladoPorTenant())).toBe(true);
+    expect(conModoTenant(modoShared, () => esModoAisladoPorTenant())).toBe(true);
+  });
+  it("filaConTenant succeeds in multi with an uuid context", () => {
+    expect(conModoTenant(modoMulti, () => conTenant(UUID_CONTEXTO, () => filaConTenant({}))).tenantId).toBe(UUID_CONTEXTO);
+  });
+  it("dondeTenant returns extra untouched in multi mode", () => {
+    const extra = sql`true`;
+    expect(conModoTenant(modoMulti, () => dondeTenant(t.id, extra))).toBe(extra);
+  });
+  it("single mode with non-uuid default returns undefined", () => {
+    const modo = { multi: false, shared: false, tenantPorDefecto: "slice0" };
+    expect(conModoTenant(modo, () => tenantIdAlSellar())).toBeUndefined();
+  });
+});
 
 describe("tenant module — single mode", () => {
   it("tenantIdAlSellar returns default uuid when no context", () => {
@@ -82,9 +107,8 @@ describe("tenant module — shared mode", () => {
     expect(conModoTenant(modoShared, () => conTenant(UUID_CONTEXTO, () => tenantIdShared()))).toBe(UUID_CONTEXTO);
   });
   it("dondeTenant builds a tenant condition", () => {
-    const extra = undefined;
-    const cond = conModoTenant(modoShared, () => conTenant(UUID_CONTEXTO, () => dondeTenant(t.id, extra)));
-    expect(cond).not.toBe(extra);
+    const cond = conModoTenant(modoShared, () => conTenant(UUID_CONTEXTO, () => dondeTenant(t.id)));
+    expect(cond).toBeDefined();
   });
   it("filaConTenant throws without context", () => {
     expect(() => conModoTenant(modoShared, () => filaConTenant({}))).toThrow("Falta tenant");

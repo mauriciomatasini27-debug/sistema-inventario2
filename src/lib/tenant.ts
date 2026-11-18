@@ -4,29 +4,25 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { createHash } from "node:crypto";
 import { leerVarEntorno } from "./env.js";
 
-// Por qué un solo módulo: tenant-mode + tenant-scope eran dos módulos shallow
-// que obligaban a saltar entre archivos para entender "tenant". ADR-0117.
-
 export type ModoTenant = {
-  esModoMulti: boolean;
-  esModoShared: boolean;
+  multi: boolean;
+  shared: boolean;
   tenantPorDefecto: string;
 };
 
 function leerModo(env: NodeJS.ProcessEnv = process.env): ModoTenant {
   const m = leerVarEntorno("TENANT_MODE", env);
   return {
-    esModoMulti: m === "multi",
-    esModoShared: m === "shared",
+    multi: m === "multi",
+    shared: m === "shared",
     tenantPorDefecto: leerVarEntorno("DEFAULT_TENANT_ID", env) || "slice0",
   };
 }
 
-// --- AsyncLocalStorage interno: tenant id (existente) y modo (nuevo) ---
 const almacenamientoTenant = new AsyncLocalStorage<string>();
 const almacenamientoModo = new AsyncLocalStorage<ModoTenant>();
 
-export function modoActual(): ModoTenant {
+function modoActual(): ModoTenant {
   return almacenamientoModo.getStore() ?? leerModo(process.env);
 }
 
@@ -34,32 +30,23 @@ export function conModoTenant<T>(modo: ModoTenant, fn: () => T): T {
   return almacenamientoModo.run(modo, fn);
 }
 
-// --- Modo ---
-export function esModoMulti(env?: NodeJS.ProcessEnv): boolean {
-  if (env) return leerVarEntorno("TENANT_MODE", env) === "multi";
-  return modoActual().esModoMulti;
+export function esModoMulti(): boolean {
+  return modoActual().multi;
 }
 
-export function esModoShared(env?: NodeJS.ProcessEnv): boolean {
-  if (env) return leerVarEntorno("TENANT_MODE", env) === "shared";
-  return modoActual().esModoShared;
+export function esModoShared(): boolean {
+  return modoActual().shared;
 }
 
-export function esModoAisladoPorTenant(env?: NodeJS.ProcessEnv): boolean {
-  if (env) {
-    const m = leerVarEntorno("TENANT_MODE", env);
-    return m === "multi" || m === "shared";
-  }
+export function esModoAisladoPorTenant(): boolean {
   const modo = modoActual();
-  return modo.esModoMulti || modo.esModoShared;
+  return modo.multi || modo.shared;
 }
 
-export function tenantPorDefecto(env?: NodeJS.ProcessEnv): string {
-  if (env) return leerVarEntorno("DEFAULT_TENANT_ID", env) || "slice0";
+export function tenantPorDefecto(): string {
   return modoActual().tenantPorDefecto;
 }
 
-// --- Tenant id ALS ---
 export function conTenant<T>(tenantId: string, fn: () => T): T {
   return almacenamientoTenant.run(tenantId, fn);
 }
@@ -68,14 +55,13 @@ export function tenantActual(): string | undefined {
   return almacenamientoTenant.getStore();
 }
 
-// --- Scope / sellado ---
 export const UUID_TENANT = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** P1-76: filas de plataforma (MP sin preapproval) en shared; NOT NULL en mp_webhook_events. */
 export const TENANT_PLATAFORMA_SHARED = "00000000-0000-4000-8000-00000000ff01";
 
 export function tenantIdShared(): string | null {
-  if (!modoActual().esModoShared) return null;
+  if (!modoActual().shared) return null;
   const t = tenantActual();
   if (!t) throw new Error("Falta tenant");
   return t;
@@ -98,12 +84,12 @@ function uuidMultiPorSlug(tenantSlug: string): string {
 // ADR-0116 0045: tenant_id obligatorio en DB; shared exige contexto; multi usa uuid por slug; single DEFAULT_TENANT_ID uuid.
 export function tenantIdAlSellar(): string | undefined {
   const modo = modoActual();
-  if (modo.esModoShared) {
+  if (modo.shared) {
     const t = tenantActual();
     if (!t) throw new Error("Falta tenant");
     return t;
   }
-  if (modo.esModoMulti) {
+  if (modo.multi) {
     const t = tenantActual();
     if (!t) return undefined;
     if (UUID_TENANT.test(t)) return t;
