@@ -7,10 +7,9 @@ import {
 } from "../src/modules/integraciones/gmail-cliente.js";
 import {
   sincronizarGmail,
-  type BorradorSync,
-  type PersistenciaGmail,
+  crearPersistenciaGmailMemoria,
 } from "../src/modules/integraciones/gmail-sync.js";
-import type { CuentaCatalogo, FiltroIngesta, LogIngesta } from "../src/modules/utilities/ingesta_gmail.js";
+import type { CuentaCatalogo, FiltroIngesta } from "../src/modules/utilities/ingesta_gmail.js";
 
 const FILTRO: FiltroIngesta = {
   id: "f-1",
@@ -49,38 +48,6 @@ function adjunto(id: string, mime = "application/pdf"): GmailAdjuntoRef {
     filename: `${id}.pdf`,
     mimeType: mime,
     size: 20,
-  };
-}
-
-function persistencia(seed: ReadonlyArray<string> = []) {
-  const logs = new Set(seed);
-  const drafts: BorradorSync[] = [];
-  const registros: LogIngesta[] = [];
-  let cursor: string | null = null;
-  const p: PersistenciaGmail = {
-    existeLog: async (messageId) => logs.has(messageId),
-    registrarLog: async (log) => {
-      if (logs.has(log.messageId)) return;
-      logs.add(log.messageId);
-      registros.push(log);
-    },
-    guardarBorrador: async (borrador) => {
-      const existente = drafts.find((d) => d.messageId === borrador.messageId);
-      if (existente) return { id: existente.messageId, nuevo: false };
-      drafts.push(borrador);
-      return { id: borrador.messageId, nuevo: true };
-    },
-    avanzarCursor: async (nuevo) => {
-      cursor = nuevo;
-    },
-  };
-  return {
-    persistencia: p,
-    drafts,
-    registros,
-    get cursor() {
-      return cursor;
-    },
   };
 }
 
@@ -135,7 +102,7 @@ const PDF = Buffer.from("%PDF-1.7 factura");
 
 describe("sincronización de Gmail", () => {
   it("en la primera corrida procesa la ventana y fija el cursor del perfil", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const r = await sincronizarGmail({
       gmail: fakeGmail({
         profile: "100",
@@ -154,8 +121,8 @@ describe("sincronización de Gmail", () => {
       persistencia: p.persistencia,
     });
     expect(r).toMatchObject({ cursor: "100", procesados: 1, borradores: 1, recuperados: false });
-    expect(p.drafts).toHaveLength(1);
-    expect(p.drafts[0]).toMatchObject({
+    expect(p.borradores).toHaveLength(1);
+    expect(p.borradores[0]).toMatchObject({
       connectionId: "conn-1",
       messageId: "m1",
       gmailAttachmentId: "att-1",
@@ -165,29 +132,55 @@ describe("sincronización de Gmail", () => {
       montoCentavos: 1_234_500n,
       origen: "pdf_digital",
     });
-    expect(p.cursor).toBe("100");
+    expect(p.ultimoCursor).toBe("100");
   });
 
-  it("no reprocesa un mensaje ya logueado y avanza el cursor", async () => {
-    const p = persistencia(["m1"]);
+  it("no reprocesa un message-id duplicado: segunda corrida no crea otro borrador", async () => {
+    const p = crearPersistenciaGmailMemoria();
     const calls = { listMessages: 0, listHistory: 0, getAttachment: 0 };
-    const r = await sincronizarGmail({
-      gmail: fakeGmail({ history: ["m1"], historyCursor: "101", calls }),
+    const args = {
+      gmail: fakeGmail({
+        history: ["m1"],
+        historyCursor: "101",
+        calls,
+        messages: {
+          m1: mensaje({ id: "m1", adjuntos: [adjunto("att-1")] }),
+        },
+        attachments: { "att-1": PDF },
+      }),
       connectionId: "conn-1",
       cursor: "100",
       filtros: [FILTRO],
       catalogo: [CATALOGO],
       ahoraMs: Date.UTC(2026, 9, 19),
+      extraerPdfTexto: () => "Total $ 12.345,00 vence 20/10/2026",
       persistencia: p.persistencia,
+    } as const;
+    const primera = await sincronizarGmail(args);
+    expect(primera.borradores).toBe(1);
+    expect(p.borradores).toHaveLength(1);
+
+    const callsSegunda = { listMessages: 0, listHistory: 0, getAttachment: 0 };
+    const segunda = await sincronizarGmail({
+      ...args,
+      gmail: fakeGmail({
+        history: ["m1"],
+        historyCursor: "101",
+        calls: callsSegunda,
+        messages: {
+          m1: mensaje({ id: "m1", adjuntos: [adjunto("att-1")] }),
+        },
+        attachments: { "att-1": PDF },
+      }),
     });
-    expect(r).toMatchObject({ procesados: 0, borradores: 0, ignorados: 1 });
-    expect(calls.getAttachment).toBe(0);
-    expect(p.drafts).toHaveLength(0);
-    expect(p.cursor).toBe("101");
+    expect(segunda).toMatchObject({ procesados: 0, borradores: 0, ignorados: 1, cursor: "101" });
+    expect(callsSegunda.getAttachment).toBe(0);
+    expect(p.borradores).toHaveLength(1);
+    expect(p.ultimoCursor).toBe("101");
   });
 
   it("si el historial venció recupera 30 días y lo informa", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const r = await sincronizarGmail({
       gmail: fakeGmail({
         expired: true,
@@ -205,11 +198,11 @@ describe("sincronización de Gmail", () => {
       persistencia: p.persistencia,
     });
     expect(r).toMatchObject({ recuperados: true, cursor: "200", borradores: 1 });
-    expect(p.cursor).toBe("200");
+    expect(p.ultimoCursor).toBe("200");
   });
 
   it("ignora un remitente sin filtro sin descargar adjuntos", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const calls = { listMessages: 0, listHistory: 0, getAttachment: 0 };
     const r = await sincronizarGmail({
       gmail: fakeGmail({
@@ -226,11 +219,11 @@ describe("sincronización de Gmail", () => {
     });
     expect(r).toMatchObject({ borradores: 0, ignorados: 1 });
     expect(calls.getAttachment).toBe(0);
-    expect(p.registros[0]).toMatchObject({ decision: "ignorar", motivo: "remitente sin filtro activo" });
+    expect(p.logs[0]).toMatchObject({ decision: "ignorar", motivo: "remitente sin filtro activo" });
   });
 
   it("usa el cuerpo como respaldo cuando no hay adjunto", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const r = await sincronizarGmail({
       gmail: fakeGmail({
         history: ["m4"],
@@ -249,7 +242,7 @@ describe("sincronización de Gmail", () => {
       persistencia: p.persistencia,
     });
     expect(r.borradores).toBe(1);
-    expect(p.drafts[0]).toMatchObject({
+    expect(p.borradores[0]).toMatchObject({
       origen: "email_respaldo",
       montoCentavos: 250_000n,
       vencimiento: "2026-10-21",
@@ -258,13 +251,13 @@ describe("sincronización de Gmail", () => {
       pideRevision: true,
       gmailAttachmentId: null,
     });
-    expect(p.drafts[0]?.comprobanteCuerpo?.mime).toBe("image/png");
-    expect(p.drafts[0]?.comprobanteCuerpo?.bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
-    expect(p.drafts[0]?.comprobanteCuerpo?.texto).toContain("2.500,00");
+    expect(p.borradores[0]?.comprobanteCuerpo?.mime).toBe("image/png");
+    expect(p.borradores[0]?.comprobanteCuerpo?.bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(p.borradores[0]?.comprobanteCuerpo?.texto).toContain("2.500,00");
   });
 
   it("sin adjunto y remitente filtrado arma borrador de cuerpo en revisión", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const formatos: string[] = [];
     const llamadas: string[] = [];
     const fetchOriginal = globalThis.fetch;
@@ -304,7 +297,7 @@ describe("sincronización de Gmail", () => {
       expect(r.borradores).toBe(1);
       expect(llamadas).toEqual([]);
       expect(formatos).toEqual(["metadata", "full"]);
-      expect(p.drafts[0]).toMatchObject({
+      expect(p.borradores[0]).toMatchObject({
         origen: "email_respaldo",
         montoCentavos: 250_000n,
         vencimiento: "2026-10-21",
@@ -313,7 +306,7 @@ describe("sincronización de Gmail", () => {
         pideRevision: true,
         gmailAttachmentId: null,
       });
-      const png = p.drafts[0]?.comprobanteCuerpo;
+      const png = p.borradores[0]?.comprobanteCuerpo;
       expect(png?.mime).toBe("image/png");
       expect(png?.texto).toContain("2.500,00");
       expect(png?.texto).not.toContain("micuenta.edenor.com");
@@ -322,15 +315,15 @@ describe("sincronización de Gmail", () => {
       expect(png?.texto).not.toContain("9.999,00");
       expect(png?.bytes.toString("latin1")).not.toContain("micuenta.edenor.com");
       expect(png?.bytes.toString("latin1")).not.toContain("clave-secreta-ggl-s10b");
-      expect(p.registros[0]?.motivo).not.toContain("micuenta.edenor.com");
-      expect(p.registros[0]?.motivo).not.toContain("2.500");
+      expect(p.logs[0]?.motivo).not.toContain("micuenta.edenor.com");
+      expect(p.logs[0]?.motivo).not.toContain("2.500");
     } finally {
       globalThis.fetch = fetchOriginal;
     }
   });
 
   it("un remitente no filtrado no procesa el cuerpo", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const formatos: string[] = [];
     const calls = { listMessages: 0, listHistory: 0, getAttachment: 0, formatos };
     const r = await sincronizarGmail({
@@ -354,14 +347,14 @@ describe("sincronización de Gmail", () => {
       persistencia: p.persistencia,
     });
     expect(r).toMatchObject({ borradores: 0, ignorados: 1 });
-    expect(p.drafts).toHaveLength(0);
+    expect(p.borradores).toHaveLength(0);
     expect(formatos).toEqual(["metadata"]);
     expect(calls.getAttachment).toBe(0);
-    expect(p.registros[0]).toMatchObject({ decision: "ignorar", motivo: "remitente sin filtro activo" });
+    expect(p.logs[0]).toMatchObject({ decision: "ignorar", motivo: "remitente sin filtro activo" });
   });
 
   it("con varios adjuntos usa el primero válido", async () => {
-    const p = persistencia();
+    const p = crearPersistenciaGmailMemoria();
     const calls = { listMessages: 0, listHistory: 0, getAttachment: 0 };
     await sincronizarGmail({
       gmail: fakeGmail({
@@ -384,6 +377,6 @@ describe("sincronización de Gmail", () => {
       persistencia: p.persistencia,
     });
     expect(calls.getAttachment).toBe(2);
-    expect(p.drafts[0]?.gmailAttachmentId).toBe("valido");
+    expect(p.borradores[0]?.gmailAttachmentId).toBe("valido");
   });
 });
