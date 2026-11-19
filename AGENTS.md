@@ -24,6 +24,8 @@ Reglas cortas para agentes en este repo.
 - La descripción del PR explica comportamiento, diseño, tests y cómo verificarlo (comandos concretos).
 - Tests de bordes sacados de los AC del PRD/ADR (cambio de día, otro tenant, fallo de base, permisos por rol, estado vacío), y comprobá que cada uno falla si rompés el comportamiento que cubre.
 - Antes del PR: `npm run typecheck`, `npm run check:arch` y `npm run verify` en verde. No hay ESLint/Biome/Prettier: esos pasos más el `astro build` de `verify` son el lint.
+- Si una suite se saltea por falta de `PG_TEST_URL_A/B`, corré `bash scripts/pg-local.sh start` y reportá su salida antes de declarar el entorno sin Postgres. `verify` bootea Postgres local solo.
+- Antes de commitear cada ticket, releé sus acceptance criteria del issue y declará cuál pasa y cuál se desvía y por qué; las desviaciones se enmiendan visiblemente en el issue (comment), no en silencio.
 
 ## Agent skills
 
