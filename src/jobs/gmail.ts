@@ -9,13 +9,20 @@ import {
   refrescarAccessTokenGmail,
 } from "../modules/integraciones/google-oauth.js";
 import { leerConfigPubSub } from "../modules/integraciones/pubsub.js";
-import { actualizarWatchGmail, descifrarRefreshTokenGmail, leerConexionGmail, leerConexionGmailPorId, marcarConexionGmail, type ConexionGmail } from "../lib/repos/google-conexiones.js";
+import {
+  actualizarWatchGmail,
+  descifrarRefreshTokenGmail,
+  leerConexionGmail,
+  leerConexionGmailPorId,
+  marcarConexionGmail,
+  type ConexionGmail,
+} from "../lib/repos/google-conexiones.js";
 import { desactivarRutaWatch, guardarRutaWatch } from "../lib/repos/gmail-watch.js";
 import {
+  crearPersistenciaGmailDb,
   leerCatalogoCuentas,
   leerFiltrosIngesta,
 } from "../lib/repos/gmail-ingesta.js";
-import { crearPersistenciaGmailDb } from "../lib/repos/gmail-persistencia.js";
 import { marcarJobGmailError, marcarJobGmailHecho, type JobGmail } from "../lib/repos/gmail-cola.js";
 import { sincronizarGmail } from "../modules/integraciones/gmail-sync.js";
 import { gmailConnectionEvents } from "../db/schema-google.js";

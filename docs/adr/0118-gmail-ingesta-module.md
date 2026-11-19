@@ -19,7 +19,7 @@ Estado: propuesto. Fecha: 2026-11-19. Fuentes: improve-codebase-architecture can
 
 1. `src/modules/integraciones/gmail-sync.ts` es el módulo profundo; no se crean archivos ni carpetas nuevas. `ingesta_gmail.ts` queda como núcleo de dominio interno del módulo (helpers puros, sin cambios de contrato).
 2. El seam es `PersistenciaGmail` (antes `PersistenciaSyncGmail`), con la misma forma de cuatro métodos: `existeLog`, `registrarLog`, `guardarBorrador`, `avanzarCursor`. El contrato vive en el módulo; los adapters lo implementan.
-3. Los adapters son: `crearPersistenciaGmailDb(tenantId)` (`src/lib/repos/gmail-persistencia.ts`), que concentra el mapping module↔repos; los repos conservan toda su persistencia. Y `crearPersistenciaGmailMemoria()` (exportado por el módulo) para tests, sin DB ni `process.env`.
+3. Los adapters son: `crearPersistenciaGmailDb(tenantId)` (dentro de `src/lib/repos/gmail-ingesta.ts`, sin archivos nuevos), que concentra el mapping module↔repos; los repos conservan toda su persistencia. Y `crearPersistenciaGmailMemoria()` (exportado por el módulo) para tests, sin DB ni `process.env`.
 4. `jobs/gmail.ts` consume `crearPersistenciaGmailDb`; su adapter escrito a mano (`persistenciaDe`) se borra.
 5. `procesar_email()` se elimina: era código muerto en producción (ningún caller lo ejecutaba) y sus tests cubrían un path que no corre. El pipeline real siempre crea un borrador; los escenarios relevantes se re-cubren contra el pipeline real en el seam test.
 6. Fuera de scope: renovación/detención del watch (`renovarWatchGmail`, `detenerWatchGmail`), lifecycle de borradores del panel (`gmail-borradores.ts`), cola de jobs (`gmail-cola.ts`) + dedupe por messageId (GGL-P0-HUECOS), webhook y routes.
@@ -36,7 +36,7 @@ Estado: propuesto. Fecha: 2026-11-19. Fuentes: improve-codebase-architecture can
 ## Qué cambia
 
 - `gmail-sync.ts`: seam `PersistenciaGmail` (rename) + `crearPersistenciaGmailMemoria()` exportado.
-- Nuevo `src/lib/repos/gmail-persistencia.ts`: factory DB (solo mapping; los repos dueños de su persistencia).
+- Nuevo `crearPersistenciaGmailDb(tenantId)` en `gmail-ingesta.ts` (sin archivos nuevos): factory DB (solo mapping; los repos dueños de su persistencia). El `connectionId` viaja dentro del borrador (`BorradorSync`), por eso la factory no lo recibe aparte.
 - `jobs/gmail.ts`: consume la factory; pierde ~40 líneas de mapping a mano.
 - `ingesta_gmail.ts`: eliminado `procesar_email()`; helpers intactos.
 - `tests/gmail-sync.test.ts`: reescrito contra el adapter de memoria; "no reprocesa un message-id duplicado" cubre el reintento a dos corridas.

@@ -176,6 +176,7 @@ describe("sincronización de Gmail", () => {
     expect(segunda).toMatchObject({ procesados: 0, borradores: 0, ignorados: 1, cursor: "101" });
     expect(callsSegunda.getAttachment).toBe(0);
     expect(p.borradores).toHaveLength(1);
+    expect(p.logs).toHaveLength(1);
     expect(p.ultimoCursor).toBe("101");
   });
 
@@ -320,6 +321,34 @@ describe("sincronización de Gmail", () => {
     } finally {
       globalThis.fetch = fetchOriginal;
     }
+  });
+
+  it("extracción irrecuperable produce borrador pendiente, nunca una factura", async () => {
+    const p = crearPersistenciaGmailMemoria();
+    const r = await sincronizarGmail({
+      gmail: fakeGmail({
+        history: ["m6"],
+        messages: { m6: mensaje({ id: "m6", adjuntos: [adjunto("att-6")] }) },
+        attachments: { "att-6": PDF },
+      }),
+      connectionId: "conn-1",
+      cursor: "100",
+      filtros: [FILTRO],
+      catalogo: [CATALOGO],
+      ahoraMs: Date.UTC(2026, 9, 19),
+      extraerPdfTexto: () => "",
+      persistencia: p.persistencia,
+    });
+    expect(r.borradores).toBe(1);
+    expect(p.borradores).toHaveLength(1);
+    expect(p.borradores[0]).toMatchObject({
+      messageId: "m6",
+      gmailAttachmentId: "att-6",
+      montoCentavos: null,
+      vencimiento: null,
+      origen: "email_respaldo",
+    });
+    expect(p.logs[0]).toMatchObject({ decision: "para_procesar", messageId: "m6" });
   });
 
   it("un remitente no filtrado no procesa el cuerpo", async () => {

@@ -57,15 +57,12 @@ export interface EntradaSyncGmail {
   readonly persistencia: PersistenciaGmail;
 }
 
-export interface PersistenciaGmailMemoria {
+export function crearPersistenciaGmailMemoria(): {
   readonly persistencia: PersistenciaGmail;
   readonly logs: ReadonlyArray<LogIngesta>;
   readonly borradores: ReadonlyArray<BorradorSync>;
   readonly ultimoCursor: string | null;
-}
-
-// Adapter de memoria para tests del pipeline real: sin DB ni env.
-export function crearPersistenciaGmailMemoria(): PersistenciaGmailMemoria {
+} {
   const logs: LogIngesta[] = [];
   const borradores: BorradorSync[] = [];
   const vistos = new Set<string>();

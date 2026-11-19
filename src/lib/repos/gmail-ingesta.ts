@@ -13,6 +13,8 @@ import type {
 } from "../../modules/utilities/ingesta_gmail.js";
 import type { ConfianzaCampo, OrigenExtraccion } from "../../modules/utilities/facturas_servicios.js";
 import { confianzaParaGuardar } from "../../modules/utilities/cuerpo-factura.js";
+import { actualizarCursorGmail } from "./google-conexiones.js";
+import type { PersistenciaGmail } from "../../modules/integraciones/gmail-sync.js";
 
 export interface BorradorIngestaInput {
   readonly tenantId: string;
@@ -174,4 +176,13 @@ export async function registrarLogIngesta(input: LogIngestaInput): Promise<void>
       accountId: input.accountId,
     })
     .onConflictDoNothing({ target: emailIngestionLog.messageId });
+}
+
+export function crearPersistenciaGmailDb(tenantId: string): PersistenciaGmail {
+  return {
+    existeLog: (messageId) => existeLogIngesta(tenantId, messageId),
+    registrarLog: (log) => registrarLogIngesta({ tenantId, ...log }),
+    guardarBorrador: (borrador) => guardarBorradorIngesta({ tenantId, ...borrador }),
+    avanzarCursor: (cursor) => actualizarCursorGmail(tenantId, cursor),
+  };
 }
