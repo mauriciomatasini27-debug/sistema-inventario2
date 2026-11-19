@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { eq, inArray } from "drizzle-orm";
 import { control, resetStore, store } from "../src/lib/store.js";
@@ -14,6 +14,17 @@ import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
+
+// P10-20: la sesión del fixture vence a los 30 días de AHORA y la ruta compara
+// ventas de los últimos 30 días contra el reloj real; fijar solo Date deja
+// vivos los timers.
+beforeEach(() => {
+  vi.useFakeTimers({ now: AHORA, toFake: ["Date"] });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function modoSingleSinDb() {
   delete process.env.TENANT_MODE;
