@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
@@ -22,6 +22,16 @@ import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 
 const AHORA = new Date("2026-10-20T12:00:00.000Z");
+
+// P10-20: la sesión del fixture vence a los 30 días de AHORA; con el reloj
+// real el test se rompía solo al día 30. Fijar solo Date deja vivos los timers.
+beforeEach(() => {
+  vi.useFakeTimers({ now: AHORA, toFake: ["Date"] });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const KIOSCO = [
   "Agua mineral 500 ml",
