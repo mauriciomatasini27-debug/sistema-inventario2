@@ -9,25 +9,15 @@ import {
   refrescarAccessTokenGmail,
 } from "../modules/integraciones/google-oauth.js";
 import { leerConfigPubSub } from "../modules/integraciones/pubsub.js";
-import {
-  actualizarCursorGmail,
-  actualizarWatchGmail,
-  descifrarRefreshTokenGmail,
-  leerConexionGmail,
-  leerConexionGmailPorId,
-  marcarConexionGmail,
-  type ConexionGmail,
-} from "../lib/repos/google-conexiones.js";
+import { actualizarWatchGmail, descifrarRefreshTokenGmail, leerConexionGmail, leerConexionGmailPorId, marcarConexionGmail, type ConexionGmail } from "../lib/repos/google-conexiones.js";
 import { desactivarRutaWatch, guardarRutaWatch } from "../lib/repos/gmail-watch.js";
 import {
-  existeLogIngesta,
-  guardarBorradorIngesta,
   leerCatalogoCuentas,
   leerFiltrosIngesta,
-  registrarLogIngesta,
 } from "../lib/repos/gmail-ingesta.js";
+import { crearPersistenciaGmailDb } from "../lib/repos/gmail-persistencia.js";
 import { marcarJobGmailError, marcarJobGmailHecho, type JobGmail } from "../lib/repos/gmail-cola.js";
-import { sincronizarGmail, type PersistenciaSyncGmail } from "../modules/integraciones/gmail-sync.js";
+import { sincronizarGmail } from "../modules/integraciones/gmail-sync.js";
 import { gmailConnectionEvents } from "../db/schema-google.js";
 import type { MotorOcr } from "../modules/ocr/motor.js";
 import type { ExtractadorPdfDigital } from "../modules/utilities/extraer-pdf-digital.js";
@@ -71,43 +61,6 @@ async function tokenDeAcceso(
     }
     return { ok: false, codigo: e instanceof Error ? e.message : "oauth_error", transitorio: true };
   }
-}
-
-function persistenciaDe(tenantId: string): PersistenciaSyncGmail {
-  return {
-    existeLog: (messageId) => existeLogIngesta(tenantId, messageId),
-    registrarLog: (log) =>
-      registrarLogIngesta({
-        tenantId,
-        messageId: log.messageId,
-        historyId: log.historyId,
-        remitenteDominio: log.remitenteDominio,
-        decision: log.decision,
-        motivo: log.motivo,
-        filtroId: log.filtroId,
-        accountId: log.accountId,
-      }),
-    guardarBorrador: (borrador) =>
-      guardarBorradorIngesta({
-        tenantId,
-        connectionId: borrador.connectionId,
-        messageId: borrador.messageId,
-        gmailAttachmentId: borrador.gmailAttachmentId,
-        accountId: borrador.accountId,
-        periodo: borrador.periodo,
-        vencimiento: borrador.vencimiento,
-        montoCentavos: borrador.montoCentavos,
-        origen: borrador.origen,
-        confianzaMonto: borrador.confianzaMonto,
-        confianzaVencimiento: borrador.confianzaVencimiento,
-        venceEn: borrador.venceEn,
-        recordatorioEn: borrador.recordatorioEn,
-        // GGL-S10b: sin este pase, el job guarda el monto y tira la imagen.
-        ...(borrador.pideRevision === true ? { pideRevision: true } : {}),
-        ...(borrador.comprobanteCuerpo ? { comprobanteCuerpo: borrador.comprobanteCuerpo } : {}),
-      }),
-    avanzarCursor: (cursor) => actualizarCursorGmail(tenantId, cursor),
-  };
 }
 
 function reintentar(job: JobGmail): boolean {
@@ -163,7 +116,7 @@ export async function ejecutarJobGmail(
       ahoraMs: deps?.ahoraMs ?? Date.now(),
       motor: deps?.motor ?? null,
       ...(deps?.extraerPdfTexto !== undefined ? { extraerPdfTexto: deps.extraerPdfTexto } : {}),
-      persistencia: persistenciaDe(job.tenantId),
+      persistencia: crearPersistenciaGmailDb(job.tenantId),
     });
 
     // GGL-P0-HUECOS: Publicar evento de cambio de filtros en

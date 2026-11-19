@@ -8,7 +8,7 @@ import {
 import {
   sincronizarGmail,
   type BorradorSync,
-  type PersistenciaSyncGmail,
+  type PersistenciaGmail,
 } from "../src/modules/integraciones/gmail-sync.js";
 import type { CuentaCatalogo, FiltroIngesta, LogIngesta } from "../src/modules/utilities/ingesta_gmail.js";
 
@@ -57,7 +57,7 @@ function persistencia(seed: ReadonlyArray<string> = []) {
   const drafts: BorradorSync[] = [];
   const registros: LogIngesta[] = [];
   let cursor: string | null = null;
-  const p: PersistenciaSyncGmail = {
+  const p: PersistenciaGmail = {
     existeLog: async (messageId) => logs.has(messageId),
     registrarLog: async (log) => {
       if (logs.has(log.messageId)) return;

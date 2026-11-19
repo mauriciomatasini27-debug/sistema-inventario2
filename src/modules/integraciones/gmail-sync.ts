@@ -35,7 +35,7 @@ export interface BorradorSync {
   readonly comprobanteCuerpo?: ImagenCuerpoSaneada | null;
 }
 
-export interface PersistenciaSyncGmail {
+export interface PersistenciaGmail {
   existeLog(messageId: string): Promise<boolean>;
   registrarLog(log: LogIngesta): Promise<void>;
   guardarBorrador(borrador: BorradorSync): Promise<{ readonly id: string; readonly nuevo: boolean }>;
@@ -54,7 +54,47 @@ export interface EntradaSyncGmail {
   readonly labelId?: string;
   readonly motor?: MotorOcr | null;
   readonly extraerPdfTexto?: ExtractadorPdfDigital;
-  readonly persistencia: PersistenciaSyncGmail;
+  readonly persistencia: PersistenciaGmail;
+}
+
+export interface PersistenciaGmailMemoria {
+  readonly persistencia: PersistenciaGmail;
+  readonly logs: ReadonlyArray<LogIngesta>;
+  readonly borradores: ReadonlyArray<BorradorSync>;
+  readonly ultimoCursor: string | null;
+}
+
+// Adapter de memoria para tests del pipeline real: sin DB ni env.
+export function crearPersistenciaGmailMemoria(): PersistenciaGmailMemoria {
+  const logs: LogIngesta[] = [];
+  const borradores: BorradorSync[] = [];
+  const vistos = new Set<string>();
+  let ultimoCursor: string | null = null;
+  const persistencia: PersistenciaGmail = {
+    existeLog: async (messageId) => vistos.has(messageId),
+    registrarLog: async (log) => {
+      if (vistos.has(log.messageId)) return;
+      vistos.add(log.messageId);
+      logs.push(log);
+    },
+    guardarBorrador: async (borrador) => {
+      const existente = borradores.find((b) => b.messageId === borrador.messageId);
+      if (existente) return { id: existente.messageId, nuevo: false };
+      borradores.push(borrador);
+      return { id: borrador.messageId, nuevo: true };
+    },
+    avanzarCursor: async (cursor) => {
+      ultimoCursor = cursor;
+    },
+  };
+  return {
+    persistencia,
+    logs,
+    borradores,
+    get ultimoCursor() {
+      return ultimoCursor;
+    },
+  };
 }
 
 export interface ResultadoSyncGmail {
