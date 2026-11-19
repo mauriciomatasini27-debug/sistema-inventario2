@@ -1,7 +1,7 @@
 ---
 id: ADR-0117
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [tenant, tenant-context]
 depende_de: [ADR-0051, ADR-0052, ADR-0065, ADR-0116]
 reemplaza: []
@@ -13,7 +13,7 @@ resumen: Unificar tenant-mode + tenant-scope en un módulo tenant.ts con modo in
 
 # ADR-0117 - Módulo de resolución de tenant
 
-Estado: propuesto. Fecha: 2026-11-18. Fuentes: improve-codebase-architecture candidate 1, grilling.
+Estado: aceptado. Fecha: 2026-11-18. Mergeado en main (PR #251, 2026-11-19). Fuentes: improve-codebase-architecture candidate 1, grilling.
 
 ## Decisión
 

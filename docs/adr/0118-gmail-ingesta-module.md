@@ -1,7 +1,7 @@
 ---
 id: ADR-0118
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: [integraciones]
 depende_de: [ADR-0065, ADR-0102, ADR-0103]
 reemplaza: []
@@ -13,7 +13,7 @@ resumen: Un solo módulo posee el flujo de ingesta Gmail (sincronizarGmail en gm
 
 # ADR-0118 - Módulo de ingesta Gmail
 
-Estado: propuesto. Fecha: 2026-11-19. Fuentes: improve-codebase-architecture candidate 2, grilling (spec #252).
+Estado: aceptado. Fecha: 2026-11-19. Mergeado en main (PR #256, 2026-11-19). Fuentes: improve-codebase-architecture candidate 2, grilling (spec #252).
 
 ## Decisión
 
@@ -44,5 +44,4 @@ Estado: propuesto. Fecha: 2026-11-19. Fuentes: improve-codebase-architecture can
 
 ## Pendientes
 
-- Aceptar ADR-0118 cuando se mergee el PR; hasta entonces queda en `propuesto`.
 - Watch/cola/dedupe y el lifecycle de borradores del panel quedan para PRs propios (GGL-P0-HUECOS sigue abierto).
