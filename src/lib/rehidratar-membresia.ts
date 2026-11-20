@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { memberships, tenants } from "../db/schema.js";
 import { getControlDb } from "./db.js";
 import { control } from "./store.js";
-import { claveOnboarding, estadoInicial } from "../modules/onboarding/estado.js";
+import { hidratarOnboardingDesdeDb } from "../modules/onboarding/persistencia.js";
 import { rubroSchema } from "./validation.js";
 
 // Fila que devuelve la base de control. La memoria del proceso no sobrevive
@@ -79,16 +79,9 @@ function volcar(filas: readonly FilaMembresiaDurable[]): void {
         puedeUsarBot: f.puedeUsarBot,
       });
     }
-    // ON12: hidratar el wizard persistido para que el callback no lo vea incompleto tras deploy.
-    const clave = claveOnboarding(f.googleSub, f.tenantId);
-    const existente = control.onboardingState.get(clave);
-    if (!existente) {
-      // ON12: memoria manda en monoproceso; DB solo al crear el estado.
-      const init = estadoInicial(f.googleSub, f.tenantId);
-      init.wizardCompletado = f.wizardCompletado;
-      init.wizardPaso = f.wizardPaso;
-      control.onboardingState.set(clave, init);
-    }
+    // ON12: la DB es la fuente durable del flag; se aplica en cada hidratación
+    // para que un estado default en memoria no congele un wizard incompleto.
+    hidratarOnboardingDesdeDb(f);
   }
 }
 
@@ -167,11 +160,10 @@ export async function rehidratarMembresias(
   googleSub: string,
   leer: (googleSub: string) => Promise<FilaMembresiaDurable[] | null> = leerMembresiasActivas,
 ): Promise<void> {
-  // P1-68: aunque la membership ya esté en memoria (alta en esta instancia),
-  // hay que completar el tenant de la sesión nula del login.
-  if (comerciosActivos(googleSub).length === 0) {
-    const filas = await leer(googleSub);
-    if (filas) volcar(filas);
-  }
+  // ON12: el flag del wizard decide /panel vs /onboarding y vive en tenants,
+  // así que se lee en cada login aunque la membership ya esté en memoria.
+  // P1-68: además, esto completa el tenant de la sesión nula del login.
+  const filas = await leer(googleSub);
+  if (filas) volcar(filas);
   completarTenantDeSesion(googleSub);
 }

@@ -279,9 +279,55 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        expect(n[0]?.n).toBe(49);
+        // ON12: 0049 se sumó al journal, así que el wrapper aplica 0047, 0048 y 0049.
+        expect(n[0]?.n).toBe(50);
       } finally {
         await db.end();
+      }
+    },
+    300_000,
+  );
+});
+
+describe.skipIf(!hayPG)("ON12 migración 0049_tenants_onboarding_wizard en Postgres", () => {
+  it(
+    "agrega las columnas, marca los tenants preexistentes completos y deja los nuevos incompletos",
+    async () => {
+      const nombre = `m49_onboarding_${Date.now()}`;
+      const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
+      await aplicarHasta("0048_ggl_p0_huecos", url);
+      const viejo = randomUUID();
+      const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
+      try {
+        await db`insert into tenants (id, nombre_comercio, slug, plan, estado, created_at) values (${viejo}::uuid, 'Viejo', 'viejo-49', 'demo', 'activo', now() - interval '1 day')`;
+      } finally {
+        await db.end();
+      }
+
+      execFileSync("node", ["scripts/db-migrate.mjs"], {
+        env: { ...process.env, TENANT_DATABASE_URL: url },
+        encoding: "utf8",
+      });
+
+      const db2 = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
+      try {
+        const cols = await db2`
+          select column_name from information_schema.columns
+          where table_schema='public' and table_name='tenants' and column_name in ('wizard_completado','wizard_paso')
+          order by column_name`;
+        expect(cols.map((c) => c.column_name)).toEqual(["wizard_completado", "wizard_paso"]);
+
+        const filaVieja = await db2`select wizard_completado, wizard_paso from tenants where id = ${viejo}::uuid`;
+        expect(filaVieja[0]?.wizard_completado).toBe(true);
+        expect(filaVieja[0]?.wizard_paso).toBe(5);
+
+        const nuevo = randomUUID();
+        await db2`insert into tenants (id, nombre_comercio, slug, plan, estado) values (${nuevo}::uuid, 'Nuevo', 'nuevo-49', 'demo', 'activo')`;
+        const filaNueva = await db2`select wizard_completado, wizard_paso from tenants where id = ${nuevo}::uuid`;
+        expect(filaNueva[0]?.wizard_completado).toBe(false);
+        expect(filaNueva[0]?.wizard_paso).toBe(0);
+      } finally {
+        await db2.end();
       }
     },
     300_000,

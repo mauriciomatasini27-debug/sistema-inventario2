@@ -3,6 +3,7 @@ import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { POST } from "../src/pages/api/onboarding/completar.js";
+import { claveOnboarding } from "../src/modules/onboarding/estado.js";
 
 function sesionEnStore(sub: string, tenantId: string | null = null) {
   const ahoraReal = new Date();
@@ -39,6 +40,18 @@ describe("onboarding-wizard-ruta completar", () => {
     const plano = sesionEnStore("g-1", null);
     const r = await POST(req(plano));
     expect(r.status).toBe(403);
+  });
+
+  it("403 para empleado: el wizard solo lo completa el dueño", async () => {
+    control.tenants.set("t-1", { id: "t-1", nombreComercio: "K", slug: "k", estado: "activo", plan: "demo", moneda: "ARS", ownerGoogleSub: "g-1", esDemo: false });
+    control.memberships.set("m-2", { id: "m-2", tenantId: "t-1", googleSub: "g-2", rol: "empleado", permisos: [], estado: "activo" });
+    const plano = sesionEnStore("g-2", "t-1");
+
+    // Con tenant_id explícito se salta la resolución por dueño y se ejerce el guard de rol.
+    const r = await POST(req(plano, { tenant_id: "t-1" }));
+
+    expect(r.status).toBe(403);
+    expect(control.onboardingState.get(claveOnboarding("g-2", "t-1"))).toBeUndefined();
   });
 
   it("200 marca completado resolviendo tenant desde memberships", async () => {
