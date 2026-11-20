@@ -10,7 +10,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
-import { claveOnboarding } from "../../../modules/onboarding/estado.js";
+import { leerOnboarding } from "../../../modules/onboarding/onboarding.js";
 import { leerInvitacionPorHash, persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
 import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
@@ -282,7 +282,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
   const onboardingCompleto =
     !!tenantId &&
-    (control.onboardingState.get(claveOnboarding(identidad.sub, tenantId))?.wizardCompletado === true);
+    (leerOnboarding(identidad.sub, tenantId).wizardCompletado === true);
   const destino =
     nextOk === "/panel" && !tenantId
       ? "/?alta=pendiente"
