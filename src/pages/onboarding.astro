@@ -73,7 +73,7 @@
           add.onclick = () => { if(!inp.value.trim()) return; state.empleados.push(inp.value.trim()); inp.value=""; save(); render(); };
           card.appendChild(inp); card.appendChild(add);
           const done = document.createElement("button"); done.className="chip"; done.textContent="Enviar links y continuar"; done.style.marginTop="12px"; done.style.background="var(--accent)"; done.style.color="#fff";
-          done.onclick = () => { state.empleadosDone=true; state.paso++; save(); render(); };
+          done.onclick = () => { state.empleadosDone=true; save(); window.location.href="/panel/invitaciones"; };
           card.appendChild(done);
           body.appendChild(card);
           document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
@@ -90,9 +90,11 @@
             const b = document.createElement("button"); b.className="chip"; b.textContent=o;
             b.onclick = () => {
               state.respuestas[s.key]=o;
-              if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; }
-              else { state.paso++; }
-              save(); render();
+              if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; save(); render(); return; }
+              if (s.key==="empleados" && o.startsWith("No")) { state.paso++; save(); render(); return; }
+              if (s.key==="productos" && o.startsWith("Sí")) { window.location.href="/panel/stock/importar"; return; }
+              if (s.key==="caja" && o.startsWith("Sí")) { window.location.href="/panel/caja"; return; }
+              state.paso++; save(); render();
             };
             wrap.appendChild(b);
           });
