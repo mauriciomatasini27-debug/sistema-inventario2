@@ -76,6 +76,15 @@ describe("bienvenida panel BIEN-S3 contenido", () => {
     expect(panel).toMatch(/mostrarBienvenida \?/);
   });
 
+  it("TB-165: un paso no aplica se muestra como No aplica sin depender del Set local", () => {
+    expect(
+      estado_paso_dialogo(
+        { id: "empleado", titulo: "Invitá a un empleado", contador: null, listo: false, noAplica: true },
+        false,
+      ),
+    ).toBe("No aplica");
+  });
+
   it("progreso y estado de paso son legibles", () => {
     expect(progreso_checklist(2, 4)).toBe("2 de 4 listos");
     expect(

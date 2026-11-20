@@ -160,7 +160,7 @@ const { tenantId, googleSub } = Astro.props;
             contador: typeof paso.contador === "string" ? paso.contador : null,
             listo: paso.listo === true,
           },
-          saltados.has(id),
+          saltados.has(id) || paso.noAplica === true,
         );
         li.append(strong, meta);
         pasosEl.append(li);
@@ -204,6 +204,11 @@ const { tenantId, googleSub } = Astro.props;
           );
         }
         const pasos = Array.isArray(checklist?.pasos) ? checklist.pasos : [];
+        // TB-165: el estado no aplica vive en el servidor; se recupera en cada
+        // carga para que el diálogo no lo pierda al recargar la página.
+        for (const paso of pasos) {
+          if (paso && paso.noAplica === true && typeof paso.id === "string") saltados.add(paso.id);
+        }
         renderPasos(pasos);
         if (typeof dialogo.showModal === "function") dialogo.showModal();
       } catch (error) {
@@ -243,6 +248,9 @@ const { tenantId, googleSub } = Astro.props;
         );
         const estado = await estadoR.json();
         if (estadoR.ok && Array.isArray(estado.checklist?.pasos)) {
+          for (const paso of estado.checklist.pasos) {
+            if (paso && paso.noAplica === true && typeof paso.id === "string") saltados.add(paso.id);
+          }
           renderPasos(estado.checklist.pasos);
           if (progresoEl instanceof HTMLElement) {
             progresoEl.textContent = progreso_checklist(
