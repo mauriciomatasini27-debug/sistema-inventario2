@@ -282,11 +282,24 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     expect(await callbackSinNext()).toBe("/panel");
   });
 
-  it("ON12: tenant con onboarding incompleto y sin next va a /onboarding", async () => {
+  it("ADR-0115: comercio nuevo sin next entra a /panel aunque el cuestionario esté incompleto", async () => {
     delete process.env.ADMIN_ALLOWLIST_SUBS;
     control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "juan", esDemo: false });
     control.memberships.set("m1", { id: "m1", tenantId: "t1", googleSub: "juan", rol: "dueno", permisos: [], estado: "activo" });
-    expect(await callbackSinNext()).toBe("/onboarding");
+    expect(control.onboardingState.size).toBe(0);
+    expect(await callbackSinNext()).toBe("/panel");
+  });
+
+  it("ADR-0115: tras un deploy sin estado en memoria el comercio existente sigue en /panel", async () => {
+    delete process.env.ADMIN_ALLOWLIST_SUBS;
+    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "juan", esDemo: false });
+    control.memberships.set("m1", { id: "m1", tenantId: "t1", googleSub: "juan", rol: "dueno", permisos: [], estado: "activo" });
+    const previo = estadoInicial("juan", "t1");
+    previo.wizardCompletado = true;
+    control.onboardingState.set(claveOnboarding("juan", "t1"), previo);
+    // ADR-0115: simula el reinicio; el espejo en memoria se pierde pero la fila durable sigue.
+    control.onboardingState.clear();
+    expect(await callbackSinNext()).toBe("/panel");
   });
 
   it("sin next, sin allowlist y sin tenant mantiene /?alta=pendiente", async () => {
