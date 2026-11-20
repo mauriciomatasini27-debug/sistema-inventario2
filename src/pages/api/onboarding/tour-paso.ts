@@ -1,8 +1,7 @@
 import type { APIRoute } from "astro";
-import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
 import { tourPasoSchema } from "../../../lib/validation.js";
-import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
+import { marcarTourPaso } from "../../../modules/onboarding/onboarding.js";
 
 export const prerender = false;
 
@@ -20,14 +19,11 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return jsonError("Datos inválidos.", 422);
   const m = membershipActiva(parsed.data.tenant_id, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  const clave = claveOnboarding(ctx.googleSub, parsed.data.tenant_id);
-  const previo = control.onboardingState.get(clave) ?? estadoInicial(ctx.googleSub, parsed.data.tenant_id);
-  const next = {
-    ...previo,
-    tourUltimoPaso: parsed.data.paso,
-    tourEstado: parsed.data.estado,
-    actualizadoAt: new Date().toISOString(),
-  };
-  control.onboardingState.set(clave, next);
+  const next = marcarTourPaso(
+    ctx.googleSub,
+    parsed.data.tenant_id,
+    parsed.data.paso,
+    parsed.data.estado,
+  );
   return Response.json({ ok: true, tour_estado: next.tourEstado, ultimo_paso: next.tourUltimoPaso });
 };

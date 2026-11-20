@@ -344,6 +344,13 @@
       "when": 1795051200000,
       "tag": "0048_ggl_p0_huecos",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1795132800000,
+      "tag": "0049_tenants_onboarding_wizard",
+      "breakpoints": true
     }
   ]
 }

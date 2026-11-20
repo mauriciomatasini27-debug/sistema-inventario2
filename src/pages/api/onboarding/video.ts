@@ -2,8 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
 import { videoProgresoSchema } from "../../../lib/validation.js";
-import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
-import { registrar_progreso } from "../../../modules/onboarding/video.js";
+import { registrarVideo } from "../../../modules/onboarding/onboarding.js";
 
 export const prerender = false;
 
@@ -28,11 +27,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return jsonError("Datos inválidos.", 422);
   const m = membershipActiva(parsed.data.tenant_id, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  const clave = claveOnboarding(ctx.googleSub, parsed.data.tenant_id);
-  const previo = control.onboardingState.get(clave) ?? estadoInicial(ctx.googleSub, parsed.data.tenant_id);
-  const avance = registrar_progreso(previo, { progreso: parsed.data.progreso, tipo: parsed.data.evento });
-  const next = { ...previo, ...avance, actualizadoAt: new Date().toISOString() };
-  control.onboardingState.set(clave, next);
+  const next = registrarVideo(
+    ctx.googleSub,
+    parsed.data.tenant_id,
+    parsed.data.progreso,
+    parsed.data.evento,
+  );
   control.events.push({
     tenantId: parsed.data.tenant_id,
     tipo: TIPO_EVENTO[parsed.data.evento],
