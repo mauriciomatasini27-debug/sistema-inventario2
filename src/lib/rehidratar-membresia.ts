@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { memberships, tenants } from "../db/schema.js";
 import { getControlDb } from "./db.js";
 import { control } from "./store.js";
+import { claveOnboarding, estadoInicial } from "../modules/onboarding/estado.js";
 import { rubroSchema } from "./validation.js";
 
 // Fila que devuelve la base de control. La memoria del proceso no sobrevive
@@ -22,6 +23,8 @@ export interface FilaMembresiaDurable {
   esDemo: boolean;
   rubro: string | null;
   requestKey: string | null;
+  wizardCompletado: boolean;
+  wizardPaso: number;
   trialHasta: Date | null;
 }
 
@@ -76,6 +79,18 @@ function volcar(filas: readonly FilaMembresiaDurable[]): void {
         puedeUsarBot: f.puedeUsarBot,
       });
     }
+    // Hidratar onboarding state persistido (no solo memoria).
+    const clave = claveOnboarding(f.googleSub, f.tenantId);
+    const existente = control.onboardingState.get(clave);
+    if (!existente) {
+      const init = estadoInicial(f.googleSub, f.tenantId);
+      init.wizardCompletado = f.wizardCompletado;
+      init.wizardPaso = f.wizardPaso;
+      control.onboardingState.set(clave, init);
+    } else {
+      existente.wizardCompletado = f.wizardCompletado;
+      existente.wizardPaso = f.wizardPaso;
+    }
   }
 }
 
@@ -113,6 +128,8 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         rubro: tenants.rubro,
         requestKey: tenants.requestKey,
         trialHasta: tenants.trialHasta,
+        wizardCompletado: tenants.wizardCompletado,
+        wizardPaso: tenants.wizardPaso,
       })
       .from(memberships)
       .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
@@ -138,6 +155,8 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         rubro: f.rubro,
         requestKey: f.requestKey,
         trialHasta: f.trialHasta,
+        wizardCompletado: f.wizardCompletado,
+        wizardPaso: f.wizardPaso,
       });
     }
     return listas;

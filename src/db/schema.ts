@@ -204,6 +204,9 @@ export const tenants = pgTable("tenants", {
   esDemo: boolean("es_demo").notNull().default(false),
   // P1-79: rubro del alta (ON1); nullable para comercios previos al deploy.
   rubro: text("rubro"),
+  // ONBOARDING: wizard completado persistido (no solo en memoria).
+  wizardCompletado: boolean("wizard_completado").notNull().default(false),
+  wizardPaso: integer("wizard_paso").notNull().default(0),
   requestKey: text("request_key"),
   trialHasta: timestamp("trial_hasta"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

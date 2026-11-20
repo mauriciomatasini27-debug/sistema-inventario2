@@ -24,6 +24,8 @@ function fila(extra: Partial<FilaMembresiaDurable> = {}): FilaMembresiaDurable {
     rubro: null,
     requestKey: null,
     trialHasta: null,
+    wizardCompletado: false,
+    wizardPaso: 0,
     ...extra,
   };
 }

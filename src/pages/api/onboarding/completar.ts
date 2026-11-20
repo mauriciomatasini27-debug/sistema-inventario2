@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
 import { control } from "../../../lib/store.js";
+import { persistirOnboarding } from "../../../lib/control-db.js";
 import { onboardingCompletarSchema } from "../../../lib/validation.js";
 import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
 
@@ -41,5 +42,6 @@ export const POST: APIRoute = async ({ request }) => {
     actualizadoAt: new Date().toISOString(),
   };
   control.onboardingState.set(clave, next);
+  await persistirOnboarding(tenantId, true, 5);
   return Response.json({ ok: true, completado: true });
 };

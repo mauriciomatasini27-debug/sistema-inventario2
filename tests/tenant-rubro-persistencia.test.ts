@@ -42,6 +42,8 @@ function filaMembresia(tenantId: string, rubro: string | null): FilaMembresiaDur
     rubro,
     requestKey: null,
     trialHasta: null,
+    wizardCompletado: false,
+    wizardPaso: 0,
   };
 }
 
