@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
 import { control } from "../../../lib/store.js";
+import { onboardingCompletarSchema } from "../../../lib/validation.js";
 import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
 
 export const prerender = false;
@@ -13,9 +14,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return jsonError("El cuerpo no es JSON válido.", 422);
+    body = {};
   }
-  let tenantId: string | undefined = (body as { tenant_id?: unknown })?.tenant_id as string | undefined;
+  const parsed = onboardingCompletarSchema.safeParse(body ?? {});
+  if (!parsed.success) return jsonError("Datos inválidos.", 422);
+  let tenantId: string | undefined = parsed.data.tenant_id;
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     const ms = [...control.memberships.values()].filter(
       (m) => m.googleSub === ctx.googleSub && m.rol === "dueno" && m.estado === "activo",
