@@ -1,6 +1,12 @@
 ---
+import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
+
 // ONBOARDING-WIZARD (T2): ruta dedicada post-login.
 // TB-165: la página es sólo vista; las transiciones viven en wizard.ts.
+// TB-165: el cuestionario es del Dueño; el guard corre en servidor para que
+// un Empleado no llegue por navegación directa.
+const acceso = exigirDuenoDeRequest(Astro.request);
+if (!acceso.ok) return Astro.redirect("/panel", 302);
 ---
 <html lang="es">
   <head>
