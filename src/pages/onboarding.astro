@@ -64,16 +64,22 @@
         // sub-flujo empleados
         if (state.paso === 2 && state.respuestas.empleados && String(state.respuestas.empleados).startsWith("Sí") && !state.empleadosDone) {
           const card = document.createElement("div"); card.className="card";
-          card.innerHTML = "<h3>Cargá los nombres de tus empleados</h3><p>Les enviaremos un link.</p>";
+          card.innerHTML = "<h3>Cargá los emails de tus empleados</h3><p>Les enviaremos un link para sumarse.</p>";
           const list = document.createElement("div"); list.style.marginTop="8px";
           state.empleados.forEach(e => { const d=document.createElement("div"); d.textContent=e; list.appendChild(d); });
           card.appendChild(list);
-          const inp = document.createElement("input"); inp.className="input"; inp.placeholder="Nombre del empleado";
+          const inp = document.createElement("input"); inp.className="input"; inp.type="email"; inp.placeholder="email@ejemplo.com";
           const add = document.createElement("button"); add.className="chip"; add.textContent="Agregar"; add.style.marginTop="8px";
           add.onclick = () => { if(!inp.value.trim()) return; state.empleados.push(inp.value.trim()); inp.value=""; save(); render(); };
           card.appendChild(inp); card.appendChild(add);
           const done = document.createElement("button"); done.className="chip"; done.textContent="Enviar links y continuar"; done.style.marginTop="12px"; done.style.background="var(--accent)"; done.style.color="#fff";
-          done.onclick = () => { state.empleadosDone=true; save(); window.location.href="/panel/invitaciones"; };
+          done.onclick = async () => {
+             for (const email of state.empleados) {
+               try { await fetch("/api/invitations", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email }) }); }
+               catch (e) { console.warn("invitación falló", e); }
+             }
+             state.empleadosDone=true; state.paso++; save(); render();
+           };
           card.appendChild(done);
           body.appendChild(card);
           document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
