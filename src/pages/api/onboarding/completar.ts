@@ -37,6 +37,7 @@ export const POST: APIRoute = async ({ request }) => {
     ...previo,
     wizardCompletado: true,
     wizardPaso: 5,
+    wizardEmpleados: parsed.data.empleados ?? previo.wizardEmpleados,
     actualizadoAt: new Date().toISOString(),
   };
   control.onboardingState.set(clave, next);

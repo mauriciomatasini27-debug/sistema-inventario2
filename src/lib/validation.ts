@@ -438,4 +438,5 @@ export const altaAutoservicioSchema = z.object({
 
 export const onboardingCompletarSchema = z.object({
   tenant_id: z.string().min(1).max(128).optional(),
+  empleados: z.array(z.string().min(1).max(128)).optional(),
 });

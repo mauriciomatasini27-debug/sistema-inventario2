@@ -56,7 +56,7 @@
         if (state.paso >= steps.length) {
           body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">5 de 5 pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
           document.getElementById("p").style.width = "100%";
-          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }).catch((e) => { console.warn("onboarding completar falló", e); });
+          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ empleados: state.empleados }) }).catch((e) => { console.warn("onboarding completar falló", e); });
           const btn = document.getElementById("irPanel");
           if (btn) btn.onclick = () => { window.location.href = "/panel"; };
           return;

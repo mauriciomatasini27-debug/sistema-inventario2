@@ -80,10 +80,6 @@ export function avanzar(
     const valor = (respuesta ?? "").trim();
     if (valor.length === 0) return state;
     const respuestas = { ...state.respuestas, [paso.key]: valor };
-    // empleados: si "Sí", no avanzar todavía; activar sub-flujo
-    if (paso.key === "empleados") {
-      // respuesta viene por choice, no text; no aplica
-    }
     return { ...state, respuestas, paso: state.paso + 1 };
   }
   // choice
