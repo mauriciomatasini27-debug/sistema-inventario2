@@ -397,6 +397,7 @@ export function persistirEstadoTenant(tenantId: string, estado: "activo" | "susp
   );
 }
 
+// ON12: espejo durable del flag del wizard (best-effort como usuario/sesión).
 export function persistirOnboarding(tenantId: string, wizardCompletado: boolean, wizardPaso: number): Promise<boolean> {
   return intentarControl((db) =>
     db

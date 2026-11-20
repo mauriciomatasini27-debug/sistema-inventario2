@@ -31,12 +31,14 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonError("No se encontró comercio.", 403);
   }
   const m = membershipActiva(tenantId, ctx.googleSub);
-  if (!m) return jsonError("No tenés permiso en este comercio.", 403);
+  // ON12: el flag es por comercio; solo el dueño puede marcarlo completo.
+  if (!m || m.rol !== "dueno") return jsonError("No tenés permiso en este comercio.", 403);
   const next = completarWizardConEmpleados(
     ctx.googleSub,
     tenantId,
     parsed.data.empleados,
   );
+  // ON12: persistir antes de responder para sobrevivir al próximo deploy.
   await persistirOnboarding(tenantId, next.wizardCompletado, next.wizardPaso);
   return Response.json({ ok: true, completado: true });
 };
