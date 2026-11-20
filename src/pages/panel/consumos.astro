@@ -119,7 +119,11 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   };
 
   const cargarCuentas = () => {
-    if (cuentasPromesa) return cuentasPromesa;
+    // P1-48 FIX: Siempre creamos una nueva petición fetch.
+    // Antes: if (cuentasPromesa) return cuentasPromesa;
+    //       Esto causaba que al navegar entre rutas y volver,
+    //       la UI se quedara en "Cargando…" porque la promise stale
+    //       nunca se resolvía en el nuevo contexto.
     cuentasPromesa = fetch("/api/service-accounts")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
