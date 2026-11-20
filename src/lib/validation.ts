@@ -435,3 +435,8 @@ export const altaAutoservicioSchema = z.object({
   opt_in: z.boolean().default(false),
   request_key: z.string().min(1).max(128).optional(),
 });
+
+export const onboardingCompletarSchema = z.object({
+  tenant_id: z.string().min(1).max(128).optional(),
+  empleados: z.array(z.string().min(1).max(128)).optional(),
+});

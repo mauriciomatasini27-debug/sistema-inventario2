@@ -10,6 +10,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
+import { claveOnboarding } from "../../../modules/onboarding/estado.js";
 import { leerInvitacionPorHash, persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
 import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
 import { notificarAlertaSeguridad } from "../../../lib/alertas-seguridad.js";
@@ -279,11 +280,18 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   // hace exigirAdmin en cada API, no este redirect.
   // P1-70: next=/panel sin comercio manda al alta (si no, panel vacío).
   const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
+  const onboardingCompleto =
+    !!tenantId &&
+    (control.onboardingState.get(claveOnboarding(identidad.sub, tenantId))?.wizardCompletado === true);
   const destino =
     nextOk === "/panel" && !tenantId
       ? "/?alta=pendiente"
-      : (nextOk ??
-        (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente"));
+      : !onboardingCompleto && tenantId && !nextOk
+        ? "/onboarding"
+        : onboardingCompleto && tenantId && !nextOk
+          ? "/panel"
+          : (nextOk ??
+            (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente"));
   const r = redirect(destino, 302);
   borrarCookiesOauth(r.headers);
   // P1-25: Set-Cookie en el Response del redirect (no solo cookies.set):
