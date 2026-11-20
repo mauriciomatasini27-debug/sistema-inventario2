@@ -1,9 +1,11 @@
-export const PASOS_CI = ["typecheck", "arch", "test", "skips", "build"];
+// RETRO-03: el gate de ids de comentarios va primero para fallar temprano.
+export const PASOS_CI = ["comentarios", "typecheck", "arch", "test", "skips", "build"];
 // DOCS-GATE-CHECK: los --check van antes de los writers para que el gate
 // falle nombrando el comando en vez de regenerar callado.
 export const PASOS_DOCS = ["docs:generados", "docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check", "docs:migraciones", "roadmap", "docs:estado", "docs:index", "docs:check"];
 
 const DEFS = {
+  comentarios: { node: "scripts/check-comment-ids.mjs" },
   typecheck: { script: "typecheck" },
   arch: { script: "check:arch" },
   test: {

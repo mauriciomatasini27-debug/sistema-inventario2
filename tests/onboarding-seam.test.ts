@@ -111,7 +111,7 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     expect(next.wizardPaso).toBe(5);
     expect(next.wizardEmpleados).toEqual(["Ana"]);
 
-    // sin empleados en el body conserva los ya persistidos
+    // TB-165: sin empleados en el body conserva los ya persistidos
     const otra = completarWizardConEmpleados(USER, TENANT, undefined, mem.persistencia);
     expect(otra.wizardEmpleados).toEqual(["Ana"]);
   });
