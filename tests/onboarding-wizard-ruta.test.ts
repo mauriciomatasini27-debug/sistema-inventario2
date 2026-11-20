@@ -1,24 +1,9 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
-import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { POST } from "../src/pages/api/onboarding/completar.js";
 import { claveOnboarding } from "../src/modules/onboarding/estado.js";
-
-function sesionEnStore(sub: string, tenantId: string | null = null) {
-  const ahoraReal = new Date();
-  const c = crearSesion({ googleSub: sub, tenantId, ahora: ahoraReal });
-  control.sessions.set(c.registro.idHash, {
-    idHash: c.registro.idHash,
-    googleSub: sub,
-    tenantId,
-    expiraAt: c.registro.expiraAt,
-    expiraAbsoluta: c.registro.expiraAbsoluta,
-    lastSeenAt: ahoraReal.toISOString(),
-    reauthAt: ahoraReal.toISOString(),
-  });
-  return c.idPlano;
-}
+import { sesionEnStore } from "./helpers/sesion.js";
 
 function req(plano: string, body?: unknown) {
   return ctx("http://x/api/onboarding/completar", {
@@ -47,7 +32,7 @@ describe("onboarding-wizard-ruta completar", () => {
     control.memberships.set("m-2", { id: "m-2", tenantId: "t-1", googleSub: "g-2", rol: "empleado", permisos: [], estado: "activo" });
     const plano = sesionEnStore("g-2", "t-1");
 
-    // Con tenant_id explícito se salta la resolución por dueño y se ejerce el guard de rol.
+    // ON12: con tenant_id explícito se salta la resolución por dueño y se ejerce el guard de rol.
     const r = await POST(req(plano, { tenant_id: "t-1" }));
 
     expect(r.status).toBe(403);
@@ -62,7 +47,7 @@ describe("onboarding-wizard-ruta completar", () => {
     expect(r.status).toBe(200);
     const j = (await r.json()) as { ok: boolean; completado: boolean };
     expect(j).toEqual({ ok: true, completado: true });
-    const onb = control.onboardingState.get(`g-1:t-1`);
+    const onb = control.onboardingState.get(claveOnboarding("g-1", "t-1"));
     expect(onb?.wizardCompletado).toBe(true);
   });
 });

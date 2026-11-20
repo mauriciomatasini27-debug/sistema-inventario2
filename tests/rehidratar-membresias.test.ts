@@ -126,6 +126,20 @@ describe("rehidratar membresías después de un reinicio", () => {
     expect(control.onboardingState.get(clave)?.wizardPaso).toBe(5);
   });
 
+  it("ON12: la memoria gana si ya completó y la DB quedó desactualizada", async () => {
+    const clave = claveOnboarding(SUB, TENANT);
+    control.onboardingState.set(clave, {
+      ...estadoInicial(SUB, TENANT),
+      wizardCompletado: true,
+      wizardPaso: 5,
+    });
+
+    await rehidratarMembresias(SUB, async () => [fila()]);
+
+    expect(control.onboardingState.get(clave)?.wizardCompletado).toBe(true);
+    expect(control.onboardingState.get(clave)?.wizardPaso).toBe(5);
+  });
+
   it("ON12: comercio nuevo sin wizard queda en paso 0 e incompleto", async () => {
     await rehidratarMembresias(SUB, async () => [fila()]);
 

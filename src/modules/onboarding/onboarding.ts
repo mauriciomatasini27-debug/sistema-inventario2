@@ -23,17 +23,18 @@ export type EventoVideo = "inicio" | "mitad" | "fin";
 
 type PersistenciaOpcional = PersistenciaOnboarding | undefined;
 
-// TB-165: userId, tenantId y la persistencia viajan juntos en las transiciones
-// internas; un solo contexto evita repetir la tupla en cada helper. La API
-// pública sigue explícita porque es el límite con las rutas HTTP.
+// TB-165: `actualizar` es la única transición interna que necesita los tres
+// valores a la vez (quién, dónde y dónde se guarda); los demás helpers sólo
+// resuelven la persistencia. La API pública sigue explícita porque es el
+// límite con las rutas HTTP.
 interface ContextoOnboarding {
   userId: string;
   tenantId: string;
   persistencia?: PersistenciaOpcional;
 }
 
-function persistenciaEfectiva(ctx: ContextoOnboarding): PersistenciaOnboarding {
-  return ctx.persistencia ?? crearPersistenciaOnboardingControl();
+function persistenciaEfectiva(persistencia: PersistenciaOpcional): PersistenciaOnboarding {
+  return persistencia ?? crearPersistenciaOnboardingControl();
 }
 
 // TB-165: guardar a partir de un estado ya leído evita el doble read en
@@ -53,7 +54,7 @@ function guardar(
 }
 
 function actualizar(ctx: ContextoOnboarding, patch: Partial<OnboardingState>): OnboardingState {
-  const p = persistenciaEfectiva(ctx);
+  const p = persistenciaEfectiva(ctx.persistencia);
   return guardar(p.leer(ctx.userId, ctx.tenantId), patch, p);
 }
 
@@ -63,7 +64,7 @@ export function leerOnboarding(
   tenantId: string,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  return persistenciaEfectiva({ userId, tenantId, persistencia }).leer(userId, tenantId);
+  return persistenciaEfectiva(persistencia).leer(userId, tenantId);
 }
 
 export function marcarTourPaso(
@@ -83,7 +84,7 @@ export function accionChecklist(
   paso: string | undefined,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva({ userId, tenantId, persistencia });
+  const p = persistenciaEfectiva(persistencia);
   const previo = p.leer(userId, tenantId);
   let patch: Partial<OnboardingState> = {};
   if (accion === "saltar" && paso && !previo.pasosSaltados.includes(paso)) {
@@ -105,7 +106,7 @@ export function registrarVideo(
   evento: EventoVideo,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva({ userId, tenantId, persistencia });
+  const p = persistenciaEfectiva(persistencia);
   const previo = p.leer(userId, tenantId);
   const avance = registrar_progreso(previo, { progreso, tipo: evento });
   return guardar(previo, avance, p);
@@ -136,7 +137,7 @@ export function completarWizard(
   wizard: WizardState,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva({ userId, tenantId, persistencia });
+  const p = persistenciaEfectiva(persistencia);
   return completarDesde(p.leer(userId, tenantId), wizard, p);
 }
 
@@ -148,7 +149,7 @@ export function completarWizardConEmpleados(
   empleados: readonly string[] | undefined,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva({ userId, tenantId, persistencia });
+  const p = persistenciaEfectiva(persistencia);
   const previo = p.leer(userId, tenantId);
   const wizard = marcarCompletado(
     retomar(previo.wizardPaso, {}, [...(empleados ?? previo.wizardEmpleados)], []),

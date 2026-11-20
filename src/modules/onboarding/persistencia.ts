@@ -3,7 +3,12 @@
 // TB-165: la DB es espejo durable write-through de ON12 (persistirOnboarding +
 // rehidratar-membresia), así que acá solo se abstrae la fuente de verdad en memoria.
 import { control } from "../../lib/store.js";
-import { claveOnboarding, estadoInicial, type OnboardingState } from "./estado.js";
+import {
+  claveOnboarding,
+  estadoInicial,
+  type DatosOnboardingPersistidos,
+  type OnboardingState,
+} from "./estado.js";
 
 export interface PersistenciaOnboarding {
   leer(userId: string, tenantId: string): OnboardingState;
@@ -39,17 +44,15 @@ export function crearPersistenciaOnboardingControl(): PersistenciaOnboarding {
 // ON12: el módulo dueño del onboarding también posee la hidratación del espejo
 // durable. Así rehidratar-membresia no necesita conocer claves ni estados del
 // wizard: sólo pasa la fila que leyó de la base.
-export function hidratarOnboardingDesdeDb(fila: {
-  googleSub: string;
-  tenantId: string;
-  wizardCompletado: boolean;
-  wizardPaso: number;
-}): void {
+export function hidratarOnboardingDesdeDb(fila: DatosOnboardingPersistidos): void {
   const clave = claveOnboarding(fila.googleSub, fila.tenantId);
   const previo = control.onboardingState.get(clave);
+  // ON12: completar el wizard es monótono. Si la memoria ya dice "completo",
+  // gana —el espejo pudo fallar y la DB quedó atrás—; si quedó en el default,
+  // la DB lo rellena. Así se preserva la memoria como fuente de verdad.
   control.onboardingState.set(clave, {
     ...(previo ?? estadoInicial(fila.googleSub, fila.tenantId)),
-    wizardCompletado: fila.wizardCompletado,
-    wizardPaso: fila.wizardPaso,
+    wizardCompletado: (previo?.wizardCompletado ?? false) || fila.wizardCompletado,
+    wizardPaso: Math.max(previo?.wizardPaso ?? 0, fila.wizardPaso),
   });
 }

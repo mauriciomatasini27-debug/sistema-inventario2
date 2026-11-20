@@ -253,7 +253,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
 
 describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
   it(
-    "con 0046 aplicada solo corre 0047; reintento sin error",
+    "con 0046 aplicada corren 0047, 0048 y 0049; reintento sin error",
     async () => {
       const nombre = `m47_post46_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");

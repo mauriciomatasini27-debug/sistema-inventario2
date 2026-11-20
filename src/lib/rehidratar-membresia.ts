@@ -3,14 +3,13 @@ import { memberships, tenants } from "../db/schema.js";
 import { getControlDb } from "./db.js";
 import { control } from "./store.js";
 import { hidratarOnboardingDesdeDb } from "../modules/onboarding/persistencia.js";
+import type { DatosOnboardingPersistidos } from "../modules/onboarding/estado.js";
 import { rubroSchema } from "./validation.js";
 
 // Fila que devuelve la base de control. La memoria del proceso no sobrevive
 // a un reinicio, y el panel autoriza contra esa memoria.
-export interface FilaMembresiaDurable {
+export interface FilaMembresiaDurable extends DatosOnboardingPersistidos {
   id: string;
-  tenantId: string;
-  googleSub: string;
   rol: "dueno" | "empleado";
   permisos: string[];
   puedeUsarBot: boolean;
@@ -23,8 +22,6 @@ export interface FilaMembresiaDurable {
   esDemo: boolean;
   rubro: string | null;
   requestKey: string | null;
-  wizardCompletado: boolean;
-  wizardPaso: number;
   trialHasta: Date | null;
 }
 

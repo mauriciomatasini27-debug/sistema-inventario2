@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { control, resetStore } from "../src/lib/store.js";
-import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { ctx } from "./helpers/ctx.js";
+import { sesionEnStore } from "./helpers/sesion.js";
 
 // ON12: el espejo durable se mantiene pendiente a propósito para comprobar
 // que la ruta espera a la escritura antes de responder.
@@ -18,21 +18,6 @@ vi.mock("../src/lib/control-db.js", async (importOriginal) => {
 });
 
 import { POST } from "../src/pages/api/onboarding/completar.js";
-
-function sesionEnStore(sub: string, tenantId: string): string {
-  const ahora = new Date();
-  const c = crearSesion({ googleSub: sub, tenantId, ahora });
-  control.sessions.set(c.registro.idHash, {
-    idHash: c.registro.idHash,
-    googleSub: sub,
-    tenantId,
-    expiraAt: c.registro.expiraAt,
-    expiraAbsoluta: c.registro.expiraAbsoluta,
-    lastSeenAt: ahora.toISOString(),
-    reauthAt: ahora.toISOString(),
-  });
-  return c.idPlano;
-}
 
 beforeEach(() => {
   resetStore();

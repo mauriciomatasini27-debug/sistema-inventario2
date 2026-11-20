@@ -27,7 +27,7 @@ Requisito AU2-1: `GET /api/auth/login` preserva el destino pedido con el mismo c
 
 Requisito AU2-2: tras autenticar, cada uno termina en su pantalla (kiosquero → `/panel`, superadmin → `/admin`).
 
-- Historia AU2-S3. `callback.ts` consume el destino: si hay `next` validado redirige ahí; si no, y el `google_sub` está en la allowlist admin (`esAdminAllowlist`), redirige a `/admin`; si no, el destino lo decide el wizard persistido (ON12): completo → `/panel`, incompleto → `/onboarding`, sin comercio → `/?alta=pendiente`. AC: Given login con `next=/panel` como tenant When completa el callback Then 302 a `/panel`; Given login sin `next` como sub en allowlist When completa Then 302 a `/admin`; Given login sin `next` como tenant con wizard completo Then 302 a `/panel`; Given login sin `next` como tenant con wizard incompleto Then 302 a `/onboarding`. ADR: 0030. Talla M. Depende de: AU2-S2.
+- Historia AU2-S3. `callback.ts` consume el destino: si hay `next` validado redirige ahí; si no, y el `google_sub` está en la allowlist admin (`esAdminAllowlist`), redirige a `/admin`; si no, el destino lo decide el wizard persistido (ON12): completo → `/panel`, incompleto → `/onboarding`, sin comercio → `/?alta=pendiente`. AC: Given login con `next=/panel` como tenant When completa el callback Then 302 a `/panel`; Given login sin `next` como sub en allowlist When completa Then 302 a `/admin`; Given login sin `next` como tenant con wizard completo Then 302 a `/panel`; Given login sin `next` como tenant con wizard incompleto Then 302 a `/onboarding`; Given login sin `next` sin comercio Then 302 a `/?alta=pendiente`. ADR: 0030. Talla M. Depende de: AU2-S2.
 - Historia AU2-S4. Sin guard open-redirect: ningún `next` llega al `redirect` sin pasar la validación de AU2-S1 (test con `//evil`, `https:`, `/\evil`). AC: Given completo logins con `next` hostil When reviso los 302 Then ninguno apunta fuera del origen. ADR: 0030. Talla S. Depende de: AU2-S3.
 
 ## Épica AU2-E3. Allowlist admin documentada y alineada
@@ -49,7 +49,7 @@ AU2-S2 espera a AU2-S1. AU2-S3 espera a AU2-S2. AU2-S4 espera a AU2-S3. AU2-S6 y
 | Feliz | Tenant a su panel | Login `?next=/panel` | 302 a `/panel` con sesión válida |
 | Feliz | Admin a control plane | Login `?next=/admin` + sub en allowlist | 302 a `/admin`, APIs admin 200 |
 | Feliz | Admin sin next | Login sin `next` + sub en allowlist | 302 a `/admin` |
-| Fallo | `next` hostil | `?next=https://evil.example` o `//evil` | Se ignora, vale el defecto; ningún 302 externo |
+| Fallo | `next` hostil | `?next=https://evil.example` o `//evil` | Se ignora, vale el destino por wizard (ON12); ningún 302 externo |
 | Fallo | No admin a `/admin` | Login `?next=/admin` sin allowlist | 302 a `/admin` igual, pero APIs 403 `No tenés permiso` (el corte es el guard, no el redirect) |
 | Regresión | Destino por wizard (ON12) | Login sin `next`, tenant común | wizard completo → `/panel`; incompleto → `/onboarding` |
 
