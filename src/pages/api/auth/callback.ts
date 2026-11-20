@@ -288,8 +288,10 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       ? "/?alta=pendiente"
       : !onboardingCompleto && tenantId && !nextOk
         ? "/onboarding"
-        : (nextOk ??
-          (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente"));
+        : onboardingCompleto && tenantId && !nextOk
+          ? "/panel"
+          : (nextOk ??
+            (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente"));
   const r = redirect(destino, 302);
   borrarCookiesOauth(r.headers);
   // P1-25: Set-Cookie en el Response del redirect (no solo cookies.set):

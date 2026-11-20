@@ -130,11 +130,12 @@ export function esCompleto(state: WizardState): boolean {
 }
 
 export function retomar(paso: number, respuestas: Record<string, string>, empleados: string[], saltados: string[]): WizardState {
+  const p = Math.max(0, Math.min(paso, PASOS_WIZARD.length));
   return {
-    paso: Math.max(0, Math.min(paso, PASOS_WIZARD.length)),
+    paso: p,
     respuestas: { ...respuestas },
     empleados: [...empleados],
-    empleadosDone: false,
+    empleadosDone: p > 2,
     saltados: [...saltados],
     completado: false,
   };

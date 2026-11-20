@@ -11,6 +11,8 @@
       body.dark { --bg:#1a1a1a; --fg:#f7f5f2; --muted:#cfc9b8; --card:#2b2b2b; --accent:#8cc4e3; --ok:#7fd468; --line:#6e695d; }
       * { box-sizing:border-box; }
       body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; overflow-x:hidden; }
+      .topbar { position:fixed; top:12px; right:12px; }
+      .topbar button { background:var(--card); border:1px solid var(--line); color:var(--fg); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px; }
       .phone { width:360px; max-width:100%; background:var(--card); border:1px solid var(--line); border-radius:20px; overflow:hidden; display:flex; flex-direction:column; }
       .phone-head { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
       .avatar { width:32px; height:32px; border-radius:50%; background:var(--accent); display:grid; place-items:center; font-weight:700; color:#fff; }
@@ -22,6 +24,7 @@
       .card { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center; }
       .card h3 { margin:0 0 6px; font-size:18px; }
       .card p { margin:0; font-size:12px; color:var(--muted); }
+      .stepinfo { font-size:12px; color:var(--muted); margin-bottom:8px; }
       .choices { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:12px; }
       .chip { background:var(--card); color:var(--fg); border:1px solid var(--line); padding:10px 16px; border-radius:999px; font-size:14px; cursor:pointer; }
       .chip:hover { background:var(--accent); color:#fff; }
@@ -30,6 +33,7 @@
     </style>
   </head>
   <body>
+    <div class="topbar"><button id="temaToggle">Tema</button></div>
     <div class="phone">
       <div class="phone-head"><div class="avatar">M</div><div><div class="name">Modo</div><div class="sub">Onboarding</div></div></div>
       <div class="progress"><div id="p" style="width:0%"></div></div>
@@ -44,21 +48,21 @@
         { key:"caja", q:"¿Tenés dinero en la caja para empezar a vender?", type:"choice", options:["Sí, cargar monto","Empezar en 0"] },
       ];
       const storageKey = "onboarding-wizard";
-      let state = JSON.parse(localStorage.getItem(storageKey) || "null") || { step:0, answers:{}, empleados:[], empleadosDone:false, saltados:[] };
+      let state = JSON.parse(localStorage.getItem(storageKey) || "null") || { paso:0, respuestas:{}, empleados:[], empleadosDone:false, saltados:[] };
       const body = document.getElementById("body");
       function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); }
       function render() {
         body.innerHTML = "";
-        if (state.step >= steps.length) {
-          body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
+        if (state.paso >= steps.length) {
+          body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">5 de 5 pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
           document.getElementById("p").style.width = "100%";
-          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }).catch(()=>{});
+          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body:"{}" }).catch((e) => { console.warn("onboarding completar falló", e); });
           const btn = document.getElementById("irPanel");
           if (btn) btn.onclick = () => { window.location.href = "/panel"; };
           return;
         }
         // sub-flujo empleados
-        if (state.step === 2 && state.answers.empleados && String(state.answers.empleados).startsWith("Sí") && !state.empleadosDone) {
+        if (state.paso === 2 && state.respuestas.empleados && String(state.respuestas.empleados).startsWith("Sí") && !state.empleadosDone) {
           const card = document.createElement("div"); card.className="card";
           card.innerHTML = "<h3>Cargá los nombres de tus empleados</h3><p>Les enviaremos un link.</p>";
           const list = document.createElement("div"); list.style.marginTop="8px";
@@ -69,23 +73,25 @@
           add.onclick = () => { if(!inp.value.trim()) return; state.empleados.push(inp.value.trim()); inp.value=""; save(); render(); };
           card.appendChild(inp); card.appendChild(add);
           const done = document.createElement("button"); done.className="chip"; done.textContent="Enviar links y continuar"; done.style.marginTop="12px"; done.style.background="var(--accent)"; done.style.color="#fff";
-          done.onclick = () => { state.empleadosDone=true; state.step++; save(); render(); };
+          done.onclick = () => { state.empleadosDone=true; state.paso++; save(); render(); };
           card.appendChild(done);
           body.appendChild(card);
-          document.getElementById("p").style.width = (state.step/steps.length*100)+"%";
+          document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
+          const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
+          body.appendChild(st);
           return;
         }
-        const s = steps[state.step];
+        const s = steps[state.paso];
         const card = document.createElement("div"); card.className="card";
-        card.innerHTML = `<h3>${s.q}</h3>`;
+        card.innerHTML = `<p class="stepinfo">${state.paso+1} de ${steps.length} pasos</p><h3>${s.q}</h3>`;
         if (s.type === "choice") {
           const wrap = document.createElement("div"); wrap.className="choices";
           s.options.forEach(o => {
             const b = document.createElement("button"); b.className="chip"; b.textContent=o;
             b.onclick = () => {
-              state.answers[s.key]=o;
+              state.respuestas[s.key]=o;
               if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; }
-              else { state.step++; }
+              else { state.paso++; }
               save(); render();
             };
             wrap.appendChild(b);
@@ -94,18 +100,24 @@
         } else {
           const inp = document.createElement("input"); inp.className="input";
           const btn = document.createElement("button"); btn.className="chip"; btn.textContent="Continuar"; btn.style.marginTop="10px";
-          btn.onclick = () => { if(!inp.value.trim()) return; state.answers[s.key]=inp.value.trim(); state.step++; save(); render(); };
+          btn.onclick = () => { if(!inp.value.trim()) return; state.respuestas[s.key]=inp.value.trim(); state.paso++; save(); render(); };
           card.appendChild(inp); card.appendChild(btn);
         }
-        // saltar
         const skip = document.createElement("button"); skip.className="chip"; skip.textContent="Saltar por ahora"; skip.style.marginTop="8px"; skip.style.opacity="0.7";
-        skip.onclick = () => { state.saltados = state.saltados || []; if(!state.saltados.includes(s.key)) state.saltados.push(s.key); state.step++; save(); render(); };
+        skip.onclick = () => { state.saltados = state.saltados || []; if(!state.saltados.includes(s.key)) state.saltados.push(s.key); state.paso++; save(); render(); };
         card.appendChild(skip);
         body.appendChild(card);
-        document.getElementById("p").style.width = (state.step/steps.length*100)+"%";
-        const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.answers,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
+        document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
+        const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
         body.appendChild(st);
       }
+      // tema toggle
+      const temaBtn = document.getElementById("temaToggle");
+      if (localStorage.getItem("proto-tema")==="dark") document.body.classList.add("dark");
+      temaBtn.onclick = () => {
+        document.body.classList.toggle("dark");
+        localStorage.setItem("proto-tema", document.body.classList.contains("dark")?"dark":"light");
+      };
       render();
     </script>
   </body>
