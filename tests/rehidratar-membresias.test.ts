@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { membershipActiva } from "../src/lib/control.js";
 import { rehidratarMembresias, type FilaMembresiaDurable } from "../src/lib/rehidratar-membresia.js";
 import { control, resetStore } from "../src/lib/store.js";
+import { claveOnboarding, estadoInicial } from "../src/modules/onboarding/estado.js";
 
 const SUB = "sub-dueno";
 const TENANT = "tenant-1";
@@ -50,7 +51,7 @@ describe("rehidratar membresías después de un reinicio", () => {
     expect(control.tenants.get(TENANT)?.nombreComercio).toBe("Kiosco");
   });
 
-  it("no consulta la base si el comercio ya está en memoria", async () => {
+  it("ON12: consulta la DB aunque el comercio ya esté en memoria para traer el flag del wizard", async () => {
     control.tenants.set(TENANT, {
       id: TENANT,
       nombreComercio: "Kiosco",
@@ -73,11 +74,13 @@ describe("rehidratar membresías después de un reinicio", () => {
 
     await rehidratarMembresias(SUB, async () => {
       consultas += 1;
-      return [fila({ nombreComercio: "Otro" })];
+      return [fila({ nombreComercio: "Otro", wizardCompletado: true, wizardPaso: 5 })];
     });
 
-    expect(consultas).toBe(0);
+    expect(consultas).toBe(1);
+    // ON12: la memoria manda en los datos del comercio; la DB solo aporta el flag.
     expect(control.tenants.get(TENANT)?.nombreComercio).toBe("Kiosco");
+    expect(control.onboardingState.get(claveOnboarding(SUB, TENANT))?.wizardCompletado).toBe(true);
   });
 
   it("deja la memoria vacía si la base no responde", async () => {
@@ -108,15 +111,39 @@ describe("rehidratar membresías después de un reinicio", () => {
   it("ON12: hidrata wizardCompletado tras un deploy para no mandar a /onboarding", async () => {
     await rehidratarMembresias(SUB, async () => [fila({ wizardCompletado: true, wizardPaso: 5 })]);
 
-    const estado = control.onboardingState.get(`${SUB}:${TENANT}`);
+    const estado = control.onboardingState.get(claveOnboarding(SUB, TENANT));
     expect(estado?.wizardCompletado).toBe(true);
     expect(estado?.wizardPaso).toBe(5);
+  });
+
+  it("ON12: el flag persistido corrige un estado en memoria que quedó incompleto", async () => {
+    const clave = claveOnboarding(SUB, TENANT);
+    control.onboardingState.set(clave, estadoInicial(SUB, TENANT));
+
+    await rehidratarMembresias(SUB, async () => [fila({ wizardCompletado: true, wizardPaso: 5 })]);
+
+    expect(control.onboardingState.get(clave)?.wizardCompletado).toBe(true);
+    expect(control.onboardingState.get(clave)?.wizardPaso).toBe(5);
+  });
+
+  it("ON12: la memoria gana si ya completó y la DB quedó desactualizada", async () => {
+    const clave = claveOnboarding(SUB, TENANT);
+    control.onboardingState.set(clave, {
+      ...estadoInicial(SUB, TENANT),
+      wizardCompletado: true,
+      wizardPaso: 5,
+    });
+
+    await rehidratarMembresias(SUB, async () => [fila()]);
+
+    expect(control.onboardingState.get(clave)?.wizardCompletado).toBe(true);
+    expect(control.onboardingState.get(clave)?.wizardPaso).toBe(5);
   });
 
   it("ON12: comercio nuevo sin wizard queda en paso 0 e incompleto", async () => {
     await rehidratarMembresias(SUB, async () => [fila()]);
 
-    const estado = control.onboardingState.get(`${SUB}:${TENANT}`);
+    const estado = control.onboardingState.get(claveOnboarding(SUB, TENANT));
     expect(estado?.wizardCompletado).toBe(false);
     expect(estado?.wizardPaso).toBe(0);
   });

@@ -16,10 +16,11 @@ import {
   agregarEmpleado,
   marcarCompletado,
 } from "../src/modules/onboarding/wizard.js";
+import { claveOnboarding } from "../src/modules/onboarding/estado.js";
 
 const USER = "g-1";
 const TENANT = "t-1";
-const CLAVE = `${USER}:${TENANT}`;
+const CLAVE = claveOnboarding(USER, TENANT);
 
 function seam() {
   return crearPersistenciaOnboardingMemoria();

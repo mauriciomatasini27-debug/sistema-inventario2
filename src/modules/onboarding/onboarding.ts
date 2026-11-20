@@ -23,6 +23,16 @@ export type EventoVideo = "inicio" | "mitad" | "fin";
 
 type PersistenciaOpcional = PersistenciaOnboarding | undefined;
 
+// TB-165: `actualizar` es la única transición interna que necesita los tres
+// valores a la vez (quién, dónde y dónde se guarda); los demás helpers sólo
+// resuelven la persistencia. La API pública sigue explícita porque es el
+// límite con las rutas HTTP.
+interface ContextoOnboarding {
+  userId: string;
+  tenantId: string;
+  persistencia?: PersistenciaOpcional;
+}
+
 function persistenciaEfectiva(persistencia: PersistenciaOpcional): PersistenciaOnboarding {
   return persistencia ?? crearPersistenciaOnboardingControl();
 }
@@ -43,14 +53,9 @@ function guardar(
   return next;
 }
 
-function actualizar(
-  userId: string,
-  tenantId: string,
-  patch: Partial<OnboardingState>,
-  persistencia: PersistenciaOpcional,
-): OnboardingState {
-  const p = persistenciaEfectiva(persistencia);
-  return guardar(p.leer(userId, tenantId), patch, p);
+function actualizar(ctx: ContextoOnboarding, patch: Partial<OnboardingState>): OnboardingState {
+  const p = persistenciaEfectiva(ctx.persistencia);
+  return guardar(p.leer(ctx.userId, ctx.tenantId), patch, p);
 }
 
 // TB-165: lectura pura para que un GET no mute el estado del comercio.
@@ -69,7 +74,7 @@ export function marcarTourPaso(
   estado: TourEstado,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  return actualizar(userId, tenantId, { tourUltimoPaso: paso, tourEstado: estado }, persistencia);
+  return actualizar({ userId, tenantId, persistencia }, { tourUltimoPaso: paso, tourEstado: estado });
 }
 
 export function accionChecklist(

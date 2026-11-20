@@ -25,6 +25,15 @@ export function claveOnboarding(userId: string, tenantId: string): string {
   return `${userId}:${tenantId}`;
 }
 
+// ON12: proyección de la fila durable que necesita la hidratación del wizard.
+// La fila completa de membresías extiende esta interfaz en rehidratar-membresia.
+export interface DatosOnboardingPersistidos {
+  googleSub: string;
+  tenantId: string;
+  wizardCompletado: boolean;
+  wizardPaso: number;
+}
+
 export function estadoInicial(userId: string, tenantId: string, ahora = new Date()): OnboardingState {
   return {
     userId,

@@ -2,5 +2,5 @@
   "tag": "0049_tenants_onboarding_wizard",
   "fecha": "2026-11-20",
   "aprobado_por": "Mauri",
-  "evidencia": "Aprobada por Mauri en la sesión del fix de onboarding (gate duro de verify). Columnas aditivas en tenants (wizard_completado boolean default false, wizard_paso integer default 0) y backfill de tenants preexistentes a wizard_completado = true. Aplicada con npm run db:migrate en las bases locales de test; db:migrate:check queda sin pendientes."
+  "evidencia": "Aprobada por Mauri en la sesión del fix de onboarding (gate duro de verify). Columnas aditivas en tenants (wizard_completado boolean default false, wizard_paso integer default 0) y backfill de tenants preexistentes a wizard_completado = true. Los tenants backfillados quedan en wizard_paso = 5 (PASOS_WIZARD.length) para reflejar que ya completaron el recorrido; los nuevos quedan en 0. Aplicada con npm run db:migrate en las bases locales de test; db:migrate:check queda sin pendientes."
 }
