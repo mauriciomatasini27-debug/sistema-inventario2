@@ -117,6 +117,23 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     expect(otra.wizardEmpleados).toEqual(["Ana"]);
   });
 
+  it("TB-165: saltar empleado lo marca no aplica y lo saca del progreso", () => {
+    const mem = seam();
+    accionChecklist(USER, TENANT, "saltar", "empleado", mem.persistencia);
+    const foto = {
+      productos: 0,
+      productosConUmbral: 0,
+      proveedores: 0,
+      invitaciones: 0,
+      whatsappVerificado: true,
+    };
+    const calculado = calcularChecklist(leerOnboarding(USER, TENANT, mem.persistencia), foto);
+    const empleado = calculado.pasos.find((p) => p.id === "empleado");
+    expect(empleado?.noAplica).toBe(true);
+    expect(empleado?.listo).toBe(false);
+    expect(calculado.total).toBe(calculado.pasos.length - 1);
+  });
+
   it("calcularChecklist usa el snapshot y respeta checklistOculta", () => {
     const mem = seam();
     const foto = {

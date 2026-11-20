@@ -14,6 +14,8 @@ export interface PasoChecklist {
   titulo: string;
   contador: string | null;
   listo: boolean;
+  // TB-165: el Dueño marcó el paso como no aplica (p.ej. «No tengo empleados»).
+  noAplica?: boolean | undefined;
 }
 
 export const META_PRODUCTOS = 10;

@@ -166,6 +166,19 @@ export function calcularChecklist(
   total: number;
   oculta: boolean;
 } {
-  const { pasos, listos, total } = calcular_checklist(foto);
-  return { pasos, listos, total, oculta: estado.checklistOculta };
+  const { pasos } = calcular_checklist(foto);
+  // TB-165: un paso saltado es «no aplica», no pendiente. Se fusiona acá (y no
+  // en calcular_checklist) para que el núcleo siga siendo puro y la
+  // persistencia del Dueño sea la única fuente del estado no aplica.
+  const conNoAplica = pasos.map((paso) => ({
+    ...paso,
+    noAplica: estado.pasosSaltados.includes(paso.id),
+  }));
+  const aplicables = conNoAplica.filter((paso) => !paso.noAplica);
+  return {
+    pasos: conNoAplica,
+    listos: aplicables.filter((paso) => paso.listo).length,
+    total: aplicables.length,
+    oculta: estado.checklistOculta,
+  };
 }
