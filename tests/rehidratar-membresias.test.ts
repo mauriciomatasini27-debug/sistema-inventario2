@@ -105,6 +105,28 @@ describe("rehidratar membresías después de un reinicio", () => {
     expect(control.tenants.get(TENANT)?.rubro).toBeUndefined();
   });
 
+  it("ON12: hidrata wizardCompletado tras un deploy para no mandar a /onboarding", async () => {
+    await rehidratarMembresias(SUB, async () => [fila({ wizardCompletado: true, wizardPaso: 5 })]);
+
+    const estado = control.onboardingState.get(`${SUB}:${TENANT}`);
+    expect(estado?.wizardCompletado).toBe(true);
+    expect(estado?.wizardPaso).toBe(5);
+  });
+
+  it("ON12: comercio nuevo sin wizard queda en paso 0 e incompleto", async () => {
+    await rehidratarMembresias(SUB, async () => [fila()]);
+
+    const estado = control.onboardingState.get(`${SUB}:${TENANT}`);
+    expect(estado?.wizardCompletado).toBe(false);
+    expect(estado?.wizardPaso).toBe(0);
+  });
+
+  it("ON12: si la base no responde, no se inventa estado de onboarding", async () => {
+    await rehidratarMembresias(SUB, async () => null);
+
+    expect(control.onboardingState.size).toBe(0);
+  });
+
   it("no elige un comercio si la persona tiene más de uno y la sesión no trae tenant", async () => {
     control.sessions.set("hash", {
       idHash: "hash",

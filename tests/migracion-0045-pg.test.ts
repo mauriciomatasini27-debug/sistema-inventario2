@@ -67,12 +67,13 @@ async function aplicarHasta(tag: string, url: string): Promise<void> {
 }
 
 describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
-  it("journal registra 0045, 0046 rubro y 0047 periferia", () => {
+  it("journal registra 0045, 0046 rubro, 0047 periferia y 0049 onboarding", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
     expect(journal.entries.some((e) => e.tag === "0045_shared_tenant_sellar_nucleo")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0046_tenants_rubro")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0047_shared_tenant_periferia")).toBe(true);
-    expect(journal.entries.length).toBe(49);
+    expect(journal.entries.some((e) => e.tag === "0049_tenants_onboarding_wizard")).toBe(true);
+    expect(journal.entries.length).toBe(50);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);

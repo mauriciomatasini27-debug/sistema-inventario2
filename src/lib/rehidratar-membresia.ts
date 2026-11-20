@@ -79,17 +79,15 @@ function volcar(filas: readonly FilaMembresiaDurable[]): void {
         puedeUsarBot: f.puedeUsarBot,
       });
     }
-    // Hidratar onboarding state persistido (no solo memoria).
+    // ON12: hidratar el wizard persistido para que el callback no lo vea incompleto tras deploy.
     const clave = claveOnboarding(f.googleSub, f.tenantId);
     const existente = control.onboardingState.get(clave);
     if (!existente) {
+      // ON12: memoria manda en monoproceso; DB solo al crear el estado.
       const init = estadoInicial(f.googleSub, f.tenantId);
       init.wizardCompletado = f.wizardCompletado;
       init.wizardPaso = f.wizardPaso;
       control.onboardingState.set(clave, init);
-    } else {
-      existente.wizardCompletado = f.wizardCompletado;
-      existente.wizardPaso = f.wizardPaso;
     }
   }
 }

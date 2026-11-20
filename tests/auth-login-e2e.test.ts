@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
+import { claveOnboarding, estadoInicial } from "../src/modules/onboarding/estado.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { GET as getLogin } from "../src/pages/api/auth/login.js";
 import { GET as getHaciaGoogle } from "../src/pages/api/auth/hacia-google.js";
@@ -271,11 +272,21 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     expect(await callbackSinNext()).toBe("/admin");
   });
 
-  it("tenant común sin next mantiene el defecto con tenant (/)", async () => {
+  it("ON12: tenant con wizard completo y sin next va a /panel", async () => {
     delete process.env.ADMIN_ALLOWLIST_SUBS;
     control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "juan", esDemo: false });
     control.memberships.set("m1", { id: "m1", tenantId: "t1", googleSub: "juan", rol: "dueno", permisos: [], estado: "activo" });
-    expect(await callbackSinNext()).toBe("/");
+    const estado = estadoInicial("juan", "t1");
+    estado.wizardCompletado = true;
+    control.onboardingState.set(claveOnboarding("juan", "t1"), estado);
+    expect(await callbackSinNext()).toBe("/panel");
+  });
+
+  it("ON12: tenant con onboarding incompleto y sin next va a /onboarding", async () => {
+    delete process.env.ADMIN_ALLOWLIST_SUBS;
+    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "juan", esDemo: false });
+    control.memberships.set("m1", { id: "m1", tenantId: "t1", googleSub: "juan", rol: "dueno", permisos: [], estado: "activo" });
+    expect(await callbackSinNext()).toBe("/onboarding");
   });
 
   it("sin next, sin allowlist y sin tenant mantiene /?alta=pendiente", async () => {
