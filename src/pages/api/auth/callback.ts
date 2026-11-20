@@ -281,15 +281,20 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   // ADR-0115 / PRD-ON-01: el cuestionario no es puerta de entrada. Con
   // comercio se entra a /panel y el diálogo de bienvenida se muestra ahí,
   // esté o no completado el cuestionario. Así un deploy no reenvía a nadie.
-  // TB-165: la allowlist se resuelve al final; se reordena con el guard de rol.
+  // PA1: la allowlist admin gana aunque haya comercio; `next` válido va primero.
+  // TB-165: Dueño y Empleado terminan en /panel; cada quien ve su recorrido.
   const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
+  const esAdmin = esAdminAllowlist(identidad.sub, leerAllowlist());
   const destino =
     nextOk === "/panel" && !tenantId
       ? "/?alta=pendiente"
-      : tenantId && !nextOk
-        ? "/panel"
-        : (nextOk ??
-          (esAdminAllowlist(identidad.sub, leerAllowlist()) ? "/admin" : tenantId ? "/" : "/?alta=pendiente"));
+      : nextOk
+        ? nextOk
+        : esAdmin
+          ? "/admin"
+          : tenantId
+            ? "/panel"
+            : "/?alta=pendiente";
   const r = redirect(destino, 302);
   borrarCookiesOauth(r.headers);
   // P1-25: Set-Cookie en el Response del redirect (no solo cookies.set):
