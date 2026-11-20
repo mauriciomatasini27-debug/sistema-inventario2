@@ -15,6 +15,9 @@ export interface OnboardingState {
   pwaSugerenciaVistaAt: string | null;
   pwaSugerenciaDescartes: number;
   pwaInstalada: boolean;
+  wizardPaso: number;
+  wizardCompletado: boolean;
+  wizardEmpleados: string[];
   actualizadoAt: string;
 }
 
@@ -36,6 +39,9 @@ export function estadoInicial(userId: string, tenantId: string, ahora = new Date
     pwaSugerenciaVistaAt: null,
     pwaSugerenciaDescartes: 0,
     pwaInstalada: false,
+    wizardPaso: 0,
+    wizardCompletado: false,
+    wizardEmpleados: [],
     actualizadoAt: ahora.toISOString(),
   };
 }
