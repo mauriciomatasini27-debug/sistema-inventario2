@@ -1,5 +1,5 @@
 ---
-// ONBOARDING-WIZARD (T2/T4/T5): ruta dedicada post-login, con productos y caja inline.
+// ONBOARDING-WIZARD (T2): ruta dedicada post-login.
 ---
 <html lang="es">
   <head>
@@ -30,7 +30,6 @@
       .chip:hover { background:var(--accent); color:#fff; }
       .input { width:100%; margin-top:12px; background:var(--bg); border:1px solid var(--line); color:var(--fg); padding:12px; border-radius:10px; font-size:16px; }
       .state { font-size:11px; color:var(--muted); font-family:ui-monospace,monospace; white-space:pre-wrap; margin-top:8px; }
-      label.file { display:block; margin-top:12px; font-size:13px; }
     </style>
   </head>
   <body>
@@ -50,14 +49,7 @@
       ];
       const storageKey = "onboarding-wizard";
       let state = JSON.parse(localStorage.getItem(storageKey) || "null") || { paso:0, respuestas:{}, empleados:[], empleadosDone:false, saltados:[] };
-      if (!state.empleadosDone) state.empleadosDone = false;
-      if (!state.saltados) state.saltados = [];
       const body = document.getElementById("body");
-      // estado auxiliar para importación inline
-      let archivoActual = null;
-      let shaActual = null;
-      let keyImportacion = null;
-
       function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); }
       function render() {
         body.innerHTML = "";
@@ -91,166 +83,10 @@
           card.appendChild(done);
           body.appendChild(card);
           document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
+          const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
+          body.appendChild(st);
           return;
         }
-        // sub-flujo productos inline (T4)
-        if (state.paso === 3 && state.respuestas.productos && String(state.respuestas.productos).startsWith("Sí")) {
-          const card = document.createElement("div"); card.className="card";
-          card.innerHTML = "<h3>Cargá tus productos</h3><p>CSV o foto + datos manuales. Podés saltar y hacerlo después.</p>";
-          // Cámara
-          const camBtn = document.createElement("button"); camBtn.className="chip"; camBtn.textContent="Tomar foto"; camBtn.style.marginTop="8px";
-          const video = document.createElement("video"); video.style.width="100%"; video.style.marginTop="8px"; video.autoplay=true; video.playsInline=true; video.hidden=true;
-          const snapBtn = document.createElement("button"); snapBtn.className="chip"; snapBtn.textContent="Capturar"; snapBtn.style.marginTop="8px"; snapBtn.hidden=true;
-          const canvas = document.createElement("canvas"); canvas.hidden=true;
-          const fotoPreview = document.createElement("img"); fotoPreview.style.width="100%"; fotoPreview.style.marginTop="8px"; fotoPreview.hidden=true;
-          camBtn.onclick = async () => {
-            try {
-              const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-              video.srcObject = stream;
-              video.hidden = false;
-              snapBtn.hidden = false;
-              camBtn.hidden = true;
-            } catch (e) { estado.textContent = "No se pudo acceder a la cámara."; }
-          };
-          snapBtn.onclick = () => {
-            const ctx = canvas.getContext("2d");
-            canvas.width = video.videoWidth || 320;
-            canvas.height = video.videoHeight || 240;
-            if (ctx) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            fotoPreview.src = canvas.toDataURL("image/jpeg", 0.7);
-            fotoPreview.hidden = false;
-            const tracks = (video.srcObject as MediaStream | null)?.getTracks() || [];
-            tracks.forEach((t) => t.stop());
-            video.hidden = true;
-            snapBtn.hidden = true;
-            camBtn.hidden = false;
-            estado.textContent = "Foto capturada. Completá los datos del producto.";
-          };
-          // Formulario manual
-          const skuInp = document.createElement("input"); skuInp.className="input"; skuInp.placeholder="SKU (ej. PROD-001)";
-          const nomInp = document.createElement("input"); nomInp.className="input"; nomInp.placeholder="Nombre del producto";
-          const preInp = document.createElement("input"); preInp.className="input"; preInp.type="number"; preInp.min="0"; preInp.step="0.01"; preInp.placeholder="Precio";
-          const cantInp = document.createElement("input"); cantInp.className="input"; cantInp.type="number"; cantInp.min="1"; cantInp.step="1"; cantInp.placeholder="Cantidad";
-          const addProd = document.createElement("button"); addProd.className="chip"; addProd.textContent="Agregar producto"; addProd.style.marginTop="8px"; addProd.style.background="var(--accent)"; addProd.style.color="#fff";
-          const estado = document.createElement("div"); estado.className="state"; estado.textContent="";
-          addProd.onclick = async () => {
-            const sku = skuInp.value.trim().toUpperCase();
-            const nombre = nomInp.value.trim();
-            const precio = Number(preInp.value);
-            const cantidad = Number(cantInp.value);
-            if (!sku || !nombre) { estado.textContent="SKU y nombre son obligatorios."; return; }
-            if (!isFinite(precio) || precio < 0) { estado.textContent="Precio inválido."; return; }
-            if (!Number.isInteger(cantidad) || cantidad < 1) { estado.textContent="Cantidad inválida."; return; }
-            estado.textContent="Creando producto…";
-            try {
-              const r = await fetch("/api/products", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ sku, nombre, precio_centavos: Math.round(precio*100), sector:"general", permisos:[] }) });
-              const j = await r.json();
-              if (!r.ok) { estado.textContent = "Error: " + (j.error || r.status); return; }
-              // ingreso de stock inicial
-              await fetch("/api/stock/ingreso", { method:"POST", headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()}, body: JSON.stringify({ sku, cantidad, costo_centavos:0, controla_vencimiento:false }) });
-              estado.textContent = "Producto creado: " + nombre;
-              skuInp.value=""; nomInp.value=""; preInp.value=""; cantInp.value="";
-            } catch (e) { estado.textContent="Falló la creación."; }
-          };
-          // CSV
-          const fileInput = document.createElement("input"); fileInput.type="file"; fileInput.accept=".csv,.xlsx"; fileInput.className="input";
-          const previewBtn = document.createElement("button"); previewBtn.className="chip"; previewBtn.textContent="Vista previa CSV"; previewBtn.style.marginTop="8px";
-          const confirmBtn = document.createElement("button"); confirmBtn.className="chip"; confirmBtn.textContent="Confirmar importación"; confirmBtn.style.marginTop="8px"; confirmBtn.style.background="var(--accent)"; confirmBtn.style.color="#fff"; confirmBtn.hidden=true;
-          const cont = document.createElement("div"); cont.style.marginTop="8px";
-          previewBtn.onclick = async () => {
-            if (!fileInput.files || !fileInput.files[0]) { estado.textContent="Elegí un archivo."; return; }
-            archivoActual = fileInput.files[0];
-            const fd = new FormData(); fd.append("archivo", archivoActual);
-            estado.textContent="Previsualizando…";
-            try {
-              const r = await fetch("/api/stock/importar/preview", { method:"POST", body: fd });
-              const j = await r.json();
-              if (!r.ok) { estado.textContent = "Error: " + (j.error || r.status); return; }
-              shaActual = j.archivo.sha256;
-              keyImportacion = crypto.randomUUID();
-              estado.textContent = `Filas: ${j.resumen.total}, válidas: ${j.resumen.validas}, nuevas: ${j.resumen.nuevas}`;
-              confirmBtn.hidden = false;
-            } catch (e) { estado.textContent="Falló la vista previa."; }
-          };
-          confirmBtn.onclick = async () => {
-            if (!archivoActual || !shaActual) { estado.textContent="Primero vista previa."; return; }
-            const fd = new FormData(); fd.append("archivo", archivoActual); fd.append("archivo_sha256", shaActual);
-            estado.textContent="Importando…";
-            try {
-              const r = await fetch("/api/stock/importar/confirmar", { method:"POST", headers:{"Idempotency-Key": keyImportacion}, body: fd });
-              const j = await r.json();
-              if (!r.ok) { estado.textContent = "Error: " + (j.error || r.status); return; }
-              estado.textContent = `Importado: ${j.filas_importadas} filas.`;
-              confirmBtn.hidden = true;
-              const contBtn = document.createElement("button"); contBtn.className="chip"; contBtn.textContent="Continuar"; contBtn.style.marginTop="8px"; contBtn.style.background="var(--ok)"; contBtn.style.color="#fff";
-              contBtn.onclick = () => { state.paso++; save(); render(); };
-              card.appendChild(contBtn);
-            } catch (e) { estado.textContent="Falló la importación."; }
-          };
-          card.appendChild(camBtn);
-          card.appendChild(video);
-          card.appendChild(snapBtn);
-          card.appendChild(canvas);
-          card.appendChild(fotoPreview);
-          card.appendChild(skuInp);
-          card.appendChild(nomInp);
-          card.appendChild(preInp);
-          card.appendChild(cantInp);
-          card.appendChild(addProd);
-          card.appendChild(fileInput);
-          card.appendChild(previewBtn);
-          card.appendChild(confirmBtn);
-          const skip = document.createElement("button"); skip.className="chip"; skip.textContent="Saltar productos"; skip.style.marginTop="8px"; skip.style.opacity="0.7";
-          skip.onclick = () => { state.paso++; save(); render(); };
-          card.appendChild(skip);
-          const cont = document.createElement("button"); cont.className="chip"; cont.textContent="Continuar"; cont.style.marginTop="8px"; cont.style.background="var(--ok)"; cont.style.color="#fff";
-          cont.onclick = () => { state.paso++; save(); render(); };
-          card.appendChild(cont);
-          card.appendChild(estado);
-          body.appendChild(card);
-          document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-          return;
-        }
-        // sub-flujo caja inline (T5)
-        if (state.paso === 4 && state.respuestas.caja && String(state.respuestas.caja).startsWith("Sí")) {
-          const card = document.createElement("div"); card.className="card";
-          card.innerHTML = "<h3>Monto inicial en caja</h3><p>Ingresá el dinero que hay en caja para empezar a vender.</p>";
-          const inp = document.createElement("input"); inp.className="input"; inp.type="number"; inp.min="0"; inp.step="0.01"; inp.placeholder="0.00";
-          const reg = document.createElement("button"); reg.className="chip"; reg.textContent="Registrar y continuar"; reg.style.marginTop="10px"; reg.style.background="var(--accent)"; reg.style.color="#fff";
-          const estado = document.createElement("div"); estado.className="state"; estado.textContent="";
-          reg.onclick = async () => {
-            const monto = Number(inp.value);
-            if (!isFinite(monto) || monto < 0) { estado.textContent="Monto inválido."; return; }
-            const centavos = Math.round(monto*100);
-            if (centavos <= 0) { state.paso++; save(); render(); return; }
-            estado.textContent="Registrando…";
-            try {
-              const r = await fetch("/api/cash/movements", {
-                method:"POST",
-                headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},
-                body: JSON.stringify({
-                  tipo:"ingreso",
-                  metodo:"efectivo",
-                  categoria_id:"manual",
-                  origen:"retiro",
-                  monto_centavos: centavos,
-                  device_code:"panel-web",
-                  seq_local: Date.now(),
-                  client_occurred_at: new Date().toISOString(),
-                }),
-              });
-              if (!r.ok) { const j=await r.json().catch((e) => { console.warn("respuesta sin JSON", e); return {}; }); estado.textContent="Error: "+(j.error||r.status); return; }
-              state.paso++; save(); render();
-            } catch (e) { estado.textContent="Falló el registro."; }
-          };
-          const skip = document.createElement("button"); skip.className="chip"; skip.textContent="Empezar en 0"; skip.style.marginTop="8px"; skip.style.opacity="0.7";
-          skip.onclick = () => { state.paso++; save(); render(); };
-          card.appendChild(inp); card.appendChild(reg); card.appendChild(skip); card.appendChild(estado);
-          body.appendChild(card);
-          document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-          return;
-        }
-
         const s = steps[state.paso];
         const card = document.createElement("div"); card.className="card";
         card.innerHTML = `<p class="stepinfo">${state.paso+1} de ${steps.length} pasos</p><h3>${s.q}</h3>`;
@@ -262,10 +98,8 @@
               state.respuestas[s.key]=o;
               if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; save(); render(); return; }
               if (s.key==="empleados" && o.startsWith("No")) { state.paso++; save(); render(); return; }
-              if (s.key==="productos" && o.startsWith("Sí")) { save(); render(); return; }
-              if (s.key==="productos" && o.startsWith("Más")) { state.paso++; save(); render(); return; }
-              if (s.key==="caja" && o.startsWith("Sí")) { save(); render(); return; }
-              if (s.key==="caja" && o.startsWith("Empezar")) { state.paso++; save(); render(); return; }
+              if (s.key==="productos" && o.startsWith("Sí")) { window.location.href="/panel/stock/importar"; return; }
+              if (s.key==="caja" && o.startsWith("Sí")) { window.location.href="/panel/caja"; return; }
               state.paso++; save(); render();
             };
             wrap.appendChild(b);
@@ -282,7 +116,10 @@
         card.appendChild(skip);
         body.appendChild(card);
         document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
+        const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
+        body.appendChild(st);
       }
+      // tema toggle
       const temaBtn = document.getElementById("temaToggle");
       if (localStorage.getItem("proto-tema")==="dark") document.body.classList.add("dark");
       temaBtn.onclick = () => {
