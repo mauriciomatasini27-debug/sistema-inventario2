@@ -6,9 +6,8 @@ import { conTenant } from "../../../lib/tenant-mode.js";
 import { listarProductos } from "../../../lib/repos/catalogo.js";
 import { listarProveedores } from "../../../lib/repos/proveedores.js";
 import { crearAlmacenProductos, crearAlmacenSuppliers } from "../../../lib/repos/_almacen.js";
-import { claveOnboarding, estadoInicial } from "../../../modules/onboarding/estado.js";
+import { calcularChecklist, leerOnboarding } from "../../../modules/onboarding/onboarding.js";
 import { pasos_para_rol } from "../../../modules/onboarding/tour.js";
-import { calcular_checklist } from "../../../modules/onboarding/checklist.js";
 
 export const prerender = false;
 
@@ -68,15 +67,14 @@ export const GET: APIRoute = async ({ request }) => {
   if (!tenantId) return jsonError("Falta el comercio.", 422);
   const m = membershipActiva(tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  const clave = claveOnboarding(ctx.googleSub, tenantId);
-  const estado = control.onboardingState.get(clave) ?? estadoInicial(ctx.googleSub, tenantId);
+  const estado = leerOnboarding(ctx.googleSub, tenantId);
   const pasos = pasos_para_rol(m.rol, m.permisos);
   const tenant = control.tenants.get(tenantId);
   const whatsappVerificado = [...control.botLinks.values()].some(
     (l) => l.tenantId === tenantId && l.googleSub === ctx.googleSub && l.estado === "verificado",
   );
   const conteos = await conteosDelComercio(tenantId);
-  const checklist = calcular_checklist({
+  const checklist = calcularChecklist(estado, {
     ...conteos,
     whatsappVerificado,
   });
@@ -85,7 +83,7 @@ export const GET: APIRoute = async ({ request }) => {
     comercio: tenant ? { nombre: tenant.nombreComercio, estado: tenant.estado, plan: tenant.plan } : null,
     whatsapp: { verificado: whatsappVerificado },
     tour: { version: estado.tourVersion, ultimo_paso: estado.tourUltimoPaso, estado: estado.tourEstado, pasos },
-    checklist: { listos: checklist.listos, total: checklist.total, pasos: checklist.pasos, oculta: estado.checklistOculta },
+    checklist: { listos: checklist.listos, total: checklist.total, pasos: checklist.pasos, oculta: checklist.oculta },
     video: { visto: estado.videoVisto, progreso: estado.videoProgreso },
     ejemplo: ejemplo ? { activo: true, tenant_demo_id: ejemplo.tenantDemoId, banda: "Estás viendo datos de ejemplo" } : { activo: false },
   });
