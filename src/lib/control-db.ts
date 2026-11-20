@@ -397,6 +397,15 @@ export function persistirEstadoTenant(tenantId: string, estado: "activo" | "susp
   );
 }
 
+export function persistirOnboarding(tenantId: string, wizardCompletado: boolean, wizardPaso: number): Promise<boolean> {
+  return intentarControl((db) =>
+    db
+      .update(tenants)
+      .set({ wizardCompletado, wizardPaso })
+      .where(eq(tenants.id, tenantId)),
+  );
+}
+
 export function buscarDatabasePorTenant(tenantId: string): Promise<string | null> {
   return leerControl(async (db) => {
     const filas = await db
