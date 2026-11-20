@@ -1,5 +1,6 @@
 ---
 // ONBOARDING-WIZARD (T2): ruta dedicada post-login.
+// TB-165: la página es sólo vista; las transiciones viven en wizard.ts.
 ---
 <html lang="es">
   <head>
@@ -39,92 +40,119 @@
       <div class="progress"><div id="p" style="width:0%"></div></div>
       <div class="body" id="body"></div>
     </div>
-    <script is:inline>
-      const steps = [
-        { key:"negocio", q:"¿Cómo se llama tu negocio?", type:"text" },
-        { key:"dueno", q:"¿Cómo te llamás?", type:"text" },
-        { key:"empleados", q:"¿Tenés empleados?", type:"choice", options:["Sí, tengo empleados","No, trabajo solo"] },
-        { key:"productos", q:"¿Querés cargar tus productos ahora?", type:"choice", options:["Sí, cargar productos","Más tarde"] },
-        { key:"caja", q:"¿Tenés dinero en la caja para empezar a vender?", type:"choice", options:["Sí, cargar monto","Empezar en 0"] },
-      ];
+    <script>
+      // TB-165: antes acá había una copia de la máquina de estados. La página
+      // sólo renderiza y delega cada transición al módulo dueño del cuestionario.
+      import {
+        PASOS_WIZARD,
+        agregarEmpleado,
+        avanzar,
+        completarEmpleados,
+        estadoInicialWizard,
+        esCompleto,
+        pasoActual,
+        saltar,
+        type WizardState,
+      } from "../modules/onboarding/wizard.js";
+
       const storageKey = "onboarding-wizard";
-      let state = JSON.parse(localStorage.getItem(storageKey) || "null") || { paso:0, respuestas:{}, empleados:[], empleadosDone:false, saltados:[] };
-      const body = document.getElementById("body");
-      function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); }
+      let state: WizardState = estadoInicialWizard();
+      const crudo = localStorage.getItem(storageKey);
+      if (crudo) {
+        try {
+          const guardado = JSON.parse(crudo) as Partial<WizardState>;
+          state = { ...state, ...guardado, completado: guardado.completado ?? false };
+        } catch {
+          // TB-165: un guardado corrupto no debe trabar el cuestionario.
+        }
+      }
+
+      const body = document.getElementById("body")!;
+      function save() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+      function progreso() {
+        document.getElementById("p")!.style.width = (state.paso / PASOS_WIZARD.length * 100) + "%";
+      }
+      function detalle() {
+        const st = document.createElement("div");
+        st.className = "state";
+        st.textContent = JSON.stringify(state.respuestas, null, 2) + "\nEmpleados: " + JSON.stringify(state.empleados);
+        body.appendChild(st);
+      }
+
       function render() {
         body.innerHTML = "";
-        if (state.paso >= steps.length) {
+        if (esCompleto(state)) {
           body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">5 de 5 pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
-          document.getElementById("p").style.width = "100%";
-          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ empleados: state.empleados }) }).catch((e) => { console.warn("onboarding completar falló", e); });
-          const btn = document.getElementById("irPanel");
-          if (btn) btn.onclick = () => { window.location.href = "/panel"; };
+          progreso();
+          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ empleados: state.empleados }) }).catch((e) => { console.warn("onboarding completar falló", e); });
+          document.getElementById("irPanel")!.onclick = () => { window.location.href = "/panel"; };
           return;
         }
-        // sub-flujo empleados
-        if (state.paso === 2 && state.respuestas.empleados && String(state.respuestas.empleados).startsWith("Sí") && !state.empleadosDone) {
-          const card = document.createElement("div"); card.className="card";
+        const paso = pasoActual(state);
+        if (!paso) return; // TB-165: sin paso activo no hay nada que renderizar.
+
+        if (paso.key === "empleados" && String(state.respuestas.empleados ?? "").startsWith("Sí") && !state.empleadosDone) {
+          const card = document.createElement("div"); card.className = "card";
           card.innerHTML = "<h3>Cargá los emails de tus empleados</h3><p>Les enviaremos un link para sumarse.</p>";
-          const list = document.createElement("div"); list.style.marginTop="8px";
-          state.empleados.forEach(e => { const d=document.createElement("div"); d.textContent=e; list.appendChild(d); });
+          const list = document.createElement("div"); list.style.marginTop = "8px";
+          state.empleados.forEach((e) => { const d = document.createElement("div"); d.textContent = e; list.appendChild(d); });
           card.appendChild(list);
-          const inp = document.createElement("input"); inp.className="input"; inp.type="email"; inp.placeholder="email@ejemplo.com";
-          const add = document.createElement("button"); add.className="chip"; add.textContent="Agregar"; add.style.marginTop="8px";
-          add.onclick = () => { if(!inp.value.trim()) return; state.empleados.push(inp.value.trim()); inp.value=""; save(); render(); };
+          const inp = document.createElement("input"); inp.className = "input"; inp.type = "email"; inp.placeholder = "email@ejemplo.com";
+          const add = document.createElement("button"); add.className = "chip"; add.textContent = "Agregar"; add.style.marginTop = "8px";
+          add.onclick = () => { if (!inp.value.trim()) return; state = agregarEmpleado(state, inp.value.trim()); inp.value = ""; save(); render(); };
           card.appendChild(inp); card.appendChild(add);
-          const done = document.createElement("button"); done.className="chip"; done.textContent="Enviar links y continuar"; done.style.marginTop="12px"; done.style.background="var(--accent)"; done.style.color="#fff";
+          const done = document.createElement("button"); done.className = "chip"; done.textContent = "Enviar links y continuar"; done.style.marginTop = "12px"; done.style.background = "var(--accent)"; done.style.color = "#fff";
           done.onclick = async () => {
-             for (const email of state.empleados) {
-               try { await fetch("/api/invitations", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email }) }); }
-               catch (e) { console.warn("invitación falló", e); }
-             }
-             state.empleadosDone=true; state.paso++; save(); render();
-           };
+            for (const email of state.empleados) {
+              try { await fetch("/api/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); }
+              catch (e) { console.warn("invitación falló", e); }
+            }
+            state = completarEmpleados(state);
+            save(); render();
+          };
           card.appendChild(done);
           body.appendChild(card);
-          document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-          const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
-          body.appendChild(st);
+          progreso();
+          detalle();
           return;
         }
-        const s = steps[state.paso];
-        const card = document.createElement("div"); card.className="card";
-        card.innerHTML = `<p class="stepinfo">${state.paso+1} de ${steps.length} pasos</p><h3>${s.q}</h3>`;
-        if (s.type === "choice") {
-          const wrap = document.createElement("div"); wrap.className="choices";
-          s.options.forEach(o => {
-            const b = document.createElement("button"); b.className="chip"; b.textContent=o;
+
+        const card = document.createElement("div"); card.className = "card";
+        card.innerHTML = `<p class="stepinfo">${state.paso + 1} de ${PASOS_WIZARD.length} pasos</p><h3>${paso.titulo}</h3>`;
+        if (paso.tipo === "choice") {
+          const wrap = document.createElement("div"); wrap.className = "choices";
+          (paso.opciones ?? []).forEach((o) => {
+            const b = document.createElement("button"); b.className = "chip"; b.textContent = o;
             b.onclick = () => {
-              state.respuestas[s.key]=o;
-              if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; save(); render(); return; }
-              if (s.key==="empleados" && o.startsWith("No")) { state.paso++; save(); render(); return; }
-              if (s.key==="productos" && o.startsWith("Sí")) { window.location.href="/panel/stock/importar"; return; }
-              if (s.key==="caja" && o.startsWith("Sí")) { window.location.href="/panel/caja"; return; }
-              state.paso++; save(); render();
+              // TB-165: estas dos salidas son navegación de la página, no una
+              // transición; se mantienen igual hasta que se arreglen en su ítem.
+              if (paso.key === "productos" && o.startsWith("Sí")) { window.location.href = "/panel/stock/importar"; return; }
+              if (paso.key === "caja" && o.startsWith("Sí")) { window.location.href = "/panel/caja"; return; }
+              state = avanzar(state, o);
+              save(); render();
             };
             wrap.appendChild(b);
           });
           card.appendChild(wrap);
         } else {
-          const inp = document.createElement("input"); inp.className="input";
-          const btn = document.createElement("button"); btn.className="chip"; btn.textContent="Continuar"; btn.style.marginTop="10px";
-          btn.onclick = () => { if(!inp.value.trim()) return; state.respuestas[s.key]=inp.value.trim(); state.paso++; save(); render(); };
+          const inp = document.createElement("input"); inp.className = "input";
+          const btn = document.createElement("button"); btn.className = "chip"; btn.textContent = "Continuar"; btn.style.marginTop = "10px";
+          btn.onclick = () => { if (!inp.value.trim()) return; state = avanzar(state, inp.value.trim()); save(); render(); };
           card.appendChild(inp); card.appendChild(btn);
         }
-        const skip = document.createElement("button"); skip.className="chip"; skip.textContent="Saltar por ahora"; skip.style.marginTop="8px"; skip.style.opacity="0.7";
-        skip.onclick = () => { state.saltados = state.saltados || []; if(!state.saltados.includes(s.key)) state.saltados.push(s.key); state.paso++; save(); render(); };
+        const skip = document.createElement("button"); skip.className = "chip"; skip.textContent = "Saltar por ahora"; skip.style.marginTop = "8px"; skip.style.opacity = "0.7";
+        skip.onclick = () => { state = saltar(state); save(); render(); };
         card.appendChild(skip);
         body.appendChild(card);
-        document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-        const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
-        body.appendChild(st);
+        progreso();
+        detalle();
       }
-      // tema toggle
-      const temaBtn = document.getElementById("temaToggle");
-      if (localStorage.getItem("proto-tema")==="dark") document.body.classList.add("dark");
+
+      const temaBtn = document.getElementById("temaToggle")!;
+      if (localStorage.getItem("proto-tema") === "dark") document.body.classList.add("dark");
       temaBtn.onclick = () => {
         document.body.classList.toggle("dark");
-        localStorage.setItem("proto-tema", document.body.classList.contains("dark")?"dark":"light");
+        localStorage.setItem("proto-tema", document.body.classList.contains("dark") ? "dark" : "light");
       };
       render();
     </script>
