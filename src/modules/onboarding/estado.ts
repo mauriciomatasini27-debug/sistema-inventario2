@@ -18,8 +18,8 @@ export interface OnboardingState {
   wizardPaso: number;
   wizardCompletado: boolean;
   wizardEmpleados: string[];
-  // TB-165: espejo en memoria de todas las respuestas del cuestionario; la
-  // fila durable sigue persistiendo sólo completado/paso (sin tocar SQL).
+  // TB-165 [tenant]: espejo en memoria de todas las respuestas del cuestionario;
+  // la fila durable las persiste en la columna wizard_respuestas de la 0050.
   wizardRespuestas: Record<string, string>;
   actualizadoAt: string;
 }
