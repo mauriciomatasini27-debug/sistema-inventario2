@@ -88,6 +88,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
 
 <script>
   import { derivarEstado, formatearCentavos, montoParaInput, textoError } from "../../lib/panel-modulos.js";
+  import { crearCargadorCuentasConsumos } from "../../lib/panel-consumos-carga.js";
   import { REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { confirmar } from "../../lib/confirmar-dom.js";
@@ -100,7 +101,6 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
   const cuentasPorId = new Map();
   const facturasPorId = new Map();
   const borradoresPorId = new Map();
-  let cuentasPromesa = null;
   let borradorAbierto = null;
   const nombreCuenta = (id) => {
     const c = cuentasPorId.get(id);
@@ -118,13 +118,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     return filas.length;
   };
 
-  const cargarCuentas = () => {
-    // P1-48 FIX: Siempre creamos una nueva petición fetch.
-    // Antes: if (cuentasPromesa) return cuentasPromesa;
-    //       Esto causaba que al navegar entre rutas y volver,
-    //       la UI se quedara en "Cargando…" porque la promise stale
-    //       nunca se resolvía en el nuevo contexto.
-    cuentasPromesa = fetch("/api/service-accounts")
+  const cargadorCuentas = crearCargadorCuentasConsumos(() =>
+    fetch("/api/service-accounts")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
@@ -156,13 +151,14 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       })
       .catch((error) => {
         console.warn("[panel/consumos] cuentas", error);
-        cuentasPromesa = null;
+        cargadorCuentas.invalidar();
         pintarLista("consumos-cuentas", [], "");
         $("estado-cuentas").textContent = mensaje("error", "");
         return [];
-      });
-    return cuentasPromesa;
-  };
+      }),
+  );
+
+  const cargarCuentas = () => cargadorCuentas.cargar();
 
   const cargarVencimientos = () =>
     fetch("/api/utility-bills/due?dentro_dias=7")
@@ -457,8 +453,8 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         estado.textContent = textoError(j.error, r.status);
         return;
       }
-      // P1-48: cuentasPromesa cachea el GET. Sin anularla, la cuenta nueva no entra a la lista ni al selector.
-      cuentasPromesa = null;
+      // P1-48: sin invalidar, la cuenta nueva no entra a la lista ni al selector.
+      cargadorCuentas.invalidar();
       limpiarErrores(form);
       form.reset();
       estado.textContent = "Cuenta creada. Ya aparece en la lista.";

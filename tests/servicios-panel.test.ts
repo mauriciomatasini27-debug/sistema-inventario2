@@ -94,7 +94,7 @@ describe("CS7 panel de consumos (vista)", () => {
     expect(despues).toContain("servicio, proveedor, titular");
     expect(despues).toContain("mostrarErrores(");
     expect(despues).toContain("textoError(");
-    expect(despues).toContain("cuentasPromesa = null");
+    expect(despues).toContain("cargadorCuentas.invalidar()");
     expect(despues).toContain("cargarCuentas()");
     expect(consumos).not.toMatch(/fetch\(\s*"\/api\/utility-bills"\s*,/);
   });
