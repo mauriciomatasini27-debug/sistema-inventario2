@@ -49,6 +49,22 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       <ul class="lista" id="plan-features"></ul>
     </div>
   </section>
+
+  <!-- P10-91: cierre de cuenta, solo el dueño (la tarjeta aparece si el resumen del plan respondió). -->
+  <section class="card" id="cierre-card" hidden>
+    <h2>Cerrar la cuenta</h2>
+    <p class="cierre-texto">
+      Se corta el acceso al instante para vos y tus empleados y se cancela la suscripción de Mercado Pago, sin
+      devolución. Durante 90 días soporte puede reabrirla; después borramos o anonimizamos los datos, salvo los
+      comprobantes fiscales.
+    </p>
+    <form id="cierre-form" class="cierre-form">
+      <label for="cierre-nombre">Para confirmar, escribí el nombre del comercio</label>
+      <input id="cierre-nombre" name="nombre_comercio" autocomplete="off" required />
+      <button type="submit" class="cierre-boton">Cerrar la cuenta</button>
+    </form>
+    <p class="medidor-explicacion" id="cierre-estado" aria-live="polite"></p>
+  </section>
 </PanelShell>
 
 <style>
@@ -60,11 +76,17 @@ import PanelShell from "../../components/panel/PanelShell.astro";
   .medidor-explicacion { color: var(--estado-vivo); }
   .plan-botones { display: flex; flex-wrap: wrap; gap: 8px; }
   .feature-no { color: var(--tema-texto-suave); }
+  .cierre-texto { font-size: 14px; }
+  .cierre-form { display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+  .cierre-boton { color: var(--color-peligro); border-color: var(--color-peligro); }
 </style>
 
 <script>
   import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+  import { REQUERIDO, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+  import { confirmar } from "../../lib/confirmar-dom.js";
 
   const $ = (id) => document.getElementById(id);
   const texto = (id, valor) => {
@@ -230,6 +252,58 @@ import PanelShell from "../../components/panel/PanelShell.astro";
       derivarEstado({ cargando: false, error: true, items: 0 }) === "error" ? mensaje : "";
   }
 
+  // P10-91: cerrar la cuenta. Si la sesión no tiene reauth reciente, va a
+  // Google y vuelve a /panel/plan; el dueño reintenta.
+  async function cerrarCuenta(evento) {
+    evento.preventDefault();
+    const form = $("cierre-form");
+    const nombre = $("cierre-nombre").value.trim();
+    const estado = $("cierre-estado");
+    limpiarErrores(form);
+    if (!nombre) {
+      mostrarErrores(form, { nombre_comercio: mensajeCampo("nombre", REQUERIDO) });
+      return;
+    }
+    const confirmado = await confirmar({
+      titulo: "Cerrar la cuenta",
+      mensaje: "Se corta el acceso ya mismo para vos y tus empleados, y se cancela la suscripción sin devolución.",
+      accion: "Cerrar la cuenta",
+    });
+    if (!confirmado) return;
+    estado.textContent = "Cerrando…";
+    let r;
+    try {
+      r = await fetch("/api/plan/cerrar-cuenta", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nombre_comercio: nombre }),
+      });
+    } catch (error) {
+      console.warn("[panel/plan] cerrar cuenta", error);
+      estado.textContent = "Sin conexión con el servidor.";
+      return;
+    }
+    const v = await r.json().catch((error) => {
+      console.warn("[panel/plan] respuesta de cierre no JSON", error);
+      return {};
+    });
+    if (r.status === 401 && v.codigo === "reauth_requerida") {
+      window.location.href = "/api/auth/reauth?continuar=/panel/plan";
+      return;
+    }
+    if (!r.ok) {
+      const mensaje = textoError(v.error, r.status);
+      if (r.status === 422) mostrarErrores(form, { nombre_comercio: v.error || mensaje });
+      toast.error(mensaje);
+      estado.textContent = mensaje;
+      return;
+    }
+    estado.textContent = "Cuenta cerrada. Te mandamos un mail con el detalle.";
+    window.location.href = "/";
+  }
+
+  $("cierre-form")?.addEventListener("submit", (e) => void cerrarCuenta(e));
+
   async function cargar() {
     $("plan-estado").textContent = "Cargando…";
     let r;
@@ -258,6 +332,7 @@ import PanelShell from "../../components/panel/PanelShell.astro";
     pintarBotones(v);
     pintarFeatures(v.features);
     texto("plan-accion-estado", "");
+    $("cierre-card").hidden = false;
     $("plan-contenido").hidden = false;
     $("plan-estado").textContent = "";
   }
