@@ -7,6 +7,7 @@ import {
 } from "../../../modules/auth/oidc.js";
 import { crearSesion } from "../../../modules/auth/sesiones.js";
 import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js";
+import { destinoLogin } from "../../../modules/auth/destino-login.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
 import { control } from "../../../lib/store.js";
@@ -283,18 +284,20 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   // esté o no completado el cuestionario. Así un deploy no reenvía a nadie.
   // PA1: la allowlist admin gana aunque haya comercio; `next` válido va primero.
   // TB-165: Dueño y Empleado terminan en /panel; cada quien ve su recorrido.
-  const nextOk = next && ["/panel", "/admin", "/"].includes(next) ? next : undefined;
   const esAdmin = esAdminAllowlist(identidad.sub, leerAllowlist());
-  const destino =
-    nextOk === "/panel" && !tenantId
-      ? "/?alta=pendiente"
-      : nextOk
-        ? nextOk
-        : esAdmin
-          ? "/admin"
-          : tenantId
-            ? "/panel"
-            : "/?alta=pendiente";
+  // TB-165: el rol sale de la membership activa, nunca del body. Alimenta el
+  // recorrido corto del Empleado que consume /panel (ticket 13).
+  const rol = tenantId
+    ? ([...control.memberships.values()].find(
+        (m) => m.tenantId === tenantId && m.googleSub === identidad.sub && m.estado === "activo",
+      )?.rol ?? null)
+    : null;
+  const { url: destino } = destinoLogin({
+    next: next ?? null,
+    esAdmin,
+    tenantId,
+    rol,
+  });
   const r = redirect(destino, 302);
   borrarCookiesOauth(r.headers);
   // P1-25: Set-Cookie en el Response del redirect (no solo cookies.set):
