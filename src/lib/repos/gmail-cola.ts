@@ -22,6 +22,17 @@ export interface EncolarIngestaInput {
   readonly motivo: MotivoJobGmail;
 }
 
+function esChoqueDedupeGmail(e: unknown): boolean {
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (typeof (cur as { code?: unknown }).code === "string" && (cur as { code: string }).code === "23505") {
+      return true;
+    }
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 function aJob(fila: typeof gmailIngestionJobs.$inferSelect): JobGmail {
   return {
     id: fila.id,
@@ -35,8 +46,7 @@ function aJob(fila: typeof gmailIngestionJobs.$inferSelect): JobGmail {
 
 export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGmail | null> {
   const db = getControlDb();
-  // GGL-P240-FIX: dedupe por messageId solo dentro del mismo comercio.
-  // El índice único en DB sigue siendo global sobre message_id (0048); ver nota en el PR.
+  // GGL-P240-0051: dedupe por (tenantId, messageId) respaldado en DB.
   if (input.messageId) {
     const [existentePorMessageId] = await db
       .select()
@@ -51,20 +61,36 @@ export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGma
     if (existentePorMessageId) {
       return aJob(existentePorMessageId);
     }
-  }
 
-  let messageId = input.messageId ?? null;
-  if (messageId) {
-    const [ocupadoEnOtroTenant] = await db
-      .select({ tenantId: gmailIngestionJobs.tenantId })
-      .from(gmailIngestionJobs)
-      .where(eq(gmailIngestionJobs.messageId, messageId))
-      .limit(1);
-    // GGL-P240-FIX: el índice 0048 es único solo por message_id; otro comercio
-    // no puede reutilizar la columna hasta migrar a UNIQUE (tenant_id, message_id).
-    if (ocupadoEnOtroTenant && ocupadoEnOtroTenant.tenantId !== input.tenantId) {
-      messageId = null;
+    // GGL-P240-0051: el índice es parcial (WHERE message_id IS NOT NULL); no hay
+    // ON CONFLICT en drizzle que coincida — carrera: insert y relectura ante 23505.
+    let creado: typeof gmailIngestionJobs.$inferSelect | undefined;
+    try {
+      [creado] = await db
+        .insert(gmailIngestionJobs)
+        .values({
+          tenantId: input.tenantId,
+          connectionId: input.connectionId,
+          historyId: input.historyId,
+          messageId: input.messageId,
+          motivo: input.motivo,
+        })
+        .returning();
+    } catch (e) {
+      if (!esChoqueDedupeGmail(e)) throw e;
     }
+    if (creado) return aJob(creado);
+    const [trasCarrera] = await db
+      .select()
+      .from(gmailIngestionJobs)
+      .where(
+        and(
+          eq(gmailIngestionJobs.tenantId, input.tenantId),
+          eq(gmailIngestionJobs.messageId, input.messageId),
+        ),
+      )
+      .limit(1);
+    return trasCarrera ? aJob(trasCarrera) : null;
   }
 
   const [creado] = await db
@@ -73,7 +99,7 @@ export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGma
       tenantId: input.tenantId,
       connectionId: input.connectionId,
       historyId: input.historyId,
-      messageId,
+      messageId: null,
       motivo: input.motivo,
     })
     .onConflictDoNothing({

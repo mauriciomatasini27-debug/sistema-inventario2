@@ -93,6 +93,37 @@ describe.skipIf(!hayPG)("GGL-P240-FIX regresiones ingesta Gmail", () => {
     expect(jA?.id).toBeTruthy();
     expect(jB?.id).toBeTruthy();
     expect(jA!.id).not.toBe(jB!.id);
+    const filas = await sql!<{ tenant_id: string; message_id: string | null }[]>`
+      select tenant_id, message_id from gmail_ingestion_jobs where message_id = ${messageId}
+    `;
+    expect(filas).toHaveLength(2);
+    expect(filas.every((f) => f.message_id === messageId)).toBe(true);
+  });
+
+  it("mismo comercio no duplica messageId", async () => {
+    const messageId = `msg-mismo-tenant-${randomUUID()}`;
+    const conn = randomUUID();
+    const j1 = await encolarIngesta({
+      tenantId,
+      connectionId: conn,
+      historyId: "hist-1",
+      messageId,
+      motivo: "push",
+    });
+    const j2 = await encolarIngesta({
+      tenantId,
+      connectionId: conn,
+      historyId: "hist-2",
+      messageId,
+      motivo: "push",
+    });
+    expect(j1?.id).toBeTruthy();
+    expect(j2?.id).toBe(j1!.id);
+    const [row] = await sql!<{ n: number }[]>`
+      select count(*)::int as n from gmail_ingestion_jobs
+      where tenant_id = ${tenantId} and message_id = ${messageId}
+    `;
+    expect(row?.n).toBe(1);
   });
 
   it("filtros_actualizados solo al cambiar un remitente, no al ejecutar ingesta", async () => {

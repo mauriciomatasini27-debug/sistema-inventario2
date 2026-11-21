@@ -67,7 +67,7 @@ async function aplicarHasta(tag: string, url: string): Promise<void> {
 }
 
 describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
-  it("journal registra 0045, 0046 rubro, 0047 periferia, 0049 onboarding y 0050 respuestas", () => {
+  it("journal registra 0045, 0046 rubro, 0047 periferia, 0049 onboarding, 0050 respuestas y 0051 gmail", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
     expect(journal.entries.some((e) => e.tag === "0045_shared_tenant_sellar_nucleo")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0046_tenants_rubro")).toBe(true);
@@ -75,7 +75,8 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0049_tenants_onboarding_wizard")).toBe(true);
     // TB-165: la 0050 agrega la columna durable de las respuestas del cuestionario.
     expect(journal.entries.some((e) => e.tag === "0050_tenants_wizard_respuestas")).toBe(true);
-    expect(journal.entries.length).toBe(51);
+    expect(journal.entries.some((e) => e.tag === "0051_ggl_p240_gmail_dedupe_tenant")).toBe(true);
+    expect(journal.entries.length).toBe(52);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -281,9 +282,8 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // ON12/TB-165: 0049 y 0050 se sumaron al journal, así que el wrapper
-        // aplica 0047, 0048, 0049 y 0050.
-        expect(n[0]?.n).toBe(51);
+        // ON12/TB-165 + 0051: el wrapper aplica hasta la última migración del journal.
+        expect(n[0]?.n).toBe(52);
       } finally {
         await db.end();
       }

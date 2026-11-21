@@ -1,0 +1,6 @@
+{
+  "tag": "0051_ggl_p240_gmail_dedupe_tenant",
+  "fecha": "2026-11-21",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente para acompañar el merge de PR #363 (GGL-P240-FIX). Reemplaza gmail_ingestion_jobs_message_id_unique (0048) por gmail_ingestion_jobs_tenant_message_unique parcial (tenant_id, message_id) WHERE message_id IS NOT NULL. Número 0051 porque el PR #364 abierto reserva drizzle/0050_tenants_wizard_respuestas. Pendiente de aplicar en cualquier base (piloto pooler :5432 incluido): npm run db:migrate con TENANT_DATABASE_URL; validar con npm run db:migrate:check (journal=51, pendientes=0 tras aplicar)."
+}
