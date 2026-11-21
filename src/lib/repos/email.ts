@@ -11,7 +11,6 @@ import type { DatosCierre } from "../../modules/email/plantilla-cierre.js";
 // Sin contexto en multi (email/send) la memoria particionada no es
 // alcanzable: solo se toca con tenant explícito o dentro de conTenant. Las
 // factorías resuelven la partición al crearse, por eso se crean dentro del
-// contexto del tenant y nunca a nivel de módulo.
 function conParticion<T>(tenantId: string | undefined, fn: () => T): T {
   if (tenantId) return conTenant(tenantId, fn);
   return fn();

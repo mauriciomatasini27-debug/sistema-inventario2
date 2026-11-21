@@ -1,4 +1,3 @@
-// Outbox offline: op_id (uuidv7) + device_seq + hlc según ADR-0003.
 // Por qué uuidv7 y no v4: ordenable por tiempo, el cursor de sync/pull avanza sin huecos lógicos.
 
 function uuidv7(): string {
@@ -11,7 +10,6 @@ function uuidv7(): string {
   const randAHex = a.toString(16).padStart(8, "0");
   const randBHex = (b & 0x3fffffff).toString(16).padStart(8, "0");
   const randCHex = c.toString(16).padStart(8, "0");
-  // version 7 en el nibble alto del 3er grupo, variante 10xx en el 4to.
   const g3 = `7${randAHex.slice(1, 4)}`;
   const g4 = `${((parseInt(randBHex.slice(0, 2), 16) & 0x3f) | 0x80).toString(16)}${randBHex.slice(2, 4)}`;
   return (
@@ -30,7 +28,6 @@ export function newOpId(): string {
   return uuidv7();
 }
 
-// Por qué HLC híbrido y no solo Date.now: dos ops en el mismo ms del mismo
 // dispositivo necesitan orden total para que device_seq + hlc resuelvan colisiones.
 export class HlcClock {
   private lastMs = 0;
