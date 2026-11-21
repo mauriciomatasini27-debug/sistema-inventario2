@@ -70,3 +70,8 @@ Los issues de deuda pueden seguir abiertos: se rastrean aparte.
 ## Registro
 
 Las decisiones y su discusión están en el mapa wayfinder #271 (7/7 tickets). Este documento es el handoff durable para las sesiones de ejecución.
+
+### Progreso
+
+- Ola 1, área 1 — `src/db/` (commit `182c783`): 10 falsos/restates del plan A verificados contra el código (LANE B falso, LANE Email falso de money, LANE G + OP1 + OP2 + OP13 de payments, B1.1/B1.2 y B5/B9/B14/B15 de whatsapp, restates de sector/AU11.3/N1 del schema). Deuda publicada antes de podar: **#294** (outbox html/texto cifrado NE11) y **#295** (cola de aprovisionamiento sin pg-boss). Comentarios en `src/db/`: 271 → 238. Gate verde (docs:check, typecheck, check:arch, verify 16 pasos).
+- Ola 1, área 2 — `src/jobs/`: en curso.

@@ -2,10 +2,6 @@ import { actualizarJob, listarJobs, registrarEventoOcr } from "../lib/repos/ocr.
 import { leerBorradorOcrRepo } from "../lib/repos/facturas-proveedor.js";
 import { con_recuerdo, necesita_recuerdo } from "../modules/ocr/jobs.js";
 
-// Job vencimiento OCR (ADR-0005 E5 + recuerdo 24h). El vencido a 7 días es
-// derivado (el núcleo responde 410, solo lectura); acá se emite ocr_vencido
-// una vez y se marca recuerdo a 24h si sigue sin toque. Idempotente.
-// PERS4-S4: lista por el repo y lee borradores por facturas-proveedor.
 export async function ejecutarVencimientoOcr(
   ahoraIso = new Date().toISOString(),
 ): Promise<{ vencidos: string[]; recuerdos: string[] }> {

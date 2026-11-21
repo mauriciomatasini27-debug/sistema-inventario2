@@ -1,7 +1,3 @@
-// Job P1-1/P1-2: alertas de seguridad WA con fallback a email.
-// Puro sin IO directa: decide con decidirAlertaSeguridad() y envía por los
-// senders inyectados. Idempotente por event_id + memoria del proceso, con
-// claves independientes por canal. Best-effort: un fallo no bloquea nada.
 
 import {
   armarTextoAlertaSeguridad,
