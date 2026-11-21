@@ -90,16 +90,18 @@ describe.skipIf(!hayPG)("P3-7c resumen del panel: aislamiento por tenant en Post
         .insert(sales)
         .values(filaPg({ idempotencyKey: claveCorregida, medio: "Efectivo", totalCentavos: 50_000n, clientOccurredAt: new Date() }))
         .returning({ id: sales.id });
-      await db.insert(saleReturns).values({
-        idempotencyKey: claveRetorno,
-        saleId: v1!.id,
-        numeroDevolucion,
-        montoCentavos: 20_000n,
-        acumuladoNuevoCentavos: 20_000n,
-        medio: marcaNeto,
-        motivo: "prueba pg",
-        actor: "test",
-      });
+      await db.insert(saleReturns).values(
+        filaPg({
+          idempotencyKey: claveRetorno,
+          saleId: v1!.id,
+          numeroDevolucion,
+          montoCentavos: 20_000n,
+          acumuladoNuevoCentavos: 20_000n,
+          medio: marcaNeto,
+          motivo: "prueba pg",
+          actor: "test",
+        }),
+      );
       await db.insert(ticketPaymentCorrections).values({
         idempotencyKey: claveCorreccion,
         saleId: v2!.id,

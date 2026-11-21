@@ -378,7 +378,8 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         // concurrentes: sin 409 falsos y sin recorrer sale_returns.
         let filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_DEVOLUCION)).for("update");
         if (!filas[0]) {
-          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
+          // P1-96 [tenant]: sin este filtro, un comercio nuevo hereda el máximo D-* de todos y arranca donde terminó otro.
+          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns).where(dondeTenant(saleReturns.tenantId));
           let maximo = 0;
           for (const f of previas) {
             const m = /^D-(\d+)$/.exec(f.numero);
@@ -400,19 +401,21 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         if (!dev.ok) return { estado: "fallo", fallo: dev };
         const n = ultimo + 1;
         const num = siguiente_numero_devolucion(seq);
-        await tx.insert(saleReturns).values({
-          id: returnId,
-          idempotencyKey: input.key,
-          saleId: input.saleId,
-          numeroDevolucion: num,
-          montoCentavos: input.montoCentavos,
-          acumuladoPrevioCentavos: acumuladoTx,
-          acumuladoNuevoCentavos: acumuladoTx + input.montoCentavos,
-          medio: input.medio,
-          fueAcuenta: venta.fueAcuenta,
-          motivo: input.motivo,
-          actor: input.actor,
-        });
+        await tx.insert(saleReturns).values(
+          filaConTenant({
+            id: returnId,
+            idempotencyKey: input.key,
+            saleId: input.saleId,
+            numeroDevolucion: num,
+            montoCentavos: input.montoCentavos,
+            acumuladoPrevioCentavos: acumuladoTx,
+            acumuladoNuevoCentavos: acumuladoTx + input.montoCentavos,
+            medio: input.medio,
+            fueAcuenta: venta.fueAcuenta,
+            motivo: input.motivo,
+            actor: input.actor,
+          }),
+        );
         await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_DEVOLUCION));
         // AUD-VTA-04: stock inverso y caja opuesta en la misma tx que
         // sale_returns: o queda todo o no queda nada.
