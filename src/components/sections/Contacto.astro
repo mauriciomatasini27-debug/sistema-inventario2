@@ -196,7 +196,6 @@ const inputClass =
 </script>
 
 <script>
-  // E13-R5: envío vía fetch para que el error sea visible (antes nunca se mostraba).
   for (const form of document.querySelectorAll('[data-contact-form]')) {
     if (!(form instanceof HTMLFormElement)) continue;
     form.addEventListener('submit', async (e) => {
