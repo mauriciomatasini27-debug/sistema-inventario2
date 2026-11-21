@@ -26,7 +26,7 @@ Este PRD fija, para la **app web** de `sistema-inventario2` (PWA Astro 7 + React
 - cómo se **verifica** visualmente (360px, dark, estados) y cómo se **pinean** las fuentes de skills.
 
 **Alcance:** app web (panel/POS y superficies web de la app).  
-**Fuera de alcance:** sitio de documentación del proyecto, migración a otra librería de UI o a otro framework CSS, cambios de tipografía (decidido: system font stack), directriz visual del landing (decidido: sin neon/glass), e **implementación de cambios visuales** (este documento decide y registra; no ejecuta).
+**Fuera de alcance:** sitio de documentación del proyecto, migración a otra librería de UI o a otro framework CSS, cambios de tipografía (decidido: system font stack), directriz visual del landing (decidido: sin neon/glass), y **la implementación de cambios visuales** (este documento decide y registra; no ejecuta).
 
 ## Decisiones previas vinculantes
 
@@ -45,17 +45,17 @@ Este PRD fija, para la **app web** de `sistema-inventario2` (PWA Astro 7 + React
 
 Tabla vinculante (categorías/adopción según #284). El presente documento es la fuente de verdad de estos veredictos hasta que un ADR los reemplace.
 
-| Elemento | Fuente/skill | Categoría | Sev. adopción | Fecha | Veredicto (resumen) | Notas/enlace |
-|---|---|---|---|---|---|---|
-| `pick-ui-library` | skill instalada (emilkowalski) | evaluar caso a caso | P3 | 2026-11-21 | Mantener como referencia para decisiones puntuales; sin librería nueva sin veredicto explícito (alineado a PRD-UX-01). | #293; `skills-lock.json:118` |
-| `web-design-guidelines` | vercel-labs/agent-skills | adoptar (migración) | P0 | 2026-11-21 | Migrar a v1.1.0 con snapshot pineado + SHA-256; reemplaza fetch en vivo de `main`. Supera T-UI-07 en ese punto. | #287, #280 |
-| `mobile-native` | skill (ausente hoy) | adoptar | P3 | 2026-11-21 | Adoptar como guía CSS-only (safe areas, touch, `100dvh`, drawer/sheet) para app web; apoya UX-S6 parcial. | #289 |
-| `apple-design` | skill (ausente hoy) | descartar | P0 | 2026-11-21 | Conflicto con AT1/glass solo panel/POS y decisiones vigentes; cualquier propuesta global requiere ADR. | #289 |
-| `gestures` / `choreograph` | skills (ausentes hoy) | diferir | P1 | 2026-11-21 | Requieren ADR (librería/gestos, alcance, no glass global). | #289 |
-| `better-motion` | skill (ausente hoy) | adaptar | P2 | 2026-11-21 | Recetas aditivas CSS/Tailwind compatibles con ADR-0037/DS-S8 (`transform/opacity`, <300 ms, `prefers-reduced-motion`). | #289 |
-| `remove-animations` | skill (ausente hoy) | adoptar | P3 | 2026-11-21 | Receta para habilitar/reducir motion de forma consistente con políticas existentes. | #289 |
-| `learn-taste` | skill (ausente hoy) | adoptar | P3 | 2026-11-21 | Convertir correcciones recurrentes en reglas/checks (`check:ui`, checklist de revisión, `AGENTS.md`/guías según aplique). | #289 |
-| `composition-patterns` | vercel-labs/agent-skills | diferir (tratar en catálogo) | P2 | 2026-11-21 | Útil para entradas de catálogo/componentes React; aplicar junto a #285 sin introducir Next.js ni cambiar stack. | #280, #285 |
+| Elemento | Fuente/skill | Categoría | Etiqueta | Sev. adopción | Fecha | Veredicto (resumen) | Notas/enlace |
+|---|---|---|---|---|---|---|---|
+| `pick-ui-library` | skill instalada (emilkowalski) | evaluar caso a caso | (ninguno) | P3 | 2026-11-21 | Mantener como referencia para decisiones puntuales; sin librería nueva sin veredicto explícito (alineado a PRD-UX-01). | #293; `skills-lock.json:118` |
+| `web-design-guidelines` | vercel-labs/agent-skills | adoptar (migración) | (ninguno) | P0 | 2026-11-21 | Migrar a v1.1.0 con snapshot pineado + SHA-256; reemplaza fetch en vivo de `main`. Supera T-UI-07 (avance `docs/roadmap/avances/T-UI-07.md`, ADR-0038; aceptado en `SPEC-UI-00:38`). | #287, #280, T-UI-07 |
+| `mobile-native` | skill (ausente hoy) | adoptar | (ninguno) | P3 | 2026-11-21 | Adoptar como guía CSS-only (safe areas, touch, `100dvh`, drawer/sheet) para app web; apoya UX-S6 parcial. | #289 |
+| `apple-design` | skill (ausente hoy) | descartar | (ninguno) | P0 | 2026-11-21 | Conflicto con AT1/glass solo panel/POS y decisiones vigentes; cualquier propuesta global requiere ADR. | #289 |
+| `gestures` / `choreograph` | skills (ausentes hoy) | diferir | **requiere ADR** | P1 | 2026-11-21 | Requieren ADR (librería/gestos, alcance, no glass global). | #289 |
+| `better-motion` | skill (ausente hoy) | adaptar | (ninguno) | P2 | 2026-11-21 | Recetas aditivas CSS/Tailwind compatibles con ADR-0037/DS-S8 (`transform/opacity`, <300 ms, `prefers-reduced-motion`). | #289 |
+| `remove-animations` | skill (ausente hoy) | adoptar | (ninguno) | P3 | 2026-11-21 | Receta para habilitar/reducir motion de forma consistente con políticas existentes. | #289 |
+| `learn-taste` | skill (ausente hoy) | adoptar | (ninguno) | P3 | 2026-11-21 | Convertir correcciones recurrentes en reglas/checks (`check:ui`, checklist de revisión, `AGENTS.md`/guías según aplique). | #289 |
+| `composition-patterns` | vercel-labs/agent-skills | diferir (tratar en catálogo) | (ninguno) | P2 | 2026-11-21 | Útil para entradas de catálogo/componentes React; aplicar junto a #285 sin introducir Next.js ni cambiar stack. | #280, #285 |
 
 ## Política de skills (lock v3 y refresh)
 
@@ -75,7 +75,7 @@ Tabla vinculante (categorías/adopción según #284). El presente documento es l
 
 ## Verificación visual 360px y severidades
 
-- **Severidades:** se usa la escala existente **HIGH / MEDIUM / LOW** + veredicto **Block / Approve** (`better-interface`, `review:gate`). `P0–P3` queda exclusivo para **adopción** (no se usa `V0–V3`).
+- **Severidades:** **P0–P3 estilo `critique`/`audit`** (P0 = bloqueante, P1 = mejorable, P2 = parcial, P3 = observadora), con veredicto de gate **Block / Approve** (`better-interface`, `review:gate`). La escala HIGH/MEDIUM/LOW queda exclusiva de aprobación; no se usa `V0–V3`.
 - **Herramienta base:** Playwright e2e (ya cubre 360×800, dark, RTL y zoom 200% en flujos existentes). `/control-app` solo cuando haga falta sesión sembrada/tenant.
 - **Evidencia:** cuando sea evidencia de PR, PNG+JSON en `.agents/skills/control-app/artifacts/<AAAA-MM-DD>/`. `test-results/` solo para exploraciones (gitignored).
 - **Gate:** reutiliza `review:gate`; sin gate nuevo.
@@ -96,7 +96,7 @@ Tabla vinculante (categorías/adopción según #284). El presente documento es l
 ### Deuda aceptada / Fog
 
 - Chrome `.pos` específico de DS-S13 (glass topheader, panes, switchpane, grilla 5 columnas): no existe en Inventario; no se exige en esta verificación.
-- DS-S22: falta evidencia “ticket legible a 2m” (pendiente).
+- DS-S22: 'ticket impreso identico y legible a 2m' sin evidencia — ver `docs/diseno/AUDITORIA-DS-tema-papel.md:45` (falta evidencia manual o automatizada).
 - DS-S14 / DS-S16: no aplican en Inventario según auditoría vigente.
 - DS-S18: papel conservado y `--mo-*` descartado (`SPEC-UI-00`), registrado como decisión de investigación; no se reabre como brecha de implementación aquí.
 
