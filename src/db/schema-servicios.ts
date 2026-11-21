@@ -16,6 +16,8 @@ import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 
 // en dominio (cuentas.ts); UNIQUE de respaldo en migración.
 export const serviceAccounts = pgTable("service_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+  tenantId: uuid("tenant_id"),
   servicio: text("servicio").notNull(),
   proveedor: text("proveedor").notNull(),
   titular: text("titular").notNull(),
@@ -37,6 +39,8 @@ export const serviceAccounts = pgTable("service_accounts", {
 // reescribir filas. messageId UNIQUE = idempotencia Gmail (CS9.1).
 export const utilityBills = pgTable("utility_bills", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+  tenantId: uuid("tenant_id"),
   accountId: uuid("account_id").notNull(),
   messageId: text("message_id").notNull().unique(),
   periodo: text("periodo").notNull(),
