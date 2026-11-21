@@ -2,7 +2,6 @@ import {
   ErrorGmailTransitorio,
   crearClienteGmail,
 } from "../modules/integraciones/gmail-cliente.js";
-import { getControlDb } from "../lib/db.js";
 import {
   ErrorOAuthGoogle,
   leerConfigIntegracionGmail,
@@ -25,7 +24,6 @@ import {
 } from "../lib/repos/gmail-ingesta.js";
 import { marcarJobGmailError, marcarJobGmailHecho, type JobGmail } from "../lib/repos/gmail-cola.js";
 import { sincronizarGmail } from "../modules/integraciones/gmail-sync.js";
-import { gmailConnectionEvents } from "../db/schema-google.js";
 import type { MotorOcr } from "../modules/ocr/motor.js";
 import type { ExtractadorPdfDigital } from "../modules/utilities/extraer-pdf-digital.js";
 
@@ -126,18 +124,6 @@ export async function ejecutarJobGmail(
       persistencia: crearPersistenciaGmailDb(job.tenantId),
     });
 
-    // GGL-P0-HUECOS: Publicar evento de cambio de filtros en
-    // gmail_connection_events. Nombre filtros_actualizados, no
-    // filtros_cambiados: es el único valor que el CHECK de la tabla acepta
-    // (0030 ya contemplaba este evento con ese nombre).
-    const dbControl = getControlDb();
-    await dbControl.insert(gmailConnectionEvents).values({
-      tenantId: job.tenantId,
-      connectionId: job.connectionId,
-      evento: "filtros_actualizados",
-      actor: deps?.actor ?? "sistema",
-    });
-
     await marcarJobGmailHecho(job.id);
     return "hecho";
   } catch (e) {
@@ -185,7 +171,9 @@ export async function renovarWatchGmail(input: {
     accessToken: access.token,
     ...(input.deps?.fetchImpl ? { fetchImpl: input.deps.fetchImpl } : {}),
   });
-  const watch = await gmail.watch({ topicName: config.topic, labelIds: ["INBOX"] });
+  const labelIds =
+    conexion.labels.length > 0 ? [...conexion.labels] : (["INBOX"] as const);
+  const watch = await gmail.watch({ topicName: config.topic, labelIds });
   const expiraMs = Number(watch.expiration);
   const expiraAt = Number.isFinite(expiraMs) && expiraMs > 0 ? new Date(expiraMs) : new Date(Date.now() + 7 * 86_400_000);
   await actualizarWatchGmail(input.tenantId, { watchHistoryId: watch.historyId, watchExpiraAt: expiraAt });

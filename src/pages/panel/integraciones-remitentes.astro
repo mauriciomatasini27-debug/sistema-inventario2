@@ -26,6 +26,7 @@ if (tenant.ok) {
         tenantId: tenant.tenantId,
         filtroId,
         activo: accion === "activar",
+        actor: sesion?.googleSub ?? "dueño",
       });
       if (!ok) aviso = "No encontramos ese remitente.";
     }

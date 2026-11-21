@@ -16,6 +16,10 @@ _Avoid_: organization, cuenta, tenant_id
 Flujo de lectura de comprobantes (facturas de servicios) que entran por correo Gmail: clasificación capa 1, extracción de PDF/OCR/cuerpo, creación de un borrador pendiente y registro de log.
 _Avoid_: sync Gmail, sincronización, watcheo
 
+**Baseline**:
+Estado de referencia mínimo aceptado de una pieza (skill, componente, política o gate): el nivel a partir del cual se considera disponible; el resto queda pendiente o como deuda aceptada.
+_Avoid_: Umbral nuevo sin acuerdo, To Do, 'pendiente de definir'
+
 ## Roles
 
 **Dueño**:

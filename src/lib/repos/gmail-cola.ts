@@ -35,25 +35,45 @@ function aJob(fila: typeof gmailIngestionJobs.$inferSelect): JobGmail {
 
 export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGmail | null> {
   const db = getControlDb();
-  // GGL-P0-HUECOS: Validación de dedupe por messageId
+  // GGL-P240-FIX: dedupe por messageId solo dentro del mismo comercio.
+  // El índice único en DB sigue siendo global sobre message_id (0048); ver nota en el PR.
   if (input.messageId) {
     const [existentePorMessageId] = await db
       .select()
       .from(gmailIngestionJobs)
-      .where(eq(gmailIngestionJobs.messageId, input.messageId))
+      .where(
+        and(
+          eq(gmailIngestionJobs.tenantId, input.tenantId),
+          eq(gmailIngestionJobs.messageId, input.messageId),
+        ),
+      )
       .limit(1);
     if (existentePorMessageId) {
-      // Já hay un job con este messageId: retornarlo sin encolar nuevamente
       return aJob(existentePorMessageId);
     }
   }
+
+  let messageId = input.messageId ?? null;
+  if (messageId) {
+    const [ocupadoEnOtroTenant] = await db
+      .select({ tenantId: gmailIngestionJobs.tenantId })
+      .from(gmailIngestionJobs)
+      .where(eq(gmailIngestionJobs.messageId, messageId))
+      .limit(1);
+    // GGL-P240-FIX: el índice 0048 es único solo por message_id; otro comercio
+    // no puede reutilizar la columna hasta migrar a UNIQUE (tenant_id, message_id).
+    if (ocupadoEnOtroTenant && ocupadoEnOtroTenant.tenantId !== input.tenantId) {
+      messageId = null;
+    }
+  }
+
   const [creado] = await db
     .insert(gmailIngestionJobs)
     .values({
       tenantId: input.tenantId,
       connectionId: input.connectionId,
       historyId: input.historyId,
-      messageId: input.messageId,
+      messageId,
       motivo: input.motivo,
     })
     .onConflictDoNothing({
