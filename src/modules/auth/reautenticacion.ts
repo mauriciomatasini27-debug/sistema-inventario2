@@ -18,6 +18,8 @@ export const ACCIONES_SENSIBLES = [
   "cerrar_sesiones_otro",
   "nombrar_dispositivo",
   "exportar_datos",
+  // P10-91: cerrar la cuenta del comercio desde /panel/plan.
+  "cerrar_cuenta",
 ] as const;
 export type AccionSensible = (typeof ACCIONES_SENSIBLES)[number];
 
