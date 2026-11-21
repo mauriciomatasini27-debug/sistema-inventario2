@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { productCodes, products, locations, productPhotos } from "../../db/schema.js";
+import { productCodes, products, locations, productPhotos, ticketLines } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { conTenant } from "../tenant-mode.js";
 import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../tenant-scope.js";
 import { coincideDifuso, inicialesProducto } from "../../modules/inventario/busqueda.js";
+import { listarTodasLasLineasTicket } from "../ticket-memoria.js";
 import { normalizarSector } from "../../modules/inventario/sectores.js";
 import { nombresUbicacionesRubro } from "../../modules/onboarding/ubicaciones-rubro.js";
 import {
@@ -52,11 +53,13 @@ function fichaDeFila(
   sector: string,
   locationId: string | null = null,
   umbrales: { minStock: number | null; reorderQty: number | null } | null = null,
+  porPeso = false,
 ): FichaProducto {
   return {
     sku: f.sku,
     nombre: f.nombre,
     precioCentavos: Number(f.precioCentavos),
+    porPeso,
     sector,
     locationId,
     archivado: false,
@@ -126,6 +129,53 @@ async function fijarUmbralesDb(db: TenantDb, sku: string, umbrales: { minStock: 
   } catch (e) {
     if (!esColumnaUmbralFaltante(e)) throw e;
   }
+}
+
+function esColumnaPorPesoFaltante(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("por_peso");
+}
+
+async function porPesoDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, boolean>> {
+  const mapa = new Map<string, boolean>();
+  if (skus.length === 0) return mapa;
+  try {
+    const wSkus = dondeTenant(products.tenantId, inArray(products.sku, [...skus]));
+    const filas = await db
+      .select({ sku: products.sku, porPeso: products.porPeso })
+      .from(products)
+      .where(wSkus ?? inArray(products.sku, [...skus]));
+    for (const f of filas) mapa.set(f.sku, f.porPeso);
+  } catch (e) {
+    if (!esColumnaPorPesoFaltante(e)) throw e;
+  }
+  return mapa;
+}
+
+async function fijarPorPesoDb(db: TenantDb, sku: string, porPeso: boolean): Promise<void> {
+  try {
+    const wSku = dondeTenant(products.tenantId, eq(products.sku, sku));
+    await db.update(products).set({ porPeso }).where(wSku ?? eq(products.sku, sku));
+  } catch (e) {
+    if (!esColumnaPorPesoFaltante(e)) throw e;
+  }
+}
+
+async function productoTieneVentas(db: TenantDb | null, sku: string): Promise<boolean> {
+  if (!db) return listarTodasLasLineasTicket().some((l) => l.product_id === sku);
+  const filas = await db
+    .select({ id: ticketLines.id })
+    .from(ticketLines)
+    .innerJoin(products, eq(products.id, ticketLines.productId))
+    .where(dondeTenant(ticketLines.tenantId, eq(products.sku, sku)))
+    .limit(1);
+  return filas.length > 0;
+}
+
+async function flagIrreversible(base: FichaProducto, parche: ParcheProducto, db: TenantDb | null, sku: string): Promise<boolean> {
+  if (parche.porPeso === undefined || parche.porPeso === (base.porPeso ?? false)) return false;
+  return productoTieneVentas(db, sku);
 }
 
 // ALR-S1: min_stock entero >= 0 (null limpia), reorder_qty entero > 0
@@ -218,8 +268,9 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     // Por qué umbrales con la misma precedencia: el espejo trae la
     // escritura más reciente del proceso; la DB rellena lo sin espejo.
     const umDb = enMem ? null : (await umbralesDb(db, [p.sku])).get(p.sku) ?? null;
+    const ppDb = enMem ? undefined : (await porPesoDb(db, [p.sku])).get(p.sku);
     const ficha: FichaProducto = {
-      ...fichaDeFila(p, enMem?.sector ?? normalizarSector(p.sector), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb),
+      ...fichaDeFila(p, enMem?.sector ?? normalizarSector(p.sector), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb, enMem?.porPeso ?? ppDb),
       estado: enMem?.estado ?? "activo",
     };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
@@ -262,8 +313,12 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       db,
       filas.map((f) => f.sku),
     );
+    const ppDb = await porPesoDb(
+      db,
+      filas.map((f) => f.sku),
+    );
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, normalizarSector(f.sector), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null));
+      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, normalizarSector(f.sector), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null, ppDb.get(f.sku) ?? false));
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
@@ -327,6 +382,7 @@ export interface AltaProductoInput {
   readonly sku: string;
   readonly nombre: string;
   readonly precioCentavos: number;
+  readonly porPeso?: boolean | undefined;
   readonly sector: string;
   readonly codigo?: string | undefined;
   readonly controlaVencimiento: boolean;
@@ -368,6 +424,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     sku,
     nombre: input.nombre,
     precioCentavos: input.precioCentavos,
+    porPeso: input.porPeso ?? false,
     sector: normalizarSector(input.sector),
     locationId: input.locationId ?? null,
     archivado: false,
@@ -422,6 +479,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     if (ficha.minStock !== null || ficha.reorderQty !== null) {
       await fijarUmbralesDb(db, sku, { minStock: ficha.minStock, reorderQty: ficha.reorderQty });
     }
+    if (ficha.porPeso) await fijarPorPesoDb(db, sku, true);
     espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
@@ -508,6 +566,7 @@ function espejoProducto(
 export interface ParcheProducto {
   readonly nombre?: string | undefined;
   readonly precioCentavos?: number | undefined;
+  readonly porPeso?: boolean | undefined;
   readonly sector?: string | undefined;
   readonly locationId?: string | null | undefined;
   readonly archivado?: boolean | undefined;
@@ -518,7 +577,7 @@ export interface ParcheProducto {
 
 export type ActualizarProductoResultado =
   | { ok: true; ficha: FichaProducto }
-  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO" | "CODIGO_DUPLICADO"; error: string };
+  | { ok: false; codigo: "DESCONOCIDO" | "UBICACION_DESCONOCIDA" | "UMBRAL_INVALIDO" | "CODIGO_DUPLICADO" | "FLAG_IRREVERSIBLE"; error: string };
 
 export async function actualizarProducto(sku: string, parche: ParcheProducto): Promise<ActualizarProductoResultado> {
   const productos = crearAlmacenProductos();
@@ -534,6 +593,9 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+    if (await flagIrreversible(enMemoria, parche, db, sku)) {
+      return { ok: false, codigo: "FLAG_IRREVERSIBLE", error: "No se puede cambiar 'se vende por peso': los tickets históricos quedarían sin sentido." };
+    }
     if (parche.codigo !== undefined) {
       const r = await reemplazarCodigo(sku, parche.codigo, persistenciaCodigosMemoria(codigos));
       if (!r.ok) return { ok: false, codigo: r.codigo, error: "codigo duplicado" };
@@ -547,8 +609,11 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null) : null);
+    const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null, (await porPesoDb(db, [fila.sku])).get(fila.sku) ?? false) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
+    if (await flagIrreversible(base, parche, db, sku)) {
+      return { ok: false, codigo: "FLAG_IRREVERSIBLE", error: "No se puede cambiar 'se vende por peso': los tickets históricos quedarían sin sentido." };
+    }
     if (parche.codigo !== undefined) {
       const r = await reemplazarCodigo(sku, parche.codigo, persistenciaCodigosDb(db, codigos));
       if (!r.ok) return { ok: false, codigo: r.codigo, error: "codigo duplicado" };
@@ -568,6 +633,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     if (parche.minStock !== undefined || parche.reorderQty !== undefined) {
       await fijarUmbralesDb(db, sku, { minStock: next.minStock, reorderQty: next.reorderQty });
     }
+    if (parche.porPeso !== undefined) await fijarPorPesoDb(db, sku, next.porPeso ?? false);
     return { ok: true, ficha: next };
   } catch (e) {
     if (e instanceof FalloBorradoCodigo) throw e;
@@ -588,6 +654,7 @@ function aplicarParche(
     ...p,
     ...(parche.nombre ? { nombre: parche.nombre } : {}),
     ...(parche.precioCentavos !== undefined ? { precioCentavos: parche.precioCentavos } : {}),
+    ...(parche.porPeso !== undefined ? { porPeso: parche.porPeso } : {}),
     ...(parche.sector !== undefined ? { sector: normalizarSector(parche.sector) } : {}),
     ...(parche.locationId !== undefined ? { locationId: parche.locationId } : {}),
     ...(parche.archivado !== undefined ? { archivado: parche.archivado } : {}),
@@ -784,7 +851,7 @@ export async function asignarUbicacionMasiva(input: AsignacionMasivaInput): Prom
           no_encontrados.push(sku);
           continue;
         }
-        base = fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null);
+        base = fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null, (await porPesoDb(db, [fila.sku])).get(fila.sku) ?? false);
       }
       if (!base) {
         no_encontrados.push(sku);

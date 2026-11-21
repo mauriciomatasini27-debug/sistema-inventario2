@@ -10,6 +10,7 @@ import {
 import {
   FORMATO_PRECIO,
   LOCALE_PRECIO,
+  etiquetaPrecioCatalogo,
   leerCatalogo,
   leerSkuSeleccionado,
   pesosDesdeCentavos,
@@ -42,15 +43,17 @@ const ENCABEZADOS: Record<Columnas, readonly string[]> = {
   stock: ["SKU", "Nombre", "Precio", "Mínimo", "A reponer"],
 };
 
-function CeldaPrecio({ centavos }: { centavos: number | string }) {
+function CeldaPrecio({ centavos, porPeso }: { centavos: number | string; porPeso?: boolean | undefined }) {
   return (
-    <td className="tnum precio">
+    <td className="tnum precio" aria-label={etiquetaPrecioCatalogo({ precioCentavos: centavos, porPeso })}>
       <NumberFlow
         value={pesosDesdeCentavos(centavos)}
         locales={LOCALE_PRECIO}
         format={FORMATO_PRECIO}
         respectMotionPreference
       />
+      <span className="por-peso-unidad">{porPeso ? " / kg" : " / unidad"}</span>
+      {porPeso ? <span className="por-peso-marca">Por peso</span> : null}
     </td>
   );
 }
@@ -60,14 +63,14 @@ const CELDAS: Record<Columnas, (p: ProductoCatalogo) => ReactNode> = {
     <>
       <td className="sku">{p.sku}</td>
       <td className="nombre">{p.nombre}</td>
-      <CeldaPrecio centavos={p.precioCentavos} />
+      <CeldaPrecio centavos={p.precioCentavos} porPeso={p.porPeso} />
     </>
   ),
   stock: (p) => (
     <>
       <td className="sku">{p.sku}</td>
       <td className="nombre">{p.nombre}</td>
-      <CeldaPrecio centavos={p.precioCentavos} />
+      <CeldaPrecio centavos={p.precioCentavos} porPeso={p.porPeso} />
       <td className="tnum cantidad">{p.min_stock ?? "—"}</td>
       <td className="tnum cantidad">{p.reorder_qty ?? "—"}</td>
     </>
@@ -134,6 +137,8 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
         .tabla-catalogo thead th { position: sticky; top: 0; z-index: 1; background: var(--tema-fondo); text-align: start; color: var(--tema-texto-suave); font-weight: 600; border-bottom: 2px solid var(--tema-borde-encabezado); }
         .tabla-catalogo td.nombre { min-width: 0; overflow-wrap: anywhere; }
         .tabla-catalogo td.precio { min-width: 5rem; }
+        .tabla-catalogo .por-peso-unidad { color: var(--tema-texto-suave); }
+        .tabla-catalogo .por-peso-marca { display: block; color: var(--tema-acento); font-size: .75rem; }
         .tabla-catalogo .tnum { font-variant-numeric: tabular-nums; }
         .tabla-catalogo tbody td { color: var(--tema-texto); }
         .tabla-catalogo tbody td.sku, .tabla-catalogo tbody td.cantidad { font-weight: 500; color: var(--tema-enfasis); }

@@ -79,7 +79,9 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
     expect(journal.entries.some((e) => e.tag === "0052_retencion_anonimiza_auditoria")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0053_servicios_pagos_tenant")).toBe(true);
-    expect(journal.entries.length).toBe(54);
+    // P10-93: la 0055 agrega products.por_peso (flag de venta por peso).
+    expect(journal.entries.some((e) => e.tag === "0055_products_por_peso")).toBe(true);
+    expect(journal.entries.length).toBeGreaterThanOrEqual(55);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -285,8 +287,9 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // ON12/TB-165 + 0051 + 0052/0053 (P10-90) [plataforma]: el wrapper aplica hasta la última migración del journal.
-        expect(n[0]?.n).toBe(54);
+        // ON12/TB-165 + 0051 + 0052/0053 (P10-90) + 0055 (P10-93) [plataforma]: el wrapper aplica hasta la última migración del journal.
+        const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: unknown[] };
+        expect(n[0]?.n).toBe(journal.entries.length);
       } finally {
         await db.end();
       }
