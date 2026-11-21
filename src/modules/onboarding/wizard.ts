@@ -66,7 +66,7 @@ export function puedeAvanzar(state: WizardState, respuesta?: string): boolean {
     const valor = (respuesta ?? "").trim();
     return valor.length > 0;
   }
-  // choice: siempre se puede elegir una opción
+  // TB-165: cualquier opción de una choice es válida; no hay respuesta incorrecta.
   return true;
 }
 
@@ -82,10 +82,10 @@ export function avanzar(
     const respuestas = { ...state.respuestas, [paso.key]: valor };
     return { ...state, respuestas, paso: state.paso + 1 };
   }
-  // choice
+  // TB-165: rama de opciones; sin respuesta no hay transición que aplicar.
   if (respuesta == null) return state;
   const respuestas = { ...state.respuestas, [paso.key]: respuesta };
-  // sub-flujo empleados
+  // TB-165: decir «Sí» abre la carga de emails sin avanzar de paso.
   if (paso.key === "empleados" && respuesta.startsWith("Sí")) {
     return { ...state, respuestas, empleadosDone: false };
   }
