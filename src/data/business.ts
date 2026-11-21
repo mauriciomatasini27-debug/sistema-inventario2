@@ -48,10 +48,9 @@ export const business: Business = {
       nombre: "Básico",
       precioUnico: "Consultar",
       features: [
-        "1 caja en el local.",
-        "1 almacén atado a la venta.",
-        "Lista de precios y stock visible.",
-        "Soporte por mensaje en horario comercial.",
+        "Inventario, caja y venta desde el celular.",
+        "Alertas de stock por email.",
+        "Consultas de stock por WhatsApp, hasta 100 al mes.",
       ],
     },
     {
@@ -60,10 +59,10 @@ export const business: Business = {
       precioUnico: "Precio a confirmar",
       destacado: true,
       features: [
-        "2 cajas en el mismo local.",
-        "Venta desde el celular.",
-        "Reposición por mínimo de stock.",
-        "Soporte prioritario por mensaje.",
+        "Todo lo de Básico, sin tope en las consultas de WhatsApp.",
+        "Alertas de stock por WhatsApp.",
+        "Bot adaptado a tu rubro.",
+        "Asistente IA.",
       ],
     },
     {
@@ -72,9 +71,8 @@ export const business: Business = {
       precioUnico: "A medida",
       features: [
         "Todo lo de Plus.",
-        "2 cajas y venta celular.",
-        "Reglas de reposición y cierre.",
-        "Funciones a medida cotizadas aparte.",
+        "Armado a medida de tu negocio.",
+        "Se cotiza aparte, según lo que necesites.",
       ],
     },
   ],
@@ -299,7 +297,7 @@ export const landingBeats: readonly LandingBeat[] = [
     variant: "white",
     nav: "Planes",
     title: "Planes",
-    lead: "Elegí por cajas, depósito y venta celular. Precios de lista por local.",
+    lead: "Elegí según cuánto querés usar WhatsApp, el bot y el asistente.",
     nota: "Básico Consultar, Plus Precio a confirmar, Pro A medida.",
     garantia: GARANTIA_BAJA,
     empezar: {
@@ -319,7 +317,7 @@ export const landingBeats: readonly LandingBeat[] = [
         {
           step: "Paso 3",
           title: "Elegir plan",
-          detail: "Te quedás con Básico, Plus o Pro según cajas y venta celular.",
+          detail: "Te quedás con Básico, Plus o Pro según lo que necesites.",
         },
       ],
     },
