@@ -47,7 +47,7 @@ Se publica por área **antes** de podar (#276). Total: 88 issues = 3 ya publicad
 
 ## Ratchet
 
-La base del check de comentarios queda fija en `eda3de2` durante todo el esfuerzo, sin moverla por área (#274). Al terminar, se cambia a `merge-base` con `origin/main`.
+Durante la ola 1 (#274) la base quedó fija en `eda3de2` vía `scripts/comment-rule-base.json`. `check-comment-ids` ya usa por defecto `merge-base(HEAD, origin/main)` (fallback `main`); override con argumento, `COMMENT_CHECK_BASE` o `comment-rule-base.json`.
 
 ## Criterio de fin
 
@@ -58,7 +58,7 @@ El esfuerzo completo termina cuando:
 3. `verify` quedó verde por área.
 4. Los baselines quedaron ajustados.
 5. Los 23 bloques abuelados de TB-165/ADR-0115 quedaron resueltos (al final, sin inventarles clase).
-6. La base del ratchet se movió a `merge-base` con `origin/main`.
+6. La base del check es `merge-base` con `origin/main` (criterio de fin del ratchet fijo).
 
 Los issues de deuda pueden seguir abiertos: se rastrean aparte.
 

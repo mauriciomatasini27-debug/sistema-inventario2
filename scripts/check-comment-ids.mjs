@@ -1,6 +1,5 @@
-// RETRO-01: chequea que todo comentario `//` agregado en el diff
-// nombre el ítem que lo motiva. Regla mecánica de AGENTS.md ("Regla de cada PR"):
-// se aplica solo a líneas nuevas, así que el código legacy no bloquea el gate.
+// RETRO-01: chequea comentarios `//` nuevos en src/ (ADR-0064, PLAN-COM-01-E).
+// Regla mecánica de AGENTS.md: solo líneas agregadas desde la base del PR.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
@@ -12,23 +11,49 @@ function git(...args) {
   }
 }
 
+function gitOk(...args) {
+  try {
+    execFileSync("git", args, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function commitExiste(ref) {
+  return gitOk("cat-file", "-e", `${ref}^{commit}`);
+}
+
+function enAlcance(archivo) {
+  return archivo.startsWith("src/");
+}
+
 const explicito = process.argv.slice(2).find((a) => !a.startsWith("-"));
+const envBase = String(process.env.COMMENT_CHECK_BASE ?? "").trim();
 let baseFijada = "";
 try {
-  baseFijada = String(JSON.parse(readFileSync("scripts/comment-rule-base.json", "utf8")).base ?? "");
+  baseFijada = String(JSON.parse(readFileSync("scripts/comment-rule-base.json", "utf8")).base ?? "").trim();
 } catch {
   baseFijada = "";
 }
-const base =
+
+let base =
   explicito ||
+  envBase ||
   baseFijada ||
   git("merge-base", "HEAD", "origin/main").trim() ||
-  git("merge-base", "HEAD", "main").trim() ||
-  "HEAD~1";
+  git("merge-base", "HEAD", "main").trim();
 
-if (!git("rev-parse", "--verify", base).trim()) {
-  console.error(`check-comment-ids: base no válida: ${base}`);
-  process.exit(2);
+if (!base) {
+  console.error(
+    "check-comment-ids: no se pudo resolver la base (probá fetch de origin/main o pasá un SHA con argumento).",
+  );
+  process.exit(1);
+}
+
+if (!commitExiste(base)) {
+  console.error(`check-comment-ids: la base no existe en este repo: ${base}`);
+  process.exit(1);
 }
 
 const ID = /\b[A-Z][A-Z0-9]*[-\w]*\d[\w-]*\b/;
@@ -45,7 +70,7 @@ function agregadosDe(diff) {
       archivo = linea.slice(6);
       continue;
     }
-    if (linea.startsWith("+") && !linea.startsWith("+++") && archivo) {
+    if (linea.startsWith("+") && !linea.startsWith("+++") && archivo && enAlcance(archivo)) {
       out.push({ archivo, texto: linea.slice(1) });
     }
   }
@@ -58,14 +83,12 @@ const lineas = [
 ];
 
 for (const archivo of git("ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean)) {
-  if (archivo.endsWith(".md")) continue;
+  if (!enAlcance(archivo) || archivo.endsWith(".md")) continue;
   for (const texto of readFileSync(archivo, "utf8").split("\n")) {
     lineas.push({ archivo, texto });
   }
 }
 
-// RETRO-01: un bloque de líneas `//` consecutivas cuenta como un solo comentario:
-// basta el id en la primera línea para que todo el bloque quede identificado.
 const bloques = [];
 let actual = null;
 for (const { archivo, texto } of lineas) {
@@ -84,23 +107,38 @@ for (const { archivo, texto } of lineas) {
 const problemas = [];
 for (const b of bloques) {
   if (!b.lineas.some((l) => ID.test(l))) {
-    problemas.push(`sin id de ítem: ${b.archivo}: ${b.lineas[0].trim()}`);
+    problemas.push({ tipo: "sin-id", archivo: b.archivo, vista: b.lineas[0].trim() });
   } else if (!b.lineas.some((l) => CLASE.test(l))) {
-    problemas.push(`sin clase ADR-0064: ${b.archivo}: ${b.lineas[0].trim()}`);
+    problemas.push({ tipo: "sin-clase", archivo: b.archivo, vista: b.lineas[0].trim() });
   }
   for (const l of b.lineas) {
     if (MARCADOR.test(l) && !ENLACE_ISSUE.test(l)) {
-      problemas.push(`marcador temporal sin issue (COM-S7): ${b.archivo}: ${l.trim()}`);
+      problemas.push({ tipo: "com-s7", archivo: b.archivo, vista: l.trim() });
     }
   }
 }
 
 if (problemas.length) {
-  console.error(`check-comment-ids: ${problemas.length} bloque(s) inválido(s) (base ${base}):`);
-  for (const p of problemas) console.error(`  ${p}`);
-  console.error("clases ADR-0064: [plataforma], [fiscal], [tenant]");
+  console.error(`check-comment-ids: ${problemas.length} problema(s) (base ${base}, alcance src/):`);
+  for (const p of problemas) {
+    if (p.tipo === "sin-id") {
+      console.error(`  sin id de ítem: ${p.archivo}: ${p.vista}`);
+    } else if (p.tipo === "sin-clase") {
+      console.error(`  sin clase ADR-0064: ${p.archivo}: ${p.vista}`);
+    } else {
+      console.error(`  marcador temporal sin issue (COM-S7): ${p.archivo}: ${p.vista}`);
+    }
+  }
+  console.error("");
+  console.error("Preferí BORRAR el comentario si solo repite el código o narra historia.");
+  console.error(
+    "Si aporta un porqué real, una línea con id y clase; p.ej.",
+    "// TB-165 [tenant]: el rol sale de la membership, nunca del body",
+  );
+  console.error("Clases: [plataforma] [fiscal] [tenant]");
+  console.error("Política: docs/adr/0064-politica-comentarios.md · Procedimiento: .agents/skills/delete-comment/SKILL.md");
   console.error("COM-S7: TODO/FIXME/HACK/XXX/temporal/'por ahora' requieren #<issue> en la misma línea");
   process.exit(1);
 }
 
-console.log(`check-comment-ids ok (base ${base})`);
+console.log(`check-comment-ids ok (base ${base}, alcance src/)`);
