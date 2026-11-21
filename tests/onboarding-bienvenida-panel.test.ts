@@ -5,7 +5,11 @@ import {
   marcar_bienvenida_panel,
   ya_vio_bienvenida_panel,
 } from "../src/modules/onboarding/bienvenida-panel.js";
-import { progreso_checklist, estado_paso_dialogo } from "../src/lib/panel-bienvenida.js";
+import {
+  estado_paso_dialogo,
+  hidratarNoAplica,
+  progreso_checklist,
+} from "../src/lib/panel-bienvenida.js";
 
 describe("bienvenida panel BIEN-S2", () => {
   it("Dueño sin marca debe ver el diálogo", () => {
@@ -60,6 +64,19 @@ describe("bienvenida panel BIEN-S3 contenido", () => {
         false,
       ),
     ).toBe("No aplica");
+  });
+
+  it("TB-165: hidrata el «no aplica» del servidor en el Set local", () => {
+    const saltados = new Set<string>(["productos"]);
+    const pasos = [
+      { id: "empleado", noAplica: true },
+      { id: "whatsapp", noAplica: false },
+      { id: 7, noAplica: true },
+      null,
+      "texto",
+    ];
+    hidratarNoAplica(pasos, saltados);
+    expect([...saltados].sort()).toEqual(["empleado", "productos"]);
   });
 
   it("progreso y estado de paso son legibles", () => {

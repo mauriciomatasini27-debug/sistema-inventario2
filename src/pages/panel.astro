@@ -33,7 +33,7 @@ const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
 const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
 // TB-165: el cuestionario es una ruta opcional del Dueño, nunca la entrada
 // post-login. El mismo guard del diálogo decide quién ve el enlace.
-const accesoCuestionario = urlCuestionario(
+const cuestionarioHref = urlCuestionario(
   mostrarBienvenida,
   tenantRes.ok ? tenantRes.tenantId : "",
 );
@@ -63,8 +63,8 @@ const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
     <a class="sg-flame-cta atajo" href="/venta">Vender</a>
     <a class="atajo" href="/panel/stock">Productos</a>
     <a class="atajo" href="/panel/fiado">Fiado</a>
-    {accesoCuestionario && (
-      <a class="atajo" data-cuestionario-link href={accesoCuestionario}>Configurar comercio</a>
+    {cuestionarioHref && (
+      <a class="atajo" data-cuestionario-link href={cuestionarioHref}>Configurar comercio</a>
     )}
   </nav>
 

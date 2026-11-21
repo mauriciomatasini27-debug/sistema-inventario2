@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
-import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
+import { jsonError, membershipActiva, numeroWhatsappVinculado, resolverSesion } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { conTenant } from "../../../lib/tenant-mode.js";
 import { listarProductos } from "../../../lib/repos/catalogo.js";
@@ -87,10 +87,8 @@ export const GET: APIRoute = async ({ request }) => {
     whatsappVerificado,
   });
   const ejemplo = [...control.ejemplos.values()].find((e) => e.tenantRealId === tenantId) ?? null;
-  // TB-165: el cuestionario no re-pregunta estos datos; los expone completos.
-  const numeroWhatsapp = [...control.vincularCodes.values()].find(
-    (c) => c.tenantId === tenantId && c.googleSub === ctx.googleSub,
-  )?.numeroRegistrado ?? null;
+  // TB-165 [tenant]: el cuestionario no re-pregunta estos datos; los expone completos.
+  const numeroWhatsapp = numeroWhatsappVinculado(tenantId, ctx.googleSub);
   return Response.json({
     comercio: tenant
       ? {

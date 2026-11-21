@@ -25,3 +25,17 @@ export function estado_paso_dialogo(paso: PasoChecklistDialogo, saltado: boolean
 export function paso_es_empleado(id: string): boolean {
   return id === "empleado";
 }
+
+// TB-165 [tenant]: el «no aplica» vive en el servidor; el diálogo lo hidrata
+// en su Set local desde la carga inicial y desde la respuesta de saltar.
+export function hidratarNoAplica(
+  pasos: readonly unknown[],
+  saltados: Set<string>,
+): Set<string> {
+  for (const paso of pasos) {
+    if (typeof paso !== "object" || paso === null) continue;
+    const { id, noAplica } = paso as { id?: unknown; noAplica?: unknown };
+    if (noAplica === true && typeof id === "string") saltados.add(id);
+  }
+  return saltados;
+}

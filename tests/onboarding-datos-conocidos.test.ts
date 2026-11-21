@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
+import { numeroWhatsappVinculado } from "../src/lib/control.js";
 import { sesionEnStore } from "./helpers/sesion.js";
 import { GET as getEstado } from "../src/pages/api/onboarding/estado.js";
 import { pasosParaDatos } from "../src/modules/onboarding/wizard.js";
@@ -44,6 +45,19 @@ describe("TB-165: datos ya capturados", () => {
       nombre: "Kiosco La Esquina", rubro: "kiosco", whatsapp: "5491112345678",
     });
     expect(json.dueno?.nombre).toBe("Juan");
+  });
+
+  it("TB-165: el WhatsApp vinculado se resuelve por comercio y usuario", () => {
+    const codigo = (numeroRegistrado: string, tenantId: string, googleSub: string) => ({
+      codigoHash: "h", expiraEn: Date.now() + 60_000, usado: false,
+      numeroRegistrado, tenantId, googleSub, intentosFallidos: 0,
+    });
+    control.vincularCodes.set("111", codigo("111", "otro-tenant", SUB));
+    control.vincularCodes.set("222", codigo("222", TENANT, SUB));
+    control.vincularCodes.set("333", codigo("333", TENANT, "otro-sub"));
+
+    expect(numeroWhatsappVinculado(TENANT, SUB)).toBe("222");
+    expect(numeroWhatsappVinculado(TENANT, "sin-vinculo")).toBeNull();
   });
 
   it("no vuelve a pedir los datos conocidos y guarda todas las respuestas", () => {
