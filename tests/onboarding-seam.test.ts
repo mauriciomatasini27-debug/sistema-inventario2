@@ -15,7 +15,6 @@ import {
   estadoInicialWizard,
   agregarEmpleado,
   marcarCompletado,
-  PASOS_WIZARD,
 } from "../src/modules/onboarding/wizard.js";
 import { claveOnboarding } from "../src/modules/onboarding/estado.js";
 
@@ -86,20 +85,21 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     let wizard = estadoInicialWizard();
     wizard = agregarEmpleado(wizard, "Ana");
     wizard = agregarEmpleado(wizard, "Beto");
-    wizard = marcarCompletado({ ...wizard, paso: PASOS_WIZARD.length });
+    wizard = marcarCompletado({ ...wizard, paso: wizard.pasos.length });
     const actualizado = completarWizard(USER, TENANT, wizard, mem.persistencia);
 
     expect(actualizado.wizardCompletado).toBe(true);
-    expect(actualizado.wizardPaso).toBe(PASOS_WIZARD.length);
+    expect(actualizado.wizardPaso).toBe(wizard.pasos.length);
     expect(actualizado.wizardEmpleados).toEqual(["Ana", "Beto"]);
     expect(mem.estados.get(CLAVE)?.wizardEmpleados).toEqual(["Ana", "Beto"]);
   });
 
   it("TB-165: completar conserva todas las respuestas, no sólo empleados", () => {
     const mem = seam();
+    const base = estadoInicialWizard();
     const wizard = marcarCompletado({
-      ...estadoInicialWizard(),
-      paso: PASOS_WIZARD.length,
+      ...base,
+      paso: base.pasos.length,
       respuestas: {
         empleados: "Sí, tengo empleados",
         productos: "Sí, cargar productos",
@@ -131,7 +131,7 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     const next = completarWizardConEmpleados(USER, TENANT, ["Ana"], mem.persistencia);
 
     expect(next.wizardCompletado).toBe(true);
-    expect(next.wizardPaso).toBe(PASOS_WIZARD.length);
+    expect(next.wizardPaso).toBe(estadoInicialWizard().pasos.length);
     expect(next.wizardEmpleados).toEqual(["Ana"]);
 
     // TB-165: sin empleados en el body conserva los ya persistidos

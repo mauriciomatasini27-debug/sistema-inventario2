@@ -18,7 +18,7 @@ vi.mock("../src/lib/control-db.js", async (importOriginal) => {
 });
 
 import { POST } from "../src/pages/api/onboarding/completar.js";
-import { PASOS_WIZARD } from "../src/modules/onboarding/wizard.js";
+import { estadoInicialWizard } from "../src/modules/onboarding/wizard.js";
 
 beforeEach(() => {
   resetStore();
@@ -42,7 +42,7 @@ describe("ON12: espejo durable del wizard en la ruta completar", () => {
     });
 
     await vi.waitFor(() => expect(espejo.persistir).toHaveBeenCalledTimes(1));
-    expect(espejo.persistir).toHaveBeenCalledWith("t-1", true, PASOS_WIZARD.length);
+    expect(espejo.persistir).toHaveBeenCalledWith("t-1", true, estadoInicialWizard().pasos.length);
     expect(respondio).toBe(false);
 
     espejo.resolver();

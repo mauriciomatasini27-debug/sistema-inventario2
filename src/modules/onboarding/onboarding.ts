@@ -10,7 +10,6 @@ import {
 import { calcular_checklist, type DatosChecklist } from "./checklist.js";
 import { registrar_progreso } from "./video.js";
 import {
-  PASOS_WIZARD,
   esCompleto,
   marcarCompletado,
   retomar,
@@ -124,7 +123,7 @@ function completarDesde(
     previo,
     {
       wizardCompletado: true,
-      wizardPaso: esCompleto(wizard) ? PASOS_WIZARD.length : wizard.paso,
+      wizardPaso: esCompleto(wizard) ? wizard.pasos.length : wizard.paso,
       wizardEmpleados: [...wizard.empleados],
       // TB-165: antes se guardaban sólo empleados; el resto se descartaba.
       wizardRespuestas: { ...wizard.respuestas },

@@ -10,8 +10,9 @@ export interface PasoWizard {
   opciones?: string[];
 }
 
-// TB-165: negocio, rubro, WhatsApp y nombre del Dueño ya vienen del alta y
-// del proveedor de identidad; el cuestionario no los vuelve a preguntar.
+// TB-165: negocio y nombre del Dueño vienen del alta y del proveedor de
+// identidad; no se preguntan nunca. Rubro y WhatsApp se preguntan sólo si
+// faltan; el resto siempre se pregunta.
 export const PASOS_WIZARD: readonly PasoWizard[] = [
   {
     key: "empleados",
@@ -33,8 +34,29 @@ export const PASOS_WIZARD: readonly PasoWizard[] = [
   },
 ];
 
+const PASOS_DATOS_FALTANTES: readonly PasoWizard[] = [
+  { key: "rubro", titulo: "¿Cuál es tu rubro?", tipo: "text" },
+  { key: "whatsapp", titulo: "¿Cuál es tu número de WhatsApp?", tipo: "text" },
+];
+
+export interface DatosConocidos {
+  rubro?: string | null;
+  whatsapp?: string | null;
+}
+
+// TB-165: el conjunto de pasos se deriva de los datos disponibles, no de una
+// lista fija recortada a mano. Los datos faltantes van al principio.
+export function pasosParaDatos(datos: DatosConocidos = {}): PasoWizard[] {
+  const faltantes = PASOS_DATOS_FALTANTES.filter((paso) =>
+    paso.key === "rubro" ? !datos.rubro : !datos.whatsapp,
+  );
+  return [...faltantes, ...PASOS_WIZARD];
+}
+
 export interface WizardState {
   paso: number;
+  pasos: PasoWizard[];
+  datosConocidos: DatosConocidos;
   respuestas: Record<string, string>;
   empleados: string[];
   empleadosDone: boolean;
@@ -42,9 +64,11 @@ export interface WizardState {
   completado: boolean;
 }
 
-export function estadoInicialWizard(): WizardState {
+export function estadoInicialWizard(datos: DatosConocidos = {}): WizardState {
   return {
     paso: 0,
+    pasos: pasosParaDatos(datos),
+    datosConocidos: { ...datos },
     respuestas: {},
     empleados: [],
     empleadosDone: false,
@@ -53,10 +77,24 @@ export function estadoInicialWizard(): WizardState {
   };
 }
 
+// TB-165: al cargar los datos conocidos desde el servidor se recompone la
+// lista de pasos; el paso actual se localiza por clave para no perder progreso.
+export function conDatosConocidos(state: WizardState, datos: DatosConocidos): WizardState {
+  const pasos = pasosParaDatos(datos);
+  const claveActual = state.pasos[state.paso]?.key;
+  const paso = claveActual ? pasos.findIndex((p) => p.key === claveActual) : -1;
+  return {
+    ...state,
+    datosConocidos: { ...datos },
+    pasos,
+    paso: paso >= 0 ? paso : Math.min(state.paso, pasos.length),
+  };
+}
+
 export function pasoActual(state: WizardState): PasoWizard | null {
   if (state.completado) return null;
-  if (state.paso >= PASOS_WIZARD.length) return null;
-  return PASOS_WIZARD[state.paso] ?? null;
+  if (state.paso >= state.pasos.length) return null;
+  return state.pasos[state.paso] ?? null;
 }
 
 export function puedeAvanzar(state: WizardState, respuesta?: string): boolean {
@@ -122,19 +160,29 @@ export function marcarCompletado(state: WizardState): WizardState {
 }
 
 export function esCompleto(state: WizardState): boolean {
-  return state.completado || state.paso >= PASOS_WIZARD.length;
+  return state.completado || state.paso >= state.pasos.length;
 }
 
 // TB-165: el índice del sub-flujo se deriva del propio paso, no se hardcodea.
 export const INDICE_PASO_EMPLEADOS = PASOS_WIZARD.findIndex((p) => p.key === "empleados");
 
-export function retomar(paso: number, respuestas: Record<string, string>, empleados: string[], saltados: string[]): WizardState {
-  const p = Math.max(0, Math.min(paso, PASOS_WIZARD.length));
+export function retomar(
+  paso: number,
+  respuestas: Record<string, string>,
+  empleados: string[],
+  saltados: string[],
+  datos: DatosConocidos = {},
+): WizardState {
+  const pasos = pasosParaDatos(datos);
+  const p = Math.max(0, Math.min(paso, pasos.length));
+  const empleadosIndex = pasos.findIndex((x) => x.key === "empleados");
   return {
     paso: p,
+    pasos,
+    datosConocidos: { ...datos },
     respuestas: { ...respuestas },
     empleados: [...empleados],
-    empleadosDone: p > INDICE_PASO_EMPLEADOS,
+    empleadosDone: p > empleadosIndex,
     saltados: [...saltados],
     completado: false,
   };
