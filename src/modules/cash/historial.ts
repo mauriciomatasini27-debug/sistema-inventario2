@@ -1,11 +1,3 @@
-// C11 historial/export de caja (módulo cash).
-//
-// Núcleo puro: sin IO, sin reloj propio. Opera sobre StoredMovement
-// (append-only): filtra + pagina + serializa a CSV. Las rutas HTTP son
-// adaptadores delgados que parsean query params y responden.
-// Dinero viaja como string de centavos (bigint serializado en el borde),
-// igual que el resto de las rutas de caja.
-
 import type { StoredMovement } from "../../lib/store.js";
 
 export type TipoMovHistorial = "ingreso" | "egreso";
@@ -37,8 +29,6 @@ export const ORIGENES_HISTORIAL: ReadonlyArray<string> = [
   "cobro_fiado",
 ];
 
-// Nota de alcance: no hay filtro por fecha_jornada porque StoredMovement
-// no guarda fecha (cambiarlo toca POST /movements + sync offline; P1).
 export function parsear_params(sp: URLSearchParams): { ok: true; params: ParamsHistorial } | { ok: false; error: string } {
   const tipo = sp.get("tipo");
   const medio = sp.get("medio");
@@ -62,7 +52,6 @@ export function parsear_params(sp: URLSearchParams): { ok: true; params: ParamsH
   };
 }
 
-// Más recientes primero (el store apendea en orden cronológico).
 export function filtrar_historial(
   movs: ReadonlyArray<StoredMovement>,
   f: FiltroHistorial,

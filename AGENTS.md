@@ -20,7 +20,7 @@ Reglas cortas para agentes en este repo.
 ## Regla de cada PR
 
 - Una rama por ítem (`mauri/<tema>`), nunca commit ni push a `main`; el agente no mergea: el merge lo hace Mauri.
-- Documentá lo que hace el código según el estilo del repo: comentarios `//` con el id del ítem y el porqué (no JSDoc), el avance de Roadmap de arriba y la línea `> Estado al` del PRD que toca el ítem. Sin tocar los generados ni `docs/ROADMAP.md`.
+- Seguí la política de comentarios de ADR-0064: un comentario `//` solo se escribe si explica un porqué que el código no puede decir, en una de tres clases — plataforma/navegador (`[plataforma]`), regla fiscal o legal con referencia (`[fiscal]`), o invariante de seguridad/aislamiento por tenant (`[tenant]`) — y nombra el id del ítem. Todo lo demás se elimina; un parche temporal se refactoriza o se registra como issue, nunca se explica en un comentario (PRD-COM-01, PLAN-COM-01). `scripts/check-comment-ids.mjs` lo verifica en `verify`. No JSDoc. Agregá también el avance de Roadmap de arriba y la línea `> Estado al` del PRD que toca el ítem. Sin tocar los generados ni `docs/ROADMAP.md`.
 - La descripción del PR explica comportamiento, diseño, tests y cómo verificarlo (comandos concretos).
 - Tests de bordes sacados de los AC del PRD/ADR (cambio de día, otro tenant, fallo de base, permisos por rol, estado vacío), y comprobá que cada uno falla si rompés el comportamiento que cubre.
 - Antes del PR: `npm run verify` en verde (ya corre `typecheck`, `check:arch`, la suite completa, el gate de skips y `astro build`, además de los gates de docs): no corras `npm test` por separado. No hay ESLint/Biome/Prettier: `verify` es el lint.

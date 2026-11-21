@@ -13,8 +13,15 @@ function git(...args) {
 }
 
 const explicito = process.argv.slice(2).find((a) => !a.startsWith("-"));
+let baseFijada = "";
+try {
+  baseFijada = String(JSON.parse(readFileSync("scripts/comment-rule-base.json", "utf8")).base ?? "");
+} catch {
+  baseFijada = "";
+}
 const base =
   explicito ||
+  baseFijada ||
   git("merge-base", "HEAD", "origin/main").trim() ||
   git("merge-base", "HEAD", "main").trim() ||
   "HEAD~1";
@@ -25,6 +32,7 @@ if (!git("rev-parse", "--verify", base).trim()) {
 }
 
 const ID = /\b[A-Z][A-Z0-9]*[-\w]*\d[\w-]*\b/;
+const CLASE = /\[(plataforma|fiscal|tenant)\]/;
 const SOLO_SEPARADOR = /^\s*\/\/[-\s=*:]*$/;
 
 function agregadosDe(diff) {
@@ -71,11 +79,19 @@ for (const { archivo, texto } of lineas) {
   }
 }
 
-const fallos = bloques.filter((b) => !b.lineas.some((l) => ID.test(l)));
+const problemas = [];
+for (const b of bloques) {
+  if (!b.lineas.some((l) => ID.test(l))) {
+    problemas.push(`sin id de ítem: ${b.archivo}: ${b.lineas[0].trim()}`);
+  } else if (!b.lineas.some((l) => CLASE.test(l))) {
+    problemas.push(`sin clase ADR-0064: ${b.archivo}: ${b.lineas[0].trim()}`);
+  }
+}
 
-if (fallos.length) {
-  console.error(`check-comment-ids: ${fallos.length} bloque(s) sin id de ítem (base ${base}):`);
-  for (const b of fallos) console.error(`  ${b.archivo}: ${b.lineas[0].trim()}`);
+if (problemas.length) {
+  console.error(`check-comment-ids: ${problemas.length} bloque(s) inválido(s) (base ${base}):`);
+  for (const p of problemas) console.error(`  ${p}`);
+  console.error("clases ADR-0064: [plataforma], [fiscal], [tenant]");
   process.exit(1);
 }
 
