@@ -346,25 +346,29 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       }
       // Provisorios ya creados (origen alta_al_vender) sin ALTA todavía.
       const skusLinea = [...new Set(i.lineas.map((l) => l.product_id))];
+      // AUD-VTA-01: catálogo y movimientos filtrados por comercio; el mismo
+      // SKU en otro comercio no cuenta como provisorio ni como ALTA propia.
       const provisorios = await tx
         .select({ sku: products.sku })
         .from(products)
-        .where(and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender")));
+        .where(dondeTenant(products.tenantId, and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender"))));
       if (provisorios.length > 0) {
+        const wAlta = and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA"));
         const conAlta = await tx
           .select({ sku: stockMovements.sku })
           .from(stockMovements)
-          .where(and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA")));
+          .where(dondeTenant(stockMovements.tenantId, wAlta));
         const yaCargados = new Set(conAlta.map((m) => m.sku));
         for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
       }
       // P1-60: el corte de vencido es el instante de la venta.
       const ahora = new Date(i.clientOccurredAt);
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
+        // AUD-VTA-01: la línea del ticket apunta al producto de este comercio.
         const prods = await tx
           .select({ id: products.id, sku: products.sku })
           .from(products)
-          .where(inArray(products.sku, skusLinea));
+          .where(dondeTenant(products.tenantId, inArray(products.sku, skusLinea)));
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
         const r = vender_mostrador({
           idempotencyKey: i.key,

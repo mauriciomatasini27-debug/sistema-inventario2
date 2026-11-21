@@ -304,10 +304,13 @@ export async function aplicarVentaLotes<T>(
       porSku.set(t.sku, (porSku.get(t.sku) ?? 0) + t.cantidad);
     }
     for (const [sku, cantidad] of porSku) {
+      // AUD-VTA-01: el SKU se repite entre comercios; sin el tenant, la venta
+      // de A también bajaba el stock_actual de B.
+      const wStock = dondeTenant(products.tenantId, eq(products.sku, sku)) ?? eq(products.sku, sku);
       await tx
         .update(products)
         .set({ stockActual: sql`${products.stockActual} - ${cantidad}` })
-        .where(eq(products.sku, sku));
+        .where(wStock);
     }
   }
   return valor;
