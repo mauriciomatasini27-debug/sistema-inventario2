@@ -3,12 +3,21 @@
 // snake_case, bigint centavos, tipos readonly, fallos tipados (no throw en
 // dominio).
 //
-// Ley 25.326 mínimo: el resumen solo lleva número de ticket, total, medio,
-// comercio y link público. Nada de PII extra (sin nombre/DNI/tel en el cuerpo).
+// P10-95 [tenant]: el resumen lleva solo datos del comprobante porque la Ley 25.326 prohíbe PII adicional en el cuerpo.
+
+import { formatearPesos } from "../../lib/pesos.js";
+import { descripcionLineaPeso } from "./linea_peso.js";
 
 export const LIMITE_TEXTO_WA = 4096 as const;
 export const COSTO_PLANTILLA_CENTAVOS = 2600n as const;
 export const LEYENDA_NO_FISCAL = "DOCUMENTO NO VÁLIDO COMO FACTURA" as const;
+
+export interface ResumenLineaTicket {
+  readonly sku: string;
+  readonly cantidad: number;
+  readonly precioCentavos: number | bigint;
+  readonly porPeso?: boolean | undefined;
+}
 
 export interface ResumenTicketInput {
   readonly definitivo: string | null;
@@ -17,6 +26,7 @@ export interface ResumenTicketInput {
   readonly medio: string;
   readonly comercio: string;
   readonly linkPublico?: string | undefined;
+  readonly lineas?: ReadonlyArray<ResumenLineaTicket> | undefined;
 }
 
 export type ValidacionE164 =
@@ -52,8 +62,14 @@ function formato_ars(totalCentavos: bigint): string {
 // TV2/TV7: contenido sin costos + leyenda no fiscal. Sin PII (Ley 25.326).
 export function construir_resumen_ticket(input: ResumenTicketInput): string {
   const numero = input.definitivo ?? input.provisorio;
+  const detalle = (input.lineas ?? []).map((l) => {
+    if (l.porPeso === true) return `${l.sku}: ${descripcionLineaPeso(l.cantidad, Number(l.precioCentavos))}`;
+    const precio = typeof l.precioCentavos === "bigint" ? l.precioCentavos : BigInt(Math.trunc(l.precioCentavos));
+    return `${l.sku}: ${l.cantidad} x ${formatearPesos(precio)} = ${formatearPesos(BigInt(l.cantidad) * precio)}`;
+  });
   const lineas = [
     `Ticket ${numero} — ${input.comercio}`,
+    ...detalle,
     `Total ${formato_ars(input.totalCentavos)} (${input.medio})`,
     LEYENDA_NO_FISCAL,
   ];
