@@ -1,6 +1,7 @@
 import { parsearPesos } from "../../lib/pesos.js";
+import { subtotalLinea } from "./linea_peso.js";
 
-export type LineaTotal = { readonly qty: number; readonly precio_centavos: number };
+export type LineaTotal = { readonly qty: number; readonly precio_centavos: number; readonly porPeso?: boolean | undefined };
 
 export type EvaluacionVuelto =
   | { readonly ok: true; readonly modo: "sin_recibido" }
@@ -13,7 +14,7 @@ export type EvaluacionVuelto =
   | { readonly ok: false; readonly codigo: "recibido_invalido" | "recibido_insuficiente" };
 
 export function totalCentavosCarrito(lineas: ReadonlyArray<LineaTotal>): number {
-  return lineas.reduce((acc, l) => acc + l.qty * l.precio_centavos, 0);
+  return lineas.reduce((acc, l) => acc + Number(subtotalLinea(l.qty, l.precio_centavos, l.porPeso)), 0);
 }
 
 // TB-162: solo UI. El backend sigue registrando el importe de la venta, no lo recibido.

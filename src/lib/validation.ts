@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_GRAMOS, MAX_UNIDADES } from "./cantidades.js";
 
 export const medioSchema = z.enum([
   "Efectivo",
@@ -9,15 +10,22 @@ export const medioSchema = z.enum([
 ]);
 export type Medio = z.infer<typeof medioSchema>;
 
-export const salesLineSchema = z.object({
-  product_id: z.string().min(1).max(64),
-  qty: z.number().int().min(1).max(999),
-  precio_centavos: z.number().int().min(0).max(999_999_999),
-  precio_id: z.string().max(64).optional(),
-  // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo online. El SKU es
-  // product_id y el precio es el de la línea; acá solo viaja el nombre.
-  alta: z.object({ nombre: z.string().trim().min(1).max(120) }).optional(),
-});
+export const salesLineSchema = z
+  .object({
+    product_id: z.string().min(1).max(64),
+    qty: z.number().int().min(1).max(MAX_GRAMOS),
+    precio_centavos: z.number().int().min(0).max(999_999_999),
+    por_peso: z.boolean().default(false),
+    precio_id: z.string().max(64).optional(),
+    // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo online. El SKU es
+    // product_id y el precio es el de la línea; acá solo viaja el nombre.
+    alta: z.object({ nombre: z.string().trim().min(1).max(120) }).optional(),
+  })
+  .superRefine((linea, ctx) => {
+    if (linea.por_peso !== true && linea.qty > MAX_UNIDADES) {
+      ctx.addIssue({ code: "custom", path: ["qty"], message: `Poné un entero entre 1 y ${MAX_UNIDADES}.` });
+    }
+  });
 
 export const postSalesSchema = z.object({
   lineas: z.array(salesLineSchema).min(1).max(50),
