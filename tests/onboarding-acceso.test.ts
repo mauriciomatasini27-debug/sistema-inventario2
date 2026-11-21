@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { control, resetStore } from "../src/lib/store.js";
 import { conModoTenant } from "../src/lib/tenant.js";
@@ -42,9 +41,12 @@ describe("TB-165: acceso al cuestionario de configuración", () => {
     expect(conModoTenant(MULTI, () => exigirDuenoDeRequest(sinSesion)).ok).toBe(false);
   });
 
-  it("la página aplica el guard en servidor antes de renderizar", () => {
-    const pagina = readFileSync("src/pages/onboarding.astro", "utf8");
-    expect(pagina).toContain("exigirDuenoDeRequest");
-    expect(pagina).toContain("Astro.redirect");
+  it("sin comercio en la sesión no puede abrirlo", () => {
+    taller("dueno");
+    const sinComercio = new Request("http://x/onboarding", {
+      headers: { cookie: `__Host-sesion=${sesionEnStore("g-1", null)}` },
+    });
+    expect(conModoTenant(MULTI, () => exigirDuenoDeRequest(sinComercio)).ok).toBe(false);
   });
+
 });

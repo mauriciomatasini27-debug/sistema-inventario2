@@ -9,6 +9,7 @@ import {
   retomar,
   saltar,
   subflujoEmpleadosActivo,
+  transicionConSalida,
   type PasoWizard,
 } from "../src/modules/onboarding/wizard.js";
 import { ID_CHECKLIST_EMPLEADO } from "../src/modules/onboarding/checklist.js";
@@ -54,6 +55,21 @@ describe("TB-165: la semántica del paso vive en PasoWizard", () => {
     const saltado = saltar(s);
     expect(saltado.saltados).toContain(ID_CHECKLIST_EMPLEADO);
     expect(saltado.saltados).not.toContain("empleados");
+  });
+
+  it("la transición devuelve el estado ya avanzado antes del destino", () => {
+    const datos = { rubro: "k", whatsapp: "w" };
+    let s = retomar(0, {}, [], [], datos);
+    s = avanzar(s, "No, trabajo solo"); // ahora el paso es productos
+
+    const conSalida = transicionConSalida(s, "Sí, cargar productos");
+    expect(conSalida.salida).toBe("/panel/stock/importar");
+    expect(conSalida.state.respuestas.productos).toBe("Sí, cargar productos");
+    expect(conSalida.state.paso).toBe(s.paso + 1);
+
+    const sinSalida = transicionConSalida(s, "Más tarde");
+    expect(sinSalida.salida).toBeNull();
+    expect(sinSalida.state.paso).toBe(s.paso + 1);
   });
 
   it("las firmas públicas reciben ContextoOnboarding", () => {

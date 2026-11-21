@@ -1,19 +1,5 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { destinoSi, PASOS_WIZARD } from "../src/modules/onboarding/wizard.js";
-
-// TB-165: las ramas «sí» salían a otra página sin guardar, así que el guardado
-// final nunca se ejecutaba. TB-14: la semántica de la rama vive en el paso, no
-// en la vista; acá se comprueba el destino por comportamiento y el orden
-// guardar→navegar en la página (este último se convierte en el ticket 15).
-const pagina = readFileSync("src/pages/onboarding.astro", "utf8");
-
-function bloqueSalida(): string {
-  const inicio = pagina.indexOf("const salida = destinoSi(paso, o)");
-  if (inicio < 0) throw new Error("falta el uso de destinoSi en la vista");
-  const fin = pagina.indexOf("window.location.href", inicio);
-  return pagina.slice(inicio, fin < 0 ? inicio + 200 : fin);
-}
+import { destinoSi, PASOS_WIZARD, transicionConSalida } from "../src/modules/onboarding/wizard.js";
 
 function destino(key: string, respuesta: string): string | null {
   const paso = PASOS_WIZARD.find((p) => p.key === key);
@@ -21,25 +7,39 @@ function destino(key: string, respuesta: string): string | null {
 }
 
 describe("TB-165: ramas «sí» del cuestionario", () => {
-  it("productos avanza y guarda antes de abrir la importación", () => {
+  it("productos con «Sí» sale a importar, con «Más tarde» no", () => {
     expect(destino("productos", "Sí, cargar productos")).toBe("/panel/stock/importar");
-    expect(bloqueSalida()).toContain("avanzar(state, o)");
-    expect(bloqueSalida()).toContain("save()");
+    expect(destino("productos", "Más tarde")).toBeNull();
   });
 
-  it("caja avanza y guarda antes de abrir la caja", () => {
+  it("caja con «Sí» sale a la caja, con «Empezar en 0» no", () => {
     expect(destino("caja", "Sí, cargar monto")).toBe("/panel/caja");
-    expect(bloqueSalida()).toContain("avanzar(state, o)");
-    expect(bloqueSalida()).toContain("save()");
+    expect(destino("caja", "Empezar en 0")).toBeNull();
   });
 
-  it("el guardado ocurre antes de navegar", () => {
-    const bloque = bloqueSalida();
-    expect(bloque.indexOf("save()", bloque.indexOf("avanzar(state, o)"))).toBeGreaterThan(-1);
+  it("la rama «sí» devuelve el estado avanzado antes del destino", () => {
+    const paso = PASOS_WIZARD.find((p) => p.key === "productos");
+    const estado = {
+      paso: 1,
+      pasos: [PASOS_WIZARD[0]!, paso!],
+      datosConocidos: {},
+      respuestas: {
+        empleados: "No, trabajo solo",
+        rubro: "kiosco",
+        whatsapp: "5491112345678",
+      },
+      empleados: [],
+      empleadosDone: false,
+      saltados: [],
+      completado: false,
+    };
+    const t = transicionConSalida(estado, "Sí, cargar productos");
+    expect(t.salida).toBe("/panel/stock/importar");
+    expect(t.state.respuestas.productos).toBe("Sí, cargar productos");
+    expect(t.state.paso).toBe(2);
   });
 
-  it("al volver se retoma el paso guardado en localStorage", () => {
-    expect(pagina).toContain("localStorage.getItem(storageKey)");
-    expect(pagina).toMatch(/\.\.\.guardado/);
+  it("un paso sin salida definida nunca navega", () => {
+    expect(destino("empleados", "Sí, tengo empleados")).toBeNull();
   });
 });

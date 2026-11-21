@@ -126,6 +126,18 @@ export function subflujoEmpleadosActivo(state: WizardState): boolean {
   return String(state.respuestas[paso.key] ?? "").startsWith("Sí");
 }
 
+// TB-165: el caller recibe el estado ya avanzado junto al destino, así que
+// puede guardar antes de navegar sin volver a decidir la transición.
+export function transicionConSalida(
+  state: WizardState,
+  respuesta: string,
+): { state: WizardState; salida: string | null } {
+  return {
+    state: avanzar(state, respuesta),
+    salida: destinoSi(pasoActual(state), respuesta),
+  };
+}
+
 export function indiceSubflujoEmpleados(pasos: readonly PasoWizard[]): number {
   return pasos.findIndex((p) => p.subflujo === "empleados");
 }

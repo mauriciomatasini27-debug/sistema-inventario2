@@ -13,6 +13,13 @@ export function pasosGuiaEmpleado(
   return pasos_para_rol("empleado", [...permisos]);
 }
 
+// TB-165: el enlace al cuestionario es del Dueño y necesita un comercio
+// resuelto; el Empleado nunca lo ve.
+export function urlCuestionario(mostrar: boolean, tenantId: string): string | null {
+  if (!mostrar || !tenantId) return null;
+  return `/onboarding?tenant_id=${encodeURIComponent(tenantId)}`;
+}
+
 export interface OrientacionPanel {
   // TB-165: diálogo de bienvenida y enlace «Configurar comercio», sólo del Dueño.
   mostrarBienvenida: boolean;

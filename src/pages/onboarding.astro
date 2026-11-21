@@ -67,12 +67,12 @@ const tenantId = tenantCuestionario.tenantId;
         avanzar,
         completarEmpleados,
         conDatosConocidos,
-        destinoSi,
         estadoInicialWizard,
         esCompleto,
         pasoActual,
         saltar,
         subflujoEmpleadosActivo,
+        transicionConSalida,
         type WizardState,
       } from "../modules/onboarding/wizard.js";
 
@@ -186,11 +186,12 @@ const tenantId = tenantCuestionario.tenantId;
             b.onclick = () => {
               // TB-165: las ramas «sí» guardan el avance antes de salir; si no,
               // al volver del destino el cuestionario nunca se puede terminar.
-              // TB-165: la salida la define el paso, no un switch en la vista.
-              const salida = destinoSi(paso, o);
-              state = avanzar(state, o);
+              // TB-165: la transición entrega el estado ya avanzado y el
+              // destino; se guarda antes de navegar para no perder el avance.
+              const t = transicionConSalida(state, o);
+              state = t.state;
               save();
-              if (salida) { window.location.href = salida; return; }
+              if (t.salida) { window.location.href = t.salida; return; }
               render();
             };
             wrap.appendChild(b);

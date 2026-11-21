@@ -1,32 +1,47 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-
-const leer = (p: string) => readFileSync(p, "utf8");
+import { destinoLogin } from "../src/modules/auth/destino-login.js";
+import {
+  orientacionParaPanel,
+  urlCuestionario,
+} from "../src/modules/onboarding/orientacion-panel.js";
+import {
+  esCompleto,
+  retomar,
+  transicionConSalida,
+} from "../src/modules/onboarding/wizard.js";
 
 describe("TB-165: cuestionario como ruta opcional desde el panel", () => {
-  it("el panel ofrece el enlace sólo al Dueño y con el comercio resuelto", () => {
-    const panel = leer("src/pages/panel.astro");
-    expect(panel).toMatch(/accesoCuestionario\s*=\s*mostrarBienvenida/);
-    expect(panel).toContain('href={accesoCuestionario}');
-    expect(panel).toContain("/onboarding?tenant_id=");
-    expect(panel).toContain("data-cuestionario-link");
-  });
+  it("el panel ofrece el enlace sólo al Dueño con el comercio resuelto", () => {
+    const dueno = orientacionParaPanel("dueno", [], true);
+    expect(dueno.mostrarBienvenida).toBe(true);
+    expect(urlCuestionario(dueno.mostrarBienvenida, "t-1")).toBe(
+      "/onboarding?tenant_id=t-1",
+    );
 
-  it("el guard del enlace exige esDueno", () => {
-    const panel = leer("src/pages/panel.astro");
-    // TB-165: el guard esDueno alimenta la orientación que decide el enlace.
-    expect(panel).toMatch(/esDueno\([\s\S]{0,600}mostrarBienvenida/);
+    const empleado = orientacionParaPanel("empleado", [], false);
+    expect(empleado.mostrarBienvenida).toBe(false);
+    expect(urlCuestionario(empleado.mostrarBienvenida, "t-1")).toBeNull();
   });
 
   it("el login nunca redirige al cuestionario", () => {
-    const callback = leer("src/pages/api/auth/callback.ts");
-    expect(callback).not.toContain('"/onboarding"');
-    expect(callback).not.toContain("'/onboarding'");
+    const casos = [
+      { next: null, esAdmin: false, tenantId: null, rol: null },
+      { next: null, esAdmin: false, tenantId: "t-1", rol: "dueno" as const },
+      { next: null, esAdmin: true, tenantId: "t-1", rol: "empleado" as const },
+      { next: "/panel", esAdmin: true, tenantId: "t-1", rol: "dueno" as const },
+    ];
+    for (const caso of casos) {
+      expect(destinoLogin(caso).url).not.toBe("/onboarding");
+    }
   });
 
-  it("el cuestionario tiene salida al panel y no queda a medias", () => {
-    const pagina = leer("src/pages/onboarding.astro");
-    expect(pagina).toContain('href="/panel"');
-    expect(pagina).toContain("localStorage.setItem(storageKey");
+  it("el cuestionario se completa sin salir a otra página", () => {
+    let state = retomar(0, {}, [], [], { rubro: "kiosco", whatsapp: "5491112345678" });
+    for (const respuesta of ["No, trabajo solo", "Más tarde", "Empezar en 0"]) {
+      const t = transicionConSalida(state, respuesta);
+      expect(t.salida).toBeNull();
+      state = t.state;
+    }
+    expect(esCompleto(state)).toBe(true);
   });
 });

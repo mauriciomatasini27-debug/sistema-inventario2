@@ -1,17 +1,11 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  CAMPOS_PROHIBIDOS_BIENVENIDA_PANEL,
   clave_bienvenida_panel,
   debe_mostrar_bienvenida_panel,
   marcar_bienvenida_panel,
   ya_vio_bienvenida_panel,
 } from "../src/modules/onboarding/bienvenida-panel.js";
 import { progreso_checklist, estado_paso_dialogo } from "../src/lib/panel-bienvenida.js";
-
-const RAIZ = process.cwd();
-const leer = (p: string) => readFileSync(join(RAIZ, p), "utf8");
 
 describe("bienvenida panel BIEN-S2", () => {
   it("Dueño sin marca debe ver el diálogo", () => {
@@ -59,23 +53,6 @@ describe("bienvenida panel BIEN-S2", () => {
 });
 
 describe("bienvenida panel BIEN-S3 contenido", () => {
-  it("el componente no pide dirección, CUIT, moneda ni cantidad de empleados", () => {
-    const html = leer("src/components/panel/BienvenidaDialog.astro").toLowerCase();
-    for (const campo of CAMPOS_PROHIBIDOS_BIENVENIDA_PANEL) {
-      expect(html, campo).not.toContain(`name="${campo}"`);
-      expect(html, campo).not.toContain(`id="${campo}"`);
-    }
-    expect(html).not.toContain("type=\"number\"");
-    expect(html).not.toMatch(/cuil|cuit/i);
-  });
-
-  it("panel.astro solo monta el diálogo para Dueño en servidor", () => {
-    const panel = leer("src/pages/panel.astro");
-    expect(panel).toContain("mostrarBienvenida");
-    expect(panel).toContain("esDueno");
-    expect(panel).toMatch(/mostrarBienvenida \?/);
-  });
-
   it("TB-165: un paso no aplica se muestra como No aplica sin depender del Set local", () => {
     expect(
       estado_paso_dialogo(

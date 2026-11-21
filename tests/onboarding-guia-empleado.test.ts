@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ctx } from "./helpers/ctx.js";
 import { control, resetStore } from "../src/lib/store.js";
 import { sesionEnStore } from "./helpers/sesion.js";
-import { orientacionParaPanel, pasosGuiaEmpleado } from "../src/modules/onboarding/orientacion-panel.js";
+import {
+  orientacionParaPanel,
+  pasosGuiaEmpleado,
+  urlCuestionario,
+} from "../src/modules/onboarding/orientacion-panel.js";
 import { PASOS_DUENO } from "../src/modules/onboarding/tour.js";
 import { GET } from "../src/pages/api/onboarding/estado.js";
 
@@ -47,6 +51,14 @@ describe("TB-165: guía corta del Empleado en /panel", () => {
     const dueno = orientacionParaPanel("dueno", [], true);
     expect(dueno.mostrarBienvenida).toBe(true);
     expect(dueno.pasosEmpleado).toEqual([]);
+  });
+
+  it("TB-165: el enlace al cuestionario existe sólo para el Dueño con comercio", () => {
+    expect(urlCuestionario(true, "comercio con espacio")).toBe(
+      "/onboarding?tenant_id=comercio%20con%20espacio",
+    );
+    expect(urlCuestionario(false, "t-1")).toBeNull();
+    expect(urlCuestionario(true, "")).toBeNull();
   });
 
   it("el Empleado ve menos pasos que el Dueño y ninguno de Dueño", () => {

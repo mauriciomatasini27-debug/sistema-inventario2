@@ -9,7 +9,7 @@ import { esDueno, resolverRolEfectivo, resolverSesion } from "../lib/control.js"
 import { control } from "../lib/store.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 import { puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
-import { orientacionParaPanel } from "../modules/onboarding/orientacion-panel.js";
+import { orientacionParaPanel, urlCuestionario } from "../modules/onboarding/orientacion-panel.js";
 
 // BIEN-S2 (ADR-0115): tenant y sub en servidor; el diálogo solo para Dueño.
 // P1-35: el nombre del comercio activo va en el saludo (antes era genérico).
@@ -33,9 +33,10 @@ const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
 const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
 // TB-165: el cuestionario es una ruta opcional del Dueño, nunca la entrada
 // post-login. El mismo guard del diálogo decide quién ve el enlace.
-const accesoCuestionario = mostrarBienvenida
-  ? `/onboarding?tenant_id=${encodeURIComponent(tenantRes.tenantId)}`
-  : null;
+const accesoCuestionario = urlCuestionario(
+  mostrarBienvenida,
+  tenantRes.ok ? tenantRes.tenantId : "",
+);
 const nombreComercio = tenantRes.ok
   ? (control.tenants.get(tenantRes.tenantId)?.nombreComercio?.trim() || null)
   : null;
