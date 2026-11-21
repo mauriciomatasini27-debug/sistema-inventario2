@@ -1,0 +1,52 @@
+---
+// TB-165: orientación corta del Empleado en /panel. El Dueño no ve este
+// componente: conserva su diálogo de bienvenida y su checklist completa.
+import type { PasoTour } from "../../modules/onboarding/tour.js";
+
+interface Props {
+  pasos: PasoTour[];
+}
+
+const { pasos } = Astro.props;
+---
+<section class="card guia-empleado" aria-label="Tus primeros pasos" data-guia-empleado>
+  <h2>Tus primeros pasos</h2>
+  <p class="guia-empleado__bajada">Una guía corta para arrancar a vender.</p>
+  <ol class="guia-empleado__pasos">
+    {
+      pasos.map((paso) => (
+        <li data-tour={paso.ancla}>
+          <strong>{paso.titulo}</strong>
+          <span>{paso.texto}</span>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<style>
+  .guia-empleado h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+  .guia-empleado__bajada {
+    margin: 4px 0 12px;
+    font-size: 14px;
+    color: var(--tema-texto-suave, var(--color-ash));
+  }
+  .guia-empleado__pasos {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 10px;
+    font-size: 14px;
+  }
+  .guia-empleado__pasos li {
+    display: grid;
+    gap: 2px;
+  }
+  .guia-empleado__pasos span {
+    font-size: 12px;
+    color: var(--tema-texto-suave, var(--color-ash));
+  }
+</style>

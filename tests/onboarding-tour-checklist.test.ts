@@ -5,7 +5,10 @@ import { calcular_checklist } from "../src/modules/onboarding/checklist.js";
 describe("tour y checklist ON7 ON8", () => {
   it("dueño ve 11 pasos y empleado 6 sin caja", () => {
     expect(PASOS_DUENO).toHaveLength(11);
-    expect(PASOS_EMPLEADO).toHaveLength(6);
+    // TB-165: el paso de devoluciones está gated por permiso; con permisos
+    // vacíos el recorrido del Empleado sigue siendo de 6 pasos.
+    expect(PASOS_EMPLEADO).toHaveLength(7);
+    expect(pasos_para_rol("empleado", [])).toHaveLength(6);
     const emp = pasos_para_rol("empleado", []);
     expect(emp.some((p) => p.ancla.startsWith("caja"))).toBe(false);
     expect(emp.some((p) => p.ancla.startsWith("proveedores"))).toBe(false);

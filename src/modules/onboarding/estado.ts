@@ -18,6 +18,9 @@ export interface OnboardingState {
   wizardPaso: number;
   wizardCompletado: boolean;
   wizardEmpleados: string[];
+  // TB-165 [tenant]: espejo en memoria de todas las respuestas del cuestionario;
+  // la fila durable las persiste en la columna wizard_respuestas de la 0050.
+  wizardRespuestas: Record<string, string>;
   actualizadoAt: string;
 }
 
@@ -32,6 +35,8 @@ export interface DatosOnboardingPersistidos {
   tenantId: string;
   wizardCompletado: boolean;
   wizardPaso: number;
+  // TB-165 [tenant]: columna nueva de la 0050; opcional para filas viejas.
+  wizardRespuestas?: Record<string, string> | null;
 }
 
 export function estadoInicial(userId: string, tenantId: string, ahora = new Date()): OnboardingState {
@@ -51,6 +56,7 @@ export function estadoInicial(userId: string, tenantId: string, ahora = new Date
     wizardPaso: 0,
     wizardCompletado: false,
     wizardEmpleados: [],
+    wizardRespuestas: {},
     actualizadoAt: ahora.toISOString(),
   };
 }

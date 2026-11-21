@@ -398,11 +398,18 @@ export function persistirEstadoTenant(tenantId: string, estado: "activo" | "susp
 }
 
 // ON12: espejo durable del flag del wizard (best-effort como usuario/sesión).
-export function persistirOnboarding(tenantId: string, wizardCompletado: boolean, wizardPaso: number): Promise<boolean> {
+// TB-165 [tenant]: además de completado/paso, el espejo durable escribe todas
+// las respuestas del cuestionario (columna de la 0050).
+export function persistirOnboarding(
+  tenantId: string,
+  wizardCompletado: boolean,
+  wizardPaso: number,
+  wizardRespuestas: Record<string, string>,
+): Promise<boolean> {
   return intentarControl((db) =>
     db
       .update(tenants)
-      .set({ wizardCompletado, wizardPaso })
+      .set({ wizardCompletado, wizardPaso, wizardRespuestas })
       .where(eq(tenants.id, tenantId)),
   );
 }

@@ -19,3 +19,19 @@ _Avoid_: sync Gmail, sincronización, watcheo
 **Baseline**:
 Estado de referencia mínimo aceptado de una pieza (skill, componente, política o gate): el nivel a partir del cual se considera disponible; el resto queda pendiente o como deuda aceptada.
 _Avoid_: Umbral nuevo sin acuerdo, To Do, 'pendiente de definir'
+
+## Roles
+
+**Dueño**:
+La persona que administra un Tenant (Comercio). Es el único rol con la checklist completa, el diálogo de bienvenida y el cuestionario de configuración.
+_Avoid_: owner, admin, usuario dueño
+
+**Empleado**:
+La persona que trabaja en un Tenant (Comercio) sin administrarlo. Tiene su propio tour y una checklist corta, y no recibe el diálogo de bienvenida ni el cuestionario del Dueño.
+_Avoid_: usuario, operador
+
+## Onboarding
+
+**Cuestionario de configuración**:
+Serie guiada de pasos con los que el Dueño completa la configuración inicial de su comercio. No es un requisito para entrar a la aplicación.
+_Avoid_: wizard, onboarding

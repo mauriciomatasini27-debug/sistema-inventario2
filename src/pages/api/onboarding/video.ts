@@ -28,8 +28,7 @@ export const POST: APIRoute = async ({ request }) => {
   const m = membershipActiva(parsed.data.tenant_id, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
   const next = registrarVideo(
-    ctx.googleSub,
-    parsed.data.tenant_id,
+    { userId: ctx.googleSub, tenantId: parsed.data.tenant_id },
     parsed.data.progreso,
     parsed.data.evento,
   );
