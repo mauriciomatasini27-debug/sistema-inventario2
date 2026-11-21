@@ -384,13 +384,6 @@
       "idx": 54,
       "version": "7",
       "when": 1795651200000,
-      "tag": "0055_products_por_peso",
-      "breakpoints": true
-    },
-    {
-      "idx": 55,
-      "version": "7",
-      "when": 1795737600000,
       "tag": "0056_products_por_peso",
       "breakpoints": true
     }
