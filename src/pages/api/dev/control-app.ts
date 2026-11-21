@@ -4,6 +4,7 @@ import {
   iniciarSesionControlApp,
   iniciarSesionInvitadoControlApp,
   fallarProvisionControlApp,
+  agregarMiembrosControlApp,
   sembrarControlApp,
   TENANT_CONTROL_APP,
 } from "../../../lib/control-app-dev.js";
@@ -44,6 +45,14 @@ export const POST: APIRoute = async ({ request }) => {
     }
     return iniciarSesionControlApp(rol);
   }
+  if (accion === "agregar_miembros") {
+    const tenantId = (cuerpo as { tenant_id?: unknown }).tenant_id;
+    const cantidad = (cuerpo as { cantidad?: unknown }).cantidad;
+    if (typeof tenantId !== "string" || !tenantId) {
+      return Response.json({ error: "Falta tenant_id." }, { status: 422 });
+    }
+    return agregarMiembrosControlApp(tenantId, Number(cantidad));
+  }
   if (accion === "fallar_provision") {
     const tenantId = (cuerpo as { tenant_id?: unknown }).tenant_id;
     if (typeof tenantId !== "string" || !tenantId) {
@@ -59,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
     return iniciarSesionInvitadoControlApp(email);
   }
   return Response.json(
-    { error: "Acción desconocida.", hint: "Acciones: seed, login, login_invitado, fallar_provision." },
+    { error: "Acción desconocida.", hint: "Acciones: seed, login, login_invitado, fallar_provision, agregar_miembros." },
     { status: 422 },
   );
 };

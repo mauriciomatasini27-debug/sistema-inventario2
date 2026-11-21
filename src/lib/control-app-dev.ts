@@ -307,3 +307,35 @@ export function fallarProvisionControlApp(tenantId: string): Response {
   marcarFalloProvision(tenantId, "fallo simulado de prueba");
   return Response.json({ ok: true, accion: "fallar_provision", tenant_id: tenantId, estado: "error_aprovisionamiento" });
 }
+
+export function agregarMiembrosControlApp(tenantId: string, cantidad: number): Response {
+  if (!control.tenants.has(tenantId)) {
+    return Response.json({ error: "Tenant desconocido." }, { status: 404 });
+  }
+  const n = Math.floor(cantidad);
+  if (!Number.isFinite(n) || n < 1 || n > 20) {
+    return Response.json({ error: "Cantidad inválida." }, { status: 422 });
+  }
+  const creados: string[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const sub = `miembro-prueba-${randomUUID()}`;
+    control.users.set(sub, {
+      googleSub: sub,
+      email: `${sub}@test.local`,
+      emailVerificado: true,
+      nombre: "Miembro de prueba",
+      ultimoLoginAt: new Date().toISOString(),
+    });
+    const id = `m-${sub}`;
+    control.memberships.set(id, {
+      id,
+      tenantId,
+      googleSub: sub,
+      rol: "empleado",
+      permisos: [],
+      estado: "activo",
+    });
+    creados.push(sub);
+  }
+  return Response.json({ ok: true, accion: "agregar_miembros", tenant_id: tenantId, agregados: creados.length });
+}

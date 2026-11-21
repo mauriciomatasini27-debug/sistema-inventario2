@@ -9,6 +9,8 @@ import { exigirAdminMutante, auditar, exigirAdminListo, exigirConfirmacion, leer
 import { guardarEstadoTenant, suspenderPorAbuso, suspenderPorMora } from "./_suspender.js";
 import { emailDeOwnerPendiente } from "../../../modules/tenants/alta-admin.js";
 import { reintentarAprovisionamiento, resumenAprovisionamiento } from "../../../modules/tenants/provision-admin.js";
+import { limiteUsuariosDe } from "../../../modules/tenants/planes-admin.js";
+import { contarMiembrosActivos } from "../../../lib/control.js";
 
 export const prerender = false;
 
@@ -36,6 +38,7 @@ export const GET: APIRoute = async ({ request }) => {
       aprovisionamiento: resumenAprovisionamiento(t.id, t.estado),
       uso_wa: uso.uso_wa,
       costo_alto: uso.costo_alto,
+      usuarios: { ocupados: contarMiembrosActivos(t.id), limite: limiteUsuariosDe(t.plan) },
     };
   });
   if (estado) lista = lista.filter((t) => t.estado === estado);

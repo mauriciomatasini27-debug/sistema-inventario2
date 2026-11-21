@@ -400,6 +400,12 @@ export function persistirEstadoTenant(
   );
 }
 
+export function persistirPlanTenant(tenantId: string, plan: string): Promise<boolean> {
+  return intentarControl((db) =>
+    db.update(tenants).set({ plan }).where(eq(tenants.id, tenantId)),
+  );
+}
+
 // Alta desde el panel: el dueño todavía no tiene Google sub, así que
 // owner_google_sub queda null (la columna ya es nullable; no hay migración).
 export function persistirAltaAdmin(a: {

@@ -174,6 +174,17 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <button type="button" class="cerrar" id="cerrar-detalle" aria-label="Cerrar">✕</button>
       </header>
       <dl class="dato" id="detalle-datos"></dl>
+      <form class="confirm" id="form-plan" style="margin-top:0">
+        <label>Plan
+          <select name="plan">
+            <option value="base">base</option>
+            <option value="plus">plus</option>
+            <option value="demo">demo</option>
+          </select>
+        </label>
+        <button type="submit" class="btn llama">Cambiar plan</button>
+        <div class="mini" id="plan-aviso" hidden></div>
+      </form>
       <div class="acciones">
         <button type="button" class="btn" data-abrir="suspender">Suspender por mora</button>
         <button type="button" class="btn" data-abrir="suspender_abuso">Suspender por abuso</button>
@@ -240,10 +251,11 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         return r;
       };
 
-      /** @typedef {{ id: string, nombre: string|null, slug: string|null, estado: string, plan: string, vencimiento: string|null, suspension_tipo: string|null, uso_wa: number, costo_alto: boolean }} Tenant */
+      /** @typedef {{ id: string, nombre: string|null, slug: string|null, estado: string, plan: string, vencimiento: string|null, suspension_tipo: string|null, uso_wa: number, costo_alto: boolean, usuarios?: { ocupados: number, limite: number } }} Tenant */
 
       /** @type {Tenant[]} */
       let tenants = [];
+      let planesCatalogo = [];
       /** @type {Tenant | null} */
       let abierto = null;
       /** @type {"suspender"|"suspender_abuso"|"reactivar"|null} */
@@ -370,6 +382,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           if (!r.ok) throw new Error(await errorDe(r, "No se pudieron cargar los comercios."));
           const data = await r.json();
           tenants = Array.isArray(data.tenants) ? data.tenants : [];
+          planesCatalogo = Array.isArray(data.planes) ? data.planes : planesCatalogo;
           pintarContadores();
           pintarTabla();
           if (abierto) {
@@ -464,13 +477,42 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         $("detalle-datos").innerHTML = `
           <dt>ID</dt><dd>${esc(t.id)}</dd>
           <dt>Slug</dt><dd>${esc(t.slug || "—")}</dd>
-          <dt>Plan</dt><dd>${esc(t.plan || "—")}</dd>
           <dt>Estado</dt><dd>${esc(est.label)}</dd>
           <dt>Vencimiento</dt><dd>${esc(t.vencimiento ? t.vencimiento.slice(0, 10) : "—")}</dd>
           <dt>Costo alto</dt><dd>${t.costo_alto ? "Sí" : "No"}</dd>
           <dt>Aprovisionamiento</dt><dd>${esc(t.aprovisionamiento?.estado === "error" ? (t.aprovisionamiento.error || "Error") : (t.aprovisionamiento?.estado === "aprovisionando" ? "Aprovisionando" : "Listo"))}</dd>`;
+        const sel = $("form-plan").querySelector('[name="plan"]');
+        if (sel) sel.value = t.plan || "base";
+        pintarAvisoPlan();
         void cargarFlags();
         void cargarAudit();
+      }
+
+      function limiteDePlan(plan) {
+        const fila = planesCatalogo.find((p) => p.id === plan);
+        if (fila && Number.isFinite(fila.limite)) return fila.limite;
+        return plan === "plus" ? 10 : 2;
+      }
+
+      function pintarAvisoPlan() {
+        const aviso = $("plan-aviso");
+        if (!abierto || !aviso) return;
+        const planNuevo = $("form-plan").querySelector('[name="plan"]').value;
+        const ocupados = abierto.usuarios?.ocupados ?? 0;
+        const limite = limiteDePlan(planNuevo);
+        const actual = abierto.plan;
+        if (planNuevo === actual) {
+          aviso.hidden = true;
+          aviso.textContent = "";
+          return;
+        }
+        if (ocupados > limite) {
+          aviso.hidden = false;
+          aviso.textContent = `Este comercio tiene ${ocupados} usuarios y el plan ${planNuevo} admite ${limite}. Se cambia igual; no se echa a nadie, pero no se van a poder invitar más hasta bajar del cupo.`;
+          return;
+        }
+        aviso.hidden = true;
+        aviso.textContent = "";
       }
 
       async function cargarFlags() {
@@ -691,6 +733,26 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           estado.textContent = e instanceof Error ? e.message : "No se pudieron cargar los reportes.";
         }
       }
+
+      $("form-plan").querySelector('[name="plan"]').addEventListener("change", pintarAvisoPlan);
+      $("form-plan").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!abierto) return;
+        const plan = $("form-plan").querySelector('[name="plan"]').value;
+        const r = await fetch("/api/admin/tenants/plan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tenant_id: abierto.id, plan }),
+        });
+        if (!r.ok) {
+          $("detalle-estado").textContent = await errorDe(r, "No se pudo cambiar el plan.");
+          return;
+        }
+        const data = await r.json();
+        $("detalle-estado").textContent = data.ya ? "Ya estaba en ese plan." : "Plan actualizado.";
+        await cargarTenants();
+        await cargarAudit();
+      });
 
       const formAlta = $("form-alta");
       const nombreAlta = formAlta.querySelector('[name="nombre_comercio"]');
