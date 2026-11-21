@@ -36,6 +36,7 @@ export interface LineaVentaInput {
   readonly product_id: string;
   readonly qty: number;
   readonly precio_centavos: number;
+  readonly porPeso?: boolean | undefined;
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo. El SKU es product_id y
   // el precio es el de la línea; acá solo llega el nombre.
   readonly alta?: { readonly nombre: string } | undefined;
@@ -259,7 +260,12 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   const costos = costosVigentesMemoria();
   const r = vender_mostrador({
     idempotencyKey: i.key,
-    lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+    lineas: i.lineas.map((l) => ({
+      sku: l.product_id as Sku,
+      cantidad: l.qty,
+      precioCentavos: BigInt(l.precio_centavos),
+      porPeso: l.porPeso,
+    })),
     medio: i.medio,
     deviceCode: i.deviceCode,
     seqLocal: i.seqLocal,
@@ -381,7 +387,12 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
         const r = vender_mostrador({
           idempotencyKey: i.key,
-          lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+          lineas: i.lineas.map((l) => ({
+      sku: l.product_id as Sku,
+      cantidad: l.qty,
+      precioCentavos: BigInt(l.precio_centavos),
+      porPeso: l.porPeso,
+    })),
           medio: i.medio,
           deviceCode: i.deviceCode,
           seqLocal: i.seqLocal,

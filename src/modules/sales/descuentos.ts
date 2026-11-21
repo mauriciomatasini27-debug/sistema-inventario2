@@ -20,10 +20,13 @@ export type DescuentoSpec =
 export const PORCENTAJE_MIN_BP = 1;
 export const PORCENTAJE_MAX_BP = 10_000;
 
+import { esCantidadValida, subtotalLinea } from "./linea_peso.js";
+
 export interface LineaBase {
   readonly sku: string;
   readonly cantidad: number;
   readonly precioCentavos: bigint;
+  readonly porPeso?: boolean | undefined;
 }
 
 // Snapshot por línea para ticket_lines: bruto + descuento de línea +
@@ -51,7 +54,7 @@ export type FalloDescuento = { readonly ok: false; readonly codigo: "DESCUENTO_I
 export type CalculoDescuentosResult = { readonly ok: true; readonly calculo: CalculoDescuentos } | FalloDescuento;
 
 function esLineaValida(l: LineaBase): boolean {
-  return !!l.sku && Number.isInteger(l.cantidad) && l.cantidad >= 1 && l.cantidad <= 999 && l.precioCentavos >= 0n;
+  return !!l.sku && esCantidadValida(l.cantidad, l.porPeso) && l.precioCentavos >= 0n;
 }
 
 function esSpecValido(s: DescuentoSpec): boolean {
@@ -125,7 +128,7 @@ export function aplicar_descuentos(args: {
     return { ok: false, codigo: "DESCUENTO_INVALIDO", status: 422 };
   }
 
-  const brutos = lineas.map((l) => BigInt(l.cantidad) * l.precioCentavos);
+  const brutos = lineas.map((l) => subtotalLinea(l.cantidad, l.precioCentavos, l.porPeso));
   const descsLinea: bigint[] = [];
   for (let i = 0; i < lineas.length; i++) {
     const spec = descuentosLinea?.[i] ?? null;

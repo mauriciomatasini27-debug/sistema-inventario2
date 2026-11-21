@@ -7,6 +7,7 @@ export interface LineaVenta {
   product_id: string;
   qty: number;
   precio_centavos: bigint;
+  porPeso?: boolean | undefined;
 }
 
 export interface ConfirmarVentaInput {
@@ -66,7 +67,12 @@ export function confirmar_venta(input: ConfirmarVentaInput): ConfirmarVentaResul
 
   const r = vender_mostrador({
     idempotencyKey: input.idempotencyKey,
-    lineas: input.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: l.precio_centavos })),
+    lineas: input.lineas.map((l) => ({
+      sku: l.product_id as Sku,
+      cantidad: l.qty,
+      precioCentavos: l.precio_centavos,
+      porPeso: l.porPeso,
+    })),
     medio: input.medio,
     deviceCode: input.device_code,
     seqLocal: input.seq_local,

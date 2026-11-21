@@ -15,7 +15,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
   const r = aplicar_descuentos({
-    lineas: b.lineas.map((l) => ({ sku: l.product_id, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+    lineas: b.lineas.map((l) => ({
+      sku: l.product_id,
+      cantidad: l.qty,
+      precioCentavos: BigInt(l.precio_centavos),
+      porPeso: l.por_peso,
+    })),
     ...(b.descuentos_linea !== undefined
       ? {
           descuentosLinea: b.descuentos_linea.map((d) =>

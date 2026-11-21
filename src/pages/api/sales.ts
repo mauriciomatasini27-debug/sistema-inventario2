@@ -123,7 +123,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     reg = await registrar_venta({
     key,
-    lineas: b.lineas,
+    lineas: b.lineas.map((l) => ({
+      product_id: l.product_id,
+      qty: l.qty,
+      precio_centavos: l.precio_centavos,
+      porPeso: l.por_peso,
+      ...(l.alta !== undefined ? { alta: l.alta } : {}),
+    })),
     medio: b.medio,
     deviceCode: b.device_code,
     seqLocal: b.seq_local,
