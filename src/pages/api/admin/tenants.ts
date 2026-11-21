@@ -7,6 +7,7 @@ import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
 import { exigirAdminMutante, auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
 import { guardarEstadoTenant, suspenderPorAbuso, suspenderPorMora } from "./_suspender.js";
+import { emailDeOwnerPendiente } from "../../../modules/tenants/alta-admin.js";
 
 export const prerender = false;
 
@@ -30,6 +31,7 @@ export const GET: APIRoute = async ({ request }) => {
       plan: t.plan,
       vencimiento: (t as { trialHasta?: string }).trialHasta ?? null,
       suspension_tipo: t.suspensionTipo ?? null,
+      email_dueno_pendiente: emailPendienteDueno(t.id, t.ownerGoogleSub),
       uso_wa: uso.uso_wa,
       costo_alto: uso.costo_alto,
     };
@@ -77,3 +79,12 @@ export const POST: APIRoute = async ({ request }) => {
   auditar({ kind: "tenant_reactivado", tenantId: t.id }, admin.googleSub, "panel");
   return Response.json({ tenant_id: t.id, estado: t.estado });
 };
+
+function emailPendienteDueno(tenantId: string, ownerGoogleSub: string): string | null {
+  const delPrefijo = emailDeOwnerPendiente(ownerGoogleSub);
+  if (delPrefijo) return delPrefijo;
+  for (const inv of control.invitations.values()) {
+    if (inv.tenantId === tenantId && inv.rol === "dueno" && inv.estado === "pendiente") return inv.email;
+  }
+  return null;
+}

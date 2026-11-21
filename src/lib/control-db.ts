@@ -397,6 +397,39 @@ export function persistirEstadoTenant(tenantId: string, estado: "activo" | "susp
   );
 }
 
+// Alta desde el panel: el dueño todavía no tiene Google sub, así que
+// owner_google_sub queda null (la columna ya es nullable; no hay migración).
+export function persistirAltaAdmin(a: {
+  id: string;
+  nombreComercio: string;
+  slug: string;
+  plan: string;
+  moneda: string;
+  esDemo: boolean;
+}): Promise<boolean> {
+  return intentarControl((db) =>
+    db
+      .insert(tenants)
+      .values({
+        id: a.id,
+        nombreComercio: a.nombreComercio,
+        slug: a.slug,
+        estado: "activo",
+        plan: a.plan,
+        moneda: a.moneda,
+        ownerGoogleSub: null,
+        esDemo: a.esDemo,
+      })
+      .onConflictDoNothing(),
+  );
+}
+
+export function persistirOwnerTenant(tenantId: string, ownerGoogleSub: string): Promise<boolean> {
+  return intentarControl((db) =>
+    db.update(tenants).set({ ownerGoogleSub }).where(eq(tenants.id, tenantId)),
+  );
+}
+
 // ON12: espejo durable del flag del wizard (best-effort como usuario/sesión).
 // TB-165 [tenant]: además de completado/paso, el espejo durable escribe todas
 // las respuestas del cuestionario (columna de la 0050).

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import {
   controlAppDevHabilitado,
   iniciarSesionControlApp,
+  iniciarSesionInvitadoControlApp,
   sembrarControlApp,
   TENANT_CONTROL_APP,
 } from "../../../lib/control-app-dev.js";
@@ -42,8 +43,15 @@ export const POST: APIRoute = async ({ request }) => {
     }
     return iniciarSesionControlApp(rol);
   }
+  if (accion === "login_invitado") {
+    const email = (cuerpo as { email?: unknown }).email;
+    if (typeof email !== "string") {
+      return Response.json({ error: "Falta el email del invitado." }, { status: 422 });
+    }
+    return iniciarSesionInvitadoControlApp(email);
+  }
   return Response.json(
-    { error: "Acción desconocida.", hint: "Acciones: seed, login." },
+    { error: "Acción desconocida.", hint: "Acciones: seed, login, login_invitado." },
     { status: 422 },
   );
 };

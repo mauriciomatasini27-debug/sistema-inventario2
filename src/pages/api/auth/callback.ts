@@ -10,7 +10,7 @@ import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js
 import { MENSAJE_LOGIN_SUSPENDIDO, MENSAJE_LOGIN_SUSPENDIDO_NEUTRO } from "../../../modules/auth/mensaje-ingreso.js";
 import { destinoLogin } from "../../../modules/auth/destino-login.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
-import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
+import { aplicarAceptacionInvitacion } from "../../../modules/tenants/aplicar-invitacion.js";
 import { control } from "../../../lib/store.js";
 import { leerInvitacionPorHash, persistirSesion, persistirUsuario } from "../../../lib/control-db.js";
 import { rehidratarMembresias } from "../../../lib/rehidratar-membresia.js";
@@ -200,19 +200,8 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       yaEsMiembro: yaEs,
     });
     if (!d.acepta) continue;
-    inv.estado = "aceptada";
-    inv.aceptadaPor = identidad.sub;
-    const id = crypto.randomUUID();
-    control.memberships.set(id, {
-      id,
-      tenantId: inv.tenantId,
-      googleSub: identidad.sub,
-      rol: inv.rol,
-      permisos: inv.permisos.length > 0 ? inv.permisos : [...PERMISOS_EMPLEADO_DEFAULT],
-      estado: "activo",
-    });
-    control.events.push({ tenantId: inv.tenantId, tipo: "invitacion_aceptada", actor: identidad.sub });
-    tenantId = inv.tenantId;
+    const aceptada = await aplicarAceptacionInvitacion(inv, identidad.sub);
+    tenantId = aceptada.tenantId;
     break;
   }
   if (!tenantId) {

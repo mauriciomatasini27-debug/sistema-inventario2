@@ -4,6 +4,10 @@ import { cookieSesion, crearSesion } from "../modules/auth/sesiones.js";
 import { crearProveedorCobro } from "./repos/planes.js";
 import { altaProducto } from "./repos/catalogo.js";
 import { aplicarMovimiento } from "./repos/stock.js";
+import { parseEmailInvitacion } from "../modules/tenants/invitar-empleado.js";
+import { decidirAceptacion } from "../modules/tenants/invitaciones.js";
+import { aplicarAceptacionInvitacion } from "../modules/tenants/aplicar-invitacion.js";
+import { normalizarEmail } from "../modules/auth/oidc.js";
 
 export const TENANT_CONTROL_APP = "control-app";
 const SUBS = {
@@ -223,6 +227,73 @@ export function iniciarSesionControlApp(rol: "duenio" | "empleado"): Response {
       nombre: control.users.get(googleSub)?.nombre ?? rol,
       cookie,
       siguiente: rol === "duenio" ? "control-app ir /panel" : "control-app ir /venta",
+    },
+    { status: 200, headers: { "Set-Cookie": cookie } },
+  );
+}
+
+export async function iniciarSesionInvitadoControlApp(emailCrudo: string): Promise<Response> {
+  const email = parseEmailInvitacion(emailCrudo);
+  if (!email) {
+    return Response.json({ error: "El email no es válido." }, { status: 422 });
+  }
+  const buscado = normalizarEmail(email);
+  const inv = [...control.invitations.values()].find(
+    (i) => i.estado === "pendiente" && normalizarEmail(i.email) === buscado,
+  );
+  if (!inv) {
+    return Response.json({ error: "No hay una invitación pendiente para ese email." }, { status: 404 });
+  }
+  const tenant = control.tenants.get(inv.tenantId);
+  if (!tenant) {
+    return Response.json({ error: "No hay una invitación pendiente para ese email." }, { status: 404 });
+  }
+  const googleSub = `dev-invitado:${buscado}`;
+  const ahoraIso = ahora();
+  control.users.set(googleSub, {
+    googleSub,
+    email: buscado,
+    emailVerificado: true,
+    nombre: "Dueño invitado",
+    ultimoLoginAt: ahoraIso,
+  });
+  const miembros = [...control.memberships.values()].filter((m) => m.tenantId === inv.tenantId && m.estado === "activo").length;
+  const yaEs = [...control.memberships.values()].some(
+    (m) => m.tenantId === inv.tenantId && m.googleSub === googleSub && m.estado === "activo",
+  );
+  const d = decidirAceptacion({
+    invitacion: inv,
+    emailSesion: buscado,
+    emailVerificado: true,
+    miembrosActivos: miembros,
+    plan: tenant.plan,
+    yaEsMiembro: yaEs,
+  });
+  if (!d.acepta) {
+    return Response.json({ error: "No se pudo aceptar la invitación.", motivo: d.motivo }, { status: 409 });
+  }
+  const aceptada = await aplicarAceptacionInvitacion(inv, googleSub);
+  const creada = crearSesion({ googleSub, tenantId: aceptada.tenantId });
+  control.sessions.set(creada.registro.idHash, {
+    idHash: creada.registro.idHash,
+    googleSub,
+    tenantId: aceptada.tenantId,
+    expiraAt: creada.registro.expiraAt,
+    expiraAbsoluta: creada.registro.expiraAbsoluta,
+    lastSeenAt: ahoraIso,
+    reauthAt: ahoraIso,
+    agente: "control-app",
+  });
+  const cookie = cookieSesion(creada.idPlano, creada.registro.expiraAt);
+  return Response.json(
+    {
+      ok: true,
+      accion: "login_invitado",
+      tenant_id: aceptada.tenantId,
+      rol: aceptada.rol,
+      google_sub: googleSub,
+      owner_google_sub: control.tenants.get(aceptada.tenantId)?.ownerGoogleSub,
+      cookie,
     },
     { status: 200, headers: { "Set-Cookie": cookie } },
   );

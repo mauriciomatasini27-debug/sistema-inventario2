@@ -125,7 +125,31 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
       <div id="error-lista" class="aviso" hidden></div>
 
       <section class="card">
-        <h2>Comercios</h2>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <h2 style="margin:0;flex:1">Comercios</h2>
+          <button type="button" class="btn llama" id="btn-nuevo">+ Nuevo comercio</button>
+        </div>
+        <form class="confirm" id="form-alta" hidden>
+          <div class="mini">El dueño entra después con su Google, el mismo email.</div>
+          <label>Nombre <input name="nombre_comercio" required minlength="3" maxlength="80" /></label>
+          <label>Slug <input name="slug" placeholder="se arma solo con el nombre" /></label>
+          <label>Plan
+            <select name="plan">
+              <option value="base">base</option>
+              <option value="plus">plus</option>
+              <option value="demo">demo</option>
+            </select>
+          </label>
+          <label>Moneda
+            <select name="moneda">
+              <option value="ARS">ARS</option>
+            </select>
+          </label>
+          <label>Email del dueño <input name="email_dueno" type="email" required /></label>
+          <button type="submit" class="btn llama">Crear comercio</button>
+          <button type="button" class="btn" id="cancelar-alta">Cancelar</button>
+          <div class="mini" id="alta-estado"></div>
+        </form>
         <table class="mov" id="tenants-tabla">
           <thead>
             <tr>
@@ -283,7 +307,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           if (abierto && abierto.id === t.id) tr.classList.add("activa");
           tr.dataset.id = t.id;
           tr.innerHTML = `
-            <td><strong>${esc(t.nombre || t.slug || t.id)}</strong><div class="mini">${esc(t.slug || t.id)}</div></td>
+            <td><strong>${esc(t.nombre || t.slug || t.id)}</strong><div class="mini">${esc(t.slug || t.id)}${t.email_dueno_pendiente ? " · dueño pendiente" : ""}</div></td>
             <td>${esc(t.plan || "—")}</td>
             <td><span class="pill ${est.cls}">${esc(est.label)}</span></td>
             <td>${esc(t.vencimiento ? t.vencimiento.slice(0, 10) : "—")}</td>
@@ -641,6 +665,51 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           estado.textContent = e instanceof Error ? e.message : "No se pudieron cargar los reportes.";
         }
       }
+
+      const formAlta = $("form-alta");
+      const nombreAlta = formAlta.querySelector('[name="nombre_comercio"]');
+      const slugAlta = formAlta.querySelector('[name="slug"]');
+      function slugDeNombre(nombre) {
+        return nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+      }
+      nombreAlta.addEventListener("input", () => {
+        if (!slugAlta.dataset.tocado) slugAlta.value = slugDeNombre(nombreAlta.value);
+      });
+      slugAlta.addEventListener("input", () => { slugAlta.dataset.tocado = slugAlta.value.trim() ? "1" : ""; });
+      $("btn-nuevo").addEventListener("click", () => {
+        formAlta.hidden = !formAlta.hidden;
+        if (!formAlta.hidden) nombreAlta.focus();
+      });
+      $("cancelar-alta").addEventListener("click", () => { formAlta.hidden = true; $("alta-estado").textContent = ""; });
+      formAlta.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(formAlta);
+        const estado = $("alta-estado");
+        estado.textContent = "Creando…";
+        const r = await fetch("/api/admin/tenants/alta", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            nombre_comercio: String(fd.get("nombre_comercio") ?? "").trim(),
+            slug: String(fd.get("slug") ?? "").trim() || undefined,
+            plan: String(fd.get("plan") ?? "base"),
+            moneda: String(fd.get("moneda") ?? "ARS"),
+            email_dueno: String(fd.get("email_dueno") ?? "").trim(),
+          }),
+        });
+        if (!r.ok) {
+          estado.textContent = await errorDe(r, "No se pudo crear el comercio.");
+          return;
+        }
+        const data = await r.json();
+        const link = data.invitacion?.link ?? "";
+        estado.innerHTML = link
+          ? `Listo. Invitación para ${esc(data.email_dueno_pendiente || "")}: <a href="${esc(link)}">${esc(link)}</a>`
+          : "Listo.";
+        formAlta.reset();
+        delete slugAlta.dataset.tocado;
+        await cargarTenants();
+      });
 
       void cargarTenants();
       void cargarReportesBadge();
