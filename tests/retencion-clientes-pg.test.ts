@@ -3,8 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 import {
+  ACTOR_ANONIMO,
+  type DepsRetencion,
   EMAIL_USUARIO_ANONIMO,
-  ejecutarRetencionClientes,
+  ejecutarRetencionClientes as ejecutarConDeps,
   NOMBRE_CLIENTE_ANONIMO,
   NOMBRE_PROVEEDOR_ANONIMO,
   NUMERO_ANONIMO,
@@ -28,6 +30,16 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
   const subCompartido = `sub-comp-${randomUUID().slice(0, 8)}`;
   const subOtroCerrado = `sub-otro-${randomUUID().slice(0, 8)}`;
   const subActivo = `sub-act-${randomUUID().slice(0, 8)}`;
+  // P10-90: Google se simula; revoca solo si el comercio tiene conexión.
+  const revocados: string[] = [];
+  const depsTest: DepsRetencion = {
+    async revocarGoogle(id) {
+      const hay = (await sql`select 1 from google_connections where tenant_id = ${id}`).length > 0;
+      if (hay) revocados.push(id);
+      return hay;
+    },
+  };
+  const ejecutarRetencionClientes = (ahora: Date, deps: DepsRetencion = depsTest) => ejecutarConDeps(ahora, deps);
 
   async function tenant(nombre: string, estado: string, extra: { esDemo?: boolean; trialHasta?: string } = {}) {
     const [f] = await sql<{ id: string }[]>`
@@ -143,6 +155,17 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       insert into email_ingestion_drafts (tenant_id, connection_id, message_id, origen, vence_en)
       values (${tenantId}, ${g.id}, ${randomUUID()}, 'pdf_digital', now() + interval '7 days')
     `;
+    // P10-90: auditoría append-only (0052) y feedback a la plataforma.
+    await sql`insert into auth_events (tenant_id, tipo, actor, detalle) values (${tenantId}, 'login', 'sub-ret', ${sql.json({ email: "duena@ejemplo.com" })})`;
+    await sql`insert into gmail_connection_events (tenant_id, connection_id, evento, actor) values (${tenantId}, ${g.id}, 'conectada', 'sub-ret')`;
+    await sql`
+      insert into admin_audit_log (actor_google_sub, acto_kind, tenant_id, detalle, hash, origen)
+      values ('sub-admin', 'suspender', ${tenantId}, ${sql.json({ kind: "suspender", motivo: "pidió la dueña Juana" })}, ${randomUUID()}, 'panel')
+    `;
+    await sql`
+      insert into platform_feedback_reports (id, tenant_id, nombre_comercio, autor_google_sub, idempotency_key, tipo, texto, contexto)
+      values (${randomUUID()}, ${tenantId}, 'Comercio', 'sub-ret', ${randomUUID()}, 'problema', 'no me anda la caja, soy Juana', ${sql.json({})})
+    `;
   }
 
   async function usuario(sub: string) {
@@ -193,7 +216,14 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         (select count(*)::int from memberships where tenant_id = ${tenantId}) as membresias,
         (select count(*)::int from sessions where tenant_id = ${tenantId}) as sesiones,
         (select count(*)::int from invitations where tenant_id = ${tenantId}) as invitaciones,
-        (select owner_google_sub from tenants where id = ${tenantId}) as dueno
+        (select owner_google_sub from tenants where id = ${tenantId}) as dueno,
+        (select count(*)::int from auth_events where tenant_id = ${tenantId} and tipo <> 'retencion_clientes_aplicada'
+          and (actor is distinct from ${ACTOR_ANONIMO} or detalle is not null)) as auditoria_auth,
+        (select count(*)::int from gmail_connection_events where tenant_id = ${tenantId} and actor is distinct from ${ACTOR_ANONIMO}) as auditoria_gmail,
+        (select count(*)::int from admin_audit_log where tenant_id = ${tenantId}
+          and (actor_google_sub <> ${ACTOR_ANONIMO} or detalle ->> 'anonimizado' is distinct from 'true')) as auditoria_admin,
+        (select count(*)::int from admin_audit_log where tenant_id = ${tenantId}) as auditoria_admin_filas,
+        (select count(*)::int from platform_feedback_reports where tenant_id = ${tenantId}::text) as feedback
     `;
     if (!r) throw new Error("sin fila");
     return r;
@@ -247,6 +277,9 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     // porque su otra membresía es de un comercio en baja y la fila lo referencia).
     for (const sub of [subSolo, subCompartido, subOtroCerrado, subActivo]) await usuario(sub);
     await sql`update tenants set owner_google_sub = ${subSolo} where id = ${ids.a91}`;
+    // P10-90: login sin comercio de una persona que se retira y de una que sigue.
+    await sql`insert into auth_events (tenant_id, tipo, actor, detalle) values (null, 'login', ${subSolo}, ${sql.json({ ip: "1.2.3.4" })})`;
+    await sql`insert into auth_events (tenant_id, tipo, actor, detalle) values (null, 'login', ${subCompartido}, ${sql.json({ ip: "1.2.3.4" })})`;
     await miembro(ids.a91, subSolo);
     await miembro(ids.a91, subCompartido);
     await miembro(ids.activo, subCompartido);
@@ -315,7 +348,14 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       sesiones: 0,
       invitaciones: 0,
       dueno: null,
+      auditoria_auth: 0,
+      auditoria_gmail: 0,
+      auditoria_admin: 0,
+      auditoria_admin_filas: 1,
+      feedback: 0,
     });
+    expect(revocados).toContain(ids.a91);
+    expect(r.revocacionGooglePendiente).toEqual([]);
     expect(await datos(ids.demo)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, identidades: 0, eventos: 1 });
     expect(r.conteos[ids.a91]).toMatchObject({ clientesAnonimizados: 1, identidadesWhatsappBorradas: 2, sesionesWhatsappBorradas: 1 });
   });
@@ -341,7 +381,12 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         contactos_prov: 3,
         gmail: 4,
         invitaciones: id === ids.sinFecha ? 0 : 1,
+        auditoria_auth: 1,
+        auditoria_gmail: 1,
+        auditoria_admin: 1,
+        feedback: 1,
       });
+      expect(revocados).not.toContain(id);
     }
     expect((await datos(ids.b89)).membresias).toBe(1);
     expect((await datos(ids.activo)).membresias).toBe(2);
@@ -360,6 +405,9 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     expect(await sesionesDe(subOtroCerrado)).toBe(0);
 
     expect(await usuarioDe(subActivo)).toMatchObject({ nombre: "Persona" });
+    // P10-90: el login sin comercio de quien se retiró queda anonimizado; el de quien sigue, no.
+    expect((await sql`select 1 from auth_events where actor = ${subSolo}`).length).toBe(0);
+    expect((await sql`select 1 from auth_events where actor = ${subCompartido}`).length).toBe(1);
   });
 
   it("borra sesión y código de WhatsApp solo del número que no sigue vinculado a otro comercio", async () => {
@@ -384,6 +432,78 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     expect(await datos(ids.b89)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, comprobantes: 1, ventas: 1, membresias: 0, facturas_prov: 1, pagos_prov: 1, ordenes_prov: 1 });
     expect(await usuarioDe(subOtroCerrado)).toBeNull();
     expect(await usuarioDe(subCompartido)).toMatchObject({ nombre: "Persona" });
+  });
+
+  // P10-90 / migración 0052: el trigger deja anonimizar solo actor/detalle y
+  // solo con modoops.retencion = 'on' en la transacción.
+  it("auditoría: sin la marca no se puede modificar, DELETE sigue bloqueado y con la marca solo cambian actor y detalle", async () => {
+    const id = ids.activo;
+    await expect(sql`update auth_events set actor = 'x' where tenant_id = ${id}`).rejects.toThrow(/append-only/);
+    await expect(sql`update gmail_connection_events set actor = 'x' where tenant_id = ${id}`).rejects.toThrow(/append-only/);
+    await expect(sql`update admin_audit_log set actor_google_sub = 'x' where tenant_id = ${id}`).rejects.toThrow(/append-only/);
+    const conMarca = (q: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+      sql.begin(async (tx) => {
+        await tx`select set_config('modoops.retencion', 'on', true)`;
+        await q(tx);
+      });
+    await expect(conMarca((tx) => tx`delete from auth_events where tenant_id = ${id}`)).rejects.toThrow(/append-only/);
+    await expect(conMarca((tx) => tx`delete from gmail_connection_events where tenant_id = ${id}`)).rejects.toThrow(/append-only/);
+    await expect(conMarca((tx) => tx`delete from admin_audit_log where tenant_id = ${id}`)).rejects.toThrow(/append-only/);
+    await expect(conMarca((tx) => tx`update auth_events set tipo = 'otro' where tenant_id = ${id}`)).rejects.toThrow(/append-only/);
+    await expect(conMarca((tx) => tx`update auth_events set actor = 'x', tenant_id = null where tenant_id = ${id}`)).rejects.toThrow(
+      /append-only/,
+    );
+    await expect(conMarca((tx) => tx`update gmail_connection_events set motivo = 'x' where tenant_id = ${id}`)).rejects.toThrow(/append-only/);
+    await expect(conMarca((tx) => tx`update admin_audit_log set hash = ${randomUUID()} where tenant_id = ${id}`)).rejects.toThrow(
+      /append-only/,
+    );
+    // P10-90: la marca es local a la transacción: no queda prendida para la conexión.
+    await conMarca(async () => undefined);
+    await expect(sql`update auth_events set actor = 'x' where tenant_id = ${id}`).rejects.toThrow(/append-only/);
+    expect(await datos(id)).toMatchObject({ auditoria_auth: 1, auditoria_gmail: 1, auditoria_admin: 1 });
+  });
+
+  it("avisa por mail al dueño una sola vez en la última semana antes del borrado", async () => {
+    const subAviso = `sub-aviso-${randomUUID().slice(0, 8)}`;
+    await usuario(subAviso);
+    const id = await tenant("Kiosco Aviso", "baja");
+    const lejos = await tenant("Kiosco Lejos", "baja");
+    await sql`update tenants set owner_google_sub = ${subAviso} where id in (${id}, ${lejos})`;
+    await baja(id, haceDias(85));
+    await baja(lejos, haceDias(80));
+    const r = await ejecutarRetencionClientes(AHORA);
+    expect(r.avisados).toContain(id);
+    expect(r.avisados).not.toContain(lejos);
+    expect(r.anonimizados).not.toContain(id);
+    const mails = await sql<{ destinatario: string; asunto: string; plantilla: string }[]>`
+      select destinatario, asunto, plantilla from email_outbox where tenant_id = ${id}
+    `;
+    expect(mails).toHaveLength(1);
+    expect(mails[0]).toMatchObject({ destinatario: `${subAviso}@ejemplo.com`, plantilla: "retencion_aviso_v1" });
+    expect(mails[0]?.asunto).toContain("Kiosco Aviso");
+    const otra = await ejecutarRetencionClientes(AHORA);
+    expect(otra.avisados).not.toContain(id);
+    expect((await sql`select 1 from email_outbox where tenant_id = ${id}`).length).toBe(1);
+    expect((await sql`select 1 from email_outbox where tenant_id = ${lejos}`).length).toBe(0);
+  });
+
+  it("si Google no responde, conserva la conexión para reintentar y borra el resto", async () => {
+    const id = await tenant("Google caído", "baja");
+    await baja(id, haceDias(95));
+    await sembrar(id, `+549357${Math.floor(Math.random() * 1e7)}`);
+    const caido: DepsRetencion = {
+      async revocarGoogle() {
+        throw new Error("google caído");
+      },
+    };
+    const r = await ejecutarRetencionClientes(AHORA, caido);
+    expect(r.revocacionGooglePendiente).toContain(id);
+    expect((await sql`select 1 from google_connections where tenant_id = ${id}`).length).toBe(1);
+    expect(await datos(id)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, identidades: 0, feedback: 0, auditoria_auth: 0 });
+    const otra = await ejecutarRetencionClientes(AHORA);
+    expect(otra.revocacionGooglePendiente).not.toContain(id);
+    expect(revocados).toContain(id);
+    expect((await sql`select 1 from google_connections where tenant_id = ${id}`).length).toBe(0);
   });
 
   it("purgar una demo deja el evento de vida 'baja' que fecha el cierre", async () => {

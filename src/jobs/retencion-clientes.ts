@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { getControlDb, getTenantDb } from "../lib/db.js";
 import {
   authEvents,
@@ -11,7 +11,13 @@ import {
   users,
   whatsappIdentities,
 } from "../db/schema.js";
-import { emailIngestionDrafts, gmailIngestionJobs, gmailWatchRoutes, googleConnections } from "../db/schema-google.js";
+import {
+  emailIngestionDrafts,
+  gmailConnectionEvents,
+  gmailIngestionJobs,
+  gmailWatchRoutes,
+  googleConnections,
+} from "../db/schema-google.js";
 import {
   proveedorContactos,
   proveedorCupo,
@@ -20,7 +26,7 @@ import {
   supplierMatchLog,
   suppliers,
 } from "../db/schema-proveedores.js";
-import { tenantLifecycleEvents } from "../db/schema-admin.js";
+import { adminAuditLog, platformFeedbackReports, tenantLifecycleEvents } from "../db/schema-admin.js";
 import { customerMovements, customers } from "../db/schema-credito.js";
 import { deliveryStatus, emailOutbox } from "../db/schema-email.js";
 import {
@@ -30,12 +36,16 @@ import {
   whatsappSessions,
   whatsappUsage,
 } from "../db/schema-whatsapp.js";
-import { elegir_tenants_retencion, type TenantCerrable } from "../modules/tenants/retencion-clientes.js";
+import { descifrarRefreshTokenGmail } from "../lib/repos/google-conexiones.js";
+import { revocarTokenGoogle } from "../modules/integraciones/google-oauth.js";
+import { type AvisoRetencion, elegir_tenants_retencion, type TenantCerrable } from "../modules/tenants/retencion-clientes.js";
 
 // P10-90: job de retención (/privacidad, PR #369): a los 90 días del cierre
 // anonimiza o borra los datos personales del comercio (clientes, WhatsApp,
-// OCR, proveedores, Gmail y cuentas) y deja los comprobantes fiscales y la
-// plata (ventas, caja, saldos de fiado, facturas y pagos a proveedores).
+// OCR, proveedores, Gmail, cuentas, feedback y auditoría; P10-90) y deja los
+// comprobantes fiscales y la plata (ventas, caja, saldos de fiado, facturas y
+// pagos a proveedores). Revoca el permiso de Gmail en Google y 7 días antes
+// manda un aviso al dueño.
 // Idempotente: cada paso filtra solo filas que todavía tienen datos, así que
 // re-correr no cambia nada ni deja un evento nuevo. Corre con X-Job-Secret
 // (ver /api/jobs/retencion-clientes).
@@ -44,6 +54,8 @@ export const NOMBRE_CLIENTE_ANONIMO = "Cliente eliminado";
 export const NUMERO_ANONIMO = "anonimizado";
 export const NOMBRE_PROVEEDOR_ANONIMO = "Proveedor eliminado";
 export const EMAIL_USUARIO_ANONIMO = "eliminado@modoops.invalid";
+export const ACTOR_ANONIMO = "anonimizado";
+const TIPO_EVENTO_RETENCION = "retencion_clientes_aplicada";
 
 export interface ConteoRetencion {
   clientesAnonimizados: number;
@@ -65,12 +77,35 @@ export interface ConteoRetencion {
   invitacionesBorradas: number;
   usuariosBorrados: number;
   usuariosAnonimizados: number;
+  googleRevocado: number;
+  feedbackBorrado: number;
+  auditoriaAnonimizada: number;
 }
+
+// P10-90: lo que el job necesita de afuera; los tests lo reemplazan.
+export interface DepsRetencion {
+  // P10-90: revoca en Google el refresh token de Gmail del comercio. false si no hay
+  // conexión; lanza si Google o el KMS fallan.
+  revocarGoogle: (tenantId: string) => Promise<boolean>;
+}
+
+const depsReales: DepsRetencion = {
+  async revocarGoogle(tenantId) {
+    const token = await descifrarRefreshTokenGmail(tenantId);
+    if (!token) return false;
+    await revocarTokenGoogle(token);
+    return true;
+  },
+};
 
 export interface ResultadoRetencion {
   anonimizados: string[];
   sinFechaCierre: string[];
   conteos: Record<string, ConteoRetencion>;
+  // P10-90: Google no respondió; la conexión queda y se reintenta en la
+  // próxima corrida (borrarla sin revocar dejaría el permiso vivo en Google).
+  revocacionGooglePendiente: string[];
+  avisados: string[];
 }
 
 function iso(v: Date | string | null): string | null {
@@ -148,7 +183,7 @@ async function numerosSoloDe(tenantId: string): Promise<string[]> {
 type ConteoCuentas = Pick<
   ConteoRetencion,
   "membresiasBorradas" | "sesionesBorradas" | "invitacionesBorradas" | "usuariosBorrados" | "usuariosAnonimizados"
->;
+> & { readonly subsRetirados: string[] };
 
 // P10-90: cuentas del dueño y empleados. Se va la membresía de este comercio;
 // el usuario solo se borra (o anonimiza, si otra fila lo referencia) cuando no
@@ -174,6 +209,7 @@ async function limpiarCuentas(tenantId: string): Promise<ConteoCuentas> {
     let sesionesUsuario = 0;
     let usuariosBorrados = 0;
     let usuariosAnonimizados = 0;
+    const subsRetirados: string[] = [];
     for (const sub of [...candidatos].sort()) {
       const activa = await tx
         .select({ id: memberships.id })
@@ -187,6 +223,7 @@ async function limpiarCuentas(tenantId: string): Promise<ConteoCuentas> {
         .where(and(eq(tenants.ownerGoogleSub, sub), ne(tenants.estado, "baja")))
         .limit(1);
       if (activa.length > 0 || duenoVivo.length > 0) continue;
+      subsRetirados.push(sub);
       sesionesUsuario += (await tx.delete(sessions).where(eq(sessions.googleSub, sub)).returning({ id: sessions.idHash })).length;
       const refs =
         (await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.googleSub, sub)).limit(1)).length +
@@ -211,12 +248,79 @@ async function limpiarCuentas(tenantId: string): Promise<ConteoCuentas> {
       invitacionesBorradas: invs.length,
       usuariosBorrados,
       usuariosAnonimizados,
+      subsRetirados,
     };
   });
 }
 
-export async function anonimizarTenant(tenantId: string): Promise<ConteoRetencion> {
+// P10-90 (migración 0052, autorizada por Mauri 2026-11-21): auth_events,
+// gmail_connection_events y admin_audit_log son append-only; el trigger deja
+// cambiar solo actor/detalle y solo con modoops.retencion = 'on' en esta
+// transacción. Se anonimizan las filas del comercio y las de las personas que
+// se retiraron. El evento del propio job queda (solo trae conteos).
+async function anonimizarAuditoria(tenantId: string, subs: ReadonlyArray<string>): Promise<number> {
+  return getControlDb().transaction(async (tx) => {
+    await tx.execute(sql`select set_config('modoops.retencion', 'on', true)`);
+    const deTenantOSub =
+      subs.length > 0 ? or(eq(authEvents.tenantId, tenantId), inArray(authEvents.actor, [...subs])) : eq(authEvents.tenantId, tenantId);
+    const auth = await tx
+      .update(authEvents)
+      .set({ actor: ACTOR_ANONIMO, detalle: null })
+      .where(
+        and(
+          deTenantOSub,
+          ne(authEvents.tipo, TIPO_EVENTO_RETENCION),
+          or(isNull(authEvents.actor), ne(authEvents.actor, ACTOR_ANONIMO), isNotNull(authEvents.detalle)),
+          or(isNotNull(authEvents.actor), isNotNull(authEvents.detalle)),
+        ),
+      )
+      .returning({ id: authEvents.id });
+    const gmail = await tx
+      .update(gmailConnectionEvents)
+      .set({ actor: ACTOR_ANONIMO })
+      .where(
+        and(
+          eq(gmailConnectionEvents.tenantId, tenantId),
+          isNotNull(gmailConnectionEvents.actor),
+          ne(gmailConnectionEvents.actor, ACTOR_ANONIMO),
+        ),
+      )
+      .returning({ id: gmailConnectionEvents.id });
+    // P10-90: admin_audit_log encadena hashes sobre actor y detalle; la fila
+    // anonimizada conserva hash y prev_hash y queda marcada para que
+    // verificar-hash solo controle el encadenado.
+    const admin = await tx
+      .update(adminAuditLog)
+      .set({
+        actorGoogleSub: ACTOR_ANONIMO,
+        detalle: sql`jsonb_build_object('kind', ${adminAuditLog.actoKind}, 'anonimizado', true)`,
+      })
+      .where(
+        and(
+          eq(adminAuditLog.tenantId, tenantId),
+          or(ne(adminAuditLog.actorGoogleSub, ACTOR_ANONIMO), sql`${adminAuditLog.detalle} ->> 'anonimizado' is distinct from 'true'`),
+        ),
+      )
+      .returning({ id: adminAuditLog.id });
+    return auth.length + gmail.length + admin.length;
+  });
+}
+
+export async function anonimizarTenant(
+  tenantId: string,
+  deps: DepsRetencion = depsReales,
+  pendientes: string[] = [],
+): Promise<ConteoRetencion> {
   const control = getControlDb();
+  // P10-90: revocar antes de borrar el token cifrado.
+  let googleRevocado = 0;
+  let borrarConexionGoogle = true;
+  try {
+    if (await deps.revocarGoogle(tenantId)) googleRevocado = 1;
+  } catch {
+    borrarConexionGoogle = false;
+    pendientes.push(tenantId);
+  }
   const negocio = getTenantDb(tenantId);
   const numeros = await numerosSoloDe(tenantId);
   let sesionesWhatsappBorradas = 0;
@@ -297,7 +401,9 @@ export async function anonimizarTenant(tenantId: string): Promise<ConteoRetencio
       (await tx.delete(emailIngestionDrafts).where(eq(emailIngestionDrafts.tenantId, tenantId)).returning({ id: emailIngestionDrafts.id }))
         .length +
       (await tx.delete(gmailIngestionJobs).where(eq(gmailIngestionJobs.tenantId, tenantId)).returning({ id: gmailIngestionJobs.id })).length +
-      (await tx.delete(googleConnections).where(eq(googleConnections.tenantId, tenantId)).returning({ id: googleConnections.id })).length;
+      (borrarConexionGoogle
+        ? (await tx.delete(googleConnections).where(eq(googleConnections.tenantId, tenantId)).returning({ id: googleConnections.id })).length
+        : 0);
     return {
       ocrBorrados: ocr,
       borradoresProveedorBorrados: borradores,
@@ -322,11 +428,19 @@ export async function anonimizarTenant(tenantId: string): Promise<ConteoRetencio
     .delete(gmailWatchRoutes)
     .where(eq(gmailWatchRoutes.tenantId, tenantId))
     .returning({ id: gmailWatchRoutes.id });
-  const cuentas = await limpiarCuentas(tenantId);
+  const { subsRetirados, ...cuentas } = await limpiarCuentas(tenantId);
+  const feedback = await control
+    .delete(platformFeedbackReports)
+    .where(eq(platformFeedbackReports.tenantId, tenantId))
+    .returning({ id: platformFeedbackReports.id });
+  const auditoriaAnonimizada = await anonimizarAuditoria(tenantId, subsRetirados);
 
   const conteo: ConteoRetencion = {
     ...deNegocio,
     ...cuentas,
+    googleRevocado,
+    feedbackBorrado: feedback.length,
+    auditoriaAnonimizada,
     gmailBorrado: deNegocio.gmailBorrado + rutasGmail.length,
     identidadesWhatsappBorradas: identidades.length,
     sesionesWhatsappBorradas,
@@ -335,7 +449,7 @@ export async function anonimizarTenant(tenantId: string): Promise<ConteoRetencio
   if (Object.values(conteo).some((n) => n > 0)) {
     await control.insert(authEvents).values({
       tenantId,
-      tipo: "retencion_clientes_aplicada",
+      tipo: TIPO_EVENTO_RETENCION,
       actor: "sistema:retencion-clientes",
       detalle: { ...conteo },
     });
@@ -343,9 +457,56 @@ export async function anonimizarTenant(tenantId: string): Promise<ConteoRetencio
   return conteo;
 }
 
-export async function ejecutarRetencionClientes(ahora = new Date()): Promise<ResultadoRetencion> {
-  const { vencidos, sinFechaCierre } = elegir_tenants_retencion(await tenantsCerrados(), ahora);
+function fechaCorta(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${a}`;
+}
+
+// P10-90: aviso al dueño 7 días antes del borrado. Una sola vez por cierre:
+// la clave de idempotencia lleva la fecha de cierre.
+async function avisarDueno(aviso: AvisoRetencion): Promise<boolean> {
+  const control = getControlDb();
+  const [fila] = await control
+    .select({ nombre: tenants.nombreComercio, email: users.email })
+    .from(tenants)
+    .innerJoin(users, eq(users.googleSub, tenants.ownerGoogleSub))
+    .where(eq(tenants.id, aviso.id))
+    .limit(1);
+  if (!fila?.email || fila.email === EMAIL_USUARIO_ANONIMO) return false;
+  const dia = fechaCorta(aviso.borradoEn);
+  const asunto = `El ${dia} borramos los datos de ${fila.nombre}`;
+  const texto =
+    `Hola. La cuenta de ${fila.nombre} en ModoOps está cerrada desde el ${fechaCorta(aviso.cierre)}. ` +
+    `El ${dia} vamos a borrar o anonimizar los datos de tus clientes, proveedores, WhatsApp, OCR, Gmail y las cuentas de acceso, ` +
+    `como dice nuestra política de privacidad. Los comprobantes fiscales se conservan. ` +
+    `Si querés reabrir la cuenta antes de esa fecha, respondé este mail.`;
+  const insertadas = await getTenantDb(aviso.id)
+    .insert(emailOutbox)
+    .values({
+      tenantId: aviso.id,
+      categoria: "retencion",
+      plantilla: "retencion_aviso_v1",
+      destinatario: fila.email,
+      asunto,
+      html: `<p>${texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+      texto,
+      idempotencyKey: `retencion-aviso:${aviso.id}:${aviso.cierre}`,
+      estado: "pendiente",
+    })
+    .onConflictDoNothing()
+    .returning({ id: emailOutbox.id });
+  return insertadas.length > 0;
+}
+
+export async function ejecutarRetencionClientes(
+  ahora = new Date(),
+  deps: DepsRetencion = depsReales,
+): Promise<ResultadoRetencion> {
+  const { vencidos, sinFechaCierre, avisar } = elegir_tenants_retencion(await tenantsCerrados(), ahora);
   const conteos: Record<string, ConteoRetencion> = {};
-  for (const id of vencidos) conteos[id] = await anonimizarTenant(id);
-  return { anonimizados: vencidos, sinFechaCierre, conteos };
+  const revocacionGooglePendiente: string[] = [];
+  for (const id of vencidos) conteos[id] = await anonimizarTenant(id, deps, revocacionGooglePendiente);
+  const avisados: string[] = [];
+  for (const a of avisar) if (await avisarDueno(a)) avisados.push(a.id);
+  return { anonimizados: vencidos, sinFechaCierre, conteos, revocacionGooglePendiente, avisados };
 }
