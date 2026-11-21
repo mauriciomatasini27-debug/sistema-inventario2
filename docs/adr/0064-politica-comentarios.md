@@ -1,7 +1,7 @@
 ---
 id: ADR-0064
 tipo: adr
-estado: propuesto
+estado: aceptado
 modulos: []
 depende_de: [ADR-0016, PRD-COM-01]
 reemplaza: []
@@ -13,7 +13,7 @@ resumen: |
 ---
 # ADR-0064 - Política de comentarios de código: solo por qué no obvio
 
-Estado: propuesto. Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md`, ADR-0016, skill `no-comments` de pstack.
+Estado: aceptado. Fecha: 2026-10-13. Ratificado: 2026-11-21. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md`, ADR-0016, skill `no-comments` de pstack.
 Tipo: estándar de proceso, no ADR de arquitectura.
 
 ## Decisión
@@ -39,4 +39,6 @@ Menos comentarios y más issues. La regla de lint entra después de abrir los is
 
 ## Pendientes
 
-Aplicar el grupo borrar del plan (`diseno/PLAN-COM-01/a-borrar.md`), abrir los issues del grupo refactor (`diseno/PLAN-COM-01/b-refactor.md`) y escribir la regla de lint.
+- Ya aplicado en `src/modules/cash/` (TB-166): el grupo borrar, la consolidación de decisiones en ADR-0004 y ADR-0120, y el check de id con clase en `scripts/check-comment-ids.mjs`.
+- Ejecutar la poda por área sobre los dos inventarios: `PLAN-COM-01` y el relevamiento de #273 para `src/modules` (salvo `cash/`), `src/offline/` y middleware.
+- Completar COM-S6 (issues de los refactors) y COM-S7 (lint de marcadores temporales con enlace a issue). Las deudas de `cash/` siguen en borrador local (`PLAN-COM-01-D`) hasta su publicación.
