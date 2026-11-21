@@ -159,7 +159,7 @@ export function calcularChecklist(
   oculta: boolean;
 } {
   const { pasos } = calcular_checklist(foto);
-  // TB-165 [tenant]: «no aplica» sale de la persistencia del Dueño, no del cálculo puro.
+  // TB-165 [rol]: «no aplica» sale de la persistencia del Dueño, no del cálculo puro.
   const conNoAplica = pasos.map((paso) => ({
     ...paso,
     noAplica: estado.pasosSaltados.includes(paso.id),

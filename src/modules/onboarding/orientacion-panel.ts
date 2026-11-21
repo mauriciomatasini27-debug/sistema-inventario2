@@ -1,4 +1,4 @@
-// TB-165 [tenant]: orientación del panel en servidor según rol y membership activa.
+// TB-165 [rol]: orientación del panel en servidor según rol y membership activa.
 import { pasos_para_rol, type PasoTour } from "./tour.js";
 
 export type RolParaOrientacion = "dueno" | "empleado" | null;
