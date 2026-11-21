@@ -61,7 +61,7 @@ const email = contact.email.trim() || '[COMPLETAR: email de contacto]';
         A los 90 días del cierre:
       </p>
       <ul class="mt-3 max-w-3xl list-disc space-y-2 pl-6 text-[length:var(--text-body-lg)]">
-        <li>Anonimizamos a tus clientes de fiado (nombre, teléfono, DNI, notas y el motivo de cada movimiento) y a tus proveedores (nombre, email y teléfono; el CUIT se conserva porque figura en comprobantes). Los montos y saldos se conservan.</li>
+        <li>Anonimizamos a tus clientes de fiado (nombre, teléfono, DNI, notas y el motivo de cada movimiento) y a tus proveedores (reemplazamos el nombre por "Proveedor eliminado" y borramos email y teléfono; el CUIT se conserva porque figura en comprobantes). Los montos y saldos se conservan.</li>
         <li>Borramos los datos de WhatsApp del comercio (vínculos de números, sesiones, conversaciones con el bot y preferencias de avisos) y anonimizamos el número en el registro de uso.</li>
         <li>Borramos los datos de OCR, los borradores de facturas de proveedores que no se confirmaron, los contactos de proveedores, las cuentas y facturas de servicios del comercio, los avisos pendientes de envío y los reportes enviados a soporte.</li>
         <li>Revocamos en Google el permiso de Gmail que hayas dado y borramos esa conexión y lo que se importó por ella.</li>
@@ -69,7 +69,10 @@ const email = contact.email.trim() || '[COMPLETAR: email de contacto]';
         <li>Los registros de seguridad y de inicio de sesión se conservan, pero anonimizados.</li>
       </ul>
       <p class="mt-3 max-w-3xl text-[length:var(--text-body-lg)]">
-        Conservamos como registro fiscal las ventas, la caja, los comprobantes fiscales, las facturas de compra confirmadas y las órdenes de pago a proveedores, porque existe una obligación legal de conservarlos y en ese caso la supresión no procede (art. 16, inc. 5, de la Ley 25.326).
+        Conservamos como registro fiscal las ventas, la caja, los comprobantes fiscales, las facturas de compra confirmadas y los pagos y las órdenes de pago a proveedores, con su historial y los datos del beneficiario, porque existe una obligación legal de conservarlos y en ese caso la supresión no procede (art. 16, inc. 5, de la Ley 25.326).
+      </p>
+      <p class="mt-3 max-w-3xl text-[length:var(--text-body-lg)]">
+        Las facturas de servicios cargadas antes de este cambio que no podemos atribuir con certeza a un comercio no se borran automáticamente. Si querés que las eliminemos, escribinos a <a href={`mailto:${email}`} class="text-trust underline hover:text-nebula-cyan">{email}</a>.
       </p>
       <p class="mt-3 max-w-3xl text-[length:var(--text-body-lg)]">
         Le avisamos al dueño cuando cierra la cuenta y 7 días antes del borrado.

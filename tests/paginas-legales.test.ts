@@ -11,7 +11,7 @@ const PAGINAS = [
     archivo: "src/pages/privacidad.astro",
     ruta: "/privacidad",
     titulo: "Política de privacidad",
-    textos: ["A los 90 días del cierre", "Revocamos en Google", "7 días antes del borrado", "anonimizados", "facturas de compra confirmadas y las órdenes de pago a proveedores", "desde el 21 de noviembre de 2026", "10 días corridos", "5 días hábiles"],
+    textos: ["A los 90 días del cierre", "Revocamos en Google", "7 días antes del borrado", "anonimizados", "los pagos y las órdenes de pago a proveedores, con su historial y los datos del beneficiario", "Proveedor eliminado", "no se borran automáticamente", "desde el 21 de noviembre de 2026", "10 días corridos", "5 días hábiles"],
   },
   {
     archivo: "src/pages/terminos.astro",
