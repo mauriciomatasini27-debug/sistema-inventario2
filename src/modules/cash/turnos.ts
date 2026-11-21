@@ -1,11 +1,5 @@
 import type { Rol } from "./caja.js";
 
-// C17 turnos (ADR-0004). Conteo a ciegas vs esperado, tolerancia ±$500,
-// diferencia_turno + resolución Dueño, drops y conteo sorpresa.
-// Núcleo puro en memoria; la persistencia vive en shift_handovers,
-// handover_counts y cash_drawer_drops (schema-caja.ts).
-
-// Por qué bigint: $500 = 500_00 centavos exactos, sin floats (ADR-0004).
 export const TOLERANCIA_CENTAVOS = 50000n;
 
 export type EstadoTurno = "pendiente" | "conciliado" | "en_disputa" | "resuelto";
@@ -44,15 +38,10 @@ export type ConciliarResult =
   | { status: 409; error: string; original?: ConciliarOk }
   | { status: 422; error: string };
 
-// Por qué valor absoluto con ternario y no Math.abs: Math.abs no acepta
-// bigint; la tolerancia compara centavos exactos.
 function absBigint(v: bigint): bigint {
   return v < 0n ? -v : v;
 }
 
-// C17: el que cuenta no ve el esperado hasta conciliar; si |contado -
-// esperado| supera ±$500 nace diferencia_turno en disputa que solo el
-// Dueño puede resolver. Dentro de tolerancia concilia directo.
 export function conciliar_turno(input: ConciliarInput): ConciliarResult {
   const visto = input.vistos.get(input.idempotencyKey);
   if (visto) return { status: 409, error: "idempotency-key repetida", original: visto };
@@ -97,8 +86,6 @@ export type ResolverResult =
   | { status: 404; error: string }
   | { status: 422; error: string };
 
-// Por qué 403 y no 422: es permiso por rol (C15/C16/C17), igual que
-// retiro_dueno y sueldos en caja.ts; solo el Dueño cierra disputas.
 export function resolver_disputa(input: ResolverInput): ResolverResult {
   if (input.rol !== "dueno") return { status: 403, error: "resolucion solo dueno" };
   const turno = input.turnos.get(input.turnoId);
@@ -145,8 +132,6 @@ export type DropResult =
   | { status: 409; error: string; original?: DropOk }
   | { status: 422; error: string };
 
-// cash_drawer_drops: retiro parcial a caja fuerte durante el turno;
-// sorpresa=true es el conteo no anunciado del Dueño.
 export function registrar_drop(input: DropInput): DropResult {
   const visto = input.vistos.get(input.idempotencyKey);
   if (visto) return { status: 409, error: "idempotency-key repetida", original: visto };

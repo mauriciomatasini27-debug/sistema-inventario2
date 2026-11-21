@@ -74,7 +74,6 @@ export interface StoredFiscalDoc {
   // mostrar `Factura C PV-Nro` con link (nunca el CAE como factura).
   marca?: string | null | undefined;
   link_token?: string | null | undefined;
-  // FE-S12 (B): IVA discriminado en centavos + alícuota. C no lo usa.
   imp_iva_centavos?: string | null | undefined;
   alic_iva_id?: string | null | undefined;
   // FE-S22 (offline): ocurrencia cliente para ordenar la cola + leyenda.
@@ -153,7 +152,6 @@ function crearEstado() {
   productSectores: new Map<string, string>(),
   // ADR-0106: espejo de products.origen = 'alta_al_vender' (sin DB).
   altasAlVender: new Set<string>(),
-  // N1 CAT-S1: catálogo mínimo (sku -> ficha). Memoria manda sin DB; con DB
   // viva hay write-through best-effort a products/product_codes.
   productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo" | "pendiente_revision"; minStock: number | null; reorderQty: number | null }>(),
   codigos: new Map<string, string>(),
@@ -167,7 +165,6 @@ function crearEstado() {
   qrRecibos: new Map<string, { numeroOperacion: string; montoCentavos: string; estado: string; idemKey: string; fechaOperacion?: string; origen?: string; cashMovementId?: string | null }>(),
   vencimientosCaja: new Map<string, { id: string; concepto: string; venceEl: string; montoCentavos: string; estado: string }>(),
   ticketPagos: new Map<string, Array<{ medio: Medio; montoCentavos: string; cashMovementId: string }>>(),
-  // TV1/TV2 (P10-5): líneas y descuentos congelados por venta.
   ticketLineas: [] as Array<{ sale_id: string; product_id: string; qty: number; precio_centavos: string; costo_centavos?: string }>,
   ticketDescuentos: [] as Array<{ sale_id: string; linea_idx: number; sku: string; bruto_centavos: string; desc_linea_centavos: string; desc_ticket_centavos: string; neto_centavos: string }>,
   // P10-2: ticket de venta a cuenta (no vive en idempotency de contado).
@@ -199,7 +196,6 @@ function crearEstado() {
   // por POST /api/sync/promote (ADR-0017). Monoproceso en C1; C2 lo lleva a
   // Postgres con lock (idMappings es la copia durable best-effort).
   promociones: new Map<string, { provisorio: string; definitivo: string }>(),
-  // OCR Fase 0 (ADR-0005): jobs idempotentes por wamid/message-id + eventos
   // hacia el bot WA ([Confirmar] [Editar] [Descartar]).
   ocrJobs: new Map<string, import("../modules/ocr/jobs.js").OcrJob>(),
   ocrJobsByKey: new Map<string, string>(),
@@ -458,7 +454,6 @@ export interface ControlSession {
   motivo?: string | undefined;
   agente?: string | undefined;
   dispositivoCodigo?: string | undefined;
-  // AU10.2: última reautenticación con Google. El login la deja fresca.
   reauthAt?: string | undefined;
 }
 

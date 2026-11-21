@@ -1,5 +1,4 @@
 ---
-// UI mínima Slice-0: escaneo + cobro a 360px. Sin descuentos ni devoluciones.
 // P1-41: medio "A cuenta" llama POST /api/credit/sales-on-account (solo online).
 // (Movida desde / a /venta por ADR-0020: el home pasa a ser el dashboard índice.)
 import "../styles/tokens-papel.css";
@@ -131,7 +130,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       #efectivo-vuelto { margin: 4px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
     </style>
     <style is:global>
-      /* TB-160: los botones del ticket nacen en el script y no heredan el style con scope. */
       #lista-carrito button,
       #resultados button,
       #leer-camara,

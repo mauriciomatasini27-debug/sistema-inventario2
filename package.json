@@ -25,6 +25,7 @@
     "docs:estado": "node scripts/docs-estado.mjs",
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",
+    "docs:comentarios": "node scripts/docs-comentarios.mjs",
     "docs:context": "node scripts/docs-context.mjs",
     "credenciales": "node scripts/chequear-credenciales.mjs",
     "cargar:credenciales": "node scripts/cargar-credenciales.mjs",
@@ -64,7 +65,7 @@
     "drizzle-kit": "^0.31.11",
     "fast-check": "4.10.2",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
+    "typescript": "7.0.2",
     "vitest": "^5.1.0",
     "write-excel-file": "^4.1.1"
   },

@@ -391,9 +391,20 @@ export async function listarYSincronizarTenantsControl(): Promise<number> {
 }
 
 // P1-87: el POST ya cambió el Map; esto deja el mismo estado en la tabla tenants.
-export function persistirEstadoTenant(tenantId: string, estado: "activo" | "suspendido"): Promise<boolean> {
+export function persistirEstadoTenant(tenantId: string, estado: "activo" | "suspendido" | "baja"): Promise<boolean> {
   return intentarControl((db) =>
     db.update(tenants).set({ estado }).where(eq(tenants.id, tenantId)),
+  );
+}
+
+// P10-91: al cerrar la cuenta se revocan todas las sesiones del comercio,
+// también las que este proceso no tiene en memoria.
+export function revocarSesionesTenantDb(tenantId: string, motivo: string): Promise<boolean> {
+  return intentarControl((db) =>
+    db
+      .update(sessions)
+      .set({ revocadaAt: new Date(), motivoRevocacion: motivo })
+      .where(and(eq(sessions.tenantId, tenantId), isNull(sessions.revocadaAt))),
   );
 }
 

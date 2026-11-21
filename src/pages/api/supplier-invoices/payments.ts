@@ -5,10 +5,6 @@ import { registrarPagoProveedorRepo } from "../../../lib/repos/facturas-proveedo
 
 export const prerender = false;
 
-// POST /api/supplier-invoices/payments — pago a proveedor + egreso caja (FP5).
-// Pago que excede el saldo se rechaza 422 en el núcleo.
-// PERS2-S14: el repo es dueño de duplicado → insert → espejo; el egreso va
-// por el repo de caja.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

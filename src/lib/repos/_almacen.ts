@@ -671,6 +671,9 @@ export interface SuscripcionPlanes {
   desde?: Date | null;
   hasta?: Date | null;
   planProgramado?: string | null;
+  // P1-91: espejo de subscriptions.proveedor/proveedor_ref para el webhook.
+  proveedor?: string | undefined;
+  proveedorRef?: string | null | undefined;
 }
 
 const suscripcionesPlanes = new Map<string, SuscripcionPlanes>();

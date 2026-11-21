@@ -5,9 +5,6 @@ import { prepararOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payment-orders/prepare — el bot prepara, el comerciante paga (OP7).
-// La plata NUNCA se mueve acá; link fuera de allowlist => 422.
-// PERS2-S15: el repo numera por tenant con DB primero.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

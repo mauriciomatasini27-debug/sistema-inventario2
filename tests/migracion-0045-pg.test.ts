@@ -73,7 +73,7 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0046_tenants_rubro")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0047_shared_tenant_periferia")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0049_tenants_onboarding_wizard")).toBe(true);
-    // TB-165: la 0050 agrega la columna durable de las respuestas del cuestionario.
+    // TB-165 [tenant]: la 0050 agrega la columna durable de las respuestas del cuestionario.
     expect(journal.entries.some((e) => e.tag === "0050_tenants_wizard_respuestas")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0051_ggl_p240_gmail_dedupe_tenant")).toBe(true);
     // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
@@ -285,7 +285,7 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // ON12/TB-165 + 0051 + 0052/0053 (P10-90): el wrapper aplica hasta la última migración del journal.
+        // ON12/TB-165 + 0051 + 0052/0053 (P10-90) [plataforma]: el wrapper aplica hasta la última migración del journal.
         expect(n[0]?.n).toBe(54);
       } finally {
         await db.end();
@@ -334,8 +334,7 @@ describe.skipIf(!hayPG)("ON12 migración 0049_tenants_onboarding_wizard en Postg
         const filaNueva = await db2`select wizard_completado, wizard_paso, wizard_respuestas from tenants where id = ${nuevo}::uuid`;
         expect(filaNueva[0]?.wizard_completado).toBe(false);
         expect(filaNueva[0]?.wizard_paso).toBe(0);
-        // TB-165: la 0050 deja el default vacío; las respuestas se escriben
-        // cuando el dueño completa el cuestionario.
+        // TB-165 [tenant]: la 0050 deja el default vacío; las respuestas se escriben al completar.
         expect(filaNueva[0]?.wizard_respuestas).toEqual({});
       } finally {
         await db2.end();

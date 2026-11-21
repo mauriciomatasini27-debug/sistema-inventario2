@@ -68,8 +68,15 @@ async function reclamarEventoMpEnDb(
   }
 }
 
-export async function reclamarEventoMp(clave: string, preapprovalId: string, estado: string): Promise<boolean> {
-  const tenantId = await tenantIdDePreapproval(preapprovalId);
+export async function reclamarEventoMp(
+  clave: string,
+  preapprovalId: string,
+  estado: string,
+  tenantIdResuelto?: string,
+): Promise<boolean> {
+  // P1-91: los eventos reales traen el comercio en el GET a MP; si viene
+  // resuelto se usa tal cual y no se busca por preapproval_id (payment id).
+  const tenantId = tenantIdResuelto ?? (await tenantIdDePreapproval(preapprovalId));
 
   if (esModoShared() && process.env.TENANT_DATABASE_URL) {
     if (tenantId) {

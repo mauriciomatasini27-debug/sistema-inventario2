@@ -13,9 +13,6 @@ export const prerender = false;
 export const tiendaLunes: TiendaLunes = new Map<string, SnapshotLunes>();
 const recordados = new Map<string, string>();
 
-// POST /api/jobs/whatsapp-lunes — recordatorio lunes 10h B9.5.
-// Solo con X-Job-Secret. Recuerda los programados cuya fecha es hoy (BA);
-// sin programados no sale nada.
 export const POST: APIRoute = async ({ request }) => {
   const secret = process.env.JOBS_SECRET;
   if (!secret || request.headers.get("X-Job-Secret") !== secret) {

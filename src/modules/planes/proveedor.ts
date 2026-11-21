@@ -8,6 +8,8 @@
 import { planDe, type Catalogo, type PlanId } from "./catalogo.js";
 
 const MP_PREAPPROVAL_URL = "https://api.mercadopago.com/preapproval";
+const MP_AUTHORIZED_PAYMENTS_URL = "https://api.mercadopago.com/authorized_payments";
+const MP_PAYMENTS_URL = "https://api.mercadopago.com/v1/payments";
 
 export type ResultadoPreaprobacionMp =
   | { readonly ok: true; readonly modo: "simulado"; readonly preapprovalId: string }
@@ -47,6 +49,151 @@ export async function crearPreaprobacionMercadoPago(args: {
   } catch {
     return { ok: false, motivo: "red" };
   }
+}
+
+// P1-91: contrato real de preaprobación (sin plan) y consultas del webhook.
+// Los montos en ARS los define Mauri: acá se manda el monto del catálogo tal
+// cual, sin conversión ni precio nuevo.
+export type EstadoPreapprovalMp = "authorized" | "paused" | "cancelled" | "pending";
+
+export interface CuerpoPreaprobacionMp {
+  readonly tenantId: string;
+  readonly planId: PlanId;
+  readonly montoArs: number;
+  readonly payerEmail: string;
+  readonly backUrl: string;
+}
+
+export function cuerpoPreaprobacionMp(args: CuerpoPreaprobacionMp): Record<string, unknown> {
+  return {
+    reason: `Plan ${args.planId}`,
+    external_reference: args.tenantId,
+    payer_email: args.payerEmail,
+    auto_recurring: {
+      frequency: 1,
+      frequency_type: "months",
+      transaction_amount: args.montoArs,
+      currency_id: "ARS",
+    },
+    back_url: args.backUrl,
+    status: "pending",
+  };
+}
+
+export type ResultadoSuscripcionMp =
+  | { readonly ok: true; readonly preapprovalId: string; readonly initPoint: string }
+  | { readonly ok: false; readonly motivo: "sin_credenciales" | "red" | "http" };
+
+export async function crearPreaprobacionSuscripcionMp(
+  args: CuerpoPreaprobacionMp & {
+    readonly accessToken?: string | undefined;
+    readonly fetchImpl?: typeof fetch | undefined;
+  },
+): Promise<ResultadoSuscripcionMp> {
+  const token = args.accessToken ?? process.env.MP_ACCESS_TOKEN ?? "";
+  if (!token) return { ok: false, motivo: "sin_credenciales" };
+  const fetchFn = args.fetchImpl ?? fetch;
+  try {
+    const res = await fetchFn(MP_PREAPPROVAL_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(cuerpoPreaprobacionMp(args)),
+    });
+    if (!res.ok) return { ok: false, motivo: "http" };
+    const data = (await res.json()) as { id?: unknown; init_point?: unknown };
+    if (typeof data.id !== "string" || typeof data.init_point !== "string") {
+      return { ok: false, motivo: "http" };
+    }
+    return { ok: true, preapprovalId: data.id, initPoint: data.init_point };
+  } catch {
+    return { ok: false, motivo: "red" };
+  }
+}
+
+export interface PreapprovalMp {
+  readonly id?: string;
+  readonly status?: string;
+  readonly external_reference?: string;
+  readonly reason?: string;
+}
+
+export interface PagoAutorizadoMp {
+  readonly id?: string | number;
+  readonly status?: string;
+  readonly preapproval_id?: string;
+  readonly payment?: { readonly status?: string } | null;
+}
+
+export interface PagoMp {
+  readonly id?: string | number;
+  readonly status?: string;
+  readonly preapproval_id?: string;
+}
+
+export type ResultadoConsultaMp<T> =
+  | { readonly ok: true; readonly datos: T }
+  | { readonly ok: false; readonly motivo: "sin_credenciales" | "red" | "http" };
+
+async function consultarMp<T>(
+  url: string,
+  args: { readonly accessToken?: string | undefined; readonly fetchImpl?: typeof fetch | undefined },
+): Promise<ResultadoConsultaMp<T>> {
+  const token = args.accessToken ?? process.env.MP_ACCESS_TOKEN ?? "";
+  if (!token) return { ok: false, motivo: "sin_credenciales" };
+  const fetchFn = args.fetchImpl ?? fetch;
+  try {
+    const res = await fetchFn(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return { ok: false, motivo: "http" };
+    return { ok: true, datos: (await res.json()) as T };
+  } catch {
+    // P1-91: MP no disponible; el webhook responde 502 para que MP reintente.
+    return { ok: false, motivo: "red" };
+  }
+}
+
+export function consultarPreapprovalMp(
+  preapprovalId: string,
+  args: { readonly accessToken?: string | undefined; readonly fetchImpl?: typeof fetch | undefined } = {},
+): Promise<ResultadoConsultaMp<PreapprovalMp>> {
+  return consultarMp<PreapprovalMp>(`${MP_PREAPPROVAL_URL}/${encodeURIComponent(preapprovalId)}`, args);
+}
+
+export function consultarPagoAutorizadoMp(
+  pagoId: string,
+  args: { readonly accessToken?: string | undefined; readonly fetchImpl?: typeof fetch | undefined } = {},
+): Promise<ResultadoConsultaMp<PagoAutorizadoMp>> {
+  return consultarMp<PagoAutorizadoMp>(
+    `${MP_AUTHORIZED_PAYMENTS_URL}/${encodeURIComponent(pagoId)}`,
+    args,
+  );
+}
+
+export function consultarPagoMp(
+  pagoId: string,
+  args: { readonly accessToken?: string | undefined; readonly fetchImpl?: typeof fetch | undefined } = {},
+): Promise<ResultadoConsultaMp<PagoMp>> {
+  return consultarMp<PagoMp>(`${MP_PAYMENTS_URL}/${encodeURIComponent(pagoId)}`, args);
+}
+
+export function normalizarEstadoPreapprovalMp(status: unknown): EstadoPreapprovalMp | null {
+  if (typeof status !== "string") return null;
+  const s = status.trim().toLowerCase();
+  if (s === "authorized" || s === "paused" || s === "cancelled" || s === "pending") return s;
+  return null;
+}
+
+export type EstadoPagoMp = "aprobado" | "rechazado";
+
+export function normalizarEstadoPagoMp(datos: {
+  readonly status?: string;
+  readonly payment?: { readonly status?: string } | null;
+}): EstadoPagoMp | null {
+  const crudo = datos.payment?.status ?? datos.status;
+  if (typeof crudo !== "string") return null;
+  const s = crudo.trim().toLowerCase();
+  if (s === "rejected" || s === "cancelled") return "rechazado";
+  if (s === "processed" || s === "approved") return "aprobado";
+  return null;
 }
 
 export type EstadoSuscripcion = "activa" | "cancelada";

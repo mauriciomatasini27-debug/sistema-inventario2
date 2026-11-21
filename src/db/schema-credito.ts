@@ -1,13 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, integer, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
-// LANE B — Fiado FC1-FC9 (ADR-0004) + tope offline contra saldo local (ADR-0003).
-// Dinero siempre bigint centavos. Append-only: inmutabilidad runtime
-// (REVOKE UPDATE/DELETE/TRUNCATE + triggers + job que verifica sin
-// autocorregir) se aplica en migración, no en este schema tipado — igual
-// que schema.ts. Sin FK con cascada: referencias lógicas por uuid.
-// saldo_cache_centavos se escribe EN LA MISMA tx que el movimiento (FC4);
-// el job nocturno compara contra SUM(debe-haber) y solo reporta.
 export const customers = pgTable(
   "customers",
   {

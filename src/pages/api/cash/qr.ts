@@ -10,7 +10,6 @@ const qrSchema = z.object({
   monto_centavos: z.number().int().min(1),
   // CAJA-S1: contrato de ingesta de campos ya extraídos (bot/Gmail entregan
   // foto o PDF y un extractor previo completa estos campos; sin OAuth/Meta
-  // acá). Con fecha_operacion corre la asociación monto exacto ±15 min.
   fecha_operacion: z.string().datetime({ offset: true }).optional(),
   origen: z.enum(["bot", "gmail", "manual"]).optional(),
 });

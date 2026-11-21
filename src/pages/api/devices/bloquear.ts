@@ -11,7 +11,6 @@ const bodySchema = z.object({
   device_code: z.string().min(1).max(64),
 });
 
-// POST /api/devices/bloquear — el Dueño bloquea el mostrador (P1-3).
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

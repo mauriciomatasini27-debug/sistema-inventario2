@@ -89,6 +89,10 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
         { status: 403 },
       );
     }
+    // P10-91: cuenta cerrada por el dueño o por mora: sin acceso.
+    if (tenant.estado === "baja") {
+      return Response.json({ error: "La cuenta de este comercio está cerrada." }, { status: 403 });
+    }
     if (tenant.estado !== "activo" && tenant.estado !== "suspendido") {
       return Response.json(
         { error: "Estamos preparando tu comercio, te avisamos en cuanto esté listo." },

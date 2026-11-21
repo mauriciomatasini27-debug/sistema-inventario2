@@ -5,9 +5,6 @@ import { crearAlmacenDeviceSync } from "../lib/repos/_almacen.js";
 import { store } from "../lib/store.js";
 import { enCuarentena, horasSinSync, nivelAviso } from "../offline/avisos.js";
 
-// Job aviso-sync SYNC-S4 (diario). En memoria lista devices con 24/60/72h
-// sin sync. No muta: el heartbeat ya actualiza ultimaVistaEn; acá solo se
-// informa. Idempotente por construcción (lectura).
 export interface AvisoSync {
   device_code: string;
   horas: number;

@@ -3,8 +3,6 @@ import { z } from "zod";
 
 export const prerender = false;
 
-// POST /api/lots/ocr-fecha — F12.3/F12.11 OCR fecha impresa envase.
-// Acepta texto crudo tipo "VTO 03/2027", "Vence 12/25", propone fecha para confirmar.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -15,7 +13,6 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = z.object({ texto: z.string().min(1).max(500) }).safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const t = parsed.data.texto.toUpperCase();
-  // Patrones: MM/YYYY, MM/YY, DD/MM/YYYY.
   const m1 = t.match(/(0[1-9]|1[0-2])\s*\/\s*(20\d{2})/);
   const m2 = t.match(/(0[1-9]|1[0-2])\s*\/\s*(\d{2})(?!\d)/);
   const m3 = t.match(/(\d{1,2})\s*\/\s*(0[1-9]|1[0-2])\s*\/\s*(20\d{2})/);

@@ -183,7 +183,12 @@ const inputClass =
       </div>
     </div>
 
-    <p class="mt-12 border-t border-nebula-cyan/15 pt-8 text-center text-xs text-canvas-white">
+    <nav aria-label="Información legal" class="mt-12 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-canvas-white">
+      <a href="/privacidad" class="underline transition-colors hover:text-nebula-cyan">Privacidad</a>
+      <a href="/terminos" class="underline transition-colors hover:text-nebula-cyan">Términos</a>
+      <a href="/eliminar-datos" class="underline transition-colors hover:text-nebula-cyan">Eliminar datos</a>
+    </nav>
+    <p class="mt-8 border-t border-nebula-cyan/15 pt-8 text-center text-xs text-canvas-white">
       {footer.copyright}
     </p>
   </footer>
@@ -196,7 +201,6 @@ const inputClass =
 </script>
 
 <script>
-  // E13-R5: envío vía fetch para que el error sea visible (antes nunca se mostraba).
   for (const form of document.querySelectorAll('[data-contact-form]')) {
     if (!(form instanceof HTMLFormElement)) continue;
     form.addEventListener('submit', async (e) => {

@@ -5,10 +5,6 @@ import { crearOrdenRepo } from "../../lib/repos/proveedores.js";
 
 export const prerender = false;
 
-// POST /api/purchase-orders — crea OC abierta (cerrada jamás se edita).
-// PERS2-S24: DB-first en el repo de proveedores (pre-check por
-// idempotency-key con cabecera+líneas en 1 tx y espejo memoria). En multi sin
-// base el repo propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

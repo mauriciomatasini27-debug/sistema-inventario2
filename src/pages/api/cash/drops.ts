@@ -5,8 +5,6 @@ import { registrarRetiro } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// POST /api/cash/drops — retiro parcial a caja fuerte + conteo sorpresa (C17).
-// PERS2-S13: el repo caja persiste en cash_drawer_drops del tenant con DB viva.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

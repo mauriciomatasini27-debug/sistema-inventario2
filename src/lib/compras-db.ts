@@ -23,7 +23,6 @@ export type TenantDb = ReturnType<typeof getTenantDb>;
 
 // PERS2-S2: la disponibilidad de la base la resuelve `dbVivaTenant` en
 // server-db.ts (null en single, BaseNoDisponible en multi). Este módulo ya no
-// trae su propio dbViva().
 
 // ---------------------------------------------------------------------------
 // Mapeo dominio <-> durable. Ids de dominio (borr-<key>, fac-<key>, oc-<key>,

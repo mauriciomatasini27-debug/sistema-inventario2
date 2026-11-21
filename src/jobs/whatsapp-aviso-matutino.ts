@@ -1,10 +1,3 @@
-// Job Track1 B5: aviso matutino por WhatsApp, un envío por comercio.
-// Calcula con stock vivo al momento del envío, respeta opt-in/pausa
-// (optin.ts via puede_enviar_whatsapp), es idempotente por comercio+fecha+
-// canal y registra el fallo por canal sin bloquear el email (B5.6).
-//
-// El envío real lo inyecta el llamador (adaptador con Cloud API): este job
-// nunca toca red, Drizzle ni env directamente, así se puede probar sin IO.
 
 import {
   armar_cuerpo_matutino,
@@ -48,15 +41,12 @@ export interface EnvioWa {
   readonly error?: string | undefined;
 }
 
-// Corridas ya registradas en este proceso (idempotencia en memoria).
 const corridasWa = new Set<string>();
 
 export function limpiar_corridas_wa(): void {
   corridasWa.clear();
 }
 
-// Reparte los envíos en el tiempo para no pegar todo junto: el comercio
-// i de n sale a los i*n-ésimos de la ventana. Puro.
 export function demora_para(indice: number, total: number, ventanaMs = 600000): number {
   if (total <= 0) return 0;
   const i = Math.max(0, Math.min(indice, total - 1));
@@ -82,7 +72,6 @@ export function ejecutar_aviso_matutino_wa(args: {
       resultados.push(r);
       args.registrar?.(clave, r);
     };
-    // Idempotente por comercio: memoria del proceso + registro externo.
     if (corridasWa.has(clave) || args.yaEnviados?.has(clave) === true) {
       terminar({
         tenantId: comercio.tenantId,
@@ -95,7 +84,6 @@ export function ejecutar_aviso_matutino_wa(args: {
       });
       return;
     }
-    // Respeta opt-in/pausa antes de calcular de más.
     if (!puede_enviar_whatsapp(comercio.prefs, args.ahoraMs)) {
       terminar({
         tenantId: comercio.tenantId,
@@ -108,7 +96,6 @@ export function ejecutar_aviso_matutino_wa(args: {
       });
       return;
     }
-    // Cálculo vivo al envío; sin novedad no sale nada (B5.1).
     const decision = decidir_envio_matutino(comercio.catalogoVivo, comercio.enAlertaPrevia);
     if (!decision.enviar) {
       terminar({
@@ -133,8 +120,6 @@ export function ejecutar_aviso_matutino_wa(args: {
     try {
       envio = args.enviar(comercio.tenantId, { texto, variables, clave, botones });
     } catch (e) {
-      // Fallo solo del canal WA: se registra y se sigue con el resto.
-      // El email corre por su propia clave y no se ve afectado (B5.6).
       terminar({
         tenantId: comercio.tenantId,
         clave,

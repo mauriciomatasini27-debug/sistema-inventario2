@@ -1,4 +1,3 @@
-// Adaptador P1-1/P1-2: dispara alertas de seguridad WA con fallback a email.
 // Nunca lanza ni bloquea la ruta: sin credenciales no hace nada, con
 // credenciales envía por Cloud API y traga errores. Si WA no pudo (sin
 // destinos, no habilitado o fallo) y hay email verificado, cae a email
@@ -81,7 +80,6 @@ export async function notificarAlertaSeguridad(opts: {
           const res = await enviar_whatsapp({ phoneNumberId: cred.phoneNumberId, token: cred.token, toE164: n.numero, payload: construir_texto(texto) });
           if (res.ok) waOk = true;
         } catch {
-          // Best-effort por destino: se sigue con el resto.
         }
       }
     }
@@ -95,10 +93,8 @@ export async function notificarAlertaSeguridad(opts: {
         await enviarEmailResend(email, mail.asunto, mail.texto);
       }
     } catch {
-      // Fallback también best-effort.
     }
   } catch {
-    // Nunca rompe la ruta que alerta.
   }
 }
 

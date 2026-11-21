@@ -3,8 +3,6 @@ import { buildTicketRender } from "../../../modules/sales/ticket_render.js";
 
 export const prerender = false;
 
-// POST /api/tickets/render — render puro sin persistencia (TV10).
-// Body: { comercio, ticket, lineas, linkPublico, fechaIso }.
 // 200 { html, text, qrPayload }; 422 si invariantes no cuadran.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
@@ -63,7 +61,6 @@ export const POST: APIRoute = async ({ request }) => {
             leyenda: "DOCUMENTO NO VÁLIDO COMO FACTURA" as const,
             ...(t.pago !== undefined ? { pago: t.pago as "Pago: A cuenta" } : {}),
           };
-    // Mismo input para html/texto y PDF (tipos estructuralmente idénticos).
     const input = {
       comercio: b.comercio,
       ticket,

@@ -4,8 +4,6 @@ import { control } from "../../../lib/store.js";
 
 export const prerender = false;
 
-// POST /api/auth/logout — revoca la sesión en el servidor y borra la cookie.
-// Si hay movimientos sin sincronizar la app avisa antes (AU8.7, lado cliente).
 export const POST: APIRoute = async ({ request }) => {
   const idPlano = extraerSesionDeCookie(request.headers.get("cookie"));
   if (idPlano) {

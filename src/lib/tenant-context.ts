@@ -54,7 +54,6 @@ export const PREFIJOS_DATOS = [
   "/api/utility-bills",
   "/api/email-drafts",
   "/api/ocr",
-  // DASH-S8: resumen read-only de /panel/plan; el middleware fija el tenant
   // para que los repos de planes usen la base del comercio (ADR-0051).
   "/api/plan",
   // DASH-S12: el índice de /panel lee las features del plan del tenant.
@@ -77,11 +76,39 @@ export function esRutaDatos(path: string): boolean {
   return PREFIJOS_DATOS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
+const METODOS_ESCRITURA: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// SUSP-GATE-1 (blocker 5 de la auditoría de venta): la suspensión por mora
+// solo se miraba en /api/tenants/:id, así que un comercio suspendido seguía
+// vendiendo, moviendo stock o caja por el plano de datos. Acá se corta la
+// escritura; GET/HEAD siguen para que el dueño vea sus datos. Pago y
+// suscripción quedan exentos: el webhook de MP y el regularizar del admin no
+// pasan por este gate (no son prefijos de datos) y /api/plan sí, pero el
+// suspendido lo necesita para pagar.
+const PREFIJOS_REGULARIZACION = ["/api/billing", "/api/plan"];
+
+function esRutaRegularizacion(path: string): boolean {
+  return PREFIJOS_REGULARIZACION.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
 // Por qué null fuera de datos: el middleware conserva su comportamiento para
 // el resto de rutas; en single resuelve como hoy (tenant por defecto).
 export function gateTenantDatos(request: Request, path: string): TenantResuelto | null {
   if (!esRutaDatos(path)) return null;
-  return tenantDeRequest(request);
+  const t = tenantDeRequest(request);
+  if (!t.ok) return t;
+  if (!METODOS_ESCRITURA.has(request.method)) return t;
+  if (esRutaRegularizacion(path)) return t;
+  if (control.tenants.get(t.tenantId)?.estado === "suspendido") {
+    return {
+      ok: false,
+      respuesta: jsonError(
+        "El comercio está suspendido. Regularizá la suscripción para seguir operando.",
+        403,
+      ),
+    };
+  }
+  return t;
 }
 
 // Por qué el job no usa sesión: actúa como Sistema con secreto compartido;
@@ -95,7 +122,10 @@ export function esSingle(): boolean {
   return !esModoAisladoPorTenant();
 }
 
-export function gateJob(request: Request): JobResuelto | null {
+// WA-AVISOS-1: incluirCerrados: los jobs de avisos de cuenta también corren para comercios
+// en "baja" (cierre y aviso previo al borrado, P10-90/P10-91).
+export function gateJob(request: Request, incluirCerrados = false): JobResuelto | null {
+  const habilitado = (estado: string) => estado === "activo" || estado === "suspendido" || (incluirCerrados && estado === "baja");
   const secreto = process.env.JOBS_SECRET;
   if (!secreto || request.headers.get("X-Job-Secret") !== secreto) return null;
   if (esSingle()) return { ok: true, tenantId: tenantPorDefecto() };
@@ -105,13 +135,13 @@ export function gateJob(request: Request): JobResuelto | null {
       return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
     }
     const ids = [...control.tenants.values()]
-      .filter((t) => t.estado === "activo" || t.estado === "suspendido")
+      .filter((t) => habilitado(t.estado))
       .map((t) => t.id)
       .sort();
     return { ok: true, tenantIds: ids };
   }
   const tenant = control.tenants.get(pedido);
-  if (!tenant || (tenant.estado !== "activo" && tenant.estado !== "suspendido")) {
+  if (!tenant || !habilitado(tenant.estado)) {
     return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
   }
   return { ok: true, tenantId: pedido };

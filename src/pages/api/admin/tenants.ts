@@ -5,6 +5,7 @@ import { listarYSincronizarTenantsControl, persistirEstadoTenant } from "../../.
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
+import { reabrirCuenta } from "../../../lib/cierre-cuenta.js";
 import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
 
 export const prerender = false;
@@ -37,13 +38,15 @@ export const GET: APIRoute = async ({ request }) => {
   return Response.json({ tenants: lista });
 };
 
-// POST /api/admin/tenants — accion suspender|reactivar con confirmo_id + motivo.
+// POST /api/admin/tenants — accion suspender|reactivar|reabrir con confirmo_id + motivo.
+// P10-91: una cuenta cerrada (baja) solo vuelve con "reabrir", dentro de los
+// 90 días del cierre; "reactivar" no la toca.
 export const POST: APIRoute = async ({ request }) => {
   const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;
   const body = await leerJson(request);
   if (body instanceof Response) return body;
-  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "reactivar"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
+  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "reactivar", "reabrir"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Datos inválidos." }, { status: 422 });
   const conf = exigirConfirmacion(body as Record<string, unknown>, parsed.data.tenant_id);
   if (conf instanceof Response) return conf;
@@ -54,6 +57,22 @@ export const POST: APIRoute = async ({ request }) => {
     t = control.tenants.get(parsed.data.tenant_id);
   }
   if (!t) return Response.json({ error: "Tenant desconocido." }, { status: 404 });
+  const adminSub = (admin as { googleSub: string }).googleSub;
+  if (parsed.data.accion === "reabrir") {
+    const r = await reabrirCuenta({ tenantId: t.id, adminSub, motivo: (conf as { motivo: string }).motivo });
+    if (!r.ok) {
+      const msg =
+        r.motivo === "vencida"
+          ? "Pasaron los 90 días del cierre: la cuenta ya no se puede reabrir."
+          : r.motivo === "no_cerrada"
+            ? "La cuenta no está cerrada."
+            : "No hay fecha de cierre registrada.";
+      return Response.json({ error: msg }, { status: 409 });
+    }
+    auditar({ kind: "tenant_reabierto", tenantId: t.id }, adminSub, "panel");
+    return Response.json({ tenant_id: t.id, estado: "activo" });
+  }
+  if (t.estado === "baja") return Response.json({ error: "La cuenta está cerrada: usá reabrir." }, { status: 409 });
   if (t.estado === (parsed.data.accion === "suspender" ? "suspendido" : "activo")) {
     return Response.json({ error: parsed.data.accion === "suspender" ? "ya suspendido" : "ya activo" }, { status: 409 });
   }

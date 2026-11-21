@@ -1,18 +1,21 @@
-import { eq } from "drizzle-orm";
-import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
+import { and, eq, sql } from "drizzle-orm";
+import { products, sales, SERIE_DEVOLUCION, stockMovements, ticketCounters, ticketLines } from "../../db/schema.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { customerMovements } from "../../db/schema-credito.js";
 import { dbVivaTenant } from "../server-db.js";
-import { obtenerTicketFiado } from "../ticket-memoria.js";
+import { listarLineasTicket, obtenerTicketFiado } from "../ticket-memoria.js";
 import {
   crearAlmacenCorrecciones,
   crearAlmacenDevoluciones,
   crearAlmacenDevolucionVistos,
   crearAlmacenIdempotenciaVentas,
   crearContadorDevoluciones,
+  crearAlmacenStock,
+  crearListaMovimientos,
   crearListaMovimientosCredito,
+  crearListaMovimientosStock,
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
@@ -28,8 +31,9 @@ import {
 import { corregir_medio, type CorreccionOk } from "../../modules/sales/correccion_medio.js";
 import { LEYENDA_NO_FISCAL } from "../../modules/sales/vender_mostrador.js";
 import type { Sku } from "../../modules/inventario/inventario.js";
-import { aplicarMovimiento } from "./stock.js";
+import { aplicarEnMemoria, aplicarMovimiento, type TxVentaAbierta } from "./stock.js";
 import { registrarMovimientoDevolucion } from "./caja.js";
+import { insertarMovimientosCaja } from "./movimientos-caja.js";
 import { acumuladoNcParaVenta, asegurarDoc, buscarFacturaParaNd } from "./fiscal.js";
 
 // PERS2-S25/S26 (ADR-0063): devoluciones y correcciones de medio. DB primero
@@ -140,13 +144,15 @@ export async function leerVistoDevolucion(key: string): Promise<VistoDevolucion 
 }
 
 /** Acumulado devuelto por venta: union memoria + sale_returns dedup por número. */
-export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
+// AUD-VTA-04: con enTx lee dentro de la tx de la devolución, después del lock
+// de la venta; un error ahí aborta la tx y no cae a memoria.
+export async function acumuladoDevoluciones(saleId: string, enTx?: TxVentaAbierta): Promise<bigint> {
   const devoluciones = crearAlmacenDevoluciones();
   const vistos = new Map<string, bigint>();
   for (const r of devoluciones.comoMapaSoloLectura().values()) {
     if (r.sale_id === saleId) vistos.set(r.numero_devolucion, BigInt(r.total_centavos));
   }
-  const db = dbVivaTenant();
+  const db = enTx ?? dbVivaTenant();
   if (!db) return [...vistos.values()].reduce((a, b) => a + b, 0n);
   try {
     const filas = await db.select().from(saleReturns).where(eq(saleReturns.saleId, saleId));
@@ -155,9 +161,51 @@ export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
     }
     return [...vistos.values()].reduce((a, b) => a + b, 0n);
   } catch (e) {
+    if (enTx) throw e;
     devoluciones.anteFalloPersistencia(e);
     return [...vistos.values()].reduce((a, b) => a + b, 0n);
   }
+}
+
+// AUD-VTA-03: unidades devolvibles por SKU = vendidas en las líneas del ticket
+// menos las ya devueltas (movimientos COMPENSATORIO cuya key es una devolución
+// de esta venta). null si la venta no tiene líneas conocidas (ventas previas a
+// ticket_lines): ahí solo rige el tope en plata.
+export async function devolviblesPorSku(saleId: string, enTx?: TxVentaAbierta): Promise<Map<string, number> | null> {
+  const vistosRet = crearAlmacenDevolucionVistos();
+  const vendidas = new Map<string, number>();
+  const devueltas = new Map<string, { sku: string; cantidad: number }>();
+  for (const m of crearListaMovimientosStock().listar()) {
+    if (m.tipo !== "COMPENSATORIO" || vistosRet.obtener(m.idemKey)?.sale_id !== saleId) continue;
+    devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+  }
+  const db = enTx ?? dbVivaTenant();
+  if (db) {
+    try {
+      const lineas = await db
+        .select({ sku: products.sku, qty: ticketLines.qty })
+        .from(ticketLines)
+        .innerJoin(products, eq(products.id, ticketLines.productId))
+        .where(dondeTenant(ticketLines.tenantId, eq(ticketLines.saleId, saleId)));
+      for (const l of lineas) vendidas.set(l.sku, (vendidas.get(l.sku) ?? 0) + l.qty);
+      const movs = await db
+        .select({ idemKey: stockMovements.idemKey, sku: stockMovements.sku, delta: stockMovements.delta })
+        .from(stockMovements)
+        .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
+        .where(dondeTenant(stockMovements.tenantId, and(eq(saleReturns.saleId, saleId), eq(stockMovements.tipo, "COMPENSATORIO"))));
+      for (const m of movs) devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+    } catch (e) {
+      if (enTx) throw e;
+      vistosRet.anteFalloPersistencia(e);
+    }
+  }
+  // AUD-VTA-03: venta que solo vive en memoria (single sin base o caída).
+  if (vendidas.size === 0) {
+    for (const l of listarLineasTicket(saleId)) vendidas.set(l.product_id, (vendidas.get(l.product_id) ?? 0) + l.qty);
+  }
+  if (vendidas.size === 0) return null;
+  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - Math.abs(d.cantidad));
+  return vendidas;
 }
 
 function ultimoNumeroDevolucion(): DevolucionSeq | null {
@@ -182,7 +230,7 @@ export type RegistrarDevolucionResultado =
   | { ok: true; returnId: string; numero: string; saleId: string; montoCentavos: string; fiscalEstado: string; ncTipo: number | null }
   | { ok: false; status: 409; error: string; original: VistoDevolucion }
   | { ok: false; status: 404; error: string }
-  | { ok: false; status: 422; error: string; acumulado_centavos?: string; facturado_centavos?: string };
+  | { ok: false; status: 422; error: string; acumulado_centavos?: string; facturado_centavos?: string; sku?: string; disponible?: number };
 
 function espejoMemoriaDevolucion(
   key: string,
@@ -220,6 +268,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   if (!venta) return { ok: false, status: 404, error: "venta inexistente" };
   const ventaTotal = BigInt(venta.total_centavos);
   const acumuladoPrevio = await acumuladoDevoluciones(input.saleId);
+  const devolvibles = await devolviblesPorSku(input.saleId);
 
   const factura = await buscarFacturaParaNd(input.saleId, input.tenantId);
   const acumuladoNc = await acumuladoNcParaVenta(input.saleId, input.tenantId);
@@ -228,12 +277,18 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   const db = dbVivaTenant();
   const customerId = venta.fueAcuenta ? await clienteDeVenta(venta.idempotency_key) : undefined;
 
-  const nucleo = (ultimo: DevolucionSeq | null) =>
+  // AUD-VTA-04: acumulado y devolvibles se pasan explícitos: la tx los relee
+  // bajo lock y el camino memoria usa los leídos al entrar.
+  const nucleo = (
+    ultimo: DevolucionSeq | null,
+    acumulado: bigint = acumuladoPrevio,
+    devolviblesVigentes: Map<string, number> | null = devolvibles,
+  ) =>
     registrar_devolucion({
       idempotencyKey: input.key,
       saleId: input.saleId,
       ventaTotalCentavos: ventaTotal,
-      acumuladoPrevioCentavos: acumuladoPrevio,
+      acumuladoPrevioCentavos: acumulado,
       montoCentavos: input.montoCentavos,
       items: input.items.map((it) => ({ sku: it.sku as Sku, cantidad: it.cantidad })),
       medio: input.medio,
@@ -243,6 +298,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       actor: input.actor,
       ultimoDevolucion: ultimo,
       vistos: new Map(),
+      devolviblesPorSku: devolviblesVigentes,
     });
 
   const mapearFallo = (dev: Extract<DevolucionResult, { ok: false }>): RegistrarDevolucionResultado => {
@@ -253,6 +309,9 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         error: "devolución supera el total de la venta",
         acumulado_centavos: dev.acumuladoCentavos.toString(),
       };
+    }
+    if (dev.codigo === "CANTIDAD_EXCEDIDA") {
+      return { ok: false, status: 422, error: "devolución supera lo vendido", sku: dev.sku, disponible: dev.disponible };
     }
     return { ok: false, status: 422, error: "devolución inválida" };
   };
@@ -290,6 +349,10 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   const returnId = crypto.randomUUID();
   let numero: string;
   let efecto: EfectoDevolucion;
+  // AUD-VTA-04: true cuando stock y caja ya se escribieron en la tx de la
+  // devolución; después del commit solo queda el espejo en memoria.
+  let efectosEnTx = false;
+  const cajaId = crypto.randomUUID();
 
   if (!db) {
     const ultimo = ultimoNumeroDevolucion();
@@ -301,6 +364,14 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   } else {
     try {
       const salida = await db.transaction(async (tx): Promise<SalidaTxDevolucion> => {
+        // AUD-VTA-04: lock de la venta antes del contador; dos devoluciones de
+        // la misma venta se ordenan acá y la segunda relee el acumulado ya
+        // comprometido por la primera.
+        await tx
+          .select({ id: sales.id })
+          .from(sales)
+          .where(dondeTenant(sales.tenantId, eq(sales.id, input.saleId)))
+          .for("update");
         // PERS5-S2: el número sale de ticket_counters (serie devolucion,
         // FOR UPDATE) en la misma tx que inserta sale_returns, igual que
         // las ventas con mostrador. El lock serializa devoluciones
@@ -323,7 +394,9 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
           const v: VistoDevolucion = { numero_devolucion: previo[0].numeroDevolucion, sale_id: previo[0].saleId };
           return { estado: "repetida", original: v };
         }
-        const dev = nucleo(seq);
+        const acumuladoTx = await acumuladoDevoluciones(input.saleId, tx);
+        const devolviblesTx = await devolviblesPorSku(input.saleId, tx);
+        const dev = nucleo(seq, acumuladoTx, devolviblesTx);
         if (!dev.ok) return { estado: "fallo", fallo: dev };
         const n = ultimo + 1;
         const num = siguiente_numero_devolucion(seq);
@@ -333,14 +406,47 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
           saleId: input.saleId,
           numeroDevolucion: num,
           montoCentavos: input.montoCentavos,
-          acumuladoPrevioCentavos: acumuladoPrevio,
-          acumuladoNuevoCentavos: acumuladoPrevio + input.montoCentavos,
+          acumuladoPrevioCentavos: acumuladoTx,
+          acumuladoNuevoCentavos: acumuladoTx + input.montoCentavos,
           medio: input.medio,
           fueAcuenta: venta.fueAcuenta,
           motivo: input.motivo,
           actor: input.actor,
         });
         await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_DEVOLUCION));
+        // AUD-VTA-04: stock inverso y caja opuesta en la misma tx que
+        // sale_returns: o queda todo o no queda nada.
+        for (const m of dev.efecto.movimientosStock) {
+          const delta = Math.abs(m.delta);
+          await tx.insert(stockMovements).values(
+            filaConTenant({
+              idemKey: input.key,
+              sku: m.sku,
+              loteId: null,
+              delta,
+              tipo: "COMPENSATORIO",
+              ...(m.motivo ? { motivo: m.motivo } : {}),
+            }),
+          );
+          await tx
+            .update(products)
+            .set({ stockActual: sql`${products.stockActual} + ${delta}` })
+            .where(dondeTenant(products.tenantId, eq(products.sku, m.sku)) ?? eq(products.sku, m.sku));
+        }
+        if (dev.efecto.movimientoCaja) {
+          await insertarMovimientosCaja(tx, [
+            {
+              id: cajaId,
+              saleId: input.saleId,
+              idempotencyKey: input.key,
+              tipo: dev.efecto.movimientoCaja.tipo === "ingreso" ? "ingreso" : "egreso",
+              metodo: input.medio,
+              categoriaId: "devolucion_venta",
+              origen: "devolucion",
+              montoCentavos: input.montoCentavos,
+            },
+          ]);
+        }
         return { estado: "ok", numero: num, efecto: dev.efecto };
       });
       if (salida.estado === "repetida") {
@@ -350,6 +456,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       if (salida.estado === "fallo") return mapearFallo(salida.fallo);
       numero = salida.numero;
       efecto = salida.efecto;
+      efectosEnTx = true;
       espejoMemoriaDevolucion(input.key, returnId, numero, input);
     } catch (err) {
       if (esConflictoUnico(err)) {
@@ -380,7 +487,28 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
 
   const e = efecto;
 
-  for (const m of e.movimientosStock) {
+  if (efectosEnTx) {
+    // AUD-VTA-04: la base ya tiene stock y caja; acá solo el espejo en memoria.
+    const existencias = crearAlmacenStock();
+    const movimientosStock = crearListaMovimientosStock();
+    for (const m of e.movimientosStock) {
+      const registro = { idemKey: input.key, sku: m.sku, loteId: null, delta: Math.abs(m.delta), tipo: "COMPENSATORIO" as const };
+      aplicarEnMemoria(m.motivo ? { ...registro, motivo: m.motivo } : registro, existencias, movimientosStock);
+    }
+    if (e.movimientoCaja) {
+      crearListaMovimientos().agregar({
+        id: cajaId,
+        tipo: e.movimientoCaja.tipo === "ingreso" ? "ingreso" : "egreso",
+        metodo: input.medio,
+        monto_centavos: input.montoCentavos.toString(),
+        origen: "devolucion",
+        sale_id: input.saleId,
+        idempotency_key: input.key,
+        ocurrido_en: new Date().toISOString(),
+      });
+    }
+  }
+  for (const m of efectosEnTx ? [] : e.movimientosStock) {
     await aplicarMovimiento({
       idemKey: input.key,
       sku: m.sku,
@@ -390,7 +518,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       ...(m.motivo ? { motivo: m.motivo } : {}),
     });
   }
-  if (e.movimientoCaja) {
+  if (e.movimientoCaja && !efectosEnTx) {
     await registrarMovimientoDevolucion({
       key: input.key,
       saleId: input.saleId,

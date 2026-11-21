@@ -8,9 +8,9 @@ import { jsonError } from "./control.js";
 export async function correrJob(
   request: Request,
   cuerpo: (tenantId: string) => Promise<Response>,
-  opciones?: { fanOut?: boolean },
+  opciones?: { fanOut?: boolean; incluirCerrados?: boolean },
 ): Promise<Response> {
-  const g = gateJob(request);
+  const g = gateJob(request, opciones?.incluirCerrados ?? false);
   if (!g) return Response.json({ error: "no autorizado" }, { status: 403 });
   if (!g.ok) return g.respuesta;
   if ("tenantIds" in g) {

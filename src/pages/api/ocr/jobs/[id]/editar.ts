@@ -6,8 +6,6 @@ import { editarBorradorOcrRepo } from "../../../../../lib/repos/facturas-proveed
 
 export const prerender = false;
 
-// POST /api/ocr/jobs/:id/editar — corrección por texto (ej `monto 164800`).
-// Lo editado por humano sube a confianza alta. 200 actualizado, 409 resuelto,
 // 410 vencido, 422 campo inválido.
 // PERS2-S20: job por el repo de OCR; borrador por facturas-proveedor.
 export const POST: APIRoute = async ({ request, params }) => {

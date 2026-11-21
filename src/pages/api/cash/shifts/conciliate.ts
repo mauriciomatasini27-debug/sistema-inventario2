@@ -5,9 +5,6 @@ import { conciliarCaja } from "../../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// POST /api/cash/shifts/conciliate — conteo a ciegas (C17).
-// El que cuenta no ve el esperado; si |contado-esperado| > $500 abre disputa.
-// PERS2-S13: el repo caja concilia en shift_handovers del tenant con DB viva.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
