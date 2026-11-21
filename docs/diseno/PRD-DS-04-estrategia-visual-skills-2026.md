@@ -15,7 +15,7 @@ resumen: Estrategia visual, skills y componentes para la app web (2026): criteri
 
 Fuente: mapa wayfinder GitHub [#279](https://github.com/mauriciomatasini27-debug/sistema-inventario2/issues/279), investigación #280/#281/#282 y decisiones #283–#289, #293. Restringido por ADR-0008, ADR-0009, ADR-0010, ADR-0037, ADR-0044, ADR-0113 y por `AGENTS.md` (sin migración de UI/lib fuera de alcance, sin tipografía/landing fuera de alcance, sin implementación visual en este mapa).
 
-> Estado al 2026-11-21: aceptado. Decisiones vinculantes #283–#289 y #293 (detalle en "Decisiones previas vinculantes"); veredictos en la tabla "Veredictos".
+> Estado al 2026-11-21: aceptado y con el pinneo de #287 implementado (lock v3 y `web-design-guidelines` v1.1.0). Decisiones vinculantes #283–#289 y #293 (detalle en "Decisiones previas vinculantes"); veredictos en la tabla "Veredictos".
 
 ## Propósito y alcance
 
@@ -47,8 +47,8 @@ Tabla vinculante (categorías/adopción según #284). El presente documento es l
 
 | Elemento | Fuente/skill | Categoría | Etiqueta | Sev. adopción | Fecha | Veredicto (resumen) | Notas/enlace |
 |---|---|---|---|---|---|---|---|
-| `pick-ui-library` | skill instalada (emilkowalski) | evaluar caso a caso | (ninguno) | P3 | 2026-11-21 | Mantener como referencia para decisiones puntuales; sin librería nueva sin veredicto explícito (alineado a PRD-UX-01). | #293; `skills-lock.json:118` |
-| `web-design-guidelines` | vercel-labs/agent-skills | adoptar (migración) | (ninguno) | P0 | 2026-11-21 | Migrar a v1.1.0 con snapshot pineado + SHA-256; reemplaza fetch en vivo de `main`. Supera T-UI-07 (avance `docs/roadmap/avances/T-UI-07.md`, ADR-0038; aceptado en `SPEC-UI-00:38`). | #287, #280, T-UI-07 |
+| `pick-ui-library` | skill instalada (emilkowalski) | evaluar caso a caso | (ninguno) | P3 | 2026-11-21 | Mantener como referencia para decisiones puntuales; sin librería nueva sin veredicto explícito (alineado a PRD-UX-01). | #293; `skills-lock.json:137` |
+| `web-design-guidelines` | vercel-labs/agent-skills | adoptar (migración) | (ninguno) | P0 | 2026-11-21 | Migrada a v1.1.0 con snapshot pineado + SHA-256 (commit `5a37a63`, snapshot `d246b026…`); reemplaza el fetch en vivo de `main`. Supera T-UI-07 (avance `docs/roadmap/avances/T-UI-07.md`, ADR-0038; aceptado en `SPEC-UI-00:38`). | #287, #280, T-UI-07 |
 | `mobile-native` | skill (ausente hoy) | adoptar | (ninguno) | P3 | 2026-11-21 | Adoptar como guía CSS-only (safe areas, touch, `100dvh`, drawer/sheet) para app web; apoya UX-S6 parcial. | #289 |
 | `apple-design` | skill (ausente hoy) | descartar | (ninguno) | P0 | 2026-11-21 | Conflicto con AT1/glass solo panel/POS y decisiones vigentes; cualquier propuesta global requiere ADR. | #289 |
 | `gestures` / `choreograph` | skills (ausentes hoy) | diferir | **requiere ADR** | P1 | 2026-11-21 | Requieren ADR (librería/gestos, alcance, no glass global). | #289 |
@@ -60,11 +60,12 @@ Tabla vinculante (categorías/adopción según #284). El presente documento es l
 ## Política de skills (lock v3 y refresh)
 
 - **Pin canónico:** commit de la fuente + SHA-256 del archivo instalado (lock v3). `commit` obligatorio para `sourceType: github`; `computedHash` obligatorio y no vacío en todas; `version` opcional del frontmatter; sin timestamps (la fecha la da el commit del lock en git).
-- **Deuda:** hay **16** `computedHash` vacíos; una skill sin hash **no se considera reproducible** y debe completarse en el siguiente refresh.
-- **Drift:** local (hash no coincide) = **P0**, skill no se usa hasta reconciliar; upstream (commit movido) = informativo, dispara refresh bajo demanda.
-- **Chequeo determinista:** `scripts/check-skills-lock.mjs` (propuesto), solo local y sin red: (a) hash no vacío en todas, (b) hash coincide con archivo instalado, (c) fuentes GitHub tienen `commit`. **No entra en `verify` en este mapa**; se documenta aquí y se implementa aparte si se decide.
-- **Refresh:** bajo demanda (cuando una decisión lo requiere o el chequeo lo detecta), autorizado por Mauri; el agente ejecuta y registra veredicto en esta tabla con fuente/fecha/commit.
-- **`web-design-guidelines`:** migrar a **v1.1.0** con snapshot pineado + SHA-256, reemplazando fetch en vivo de `main`; inconsistencia previa de repo de origen se corrige en esa migración. Queda **superado T-UI-07** en ese punto (según #287).
+- **Deuda (saldada 2026-11-21):** los **16** `computedHash` vacíos (13 de `jakubkrehel` + `verify-inventario`, `web-design-guidelines` y `writing-guidelines`) se completaron con el hash del folder instalado. Una skill sin hash **no se considera reproducible** y debe completarse en el siguiente refresh.
+- **Drift:** local (hash del folder instalado no coincide con `computedHash`) = **P0**, skill no se usa hasta reconciliar (restaurar o registrar fork local explícito); upstream (commit de la fuente movido) = informativo, dispara refresh bajo demanda y no bloquea.
+- **Chequeo determinista:** `scripts/check-skills-lock.mjs` (propuesto), solo local y sin red: (a) `computedHash` no vacío en todas, (b) hash del folder instalado coincide con `computedHash`, (c) fuentes GitHub tienen `commit`. Comparar upstream no es parte del chequeo rutinario. **No entra en `verify`**: se documenta aquí y se implementa aparte si se decide.
+- **Refresh:** bajo demanda (cuando una decisión lo requiere o el chequeo detecta drift), autorizado por Mauri; el agente ejecuta y registra veredicto en esta tabla con fuente/fecha/commit.
+- **`web-design-guidelines` (migrada 2026-11-21):** **v1.1.0** con snapshot pineado en `references/command.md` (fuente `434b7f9`, SHA-256 `d246b026f4f29b5823a9cc857f9edf3d2507002e055e32040cadeaf3b38e0234`) y entrada de lock en el commit `5a37a63`; reemplaza el fetch en vivo de `main` y corrige la inconsistencia de repo de origen. Queda **superado T-UI-07** en ese punto (según #287).
+- **Implementación (2026-11-21):** `skills-lock.json` v3 con `commit` en las 28 fuentes GitHub y `computedHash` en las 29 entradas; `version` solo donde el frontmatter lo trae (`web-design-guidelines` 1.1.0, `writing-guidelines` 1.0.0); sin timestamps. Las copias locales adaptadas de `emilkowalski/skills` quedan pineadas al HEAD upstream del baseline (`2d22863`); el `computedHash` registra la copia instalada (adaptada), no el árbol upstream.
 
 ## Catálogo de componentes visuales
 
@@ -111,7 +112,7 @@ Tabla vinculante (categorías/adopción según #284). El presente documento es l
 
 - Este PRD es el **índice de decisiones** del mapa #279; el detalle operativo vive en los issues enlazados y en los documentos referenciados.
 - **No ejecuta implementación visual**. Cualquier avance de roadmap que derive de aquí debe declararse en el PR con `prd: PRD-DS-04` (y sin `adr:` salvo que se cree un ADR explícito).
-- Siguiente paso sugerido (fuera de este PR): crear `docs/diseno/componentes/` y la primera entrada `COMP-01` según #285, y programar refresh de `web-design-guidelines` según #287 (autorización de Mauri).
+- Siguiente paso sugerido (fuera de este PR): crear `docs/diseno/componentes/` y la primera entrada `COMP-01` según #285; el refresh de `web-design-guidelines` según #287 ya se ejecutó (v1.1.0).
 
 ## Dependencias externas
 
