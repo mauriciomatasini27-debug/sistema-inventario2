@@ -2,9 +2,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
-import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
+import { dondeTenant, esModoAisladoPorTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
-import { dbVivaTenant } from "../../lib/server-db.js";
+import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
 import {
   products,
   sales,
@@ -289,6 +289,15 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   return { ok: true, venta: { saleId, efecto: e, pagosConId, fuente: "memoria" } };
 }
 
+// AUD-VTA-02: con base viva, una falla a mitad de camino en multi/shared no
+// confirma la venta en memoria (otra instancia no la ve y el stock de la base
+// no baja). Lanza BaseNoDisponible y la ruta responde 503 para que la caja
+// reintente. En single el respaldo en memoria sigue como antes.
+function caidaDeBase(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
+  if (esModoAisladoPorTenant()) throw new BaseNoDisponible();
+  return viaMemoria(i);
+}
+
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
   const db = dbVivaTenant();
   if (!db) return viaMemoria(i);
@@ -306,7 +315,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
-    return viaMemoria(i);
+    return caidaDeBase(i);
   }
 
   let costos: ReadonlyMap<string, bigint>;
@@ -497,10 +506,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const fila = previo[0];
         return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: fila ? filaVentaJson(fila) : null };
       } catch {
-        return viaMemoria(i);
+        return caidaDeBase(i);
       }
     }
-    // Caída de DB a mitad de camino: la tx revirtió; la venta no se pierde.
-    return viaMemoria(i);
+    // AUD-VTA-02: caída de DB a mitad de camino; la tx revirtió. Single cae
+    // a memoria; multi/shared responde 503.
+    return caidaDeBase(i);
   }
 }
