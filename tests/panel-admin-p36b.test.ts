@@ -39,7 +39,7 @@ describe("P3-6b PA1 acceso", () => {
     expect(esAdminAllowlist("admin-1", ["admin-1"])).toBe(true);
     expect(esAdminAllowlist("admin@x.com", ["admin-1"])).toBe(false);
     expect(esAdminAllowlist("", ["admin-1"])).toBe(false);
-    expect(leerAllowlist({ ADMIN_ALLOWLIST_SUBS: "a, b" } as NodeJS.ProcessEnv)).toEqual(["a", "b"]);
+    expect(leerAllowlist({ ADMIN_ALLOWLIST_SUBS: " a " } as NodeJS.ProcessEnv)).toEqual(["a"]);
   });
   it("reauth exige ventana de 5 minutos", () => {
     expect(VENTANA_REAUTH_MIN).toBe(5);

@@ -2,10 +2,11 @@
 // (nunca email). Cada acto (exitoso o denegado) se audita en adminStore +
 // persist best-effort. Los POST mutantes exigen además confirmo_id igual al
 // tenant (PA1: confirmación escribiendo el ID) y motivo no vacío.
-// El step-up reauth con sello en login vive en fase 2; hasta entonces el
-// confirmo_id es la confirmación destructiva.
+// Los mutantes pasan por exigirAdminMutante: además del allowlist piden
+// reauth reciente (PA1.8, 5 min) y responden 401 reauth_requerida con la URL
+// que usa el panel para volver a confirmar con Google y retomar en /admin.
 
-import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js";
+import { esAdminAllowlist, exigeReauth, leerAllowlist } from "../../../modules/admin/guard.js";
 import { registrar_acto, type ActoAdmin } from "../../../modules/admin/actos.js";
 import type { OrigenAdmin } from "../../../modules/admin/boundary.js";
 import { adminStore, ultimoHashAdmin, type AdminActoMem } from "../../../lib/admin-store.js";
@@ -37,6 +38,19 @@ export async function exigirAdminListo(request: Request): Promise<AdminCtx | Res
   const admin = exigirAdmin(request);
   if (admin instanceof Response) return admin;
   await asegurarAdminHidratado();
+  return admin;
+}
+
+export async function exigirAdminMutante(request: Request): Promise<AdminCtx | Response> {
+  const admin = await exigirAdminListo(request);
+  if (admin instanceof Response) return admin;
+  const reauth = exigeReauth({ lastReauthEn: resolverSesion(request)?.sesion.reauthAt ?? null });
+  if (!reauth.ok) {
+    return Response.json(
+      { error: reauth.error, codigo: "reauth_requerida", reauth_url: "/api/auth/reauth?continuar=/admin" },
+      { status: 401 },
+    );
+  }
   return admin;
 }
 

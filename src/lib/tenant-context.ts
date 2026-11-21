@@ -93,23 +93,28 @@ function esRutaRegularizacion(path: string): boolean {
 
 // Por qué null fuera de datos: el middleware conserva su comportamiento para
 // el resto de rutas; en single resuelve como hoy (tenant por defecto).
+// CP-S7: suspendido queda en solo lectura. Lee igual (conserva datos), pero
+// cualquier escritura del plano de datos corta 403 antes de tocar la base.
 export function gateTenantDatos(request: Request, path: string): TenantResuelto | null {
   if (!esRutaDatos(path)) return null;
   const t = tenantDeRequest(request);
   if (!t.ok) return t;
   if (!METODOS_ESCRITURA.has(request.method)) return t;
   if (esRutaRegularizacion(path)) return t;
-  if (control.tenants.get(t.tenantId)?.estado === "suspendido") {
-    return {
-      ok: false,
-      respuesta: jsonError(
-        "El comercio está suspendido. Regularizá la suscripción para seguir operando.",
-        403,
-      ),
-    };
+  const tenant = control.tenants.get(t.tenantId);
+  if (tenant?.estado === "suspendido") {
+    const mensaje = tenant.suspensionTipo === "mora" ? MENSAJE_SUSPENDIDO : MENSAJE_SUSPENDIDO_NEUTRO;
+    return { ok: false, respuesta: jsonError(mensaje, 403) };
   }
   return t;
 }
+
+// Abuso o tipo desconocido (proceso reiniciado): texto neutro, sin "falta de pago".
+export const MENSAJE_SUSPENDIDO_NEUTRO =
+  "Tu cuenta está suspendida. Podés ver tus datos, pero no cargar ni modificar nada. Escribinos para más información.";
+
+export const MENSAJE_SUSPENDIDO =
+  "Tu cuenta está suspendida por falta de pago. Podés ver tus datos, pero no cargar ni modificar nada hasta regularizar.";
 
 // Por qué el job no usa sesión: actúa como Sistema con secreto compartido;
 // en multi con comercio explícito corre solo ese si está activo o suspendido

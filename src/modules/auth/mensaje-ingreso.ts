@@ -15,3 +15,10 @@ export function mensajeIngresoLanding(search: URLSearchParams): string | null {
     return crudo;
   }
 }
+
+// Abuso o tipo desconocido: neutro, sin mencionar pagos.
+export const MENSAJE_LOGIN_SUSPENDIDO_NEUTRO = "Tu cuenta está suspendida. Escribinos para más información.";
+
+// CP-S5: texto que ve el Dueño o empleado de un comercio suspendido al entrar.
+export const MENSAJE_LOGIN_SUSPENDIDO =
+  "Tu cuenta está suspendida por falta de pago. Escribinos para regularizarla.";

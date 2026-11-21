@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirOverrideAdmin } from "../../../../lib/admin-db.js";
-import { auditar, exigirAdminListo, leerJson } from "../_guard.js";
+import { exigirAdminMutante, auditar, exigirAdminListo, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { resolver_flag } from "../../../../modules/admin/flags.js";
 
@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 export const POST: APIRoute = async ({ request }) => {
-  const admin = await exigirAdminListo(request);
+  const admin = await exigirAdminMutante(request);
   if (admin instanceof Response) return admin;
 
   const parsed = await leerJson(request);

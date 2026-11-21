@@ -4,6 +4,11 @@ import { cookieSesion, crearSesion } from "../modules/auth/sesiones.js";
 import { crearProveedorCobro } from "./repos/planes.js";
 import { altaProducto } from "./repos/catalogo.js";
 import { aplicarMovimiento } from "./repos/stock.js";
+import { parseEmailInvitacion } from "../modules/tenants/invitar-empleado.js";
+import { decidirAceptacion } from "../modules/tenants/invitaciones.js";
+import { aplicarAceptacionInvitacion } from "../modules/tenants/aplicar-invitacion.js";
+import { marcarFalloProvision } from "../modules/tenants/provision-admin.js";
+import { normalizarEmail } from "../modules/auth/oidc.js";
 
 export const TENANT_CONTROL_APP = "control-app";
 const SUBS = {
@@ -26,7 +31,7 @@ function ahora(): string {
   return new Date().toISOString();
 }
 
-function sembrar(): Response {
+function sembrar(vencidoHaceDias?: number, flota = false): Response {
   resetStore();
   const creadoEn = ahora();
   control.tenants.set(TENANT_CONTROL_APP, {
@@ -39,7 +44,49 @@ function sembrar(): Response {
     ownerGoogleSub: SUBS.duenio,
     esDemo: true,
     rubro: "almacen",
+    // Fase 1: con vencido_hace_dias el tenant entra en mora para probar suspensión y gracia.
+    trialHasta:
+      vencidoHaceDias === undefined ? undefined : new Date(Date.now() - vencidoHaceDias * 86_400_000).toISOString(),
   });
+  if (flota) {
+    const dia = 86_400_000;
+    const isoHace = (d: number) => new Date(Date.now() - d * dia).toISOString();
+    const isoEn = (d: number) => new Date(Date.now() + d * dia).toISOString();
+    control.tenants.set("kiosco-activo", {
+      id: "kiosco-activo",
+      nombreComercio: "Almacén Norte",
+      slug: "almacen-norte",
+      estado: "activo",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoEn(30),
+    });
+    control.tenants.set("kiosco-gracia", {
+      id: "kiosco-gracia",
+      nombreComercio: "Kiosco Sur",
+      slug: "kiosco-sur",
+      estado: "activo",
+      plan: "plus",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoHace(7),
+    });
+    control.tenants.set("kiosco-suspendido", {
+      id: "kiosco-suspendido",
+      nombreComercio: "Depósito Centro",
+      slug: "deposito-centro",
+      estado: "suspendido",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoHace(20),
+      suspensionTipo: "mora",
+    });
+  }
   control.users.set(SUBS.duenio, {
     googleSub: SUBS.duenio,
     email: "duenio@control-app.local",
@@ -109,8 +156,8 @@ function sembrar(): Response {
   });
 }
 
-export async function sembrarControlApp(): Promise<Response> {
-  const r = sembrar();
+export async function sembrarControlApp(vencidoHaceDias?: number, flota = false): Promise<Response> {
+  const r = sembrar(vencidoHaceDias, flota);
   if (!r.ok) return r;
   for (const p of PRODUCTOS) {
     const alta = await altaProducto({
@@ -184,4 +231,111 @@ export function iniciarSesionControlApp(rol: "duenio" | "empleado"): Response {
     },
     { status: 200, headers: { "Set-Cookie": cookie } },
   );
+}
+
+export async function iniciarSesionInvitadoControlApp(emailCrudo: string): Promise<Response> {
+  const email = parseEmailInvitacion(emailCrudo);
+  if (!email) {
+    return Response.json({ error: "El email no es válido." }, { status: 422 });
+  }
+  const buscado = normalizarEmail(email);
+  const inv = [...control.invitations.values()].find(
+    (i) => i.estado === "pendiente" && normalizarEmail(i.email) === buscado,
+  );
+  if (!inv) {
+    return Response.json({ error: "No hay una invitación pendiente para ese email." }, { status: 404 });
+  }
+  const tenant = control.tenants.get(inv.tenantId);
+  if (!tenant) {
+    return Response.json({ error: "No hay una invitación pendiente para ese email." }, { status: 404 });
+  }
+  const googleSub = `dev-invitado:${buscado}`;
+  const ahoraIso = ahora();
+  control.users.set(googleSub, {
+    googleSub,
+    email: buscado,
+    emailVerificado: true,
+    nombre: "Dueño invitado",
+    ultimoLoginAt: ahoraIso,
+  });
+  const miembros = [...control.memberships.values()].filter((m) => m.tenantId === inv.tenantId && m.estado === "activo").length;
+  const yaEs = [...control.memberships.values()].some(
+    (m) => m.tenantId === inv.tenantId && m.googleSub === googleSub && m.estado === "activo",
+  );
+  const d = decidirAceptacion({
+    invitacion: inv,
+    emailSesion: buscado,
+    emailVerificado: true,
+    miembrosActivos: miembros,
+    plan: tenant.plan,
+    yaEsMiembro: yaEs,
+  });
+  if (!d.acepta) {
+    return Response.json({ error: "No se pudo aceptar la invitación.", motivo: d.motivo }, { status: 409 });
+  }
+  const aceptada = await aplicarAceptacionInvitacion(inv, googleSub);
+  const creada = crearSesion({ googleSub, tenantId: aceptada.tenantId });
+  control.sessions.set(creada.registro.idHash, {
+    idHash: creada.registro.idHash,
+    googleSub,
+    tenantId: aceptada.tenantId,
+    expiraAt: creada.registro.expiraAt,
+    expiraAbsoluta: creada.registro.expiraAbsoluta,
+    lastSeenAt: ahoraIso,
+    reauthAt: ahoraIso,
+    agente: "control-app",
+  });
+  const cookie = cookieSesion(creada.idPlano, creada.registro.expiraAt);
+  return Response.json(
+    {
+      ok: true,
+      accion: "login_invitado",
+      tenant_id: aceptada.tenantId,
+      rol: aceptada.rol,
+      google_sub: googleSub,
+      owner_google_sub: control.tenants.get(aceptada.tenantId)?.ownerGoogleSub,
+      cookie,
+    },
+    { status: 200, headers: { "Set-Cookie": cookie } },
+  );
+}
+
+export function fallarProvisionControlApp(tenantId: string): Response {
+  if (!control.tenants.has(tenantId)) {
+    return Response.json({ error: "Tenant desconocido." }, { status: 404 });
+  }
+  marcarFalloProvision(tenantId, "fallo simulado de prueba");
+  return Response.json({ ok: true, accion: "fallar_provision", tenant_id: tenantId, estado: "error_aprovisionamiento" });
+}
+
+export function agregarMiembrosControlApp(tenantId: string, cantidad: number): Response {
+  if (!control.tenants.has(tenantId)) {
+    return Response.json({ error: "Tenant desconocido." }, { status: 404 });
+  }
+  const n = Math.floor(cantidad);
+  if (!Number.isFinite(n) || n < 1 || n > 20) {
+    return Response.json({ error: "Cantidad inválida." }, { status: 422 });
+  }
+  const creados: string[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const sub = `miembro-prueba-${randomUUID()}`;
+    control.users.set(sub, {
+      googleSub: sub,
+      email: `${sub}@test.local`,
+      emailVerificado: true,
+      nombre: "Miembro de prueba",
+      ultimoLoginAt: new Date().toISOString(),
+    });
+    const id = `m-${sub}`;
+    control.memberships.set(id, {
+      id,
+      tenantId,
+      googleSub: sub,
+      rol: "empleado",
+      permisos: [],
+      estado: "activo",
+    });
+    creados.push(sub);
+  }
+  return Response.json({ ok: true, accion: "agregar_miembros", tenant_id: tenantId, agregados: creados.length });
 }

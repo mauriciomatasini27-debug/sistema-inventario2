@@ -10,6 +10,6 @@ export default defineConfig({
     // rojos por espera sin ocultar cuelgues reales.
     testTimeout: 15000,
     hookTimeout: 15000,
-    setupFiles: ["./tests/setup-pg-tenant.ts"],
+    setupFiles: ["./tests/setup-sin-db-real.ts", "./tests/setup-pg-tenant.ts"],
   },
 });

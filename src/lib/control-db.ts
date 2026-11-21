@@ -391,9 +391,65 @@ export async function listarYSincronizarTenantsControl(): Promise<number> {
 }
 
 // P1-87: el POST ya cambió el Map; esto deja el mismo estado en la tabla tenants.
-export function persistirEstadoTenant(tenantId: string, estado: "activo" | "suspendido" | "baja"): Promise<boolean> {
+export function persistirEstadoTenant(
+  tenantId: string,
+  estado: "activo" | "suspendido" | "aprovisionando" | "error_aprovisionamiento" | "baja",
+): Promise<boolean> {
   return intentarControl((db) =>
     db.update(tenants).set({ estado }).where(eq(tenants.id, tenantId)),
+  );
+}
+
+export function persistirPlanTenant(tenantId: string, plan: string): Promise<boolean> {
+  return intentarControl((db) =>
+    db.update(tenants).set({ plan }).where(eq(tenants.id, tenantId)),
+  );
+}
+
+// Alta desde el panel: el dueño todavía no tiene Google sub, así que
+// owner_google_sub queda null (la columna ya es nullable; no hay migración).
+export function persistirAltaAdmin(a: {
+  id: string;
+  nombreComercio: string;
+  slug: string;
+  plan: string;
+  moneda: string;
+  esDemo: boolean;
+  jobId?: string | undefined;
+  database?: string | undefined;
+}): Promise<boolean> {
+  return intentarControl(async (db) => {
+    await db
+      .insert(tenants)
+      .values({
+        id: a.id,
+        nombreComercio: a.nombreComercio,
+        slug: a.slug,
+        estado: "aprovisionando",
+        plan: a.plan,
+        moneda: a.moneda,
+        ownerGoogleSub: null,
+        esDemo: a.esDemo,
+      })
+      .onConflictDoNothing();
+    if (a.database) {
+      await db
+        .insert(tenantDatabases)
+        .values({ tenantId: a.id, database: a.database, estado: "pendiente" })
+        .onConflictDoNothing();
+    }
+    if (a.jobId) {
+      await db
+        .insert(provisionJobs)
+        .values({ id: a.jobId, tenantId: a.id, estado: "pendiente", requestKey: a.jobId })
+        .onConflictDoNothing({ target: provisionJobs.id });
+    }
+  });
+}
+
+export function persistirOwnerTenant(tenantId: string, ownerGoogleSub: string): Promise<boolean> {
+  return intentarControl((db) =>
+    db.update(tenants).set({ ownerGoogleSub }).where(eq(tenants.id, tenantId)),
   );
 }
 

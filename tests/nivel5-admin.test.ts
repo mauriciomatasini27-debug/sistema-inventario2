@@ -25,21 +25,22 @@ function req(url: string, plano: string, body?: unknown) {
 beforeEach(() => { resetStore(); resetAdmin(); process.env.ADMIN_ALLOWLIST_SUBS = "admin-1"; });
 
 describe("N5 admin OP-S1/S2", () => {
-  it("tenants lista + suspender/reactivar + 409 repetido", async () => {
+  it("tenants lista + suspender/reactivar + repetido idempotente", async () => {
     const plano = adminSesion("admin-1");
-    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "d1", esDemo: false });
+    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "d1", esDemo: false, trialHasta: "2020-01-01T00:00:00.000Z" });
     const g = (await GETTenants(req("http://x/api/admin/tenants", plano))) as Response;
     expect(g.status).toBe(200);
     const s = (await POSTTenants(req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "suspender", confirmo_id: "t1", motivo: "mora" }))) as Response;
     expect(s.status).toBe(200);
     const s2 = (await POSTTenants(req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "suspender", confirmo_id: "t1", motivo: "x" }))) as Response;
-    expect(s2.status).toBe(409);
+    expect(s2.status).toBe(200);
+    expect(await s2.json()).toMatchObject({ estado: "suspendido", ya: true });
     const r = (await POSTTenants(req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "reactivar", confirmo_id: "t1", motivo: "pago" }))) as Response;
     expect(r.status).toBe(200);
   });
   it("audit filtra desde/hasta + rollout 202", async () => {
     const plano = adminSesion("admin-1");
-    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "d1", esDemo: false });
+    control.tenants.set("t1", { id: "t1", nombreComercio: "K", slug: "k", estado: "activo", plan: "base", moneda: "ARS", ownerGoogleSub: "d1", esDemo: false, trialHasta: "2020-01-01T00:00:00.000Z" });
     await POSTTenants(req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "suspender", confirmo_id: "t1", motivo: "m" }));
     const a = (await GETActos(req("http://x/api/admin/actos?tenant_id=t1&desde=2000-01-01&hasta=2100-01-01", plano))) as Response;
     expect(a.status).toBe(200);

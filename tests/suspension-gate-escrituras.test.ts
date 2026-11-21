@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { control, resetStore, type ControlTenant } from "../src/lib/store.js";
-import { gateTenantDatos } from "../src/lib/tenant-context.js";
+import { gateTenantDatos, MENSAJE_SUSPENDIDO_NEUTRO } from "../src/lib/tenant-context.js";
 import { cookieSesion, crearSesion } from "../src/modules/auth/sesiones.js";
 
 // SUSP-GATE-1 (blocker 5 de la auditoría de venta): la suspensión por mora
@@ -76,9 +76,9 @@ describe("Blocker 5: suspensión bloquea escrituras del plano de datos", () => {
     expect(g).not.toBeNull();
     if (!g || g.ok) throw new Error("esperaba 403 para un suspendido que escribe");
     expect(g.respuesta.status).toBe(403);
-    expect(await g.respuesta.json()).toMatchObject({
-      error: "El comercio está suspendido. Regularizá la suscripción para seguir operando.",
-    });
+    // P1-95: sin tipo de suspensión (proceso reiniciado o dato viejo) el
+    // mensaje es neutro; mora y abuso tienen su propio texto.
+    expect(await g.respuesta.json()).toMatchObject({ error: MENSAJE_SUSPENDIDO_NEUTRO });
   });
 
   it("suspendido + PUT/PATCH/DELETE también responde 403", () => {
