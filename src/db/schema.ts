@@ -25,6 +25,7 @@ export const products = pgTable(
     sku: text("sku").notNull(),
   nombre: text("nombre").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
+  porPeso: boolean("por_peso").notNull().default(false),
   stockActual: integer("stock_actual").notNull().default(0),
   sector: text("sector").notNull().default("general"),
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): origen del producto; NULL en los

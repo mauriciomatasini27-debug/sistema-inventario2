@@ -11,6 +11,7 @@ export const URL_CATALOGO = "/api/sync/pull?cursor=0&limite=1";
 export interface ProductoCatalogoLocal {
   stock: number;
   precioCentavos: number;
+  porPeso?: boolean | undefined;
 }
 
 export interface SnapshotCatalogoLocal {
@@ -68,11 +69,26 @@ function esEnteroNoNegativo(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= 0;
 }
 
+function porPesoDesdePull(catalogo: Record<string, unknown>): Record<string, boolean> | null {
+  if (!Object.hasOwn(catalogo, "por_peso")) return {};
+  const crudo = catalogo["por_peso"];
+  if (!esRecord(crudo)) return null;
+  const porPeso: Record<string, boolean> = {};
+  for (const [sku, valor] of Object.entries(crudo)) {
+    if (sku.trim() === "" || CLAVES_PELIGROSAS.has(sku)) continue;
+    if (typeof valor !== "boolean") continue;
+    porPeso[sku] = valor;
+  }
+  return porPeso;
+}
+
 function productosDesdeCatalogo(catalogo: unknown): Record<string, ProductoCatalogoLocal> | null {
   if (!esRecord(catalogo)) return null;
   const stock = catalogo["stock"];
   const prices = catalogo["prices"];
   if (!esRecord(stock) || !esRecord(prices)) return null;
+  const porPeso = porPesoDesdePull(catalogo);
+  if (!porPeso) return null;
 
   const productos: Record<string, ProductoCatalogoLocal> = {};
   for (const [sku, valorStock] of Object.entries(stock)) {
@@ -80,7 +96,12 @@ function productosDesdeCatalogo(catalogo: unknown): Record<string, ProductoCatal
     if (!esEnteroNoNegativo(valorStock)) continue;
     const precio = prices[sku];
     if (!esEnteroNoNegativo(precio)) continue;
-    productos[sku] = { stock: valorStock, precioCentavos: precio };
+    const flag = porPeso[sku];
+    productos[sku] = {
+      stock: valorStock,
+      precioCentavos: precio,
+      ...(typeof flag === "boolean" ? { porPeso: flag } : {}),
+    };
   }
   return productos;
 }
@@ -129,7 +150,12 @@ function snapshotDesdeValor(valor: unknown): SnapshotCatalogoLocal | null {
     const stock = producto["stock"];
     const precio = producto["precioCentavos"];
     if (!esEnteroNoNegativo(stock) || !esEnteroNoNegativo(precio)) return null;
-    productos[sku] = { stock, precioCentavos: precio };
+    const porPeso = producto["porPeso"];
+    productos[sku] = {
+      stock,
+      precioCentavos: precio,
+      ...(typeof porPeso === "boolean" ? { porPeso } : {}),
+    };
   }
   const crudosCodigos = valor["codigos"];
   if (!esRecord(crudosCodigos)) return null;
@@ -244,6 +270,11 @@ export function leerCatalogoLocal(storage: StorageCatalogo, tenantId: string | n
     console.warn("[catalogo-local] snapshot ilegible", error);
     return null;
   }
+}
+
+export function esPorPesoLocal(snapshot: SnapshotCatalogoLocal | null, sku: string): boolean {
+  if (!snapshot || !Object.hasOwn(snapshot.productos, sku)) return false;
+  return snapshot.productos[sku]?.porPeso === true;
 }
 
 export function precioLocal(snapshot: SnapshotCatalogoLocal | null, sku: string): number | null {

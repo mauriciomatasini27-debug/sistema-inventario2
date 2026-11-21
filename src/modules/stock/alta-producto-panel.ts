@@ -4,9 +4,16 @@ export type CuerpoAltaProducto = {
   readonly sku: string;
   readonly nombre: string;
   readonly precio_centavos: number;
+  readonly por_peso: boolean;
   readonly codigo?: string;
   readonly location_id?: string;
 };
+
+export const AVISO_POR_PESO = "Se vende por peso: el precio cargado significa centavos por kilogramo.";
+
+export function avisoPorPeso(porPeso: boolean): string {
+  return porPeso ? AVISO_POR_PESO : "";
+}
 
 export function generarSkuInterno(entropia: string): string {
   const limpio = entropia.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 12);
@@ -22,6 +29,7 @@ export function armarAltaProducto(input: {
   nombre: string;
   codigo?: string;
   precioCentavos: number;
+  porPeso?: boolean;
   locationId?: string;
   entropiaSku: string;
 }): CuerpoAltaProducto {
@@ -32,6 +40,7 @@ export function armarAltaProducto(input: {
     sku,
     nombre,
     precio_centavos: input.precioCentavos,
+    por_peso: input.porPeso ?? false,
     ...(codigo ? { codigo: elegirSkuDesdeCodigo(codigo) } : {}),
     ...(input.locationId ? { location_id: input.locationId } : {}),
   };
