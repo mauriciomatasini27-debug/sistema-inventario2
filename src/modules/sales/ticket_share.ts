@@ -3,7 +3,7 @@
 // snake_case, bigint centavos, tipos readonly, fallos tipados (no throw en
 // dominio).
 //
-// P10-95 [tenant]: el resumen lleva solo datos del comprobante porque la Ley 25.326 prohíbe PII adicional en el cuerpo.
+// P10-96 [tenant]: el resumen lleva solo datos del comprobante porque la Ley 25.326 prohíbe PII adicional en el cuerpo.
 
 import { formatearPesos } from "../../lib/pesos.js";
 import { descripcionLineaPeso } from "./linea_peso.js";

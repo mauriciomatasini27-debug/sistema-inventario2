@@ -27,6 +27,14 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = creditSaleSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
+  // P10-93 [tenant]: fiado todavía no interpreta gramos ni precio por kg;
+  // rechazamos la línea por peso en vez de cobrar qty × precio como unidades.
+  if (b.lineas.some((l) => l.por_peso === true)) {
+    return Response.json(
+      { error: "Las ventas a cuenta por peso aún no están disponibles.", codigo: "VENTA_A_CUENTA_POR_PESO_NO_DISPONIBLE" },
+      { status: 422 },
+    );
+  }
   let r: Awaited<ReturnType<typeof ventaACuenta>>;
   try {
     r = await ventaACuenta({

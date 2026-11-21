@@ -12,7 +12,8 @@ export type ResultadoGramos =
 function digitosDelEntero(texto: string): string | null {
   if (/^\d+$/.test(texto)) return texto;
   const grupos = texto.split(".");
-  if (grupos[0] === undefined || !/^\d{1,3}$/.test(grupos[0])) return null;
+  // P10-94 [tenant]: 1000 kg = 1_000_000 g es válido, así que la parte entera admite 4 dígitos.
+  if (grupos[0] === undefined || !/^\d{1,4}$/.test(grupos[0])) return null;
   for (const grupo of grupos.slice(1)) {
     if (!/^\d{3}$/.test(grupo)) return null;
   }

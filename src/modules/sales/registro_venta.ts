@@ -1,5 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { crearAlmacenProductos } from "../../lib/repos/_almacen.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
 import { dondeTenant, esModoAisladoPorTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
@@ -254,6 +255,12 @@ function espejarAltaMemoria(lineas: ReadonlyArray<LineaVentaInput>): void {
   }
 }
 
+// P10-93 [tenant]: la unidad la decide el catálogo, nunca el `por_peso` del body.
+// Un cliente viejo o malicioso no puede cambiar el significado de una línea.
+function resolverPorPesoMemoria(productId: string): boolean {
+  return crearAlmacenProductos().obtener(productId)?.porPeso === true;
+}
+
 function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
   const skusSinStockInicial = skusSinStockInicialMemoria(i.lineas);
   const lotes = lotesDesdeStock(store.stock);
@@ -264,7 +271,7 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
       sku: l.product_id as Sku,
       cantidad: l.qty,
       precioCentavos: BigInt(l.precio_centavos),
-      porPeso: l.porPeso,
+      porPeso: resolverPorPesoMemoria(l.product_id),
     })),
     medio: i.medio,
     deviceCode: i.deviceCode,
@@ -381,18 +388,28 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
         // AUD-VTA-01: la línea del ticket apunta al producto de este comercio.
         const prods = await tx
-          .select({ id: products.id, sku: products.sku })
+          .select({ id: products.id, sku: products.sku, porPeso: products.porPeso })
           .from(products)
-          .where(dondeTenant(products.tenantId, inArray(products.sku, skusLinea)));
+          .where(
+            dondeTenant(
+              products.tenantId,
+              or(inArray(products.sku, skusLinea), inArray(products.id, skusLinea.filter(esUuid))),
+            ),
+          );
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
+        const porPesoPorClave = new Map<string, boolean>();
+        for (const p of prods) {
+          porPesoPorClave.set(p.sku, p.porPeso);
+          porPesoPorClave.set(p.id, p.porPeso);
+        }
         const r = vender_mostrador({
           idempotencyKey: i.key,
           lineas: i.lineas.map((l) => ({
-      sku: l.product_id as Sku,
-      cantidad: l.qty,
-      precioCentavos: BigInt(l.precio_centavos),
-      porPeso: l.porPeso,
-    })),
+            sku: l.product_id as Sku,
+            cantidad: l.qty,
+            precioCentavos: BigInt(l.precio_centavos),
+            porPeso: porPesoPorClave.get(l.product_id) ?? false,
+          })),
           medio: i.medio,
           deviceCode: i.deviceCode,
           seqLocal: i.seqLocal,

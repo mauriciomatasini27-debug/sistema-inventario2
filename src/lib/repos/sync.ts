@@ -12,6 +12,7 @@ import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../tenant-scope.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
+import { esColumnaPorPesoFaltante } from "./drift-por-peso.js";
 import {
   crearAlmacenCodigos,
   crearAlmacenDeviceSeq,
@@ -290,12 +291,6 @@ function mapaCodigos(
     codes[codigo] = sku;
   }
   return codes;
-}
-
-function esColumnaPorPesoFaltante(e: unknown): boolean {
-  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
-  const msg = e instanceof Error ? e.message : String(e);
-  return msg.includes("por_peso");
 }
 
 // PERS6-S1 (ADR-0081): catálogo del delta desde products del tenant.
