@@ -2,7 +2,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { bloqueAgentsMarkdown, bloqueSkillReglasMarkdown } from "./comentarios-politica.mjs";
-import { modoChequeo, ramaActual } from "./rama-lib.mjs";
 
 const INICIO_AGENTS = "<!-- comentarios-politica:inicio -->";
 const FIN_AGENTS = "<!-- comentarios-politica:fin -->";
@@ -31,11 +30,9 @@ function generar() {
   return { agentsPath, skillPath, agentsNuevo, skillNuevo };
 }
 
+// El bloque generado sale solo de comentarios-politica.mjs (determinista): corre en
+// cualquier rama porque verify no tiene CI y nadie lo regeneraría en main por nosotros.
 if (check) {
-  if (!process.env.DOCS_COMENTARIOS_CHECK_FORZADO && modoChequeo({ rama: ramaActual() }) === "saltar") {
-    console.log("docs:comentarios --check: en rama de trabajo se omite; lo regenera main");
-    process.exit(0);
-  }
   try {
     const { agentsPath, skillPath, agentsNuevo, skillNuevo } = generar();
     const agentsViejo = readFileSync(agentsPath, "utf8");

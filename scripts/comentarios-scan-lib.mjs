@@ -1,11 +1,12 @@
-// P10-25: extrae comentarios con scanner de TypeScript 7 (unstable) y regex astro.
-import { LanguageVariant, SyntaxKind } from "typescript/unstable/ast";
+// P10-25: extrae comentarios con scanner de TypeScript 7 (adaptador) y regex astro.
 import {
+  LanguageVariant,
+  SyntaxKind,
   computeLineStarts,
   createScanner,
   forEachLeadingCommentRange,
   forEachTrailingCommentRange,
-} from "typescript/unstable/ast/scanner";
+} from "./comentarios-typescript-scanner.mjs";
 
 const EXT_TS = new Set([".ts", ".tsx", ".js", ".mjs", ".jsx", ".cjs"]);
 const SCRIPT_FENCE = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;

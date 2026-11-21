@@ -13,6 +13,7 @@ const LIBS = [
   "comentarios-politica.mjs",
   "comentarios-ids-lib.mjs",
   "comentarios-scan-lib.mjs",
+  "comentarios-typescript-scanner.mjs",
 ];
 
 function correr(cwd: string, args: string[] = [], env: NodeJS.ProcessEnv = {}): { estado: number; salida: string } {
@@ -200,7 +201,6 @@ describe("docs:comentarios", () => {
     const r = execFileSync("node", [join(RAIZ, "scripts", "docs-comentarios.mjs"), "--check"], {
       encoding: "utf8",
       cwd: RAIZ,
-      env: { ...process.env, DOCS_COMENTARIOS_CHECK_FORZADO: "1" },
     });
     expect(r).toContain("al día");
   });
@@ -219,14 +219,12 @@ describe("docs:comentarios", () => {
       execFileSync("node", ["scripts/docs-comentarios.mjs", "--check"], {
         cwd: tmp,
         encoding: "utf8",
-        env: { ...process.env, DOCS_COMENTARIOS_CHECK_FORZADO: "1" },
       }),
     ).toThrow();
     try {
       execFileSync("node", ["scripts/docs-comentarios.mjs", "--check"], {
         cwd: tmp,
         encoding: "utf8",
-        env: { ...process.env, DOCS_COMENTARIOS_CHECK_FORZADO: "1" },
       });
     } catch (e) {
       const err = e as { stderr?: string; stdout?: string };

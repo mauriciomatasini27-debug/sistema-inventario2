@@ -65,7 +65,7 @@
     "drizzle-kit": "^0.31.11",
     "fast-check": "4.10.2",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
+    "typescript": "7.0.2",
     "vitest": "^5.1.0",
     "write-excel-file": "^4.1.1"
   },
