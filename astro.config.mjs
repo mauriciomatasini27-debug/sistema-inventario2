@@ -4,7 +4,7 @@ import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: process.env.PUBLIC_SITE_URL || "https://inventario.com.ar",
+  site: process.env.PUBLIC_SITE_URL || "https://modoops2791.vercel.app",
   devToolbar: { enabled: process.env.CONTROL_APP_DEV !== "1" },
   output: "server",
   adapter: vercel(),
