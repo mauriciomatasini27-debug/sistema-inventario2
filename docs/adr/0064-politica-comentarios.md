@@ -47,3 +47,4 @@ Menos comentarios y más issues. La regla de lint entró después de publicar lo
 - Ya aplicado en `src/modules/cash/` (TB-166): el grupo borrar, la consolidación de decisiones en ADR-0004 y ADR-0120, y los tres gotchas en `docs/guias/gotchas-caja.md`.
 - Ejecutar la poda por área sobre los dos inventarios: `PLAN-COM-01` y el relevamiento de #273 para `src/modules` (salvo `cash/`), `src/offline/` y middleware.
 - Falta COM-S6: publicar por área el resto de la deuda (65 issues del plan + 20 agrupados del inventario #273, de un total de 88 junto con los 3 de `cash/` ya publicados).
+- La ejecución por área —dos olas, gate por área, deuda publicada antes de podar, ratchet y criterio de fin— sigue `diseno/PLAN-COM-01/e-ejecucion.md` (PLAN-COM-01-E).

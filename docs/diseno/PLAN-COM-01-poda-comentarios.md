@@ -15,7 +15,7 @@ resumen: |
 
 Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md` (COM-S4), ADR-0064 (aceptado). Tipo: reference. Solo análisis: este plan no cambia código.
 
-Ratificado como inventario base el 2026-11-21. Los totales de abajo no incluyen `src/modules/cash/`: el relevamiento original excluía `src/modules` y ese módulo se podó aparte (TB-166). El resto del territorio no cubierto se relevó en #273.
+Ratificado como inventario base el 2026-11-21. Los totales de abajo no incluyen `src/modules/cash/`: el relevamiento original excluía `src/modules` y ese módulo se podó aparte (TB-166). El resto del territorio no cubierto se relevó en #273. La ejecución por área —olas, gate, deuda y criterio de fin— está en `PLAN-COM-01/e-ejecucion.md` (PLAN-COM-01-E).
 
 ## Cómo se armó
 
