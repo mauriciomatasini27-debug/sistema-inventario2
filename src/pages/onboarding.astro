@@ -1,5 +1,6 @@
 ---
 import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
+import { tenantDelCuestionario } from "../modules/onboarding/acceso-tenant.js";
 
 // ONBOARDING-WIZARD (T2): ruta dedicada post-login.
 // TB-165: la página es sólo vista; las transiciones viven en wizard.ts.
@@ -7,9 +8,15 @@ import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
 // un Empleado no llegue por navegación directa.
 const acceso = exigirDuenoDeRequest(Astro.request);
 if (!acceso.ok) return Astro.redirect("/panel", 302);
-// TB-165: el panel abre el cuestionario con el comercio ya resuelto; esos
-// datos se muestran completos en vez de volver a pedirlos.
-const tenantId = Astro.url.searchParams.get("tenant_id") ?? "";
+// TB-165 [tenant]: el panel abre el cuestionario con el comercio ya resuelto.
+// El query sólo se acepta si coincide con el tenant autorizado por la sesión;
+// si no, se sale al panel antes de renderizar datos de otro comercio.
+const tenantCuestionario = tenantDelCuestionario(
+  acceso.tenantId,
+  Astro.url.searchParams.get("tenant_id"),
+);
+if (!tenantCuestionario.ok) return Astro.redirect("/panel", 302);
+const tenantId = tenantCuestionario.tenantId;
 ---
 <html lang="es">
   <head>

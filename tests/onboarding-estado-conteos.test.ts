@@ -75,10 +75,10 @@ function proveedor(cuit: string, nombre: string): Supplier {
   };
 }
 
-async function estado(plano: string | null, tenantId: string) {
-  const headers: Record<string, string> = {};
-  if (plano) headers.cookie = `__Host-sesion=${plano}`;
-  return GET(ctx(`http://x/api/onboarding/estado?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET", headers }));
+async function estado(plano: string | null, tenantId: string, headers: Record<string, string> = {}) {
+  const cabeceras: Record<string, string> = { ...headers };
+  if (plano) cabeceras.cookie = `__Host-sesion=${plano}`;
+  return GET(ctx(`http://x/api/onboarding/estado?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET", headers: cabeceras }));
 }
 
 interface Paso {
@@ -185,7 +185,9 @@ describe("GET /api/onboarding/estado cuenta el comercio", () => {
     expect(paso(pasosA, "proveedor").listo).toBe(true);
     expect(paso(pasosA, "empleado").listo).toBe(false);
 
-    const rb = await estado(plano, b);
+    // TB-165 [tenant]: el cambio de comercio va por X-Tenant-Id (ADR-0050),
+    // no por el query con la sesión todavía fijada en A.
+    const rb = await estado(plano, b, { "X-Tenant-Id": b });
     expect(rb.status).toBe(200);
     const pasosB = await pasosDe(rb);
     expect(paso(pasosB, "productos")).toMatchObject({ contador: "7 de 10", listo: false });

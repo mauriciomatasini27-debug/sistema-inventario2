@@ -7,6 +7,7 @@ import { listarProductos } from "../../../lib/repos/catalogo.js";
 import { listarProveedores } from "../../../lib/repos/proveedores.js";
 import { crearAlmacenProductos, crearAlmacenSuppliers } from "../../../lib/repos/_almacen.js";
 import { calcularChecklist, leerOnboarding } from "../../../modules/onboarding/onboarding.js";
+import { tenantDelCuestionario } from "../../../modules/onboarding/acceso-tenant.js";
 import { pasos_para_rol } from "../../../modules/onboarding/tour.js";
 
 export const prerender = false;
@@ -46,7 +47,8 @@ function contarInvitaciones(tenantId: string): number {
 }
 
 // P1-26: /api/onboarding no está en PREFIJOS_DATOS, así que el middleware
-// no fija el comercio. El tenant autorizado es el de la query.
+// no fija el comercio. TB-165 [tenant]: el comercio lo fija la sesión; el
+// query es sólo un atajo cuando coincide con el autorizado.
 async function conteosDelComercio(tenantId: string) {
   return conTenant(tenantId, async () => {
     const filas = await filasProducto();
@@ -63,8 +65,14 @@ export const GET: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   const url = new URL(request.url);
-  const tenantId = url.searchParams.get("tenant_id") ?? "";
-  if (!tenantId) return jsonError("Falta el comercio.", 422);
+  const autorizado = tenantDelCuestionario(
+    request.headers.get("X-Tenant-Id") ?? ctx.tenantId ?? "",
+    url.searchParams.get("tenant_id"),
+  );
+  // TB-165 [tenant]: sin sesión con comercio, o con un query de otro comercio,
+  // se niega sin revelar si ese comercio existe.
+  if (!autorizado.ok) return jsonError("No tenés permiso en este comercio.", 403);
+  const tenantId = autorizado.tenantId;
   const m = membershipActiva(tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
   const estado = leerOnboarding(ctx.googleSub, tenantId);
