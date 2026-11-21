@@ -125,6 +125,9 @@ export const gmailIngestionJobs = pgTable(
       t.connectionId,
       t.historyId,
     ),
-    uniqueIndex("gmail_ingestion_jobs_message_id_unique").on(t.messageId),
+    // GGL-P240-0051: dedupe por (tenant_id, message_id); NULL message_id queda fuera del índice parcial.
+    uniqueIndex("gmail_ingestion_jobs_tenant_message_unique")
+      .on(t.tenantId, t.messageId)
+      .where(sql`"message_id" IS NOT NULL`),
   ],
 );
