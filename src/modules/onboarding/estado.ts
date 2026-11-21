@@ -18,6 +18,9 @@ export interface OnboardingState {
   wizardPaso: number;
   wizardCompletado: boolean;
   wizardEmpleados: string[];
+  // TB-165: espejo en memoria de todas las respuestas del cuestionario; la
+  // fila durable sigue persistiendo sólo completado/paso (sin tocar SQL).
+  wizardRespuestas: Record<string, string>;
   actualizadoAt: string;
 }
 
@@ -51,6 +54,7 @@ export function estadoInicial(userId: string, tenantId: string, ahora = new Date
     wizardPaso: 0,
     wizardCompletado: false,
     wizardEmpleados: [],
+    wizardRespuestas: {},
     actualizadoAt: ahora.toISOString(),
   };
 }

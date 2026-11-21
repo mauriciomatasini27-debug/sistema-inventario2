@@ -7,6 +7,9 @@ import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
 // un Empleado no llegue por navegación directa.
 const acceso = exigirDuenoDeRequest(Astro.request);
 if (!acceso.ok) return Astro.redirect("/panel", 302);
+// TB-165: el panel abre el cuestionario con el comercio ya resuelto; esos
+// datos se muestran completos en vez de volver a pedirlos.
+const tenantId = Astro.url.searchParams.get("tenant_id") ?? "";
 ---
 <html lang="es">
   <head>
@@ -37,6 +40,8 @@ if (!acceso.ok) return Astro.redirect("/panel", 302);
       .chip:hover { background:var(--accent); color:#fff; }
       .input { width:100%; margin-top:12px; background:var(--bg); border:1px solid var(--line); color:var(--fg); padding:12px; border-radius:10px; font-size:16px; }
       .state { font-size:11px; color:var(--muted); font-family:ui-monospace,monospace; white-space:pre-wrap; margin-top:8px; }
+      .datos-conocidos { width:100%; margin-bottom:8px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:12px; color:var(--muted); }
+      .datos-conocidos[hidden] { display:none; }
     </style>
   </head>
   <body>
@@ -44,9 +49,10 @@ if (!acceso.ok) return Astro.redirect("/panel", 302);
     <div class="phone">
       <div class="phone-head"><div class="avatar">M</div><div><div class="name">Modo</div><div class="sub">Onboarding</div></div></div>
       <div class="progress"><div id="p" style="width:0%"></div></div>
+      <div class="datos-conocidos" data-datos-conocidos hidden></div>
       <div class="body" id="body"></div>
     </div>
-    <script>
+    <script define:vars={{ tenantId }}>
       // TB-165: antes acá había una copia de la máquina de estados. La página
       // sólo renderiza y delega cada transición al módulo dueño del cuestionario.
       import {
@@ -74,6 +80,35 @@ if (!acceso.ok) return Astro.redirect("/panel", 302);
       }
 
       const body = document.getElementById("body")!;
+
+      // TB-165: datos ya capturados en el alta y en el proveedor de identidad.
+      // Se muestran completos y sólo lectura: el cuestionario no los repite.
+      async function cargarDatosConocidos() {
+        const el = document.querySelector("[data-datos-conocidos]");
+        if (!(el instanceof HTMLElement) || !tenantId) return;
+        try {
+          const r = await fetch("/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId));
+          if (!r.ok) return;
+          const j = await r.json();
+          const filas = [
+            ["Comercio", j.comercio?.nombre],
+            ["Rubro", j.comercio?.rubro],
+            ["WhatsApp", j.comercio?.whatsapp],
+            ["Dueño", j.dueno?.nombre],
+          ].filter((fila): fila is [string, string] => typeof fila[1] === "string" && fila[1].length > 0);
+          el.replaceChildren();
+          for (const [etiqueta, valor] of filas) {
+            const d = document.createElement("div");
+            d.textContent = etiqueta + ": " + valor;
+            el.appendChild(d);
+          }
+          el.hidden = filas.length === 0;
+        } catch (e) {
+          console.warn("[onboarding] no se pudieron cargar los datos conocidos", e);
+        }
+      }
+      void cargarDatosConocidos();
+
       function save() { localStorage.setItem(storageKey, JSON.stringify(state)); }
       function progreso() {
         document.getElementById("p")!.style.width = (state.paso / PASOS_WIZARD.length * 100) + "%";
@@ -88,9 +123,10 @@ if (!acceso.ok) return Astro.redirect("/panel", 302);
       function render() {
         body.innerHTML = "";
         if (esCompleto(state)) {
-          body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">5 de 5 pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
+          body.innerHTML = `<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">${PASOS_WIZARD.length} de ${PASOS_WIZARD.length} pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>`;
           progreso();
-          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ empleados: state.empleados }) }).catch((e) => { console.warn("onboarding completar falló", e); });
+          // TB-165: antes sólo se enviaban empleados y el resto se descartaba.
+          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ empleados: state.empleados, respuestas: state.respuestas }) }).catch((e) => { console.warn("onboarding completar falló", e); });
           document.getElementById("irPanel")!.onclick = () => { window.location.href = "/panel"; };
           return;
         }
