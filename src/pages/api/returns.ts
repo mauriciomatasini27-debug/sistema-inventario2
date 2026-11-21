@@ -51,6 +51,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (r.acumulado_centavos !== undefined) {
       return Response.json({ error: r.error, acumulado_centavos: r.acumulado_centavos }, { status: 422 });
     }
+    // AUD-VTA-03: dice qué SKU se pasó y cuántas unidades quedan por devolver.
+    if (r.sku !== undefined) {
+      return Response.json({ error: r.error, sku: r.sku, disponible: r.disponible }, { status: 422 });
+    }
     if (r.facturado_centavos !== undefined) {
       return Response.json({ error: r.error, facturado_centavos: r.facturado_centavos }, { status: 422 });
     }

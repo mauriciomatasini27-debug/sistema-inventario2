@@ -99,12 +99,17 @@ export interface DevolucionInput {
   readonly actor: string;
   readonly ultimoDevolucion: DevolucionSeq | null;
   readonly vistos: ReadonlyMap<string, DevolucionEmitida>;
+  // AUD-VTA-03: unidades que todavía se pueden devolver por SKU (vendidas en
+  // la venta menos las ya devueltas). Sin mapa (venta sin líneas conocidas)
+  // solo rige el tope en plata.
+  readonly devolviblesPorSku?: ReadonlyMap<string, number> | null | undefined;
 }
 
 export type FalloDevolucion =
   | { readonly ok: false; readonly codigo: "YA_VISTA"; readonly status: 409; readonly original: DevolucionEmitida }
   | { readonly ok: false; readonly codigo: "TOPE_EXCEDIDO"; readonly status: 422; readonly acumuladoCentavos: bigint; readonly ventaTotalCentavos: bigint }
-  | { readonly ok: false; readonly codigo: "DEVOLUCION_INVALIDA"; readonly status: 422 };
+  | { readonly ok: false; readonly codigo: "DEVOLUCION_INVALIDA"; readonly status: 422 }
+  | { readonly ok: false; readonly codigo: "CANTIDAD_EXCEDIDA"; readonly status: 422; readonly sku: string; readonly disponible: number };
 
 export type DevolucionResult = { readonly ok: true; readonly efecto: EfectoDevolucion } | FalloDevolucion;
 
@@ -129,6 +134,16 @@ export function registrar_devolucion(input: DevolucionInput): DevolucionResult {
   for (const it of input.items) {
     if (!it.sku || !Number.isInteger(it.cantidad) || it.cantidad < 1 || it.cantidad > 999) {
       return { ok: false, codigo: "DEVOLUCION_INVALIDA", status: 422 };
+    }
+  }
+  // AUD-VTA-03: no se devuelve más de lo vendido ni un producto que no estaba
+  // en la venta; sin esto la devolución inflaba el stock.
+  if (input.devolviblesPorSku) {
+    const pedido = new Map<string, number>();
+    for (const it of input.items) pedido.set(it.sku, (pedido.get(it.sku) ?? 0) + it.cantidad);
+    for (const [sku, cantidad] of pedido) {
+      const disponible = Math.max(0, input.devolviblesPorSku.get(sku) ?? 0);
+      if (cantidad > disponible) return { ok: false, codigo: "CANTIDAD_EXCEDIDA", status: 422, sku, disponible };
     }
   }
   if (input.fueAcuenta && !input.customerId) {

@@ -75,8 +75,10 @@ describe("PERS5 single sin DB: devoluciones y venta a cuenta como hoy", () => {
   });
 
   it("dos devoluciones dan D-000001 y D-000002", async () => {
+    // AUD-VTA-03: dos devoluciones de 1 unidad necesitan una venta de 2.
+    const lineas = [{ product_id: "demo-sku-1", qty: 2, precio_centavos: 7500 }];
     const v = await postSales(
-      ctx("http://x/api/sales", { headers: { "Idempotency-Key": `p5-v-${suf}` }, body: ventaBody() }),
+      ctx("http://x/api/sales", { headers: { "Idempotency-Key": `p5-v-${suf}` }, body: ventaBody({ lineas }) }),
     );
     expect(v.status).toBe(201);
     const saleId = ((await v.json()) as { sale_id: string }).sale_id;
