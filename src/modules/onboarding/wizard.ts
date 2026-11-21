@@ -10,9 +10,9 @@ export interface PasoWizard {
   opciones?: string[];
 }
 
+// TB-165: negocio, rubro, WhatsApp y nombre del Dueño ya vienen del alta y
+// del proveedor de identidad; el cuestionario no los vuelve a preguntar.
 export const PASOS_WIZARD: readonly PasoWizard[] = [
-  { key: "negocio", titulo: "¿Cómo se llama tu negocio?", tipo: "text" },
-  { key: "dueno", titulo: "¿Cómo te llamás?", tipo: "text" },
   {
     key: "empleados",
     titulo: "¿Tenés empleados?",
@@ -125,13 +125,16 @@ export function esCompleto(state: WizardState): boolean {
   return state.completado || state.paso >= PASOS_WIZARD.length;
 }
 
+// TB-165: el índice del sub-flujo se deriva del propio paso, no se hardcodea.
+export const INDICE_PASO_EMPLEADOS = PASOS_WIZARD.findIndex((p) => p.key === "empleados");
+
 export function retomar(paso: number, respuestas: Record<string, string>, empleados: string[], saltados: string[]): WizardState {
   const p = Math.max(0, Math.min(paso, PASOS_WIZARD.length));
   return {
     paso: p,
     respuestas: { ...respuestas },
     empleados: [...empleados],
-    empleadosDone: p > 2,
+    empleadosDone: p > INDICE_PASO_EMPLEADOS,
     saltados: [...saltados],
     completado: false,
   };

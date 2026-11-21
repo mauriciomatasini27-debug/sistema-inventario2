@@ -3,7 +3,7 @@ import { jsonError, membershipActiva, resolverSesion } from "../../../lib/contro
 import { control } from "../../../lib/store.js";
 import { persistirOnboarding } from "../../../lib/control-db.js";
 import { onboardingCompletarSchema } from "../../../lib/validation.js";
-import { completarWizardConEmpleados } from "../../../modules/onboarding/onboarding.js";
+import { completarWizardConRespuestas } from "../../../modules/onboarding/onboarding.js";
 
 export const prerender = false;
 
@@ -33,9 +33,10 @@ export const POST: APIRoute = async ({ request }) => {
   const m = membershipActiva(tenantId, ctx.googleSub);
   // ON12: el flag es por comercio; solo el dueño puede marcarlo completo.
   if (!m || m.rol !== "dueno") return jsonError("No tenés permiso en este comercio.", 403);
-  const next = completarWizardConEmpleados(
+  const next = completarWizardConRespuestas(
     ctx.googleSub,
     tenantId,
+    parsed.data.respuestas,
     parsed.data.empleados,
   );
   // ON12: persistir antes de responder para sobrevivir al próximo deploy.

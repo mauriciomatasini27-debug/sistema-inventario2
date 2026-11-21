@@ -126,6 +126,8 @@ function completarDesde(
       wizardCompletado: true,
       wizardPaso: esCompleto(wizard) ? PASOS_WIZARD.length : wizard.paso,
       wizardEmpleados: [...wizard.empleados],
+      // TB-165: antes se guardaban sólo empleados; el resto se descartaba.
+      wizardRespuestas: { ...wizard.respuestas },
     },
     persistencia,
   );
@@ -143,18 +145,35 @@ export function completarWizard(
 
 // TB-165: la ruta solo conoce empleados; el dueño arma el WizardState con sus
 // propias transiciones y hace el puente, sin estados sintéticos en la capa HTTP.
-export function completarWizardConEmpleados(
+// TB-165: la ruta entrega todas las respuestas; antes sólo pasaba empleados
+// y el puente descartaba el resto. Se fusionan con lo ya persistido.
+export function completarWizardConRespuestas(
   userId: string,
   tenantId: string,
+  respuestas: Record<string, string> | undefined,
   empleados: readonly string[] | undefined,
   persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
   const p = persistenciaEfectiva(persistencia);
   const previo = p.leer(userId, tenantId);
   const wizard = marcarCompletado(
-    retomar(previo.wizardPaso, {}, [...(empleados ?? previo.wizardEmpleados)], []),
+    retomar(
+      previo.wizardPaso,
+      { ...previo.wizardRespuestas, ...(respuestas ?? {}) },
+      [...(empleados ?? previo.wizardEmpleados)],
+      [],
+    ),
   );
   return completarDesde(previo, wizard, p);
+}
+
+export function completarWizardConEmpleados(
+  userId: string,
+  tenantId: string,
+  empleados: readonly string[] | undefined,
+  persistencia?: PersistenciaOnboarding,
+): OnboardingState {
+  return completarWizardConRespuestas(userId, tenantId, undefined, empleados, persistencia);
 }
 
 export function calcularChecklist(

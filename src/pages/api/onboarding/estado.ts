@@ -79,8 +79,21 @@ export const GET: APIRoute = async ({ request }) => {
     whatsappVerificado,
   });
   const ejemplo = [...control.ejemplos.values()].find((e) => e.tenantRealId === tenantId) ?? null;
+  // TB-165: el cuestionario no re-pregunta estos datos; los expone completos.
+  const numeroWhatsapp = [...control.vincularCodes.values()].find(
+    (c) => c.tenantId === tenantId && c.googleSub === ctx.googleSub,
+  )?.numeroRegistrado ?? null;
   return Response.json({
-    comercio: tenant ? { nombre: tenant.nombreComercio, estado: tenant.estado, plan: tenant.plan } : null,
+    comercio: tenant
+      ? {
+          nombre: tenant.nombreComercio,
+          estado: tenant.estado,
+          plan: tenant.plan,
+          rubro: tenant.rubro ?? null,
+          whatsapp: numeroWhatsapp,
+        }
+      : null,
+    dueno: { nombre: control.users.get(ctx.googleSub)?.nombre ?? null },
     whatsapp: { verificado: whatsappVerificado },
     tour: { version: estado.tourVersion, ultimo_paso: estado.tourUltimoPaso, estado: estado.tourEstado, pasos },
     checklist: { listos: checklist.listos, total: checklist.total, pasos: checklist.pasos, oculta: checklist.oculta },

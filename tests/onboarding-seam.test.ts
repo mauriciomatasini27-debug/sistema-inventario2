@@ -15,6 +15,7 @@ import {
   estadoInicialWizard,
   agregarEmpleado,
   marcarCompletado,
+  PASOS_WIZARD,
 } from "../src/modules/onboarding/wizard.js";
 import { claveOnboarding } from "../src/modules/onboarding/estado.js";
 
@@ -85,13 +86,34 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     let wizard = estadoInicialWizard();
     wizard = agregarEmpleado(wizard, "Ana");
     wizard = agregarEmpleado(wizard, "Beto");
-    wizard = marcarCompletado({ ...wizard, paso: 5 });
+    wizard = marcarCompletado({ ...wizard, paso: PASOS_WIZARD.length });
     const actualizado = completarWizard(USER, TENANT, wizard, mem.persistencia);
 
     expect(actualizado.wizardCompletado).toBe(true);
-    expect(actualizado.wizardPaso).toBe(5);
+    expect(actualizado.wizardPaso).toBe(PASOS_WIZARD.length);
     expect(actualizado.wizardEmpleados).toEqual(["Ana", "Beto"]);
     expect(mem.estados.get(CLAVE)?.wizardEmpleados).toEqual(["Ana", "Beto"]);
+  });
+
+  it("TB-165: completar conserva todas las respuestas, no sólo empleados", () => {
+    const mem = seam();
+    const wizard = marcarCompletado({
+      ...estadoInicialWizard(),
+      paso: PASOS_WIZARD.length,
+      respuestas: {
+        empleados: "Sí, tengo empleados",
+        productos: "Sí, cargar productos",
+        caja: "Empezar en 0",
+      },
+    });
+    const actualizado = completarWizard(USER, TENANT, wizard, mem.persistencia);
+
+    expect(actualizado.wizardRespuestas).toEqual({
+      empleados: "Sí, tengo empleados",
+      productos: "Sí, cargar productos",
+      caja: "Empezar en 0",
+    });
+    expect(mem.estados.get(CLAVE)?.wizardRespuestas.caja).toBe("Empezar en 0");
   });
 
   it("el mismo usuario en otro comercio tiene estado independiente", () => {
@@ -109,7 +131,7 @@ describe("onboarding seam — PersistenciaOnboarding", () => {
     const next = completarWizardConEmpleados(USER, TENANT, ["Ana"], mem.persistencia);
 
     expect(next.wizardCompletado).toBe(true);
-    expect(next.wizardPaso).toBe(5);
+    expect(next.wizardPaso).toBe(PASOS_WIZARD.length);
     expect(next.wizardEmpleados).toEqual(["Ana"]);
 
     // TB-165: sin empleados en el body conserva los ya persistidos
