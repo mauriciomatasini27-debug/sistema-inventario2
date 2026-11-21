@@ -15,6 +15,8 @@ resumen: Estrategia visual, skills y componentes para la app web (2026): criteri
 
 Fuente: mapa wayfinder GitHub [#279](https://github.com/mauriciomatasini27-debug/sistema-inventario2/issues/279), investigación #280/#281/#282 y decisiones #283–#289, #293. Restringido por ADR-0008, ADR-0009, ADR-0010, ADR-0037, ADR-0044, ADR-0113 y por `AGENTS.md` (sin migración de UI/lib fuera de alcance, sin tipografía/landing fuera de alcance, sin implementación visual en este mapa).
 
+> Estado al 2026-11-21: aceptado. Decisiones vinculantes #283–#289 y #293 (detalle en "Decisiones previas vinculantes"); veredictos en la tabla "Veredictos".
+
 ## Propósito y alcance
 
 Este PRD fija, para la **app web** de `sistema-inventario2` (PWA Astro 7 + React 19 + Tailwind 4, Tema Papel, system fonts, multi-tenant, offline-first), una estrategia 2026 de:
