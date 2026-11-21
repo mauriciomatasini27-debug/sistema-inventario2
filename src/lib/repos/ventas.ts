@@ -1,11 +1,11 @@
-import { eq } from "drizzle-orm";
-import { sales, SERIE_DEVOLUCION, ticketCounters } from "../../db/schema.js";
+import { and, eq } from "drizzle-orm";
+import { products, sales, SERIE_DEVOLUCION, stockMovements, ticketCounters, ticketLines } from "../../db/schema.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
 import { customerMovements } from "../../db/schema-credito.js";
 import { dbVivaTenant } from "../server-db.js";
-import { obtenerTicketFiado } from "../ticket-memoria.js";
+import { listarLineasTicket, obtenerTicketFiado } from "../ticket-memoria.js";
 import {
   crearAlmacenCorrecciones,
   crearAlmacenDevoluciones,
@@ -13,6 +13,7 @@ import {
   crearAlmacenIdempotenciaVentas,
   crearContadorDevoluciones,
   crearListaMovimientosCredito,
+  crearListaMovimientosStock,
 } from "./_almacen.js";
 import type { Medio } from "../validation.js";
 import { idempotency_key_for_return } from "../../modules/fiscal/fiscal.js";
@@ -160,6 +161,46 @@ export async function acumuladoDevoluciones(saleId: string): Promise<bigint> {
   }
 }
 
+// AUD-VTA-03: unidades devolvibles por SKU = vendidas en las líneas del ticket
+// menos las ya devueltas (movimientos COMPENSATORIO cuya key es una devolución
+// de esta venta). null si la venta no tiene líneas conocidas (ventas previas a
+// ticket_lines): ahí solo rige el tope en plata.
+export async function devolviblesPorSku(saleId: string): Promise<Map<string, number> | null> {
+  const vistosRet = crearAlmacenDevolucionVistos();
+  const vendidas = new Map<string, number>();
+  const devueltas = new Map<string, { sku: string; cantidad: number }>();
+  for (const m of crearListaMovimientosStock().listar()) {
+    if (m.tipo !== "COMPENSATORIO" || vistosRet.obtener(m.idemKey)?.sale_id !== saleId) continue;
+    devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+  }
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const lineas = await db
+        .select({ sku: products.sku, qty: ticketLines.qty })
+        .from(ticketLines)
+        .innerJoin(products, eq(products.id, ticketLines.productId))
+        .where(dondeTenant(ticketLines.tenantId, eq(ticketLines.saleId, saleId)));
+      for (const l of lineas) vendidas.set(l.sku, (vendidas.get(l.sku) ?? 0) + l.qty);
+      const movs = await db
+        .select({ idemKey: stockMovements.idemKey, sku: stockMovements.sku, delta: stockMovements.delta })
+        .from(stockMovements)
+        .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
+        .where(dondeTenant(stockMovements.tenantId, and(eq(saleReturns.saleId, saleId), eq(stockMovements.tipo, "COMPENSATORIO"))));
+      for (const m of movs) devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+    } catch (e) {
+      vistosRet.anteFalloPersistencia(e);
+    }
+  }
+  // AUD-VTA-03: venta que solo vive en memoria (single sin base o caída).
+  if (vendidas.size === 0) {
+    for (const l of listarLineasTicket(saleId)) vendidas.set(l.product_id, (vendidas.get(l.product_id) ?? 0) + l.qty);
+  }
+  if (vendidas.size === 0) return null;
+  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - Math.abs(d.cantidad));
+  return vendidas;
+}
+
 function ultimoNumeroDevolucion(): DevolucionSeq | null {
   const nr = crearContadorDevoluciones().leer();
   const n = nr > 1 ? nr - 1 : 0;
@@ -182,7 +223,7 @@ export type RegistrarDevolucionResultado =
   | { ok: true; returnId: string; numero: string; saleId: string; montoCentavos: string; fiscalEstado: string; ncTipo: number | null }
   | { ok: false; status: 409; error: string; original: VistoDevolucion }
   | { ok: false; status: 404; error: string }
-  | { ok: false; status: 422; error: string; acumulado_centavos?: string; facturado_centavos?: string };
+  | { ok: false; status: 422; error: string; acumulado_centavos?: string; facturado_centavos?: string; sku?: string; disponible?: number };
 
 function espejoMemoriaDevolucion(
   key: string,
@@ -220,6 +261,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   if (!venta) return { ok: false, status: 404, error: "venta inexistente" };
   const ventaTotal = BigInt(venta.total_centavos);
   const acumuladoPrevio = await acumuladoDevoluciones(input.saleId);
+  const devolvibles = await devolviblesPorSku(input.saleId);
 
   const factura = await buscarFacturaParaNd(input.saleId, input.tenantId);
   const acumuladoNc = await acumuladoNcParaVenta(input.saleId, input.tenantId);
@@ -243,6 +285,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       actor: input.actor,
       ultimoDevolucion: ultimo,
       vistos: new Map(),
+      devolviblesPorSku: devolvibles,
     });
 
   const mapearFallo = (dev: Extract<DevolucionResult, { ok: false }>): RegistrarDevolucionResultado => {
@@ -253,6 +296,9 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         error: "devolución supera el total de la venta",
         acumulado_centavos: dev.acumuladoCentavos.toString(),
       };
+    }
+    if (dev.codigo === "CANTIDAD_EXCEDIDA") {
+      return { ok: false, status: 422, error: "devolución supera lo vendido", sku: dev.sku, disponible: dev.disponible };
     }
     return { ok: false, status: 422, error: "devolución inválida" };
   };
