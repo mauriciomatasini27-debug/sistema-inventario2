@@ -5,8 +5,6 @@ import { registrarCorreccion } from "../../../lib/repos/ventas.js";
 
 export const prerender = false;
 
-// POST /api/sales/medium-corrections — TV14, registro nuevo auditado (nunca UPDATE).
-// PERS2-S25: el visto y la fila durable viven en el repo de ventas
 // (ticket_payment_corrections con DB viva, memoria solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";

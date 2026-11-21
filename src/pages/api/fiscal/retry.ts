@@ -7,7 +7,6 @@ import {
 
 export const prerender = false;
 
-// POST /api/fiscal/retry — reencola rechazada tras corregir (ADR-0018 + FE-S20).
 // PERS2-S8: el repo fiscal resuelve DB-first con backfill desde memoria y
 // espejo memoria; sin base queda en memoria como antes.
 export const POST: APIRoute = async ({ request }) => {

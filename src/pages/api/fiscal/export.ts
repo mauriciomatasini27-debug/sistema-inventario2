@@ -5,7 +5,6 @@ import { filtrar_historial, historial_a_csv } from "../../../modules/fiscal/hist
 
 export const prerender = false;
 
-// GET /api/fiscal/export?formato=csv — CSV mensual (FE-S25). Dueño via X-Rol slice homo.
 // ISO-S4: el tenant lo resuelve el servidor y todo se filtra por él (DB y memoria).
 export const GET: APIRoute = async ({ url, request }) => {
   const t = tenantDeRequest(request);

@@ -12,9 +12,6 @@ const bodySchema = z.object({
   motivo: z.string().max(200).default("revocado"),
 });
 
-// POST /api/devices/revocar-remoto — PWA-S5 borrado remoto.
-// El Dueño marca el device como bloqueado + revoca sus grants.
-// El cliente en próximo heartbeat recibe wipe:true y ejecuta revocarDispositivo().
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

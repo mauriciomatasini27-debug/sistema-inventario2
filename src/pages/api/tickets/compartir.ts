@@ -10,7 +10,6 @@ import { buscarVentaPorId } from "../../../modules/sales/buscar_venta.js";
 
 export const prerender = false;
 
-// POST /api/tickets/compartir — TV11 wa.me gratis default + TV12 central P1.
 // Body: { sale_id, toE164?, dentroVentana24h?, optIn?, comercio? }.
 // Header Idempotency-Key requerido (no duplica envío central).
 // Siempre devuelve wa_me_url (gratis); central solo si hay opt-in y no duplicado.
@@ -31,7 +30,6 @@ export const POST: APIRoute = async ({ request }) => {
     comercio?: string;
   };
   if (!b.sale_id) return Response.json({ error: "falta sale_id" }, { status: 422 });
-  // PERS-S5: la venta se busca DB-first (PERS-S1 la persiste); la memoria cubre
   // pre-cutover. Los envíos centrales los guarda el repo de tickets.
   const vendido = await buscarVentaPorId(b.sale_id);
   if (!vendido) return Response.json({ error: "venta inexistente" }, { status: 404 });
@@ -44,7 +42,6 @@ export const POST: APIRoute = async ({ request }) => {
     comercio: b.comercio ?? "Comercio",
   });
 
-  // TV11: wa.me gratis default (sin IO, sin costo). Requiere toE164.
   let wa_me_url: string | null = null;
   if (b.toE164) {
     const w = construir_wa_me_url({ toE164: b.toE164, resumen });
@@ -52,7 +49,6 @@ export const POST: APIRoute = async ({ request }) => {
     wa_me_url = w.url;
   }
 
-  // TV12 P1: central con Idempotency-Key (no duplica). Sin optIn => bloqueado.
   const decision = decidir_envio_central({
     dentroVentana24h: b.dentroVentana24h ?? true,
     optIn: b.optIn ?? false,

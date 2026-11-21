@@ -6,9 +6,6 @@ import { cerrarCaja, leerCierre } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// POST /api/cash/close — cierre de jornada (C12). 422 si hay turno en disputa.
-// SYNC-S7: operación sensible, exige online. Con grant offline / cuarentena => 403.
-// PERS2-S12: el repo caja cierra en closing_summaries del tenant con DB viva.
 export const POST: APIRoute = async ({ request }) => {
   const bloqueo = exigirOnlineParaSensible(request, "cierre");
   if (bloqueo) return bloqueo;
@@ -39,15 +36,11 @@ export const POST: APIRoute = async ({ request }) => {
             cierre: { ...r.original.cierre, totalCentavos: r.original.cierre.totalCentavos.toString() },
           }
         : undefined;
-    // Reintento del cierre (409 con original): el aviso WA ya es idempotente
-    // en el repo aunque la primera respuesta se haya perdido.
     if (r.status === 409 && "original" in r && r.original) {
       return Response.json({ error: r.error, original: originalJson, wa: r.wa }, { status: 409 });
     }
     return Response.json({ error: r.error, original: originalJson }, { status: r.status });
   }
-  // C10: notificación WA de caja una vez por jornada. No bloquea el cierre:
-  // si ya se avisó, se informa duplicado. Slice-0 sin auth => rol dueno.
   // CAJA-S2: el cierre informa cuántos QR siguen sin comprobante.
   return Response.json(
     { fecha_jornada: r.cierre.fechaJornada, total_centavos: r.cierre.totalCentavos.toString(), qr_sin_comprobante: r.qrSinComprobante, wa: r.wa },

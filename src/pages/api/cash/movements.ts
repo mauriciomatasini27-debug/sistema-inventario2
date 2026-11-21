@@ -4,8 +4,6 @@ import { registrar_movimiento_db_first } from "../../../modules/cash/registro_mo
 
 export const prerender = false;
 
-// POST /api/cash/movements — usa el mismo Idempotency-Key de la venta (C8).
-// PERS-S1 DB-first: el repo es dueño de duplicado → insert → espejo memoria.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

@@ -89,6 +89,5 @@ export const POST: APIRoute = async ({ request }) => {
   }
   control.events.push({ tenantId: ctx.tenantId, tipo: "sesion_cerrada", actor: ctx.googleSub, detalle: { cerradas }, creadoEn: ahora.toISOString() });
   void persistirAuthEvent({ tenantId: ctx.tenantId, tipo: "sesion_cerrada", actor: ctx.googleSub, detalle: { cerradas } });
-  // La PWA borra los datos locales al ver 403 en la siguiente request (AU9.4).
   return Response.json({ cerradas }, { status: 200 });
 };

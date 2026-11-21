@@ -16,7 +16,6 @@ const extraSchema = bienvenidaSchema.extend({
   opt_in: z.boolean().default(false),
 });
 
-// POST /api/onboarding/bienvenida — dispara la bienvenida ON5.
 // El job decide libre, plantilla o nada y no repite por tenant y número.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);

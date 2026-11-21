@@ -1,4 +1,3 @@
-// LANE admin — Guard común PA1/PA2 (allowlist + auditoría).
 //
 // Todas las rutas /api/admin/* lo usan: sesión + allowlist por google_sub
 // (nunca email). Cada acto (exitoso o denegado) se audita en adminStore +

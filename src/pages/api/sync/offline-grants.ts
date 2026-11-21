@@ -86,7 +86,6 @@ export const POST: APIRoute = async ({ request }) => {
   );
 };
 
-// DELETE /api/sync/offline-grants?grant_id= — revoca (Dueño o propio).
 // Revocado => cuarentena post-revocación: el device exige revalidar online.
 // Lee la fuente que manda, así revoca aunque la memoria esté fresca.
 export const DELETE: APIRoute = async ({ request }) => {

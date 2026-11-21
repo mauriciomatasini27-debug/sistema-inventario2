@@ -7,7 +7,6 @@ import { actualizarBotFlagDb } from "../../../../lib/control-db.js";
 
 export const prerender = false;
 
-// POST /api/tenants/:tenant_id/memberships — el Dueño da de alta una
 // membership (ADR-0001). E5: ante tenant ajeno o inexistente se responde 403
 // genérico sin revelar si el tenant existe.
 export const POST: APIRoute = async ({ request, params }) => {
@@ -22,7 +21,6 @@ export const POST: APIRoute = async ({ request, params }) => {
   if (tenant.estado === "suspendido") {
     return jsonError("El comercio está suspendido. Regularizá la suscripción para invitar.", 403);
   }
-  // AU10.1: invitar/cambiar permisos exige reauth reciente del Dueño.
   const reauth = exigirReauthReciente(ctx);
   if (reauth) return reauth;
 
@@ -61,7 +59,6 @@ export const POST: APIRoute = async ({ request, params }) => {
     rol: b.rol,
     permisos: b.permisos,
     estado: "activo",
-    // AU11.3: el bot arranca habilitado; el Dueño lo cambia con PATCH.
     puedeUsarBot: true,
   });
   control.events.push({
@@ -71,7 +68,6 @@ export const POST: APIRoute = async ({ request, params }) => {
     detalle: { google_sub: b.google_sub, rol: b.rol },
     creadoEn: new Date().toISOString(),
   });
-  // Evento hacia el panel (solo contadores, nunca negocio).
   control.opsOutbox.push({
     tipo: "membership_otorgada",
     payload: {
@@ -91,7 +87,6 @@ const patchSchema = z.object({
   puede_usar_bot: z.boolean(),
 });
 
-// PATCH /api/tenants/:tenant_id/memberships — el Dueño prende/apaga el
 // interruptor "Puede usar el bot" de un miembro (AU11.3, con reauth AU10.1).
 export const PATCH: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);

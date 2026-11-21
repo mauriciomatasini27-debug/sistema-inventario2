@@ -7,7 +7,6 @@ import { nombreDatabase } from "../../../modules/tenants/aprovisionar.js";
 
 export const prerender = false;
 
-// POST /api/onboarding/ejemplo — activar o descartar el comercio de ejemplo.
 // La demo vive separada con es_demo true, modo simulado y banda fija.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);

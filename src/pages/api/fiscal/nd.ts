@@ -13,7 +13,6 @@ import {
 
 export const prerender = false;
 
-// POST /api/fiscal/nd — ND manual solo Dueño (FE-S16, slice homo).
 // Slice-0: sin sesión exige header X-Rol: dueno (empleado → 403).
 // Vinculada a factura 11/6/1 autorizada con CbtesAsoc + caja asociada si hubo cobro.
 // PERS2-S8: el repo fiscal resuelve DB-first. El header Idempotency-Key es la
@@ -33,11 +32,9 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = postNdSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  // ISO-S3: el doc fiscal se estampa con el tenant del contexto.
   const tenantResuelto = tenantDeRequest(request);
   const tenantId = tenantResuelto.ok ? tenantResuelto.tenantId : undefined;
 
-  // Pre-check por prefijo ANTES de decidir la rama: el replay choca aunque la
   // factura haya cambiado de estado (frío) entre el POST y el replay.
   const memPrevio = await buscarNdPrevio(key);
   if (memPrevio) {
@@ -62,7 +59,6 @@ export const POST: APIRoute = async ({ request }) => {
   const now = new Date();
   const fch = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   const ndId = crypto.randomUUID();
-  // La idempotencia la da el header, no el nd_id (antes cada POST creaba un
   // doc nuevo aunque repitiera la clave).
   const fkey =
     decision.decision === "esperar-cae" ? `nd:${key}:espera` : idempotency_key_for_nd(key, decision.ndTipo);

@@ -7,8 +7,6 @@ const NOMBRES = ["cierre_caja", "recomendacion_mensual", "aplica_precio_programa
 
 const cola = new Map<string, { nombre: string; payload: unknown; runAt: string }>();
 
-// POST /api/jobs/enqueue — CH-S3 pg-boss mismo repo (descriptor + memoria).
-// 201 nuevo, 409 key repetida, 422 nombre/run_at inválido.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   let body: unknown;

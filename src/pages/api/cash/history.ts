@@ -5,10 +5,6 @@ import { filtrar_historial, paginar, parsear_params } from "../../../modules/cas
 
 export const prerender = false;
 
-// GET /api/cash/history?tipo=&medio=&origen=&limit=&cursor= — C11 historial.
-// Solo lectura sobre movimientos append-only, más recientes primero.
-// montos en string de centavos (bigint serializado en el borde).
-// PERS2-S12: el repo caja lee cash_movements del tenant con DB viva.
 export const GET: APIRoute = async ({ url }) => {
   const p = parsear_params(url.searchParams);
   if (!p.ok) return Response.json({ error: p.error }, { status: 422 });

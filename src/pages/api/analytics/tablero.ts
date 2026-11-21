@@ -33,7 +33,6 @@ export const GET: APIRoute = async ({ request, url }) => {
     return Response.json({ error: "No tenés permiso para ver la rotación." }, { status: 403 });
   }
   if (grant.rol === "empleado" && (b.orden === "valorizado" || b.orden === "rotacion")) {
-    // Empleado: rotación sí, valorizado no (RT10.2 filtrado en servidor).
     if (b.orden === "valorizado") {
       return Response.json({ error: "No tenés permiso para ver la ganancia." }, { status: 403 });
     }

@@ -17,12 +17,6 @@ import { PLANTILLA_ALERTA_STOCK_BAJO } from "../../../modules/whatsapp/envio.js"
 
 export const prerender = false;
 
-// POST /api/jobs/whatsapp-aviso — aviso matutino B5 por comercio.
-// Solo con X-Job-Secret. Calcula con stock vivo al envío, solo si hay
-// novedad y opt-in (B2/B5.1); el fallo de WA no bloquea el email (B5.6,
-// el email sale por sus propios canales).
-// Sin credenciales Cloud API el envío se registra como fallo (no se marca
-// enviado). Con credenciales el envío se dispara y la entrega real vive en
 // los webhooks de estado (B11.3).
 // PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
 // single todos como hoy) y el estado va por el repo whatsapp.
@@ -62,8 +56,6 @@ export const POST: APIRoute = async ({ request }) => {
       },
     });
     // ALR-S2 (ADR-0043): lo enviado queda en notification_events para que un
-    // reinicio o reintento del mismo día no repita lo no urgente; lo urgente
-    // vuelve a salir porque calcular_matutino lo trata siempre como novedad.
     for (const r of resultados) {
       if (r.estado === "enviado") await registrarAlertasStock(r.tenantId, fecha, r.alertas);
     }

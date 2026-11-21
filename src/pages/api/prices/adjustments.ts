@@ -8,9 +8,7 @@ import { registrarAjuste } from "../../../lib/repos/precios.js";
 
 export const prerender = false;
 
-// POST /api/prices/adjustments — GP1 idempotente, sensible exige online + confirmación.
 // Solo el Dueño del comercio (sesión + membership dueño activa): el ajuste
-// cambia precios de venta y no es operación de empleado.
 // PERS2-S6: DB-first en el repo de precios (clave repetida responde 409 con
 // relectura; ajuste + auditoría entran en 1 tx con espejo memoria). Sesión y
 // dueño quedan en memoria hasta el slice de auth.

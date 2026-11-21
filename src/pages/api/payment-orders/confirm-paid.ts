@@ -6,8 +6,6 @@ import { confirmarPagoOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payment-orders/confirm-paid — `Ya pagué` (OP9.1, solo Dueño verificado por exigirDuenoDeRequest).
-// Registra el egreso en caja (manual) y marca la orden pagada.
 // PERS2-S15: el repo persiste por DB primero; el egreso va por caja.
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);

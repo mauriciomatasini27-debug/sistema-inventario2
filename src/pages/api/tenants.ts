@@ -12,7 +12,6 @@ import {
 
 export const prerender = false;
 
-// POST /api/tenants — alta de comercio (ADR-0001). Delega en el runner
 // durable (src/jobs/aprovisionar.ts): alta pendiente DB-first con espejo en
 // memoria, reclamo con advisory lock y 409 por requestKey también en frío.
 // La membership de Dueño se crea recién en el paso crear_membership_dueno:

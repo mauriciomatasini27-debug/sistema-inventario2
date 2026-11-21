@@ -9,11 +9,9 @@ import { buscarVentaPorId } from "../../../modules/sales/buscar_venta.js";
 
 export const prerender = false;
 
-// POST/GET/DELETE /api/tickets/link — links públicos con token (TV9).
 // PERS2-S5: la persistencia vive en el repo de tickets (DB-first, memoria solo
 // en single sin base). El plano nunca se guarda: solo va el SHA-256 hex.
 
-// POST /api/tickets/link — genera link público con token (TV9).
 // Body: { sale_id, ttl_ms? }. Header Idempotency-Key requerido (E3).
 // 201 con token plano UNA vez + url; 409 retry; 404 venta; 422 inválido.
 export const POST: APIRoute = async ({ request }) => {
@@ -61,7 +59,6 @@ export const POST: APIRoute = async ({ request }) => {
   );
 };
 
-// GET /api/tickets/link?token= — resuelve link público sin auth (TV9).
 // 200 { sale_id, link_id, leyenda }; 404 formato/desconocido; 410 expirado/revocado.
 export const GET: APIRoute = async ({ request }) => {
   const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
@@ -73,7 +70,6 @@ export const GET: APIRoute = async ({ request }) => {
   return Response.json({ sale_id: r.saleId, link_id: r.linkId, leyenda: r.leyenda }, { status: 200 });
 };
 
-// DELETE /api/tickets/link — revoca todos los links de una venta (TV9).
 // Body: { sale_id, actor, motivo }. Header Idempotency-Key requerido.
 export const DELETE: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";

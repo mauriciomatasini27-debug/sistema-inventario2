@@ -9,7 +9,6 @@ export const prerender = false;
 
 // POST /api/ocr/jobs/:id/confirmar — ÚNICO camino que registra factura (toque
 // explícito). 201 con factura_id, 409 resuelto, 410 vencido, 422 E1.
-// Nada se registra sin este toque.
 // PERS2-S20: job y evento por el repo de OCR; borrador y factura por facturas-proveedor.
 export const POST: APIRoute = async ({ request, params }) => {
   let body: unknown;

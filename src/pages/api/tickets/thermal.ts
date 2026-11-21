@@ -3,7 +3,6 @@ import { render_ticket_thermal } from "../../../modules/sales/ticket_thermal.js"
 
 export const prerender = false;
 
-// POST /api/tickets/thermal — texto térmico 58/80 sin persistencia (TV15 P2).
 // Body: { comercio, comercioExtra?, ticketDefinitivo, provisorio, fechaIso,
 // medio, pagoACuenta?, offline?, sobreventa?, lineas:[{sku,cantidad,
 // precioCentavos,netoCentavos?,descuentoCentavos?}], totalBrutoCentavos,

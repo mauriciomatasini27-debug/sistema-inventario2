@@ -6,11 +6,7 @@ import type { Sku } from "../../../modules/inventario/inventario.js";
 
 export const prerender = false;
 
-// POST /api/stock/conteo — Nivel 1: conteo ciego por sector.
-// Header Idempotency-Key obligatorio. Compara stock teórico (filtrado por
 // sector) vs físico y aplica COMPENSATORIO append-only (nunca UPDATE).
-// 201 con diferencias+movimientos, 409 key repetida, 422 línea inválida.
-// PERS2-S23: el conteo y sus movimientos van por el repo de stock. En multi
 // sin base el repo propaga BaseNoDisponible (503).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";

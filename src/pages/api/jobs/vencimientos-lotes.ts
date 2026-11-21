@@ -6,9 +6,6 @@ export const prerender = false;
 
 // POST /api/jobs/vencimientos-lotes — CAT-S4 alertas 15/7/3d + baja de
 // vencidos como merma + expone a bot promos. Clasifica los lotes del tenant
-// que resuelve el secreto (en single sin secreto, el contexto actual como
-// hoy; en multi sin secreto válido, 401), da de baja los vencidos (MERMA
-// idempotente) y devuelve promos_vencer para el bot (motivo "vencer").
 export const POST: APIRoute = async (ctx) => {
   const request = ctx.request;
   const correr = async (): Promise<Response> => {
