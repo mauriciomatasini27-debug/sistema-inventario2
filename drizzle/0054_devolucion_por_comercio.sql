@@ -1,4 +1,4 @@
--- P1-96 (ADR-0121): correlativo D-* por comercio en la Postgres compartida (ADR-0116).
+-- P1-96 (ADR-0122): correlativo D-* por comercio en la Postgres compartida (ADR-0116).
 -- sale_returns no tenia tenant_id y numero_devolucion era UNIQUE global: en una
 -- sola base el segundo comercio chocaba al emitir D-000001. Aditivo e idempotente.
 ALTER TABLE "sale_returns" ADD COLUMN IF NOT EXISTS "tenant_id" uuid;

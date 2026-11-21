@@ -1,88 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
-import {
-  splitStatements,
-  sslPostgresDesdeUrl,
-  filtrarStatementsPorTablas,
-} from "../scripts/db-migrate-lib.mjs";
+import { aplicarHasta, aplicarSolo, crearBase, journal } from "./helpers/migracion-pg.js";
 
 const URL_A = process.env.PG_TEST_URL_A;
 const hayPG = Boolean(URL_A);
 const TAG = "0054_devolucion_por_comercio";
-
-function journal(): { entries: { tag: string; when: number }[] } {
-  return JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
-    entries: { tag: string; when: number }[];
-  };
-}
-
-async function crearBase(nombreDb: string, urlReferencia: string): Promise<string> {
-  const u = new URL(urlReferencia);
-  u.pathname = `/${nombreDb}`;
-  const url = u.toString();
-  const mantenimiento = new URL(urlReferencia);
-  mantenimiento.pathname = "/postgres";
-  const admin = postgres(mantenimiento.toString(), {
-    max: 1,
-    ssl: sslPostgresDesdeUrl(mantenimiento.toString()),
-  });
-  try {
-    await admin.unsafe(`CREATE DATABASE "${nombreDb}"`);
-  } catch (e) {
-    if (typeof e !== "object" || e === null || !("code" in e) || e.code !== "42P04") throw e;
-  } finally {
-    await admin.end();
-  }
-  return url;
-}
-
-/** Igual que scripts/db-migrate.mjs: P1-69 saltea ALTER de tablas aún no creadas. */
-async function aplicarHasta(tag: string, url: string): Promise<void> {
-  const idx = journal().entries.findIndex((e) => e.tag === tag);
-  if (idx < 0) throw new Error(`tag ${tag} no está en journal`);
-  const sql = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
-  try {
-    await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
-    await sql`
-      CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
-        id serial primary key,
-        hash text not null,
-        created_at bigint
-      )
-    `;
-    const tablas = new Set(
-      (await sql`select table_name from information_schema.tables where table_schema = 'public'`).map(
-        (r) => r.table_name,
-      ),
-    );
-    for (const entry of journal().entries.slice(0, idx + 1)) {
-      const body = readFileSync(`drizzle/${entry.tag}.sql`, "utf8");
-      const { run } = filtrarStatementsPorTablas({
-        statements: splitStatements(body),
-        tablasExistentes: tablas,
-      });
-      for (const stmt of run) await sql.unsafe(stmt);
-      for (const stmt of run) {
-        const m = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
-        if (m) tablas.add(m[1]!);
-      }
-    }
-  } finally {
-    await sql.end();
-  }
-}
-
-async function aplicarSolo(tag: string, url: string): Promise<void> {
-  const sql = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
-  try {
-    const body = readFileSync(`drizzle/${tag}.sql`, "utf8");
-    for (const stmt of splitStatements(body)) await sql.unsafe(stmt);
-  } finally {
-    await sql.end();
-  }
-}
 
 describe("P1-96 migración 0054: D-* por comercio", () => {
   it("el journal registra 0054 justo después de 0053", () => {
@@ -130,7 +53,19 @@ describe.skipIf(!hayPG)("P1-96 migración 0054 en Postgres", () => {
           `;
         }
 
+        // GREATEST: A ya tiene el contador en 10, por encima de su máximo
+        // D-000003. La siembra no debe retrocederlo.
+        await sql`
+          insert into ticket_counters (tenant_id, id, ultimo)
+          values (${tidA}, 'devolucion', 10)
+        `;
+
         await aplicarSolo(TAG, url);
+
+        const contadorAvanzado = await sql<{ ultimo: number }[]>`
+          select ultimo from ticket_counters where tenant_id = ${tidA} and id = 'devolucion'
+        `;
+        expect(contadorAvanzado[0]?.ultimo).toBe(10);
 
         const columna = await sql<{ is_nullable: string; data_type: string }[]>`
           select is_nullable, data_type from information_schema.columns
@@ -174,7 +109,7 @@ describe.skipIf(!hayPG)("P1-96 migración 0054 en Postgres", () => {
         `;
         expect(contadores.map((r) => [r.tenant_id, r.ultimo]).sort()).toEqual(
           [
-            [tidA, 3],
+            [tidA, 10],
             [tidB, 2],
           ].sort(),
         );
@@ -185,6 +120,36 @@ describe.skipIf(!hayPG)("P1-96 migración 0054 en Postgres", () => {
           select tenant_id, ultimo from ticket_counters where id = 'devolucion' order by tenant_id
         `;
         expect(contadoresTras).toEqual(contadores);
+      } finally {
+        await sql.end();
+      }
+    },
+    120_000,
+  );
+
+  it(
+    "falla en SET NOT NULL si la devolución no tiene venta conocida (fail-closed)",
+    async () => {
+      const url = await crearBase(`m54_huerfano_${Date.now()}`, URL_A!);
+      await aplicarHasta("0053_servicios_pagos_tenant", url);
+      const sql = postgres(url, { max: 1 });
+      try {
+        // Fila huérfana: no hay Dueño del que copiar tenant_id. La migración
+        // no puede inventarlo y debe abortar en el SET NOT NULL.
+        await sql`
+          insert into sale_returns
+            (idempotency_key, sale_id, numero_devolucion, monto_centavos, acumulado_nuevo_centavos, medio, motivo, actor)
+          values (${randomUUID()}, ${randomUUID()}, 'D-000001', 1_000, 1_000, 'Efectivo', 'huérfana', 'test')
+        `;
+        let error: { code?: string; message?: string } | undefined;
+        try {
+          await aplicarSolo(TAG, url);
+        } catch (e) {
+          error = e as { code?: string; message?: string };
+        }
+        expect(error).toBeDefined();
+        expect(error?.code).toBe("23502");
+        expect(error?.message).toMatch(/column "tenant_id" of relation "sale_returns"/);
       } finally {
         await sql.end();
       }

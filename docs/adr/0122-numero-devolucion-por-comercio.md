@@ -34,6 +34,10 @@ El contador de la serie `devolucion` ya era por Comercio, pero la unicidad del n
 
 Cada comercio tiene una serie `D-*` continua y auditable, sin huecos ni reutilización del correlativo `T-*` de ventas. Las devoluciones ya emitidas conservan su número exacto, así que no se invalidan comprobantes ni asientos anteriores. La Idempotency-Key se mantiene global (es un UUID y no está en este alcance) y el resumen del panel sigue restando solo las devoluciones del comercio. La migración es nueva, aditiva e idempotente: no se edita la que sembró originalmente la serie porque ya está aplicada. Su registro se prepara en la rama y entra en `main` solo con la autorización de Mauricio, antes del merge del PR de código.
 
+El formato `D-` más seis dígitos lo fija ADR-0080. Su parseo aparece dos veces por diseño: la semilla SQL de `0054` (máximo por comercio con `GREATEST`) y el backfill de `src/lib/repos/ventas.ts` (cuando el comercio aún no tiene fila en `ticket_counters`). SQL y TS no comparten una abstracción de regex: son dos puntos de parseo intencionales y cambian juntos si el formato se modifica.
+
+El Seam B ya está verificado: dos comercios emiten `D-000001` y `D-000002` sin colisión y el reenvío con la misma Idempotency-Key devuelve 409 con la original (`tests/p1-96-devolucion-api-por-comercio.test.ts`).
+
 ## Pendientes
 
-Aplicar `0054_devolucion_por_comercio` en la base real con autorización de Mauricio y completar `aprobado_por` / `backup` en el registro. Verificar en el Seam B (API con dos Tenants) que cada comercio emite `D-000001` y `D-000002` y que el reenvío con la misma Idempotency-Key devuelve 409 con la original.
+Aplicar `0054_devolucion_por_comercio` en la base real con autorización de Mauricio y completar `aprobado_por` / `backup` en el registro.
