@@ -76,7 +76,8 @@ const tenantId = tenantCuestionario.tenantId;
         type WizardState,
       } from "../modules/onboarding/wizard.js";
 
-      const storageKey = "onboarding-wizard";
+      // TB-165 [tenant]: el borrador del cuestionario es por comercio, no global.
+      const storageKey = "onboarding-wizard:" + tenantId;
       let state: WizardState = estadoInicialWizard();
       const crudo = localStorage.getItem(storageKey);
       if (crudo) {
@@ -143,7 +144,7 @@ const tenantId = tenantCuestionario.tenantId;
           body.innerHTML = `<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">${state.pasos.length} de ${state.pasos.length} pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>`;
           progreso();
           // TB-165: antes sólo se enviaban empleados y el resto se descartaba.
-          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ empleados: state.empleados, respuestas: state.respuestas }) }).catch((e) => { console.warn("onboarding completar falló", e); });
+          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: tenantId, empleados: state.empleados, respuestas: state.respuestas }) }).catch((e) => { console.warn("onboarding completar falló", e); });
           document.getElementById("irPanel")!.onclick = () => { window.location.href = "/panel"; };
           return;
         }
