@@ -6,7 +6,34 @@ disable-model-invocation: true
 
 # /delete-comment
 
-Repetir la poda de comentarios sobre un módulo o sección de `src/`. Es el procedimiento estándar ratificado en P10-22: ADR-0064 conserva la política (qué y por qué), este skill es el procedimiento detallado y AGENTS.md es el puntero corto. La norma la pone ADR-0064 y la política de PRD-COM-01: un comentario se queda solo si explica un porqué que el código no puede decir, en una de tres clases — plataforma/navegador `[plataforma]`, regla fiscal o legal con referencia `[fiscal]`, o invariante de seguridad/aislamiento por tenant `[tenant]` — y nombra el id del ítem. Un parche temporal se refactoriza o se registra como deuda; nunca se explica en un comentario.
+Repetir la poda de comentarios sobre un módulo o sección de `src/`. Es el procedimiento estándar ratificado en P10-22: ADR-0064 conserva la política (qué y por qué), este skill es el procedimiento detallado y AGENTS.md es el puntero corto. La norma la pone ADR-0064 y la política de PRD-COM-01.
+
+<!-- comentarios-politica-reglas:inicio -->
+Escribí solo el porqué no obvio en una línea `// <id> [clase]: …`. Si no hay porqué, borrá el comentario.
+
+### Clases (elegí una)
+
+- **`[plataforma]`** — ¿lo obliga navegador/runtime/librería? Ejemplo: `// P1-6 [plataforma]: service worker no expone headers en offline`.
+- **`[fiscal]`** — ¿hay norma citada? Ejemplo: `// ADR-0089 [fiscal]: RG 4291 exige QR en el pie del comprobante`.
+- **`[tenant]`** — ¿evita que un comercio vea/escriba datos de otro? Ejemplo: `// TB-165 [tenant]: el tenant_id sale de la sesión, nunca del body`.
+- **`[rol]`** — ¿evita que un Empleado haga algo de Dueño? Ejemplo: `// P10-24 [rol]: el Empleado no ve precios de costo`.
+
+Si ninguna pregunta da sí, el comentario se va.
+
+### COM-S7
+
+Con marcadores `TODO, FIXME, HACK, XXX, parche temporal, por ahora` en línea nueva, abrí un issue y poné `#<número>` en la misma línea.
+
+### Formato
+
+Preferí `//` de una línea. JSDoc no suma en `src/` (ADR-0064): pasá el porqué a `//`.
+
+### Criterio (manual)
+
+Tautología, excusa, obsoleto y registro de decisión los juzgás vos en los pasos de este skill; el check solo valida forma.
+<!-- comentarios-politica-reglas:fin -->
+
+Un parche temporal se refactoriza o se registra como deuda; nunca se explica en un comentario.
 
 ## Pasos
 
@@ -22,6 +49,6 @@ Repetir la poda de comentarios sobre un módulo o sección de `src/`. Es el proc
 
 3. **Aplicar** cada acción. Verificar cada afirmación del comentario contra el código real antes de decidir: un comentario falso se borra igual. Si el destino es deuda, publicarla como issue real con `gh` y respetar la clasificación `ready-for-agent`/`ready-for-human`; el borrador local de `PLAN-COM-01-D` fue solo la etapa previa a esa publicación (#276). COM-S7 ya está activo: todo marcador en línea nueva exige `#<issue>` en la misma línea.
 
-4. **Cerrar** con `npm run docs:check`, `npm run typecheck`, `npm run check:arch` y `npm run verify`. El check de comentarios ya corre dentro de `verify` y solo evalúa bloques nuevos: todo bloque nuevo necesita id del ítem y una clase `[plataforma]`, `[fiscal]` o `[tenant]`.
+4. **Cerrar** con `npm run docs:check`, `npm run typecheck`, `npm run check:arch` y `npm run verify`. El check de comentarios ya corre dentro de `verify` y solo evalúa comentarios nuevos: id registrado, clase `[plataforma]`, `[fiscal]`, `[tenant]` o `[rol]`, sin JSDoc.
 
 Criterio de terminación: no queda ningún bloque del alcance sin clasificar, cada uno tiene su destino aplicado, y los cuatro comandos pasan.

@@ -281,7 +281,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   // P1-70: next=/panel sin comercio manda al alta (si no, panel vacío).
   // ADR-0115 [tenant]: el cuestionario no es puerta de entrada; con comercio se entra a /panel.
   const esAdmin = esAdminAllowlist(identidad.sub, leerAllowlist());
-  // TB-165 [tenant]: el rol sale de la membership activa, nunca del body.
+  // TB-165 [rol]: el rol sale de la membership activa, nunca del body.
   const rol = tenantId
     ? ([...control.memberships.values()].find(
         (m) => m.tenantId === tenantId && m.googleSub === identidad.sub && m.estado === "activo",

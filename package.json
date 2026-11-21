@@ -25,6 +25,7 @@
     "docs:estado": "node scripts/docs-estado.mjs",
     "docs:index": "node scripts/docs-index.mjs",
     "docs:check": "node scripts/docs-check.mjs",
+    "docs:comentarios": "node scripts/docs-comentarios.mjs",
     "docs:context": "node scripts/docs-context.mjs",
     "credenciales": "node scripts/chequear-credenciales.mjs",
     "cargar:credenciales": "node scripts/cargar-credenciales.mjs",

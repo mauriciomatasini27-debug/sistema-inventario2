@@ -7,9 +7,9 @@ depende_de: [ADR-0016, PRD-COM-01]
 reemplaza: []
 reemplazado_por: ""
 resumen: |
-  Un comentario en src/ se queda solo si explica un por qué que el código no puede decir, en una de tres clases:
+  Un comentario en src/ se queda solo si explica un por qué que el código no puede decir, en una de cuatro clases:
   particularidad de navegador o plataforma, regla fiscal o legal con referencia, invariante de seguridad o de
-  aislamiento por tenant. Todo lo demás se borra.
+  aislamiento por tenant, o restricción Dueño/Empleado por rol. Todo lo demás se borra.
 ---
 # ADR-0064 - Política de comentarios de código: solo por qué no obvio
 
@@ -18,7 +18,9 @@ Tipo: estándar de proceso, no ADR de arquitectura.
 
 ## Decisión
 
-Un comentario en `src/` se queda solo si explica un por qué que el código no puede decir, en una de tres clases: particularidad de navegador o plataforma, regla fiscal o legal con referencia, invariante de seguridad o de aislamiento por tenant. Todo lo demás se borra. Un parche temporal no se explica en un comentario: se refactoriza o se abre un issue.
+Un comentario en `src/` se queda solo si explica un por qué que el código no puede decir, en una de cuatro clases: particularidad de navegador o plataforma, regla fiscal o legal con referencia, invariante de seguridad o de aislamiento por tenant, o restricción Dueño/Empleado por rol (`[rol]`). Todo lo demás se borra. Un parche temporal no se explica en un comentario: se refactoriza o se abre un issue.
+
+> Enmienda 2026-11-21 (P10-25): la clase `[rol]` separa permisos por rol del aislamiento multi-tenant. Fuente única de criterios: `scripts/comentarios-politica.mjs`.
 
 ## Qué se adopta
 
@@ -35,7 +37,7 @@ Dejar los comentarios de parche como documentación del estado actual. Se descar
 
 ## Procedimiento
 
-El procedimiento canónico para podar un alcance de `src/` vive en el skill `/delete-comment` (`.agents/skills/delete-comment/SKILL.md`): agrupar los bloques en unidades de idea y clasificar cada una en **Tautología** (borrar), **Excusa** (borrar + deuda; test: si al borrarla el código queda igual de correcto, no es excusa; si conviven un porqué de dominio y un marcador temporal, gana el marcador), **Desactualizado** (borrar), **Registro de Decisión** (los tres criterios de `domain-modeling`: difícil de revertir, sorprendente sin contexto, resultado de un trade-off; si el id ya existe es duplicado y se borra; si aplica un ADR existente se agrega una línea) o **Conocimiento no obvio** (mover a una guía). Las decisiones van a un ADR o `decisions.tsv`; los gotchas de runtime a `docs/guias/gotchas-<área>.md`; `GLOSSARY.md` solo define términos del dominio. Todo bloque nuevo declara su clase `[plataforma]`/`[fiscal]`/`[tenant]` y el id del ítem; los marcadores en líneas nuevas llevan `#<issue>` en la misma línea (COM-S7). Ratificado para todo `src/` en P10-22; el orden de poda lo da #275 y la deuda se publica antes de podar (#276).
+El procedimiento canónico para podar un alcance de `src/` vive en el skill `/delete-comment` (`.agents/skills/delete-comment/SKILL.md`): agrupar los bloques en unidades de idea y clasificar cada una en **Tautología** (borrar), **Excusa** (borrar + deuda; test: si al borrarla el código queda igual de correcto, no es excusa; si conviven un porqué de dominio y un marcador temporal, gana el marcador), **Desactualizado** (borrar), **Registro de Decisión** (los tres criterios de `domain-modeling`: difícil de revertir, sorprendente sin contexto, resultado de un trade-off; si el id ya existe es duplicado y se borra; si aplica un ADR existente se agrega una línea) o **Conocimiento no obvio** (mover a una guía). Las decisiones van a un ADR o `decisions.tsv`; los gotchas de runtime a `docs/guias/gotchas-<área>.md`; `GLOSSARY.md` solo define términos del dominio. Todo bloque nuevo declara su clase `[plataforma]`/`[fiscal]`/`[tenant]`/`[rol]` y un id de ítem registrado (con guion); los marcadores en líneas nuevas llevan `#<issue>` en la misma línea (COM-S7; sin `temporal` suelto). No JSDoc. Ratificado para todo `src/` en P10-22; el orden de poda lo da #275 y la deuda se publica antes de podar (#276). El check mecánico (`scripts/check-comment-ids.mjs`) usa el scanner de TypeScript y la política generada con `npm run docs:comentarios`.
 
 ## Consecuencias
 
