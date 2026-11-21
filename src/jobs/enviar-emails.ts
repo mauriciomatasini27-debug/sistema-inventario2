@@ -1,10 +1,11 @@
-import { and, desc, eq, inArray, isNull, gt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, gt, notInArray, or } from "drizzle-orm";
 import { deliveryStatus, emailOutbox, emailSuppressions } from "../db/schema-email.js";
 import { dbVivaTenant, type TenantDb } from "../lib/server-db.js";
 import { dondeTenant } from "../lib/tenant-scope.js";
 import type { EmailProvider } from "../modules/email/proveedor.js";
 import { clasificar_error, proximo_reintento } from "../modules/email/outbox.js";
 import { hash_email } from "../modules/email/entregabilidad.js";
+import { PLANTILLAS_EMAIL_AVISO_WA } from "../modules/whatsapp/avisos-cuenta.js";
 
 // P10-92: manda lo pendiente de email_outbox con el EmailProvider que le
 // pasen (Resend en producción, fake en tests). Corre dentro del comercio:
@@ -17,6 +18,8 @@ import { hash_email } from "../modules/email/entregabilidad.js";
 // Una fila "enviando" con el último intento de hace más de 15 min se retoma.
 // Destinatario suprimido (hash en email_suppressions) -> "suprimido" sin enviar.
 // No loguea direcciones, asuntos ni cuerpos: solo cuenta resultados.
+// WA-AVISOS-1: Los avisos de cuenta (PLANTILLAS_AVISO_WA) los manda el job de WhatsApp
+// (jobs/enviar-avisos-whatsapp.ts) con este mismo reclamo y backoff.
 
 export const ESPERA_ENVIANDO_MS = 15 * 60_000;
 export const LOTE_POR_DEFECTO = 50;
@@ -30,7 +33,8 @@ export interface ResultadoEnvioEmails {
   readonly esperando: number;
 }
 
-type Fila = typeof emailOutbox.$inferSelect;
+export type FilaOutbox = typeof emailOutbox.$inferSelect;
+type Fila = FilaOutbox;
 
 async function ultimoIntentoMs(db: TenantDb, outboxId: string): Promise<number | null> {
   const [u] = await db
@@ -42,7 +46,7 @@ async function ultimoIntentoMs(db: TenantDb, outboxId: string): Promise<number |
   return u ? u.at.getTime() : null;
 }
 
-async function listoParaIntentar(db: TenantDb, f: Fila, ahoraMs: number): Promise<boolean> {
+export async function listoParaIntentar(db: TenantDb, f: Fila, ahoraMs: number): Promise<boolean> {
   if (f.estado === "pendiente") return true;
   const ultimo = await ultimoIntentoMs(db, f.id);
   if (ultimo === null) return true;
@@ -65,13 +69,33 @@ async function suprimido(db: TenantDb, destinatario: string, ahora: Date): Promi
   return Boolean(s);
 }
 
-async function marcar(db: TenantDb, f: Fila, estado: string, evento: string, providerMessageId?: string): Promise<void> {
+export async function marcar(db: TenantDb, f: Fila, estado: string, evento: string, providerMessageId?: string): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
       .update(emailOutbox)
       .set(providerMessageId ? { estado, providerMessageId } : { estado })
       .where(dondeTenant(emailOutbox.tenantId, and(eq(emailOutbox.id, f.id), eq(emailOutbox.estado, "enviando"))));
     await tx.insert(deliveryStatus).values({ tenantId: f.tenantId, outboxId: f.id, evento });
+  });
+}
+
+// WA-AVISOS-1: Toma la fila para un intento: UPDATE condicionado por estado e intentos más
+// la fila "intento" en delivery_status. false si otra corrida la tomó antes.
+export async function tomar(db: TenantDb, f: Fila): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const t = await tx
+      .update(emailOutbox)
+      .set({ estado: "enviando", intentos: f.intentos + 1 })
+      .where(
+        dondeTenant(
+          emailOutbox.tenantId,
+          and(eq(emailOutbox.id, f.id), eq(emailOutbox.estado, f.estado), eq(emailOutbox.intentos, f.intentos)),
+        ),
+      )
+      .returning({ id: emailOutbox.id });
+    if (t.length === 0) return false;
+    await tx.insert(deliveryStatus).values({ tenantId: f.tenantId, outboxId: f.id, evento: "intento" });
+    return true;
   });
 }
 
@@ -85,7 +109,15 @@ export async function ejecutarEnvioEmails(
   const filas = await db
     .select()
     .from(emailOutbox)
-    .where(dondeTenant(emailOutbox.tenantId, inArray(emailOutbox.estado, ["pendiente", "reintentar", "enviando"])))
+    .where(
+      dondeTenant(
+        emailOutbox.tenantId,
+        and(
+          inArray(emailOutbox.estado, ["pendiente", "reintentar", "enviando"]),
+          notInArray(emailOutbox.plantilla, PLANTILLAS_EMAIL_AVISO_WA),
+        ),
+      ),
+    )
     .orderBy(emailOutbox.createdAt)
     .limit(lote);
   const r = { revisados: filas.length, enviados: 0, reintentar: 0, fallidos: 0, suprimidos: 0, esperando: 0 };
@@ -94,22 +126,7 @@ export async function ejecutarEnvioEmails(
       r.esperando++;
       continue;
     }
-    const tomada = await db.transaction(async (tx) => {
-      const t = await tx
-        .update(emailOutbox)
-        .set({ estado: "enviando", intentos: f.intentos + 1 })
-        .where(
-          dondeTenant(
-            emailOutbox.tenantId,
-            and(eq(emailOutbox.id, f.id), eq(emailOutbox.estado, f.estado), eq(emailOutbox.intentos, f.intentos)),
-          ),
-        )
-        .returning({ id: emailOutbox.id });
-      if (t.length === 0) return false;
-      await tx.insert(deliveryStatus).values({ tenantId: f.tenantId, outboxId: f.id, evento: "intento" });
-      return true;
-    });
-    if (!tomada) continue;
+    if (!(await tomar(db, f))) continue;
     if (await suprimido(db, f.destinatario, ahora)) {
       await marcar(db, f, "suprimido", "suprimido");
       r.suprimidos++;

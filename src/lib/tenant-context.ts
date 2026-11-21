@@ -95,7 +95,10 @@ export function esSingle(): boolean {
   return !esModoAisladoPorTenant();
 }
 
-export function gateJob(request: Request): JobResuelto | null {
+// WA-AVISOS-1: incluirCerrados: los jobs de avisos de cuenta también corren para comercios
+// en "baja" (cierre y aviso previo al borrado, P10-90/P10-91).
+export function gateJob(request: Request, incluirCerrados = false): JobResuelto | null {
+  const habilitado = (estado: string) => estado === "activo" || estado === "suspendido" || (incluirCerrados && estado === "baja");
   const secreto = process.env.JOBS_SECRET;
   if (!secreto || request.headers.get("X-Job-Secret") !== secreto) return null;
   if (esSingle()) return { ok: true, tenantId: tenantPorDefecto() };
@@ -105,13 +108,13 @@ export function gateJob(request: Request): JobResuelto | null {
       return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
     }
     const ids = [...control.tenants.values()]
-      .filter((t) => t.estado === "activo" || t.estado === "suspendido")
+      .filter((t) => habilitado(t.estado))
       .map((t) => t.id)
       .sort();
     return { ok: true, tenantIds: ids };
   }
   const tenant = control.tenants.get(pedido);
-  if (!tenant || (tenant.estado !== "activo" && tenant.estado !== "suspendido")) {
+  if (!tenant || !habilitado(tenant.estado)) {
     return { ok: false, respuesta: jsonError("No tenés permiso para ver este comercio.", 403) };
   }
   return { ok: true, tenantId: pedido };
