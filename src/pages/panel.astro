@@ -19,8 +19,7 @@ const esDuenoDelComercio =
   tenantRes.ok &&
   sesion !== null &&
   esDueno(tenantRes.tenantId, sesion.googleSub);
-// TB-165: el rol efectivo sale de sesión + membership activa (nunca del body)
-// y decide la orientación: el Empleado ve su guía corta, el Dueño su diálogo.
+// TB-165 [tenant]: rol efectivo desde sesión y membership activa (nunca del body).
 const efectivo = resolverRolEfectivo(Astro.request);
 const orientacion = orientacionParaPanel(
   efectivo.estado === "sesion" ? efectivo.rol : null,
@@ -31,8 +30,7 @@ const mostrarBienvenida = orientacion.mostrarBienvenida;
 const guiaEmpleado = orientacion.pasosEmpleado;
 const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
 const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
-// TB-165: el cuestionario es una ruta opcional del Dueño, nunca la entrada
-// post-login. El mismo guard del diálogo decide quién ve el enlace.
+// TB-165 [tenant]: el cuestionario es opcional del Dueño, no la entrada post-login.
 const cuestionarioHref = urlCuestionario(
   mostrarBienvenida,
   tenantRes.ok ? tenantRes.tenantId : "",

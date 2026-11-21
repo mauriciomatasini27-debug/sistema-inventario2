@@ -46,7 +46,7 @@ function aJob(fila: typeof gmailIngestionJobs.$inferSelect): JobGmail {
 
 export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGmail | null> {
   const db = getControlDb();
-  // GGL-P240-0051: dedupe por (tenantId, messageId) respaldado en DB.
+  // GGL-P240-0051 [tenant]: dedupe por (tenantId, messageId) respaldado en DB.
   if (input.messageId) {
     const [existentePorMessageId] = await db
       .select()
@@ -62,8 +62,8 @@ export async function encolarIngesta(input: EncolarIngestaInput): Promise<JobGma
       return aJob(existentePorMessageId);
     }
 
-    // GGL-P240-0051: el índice es parcial (WHERE message_id IS NOT NULL); no hay
-    // ON CONFLICT en drizzle que coincida — carrera: insert y relectura ante 23505.
+    // GGL-P240-0051 [plataforma]: índice parcial (WHERE message_id IS NOT NULL); sin
+    // ON CONFLICT equivalente en drizzle — carrera: insert y relectura ante 23505.
     let creado: typeof gmailIngestionJobs.$inferSelect | undefined;
     try {
       [creado] = await db

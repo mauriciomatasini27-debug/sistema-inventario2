@@ -453,7 +453,7 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
         estado.textContent = textoError(j.error, r.status);
         return;
       }
-      // P1-48: sin invalidar, la cuenta nueva no entra a la lista ni al selector.
+      // P1-48 [plataforma]: sin invalidar, la cuenta nueva no entra a la lista ni al selector.
       cargadorCuentas.invalidar();
       limpiarErrores(form);
       form.reset();

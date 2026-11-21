@@ -27,7 +27,7 @@ function seam() {
   return crearPersistenciaOnboardingMemoria();
 }
 
-// TB-165: el módulo recibe un único contexto con quién, dónde y dónde guardar.
+// TB-165 [tenant]: el módulo recibe un único contexto con quién, dónde y dónde guardar.
 function ctx(
   mem: ReturnType<typeof seam>,
   tenantId = TENANT,
