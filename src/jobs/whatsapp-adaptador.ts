@@ -47,7 +47,7 @@ export function cred_wa(): { readonly phoneNumberId: string; readonly token: str
 }
 
 // WA-VENTANA: ids aprobados en Meta viven en WHATSAPP_PLANTILLAS_APROBADAS (JSON).
-function id_plantilla_aprobada(nombre: string): string | null {
+export function id_plantilla_aprobada(nombre: string): string | null {
   const raw = process.env.WHATSAPP_PLANTILLAS_APROBADAS ?? "";
   if (!raw.trim()) return null;
   try {
