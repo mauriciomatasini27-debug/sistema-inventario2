@@ -1447,6 +1447,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           totalCentavos: BigInt(lastTicket.total),
           medio: lastTicket.medio,
           comercio: "Comercio",
+          lineas: lastTicket.lineas.map((l) => ({
+            sku: l.sku,
+            cantidad: l.cantidad,
+            precioCentavos: l.precio,
+            porPeso: l.porPeso,
+          })),
         });
         const wa = construir_wa_me_url({ toE164: to, resumen });
         if (!wa.ok) { estado("teléfono inválido"); return; }
@@ -1472,7 +1478,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
               provisorio: lastTicket.provisorio,
               fechaIso: new Date().toISOString(),
               medio: lastTicket.medio,
-              lineas: lastTicket.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad, precioCentavos: l.precio })),
+              lineas: lastTicket.lineas.map((l) => ({
+                sku: l.sku,
+                cantidad: l.cantidad,
+                precioCentavos: l.precio,
+                porPeso: l.porPeso,
+              })),
               totalBrutoCentavos: lastTicket.total,
               totalDescuentoCentavos: "0",
               totalNetoCentavos: lastTicket.total,

@@ -27,6 +27,12 @@ export const POST: APIRoute = async ({ request }) => {
     dentroVentana24h?: boolean;
     optIn?: boolean;
     comercio?: string;
+    lineas?: Array<{
+      sku?: string;
+      cantidad?: number;
+      precioCentavos?: string | number;
+      porPeso?: boolean;
+    }>;
   };
   if (!b.sale_id) return Response.json({ error: "falta sale_id" }, { status: 422 });
   // pre-cutover. Los envíos centrales los guarda el repo de tickets.
@@ -39,6 +45,15 @@ export const POST: APIRoute = async ({ request }) => {
     totalCentavos: BigInt(vendido.total_centavos),
     medio: vendido.medio,
     comercio: b.comercio ?? "Comercio",
+    lineas: (b.lineas ?? []).flatMap((l) => {
+      if (!l.sku || !Number.isInteger(l.cantidad) || l.precioCentavos == null) return [];
+      return [{
+        sku: l.sku,
+        cantidad: l.cantidad as number,
+        precioCentavos: BigInt(l.precioCentavos as string),
+        ...(l.porPeso === true ? { porPeso: true } : {}),
+      }];
+    }),
   });
 
   let wa_me_url: string | null = null;

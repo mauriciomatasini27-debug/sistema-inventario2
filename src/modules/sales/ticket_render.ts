@@ -9,6 +9,9 @@
 // Respeto TV2/TV7: sin costos en ningún campo; leyenda obligatoria verificada.
 // Dinero: bigint centavos, formateo ARS es-AR.
 
+import { esCantidadValida } from "../../lib/cantidades.js";
+import { descripcionLineaPeso, subtotalPorPeso } from "./linea_peso.js";
+
 export const LEYENDA_NO_FISCAL = "DOCUMENTO NO VÁLIDO COMO FACTURA" as const;
 
 export type Medio = "Efectivo" | "Debito" | "Mercado Pago" | "QR" | "Transferencia";
@@ -42,6 +45,8 @@ export interface LineaTicketRender {
   readonly descLineaCentavos: bigint;
   readonly descTicketCentavos: bigint;
   readonly netoCentavos: bigint;
+  readonly porPeso?: boolean | undefined;
+  readonly precioCentavos?: bigint | undefined;
 }
 
 export interface TicketRenderInput {
@@ -83,6 +88,28 @@ function numeroVisible(t: TicketEmitidoRender): string {
   return t.kind === "online" ? t.definitivo : `PROV ${t.provisorio} (offline)`;
 }
 
+function descripcionLinea(l: LineaTicketRender): string {
+  if (l.porPeso === true && l.precioCentavos !== undefined) {
+    return `${l.sku} — ${descripcionLineaPeso(l.cantidad, Number(l.precioCentavos))}`;
+  }
+  return `${l.sku} x${l.cantidad}`;
+}
+
+function partirEnAncho(texto: string, ancho: number): string[] {
+  const partes: string[] = [];
+  let actual = "";
+  for (const palabra of texto.split(" ")) {
+    if (actual === "") actual = palabra;
+    else if (actual.length + 1 + palabra.length <= ancho) actual += " " + palabra;
+    else {
+      partes.push(actual);
+      actual = palabra;
+    }
+  }
+  if (actual !== "") partes.push(actual);
+  return partes;
+}
+
 /** Invariantes: leyenda exacta, 1..50 líneas, suma netos == total, bruto-desc == total. */
 function verificar(input: TicketRenderInput): {
   bruto: bigint;
@@ -95,8 +122,16 @@ function verificar(input: TicketRenderInput): {
   let desc = 0n;
   let neto = 0n;
   for (const l of input.lineas) {
-    if (!l.sku || !Number.isInteger(l.cantidad) || l.cantidad < 1 || l.cantidad > 999) {
+    if (!l.sku || !esCantidadValida(l.cantidad, l.porPeso)) {
       throw new Error(`linea inválida: ${l.sku}`);
+    }
+    if (l.porPeso === true) {
+      if (l.precioCentavos === undefined || l.precioCentavos < 0n) {
+        throw new Error(`precio por kg inválido: ${l.sku}`);
+      }
+      if (l.brutoCentavos !== subtotalPorPeso(l.cantidad, l.precioCentavos)) {
+        throw new Error(`subtotal por peso no cuadra: ${l.sku}`);
+      }
     }
     if (l.brutoCentavos < 0n || l.descLineaCentavos < 0n || l.descTicketCentavos < 0n || l.netoCentavos < 0n) {
       throw new Error(`linea con monto negativo: ${l.sku}`);
@@ -129,7 +164,11 @@ export function renderTicketText(input: TicketRenderInput): string {
   L.push(`Fecha: ${input.fechaIso}`);
   L.push(sep);
   for (const l of input.lineas) {
-    L.push(`${l.cantidad}x ${l.sku}`.slice(0, w));
+    if (l.porPeso === true && l.precioCentavos !== undefined) {
+      for (const parte of partirEnAncho(descripcionLinea(l), w)) L.push(parte);
+    } else {
+      L.push(`${l.cantidad}x ${l.sku}`.slice(0, w));
+    }
     L.push(row(`  bruto ${formatARS(l.brutoCentavos)}`, `neto ${formatARS(l.netoCentavos)}`));
     const d = l.descLineaCentavos + l.descTicketCentavos;
     if (d > 0n) L.push(row("  desc", `-${formatARS(d)}`));
@@ -151,7 +190,7 @@ export function renderTicketHtml(input: TicketRenderInput): string {
   const filas = input.lineas
     .map((l) => {
       const d = l.descLineaCentavos + l.descTicketCentavos;
-      return `      <tr><td>${esc(l.sku)} x${l.cantidad}</td><td class="r">${esc(formatARS(l.brutoCentavos))}</td><td class="r">${d > 0n ? "-" + esc(formatARS(d)) : "—"}</td><td class="r">${esc(formatARS(l.netoCentavos))}</td></tr>`;
+      return `      <tr><td>${esc(descripcionLinea(l))}</td><td class="r">${esc(formatARS(l.brutoCentavos))}</td><td class="r">${d > 0n ? "-" + esc(formatARS(d)) : "—"}</td><td class="r">${esc(formatARS(l.netoCentavos))}</td></tr>`;
     })
     .join("\n");
   return `<!doctype html>
