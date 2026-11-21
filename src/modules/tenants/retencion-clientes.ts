@@ -10,7 +10,7 @@ export interface TenantCerrable {
   readonly estado: string;
   readonly esDemo: boolean;
   readonly trialHasta: string | null;
-  // P10-90: primer tenant_lifecycle_events con a_estado = 'baja' (ISO).
+  // P10-90: último tenant_lifecycle_events con a_estado = 'baja' (ISO).
   readonly bajaEn: string | null;
 }
 

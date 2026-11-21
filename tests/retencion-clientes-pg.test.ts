@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
-import { ejecutarRetencionClientes, NOMBRE_CLIENTE_ANONIMO, NUMERO_ANONIMO } from "../src/jobs/retencion-clientes.js";
+import {
+  EMAIL_USUARIO_ANONIMO,
+  ejecutarRetencionClientes,
+  NOMBRE_CLIENTE_ANONIMO,
+  NOMBRE_PROVEEDOR_ANONIMO,
+  NUMERO_ANONIMO,
+} from "../src/jobs/retencion-clientes.js";
 import { ejecutarPurgaDemos } from "../src/jobs/purga-demos.js";
 import { control, resetStore } from "../src/lib/store.js";
 
@@ -14,10 +20,14 @@ const haceDias = (d: number) => new Date(AHORA.getTime() - d * 86_400_000).toISO
 // P10-90: retención de 90 días contra Postgres real (base privada del archivo).
 describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
   let sql: ReturnType<typeof postgres>;
-  const ids = { a91: "", b89: "", activo: "", demo: "", sinFecha: "" };
+  const ids = { a91: "", b89: "", activo: "", demo: "", sinFecha: "", reabierto: "" };
   const numSolo = `+549351${Math.floor(Math.random() * 1e7)}`;
   const numCompartido = `+549352${Math.floor(Math.random() * 1e7)}`;
   const numActivo = `+549353${Math.floor(Math.random() * 1e7)}`;
+  const subSolo = `sub-solo-${randomUUID().slice(0, 8)}`;
+  const subCompartido = `sub-comp-${randomUUID().slice(0, 8)}`;
+  const subOtroCerrado = `sub-otro-${randomUUID().slice(0, 8)}`;
+  const subActivo = `sub-act-${randomUUID().slice(0, 8)}`;
 
   async function tenant(nombre: string, estado: string, extra: { esDemo?: boolean; trialHasta?: string } = {}) {
     const [f] = await sql<{ id: string }[]>`
@@ -79,6 +89,60 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     `;
     if (!o) throw new Error("no se creó el email");
     await sql`insert into delivery_status (tenant_id, outbox_id, evento) values (${tenantId}, ${o.id}, 'entregado')`;
+    // P10-90: OCR, facturas de proveedor por WhatsApp, proveedores y Gmail.
+    await sql`
+      insert into ocr_jobs (tenant_id, id, idempotency_key, origen, bytes_ref, emisor, creado_en, actualizado_en)
+      values (${tenantId}, ${randomUUID()}, ${randomUUID()}, 'wa', 'wa-media:123', ${numero}, now(), now())
+    `;
+    await sql`insert into ocr_eventos (tenant_id, tipo, payload) values (${tenantId}, 'leido', ${sql.json({ texto: "Factura Distribuidora Juan" })})`;
+    const [d] = await sql<{ id: string }[]>`
+      insert into supplier_drafts (tenant_id, idempotency_key, origen, bytes_ref, cuit, nombre_proveedor, confianza, vence_at)
+      values (${tenantId}, ${randomUUID()}, 'wa', 'wa-media:123', '20111222333', 'Juan Gómez', ${sql.json({})}, now() + interval '7 days')
+      returning id
+    `;
+    if (!d) throw new Error("no se creó el borrador");
+    await sql`
+      insert into supplier_match_log (tenant_id, draft_id, order_id, coincide)
+      values (${tenantId}, ${d.id}, ${randomUUID()}, true)
+    `;
+    await sql`
+      insert into supplier_invoices (tenant_id, idempotency_key, draft_id, supplier_cuit, nombre_proveedor, fecha_iso, total_centavos, creado_por)
+      values (${tenantId}, ${randomUUID()}, ${d.id}, '20111222333', 'Juan Gómez', '2026-08-01', 5000, 'sub-ret')
+    `;
+    await sql`
+      insert into suppliers (tenant_id, cuit, nombre, email, telefono)
+      values (${tenantId}, '20111222333', 'Juan Gómez', 'juan@ejemplo.com', '3515551111')
+    `;
+    await sql`
+      insert into proveedor_contactos (tenant_id, numero_e164, supplier_cuit, estado, creado_en)
+      values (${tenantId}, ${`${numero}9`}, '20111222333', 'verificado', now())
+    `;
+    await sql`insert into proveedor_cupo (tenant_id, numero_e164) values (${tenantId}, ${`${numero}9`})`;
+    await sql`
+      insert into proveedor_invitaciones (codigo_hash, tenant_id, supplier_cuit, expira_en_ms)
+      values (${randomUUID()}, ${tenantId}, '20111222333', 1)
+    `;
+    const [g] = await sql<{ id: string }[]>`
+      insert into google_connections (tenant_id, tipo, cuenta_email, refresh_token_cifrado, consentimiento_version, consentimiento_at)
+      values (${tenantId}, 'gmail', 'duena@ejemplo.com', 'cifrado', 'v1', now())
+      returning id
+    `;
+    if (!g) throw new Error("no se creó la conexión");
+    await sql`insert into gmail_watch_routes (email_hmac, tenant_id, connection_id) values (${randomUUID()}, ${tenantId}, ${g.id})`;
+    await sql`insert into gmail_ingestion_jobs (tenant_id, connection_id, history_id) values (${tenantId}, ${g.id}, '1')`;
+    await sql`
+      insert into email_ingestion_drafts (tenant_id, connection_id, message_id, origen, vence_en)
+      values (${tenantId}, ${g.id}, ${randomUUID()}, 'pdf_digital', now() + interval '7 days')
+    `;
+  }
+
+  async function usuario(sub: string) {
+    await sql`insert into users (google_sub, email, nombre, foto_url) values (${sub}, ${`${sub}@ejemplo.com`}, 'Persona', 'https://foto')`;
+  }
+
+  async function miembro(tenantId: string, sub: string, estado = "activo") {
+    await sql`insert into memberships (tenant_id, google_sub, rol, estado) values (${tenantId}, ${sub}, 'empleado', ${estado})`;
+    await sql`insert into sessions (id_hash, google_sub, tenant_id, expira_at) values (${randomUUID()}, ${sub}, ${tenantId}, now() + interval '1 day')`;
   }
 
   async function datos(tenantId: string) {
@@ -99,7 +163,26 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         (select count(*)::int from bot_turnos where tenant_id = ${tenantId}) as turnos,
         (select count(*)::int from notification_preferences where tenant_id = ${tenantId}) as prefs,
         (select count(*)::int from email_outbox where tenant_id = ${tenantId}) as emails,
-        (select count(*)::int from auth_events where tenant_id = ${tenantId} and tipo = 'retencion_clientes_aplicada') as eventos
+        (select count(*)::int from auth_events where tenant_id = ${tenantId} and tipo = 'retencion_clientes_aplicada') as eventos,
+        (select count(*)::int from ocr_jobs where tenant_id = ${tenantId})
+          + (select count(*)::int from ocr_eventos where tenant_id = ${tenantId}) as ocr,
+        (select count(*)::int from supplier_drafts where tenant_id = ${tenantId})
+          + (select count(*)::int from supplier_match_log where tenant_id = ${tenantId}) as borradores_prov,
+        (select count(*)::int from supplier_invoices where tenant_id = ${tenantId}) as facturas_prov,
+        (select nombre from suppliers where tenant_id = ${tenantId} limit 1) as proveedor,
+        (select email from suppliers where tenant_id = ${tenantId} limit 1) as proveedor_email,
+        (select cuit from suppliers where tenant_id = ${tenantId} limit 1) as proveedor_cuit,
+        (select count(*)::int from proveedor_contactos where tenant_id = ${tenantId})
+          + (select count(*)::int from proveedor_cupo where tenant_id = ${tenantId})
+          + (select count(*)::int from proveedor_invitaciones where tenant_id = ${tenantId}) as contactos_prov,
+        (select count(*)::int from google_connections where tenant_id = ${tenantId})
+          + (select count(*)::int from gmail_watch_routes where tenant_id = ${tenantId})
+          + (select count(*)::int from gmail_ingestion_jobs where tenant_id = ${tenantId})
+          + (select count(*)::int from email_ingestion_drafts where tenant_id = ${tenantId}) as gmail,
+        (select count(*)::int from memberships where tenant_id = ${tenantId}) as membresias,
+        (select count(*)::int from sessions where tenant_id = ${tenantId}) as sesiones,
+        (select count(*)::int from invitations where tenant_id = ${tenantId}) as invitaciones,
+        (select owner_google_sub from tenants where id = ${tenantId}) as dueno
     `;
     if (!r) throw new Error("sin fila");
     return r;
@@ -124,6 +207,14 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     await baja(ids.b89, haceDias(89));
     // P10-90: un evento de baja viejo no alcanza si el comercio volvió a estar activo.
     await baja(ids.activo, haceDias(200));
+    // P10-90: cerrado hace 200 días, reabierto y vuelto a cerrar hace 10: cuenta el último cierre.
+    ids.reabierto = await tenant("Reabierto", "baja");
+    await baja(ids.reabierto, haceDias(200));
+    await sql`
+      insert into tenant_lifecycle_events (tenant_id, de_estado, a_estado, motivo, actor, idempotency_key, creado_en)
+      values (${ids.reabierto}, 'baja', 'activo', 'test', 'test', ${`ret-${randomUUID()}`}, ${haceDias(100)})
+    `;
+    await baja(ids.reabierto, haceDias(10));
 
     await sembrar(ids.a91, numSolo);
     await sembrar(ids.b89, `+549354${Math.floor(Math.random() * 1e7)}`);
@@ -140,7 +231,32 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         values (${n}, 'hash', now() + interval '10 minutes')
       `;
     }
+    // P10-90: subSolo solo en el cerrado (se borra); subCompartido también en
+    // el activo (queda); subOtroCerrado también en el de 89 días (se anonimiza
+    // porque su otra membresía es de un comercio en baja y la fila lo referencia).
+    for (const sub of [subSolo, subCompartido, subOtroCerrado, subActivo]) await usuario(sub);
+    await sql`update tenants set owner_google_sub = ${subSolo} where id = ${ids.a91}`;
+    await miembro(ids.a91, subSolo);
+    await miembro(ids.a91, subCompartido);
+    await miembro(ids.activo, subCompartido);
+    await miembro(ids.a91, subOtroCerrado);
+    await miembro(ids.b89, subOtroCerrado);
+    await miembro(ids.activo, subActivo);
+    for (const id of [ids.a91, ids.b89, ids.activo]) {
+      await sql`
+        insert into invitations (token_hash, tenant_id, email, expira_at)
+        values (${randomUUID()}, ${id}, 'empleada@ejemplo.com', now() + interval '1 day')
+      `;
+    }
   });
+
+  const usuarioDe = async (sub: string) =>
+    (await sql<{ email: string; nombre: string | null; foto_url: string | null }[]>`
+      select email, nombre, foto_url from users where google_sub = ${sub}
+    `)[0] ?? null;
+  const membresiasDe = async (sub: string) =>
+    (await sql<{ tenant_id: string }[]>`select tenant_id from memberships where google_sub = ${sub} order by tenant_id`).map((f) => f.tenant_id);
+  const sesionesDe = async (sub: string) => (await sql`select 1 from sessions where google_sub = ${sub}`).length;
 
   afterAll(async () => {
     await sql?.end();
@@ -154,6 +270,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     expect(r.anonimizados).toContain(ids.demo);
     expect(r.anonimizados).not.toContain(ids.b89);
     expect(r.anonimizados).not.toContain(ids.activo);
+    expect(r.anonimizados).not.toContain(ids.reabierto);
     expect(r.sinFechaCierre).toContain(ids.sinFecha);
 
     const a = await datos(ids.a91);
@@ -173,6 +290,18 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       prefs: 0,
       emails: 0,
       eventos: 1,
+      ocr: 0,
+      borradores_prov: 0,
+      facturas_prov: 1,
+      proveedor: NOMBRE_PROVEEDOR_ANONIMO,
+      proveedor_email: null,
+      proveedor_cuit: "20111222333",
+      contactos_prov: 0,
+      gmail: 0,
+      membresias: 0,
+      sesiones: 0,
+      invitaciones: 0,
+      dueno: null,
     });
     expect(await datos(ids.demo)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, identidades: 0, eventos: 1 });
     expect(r.conteos[ids.a91]).toMatchObject({ clientesAnonimizados: 1, identidadesWhatsappBorradas: 2, sesionesWhatsappBorradas: 1 });
@@ -191,8 +320,33 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         prefs: 1,
         emails: 1,
         eventos: 0,
+        ocr: 2,
+        borradores_prov: 2,
+        facturas_prov: 1,
+        proveedor: "Juan Gómez",
+        proveedor_email: "juan@ejemplo.com",
+        contactos_prov: 3,
+        gmail: 4,
+        invitaciones: id === ids.sinFecha ? 0 : 1,
       });
     }
+    expect((await datos(ids.b89)).membresias).toBe(1);
+    expect((await datos(ids.activo)).membresias).toBe(2);
+  });
+
+  it("borra al usuario que solo era del cerrado, conserva al compartido y anonimiza al que sigue referenciado", async () => {
+    expect(await usuarioDe(subSolo)).toBeNull();
+    expect(await sesionesDe(subSolo)).toBe(0);
+
+    expect(await usuarioDe(subCompartido)).toMatchObject({ email: `${subCompartido}@ejemplo.com`, nombre: "Persona" });
+    expect(await membresiasDe(subCompartido)).toEqual([ids.activo]);
+    expect(await sesionesDe(subCompartido)).toBe(1);
+
+    expect(await usuarioDe(subOtroCerrado)).toEqual({ email: EMAIL_USUARIO_ANONIMO, nombre: null, foto_url: null });
+    expect(await membresiasDe(subOtroCerrado)).toEqual([ids.b89]);
+    expect(await sesionesDe(subOtroCerrado)).toBe(0);
+
+    expect(await usuarioDe(subActivo)).toMatchObject({ nombre: "Persona" });
   });
 
   it("borra sesión y código de WhatsApp solo del número que no sigue vinculado a otro comercio", async () => {
@@ -214,7 +368,9 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
   it("el cerrado a los 89 días entra cuando pasan los 90", async () => {
     const r = await ejecutarRetencionClientes(new Date(AHORA.getTime() + 2 * 86_400_000));
     expect(r.anonimizados).toContain(ids.b89);
-    expect(await datos(ids.b89)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, comprobantes: 1, ventas: 1 });
+    expect(await datos(ids.b89)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, comprobantes: 1, ventas: 1, membresias: 0, facturas_prov: 1 });
+    expect(await usuarioDe(subOtroCerrado)).toBeNull();
+    expect(await usuarioDe(subCompartido)).toMatchObject({ nombre: "Persona" });
   });
 
   it("purgar una demo deja el evento de vida 'baja' que fecha el cierre", async () => {
