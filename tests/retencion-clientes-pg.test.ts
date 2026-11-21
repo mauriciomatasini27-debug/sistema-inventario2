@@ -109,6 +109,15 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       insert into supplier_invoices (tenant_id, idempotency_key, draft_id, supplier_cuit, nombre_proveedor, fecha_iso, total_centavos, creado_por)
       values (${tenantId}, ${randomUUID()}, ${d.id}, '20111222333', 'Juan Gómez', '2026-08-01', 5000, 'sub-ret')
     `;
+    // P10-90: pagos y órdenes a proveedores también se conservan (registro fiscal).
+    await sql`
+      insert into supplier_payments (tenant_id, idempotency_key, supplier_cuit, monto_centavos, metodo, creado_por)
+      values (${tenantId}, ${randomUUID()}, '20111222333', 5000, 'efectivo', 'sub-ret')
+    `;
+    await sql`
+      insert into purchase_orders (tenant_id, idempotency_key, supplier_cuit, total_centavos, creado_por)
+      values (${tenantId}, ${randomUUID()}, '20111222333', 5000, 'sub-ret')
+    `;
     await sql`
       insert into suppliers (tenant_id, cuit, nombre, email, telefono)
       values (${tenantId}, '20111222333', 'Juan Gómez', 'juan@ejemplo.com', '3515551111')
@@ -169,6 +178,8 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         (select count(*)::int from supplier_drafts where tenant_id = ${tenantId})
           + (select count(*)::int from supplier_match_log where tenant_id = ${tenantId}) as borradores_prov,
         (select count(*)::int from supplier_invoices where tenant_id = ${tenantId}) as facturas_prov,
+        (select count(*)::int from supplier_payments where tenant_id = ${tenantId}) as pagos_prov,
+        (select count(*)::int from purchase_orders where tenant_id = ${tenantId}) as ordenes_prov,
         (select nombre from suppliers where tenant_id = ${tenantId} limit 1) as proveedor,
         (select email from suppliers where tenant_id = ${tenantId} limit 1) as proveedor_email,
         (select cuit from suppliers where tenant_id = ${tenantId} limit 1) as proveedor_cuit,
@@ -293,6 +304,8 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       ocr: 0,
       borradores_prov: 0,
       facturas_prov: 1,
+      pagos_prov: 1,
+      ordenes_prov: 1,
       proveedor: NOMBRE_PROVEEDOR_ANONIMO,
       proveedor_email: null,
       proveedor_cuit: "20111222333",
@@ -368,7 +381,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
   it("el cerrado a los 89 días entra cuando pasan los 90", async () => {
     const r = await ejecutarRetencionClientes(new Date(AHORA.getTime() + 2 * 86_400_000));
     expect(r.anonimizados).toContain(ids.b89);
-    expect(await datos(ids.b89)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, comprobantes: 1, ventas: 1, membresias: 0, facturas_prov: 1 });
+    expect(await datos(ids.b89)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, comprobantes: 1, ventas: 1, membresias: 0, facturas_prov: 1, pagos_prov: 1, ordenes_prov: 1 });
     expect(await usuarioDe(subOtroCerrado)).toBeNull();
     expect(await usuarioDe(subCompartido)).toMatchObject({ nombre: "Persona" });
   });
