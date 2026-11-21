@@ -2,6 +2,11 @@ import { adminStore, ultimoHashAdmin } from "../lib/admin-store.js";
 import { persistirActoAdmin } from "../lib/admin-db.js";
 import { registrar_acto, verificar_acto } from "../modules/admin/actos.js";
 
+function esActoAnonimizado(a: { actorGoogleSub: string; detalle: unknown }): boolean {
+  const d = a.detalle as { anonimizado?: unknown } | null;
+  return a.actorGoogleSub === "anonimizado" && d !== null && typeof d === "object" && d.anonimizado === true;
+}
+
 // Job verificación nocturna PA2. Recorre admin_audit_log en orden, recalcula
 // cada hash y verifica el encadenado. No auto-repara: si rompe, setea
 // auditoriaSana=false (el panel congela POST mutantes y muestra banner) y
@@ -17,6 +22,13 @@ export function ejecutarVerificacionHash(ahora = new Date()): {
     if (a.prevHash !== prev) {
       primeraRota = a.hash;
       break;
+    }
+    // P10-90: una fila anonimizada por el job de retención (migración 0052)
+    // ya no tiene el actor ni el detalle con que se calculó el hash; se
+    // controla solo el encadenado.
+    if (esActoAnonimizado(a)) {
+      prev = a.hash;
+      continue;
     }
     const v = verificar_acto({
       acto: a.detalle,

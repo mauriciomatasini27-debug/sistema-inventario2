@@ -76,7 +76,10 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     // TB-165: la 0050 agrega la columna durable de las respuestas del cuestionario.
     expect(journal.entries.some((e) => e.tag === "0050_tenants_wizard_respuestas")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0051_ggl_p240_gmail_dedupe_tenant")).toBe(true);
-    expect(journal.entries.length).toBe(52);
+    // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
+    expect(journal.entries.some((e) => e.tag === "0052_retencion_anonimiza_auditoria")).toBe(true);
+    expect(journal.entries.some((e) => e.tag === "0053_servicios_pagos_tenant")).toBe(true);
+    expect(journal.entries.length).toBe(54);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -282,8 +285,8 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // ON12/TB-165 + 0051: el wrapper aplica hasta la última migración del journal.
-        expect(n[0]?.n).toBe(52);
+        // ON12/TB-165 + 0051 + 0052/0053 (P10-90): el wrapper aplica hasta la última migración del journal.
+        expect(n[0]?.n).toBe(54);
       } finally {
         await db.end();
       }
@@ -336,6 +339,68 @@ describe.skipIf(!hayPG)("ON12 migración 0049_tenants_onboarding_wizard en Postg
         expect(filaNueva[0]?.wizard_respuestas).toEqual({});
       } finally {
         await db2.end();
+      }
+    },
+    300_000,
+  );
+});
+
+// P10-90: la 0053 agrega tenant_id a servicios y pagos y completa las filas
+// viejas solo cuando la relación da un único comercio.
+describe.skipIf(!hayPG)("P10-90 migración 0053 tenant_id en servicios y pagos", () => {
+  it(
+    "completa por egreso, mensaje, facturas y órdenes; deja null lo ambiguo o sin relación",
+    async () => {
+      const url = await crearBase(`m53_backfill_${Date.now()}`, process.env.PG_TEST_URL_A ?? "");
+      await aplicarHasta("0052_retencion_anonimiza_auditoria", url);
+      const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
+      const t1 = randomUUID();
+      const t2 = randomUUID();
+      const ids = { cm: randomUUID(), ordenA: randomUUID(), ordenB: randomUUID(), ordenC: randomUUID(), payeeSolo: randomUUID(), payeeMixto: randomUUID(), payeeSuelto: randomUUID(), cuentaA: randomUUID(), cuentaB: randomUUID(), cuentaSuelta: randomUUID(), factA: randomUUID(), factB: randomUUID() };
+      try {
+        for (const [id, slug] of [[t1, `m53-a-${t1.slice(0, 6)}`], [t2, `m53-b-${t2.slice(0, 6)}`]] as const) {
+          await db`insert into tenants (id, nombre_comercio, slug, plan, estado) values (${id}::uuid, 'T', ${slug}, 'base', 'activo')`;
+        }
+        const cm2 = randomUUID();
+        await db`insert into cash_movements (id, tipo, origen, categoria_id, metodo, idempotency_key, tenant_id, monto_centavos) values (${ids.cm}::uuid, 'egreso', 'orden_pago', 'pagos', 'efectivo', ${randomUUID()}, ${t1}::uuid, 100)`;
+        await db`insert into cash_movements (id, tipo, origen, categoria_id, metodo, idempotency_key, tenant_id, monto_centavos) values (${cm2}::uuid, 'egreso', 'orden_pago', 'pagos', 'efectivo', ${randomUUID()}, ${t2}::uuid, 100)`;
+        for (const id of [ids.payeeSolo, ids.payeeMixto, ids.payeeSuelto]) await db`insert into payees (id, nombre) values (${id}::uuid, 'Beneficiario')`;
+        const orden = (id: string, payee: string, cm: string | null) => db`
+          insert into payment_orders (id, idempotency_key, numero, payee_id, concepto, monto_centavos, vence_el, metodo_sugerido, instruccion_tipo, instruccion_snapshot, creado_por, cash_movement_id)
+          values (${id}::uuid, ${randomUUID()}, ${`OP-${id.slice(0, 8)}`}, ${payee}::uuid, 'Luz', 100, now(), 'Transferencia', 'datos', ${db.json({})}, 'sub', ${cm}::uuid)
+        `;
+        await orden(ids.ordenA, ids.payeeSolo, ids.cm);
+        await orden(ids.ordenB, ids.payeeMixto, cm2);
+        await orden(ids.ordenC, ids.payeeMixto, ids.cm);
+        const sinRelacion = randomUUID();
+        await orden(sinRelacion, ids.payeeSuelto, null);
+        for (const id of [ids.cuentaA, ids.cuentaB, ids.cuentaSuelta]) await db`insert into service_accounts (id, servicio, proveedor, titular) values (${id}::uuid, 'luz', 'EPEC', 'Juana')`;
+        await db`insert into email_ingestion_drafts (tenant_id, message_id, origen, vence_en) values (${t1}::uuid, 'msg-solo', 'pdf_digital', now())`;
+        await db`insert into email_ingestion_drafts (tenant_id, message_id, origen, vence_en) values (${t1}::uuid, 'msg-compartido', 'pdf_digital', now())`;
+        await db`insert into email_ingestion_drafts (tenant_id, message_id, origen, vence_en) values (${t2}::uuid, 'msg-compartido', 'pdf_digital', now())`;
+        await db`insert into utility_bills (id, account_id, message_id, periodo, vencimiento, monto_centavos, origen) values (${ids.factA}::uuid, ${ids.cuentaA}::uuid, 'msg-solo', '2026-10', '2026-11-10', 100, 'pdf_digital')`;
+        await db`insert into utility_bills (id, account_id, message_id, periodo, vencimiento, monto_centavos, origen) values (${ids.factB}::uuid, ${ids.cuentaB}::uuid, 'msg-compartido', '2026-10', '2026-11-10', 100, 'pdf_digital')`;
+
+        execFileSync("node", ["scripts/db-migrate.mjs"], { env: { ...process.env, TENANT_DATABASE_URL: url }, encoding: "utf8" });
+
+        const tenantDe = async (tabla: string, id: string) =>
+          ((await db.unsafe(`select tenant_id::text as t from "${tabla}" where id = $1`, [id]))[0] as { t: string | null } | undefined)?.t ?? null;
+        expect(await tenantDe("payment_orders", ids.ordenA)).toBe(t1);
+        expect(await tenantDe("payment_orders", ids.ordenB)).toBe(t2);
+        expect(await tenantDe("payment_orders", sinRelacion)).toBeNull();
+        expect(await tenantDe("payees", ids.payeeSolo)).toBe(t1);
+        expect(await tenantDe("payees", ids.payeeMixto)).toBeNull();
+        expect(await tenantDe("payees", ids.payeeSuelto)).toBeNull();
+        expect(await tenantDe("utility_bills", ids.factA)).toBe(t1);
+        expect(await tenantDe("utility_bills", ids.factB)).toBeNull();
+        expect(await tenantDe("service_accounts", ids.cuentaA)).toBe(t1);
+        expect(await tenantDe("service_accounts", ids.cuentaB)).toBeNull();
+        expect(await tenantDe("service_accounts", ids.cuentaSuelta)).toBeNull();
+        // P10-90: re-correr no cambia nada.
+        const out = execFileSync("node", ["scripts/db-migrate.mjs"], { env: { ...process.env, TENANT_DATABASE_URL: url }, encoding: "utf8" });
+        expect(out).toContain("nada pendiente");
+      } finally {
+        await db.end();
       }
     },
     300_000,

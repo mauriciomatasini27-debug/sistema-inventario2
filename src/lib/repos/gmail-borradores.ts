@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { emailIngestionLog, serviceAccounts } from "../../db/schema-servicios.js";
 import { emailIngestionDrafts } from "../../db/schema-google.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenantExplicito } from "../tenant.js";
 import { registrarFactura } from "./servicios.js";
 import {
   periodo_de,
@@ -172,7 +173,7 @@ export async function cuentaActiva(tenantId: string, accountId: string): Promise
   const filas = await db
     .select({ activa: serviceAccounts.activa })
     .from(serviceAccounts)
-    .where(eq(serviceAccounts.id, accountId))
+    .where(dondeTenantExplicito(serviceAccounts.tenantId, tenantId, eq(serviceAccounts.id, accountId)))
     .limit(1);
   return Boolean(filas[0]?.activa);
 }

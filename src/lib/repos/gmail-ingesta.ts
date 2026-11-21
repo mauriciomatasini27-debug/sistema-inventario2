@@ -6,6 +6,7 @@ import {
 } from "../../db/schema-servicios.js";
 import { emailIngestionDrafts, gmailConnectionEvents } from "../../db/schema-google.js";
 import { getTenantDb } from "../db.js";
+import { dondeTenantExplicito } from "../tenant.js";
 import { leerConexionGmail } from "./google-conexiones.js";
 import type {
   CuentaCatalogo,
@@ -118,7 +119,7 @@ export async function leerFiltrosIngesta(tenantId: string): Promise<ReadonlyArra
 
 export async function leerCatalogoCuentas(tenantId: string): Promise<ReadonlyArray<CuentaCatalogo>> {
   const db = getTenantDb(tenantId);
-  const filas = await db.select().from(serviceAccounts);
+  const filas = await db.select().from(serviceAccounts).where(dondeTenantExplicito(serviceAccounts.tenantId, tenantId));
   return filas.map((c) => ({
     accountId: c.id,
     servicio: c.servicio,

@@ -4,6 +4,7 @@ import { payees, paymentOrderEvents, paymentOrders } from "../../db/schema-pagos
 import { listarMovimientosCaja } from "./movimientos-caja.js";
 import { tenantActual } from "../tenant-mode.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { dondeTenant, tenantIdFila } from "../tenant.js";
 import {
   crearAlmacenPayees,
   crearAlmacenPaymentOrders,
@@ -76,7 +77,7 @@ function payeeDeFila(f: typeof payees.$inferSelect): Payee {
 async function payeesVivos(db: TenantDb, payeesAlm: AlmacenVivo<Payee>): Promise<Map<string, Payee>> {
   const vivos = new Map<string, Payee>(payeesAlm.comoMapaSoloLectura());
   try {
-    const filas = await db.select().from(payees).where(eq(payees.activo, true));
+    const filas = await db.select().from(payees).where(dondeTenant(payees.tenantId, eq(payees.activo, true)));
     for (const f of filas) {
       if (!vivos.has(f.id)) vivos.set(f.id, payeeDeFila(f));
     }
@@ -144,7 +145,7 @@ function ordenDeFila(
 
 async function leerOrdenFria(db: TenantDb, orderId: string): Promise<PaymentOrder | null> {
   if (!esUuid(orderId)) return null;
-  const filas = await db.select().from(paymentOrders).where(eq(paymentOrders.id, orderId)).limit(1);
+  const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, orderId))).limit(1);
   const fila = filas[0];
   if (!fila) return null;
   return ordenDeFila(fila, await eventosDeOrden(db, fila.id));
@@ -154,7 +155,7 @@ async function leerOrdenPorKey(db: TenantDb, key: string): Promise<PaymentOrder 
   const filas = await db
     .select()
     .from(paymentOrders)
-    .where(eq(paymentOrders.idempotencyKey, key))
+    .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.idempotencyKey, key)))
     .limit(1);
   const fila = filas[0];
   if (!fila) return null;
@@ -184,6 +185,8 @@ async function siguienteNumero(
   ordenes: AlmacenVivo<PaymentOrder>,
   vistos: AlmacenVivo<PaymentOrder>,
 ): Promise<{ numero: string; n: number }> {
+  // P10-90 (0053): sin filtro por comercio a propósito: payment_orders.numero
+  // es UNIQUE global, así que el próximo número tiene que mirar todas las filas.
   const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders);
   const numeros = filas.map((f) => f.numero);
   for (const o of ordenes.comoMapaSoloLectura().values()) numeros.push(o.numero);
@@ -277,6 +280,7 @@ export async function prepararOrdenRepo(input: PrepararOrdenInput): Promise<Resp
     try {
       await db.transaction(async (tx) => {
         await tx.insert(paymentOrders).values({
+        tenantId: tenantIdFila(),
           id: r.orden.id,
           idempotencyKey: input.key,
           numero: r.orden.numero,
@@ -392,7 +396,7 @@ export async function cancelarOrdenRepo(input: {
     const tocadas = await db
       .update(paymentOrders)
       .set({ estado: r.orden.estado, version: r.orden.version, cancelMotivo: r.orden.motivoCancelacion ?? null })
-      .where(eq(paymentOrders.id, r.orden.id))
+      .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, r.orden.id)))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
     await db.insert(paymentOrderEvents).values({
@@ -517,7 +521,7 @@ export async function confirmarPagoOrdenRepo(input: ConfirmarPagoOrdenInput): Pr
         nota: r.efecto.orden.nota ?? null,
         comprobanteRef: r.efecto.orden.comprobanteRef ?? null,
       })
-      .where(eq(paymentOrders.id, r.efecto.orden.id))
+      .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, r.efecto.orden.id)))
       .returning({ id: paymentOrders.id });
     if (!tocadas[0]) return { status: 409, body: { error: "version desactualizada" } };
     await db.insert(paymentOrderEvents).values({
@@ -621,7 +625,7 @@ async function listarOrdenesSugerencia(): Promise<PaymentOrder[]> {
   const db = dbVivaTenant();
   if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(paymentOrders);
+    const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId));
     const union = new Map<string, PaymentOrder>();
     for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
@@ -642,7 +646,7 @@ export async function listarOrdenesJob(): Promise<PaymentOrder[]> {
   const db = dbVivaTenant();
   if (!db) return [...ordenes.comoMapaSoloLectura().values()];
   try {
-    const filas = await db.select().from(paymentOrders);
+    const filas = await db.select().from(paymentOrders).where(dondeTenant(paymentOrders.tenantId));
     const union = new Map<string, PaymentOrder>();
     for (const o of ordenes.comoMapaSoloLectura().values()) union.set(o.id, o);
     for (const f of filas) {
@@ -680,7 +684,7 @@ export async function persistirOrdenesVencidas(input: {
       await db
         .update(paymentOrders)
         .set({ estado: "vencida", version: o.version })
-        .where(eq(paymentOrders.id, o.id));
+        .where(dondeTenant(paymentOrders.tenantId, eq(paymentOrders.id, o.id)));
       await db.insert(paymentOrderEvents).values({
         paymentOrderId: o.id,
         deEstado: "preparada",
@@ -724,7 +728,7 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
     const vivos = [...payeesAlm.comoMapaSoloLectura().values()];
     if (!db) return vivos;
     try {
-      const filas = await db.select().from(payees).where(eq(payees.activo, true));
+      const filas = await db.select().from(payees).where(dondeTenant(payees.tenantId, eq(payees.activo, true)));
       const union = new Map<string, Payee>();
       for (const p of vivos) union.set(p.id, p);
       for (const f of filas) {
@@ -758,6 +762,7 @@ export async function altaPayee(input: AltaPayeeInput): Promise<AltaPayeeResulta
     await db
       .insert(payees)
       .values({
+        tenantId: tenantIdFila(),
         id: r.payee.id,
         nombre: r.payee.nombre,
         tipo: r.payee.tipo,
