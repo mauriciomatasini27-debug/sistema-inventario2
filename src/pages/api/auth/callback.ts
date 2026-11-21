@@ -7,6 +7,7 @@ import {
 } from "../../../modules/auth/oidc.js";
 import { crearSesion } from "../../../modules/auth/sesiones.js";
 import { esAdminAllowlist, leerAllowlist } from "../../../modules/admin/guard.js";
+import { MENSAJE_LOGIN_SUSPENDIDO, MENSAJE_LOGIN_SUSPENDIDO_NEUTRO } from "../../../modules/auth/mensaje-ingreso.js";
 import { destinoLogin } from "../../../modules/auth/destino-login.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
 import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
@@ -223,6 +224,12 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
     }
   }
 
+  // CP-S5: el login de un comercio suspendido se corta con un mensaje claro.
+  const tenantLogin = tenantId ? control.tenants.get(tenantId) : undefined;
+  if (tenantLogin?.estado === "suspendido" && !esAdminAllowlist(identidad.sub, leerAllowlist())) {
+    const msg = tenantLogin.suspensionTipo === "mora" ? MENSAJE_LOGIN_SUSPENDIDO : MENSAJE_LOGIN_SUSPENDIDO_NEUTRO;
+    return falloIngreso(request, redirect, msg, 403);
+  }
   const creada = crearSesion({ googleSub: identidad.sub, tenantId, ahora });
   const agente = request.headers.get("user-agent")?.slice(0, 80) ?? undefined;
   const agentesPrevios = new Set(

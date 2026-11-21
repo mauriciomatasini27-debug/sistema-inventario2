@@ -11,38 +11,35 @@ import {
 const html = readFileSync("src/pages/admin.astro", "utf8");
 
 describe("ADMIN-PANEL-WIRE tarjetas", () => {
-  it("declara data-admin-accion y los endpoints que ya existen", () => {
-    expect(html).toContain("data-admin-accion");
-    expect(html).toContain('"/api/admin/rollouts"');
-    expect(html).toContain('"/api/admin/flags"');
+  // Fase 2: el panel ya no muestra rollouts, señales, mora suelta ni el heat.
+  // Se cablean tenants, flags, cobro, reportes y la reauth.
+  it("el panel simplificado cablea tenants, flags, cobro, reportes y reauth", () => {
+    expect(html).toContain('id="tenants-tabla"');
+    expect(html).toContain('id="buscar"');
+    expect(html).toContain('id="tenant-detalle"');
+    expect(html).toContain('fetch("/api/admin/tenants"');
+    expect(html).toContain('fetch("/api/admin/flags"');
     expect(html).toContain('"/api/admin/ledger/asentar"');
-    expect(html).toContain('"/api/admin/senales/consumir"');
+    expect(html).toContain('"/api/admin/reportes?estado=recibido"');
     expect(html).toContain('"/api/admin/reportes/"');
-    expect(html).toContain("accion: \"estado\"");
+    expect(html).toContain('accion: "estado"');
     expect(html).toContain("confirmo_id");
     expect(html).toContain("idempotency_key");
-    expect(html).toContain("duplicadoMismoIntento");
-    expect(html).toContain("ultimaSenalEn");
-    expect(html).toContain("b.consumidas");
-    expect(html).toContain("b.descartadas");
-    expect(html).toContain("HEAT_SLOTS");
-    expect(html).toContain("pintarHeatPorUltimaSenalEn");
-  });
-
-  it("mora reusa el confirm de Tenants y cablea los endpoints de mora", () => {
-    expect(html).toContain('id="mora-tabla"');
-    expect(html).toContain('id="mora-body"');
-    expect(html).toContain('id="tenants-confirmar"');
-    expect(html.match(/id="tenants-confirmar"/g)).toHaveLength(1);
-    expect(html).toContain("abrirConfirmacion");
-    expect(html).toContain("hashchange");
-    expect(html).toContain("nav.pills a");
-    expect(html).toContain('id="mora-dryrun"');
-    expect(html).toContain('data-admin-accion="mora-evaluar"');
-    expect(html).toContain("ejecutarAccionMora");
-    expect(html).toContain('id="tenants-cobro"');
+    expect(html).toContain("reauth_requerida");
+    expect(html).toContain("suspender_abuso");
     expect(html).not.toContain('id="composicion"');
     expect(html).not.toContain('id="dona-');
+    expect(html).not.toContain("GET/POST /api/admin/tenants");
+  });
+
+  it("ya no declara la tabla de mora suelta ni el dry-run", () => {
+    expect(html).not.toContain('id="mora-tabla"');
+    expect(html).not.toContain('id="mora-dryrun"');
+    expect(html).not.toContain('data-admin-accion="mora-evaluar"');
+    expect(html).not.toContain("ejecutarAccionMora");
+    expect(html).not.toContain("HEAT_SLOTS");
+    expect(html).not.toContain('"/api/admin/rollouts"');
+    expect(html).not.toContain('"/api/admin/senales/consumir"');
   });
 });
 

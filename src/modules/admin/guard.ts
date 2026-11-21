@@ -1,22 +1,25 @@
 import { leerVarEntorno } from "../../lib/env.js";
 
-// LANE admin — Guard PA1 (allowlist + reauth para mutantes).
+// LANE admin — Guard PA1 (allowlist de un solo sub + reauth para mutantes).
 //
-// Núcleo: la allowlist única es ADMIN_ALLOWLIST_SUBS; SUPERADMIN_SUBS queda
-// como fallback deprecado (se une, nunca se loguea) para no dejar sin acceso
-// a un deploy que solo la tenga. Decide por google_sub, nunca por email
-// (PA1). Reauth: los POST mutantes exigen lastReauthEn dentro de la ventana
-// (PA1.8: 5min).
+// Núcleo: el panel es de un solo operador. ADMIN_ALLOWLIST_SUBS tiene que
+// traer exactamente un google_sub; vacía o con más de uno niega todo
+// (fail-closed) y lo avisa una vez en el log, sin loguear subs. Decide por
+// google_sub, nunca por email (PA1). SUPERADMIN_SUBS ya no se lee.
 
 export const VENTANA_REAUTH_MIN = 5;
 
-let avisoSuperadminEmitido = false;
+let avisoAllowlistEmitido = false;
 
 function parsearLista(crudo: string): string[] {
-  return crudo
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return [
+    ...new Set(
+      crudo
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export function esAdminAllowlist(googleSub: string, allowlist: readonly string[]): boolean {
@@ -25,13 +28,15 @@ export function esAdminAllowlist(googleSub: string, allowlist: readonly string[]
 }
 
 export function leerAllowlist(env: NodeJS.ProcessEnv = process.env): string[] {
-  const admin = parsearLista(leerVarEntorno("ADMIN_ALLOWLIST_SUBS", env));
-  const legacy = parsearLista(leerVarEntorno("SUPERADMIN_SUBS", env));
-  if (legacy.length > 0 && !avisoSuperadminEmitido) {
-    avisoSuperadminEmitido = true;
-    console.warn("SUPERADMIN_SUBS está deprecada; mové los subs a ADMIN_ALLOWLIST_SUBS");
+  const subs = parsearLista(leerVarEntorno("ADMIN_ALLOWLIST_SUBS", env));
+  if (subs.length === 1) return subs;
+  if (!avisoAllowlistEmitido) {
+    avisoAllowlistEmitido = true;
+    console.error(
+      `ADMIN_ALLOWLIST_SUBS tiene ${subs.length} subs; tiene que tener exactamente 1. Panel admin cerrado para todos.`,
+    );
   }
-  return [...new Set([...admin, ...legacy])];
+  return [];
 }
 
 export type ReauthDecision = { readonly ok: true } | { readonly ok: false; readonly error: string };

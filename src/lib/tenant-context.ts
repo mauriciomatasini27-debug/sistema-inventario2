@@ -79,10 +79,26 @@ export function esRutaDatos(path: string): boolean {
 
 // Por qué null fuera de datos: el middleware conserva su comportamiento para
 // el resto de rutas; en single resuelve como hoy (tenant por defecto).
+// CP-S7: suspendido queda en solo lectura. Lee igual (conserva datos), pero
+// cualquier escritura del plano de datos corta 403 antes de tocar la base.
 export function gateTenantDatos(request: Request, path: string): TenantResuelto | null {
   if (!esRutaDatos(path)) return null;
-  return tenantDeRequest(request);
+  const t = tenantDeRequest(request);
+  if (!t.ok || request.method === "GET" || request.method === "HEAD") return t;
+  const tenant = control.tenants.get(t.tenantId);
+  if (tenant?.estado === "suspendido") {
+    const mensaje = tenant.suspensionTipo === "mora" ? MENSAJE_SUSPENDIDO : MENSAJE_SUSPENDIDO_NEUTRO;
+    return { ok: false, respuesta: jsonError(mensaje, 403) };
+  }
+  return t;
 }
+
+// Abuso o tipo desconocido (proceso reiniciado): texto neutro, sin "falta de pago".
+export const MENSAJE_SUSPENDIDO_NEUTRO =
+  "Tu cuenta está suspendida. Podés ver tus datos, pero no cargar ni modificar nada. Escribinos para más información.";
+
+export const MENSAJE_SUSPENDIDO =
+  "Tu cuenta está suspendida por falta de pago. Podés ver tus datos, pero no cargar ni modificar nada hasta regularizar.";
 
 // Por qué el job no usa sesión: actúa como Sistema con secreto compartido;
 // en multi con comercio explícito corre solo ese si está activo o suspendido

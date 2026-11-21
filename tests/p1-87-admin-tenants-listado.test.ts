@@ -197,10 +197,10 @@ describe("P1-87 admin ve y edita tenants", () => {
     expect(await g.json()).toEqual({ tenants: [] });
   });
 
-  it("suspender cambia el Map, escribe el estado una vez y el repetido es 409", async () => {
+  it("suspender cambia el Map, escribe el estado una vez y el repetido es idempotente", async () => {
     dbFake.filas = [];
     const plano = adminSesion("admin-1");
-    control.tenants.set("t1", tenant("t1"));
+    control.tenants.set("t1", tenant("t1", { trialHasta: "2020-01-01T00:00:00.000Z" }));
     control.tenants.set("t2", tenant("t2", { nombreComercio: "Otro" }));
     const s = (await POSTTenants(
       req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "suspender", confirmo_id: "t1", motivo: "mora" }),
@@ -213,8 +213,8 @@ describe("P1-87 admin ve y edita tenants", () => {
     const s2 = (await POSTTenants(
       req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "suspender", confirmo_id: "t1", motivo: "otra" }),
     )) as Response;
-    expect(s2.status).toBe(409);
-    expect(await s2.json()).toMatchObject({ error: "ya suspendido" });
+    expect(s2.status).toBe(200);
+    expect(await s2.json()).toMatchObject({ estado: "suspendido", ya: true });
     expect(dbFake.updates).toEqual([{ estado: "suspendido" }]);
     const r = (await POSTTenants(
       req("http://x/api/admin/tenants", plano, { tenant_id: "t1", accion: "reactivar", confirmo_id: "t1", motivo: "pago" }),
@@ -225,7 +225,7 @@ describe("P1-87 admin ve y edita tenants", () => {
   });
 
   it("un id que solo está en la DB se suspende en el primer POST", async () => {
-    dbFake.filas = [fila({ id: "frio", nombreComercio: "Frío", estado: "activo" })];
+    dbFake.filas = [fila({ id: "frio", nombreComercio: "Frío", estado: "activo", trialHasta: new Date("2020-01-01T00:00:00Z") })];
     const plano = adminSesion("admin-1");
     const s = (await POSTTenants(
       req("http://x/api/admin/tenants", plano, { tenant_id: "frio", accion: "suspender", confirmo_id: "frio", motivo: "mora" }),
@@ -241,10 +241,11 @@ describe("P1-87 admin ve y edita tenants", () => {
     expect(g.status).toBe(403);
   });
 
-  it("el panel nombra la tabla y GET/POST /api/admin/tenants", () => {
+  it("el panel nombra la tabla y pide el listado de tenants", () => {
     const html = readFileSync(new URL("../src/pages/admin.astro", import.meta.url), "utf8");
     expect(html).toContain('id="tenants-tabla"');
-    expect(html).toContain("GET/POST /api/admin/tenants");
     expect(html).toContain('fetch("/api/admin/tenants"');
+    // Fase 2: sin paths crudos en la copia visible.
+    expect(html).not.toContain("GET/POST /api/admin/tenants");
   });
 });

@@ -346,9 +346,11 @@ describe("ADMIN-USO-DIARIO GET /api/admin/tenants", () => {
 describe("ADMIN-USO-DIARIO panel y frontera", () => {
   it("el panel muestra la marca en texto y no nombra datos de negocio", () => {
     const html = readFileSync("src/pages/admin.astro", "utf8");
-    expect(html).toContain('id="uso"');
-    expect(html).toContain("/api/admin/uso");
+    // Fase 2: la tarjeta Uso pasó a ser columna de la tabla de comercios.
     expect(html).toContain("Costo alto");
+    expect(html).toContain('id="tenants-tabla"');
+    expect(html).not.toContain('id="uso"');
+    expect(html).not.toContain("/api/admin/uso");
     expect(html).not.toContain("nombreComercio");
     expect(html).not.toMatch(/getTenantDb|schema-precios|products|customers/);
   });

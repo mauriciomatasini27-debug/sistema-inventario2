@@ -21,11 +21,12 @@ describe("marca 2: toggle de tema en /admin", () => {
     expect(admin).toContain("<TemaToggle />");
   });
 
-  it("el segmento de mora del admin queda en ember coral", () => {
-    expect(admin).toMatch(/id="seg-mora" class="ember-coral"/);
+  it("el panel admin simplificado no trae la dona ni serie ember suelta", () => {
+    // Fase 2: se fue el segbar de mora (seg-mora / ember-coral).
     expect(admin).not.toContain("var(--serie-ember)");
     expect(admin).not.toContain('id="dona-arco"');
     expect(admin).not.toContain('id="dona-pct"');
+    expect(admin).not.toContain('id="seg-mora"');
   });
 
   it("el porcentaje de la dona del panel sigue el color del texto", () => {

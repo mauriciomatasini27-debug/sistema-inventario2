@@ -29,7 +29,7 @@ Solo la rama `main` recibe correcciones de seguridad.
 | `DATABASE_URL` | Conexión genérica, si el entorno la usa |
 | `GOOGLE_LOGIN_CLIENT_ID` / `GOOGLE_LOGIN_CLIENT_SECRET` | OAuth de login |
 | `GOOGLE_INTEGRATIONS_CLIENT_ID` / `GOOGLE_INTEGRATIONS_CLIENT_SECRET` | OAuth de integraciones |
-| `SUPERADMIN_SUBS` / `ADMIN_ALLOWLIST_SUBS` | Allowlists de administración |
+| `ADMIN_ALLOWLIST_SUBS` | Único google_sub admin de plataforma (más de uno o vacía cierra el panel) |
 | `JOBS_SECRET` | Autenticación de jobs programados |
 | `ARCA_CUIT_PROVEEDOR` | CUIT del emisor fiscal |
 | `ARCA_CERT_PEM` / `ARCA_KEY_PEM` | Certificado y clave privada ARCA |

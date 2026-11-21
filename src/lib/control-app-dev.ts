@@ -26,7 +26,7 @@ function ahora(): string {
   return new Date().toISOString();
 }
 
-function sembrar(): Response {
+function sembrar(vencidoHaceDias?: number, flota = false): Response {
   resetStore();
   const creadoEn = ahora();
   control.tenants.set(TENANT_CONTROL_APP, {
@@ -39,7 +39,49 @@ function sembrar(): Response {
     ownerGoogleSub: SUBS.duenio,
     esDemo: true,
     rubro: "almacen",
+    // Fase 1: con vencido_hace_dias el tenant entra en mora para probar suspensión y gracia.
+    trialHasta:
+      vencidoHaceDias === undefined ? undefined : new Date(Date.now() - vencidoHaceDias * 86_400_000).toISOString(),
   });
+  if (flota) {
+    const dia = 86_400_000;
+    const isoHace = (d: number) => new Date(Date.now() - d * dia).toISOString();
+    const isoEn = (d: number) => new Date(Date.now() + d * dia).toISOString();
+    control.tenants.set("kiosco-activo", {
+      id: "kiosco-activo",
+      nombreComercio: "Almacén Norte",
+      slug: "almacen-norte",
+      estado: "activo",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoEn(30),
+    });
+    control.tenants.set("kiosco-gracia", {
+      id: "kiosco-gracia",
+      nombreComercio: "Kiosco Sur",
+      slug: "kiosco-sur",
+      estado: "activo",
+      plan: "plus",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoHace(7),
+    });
+    control.tenants.set("kiosco-suspendido", {
+      id: "kiosco-suspendido",
+      nombreComercio: "Depósito Centro",
+      slug: "deposito-centro",
+      estado: "suspendido",
+      plan: "base",
+      moneda: "ARS",
+      ownerGoogleSub: SUBS.duenio,
+      esDemo: false,
+      trialHasta: isoHace(20),
+      suspensionTipo: "mora",
+    });
+  }
   control.users.set(SUBS.duenio, {
     googleSub: SUBS.duenio,
     email: "duenio@control-app.local",
@@ -109,8 +151,8 @@ function sembrar(): Response {
   });
 }
 
-export async function sembrarControlApp(): Promise<Response> {
-  const r = sembrar();
+export async function sembrarControlApp(vencidoHaceDias?: number, flota = false): Promise<Response> {
+  const r = sembrar(vencidoHaceDias, flota);
   if (!r.ok) return r;
   for (const p of PRODUCTOS) {
     const alta = await altaProducto({

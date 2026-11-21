@@ -420,6 +420,9 @@ export interface ControlTenant {
   rubro?: string | undefined;
   requestKey?: string | undefined;
   trialHasta?: string | undefined;
+  // Abuso vs mora: decide el texto que ve el comercio. Solo memoria (sin
+  // columna); sin dato, el texto es el neutro.
+  suspensionTipo?: "mora" | "abuso" | undefined;
 }
 
 export interface ControlMembership {

@@ -1,11 +1,12 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { resumenUsoEnListadoTenants, sincronizarUsoDiarioDesdeContadores } from "../../../lib/admin-db.js";
-import { listarYSincronizarTenantsControl, persistirEstadoTenant } from "../../../lib/control-db.js";
+import { listarYSincronizarTenantsControl } from "../../../lib/control-db.js";
 import { fechaAR } from "../../../lib/fecha-ar.js";
 import { control } from "../../../lib/store.js";
 import { adminStore } from "../../../lib/admin-store.js";
-import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
+import { exigirAdminMutante, auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
+import { guardarEstadoTenant, suspenderPorAbuso, suspenderPorMora } from "./_suspender.js";
 
 export const prerender = false;
 
@@ -28,7 +29,7 @@ export const GET: APIRoute = async ({ request }) => {
       estado: t.estado,
       plan: t.plan,
       vencimiento: (t as { trialHasta?: string }).trialHasta ?? null,
-      backup: "diario",
+      suspension_tipo: t.suspensionTipo ?? null,
       uso_wa: uso.uso_wa,
       costo_alto: uso.costo_alto,
     };
@@ -37,13 +38,13 @@ export const GET: APIRoute = async ({ request }) => {
   return Response.json({ tenants: lista });
 };
 
-// POST /api/admin/tenants — accion suspender|reactivar con confirmo_id + motivo.
+// POST /api/admin/tenants — accion suspender|suspender_abuso|reactivar con confirmo_id + motivo.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = await exigirAdminListo(request);
+  const admin = await exigirAdminMutante(request);
   if (admin instanceof Response) return admin;
   const body = await leerJson(request);
   if (body instanceof Response) return body;
-  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "reactivar"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
+  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "suspender_abuso", "reactivar"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Datos inválidos." }, { status: 422 });
   const conf = exigirConfirmacion(body as Record<string, unknown>, parsed.data.tenant_id);
   if (conf instanceof Response) return conf;
@@ -54,15 +55,25 @@ export const POST: APIRoute = async ({ request }) => {
     t = control.tenants.get(parsed.data.tenant_id);
   }
   if (!t) return Response.json({ error: "Tenant desconocido." }, { status: 404 });
-  if (t.estado === (parsed.data.accion === "suspender" ? "suspendido" : "activo")) {
-    return Response.json({ error: parsed.data.accion === "suspender" ? "ya suspendido" : "ya activo" }, { status: 409 });
+  // Suspender sigue la misma regla que Mora (gracia 14 días): una sola puerta.
+  if (parsed.data.accion === "suspender") {
+    return suspenderPorMora({ tenantId: t.id, motivo: conf.motivo, actorSub: admin.googleSub });
   }
+  // Abuso: inmediata, sin gracia; motivo y confirmación igual que mora.
+  if (parsed.data.accion === "suspender_abuso") {
+    return suspenderPorAbuso({ tenantId: t.id, motivo: conf.motivo, actorSub: admin.googleSub });
+  }
+  if (t.estado === "activo") return Response.json({ error: "ya activo" }, { status: 409 });
   const de = t.estado;
-  const estadoNuevo = parsed.data.accion === "suspender" ? "suspendido" : "activo";
-  t.estado = estadoNuevo;
-  control.tenants.set(t.id, t);
-  await persistirEstadoTenant(t.id, estadoNuevo);
-  adminStore.eventosVida.push({ id: crypto.randomUUID(), tenantId: t.id, deEstado: de, aEstado: t.estado, motivo: (conf as { motivo: string }).motivo, actor: (admin as { googleSub: string }).googleSub, idempotencyKey: crypto.randomUUID(), creadoEn: new Date().toISOString() });
-  auditar({ kind: parsed.data.accion === "suspender" ? "tenant_suspendido" : "tenant_reactivado", tenantId: t.id }, (admin as { googleSub: string }).googleSub, "panel");
+  const tipoPrevio = t.suspensionTipo;
+  t.estado = "activo";
+  t.suspensionTipo = undefined;
+  if (!(await guardarEstadoTenant(t.id, "activo"))) {
+    t.estado = de;
+    t.suspensionTipo = tipoPrevio;
+    return Response.json({ error: "No se pudo guardar la reactivación. Probá de nuevo." }, { status: 503 });
+  }
+  adminStore.eventosVida.push({ id: crypto.randomUUID(), tenantId: t.id, deEstado: de, aEstado: t.estado, motivo: conf.motivo, actor: admin.googleSub, idempotencyKey: crypto.randomUUID(), creadoEn: new Date().toISOString() });
+  auditar({ kind: "tenant_reactivado", tenantId: t.id }, admin.googleSub, "panel");
   return Response.json({ tenant_id: t.id, estado: t.estado });
 };
