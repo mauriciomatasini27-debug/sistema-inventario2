@@ -4,8 +4,6 @@ import { tenantDeRequest } from "../../../lib/tenant-context.js";
 
 export const prerender = false;
 
-// GET /api/fiscal/documents — lectura + bandeja (ADR-0019 + FE-S20/S25). Sin edición.
-// PERS2-S8: el repo fiscal lee fiscal_documents del tenant con fallback a memoria en single.
 // ISO-S4: el tenant lo resuelve el servidor y todo se filtra por él (DB y memoria).
 export const GET: APIRoute = async ({ request, url }) => {
   const t = tenantDeRequest(request);

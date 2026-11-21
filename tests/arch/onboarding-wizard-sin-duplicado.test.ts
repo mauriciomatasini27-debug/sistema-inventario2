@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// TB-165: guardia de arquitectura. El cuestionario tenía dos máquinas de
-// estados (la pura en wizard.ts y una copia inline en la página) y la
-// semántica de cada rama partida entre módulo y vista. La página delega las
-// transiciones al módulo y no reinterpreta claves ni destinos.
+// TB-165 [tenant]: la página delega transiciones a wizard.ts sin duplicar la máquina de estados.
 const PAGINA = "src/pages/onboarding.astro";
 const fuente = readFileSync(PAGINA, "utf8");
 

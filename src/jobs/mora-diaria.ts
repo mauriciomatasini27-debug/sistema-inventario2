@@ -3,13 +3,6 @@ import { adminStore } from "../lib/admin-store.js";
 import { aplicar_evento_vida } from "../modules/admin/mora.js";
 import { fechaAR } from "../lib/fecha-ar.js";
 
-// Job mora diaria PA7 (06:00 America/Argentina). Reconcilia lifecycle events
-// pendientes: aplica a control.tenants todo evento cuyo efecto no esté
-// reflejado (consumidor control-side; en monoproceso las rutas ya aplican
-// inline, acá queda el camino multiproceso). La suspensión automática por
-// deuda vive en fase 2 con cargos (hoy la cobranza es manual MVP: evaluar +
-// suspender/regularizar desde el panel).
-// Idempotente por clave mora:YYYY-MM-DD: re-corridas del mismo día retornan ya.
 
 export function ejecutarMoraDiaria(ahora = new Date()): {
   ya: boolean;

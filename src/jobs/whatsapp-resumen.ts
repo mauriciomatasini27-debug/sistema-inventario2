@@ -1,9 +1,3 @@
-// Jobs B9/B14/B15: viernes + lunes + cierre por comercio con TZ.
-// Runner idempotente: cada canal (WA/email) tiene su propia clave y su
-// propio gate (opt-in/pausa B2). Si un canal falla o no tiene opt-in, el
-// otro igual sale. Envíos distribuidos en el tiempo por hash del tenant.
-// Sin IO directa: el runner recibe senders inyectados; el adaptador (P1)
-// los conecta a Cloud API / Resend y a las tiendas reales.
 
 import { puede_enviar_whatsapp, type Preferencias } from "../modules/whatsapp/optin.js";
 import { puede_enviar_email, type PreferenciasEmail } from "../modules/email/proveedor.js";
@@ -39,7 +33,6 @@ export type Enviador = (args: {
   idempotencyKey: string;
 }) => Promise<boolean>;
 
-// Distribuye en una ventana para no mandar todo junto (ej. 60 min).
 export function offset_por_comercio(tenantId: string, ventanaMin: number): number {
   let h = 0;
   for (let i = 0; i < tenantId.length; i++) h = (h * 31 + tenantId.charCodeAt(i)) >>> 0;
@@ -50,7 +43,6 @@ export function dia_iso_en_zona(ahora: Date, zona: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: zona }).format(ahora);
 }
 
-// --- Job viernes: WA resumen_semanal + email paralelo ---
 
 export async function ejecutar_job_viernes(
   tiendas: { wa: Map<string, string>; email: Map<string, string> },
@@ -69,7 +61,6 @@ export async function ejecutar_job_viernes(
   const emailKey = `resumen_semanal:${comercio.tenantId}:${semanaISO}`;
   const out: ResultadoCanal[] = [];
 
-  // Canal WA independiente.
   if (!comercio.prefsWa.optIn) {
     out.push({ canal: "wa", estado: "omitido_optin", idempotencyKey: waKey });
   } else if (!puede_enviar_whatsapp(comercio.prefsWa, args.ahoraMs)) {
@@ -94,7 +85,6 @@ export async function ejecutar_job_viernes(
     out.push({ canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: waKey });
   }
 
-  // Canal email independiente (no depende del resultado WA).
   if (!comercio.prefsEmail.resumenCierre && calculo.unidades === 0 && calculo.faltantes === 0) {
     out.push({ canal: "email", estado: "omitido_optin", idempotencyKey: emailKey });
   } else if (!puede_enviar_email(comercio.prefsEmail, args.ahoraMs)) {
@@ -118,7 +108,6 @@ export async function ejecutar_job_viernes(
   return out;
 }
 
-// --- Job lunes 10h: recordatorio del pedido programado ---
 
 export async function ejecutar_job_lunes(
   tiendas: Map<string, string>,
@@ -145,7 +134,6 @@ export async function ejecutar_job_lunes(
   return { canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: key };
 }
 
-// --- Job cierre: dispara en el cierre una vez por jornada ---
 
 export async function ejecutar_job_cierre(
   tiendas: Map<string, string>,

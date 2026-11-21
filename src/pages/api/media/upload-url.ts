@@ -11,10 +11,7 @@ const bodySchema = z.object({
   modulo_origen: z.enum(["inventory", "purchases", "tickets"]),
 });
 
-// POST /api/media/upload-url — CH-S2 / PWA-S4.
-// Emite URL firmada para subir foto (800px/200KB, ≤2MB). Stub local HMAC 15min;
 // R2 real va por env MEDIA_R2_* (documentado, no cableado aún).
-// 409 mismo hash (dedupe journal photos_queue futuro).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

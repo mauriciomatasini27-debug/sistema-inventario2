@@ -25,8 +25,7 @@ beforeEach(() => {
 });
 
 function preparar() {
-  // TB-165: B primero: con el fallback viejo a la primera membresía Dueño, las
-  // respuestas de A habrían terminado en B.
+  // TB-165 [tenant]: el comercio activo de la sesión fija dónde persisten las respuestas.
   for (const id of [B, A]) {
     control.tenants.set(id, {
       id, nombreComercio: `Nombre de ${id}`, slug: id, estado: "activo",

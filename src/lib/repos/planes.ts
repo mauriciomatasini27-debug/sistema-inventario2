@@ -12,8 +12,11 @@ import {
 } from "../../modules/planes/catalogo.js";
 import {
   crearPreaprobacionMercadoPago,
+  crearPreaprobacionSuscripcionMp,
+  type EstadoPreapprovalMp,
   type ProveedorCobro,
   type ResultadoPreaprobacionMp,
+  type ResultadoSuscripcionMp,
   type Suscripcion,
 } from "../../modules/planes/proveedor.js";
 import { planVigenteDe } from "../../modules/planes/ciclo.js";
@@ -21,7 +24,7 @@ import { mpPreapprovalTenants } from "../../db/schema.js";
 import { planFeatures, plans, subscriptions, usageCounters } from "../../db/schema-planes.js";
 import { getSharedDbPlataforma } from "../db.js";
 import { dbVivaTenant, type TenantDb } from "../server-db.js";
-import { esModoShared } from "../tenant-mode.js";
+import { conTenant, esModoShared } from "../tenant-mode.js";
 import {
   crearAlmacenSuscripciones,
   crearAlmacenUsoPlanes,
@@ -142,6 +145,121 @@ export function registrarEstadoCobroMp(args: {
   }
   const cuando = args.occurredAt ?? new Date().toISOString();
   if (!rechazoCobroPorTenant.has(tenantId)) rechazoCobroPorTenant.set(tenantId, cuando);
+}
+
+// P1-91: el pago rechazado llega con el preapproval_id del GET, que puede
+// estar solo en la base. Se resuelve el comercio antes de marcar la mora.
+export async function registrarCobroMpPorPreapproval(args: {
+  readonly preapprovalId: string;
+  readonly estado: "activo" | "gracia" | "suspendido";
+  readonly occurredAt?: string | undefined;
+}): Promise<void> {
+  const tenantId =
+    preapprovalPorTenant.get(args.preapprovalId) ?? (await tenantIdDePreapproval(args.preapprovalId));
+  if (!tenantId) return;
+  preapprovalPorTenant.set(args.preapprovalId, tenantId);
+  registrarEstadoCobroMp(args);
+}
+
+// P1-91: reason es el único campo libre del preapproval sin plan; el alta
+// escribe "Plan <id>" y acá se recupera el plan para persistir subscriptions.
+export function planIdDeReasonMp(reason: string | undefined): PlanId | null {
+  if (!reason) return null;
+  const m = reason.toLowerCase().match(/\b(basico|plus|pro)\b/);
+  return m ? (m[1] as PlanId) : null;
+}
+
+async function marcarProveedorSuscripcionMp(suscripcionId: string, preapprovalId: string): Promise<void> {
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      await db
+        .update(subscriptions)
+        .set({ proveedor: "mercadopago", proveedorRef: preapprovalId })
+        .where(eq(subscriptions.id, suscripcionId));
+    } catch (e) {
+      crearAlmacenSuscripciones().anteFalloPersistencia(e);
+    }
+  }
+  const mapa = crearAlmacenSuscripciones();
+  const actual = mapa.obtener(suscripcionId);
+  if (actual) {
+    mapa.guardar(suscripcionId, { ...actual, proveedor: "mercadopago", proveedorRef: preapprovalId });
+  }
+}
+
+async function vinculoProveedorSuscripcion(
+  suscripcionId: string,
+): Promise<{ readonly proveedor: string | null; readonly proveedorRef: string | null }> {
+  const db = dbVivaTenant();
+  if (db) {
+    try {
+      const filas = await db
+        .select({ proveedor: subscriptions.proveedor, proveedorRef: subscriptions.proveedorRef })
+        .from(subscriptions)
+        .where(eq(subscriptions.id, suscripcionId))
+        .limit(1);
+      const f = filas[0];
+      if (f) return { proveedor: f.proveedor, proveedorRef: f.proveedorRef };
+    } catch (e) {
+      crearAlmacenSuscripciones().anteFalloPersistencia(e);
+    }
+  }
+  const mem = crearAlmacenSuscripciones().obtener(suscripcionId);
+  return { proveedor: mem?.proveedor ?? null, proveedorRef: mem?.proveedorRef ?? null };
+}
+
+// P1-91: estado real del preapproval → subscriptions. El CHECK de 0025
+// solo admite activa|cancelada: authorized enciende, paused y cancelled
+// apagan, pending no toca nada porque el cobro aún no ocurrió.
+export async function aplicarEstadoPreapprovalMp(args: {
+  readonly preapprovalId: string;
+  readonly tenantId?: string | undefined;
+  readonly planId?: PlanId | null | undefined;
+  readonly estado: EstadoPreapprovalMp;
+}): Promise<Suscripcion | null> {
+  const tenantId = args.tenantId ?? (await tenantIdDePreapproval(args.preapprovalId));
+  if (!tenantId) return null;
+  vincularPreaprobacionTenant(args.preapprovalId, tenantId);
+  if (args.estado === "pending") return null;
+  const estado: Exclude<EstadoPreapprovalMp, "pending"> = args.estado;
+  // P1-91: el webhook corre sin middleware: en shared el contexto de comercio lo pone
+  // acá el external_reference que devolvió MP.
+  const aplicar = () =>
+    aplicarEstadoPreapprovalEnTenant(args.preapprovalId, tenantId, args.planId ?? null, estado);
+  return esModoShared() ? conTenant(tenantId, aplicar) : aplicar();
+}
+
+async function aplicarEstadoPreapprovalEnTenant(
+  preapprovalId: string,
+  tenantId: string,
+  planId: PlanId | null,
+  estado: Exclude<EstadoPreapprovalMp, "pending">,
+): Promise<Suscripcion | null> {
+  if (estado === "authorized") {
+    let activa = await leerSuscripcionActiva(tenantId);
+    if (!activa) {
+      if (!planId) return null;
+      activa = await crearProveedorCobro().crearSuscripcion({ tenantId, planId });
+    } else if (planId && activa.planId !== planId) {
+      activa = await aplicarUpgradeInmediato({
+        tenantId,
+        suscripcionId: activa.id,
+        planId,
+      });
+    }
+    await marcarProveedorSuscripcionMp(activa.id, preapprovalId);
+    registrarEstadoCobroMp({ preapprovalId, estado: "activo" });
+    return activa;
+  }
+  const activa = await leerSuscripcionActiva(tenantId);
+  if (!activa) return null;
+  const vinculo = await vinculoProveedorSuscripcion(activa.id);
+  const esDeEstaPreaprobacion =
+    vinculo.proveedorRef === preapprovalId ||
+    (vinculo.proveedorRef == null && vinculo.proveedor === "mercadopago");
+  if (!esDeEstaPreaprobacion) return null;
+  return crearProveedorCobro().cancelar(activa.id);
 }
 
 function modulosPagosEnMora(tenantId: string, ahoraMs: number): boolean {
@@ -619,6 +737,29 @@ export async function solicitarPreaprobacionPlan(args: {
     tenantId: args.tenantId,
     planId: args.planId,
     catalogo,
+    fetchImpl: args.fetchImpl,
+  });
+  if (r.ok) vincularPreaprobacionTenant(r.preapprovalId, args.tenantId);
+  return r;
+}
+
+// P1-91: alta real de la preaprobación sin plan con el body oficial.
+// El monto en ARS queda pendiente de Mauri: se envía el del catálogo tal cual.
+export async function solicitarSuscripcionPlan(args: {
+  readonly tenantId: string;
+  readonly planId: PlanId;
+  readonly payerEmail: string;
+  readonly backUrl: string;
+  readonly fetchImpl?: typeof fetch | undefined;
+}): Promise<ResultadoSuscripcionMp> {
+  const catalogo = await leerCatalogo();
+  const plan = planDe(catalogo, args.planId);
+  const r = await crearPreaprobacionSuscripcionMp({
+    tenantId: args.tenantId,
+    planId: args.planId,
+    montoArs: plan.precioMensualUSD,
+    payerEmail: args.payerEmail,
+    backUrl: args.backUrl,
     fetchImpl: args.fetchImpl,
   });
   if (r.ok) vincularPreaprobacionTenant(r.preapprovalId, args.tenantId);

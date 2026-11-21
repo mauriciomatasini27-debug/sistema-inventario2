@@ -35,7 +35,21 @@ export interface PayloadLista {
   };
 }
 
-export type PayloadEnvio = PayloadTexto | PayloadBotones | PayloadLista;
+// WA-AVISOS-1: Plantilla aprobada en Meta (type "template"): única forma de escribir fuera
+// de la ventana de 24 h. Parámetros posicionales del cuerpo ({{1}}, {{2}}...).
+export interface PayloadPlantilla {
+  readonly type: "template";
+  readonly template: {
+    readonly name: string;
+    readonly language: { readonly code: string };
+    readonly components: ReadonlyArray<{
+      readonly type: "body";
+      readonly parameters: ReadonlyArray<{ readonly type: "text"; readonly text: string }>;
+    }>;
+  };
+}
+
+export type PayloadEnvio = PayloadTexto | PayloadBotones | PayloadLista | PayloadPlantilla;
 
 // Trunca sin romper surrogate (límite Meta, no cambia semántica).
 export function truncar_titulo(s: string, max: number): string {
@@ -70,6 +84,15 @@ export function construir_lista(
       body: { text: body },
       action: { button: truncar_titulo(botonTexto, 20), sections: [{ title: "Opciones", rows }] },
     },
+  };
+}
+
+// WA-AVISOS-1: Meta rechaza parámetros con saltos de línea, tabs o más de 4 espacios seguidos.
+export function construir_plantilla(nombre: string, idioma: string, parametros: ReadonlyArray<string>): PayloadPlantilla {
+  const parameters = parametros.map((p) => ({ type: "text" as const, text: p.replace(/\s+/g, " ").trim() }));
+  return {
+    type: "template",
+    template: { name: nombre, language: { code: idioma }, components: parameters.length ? [{ type: "body", parameters }] : [] },
   };
 }
 

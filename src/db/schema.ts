@@ -26,7 +26,6 @@ export const products = pgTable(
   nombre: text("nombre").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
   stockActual: integer("stock_actual").notNull().default(0),
-  // Nivel 1: sector para conteo por sector (default 'general').
   sector: text("sector").notNull().default("general"),
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): origen del producto; NULL en los
   // existentes, "alta_al_vender" al vender y "plantilla_rubro" por plantilla.
@@ -232,7 +231,6 @@ export const memberships = pgTable("memberships", {
   estado: text("estado").notNull().default("activo"),
   revocadoAt: timestamp("revocado_at"),
   revocadoPor: text("revocado_por"),
-  // AU11.3: interruptor "Puede usar el bot" (default activado en el MVP).
   puedeUsarBot: boolean("puede_usar_bot").notNull().default(true),
 });
 
@@ -392,8 +390,6 @@ export const stockImports = pgTable(
   (t) => [uniqueIndex("stock_imports_tenant_idem_uq").on(t.tenantId, t.idemKey)],
 );
 
-// N1 CAT-S1/S5/S6 + CAJA-S1/S3/S4: tablas mínimas para cutover DB.
-// Tests/build sin DB usan store en memoria; con DB viva hay write-through.
 export const productPhotos = pgTable("product_photos", {
   tenantId: uuid("tenant_id").notNull(),
   id: uuid("id").primaryKey().defaultRandom(),

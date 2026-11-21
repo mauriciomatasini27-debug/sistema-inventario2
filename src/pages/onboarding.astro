@@ -3,9 +3,7 @@ import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
 import { tenantDelCuestionario } from "../modules/onboarding/acceso-tenant.js";
 
 // ONBOARDING-WIZARD (T2): ruta dedicada post-login.
-// TB-165: la página es sólo vista; las transiciones viven en wizard.ts.
-// TB-165: el cuestionario es del Dueño; el guard corre en servidor para que
-// un Empleado no llegue por navegación directa.
+// TB-165 [rol]: el cuestionario es del Dueño; el guard en servidor bloquea al Empleado.
 const acceso = exigirDuenoDeRequest(Astro.request);
 if (!acceso.ok) return Astro.redirect("/panel", 302);
 // TB-165 [tenant]: el panel abre el cuestionario con el comercio ya resuelto.
@@ -60,8 +58,6 @@ const tenantId = tenantCuestionario.tenantId;
       <div class="body" id="body"></div>
     </div>
     <script define:vars={{ tenantId }}>
-      // TB-165: antes acá había una copia de la máquina de estados. La página
-      // sólo renderiza y delega cada transición al módulo dueño del cuestionario.
       import {
         agregarEmpleado,
         avanzar,
@@ -85,14 +81,12 @@ const tenantId = tenantCuestionario.tenantId;
           const guardado = JSON.parse(crudo) as Partial<WizardState>;
           state = { ...state, ...guardado, completado: guardado.completado ?? false };
         } catch {
-          // TB-165: un guardado corrupto no debe trabar el cuestionario.
+          // TB-165 [plataforma]: un borrador corrupto en localStorage no debe trabar el flujo.
         }
       }
 
       const body = document.getElementById("body")!;
 
-      // TB-165: datos ya capturados en el alta y en el proveedor de identidad.
-      // Se muestran completos y sólo lectura: el cuestionario no los repite.
       async function cargarDatosConocidos() {
         const el = document.querySelector("[data-datos-conocidos]");
         if (!(el instanceof HTMLElement) || !tenantId) return;
@@ -113,8 +107,6 @@ const tenantId = tenantCuestionario.tenantId;
             el.appendChild(d);
           }
           el.hidden = filas.length === 0;
-          // TB-165: con los datos reales se recalculan los pasos: lo que el
-          // alta ya capturó deja de preguntarse y lo que falta se agrega.
           state = conDatosConocidos(state, {
             rubro: j.comercio?.rubro,
             whatsapp: j.comercio?.whatsapp,
@@ -143,15 +135,13 @@ const tenantId = tenantCuestionario.tenantId;
         if (esCompleto(state)) {
           body.innerHTML = `<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">${state.pasos.length} de ${state.pasos.length} pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>`;
           progreso();
-          // TB-165: antes sólo se enviaban empleados y el resto se descartaba.
           fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: tenantId, empleados: state.empleados, respuestas: state.respuestas }) }).catch((e) => { console.warn("onboarding completar falló", e); });
           document.getElementById("irPanel")!.onclick = () => { window.location.href = "/panel"; };
           return;
         }
         const paso = pasoActual(state);
-        if (!paso) return; // TB-165: sin paso activo no hay nada que renderizar.
+        if (!paso) return;
 
-        // TB-165: la vista no conoce claves; el paso dice si abre el subflujo.
         if (subflujoEmpleadosActivo(state)) {
           const card = document.createElement("div"); card.className = "card";
           card.innerHTML = "<h3>Cargá los emails de tus empleados</h3><p>Les enviaremos un link para sumarse.</p>";
@@ -185,10 +175,7 @@ const tenantId = tenantCuestionario.tenantId;
           (paso.opciones ?? []).forEach((o) => {
             const b = document.createElement("button"); b.className = "chip"; b.textContent = o;
             b.onclick = () => {
-              // TB-165: las ramas «sí» guardan el avance antes de salir; si no,
-              // al volver del destino el cuestionario nunca se puede terminar.
-              // TB-165: la transición entrega el estado ya avanzado y el
-              // destino; se guarda antes de navegar para no perder el avance.
+              // TB-165 [plataforma]: guardar antes de salir con «Sí»; si no, al volver no se puede terminar.
               const t = transicionConSalida(state, o);
               state = t.state;
               save();

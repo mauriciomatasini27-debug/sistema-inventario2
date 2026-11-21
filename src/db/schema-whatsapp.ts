@@ -6,8 +6,6 @@ import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex,
 // cacheado — el bot lee la base del tenant en vivo por identidad verificada.
 // Todo append-only salvo preferencias (upsert por usuario+tenant).
 
-// B1.1/B1.2: código VINCULAR de un solo uso, 6 dígitos, vence 10 min.
-// Se guarda hash, nunca el código plano. Un pendiente por número.
 export const whatsappCodes = pgTable("whatsapp_codes", {
   id: uuid("id").primaryKey().defaultRandom(),
   numeroE164: text("numero_e164").notNull(),
@@ -28,8 +26,6 @@ export const whatsappUsage = pgTable("whatsapp_usage", {
   wamid: text("wamid").notNull().unique(),
   tipo: text("tipo").notNull(),
   plantilla: text("plantilla"),
-  // B5/B9/B14/B15: cada plantilla de utilidad paga (~USD 0,026 AR) se
-  // contabiliza por comercio. Dinero siempre bigint centavos.
   costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(0n),
   estado: text("estado").notNull().default("enviado"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -5,9 +5,6 @@ import { altaPayee } from "../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payees — alta de beneficiario (OP6, anti-duplicado alias/CBU/CUIT).
-// PERS2-S24: DB-first en el repo de órdenes de pago. En multi sin base el
-// repo propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

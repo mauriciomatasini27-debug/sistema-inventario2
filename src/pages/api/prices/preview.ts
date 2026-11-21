@@ -4,7 +4,6 @@ import { previsualizarAjuste } from "../../../modules/pricing/precios.js";
 
 export const prerender = false;
 
-// POST /api/prices/preview — previa GP1 (no muta).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

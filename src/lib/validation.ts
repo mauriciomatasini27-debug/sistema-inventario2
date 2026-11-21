@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// C5/C4 ADR-0004: 5 medios fijos, lista cerrada.
 export const medioSchema = z.enum([
   "Efectivo",
   "Debito",
@@ -10,7 +9,6 @@ export const medioSchema = z.enum([
 ]);
 export type Medio = z.infer<typeof medioSchema>;
 
-// TV1/TV3 ADR-0004: 1 venta = 1 ticket, numeración servidor + provisorio DeviceCode-SeqLocal.
 export const salesLineSchema = z.object({
   product_id: z.string().min(1).max(64),
   qty: z.number().int().min(1).max(999),
@@ -32,11 +30,9 @@ export const postSalesSchema = z.object({
   client_occurred_at: z.string().datetime({ offset: true }),
   offline: z.boolean().default(false),
   // FE-S8: CUIT a pedido + condición IVA receptor declarada (RG 5616).
-  // Ausentes = consumidor final por defecto (con umbral $10M).
   fiscal_receptor_cuit: z.string().max(13).optional(),
   fiscal_cond_iva_receptor: z.number().int().min(1).max(9).optional(),
   // FE-S7 (B): emisor para determinar clase. Default monotributo etapa 1
-  // preserva el slice C; RI etapa 2 habilita B a CF.
   fiscal_emisor_condicion: z.enum(["monotributo", "exento", "responsable_inscripto"]).optional(),
   fiscal_emisor_etapa: z.number().int().min(1).max(3).optional(),
   // FE-S12 (B): alícuota IVA. Default 5 (21%).
@@ -266,7 +262,6 @@ export const supplierPaymentSchema = z.object({
   creado_por: z.string().min(1).max(128),
   factura_id: z.string().min(1).max(128).optional(),
 });
-// O2.3 cuentas + facturas de servicios (reusa cuentaSchema/facturaSchema del módulo).
 export const serviceBillPaySchema = z.object({
   bill_id: z.string().min(1).max(128),
   servicio: z.enum(["luz", "gas", "agua", "internet", "telefono", "tasas", "arca", "otro"]),
@@ -439,6 +434,6 @@ export const altaAutoservicioSchema = z.object({
 export const onboardingCompletarSchema = z.object({
   tenant_id: z.string().min(1).max(128).optional(),
   empleados: z.array(z.string().min(1).max(128)).optional(),
-  // TB-165: respuestas de los pasos desconocidos; antes no llegaban y se perdían.
+  // TB-165 [tenant]: el completar persiste todas las respuestas del cuestionario.
   respuestas: z.record(z.string(), z.string().min(1).max(500)).optional(),
 });

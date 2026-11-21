@@ -13,9 +13,6 @@ const bodySchema = z.object({
   pin: z.string().min(4).max(6),
 });
 
-// POST /api/devices/pin — el Dueño define el PIN del mostrador (P1-3).
-// Solo viaja el plano en este request; se guarda hash scrypt y se audita
-// sin el plano ni el hash.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

@@ -4,8 +4,6 @@ import { estadoCuentaRepo } from "../../../lib/repos/facturas-proveedor.js";
 
 export const prerender = false;
 
-// GET /api/supplier-invoices/account?cuit= — estado de cuenta (facturado/pagado/saldo).
-// Solo lectura. PERS2-S14: el repo une memoria caliente + DB fria.
 export const GET: APIRoute = async ({ url }) => {
   const cuit = url.searchParams.get("cuit") ?? "";
   if (!cuit) return Response.json({ error: "falta cuit" }, { status: 422 });

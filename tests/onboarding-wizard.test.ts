@@ -13,7 +13,7 @@ import {
   PASOS_WIZARD,
 } from "../src/modules/onboarding/wizard.js";
 
-// TB-165: estos casos asumen que el alta ya capturó rubro y WhatsApp.
+// TB-165 [tenant]: estos casos asumen que el alta ya capturó rubro y WhatsApp del comercio.
 const inicial = () => estadoInicialWizard({ rubro: "kiosco", whatsapp: "5491112345678" });
 
 describe("onboarding-wizard (T1)", () => {
@@ -64,7 +64,7 @@ describe("onboarding-wizard (T1)", () => {
   it("saltar marca pendiente y avanza", () => {
     const s = saltar(inicial());
     expect(s.paso).toBe(1);
-    // TB-165: el id canónico de «no aplica» es el del checklist (singular).
+    // TB-165 [tenant]: el id de «no aplica» es el del checklist (singular).
     expect(s.saltados).toContain("empleado");
     expect(s.saltados).not.toContain("empleados");
   });

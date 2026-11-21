@@ -1,5 +1,3 @@
-// Job bienvenida ON5. Idempotente por (tenant, número): un segundo envío
-// o un segundo VINCULAR no repite el mensaje (ON5.7).
 import { control } from "../lib/store.js";
 import { claveBienvenida } from "../modules/onboarding/estado.js";
 import { decidir_bienvenida, texto_bienvenida, BOTONES_BIENVENIDA } from "../modules/onboarding/bienvenida.js";
@@ -9,8 +7,6 @@ export interface ResultadoBienvenida {
   enviada: boolean;
 }
 
-// Los mensajes del onboarding no descuentan del cupo del plan: se marcan
-// onboarding en el outbox con tope por alta (ON5.8).
 export function ejecutarBienvenida(input: {
   tenantId: string;
   numero: string;

@@ -9,6 +9,7 @@ export interface Contacto {
 }
 
 export interface Plan {
+  id: "basico" | "plus" | "pro";
   nombre: string;
   precioUnico: string;
   destacado?: boolean;
@@ -43,34 +44,35 @@ export const business: Business = {
   },
   planes: [
     {
+      id: "basico",
       nombre: "Básico",
       precioUnico: "Consultar",
       features: [
-        "1 caja en el local.",
-        "1 almacén atado a la venta.",
-        "Lista de precios y stock visible.",
-        "Soporte por mensaje en horario comercial.",
+        "Inventario, caja y venta desde el celular.",
+        "Alertas de stock por email.",
+        "Consultas de stock por WhatsApp, hasta 100 al mes.",
       ],
     },
     {
+      id: "plus",
       nombre: "Plus",
       precioUnico: "Precio a confirmar",
       destacado: true,
       features: [
-        "2 cajas en el mismo local.",
-        "Venta desde el celular.",
-        "Reposición por mínimo de stock.",
-        "Soporte prioritario por mensaje.",
+        "Todo lo de Básico, sin tope en las consultas de WhatsApp.",
+        "Alertas de stock por WhatsApp.",
+        "Bot adaptado a tu rubro.",
+        "Asistente IA.",
       ],
     },
     {
+      id: "pro",
       nombre: "Pro",
       precioUnico: "A medida",
       features: [
         "Todo lo de Plus.",
-        "2 cajas y venta celular.",
-        "Reglas de reposición y cierre.",
-        "Funciones a medida cotizadas aparte.",
+        "Armado a medida de tu negocio.",
+        "Se cotiza aparte, según lo que necesites.",
       ],
     },
   ],
@@ -295,8 +297,8 @@ export const landingBeats: readonly LandingBeat[] = [
     variant: "white",
     nav: "Planes",
     title: "Planes",
-    lead: "Elegí por cajas, depósito y venta celular. Precios de lista por local.",
-    nota: "Precios de lista en ARS + IVA, validez 20 días. Básico Consultar, Plus Precio a confirmar, Pro A medida.",
+    lead: "Elegí según cuánto querés usar WhatsApp, el bot y el asistente.",
+    nota: "Básico Consultar, Plus Precio a confirmar, Pro A medida.",
     garantia: GARANTIA_BAJA,
     empezar: {
       title: "Cómo empezar",
@@ -315,7 +317,7 @@ export const landingBeats: readonly LandingBeat[] = [
         {
           step: "Paso 3",
           title: "Elegir plan",
-          detail: "Te quedás con Básico, Plus o Pro según cajas y venta celular.",
+          detail: "Te quedás con Básico, Plus o Pro según lo que necesites.",
         },
       ],
     },
@@ -475,7 +477,7 @@ export const contactConfigured = !(
  * WhatsApp no renderiza SVG; reemplazar por foto real del local.
  */
 export const seo = {
-  site: "https://inventario.com.ar",
+  site: "https://modoops2791.vercel.app",
   title: "Inventario — Stock en tiempo real",
   description:
     "Sistema de inventario para kioscos y mostrador: caja, depósito y venta celular en un solo lugar.",

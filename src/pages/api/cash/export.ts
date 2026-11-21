@@ -6,11 +6,6 @@ import { filtrar_historial, historial_a_csv, paginar, parsear_params } from "../
 
 export const prerender = false;
 
-// GET /api/cash/export?tipo=&medio=&origen=&limit=&cursor= — C11 CSV.
-// Mismos filtros y paginación que /api/cash/history. CSV UTF-8 con BOM,
-// descarga adjunta. Solo lectura.
-// SYNC-S7: export es sensible, exige online. Con grant offline / cuarentena => 403.
-// PERS2-S12: el repo caja lee cash_movements del tenant con DB viva.
 export const GET: APIRoute = async ({ url, request }) => {
   const bloqueo = exigirOnlineParaSensible(request, "export");
   if (bloqueo) return bloqueo;
@@ -35,5 +30,4 @@ export const GET: APIRoute = async ({ url, request }) => {
   });
 };
 
-// BOM explícito sin literales invisibles en el fuente.
 const BOM = String.fromCharCode(0xfeff);

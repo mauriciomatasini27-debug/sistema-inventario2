@@ -14,8 +14,6 @@ const bodySchema = z.object({
   tenant_id: z.string().min(1).max(128).optional(),
 });
 
-// POST /api/whatsapp/desvincular — desvincula un número del bot (AU11.8).
-// Lo puede pedir el titular del vínculo o el Dueño del comercio. Revocar el
 // acceso (AU7) también revoca el vínculo; acá es cambio de número o celular
 // perdido sin perder el acceso.
 export const POST: APIRoute = async ({ request }) => {

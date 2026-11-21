@@ -19,6 +19,7 @@ describe("verify: plan de pasos", () => {
     const pasos = planDePasos({ docsOnly: true });
     expect(pasos.map((p) => p.nombre)).toEqual([
       "docs:generados",
+      "docs:comentarios-check",
       "docs:estado-check",
       "docs:index-check",
       "docs:migraciones-check",
@@ -29,7 +30,13 @@ describe("verify: plan de pasos", () => {
       "docs:index",
       "docs:check",
     ]);
-    for (const n of ["docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check"]) {
+    for (const n of [
+      "docs:comentarios-check",
+      "docs:estado-check",
+      "docs:index-check",
+      "docs:migraciones-check",
+      "roadmap-check",
+    ]) {
       expect(pasos.find((p) => p.nombre === n)?.extra).toEqual(["--check"]);
     }
   });

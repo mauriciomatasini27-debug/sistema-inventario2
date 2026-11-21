@@ -1,13 +1,3 @@
-// Job cierre automático de medianoche (C12 close_type automatica).
-//
-// El cron (fuera del repo: 00:05 America/Argentina/Buenos_Aires) pega
-// POST /api/jobs/cierre-medianoche con X-Job-Secret. Idempotente por
-// jornada: la clave es determinista (`cierre-auto-YYYY-MM-DD`), así que
-// reintentos y dobles disparos devuelven 409 sin duplicar el cierre.
-// Con turno en disputa no cierra (422): el Dueño resuelve primero (E5).
-// Tras el 201 (o el 409 con original de un reintento) asegura el aviso
-// WA C10 una sola vez por jornada. Sin IO propia: compone cash +
-// whatsapp igual que pagos-tx/aplicar-ya-pague.ts, sin modificarlos.
 
 import { cerrar_jornada, fecha_jornada_ar, type CierreOk } from "../modules/cash/cierre.js";
 import { derivar_balance, type Movimiento } from "../modules/cash/caja.js";
@@ -23,8 +13,6 @@ export interface AvisoCierre {
   readonly texto: string;
 }
 
-// Una vez por jornada sobre un Set persistido (store.waEnviados en
-// Slice-0; UNIQUE dedicado en Postgres). No bloquea al llamante.
 export function asegurar_aviso_cierre(waEnviados: Set<string>, snapshot: SnapshotCaja): AvisoCierre {
   const key = clave_cierre_wa(snapshot.tenantId, snapshot.fechaJornada);
   if (waEnviados.has(key)) return { estado: "duplicado", idempotencyKey: key, texto: "" };
@@ -62,10 +50,6 @@ export function ejecutar_cierre_medianoche(input: CierreMedianocheInput): Cierre
     cierres: input.cierres,
   });
   if (r.status === 422) return { status: 422, error: r.error };
-  // Con clave determinista por jornada el 409 siempre trae original
-  // (reintento misma key); el get por fecha cubre el caso teórico
-  // "jornada ya cerrada" con otra key. Ojo: r.original es el CierreOk
-  // EXTERNO ({status, cierre}); el snapshot usa el cierre interno.
   const cierre = r.status === 201 ? r.cierre : (r.original?.cierre ?? input.cierres.get(fechaJornada)?.cierre);
   if (!cierre) return { status: 422, error: "cierre inconsistente" };
   const balance = derivar_balance([...input.movimientos]);

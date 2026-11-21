@@ -1,7 +1,7 @@
 ---
 id: PRD-COM-01
 tipo: prd
-estado: propuesto
+estado: aceptado
 modulos: [persistencia]
 depende_de: [ADR-0016, ADR-0064]
 reemplaza: []

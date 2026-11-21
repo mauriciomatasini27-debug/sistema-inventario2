@@ -2,9 +2,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
-import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
+import { dondeTenant, esModoAisladoPorTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
 import { aplicarVentaLotes } from "../../lib/repos/stock.js";
-import { dbVivaTenant } from "../../lib/server-db.js";
+import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
 import {
   products,
   sales,
@@ -289,6 +289,15 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   return { ok: true, venta: { saleId, efecto: e, pagosConId, fuente: "memoria" } };
 }
 
+// AUD-VTA-02: con base viva, una falla a mitad de camino en multi/shared no
+// confirma la venta en memoria (otra instancia no la ve y el stock de la base
+// no baja). Lanza BaseNoDisponible y la ruta responde 503 para que la caja
+// reintente. En single el respaldo en memoria sigue como antes.
+function caidaDeBase(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
+  if (esModoAisladoPorTenant()) throw new BaseNoDisponible();
+  return viaMemoria(i);
+}
+
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
   const db = dbVivaTenant();
   if (!db) return viaMemoria(i);
@@ -306,7 +315,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
-    return viaMemoria(i);
+    return caidaDeBase(i);
   }
 
   let costos: ReadonlyMap<string, bigint>;
@@ -346,25 +355,29 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       }
       // Provisorios ya creados (origen alta_al_vender) sin ALTA todavía.
       const skusLinea = [...new Set(i.lineas.map((l) => l.product_id))];
+      // AUD-VTA-01: catálogo y movimientos filtrados por comercio; el mismo
+      // SKU en otro comercio no cuenta como provisorio ni como ALTA propia.
       const provisorios = await tx
         .select({ sku: products.sku })
         .from(products)
-        .where(and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender")));
+        .where(dondeTenant(products.tenantId, and(inArray(products.sku, skusLinea), eq(products.origen, "alta_al_vender"))));
       if (provisorios.length > 0) {
+        const wAlta = and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA"));
         const conAlta = await tx
           .select({ sku: stockMovements.sku })
           .from(stockMovements)
-          .where(and(inArray(stockMovements.sku, provisorios.map((p) => p.sku)), eq(stockMovements.tipo, "ALTA")));
+          .where(dondeTenant(stockMovements.tenantId, wAlta));
         const yaCargados = new Set(conAlta.map((m) => m.sku));
         for (const p of provisorios) if (!yaCargados.has(p.sku)) skusSinStockInicial.add(p.sku);
       }
       // P1-60: el corte de vencido es el instante de la venta.
       const ahora = new Date(i.clientOccurredAt);
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
+        // AUD-VTA-01: la línea del ticket apunta al producto de este comercio.
         const prods = await tx
           .select({ id: products.id, sku: products.sku })
           .from(products)
-          .where(inArray(products.sku, skusLinea));
+          .where(dondeTenant(products.tenantId, inArray(products.sku, skusLinea)));
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
         const r = vender_mostrador({
           idempotencyKey: i.key,
@@ -493,10 +506,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const fila = previo[0];
         return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: fila ? filaVentaJson(fila) : null };
       } catch {
-        return viaMemoria(i);
+        return caidaDeBase(i);
       }
     }
-    // Caída de DB a mitad de camino: la tx revirtió; la venta no se pierde.
-    return viaMemoria(i);
+    // AUD-VTA-02: caída de DB a mitad de camino; la tx revirtió. Single cae
+    // a memoria; multi/shared responde 503.
+    return caidaDeBase(i);
   }
 }

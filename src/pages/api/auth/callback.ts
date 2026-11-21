@@ -275,14 +275,9 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   // /admin; el defecto para el resto queda intacto. El corte de permisos lo
   // hace exigirAdmin en cada API, no este redirect.
   // P1-70: next=/panel sin comercio manda al alta (si no, panel vacío).
-  // ADR-0115 / PRD-ON-01: el cuestionario no es puerta de entrada. Con
-  // comercio se entra a /panel y el diálogo de bienvenida se muestra ahí,
-  // esté o no completado el cuestionario. Así un deploy no reenvía a nadie.
-  // PA1: la allowlist admin gana aunque haya comercio; `next` válido va primero.
-  // TB-165: Dueño y Empleado terminan en /panel; cada quien ve su recorrido.
+  // ADR-0115 [tenant]: el cuestionario no es puerta de entrada; con comercio se entra a /panel.
   const esAdmin = esAdminAllowlist(identidad.sub, leerAllowlist());
-  // TB-165: el rol sale de la membership activa, nunca del body. Alimenta el
-  // recorrido corto del Empleado que consume /panel (ticket 13).
+  // TB-165 [rol]: el rol sale de la membership activa, nunca del body.
   const rol = tenantId
     ? ([...control.memberships.values()].find(
         (m) => m.tenantId === tenantId && m.googleSub === identidad.sub && m.estado === "activo",

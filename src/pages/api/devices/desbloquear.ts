@@ -13,9 +13,6 @@ const bodySchema = z.object({
   pin: z.string().min(4).max(6),
 });
 
-// POST /api/devices/desbloquear — abre el mostrador con el PIN (P1-3).
-// Exige sesión del comercio pero NO reauth: el PIN es la prueba.
-// Rate-limit 5 intentos + 5 min por dispositivo, auditado sin el plano.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

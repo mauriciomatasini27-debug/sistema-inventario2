@@ -311,7 +311,7 @@ describe("P3-2b AU2-S3 bifurcación admin/tenant sin next (callback.ts)", () => 
     const previo = estadoInicial("juan", "t1");
     previo.wizardCompletado = true;
     control.onboardingState.set(claveOnboarding("juan", "t1"), previo);
-    // ADR-0115: simula el reinicio; el espejo en memoria se pierde pero la fila durable sigue.
+    // ADR-0115 [tenant]: simula el reinicio; el espejo en memoria se pierde pero la fila durable sigue.
     control.onboardingState.clear();
     expect(await callbackSinNext()).toBe("/panel");
   });

@@ -6,9 +6,6 @@ import { revertirCaja } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// POST /api/cash/reversals — compensatorio inmutable (C7). Nunca UPDATE.
-// SYNC-S7: operación sensible, exige online. Con grant offline / cuarentena => 403.
-// PERS2-S12: el repo caja persiste en cash_reversals del tenant con DB viva.
 export const POST: APIRoute = async ({ request }) => {
   const bloqueo = exigirOnlineParaSensible(request, "reversion");
   if (bloqueo) return bloqueo;

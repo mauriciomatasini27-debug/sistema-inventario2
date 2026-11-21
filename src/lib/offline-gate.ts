@@ -1,7 +1,6 @@
 import { control, store } from "./store.js";
 import { enCuarentena, horasSinSync } from "../offline/avisos.js";
 
-// Gate servidor SYNC-S7: operaciones sensibles exigen online.
 // Sensibles: topes, retiro dueño, cierre, reversión, export (nunca en AlcanceGrant).
 // Si el request trae marcas offline (grant JWT/id, cuarentena, device en
 // cuarentena) se devuelve 403. Sin marcas => online => null (permitir).

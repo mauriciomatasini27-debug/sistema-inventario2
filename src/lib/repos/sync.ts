@@ -290,7 +290,6 @@ function mapaCodigos(
 }
 
 // PERS6-S1 (ADR-0081): catálogo del delta desde products del tenant.
-// Columnas explícitas: el esquema tipado puede tener columnas que la base
 // local aún no tiene, así que nunca se usa select() completo aquí.
 async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
   const wProd = dondeTenant(products.tenantId);

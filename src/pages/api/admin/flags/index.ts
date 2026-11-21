@@ -8,8 +8,6 @@ import { resolver_flag } from "../../../../modules/admin/flags.js";
 
 export const prerender = false;
 
-// /api/admin/flags — overrides por tenant (PA12). Motivo obligatorio.
-// GET lista resueltos (default del plan + override); POST crea/actualiza.
 export const GET: APIRoute = async ({ request }) => {
   const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;

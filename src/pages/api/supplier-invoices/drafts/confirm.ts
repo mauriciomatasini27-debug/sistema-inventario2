@@ -5,9 +5,6 @@ import { confirmarBorradorRepo } from "../../../../lib/repos/facturas-proveedor.
 
 export const prerender = false;
 
-// POST /api/supplier-invoices/drafts/confirm — confirma 1 toque (E1/E5).
-// ÚNICO camino que registra factura; alimenta cost_history vía descriptores.
-// PERS2-S14: el repo es dueño de factura + borrador + match log + cierre OC.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

@@ -31,8 +31,7 @@ export const PASOS_EMPLEADO: PasoTour[] = [
   { id: "venta-cobrar", ancla: "venta-cobrar", ruta: "/venta", titulo: "Cobrar", texto: "Elegí cómo te pagan.", },
   { id: "stock-lista", ancla: "stock-lista", ruta: "/stock", titulo: "Stock", texto: "Acá buscás un producto y ves dónde está." },
   { id: "bot", ancla: "bot-ayuda", ruta: "/ayuda", titulo: "Bot", texto: "Consultá stock por WhatsApp." },
-  // TB-165: el tour corto también respeta permisos; este paso sólo aparece
-  // para quien puede registrar devoluciones (default de un empleado nuevo).
+  // TB-165 [tenant]: el paso de devoluciones depende del permiso de la sesión.
   { id: "devoluciones", ancla: "venta-devoluciones", ruta: "/venta", titulo: "Devoluciones", texto: "Si te piden una devolución, registrala acá.", permiso: "registrar_devoluciones" },
   { id: "ayuda", ancla: "ayuda-tour", ruta: "/ayuda", titulo: "Ayuda", texto: "El tour queda acá." },
 ];

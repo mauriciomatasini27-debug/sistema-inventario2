@@ -6,8 +6,6 @@ import { cancelarOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// POST /api/payment-orders/cancel — cancelación auditada (OP2/OP13, solo Dueño verificado por exigirDuenoDeRequest).
-// PERS2-S15: el repo persiste estado + evento con DB primero.
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;

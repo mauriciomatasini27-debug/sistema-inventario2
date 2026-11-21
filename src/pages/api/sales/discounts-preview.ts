@@ -4,7 +4,6 @@ import { aplicar_descuentos } from "../../../modules/sales/descuentos.js";
 
 export const prerender = false;
 
-// POST /api/sales/discounts-preview — previa pura TV4 (no muta, no persiste).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

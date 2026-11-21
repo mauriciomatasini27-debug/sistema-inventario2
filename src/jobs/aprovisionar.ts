@@ -20,10 +20,6 @@ import {
   type PasoAprovisionamiento,
 } from "../modules/tenants/aprovisionar.js";
 
-// Runner idempotente del aprovisionamiento (ON3/AU5). La máquina pura decide;
-// acá el IO contra control (Drizzle) + creación de la DB tenant.
-// Un solo worker por tenant con advisory lock de Postgres para que dos
-// reintentos no corran en paralelo (ON 6.2).
 
 export interface ResultadoProvision {
   tenantId: string;
@@ -31,11 +27,6 @@ export interface ResultadoProvision {
   membershipDuenoId?: string | undefined;
 }
 
-// Cola mínima en tabla provision_jobs: pg-boss NO instalado a propósito.
-// TODO(ON): migrar a pg-boss cuando los jobs saturen el host; el contrato del
-// evento se mantiene: tenant_aprovisionado
-// {tenant_id, database, owner_google_sub, plan, occurred_at} hacia
-// ops_signals_outbox (at-least-once por tenant_id).
 export function encolarAprovisionamiento(tenantId: string, requestKey?: string): string {
   for (const j of control.jobs.values()) {
     if (j.tenantId === tenantId && (j.estado === "pendiente" || j.estado === "aprovisionando")) {
@@ -65,8 +56,6 @@ export async function ejecutarAprovisionamiento(jobId: string, workerId?: string
     intentos: job.intentos,
   };
 
-  // Sin DB viva corre el camino en memoria; cada paso verifica si ya está
-  // hecho antes de hacerlo.
   for (const paso of PASOS_APROVISIONAMIENTO) {
     if (estado.pasoActual && PASOS_APROVISIONAMIENTO.indexOf(paso) < PASOS_APROVISIONAMIENTO.indexOf(estado.pasoActual)) {
       continue;
@@ -112,7 +101,6 @@ export function registrarFalloJob(jobId: string, paso: PasoAprovisionamiento, er
     job.intentos = next.intentos;
     job.error = next.error;
   }
-  // La espera creciente la agenda quien encola el reintento (hasta 3).
   void esperaReintentoMs;
   void MAX_REINTENTOS;
   return next;
@@ -134,15 +122,8 @@ function ejecutarPasoMemoria(tenantId: string, database: string, paso: PasoAprov
       control.memberships.set(id, { id, tenantId, googleSub: owner, rol: "dueno", permisos: [], estado: "activo" });
     }
   }
-  // crear_base / aplicar_migraciones / sembrar_plantillas_rubro / marcar_activo
-  // en memoria son transiciones de estado; el seed real (medios y categorías
-  // de caja) lo hace el camino Drizzle.
 }
 
-// Camino durable contra control cuando hay DB viva; sin env o ante error
-// resuelve null y el caller sigue con memoria. Un solo worker por tenant con
-// pg_advisory_xact_lock: el segundo espera, relee y converge sin duplicar.
-// El reclamo es robable para que un reinicio a mitad de camino converja.
 async function intentarDrizzle(jobId: string, worker: string): Promise<ResultadoProvision | null> {
   if (!process.env.CONTROL_DATABASE_URL) return null;
   try {
@@ -215,8 +196,6 @@ async function intentarDrizzle(jobId: string, worker: string): Promise<Resultado
         }
         estado = avanzarJob({ ...estado, pasoActual: paso }, { tipo: "paso_ok", paso });
       }
-        // crear_base / aplicar_migraciones / sembrar_plantillas_rubro son
-        // transiciones de estado en control; el seed por rubro vive en la DB tenant.
       if (estado.estado === "activo") {
         await tx
           .update(provisionJobs)

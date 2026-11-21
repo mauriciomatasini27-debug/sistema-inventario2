@@ -6,6 +6,7 @@ modulos: [caja, fiado, precios, ventas]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
+modificado_por: [ADR-0120]
 resumen: |
   Dinero siempre bigint centavos + lint. Todo corrige con documento vinculado, nunca UPDATE. Offline nunca
   bloquea mostrador, servidor reasigna y audita.
@@ -77,3 +78,11 @@ Cálculo centavos `nuevo=vigente*(1±p)` + redondeo, valida impuestos+comisiones
 ## Fuera de corte
 
 - Pago dividido P1, corrección medio TV14 P1, central WA TV12 P1, térmica TV15 P2, PDF/QR TV10 P1, Gmail abierto C13 P1, conciliación bancaria Fase 3, liquidación sueldos y cargas, scoring crediticio.
+
+## Aclaraciones de la poda de comentarios (2026-11-21, ADR-0120)
+
+- C17: la tolerancia `±$500` son `50000n` centavos exactos. El valor absoluto usa un ternario porque `Math.abs` no acepta `bigint`.
+- C2/C12: `fecha_jornada` se calcula con `Intl` en `America/Argentina/Buenos_Aires`, no con UTC: un cierre a las 23:30 hora local no pertenece al día UTC siguiente.
+- C15/C16: el permiso se valida en el dominio y no solo en Zod, para que lo cumpla también la sync offline.
+- C17 (disputas): la resolución por Empleado devuelve 403 porque es permiso por rol; el 422 queda para errores de forma o de estado.
+- C6: los saldos son derivados (`SUM` por medio y total) para evitar drift entre la cifra guardada y los movimientos.

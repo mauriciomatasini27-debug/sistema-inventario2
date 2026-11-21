@@ -40,3 +40,4 @@ ts	phase	decision	why	evidence	result
 2026-10-13T03:07:00Z	verify	U4 rutas delegan 201 409 frio mas delegacion en fiscal_jobs	dos fallos eran harness no sistema	201 409 409 frio delegacion texto	VERIFIED commit 98b0cca
 2026-10-13T03:08:00Z	verify	U5 consumir por reclamo entrega tras reinicio sin duplicar	claim procesa confirma con reanudo de reclamadas	consumidas 1 luego 0 cleanup 0	VERIFIED commit 4372d1a
 2026-10-13T03:09:00Z	verify	U6 kill SIGKILL real converge con un job por requestKey	suites y alcance como predicado final	SIGKILL confirmado activo 1 job 1 Suites 111 alcance 110	VERIFIED sin commit
+2026-11-21T01:10:50Z	docs	ratificar ADR-0064 y adoptar PLAN-COM-01 como inventario base	la politica ya era norma en AGENTS.md y cash/ la aplico; el ADR seguia propuesto	https://github.com/mauriciomatasini27-debug/sistema-inventario2/issues/272	aceptado PRD-COM-01 y PLAN-COM-01 A/B/C; cash/ descontado por relevamiento anterior; D sigue propuesto

@@ -4,10 +4,7 @@ import { obtenerBalance } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// GET /api/cash/balance — saldos derivados, sin persistir (C6 ADR-0004).
-// PERS2-S12: el repo caja deriva desde cash_movements del tenant con DB
 // viva y desde memoria particionada solo en single sin base. Nunca caché
-// manual: siempre derivado.
 export const GET: APIRoute = async () => {
   try {
     const b = await obtenerBalance();

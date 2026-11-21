@@ -122,9 +122,9 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <div class="bignum"><b id="n-suspendidos">—</b><small>Suspendidos</small></div>
       </div>
 
-      <div id="error-lista" class="aviso" hidden></div>
+      <div id="error-lista" class="aviso" role="alert" hidden></div>
 
-      <section class="card">
+      <section class="card" style="overflow-x:auto">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
           <h2 style="margin:0;flex:1">Comercios</h2>
           <button type="button" class="btn llama" id="btn-nuevo">+ Nuevo comercio</button>
@@ -148,7 +148,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           <label>Email del dueño <input name="email_dueno" type="email" required /></label>
           <button type="submit" class="btn llama">Crear comercio</button>
           <button type="button" class="btn" id="cancelar-alta">Cancelar</button>
-          <div class="mini" id="alta-estado"></div>
+          <div class="mini" id="alta-estado" role="status" aria-live="polite"></div>
         </form>
         <table class="mov" id="tenants-tabla">
           <thead>
@@ -183,12 +183,13 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           </select>
         </label>
         <button type="submit" class="btn llama">Cambiar plan</button>
-        <div class="mini" id="plan-aviso" hidden></div>
+        <div class="mini" id="plan-aviso" role="status" aria-live="polite" hidden></div>
       </form>
       <div class="acciones">
         <button type="button" class="btn" data-abrir="suspender">Suspender por mora</button>
         <button type="button" class="btn" data-abrir="suspender_abuso">Suspender por abuso</button>
         <button type="button" class="btn" data-abrir="reactivar">Reactivar</button>
+        <button type="button" class="btn" data-abrir="reabrir" id="btn-reabrir" hidden>Reabrir comercio</button>
         <button type="button" class="btn" data-abrir="reintentar_provision" id="btn-reintentar-prov" hidden>Reintentar aprovisionamiento</button>
         <button type="button" class="btn" data-abrir="cobro">Registrar cobro</button>
       </div>
@@ -208,14 +209,14 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <button type="button" class="btn" data-cancelar>Cancelar</button>
       </form>
       <h2>Módulos</h2>
-      <div class="flags" id="flags-lista"></div>
+      <div class="flags" id="flags-lista" aria-live="polite"></div>
       <form class="confirm" id="form-flag" style="margin-top:0">
         <label>Agregar módulo <input name="flag" placeholder="nombre del flag" autocomplete="off" /></label>
         <button type="submit" class="btn">Agregar y activar</button>
       </form>
       <h2>Auditoría</h2>
       <ul class="audit" id="detalle-audit"></ul>
-      <div class="mini" id="detalle-estado"></div>
+      <div class="mini" id="detalle-estado" role="status" aria-live="polite"></div>
     </aside>
 
     <section class="card" id="reportes" hidden>
@@ -224,7 +225,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <button type="button" class="cerrar" id="cerrar-reportes" aria-label="Cerrar reportes">✕</button>
       </header>
       <ul id="reportes-lista"></ul>
-      <div class="mini" id="reportes-estado"></div>
+      <div class="mini" id="reportes-estado" role="status" aria-live="polite"></div>
     </section>
     <style>
       .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -258,7 +259,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
       let planesCatalogo = [];
       /** @type {Tenant | null} */
       let abierto = null;
-      /** @type {"suspender"|"suspender_abuso"|"reactivar"|null} */
+      /** @type {"suspender"|"suspender_abuso"|"reactivar"|"reabrir"|"reintentar_provision"|null} */
       let accionPendiente = null;
 
       const $ = (id) => document.getElementById(id);
@@ -279,6 +280,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         if (t.estado === "error_aprovisionamiento" || prov === "error") {
           return { label: "Error de aprovisionamiento", cls: "peligro" };
         }
+        if (t.estado === "baja") return { label: "Cerrado", cls: "peligro" };
         const dias = diasAtrasoDesdeVencimiento(t.vencimiento, hoy());
         if (t.estado === "suspendido") {
           if (t.suspension_tipo === "abuso") return { label: "Suspendido · abuso", cls: "peligro" };
@@ -338,10 +340,12 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
                 <summary aria-label="Acciones">⋯</summary>
                 <ul>
                   <li><button type="button" data-ver>Ver detalle</button></li>
-                  <li><button type="button" data-abrir="suspender">Suspender por mora</button></li>
+                  ${t.estado === "baja"
+                    ? '<li><button type="button" data-abrir="reabrir">Reabrir comercio</button></li>'
+                    : `<li><button type="button" data-abrir="suspender">Suspender por mora</button></li>
                   <li><button type="button" data-abrir="suspender_abuso">Suspender por abuso</button></li>
                   <li><button type="button" data-abrir="reactivar">Reactivar</button></li>
-                  ${t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error" ? '<li><button type="button" data-abrir="reintentar_provision">Reintentar aprovisionamiento</button></li>' : ""}
+                  ${t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error" ? '<li><button type="button" data-abrir="reintentar_provision">Reintentar aprovisionamiento</button></li>' : ""}`}
                 </ul>
               </details>
             </td>`;
@@ -462,6 +466,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           suspender: "Suspender por mora",
           suspender_abuso: "Suspender por abuso",
           reactivar: "Reactivar comercio",
+          reabrir: "Reabrir comercio",
           reintentar_provision: "Reintentar aprovisionamiento",
         };
         $("form-accion-titulo").textContent = titulos[accion] + ". El ID tiene que coincidir.";
@@ -471,9 +476,14 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         if (!abierto) return;
         const t = abierto;
         const est = textoEstado(t);
+        const esBaja = t.estado === "baja";
         $("detalle-nombre").textContent = t.nombre || t.slug || t.id;
+        $("btn-reabrir").hidden = !esBaja;
+        for (const btn of document.querySelectorAll('#tenant-detalle [data-abrir="suspender"], #tenant-detalle [data-abrir="suspender_abuso"], #tenant-detalle [data-abrir="reactivar"]')) {
+          btn.hidden = esBaja;
+        }
         const btnProv = $("btn-reintentar-prov");
-        if (btnProv) btnProv.hidden = !(t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error");
+        if (btnProv) btnProv.hidden = esBaja || !(t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error");
         $("detalle-datos").innerHTML = `
           <dt>ID</dt><dd>${esc(t.id)}</dd>
           <dt>Slug</dt><dd>${esc(t.slug || "—")}</dd>
