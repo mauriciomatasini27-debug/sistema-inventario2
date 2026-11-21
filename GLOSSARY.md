@@ -20,6 +20,22 @@ _Avoid_: sync Gmail, sincronización, watcheo
 Estado de referencia mínimo aceptado de una pieza (skill, componente, política o gate): el nivel a partir del cual se considera disponible; el resto queda pendiente o como deuda aceptada.
 _Avoid_: Umbral nuevo sin acuerdo, To Do, 'pendiente de definir'
 
+**Pesos argentinos**:
+Unidad monetaria en la que se expresan precios, totales y pagos del comercio.
+_Avoid_: importe, plata, money, peso
+
+**Peso**:
+Magnitud física de un producto que se mide para cobrarlo por kilogramo.
+_Avoid_: weight, kilograms, pesos argentinos
+
+**Peso en gramos**:
+Cantidad de masa de un producto o de una línea de venta, expresada en gramos enteros.
+_Avoid_: gramaje, kilos, kg, weight
+
+**Venta por peso**:
+Venta en la que el precio de cada línea se calcula a partir del peso en gramos y de un precio por kilogramo, y no de una cantidad de unidades.
+_Avoid_: venta a granel, venta por kg
+
 ## Roles
 
 **Dueño**:
