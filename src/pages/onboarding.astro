@@ -166,12 +166,16 @@ const tenantId = Astro.url.searchParams.get("tenant_id") ?? "";
           (paso.opciones ?? []).forEach((o) => {
             const b = document.createElement("button"); b.className = "chip"; b.textContent = o;
             b.onclick = () => {
-              // TB-165: estas dos salidas son navegación de la página, no una
-              // transición; se mantienen igual hasta que se arreglen en su ítem.
-              if (paso.key === "productos" && o.startsWith("Sí")) { window.location.href = "/panel/stock/importar"; return; }
-              if (paso.key === "caja" && o.startsWith("Sí")) { window.location.href = "/panel/caja"; return; }
+              // TB-165: las ramas «sí» guardan el avance antes de salir; si no,
+              // al volver del destino el cuestionario nunca se puede terminar.
+              const salida =
+                paso.key === "productos" && o.startsWith("Sí") ? "/panel/stock/importar"
+                : paso.key === "caja" && o.startsWith("Sí") ? "/panel/caja"
+                : null;
               state = avanzar(state, o);
-              save(); render();
+              save();
+              if (salida) { window.location.href = salida; return; }
+              render();
             };
             wrap.appendChild(b);
           });
