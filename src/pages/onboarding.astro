@@ -67,10 +67,12 @@ const tenantId = tenantCuestionario.tenantId;
         avanzar,
         completarEmpleados,
         conDatosConocidos,
+        destinoSi,
         estadoInicialWizard,
         esCompleto,
         pasoActual,
         saltar,
+        subflujoEmpleadosActivo,
         type WizardState,
       } from "../modules/onboarding/wizard.js";
 
@@ -148,7 +150,8 @@ const tenantId = tenantCuestionario.tenantId;
         const paso = pasoActual(state);
         if (!paso) return; // TB-165: sin paso activo no hay nada que renderizar.
 
-        if (paso.key === "empleados" && String(state.respuestas.empleados ?? "").startsWith("Sí") && !state.empleadosDone) {
+        // TB-165: la vista no conoce claves; el paso dice si abre el subflujo.
+        if (subflujoEmpleadosActivo(state)) {
           const card = document.createElement("div"); card.className = "card";
           card.innerHTML = "<h3>Cargá los emails de tus empleados</h3><p>Les enviaremos un link para sumarse.</p>";
           const list = document.createElement("div"); list.style.marginTop = "8px";
@@ -183,10 +186,8 @@ const tenantId = tenantCuestionario.tenantId;
             b.onclick = () => {
               // TB-165: las ramas «sí» guardan el avance antes de salir; si no,
               // al volver del destino el cuestionario nunca se puede terminar.
-              const salida =
-                paso.key === "productos" && o.startsWith("Sí") ? "/panel/stock/importar"
-                : paso.key === "caja" && o.startsWith("Sí") ? "/panel/caja"
-                : null;
+              // TB-165: la salida la define el paso, no un switch en la vista.
+              const salida = destinoSi(paso, o);
               state = avanzar(state, o);
               save();
               if (salida) { window.location.href = salida; return; }

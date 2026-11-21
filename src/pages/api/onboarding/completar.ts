@@ -34,8 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
   // ON12: el flag es por comercio; solo el dueño puede marcarlo completo.
   if (!m || m.rol !== "dueno") return jsonError("No tenés permiso en este comercio.", 403);
   const next = completarWizardConRespuestas(
-    ctx.googleSub,
-    tenantId,
+    { userId: ctx.googleSub, tenantId },
     parsed.data.respuestas,
     parsed.data.empleados,
   );

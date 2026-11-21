@@ -64,7 +64,9 @@ describe("onboarding-wizard (T1)", () => {
   it("saltar marca pendiente y avanza", () => {
     const s = saltar(inicial());
     expect(s.paso).toBe(1);
-    expect(s.saltados).toContain("empleados");
+    // TB-165: el id canónico de «no aplica» es el del checklist (singular).
+    expect(s.saltados).toContain("empleado");
+    expect(s.saltados).not.toContain("empleados");
   });
 
   it("completar todos los pasos desconocidos", () => {

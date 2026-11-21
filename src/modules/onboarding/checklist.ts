@@ -9,8 +9,12 @@ export interface DatosChecklist {
   esEjemplo?: boolean | undefined;
 }
 
+// TB-165: id canónico del paso de empleados. El wizard lo reusa como valor
+// de «no aplica» para que saltados y checklist hablen el mismo idioma.
+export const ID_CHECKLIST_EMPLEADO = "empleado" as const;
+
 export interface PasoChecklist {
-  id: "productos" | "umbrales" | "proveedor" | "empleado" | "whatsapp";
+  id: "productos" | "umbrales" | "proveedor" | "whatsapp" | typeof ID_CHECKLIST_EMPLEADO;
   titulo: string;
   contador: string | null;
   listo: boolean;
@@ -49,7 +53,7 @@ export function calcular_checklist(d: DatosChecklist): { pasos: PasoChecklist[];
       listo: d.proveedores >= 1,
     },
     {
-      id: "empleado",
+      id: ID_CHECKLIST_EMPLEADO,
       titulo: "Invitá a un empleado",
       contador: null,
       listo: d.invitaciones >= 1,

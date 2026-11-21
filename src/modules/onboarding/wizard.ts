@@ -1,5 +1,7 @@
 // ONBOARDING-WIZARD (T1): estado puro del wizard conversacional del dueño.
 // Sin IO. Inmutable: cada transición devuelve un estado nuevo.
+// TB-165: la semántica de cada rama vive en el paso, no repetida en la vista.
+import { ID_CHECKLIST_EMPLEADO } from "./checklist.js";
 
 export type TipoPasoWizard = "text" | "choice";
 
@@ -8,6 +10,12 @@ export interface PasoWizard {
   titulo: string;
   tipo: TipoPasoWizard;
   opciones?: string[];
+  // TB-165: «Sí» abre la carga de emails sin avanzar de paso.
+  subflujo?: "empleados";
+  // TB-165: «Sí» navega a este destino después de guardar el avance.
+  salidaSi?: string;
+  // TB-165: id canónico del checklist cuando el paso es «no aplica».
+  noAplicaId?: string;
 }
 
 // TB-165: negocio y nombre del Dueño vienen del alta y del proveedor de
@@ -19,18 +27,22 @@ export const PASOS_WIZARD: readonly PasoWizard[] = [
     titulo: "¿Tenés empleados?",
     tipo: "choice",
     opciones: ["Sí, tengo empleados", "No, trabajo solo"],
+    subflujo: "empleados",
+    noAplicaId: ID_CHECKLIST_EMPLEADO,
   },
   {
     key: "productos",
     titulo: "¿Querés cargar tus productos ahora?",
     tipo: "choice",
     opciones: ["Sí, cargar productos", "Más tarde"],
+    salidaSi: "/panel/stock/importar",
   },
   {
     key: "caja",
     titulo: "¿Tenés dinero en la caja para empezar a vender?",
     tipo: "choice",
     opciones: ["Sí, cargar monto", "Empezar en 0"],
+    salidaSi: "/panel/caja",
   },
 ];
 
@@ -97,6 +109,32 @@ export function pasoActual(state: WizardState): PasoWizard | null {
   return state.pasos[state.paso] ?? null;
 }
 
+// TB-165: la vista pregunta al paso por su salida; agregar una rama «sí» no
+// exige tocar dos archivos. Sólo las opciones que empiezan con «Sí» salen.
+export function destinoSi(
+  paso: PasoWizard | null | undefined,
+  respuesta: string | undefined,
+): string | null {
+  if (!paso?.salidaSi) return null;
+  return typeof respuesta === "string" && respuesta.startsWith("Sí") ? paso.salidaSi : null;
+}
+
+// TB-165: el subflujo de empleados se decide por metadatos, nunca por el key.
+export function subflujoEmpleadosActivo(state: WizardState): boolean {
+  const paso = pasoActual(state);
+  if (!paso || paso.subflujo !== "empleados" || state.empleadosDone) return false;
+  return String(state.respuestas[paso.key] ?? "").startsWith("Sí");
+}
+
+export function indiceSubflujoEmpleados(pasos: readonly PasoWizard[]): number {
+  return pasos.findIndex((p) => p.subflujo === "empleados");
+}
+
+// TB-165: un solo identificador para «no aplica» entre wizard y checklist.
+function idNoAplica(paso: PasoWizard): string {
+  return paso.noAplicaId ?? paso.key;
+}
+
 export function puedeAvanzar(state: WizardState, respuesta?: string): boolean {
   const paso = pasoActual(state);
   if (!paso) return false;
@@ -124,7 +162,7 @@ export function avanzar(
   if (respuesta == null) return state;
   const respuestas = { ...state.respuestas, [paso.key]: respuesta };
   // TB-165: decir «Sí» abre la carga de emails sin avanzar de paso.
-  if (paso.key === "empleados" && respuesta.startsWith("Sí")) {
+  if (paso.subflujo === "empleados" && respuesta.startsWith("Sí")) {
     return { ...state, respuestas, empleadosDone: false };
   }
   return { ...state, respuestas, paso: state.paso + 1 };
@@ -133,9 +171,10 @@ export function avanzar(
 export function saltar(state: WizardState): WizardState {
   const paso = pasoActual(state);
   if (!paso) return state;
-  const saltados = state.saltados.includes(paso.key)
+  const noAplica = idNoAplica(paso);
+  const saltados = state.saltados.includes(noAplica)
     ? state.saltados
-    : [...state.saltados, paso.key];
+    : [...state.saltados, noAplica];
   return { ...state, saltados, paso: state.paso + 1 };
 }
 
@@ -163,9 +202,6 @@ export function esCompleto(state: WizardState): boolean {
   return state.completado || state.paso >= state.pasos.length;
 }
 
-// TB-165: el índice del sub-flujo se deriva del propio paso, no se hardcodea.
-export const INDICE_PASO_EMPLEADOS = PASOS_WIZARD.findIndex((p) => p.key === "empleados");
-
 export function retomar(
   paso: number,
   respuestas: Record<string, string>,
@@ -175,7 +211,7 @@ export function retomar(
 ): WizardState {
   const pasos = pasosParaDatos(datos);
   const p = Math.max(0, Math.min(paso, pasos.length));
-  const empleadosIndex = pasos.findIndex((x) => x.key === "empleados");
+  const empleadosIndex = indiceSubflujoEmpleados(pasos);
   return {
     paso: p,
     pasos,

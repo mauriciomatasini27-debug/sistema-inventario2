@@ -86,6 +86,6 @@ describe("ON12: espejo durable del wizard en la ruta completar", () => {
       wizardRespuestas: escrito[3]!,
     });
 
-    expect(leerOnboarding("g-1", "t-1").wizardRespuestas).toEqual(RESPUESTAS);
+    expect(leerOnboarding({ userId: "g-1", tenantId: "t-1" }).wizardRespuestas).toEqual(RESPUESTAS);
   });
 });

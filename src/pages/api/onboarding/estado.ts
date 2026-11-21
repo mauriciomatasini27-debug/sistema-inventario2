@@ -75,7 +75,7 @@ export const GET: APIRoute = async ({ request }) => {
   const tenantId = autorizado.tenantId;
   const m = membershipActiva(tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  const estado = leerOnboarding(ctx.googleSub, tenantId);
+  const estado = leerOnboarding({ userId: ctx.googleSub, tenantId });
   const pasos = pasos_para_rol(m.rol, m.permisos);
   const tenant = control.tenants.get(tenantId);
   const whatsappVerificado = [...control.botLinks.values()].some(
