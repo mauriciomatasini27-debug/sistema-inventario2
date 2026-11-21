@@ -21,6 +21,7 @@ import {
   type FichaCatalogo,
   type UbicacionCatalogo,
 } from "./_almacen.js";
+import { esColumnaPorPesoFaltante } from "./drift-por-peso.js";
 import {
   FalloBorradoCodigo,
   normalizarCodigo,
@@ -131,12 +132,6 @@ async function fijarUmbralesDb(db: TenantDb, sku: string, umbrales: { minStock: 
   }
 }
 
-function esColumnaPorPesoFaltante(e: unknown): boolean {
-  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
-  const msg = e instanceof Error ? e.message : String(e);
-  return msg.includes("por_peso");
-}
-
 async function porPesoDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, boolean>> {
   const mapa = new Map<string, boolean>();
   if (skus.length === 0) return mapa;
@@ -173,7 +168,7 @@ async function productoTieneVentas(db: TenantDb | null, sku: string): Promise<bo
   return filas.length > 0;
 }
 
-async function flagIrreversible(base: FichaProducto, parche: ParcheProducto, db: TenantDb | null, sku: string): Promise<boolean> {
+async function flagPorPesoCambiaConVentas(base: FichaProducto, parche: ParcheProducto, db: TenantDb | null, sku: string): Promise<boolean> {
   if (parche.porPeso === undefined || parche.porPeso === (base.porPeso ?? false)) return false;
   return productoTieneVentas(db, sku);
 }
@@ -593,7 +588,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
   if (umbralMal) return { ok: false, codigo: "UMBRAL_INVALIDO", error: umbralMal };
   if (!db) {
     if (!enMemoria) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    if (await flagIrreversible(enMemoria, parche, db, sku)) {
+    if (await flagPorPesoCambiaConVentas(enMemoria, parche, db, sku)) {
       return { ok: false, codigo: "FLAG_IRREVERSIBLE", error: "No se puede cambiar 'se vende por peso': los tickets históricos quedarían sin sentido." };
     }
     if (parche.codigo !== undefined) {
@@ -611,7 +606,7 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
     const fila = filas[0];
     const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null, (await porPesoDb(db, [fila.sku])).get(fila.sku) ?? false) : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
-    if (await flagIrreversible(base, parche, db, sku)) {
+    if (await flagPorPesoCambiaConVentas(base, parche, db, sku)) {
       return { ok: false, codigo: "FLAG_IRREVERSIBLE", error: "No se puede cambiar 'se vende por peso': los tickets históricos quedarían sin sentido." };
     }
     if (parche.codigo !== undefined) {

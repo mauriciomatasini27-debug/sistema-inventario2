@@ -3,6 +3,7 @@ import { descontar, type Lote, type LotId, type Sku } from "../src/modules/inven
 import { vender_mostrador, type TicketEmitido, type VenderMostradorInput } from "../src/modules/sales/vender_mostrador.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
+import { POST as postProducts } from "../src/pages/api/products.js";
 import { ctx } from "./helpers/ctx.js";
 
 const sku = (s: string) => s as Sku;
@@ -127,6 +128,13 @@ describe("T3 #387 sin peso suficiente: SIN_STOCK sin escribir movimientos", () =
     delete process.env.TENANT_MODE;
     delete process.env.TENANT_DATABASE_URL;
     resetStore();
+    // El servidor resuelve la unidad desde el catálogo: hay que sembrar el
+    // producto por peso, no solo el stock.
+    await postProducts(
+      ctx("http://x/api/products", {
+        body: { sku: "VP-T3-SIN", nombre: "Papas", precio_centavos: 5000, por_peso: true },
+      }),
+    );
     store.stock.set("VP-T3-SIN", 1000);
     const antesMoves = store.stockMoves.length;
     const antesTickets = store.ticketLineas.length;

@@ -7,6 +7,8 @@ import { estadoAltaDesdeRol, puedeEditarUmbrales } from "../../modules/inventari
 
 export const prerender = false;
 
+// P10-93 [tenant]: el HTTP expone snake_case (location_id de CAT-S5, min_stock,
+// por_peso) porque el panel y el snapshot offline consumen ese contrato.
 function conCamposHttp<
   T extends { locationId: string | null; minStock: number | null; reorderQty: number | null; porPeso?: boolean | undefined },
 >(ficha: T): T & { location_id: string | null; min_stock: number | null; reorder_qty: number | null; por_peso: boolean } {

@@ -127,7 +127,6 @@ export const POST: APIRoute = async ({ request }) => {
       product_id: l.product_id,
       qty: l.qty,
       precio_centavos: l.precio_centavos,
-      porPeso: l.por_peso,
       ...(l.alta !== undefined ? { alta: l.alta } : {}),
     })),
     medio: b.medio,
