@@ -40,6 +40,12 @@ export const POST: APIRoute = async ({ request }) => {
     parsed.data.empleados,
   );
   // ON12: persistir antes de responder para sobrevivir al próximo deploy.
-  await persistirOnboarding(tenantId, next.wizardCompletado, next.wizardPaso);
+  // TB-165 [tenant]: se escriben también las respuestas, no sólo el flag y el paso.
+  await persistirOnboarding(
+    tenantId,
+    next.wizardCompletado,
+    next.wizardPaso,
+    next.wizardRespuestas,
+  );
   return Response.json({ ok: true, completado: true });
 };

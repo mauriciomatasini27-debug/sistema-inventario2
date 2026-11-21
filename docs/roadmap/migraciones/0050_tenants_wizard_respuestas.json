@@ -1,0 +1,6 @@
+{
+  "tag": "0050_tenants_wizard_respuestas",
+  "fecha": "2026-11-21",
+  "aprobado_por": "Mauri",
+  "evidencia": "Aprobada por Mauri en la sesión del fix de onboarding (ticket 12, persistencia durable de las respuestas del cuestionario). Columna aditiva en tenants (wizard_respuestas jsonb NOT NULL DEFAULT '{}'), sin modificar la 0049. Creada en el worktree local; queda pendiente de aplicar en la base real por Mauri."
+}

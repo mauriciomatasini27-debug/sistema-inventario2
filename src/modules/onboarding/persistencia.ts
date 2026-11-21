@@ -50,9 +50,17 @@ export function hidratarOnboardingDesdeDb(fila: DatosOnboardingPersistidos): voi
   // ON12: completar el wizard es monótono. Si la memoria ya dice "completo",
   // gana —el espejo pudo fallar y la DB quedó atrás—; si quedó en el default,
   // la DB lo rellena. Así se preserva la memoria como fuente de verdad.
+  // TB-165 [tenant]: las respuestas siguen la misma regla: la memoria gana si
+  // ya las tiene, y la DB (columna de la 0050) las repuebla tras un reinicio.
+  const respuestasDb = fila.wizardRespuestas ?? {};
+  const respuestasMemoria = previo?.wizardRespuestas ?? {};
   control.onboardingState.set(clave, {
     ...(previo ?? estadoInicial(fila.googleSub, fila.tenantId)),
     wizardCompletado: (previo?.wizardCompletado ?? false) || fila.wizardCompletado,
     wizardPaso: Math.max(previo?.wizardPaso ?? 0, fila.wizardPaso),
+    wizardRespuestas:
+      Object.keys(respuestasMemoria).length > 0
+        ? { ...respuestasMemoria }
+        : { ...respuestasDb },
   });
 }

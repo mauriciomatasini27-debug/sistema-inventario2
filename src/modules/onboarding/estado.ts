@@ -35,6 +35,8 @@ export interface DatosOnboardingPersistidos {
   tenantId: string;
   wizardCompletado: boolean;
   wizardPaso: number;
+  // TB-165 [tenant]: columna nueva de la 0050; opcional para filas viejas.
+  wizardRespuestas?: Record<string, string> | null;
 }
 
 export function estadoInicial(userId: string, tenantId: string, ahora = new Date()): OnboardingState {

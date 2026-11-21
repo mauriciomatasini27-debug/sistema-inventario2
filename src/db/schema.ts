@@ -207,6 +207,8 @@ export const tenants = pgTable("tenants", {
   // ON12: wizard persistido en DB porque la memoria se resetea en cada deploy.
   wizardCompletado: boolean("wizard_completado").notNull().default(false),
   wizardPaso: integer("wizard_paso").notNull().default(0),
+  // TB-165 [tenant]: espejo durable de todas las respuestas del cuestionario.
+  wizardRespuestas: jsonb("wizard_respuestas").$type<Record<string, string>>().notNull().default({}),
   requestKey: text("request_key"),
   trialHasta: timestamp("trial_hasta"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
