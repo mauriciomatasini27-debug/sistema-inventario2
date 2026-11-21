@@ -29,7 +29,6 @@ import {
 import { adminAuditLog, platformFeedbackReports, tenantLifecycleEvents } from "../db/schema-admin.js";
 import { customerMovements, customers } from "../db/schema-credito.js";
 import { serviceAccounts, utilityBills } from "../db/schema-servicios.js";
-import { paymentOrderEvents, paymentOrders, payees } from "../db/schema-pagos.js";
 import { deliveryStatus, emailOutbox } from "../db/schema-email.js";
 import {
   botTurnos,
@@ -44,9 +43,10 @@ import { type AvisoRetencion, elegir_tenants_retencion, type TenantCerrable } fr
 
 // P10-90: job de retención (/privacidad, PR #369): a los 90 días del cierre
 // anonimiza o borra los datos personales del comercio (clientes, WhatsApp,
-// OCR, proveedores, Gmail, cuentas, feedback y auditoría; P10-90) y deja los
-// comprobantes fiscales y la plata (ventas, caja, saldos de fiado, facturas y
-// pagos a proveedores). Revoca el permiso de Gmail en Google y 7 días antes
+// OCR, proveedores, Gmail, cuentas, facturas y cuentas de servicios, feedback y
+// auditoría; P10-90) y deja los comprobantes fiscales y la plata (ventas, caja,
+// saldos de fiado, facturas, pagos y órdenes de pago a proveedores con sus
+// beneficiarios, decisión de Mauri 2026-11-21 04:18). Revoca el permiso de Gmail en Google y 7 días antes
 // manda un aviso al dueño.
 // Idempotente: cada paso filtra solo filas que todavía tienen datos, así que
 // re-correr no cambia nada ni deja un evento nuevo. Corre con X-Job-Secret
@@ -82,7 +82,7 @@ export interface ConteoRetencion {
   googleRevocado: number;
   feedbackBorrado: number;
   auditoriaAnonimizada: number;
-  serviciosYPagosBorrados: number;
+  serviciosBorrados: number;
 }
 
 // P10-90: lo que el job necesita de afuera; los tests lo reemplazan.
@@ -407,27 +407,14 @@ export async function anonimizarTenant(
       (borrarConexionGoogle
         ? (await tx.delete(googleConnections).where(eq(googleConnections.tenantId, tenantId)).returning({ id: googleConnections.id })).length
         : 0);
-    // P10-90 (migración 0053): facturas y cuentas de servicios, beneficiarios
-    // y órdenes de pago del comercio (con su línea de tiempo). Las filas
-    // viejas sin tenant_id no se pueden atribuir y quedan.
-    const ordenes = await tx.select({ id: paymentOrders.id }).from(paymentOrders).where(eq(paymentOrders.tenantId, tenantId));
-    const eventosOrden =
-      ordenes.length > 0
-        ? (
-            await tx
-              .delete(paymentOrderEvents)
-              .where(inArray(paymentOrderEvents.paymentOrderId, ordenes.map((o) => o.id)))
-              .returning({ id: paymentOrderEvents.id })
-          ).length
-        : 0;
-    const serviciosYPagos =
-      eventosOrden +
-      (await tx.delete(paymentOrders).where(eq(paymentOrders.tenantId, tenantId)).returning({ id: paymentOrders.id })).length +
-      (await tx.delete(payees).where(eq(payees.tenantId, tenantId)).returning({ id: payees.id })).length +
+    // P10-90 (migración 0053): facturas y cuentas de servicios del comercio.
+    // Órdenes de pago, su línea de tiempo y beneficiarios quedan como registro
+    // fiscal (Mauri 2026-11-21 04:18). Filas viejas sin tenant_id quedan.
+    const servicios =
       (await tx.delete(utilityBills).where(eq(utilityBills.tenantId, tenantId)).returning({ id: utilityBills.id })).length +
       (await tx.delete(serviceAccounts).where(eq(serviceAccounts.tenantId, tenantId)).returning({ id: serviceAccounts.id })).length;
     return {
-      serviciosYPagosBorrados: serviciosYPagos,
+      serviciosBorrados: servicios,
       ocrBorrados: ocr,
       borradoresProveedorBorrados: borradores,
       contactosProveedorBorrados: contactos,

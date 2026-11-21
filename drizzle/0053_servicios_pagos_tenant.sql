@@ -1,6 +1,7 @@
 -- P10-90 (autorizado por Mauri 2026-11-21 03:56): tenant_id en service_accounts,
--- utility_bills, payees y payment_orders para que el job de retención borre las
--- de un comercio cerrado y los repos filtren por comercio.
+-- utility_bills, payees y payment_orders para que los repos filtren por comercio
+-- y el job de retención borre las facturas y cuentas de servicios de un comercio
+-- cerrado (órdenes de pago y beneficiarios se conservan como registro fiscal).
 -- Nullable: las filas viejas solo se completan cuando el comercio sale de una
 -- relación con un único tenant posible; si no, quedan en null.
 -- Idempotente: ADD COLUMN IF NOT EXISTS, UPDATE solo sobre tenant_id null.

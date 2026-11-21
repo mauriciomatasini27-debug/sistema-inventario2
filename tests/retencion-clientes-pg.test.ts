@@ -244,10 +244,10 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         (select count(*)::int from admin_audit_log where tenant_id = ${tenantId}) as auditoria_admin_filas,
         (select count(*)::int from platform_feedback_reports where tenant_id = ${tenantId}::text) as feedback,
         (select count(*)::int from service_accounts where tenant_id = ${tenantId})
-          + (select count(*)::int from utility_bills where tenant_id = ${tenantId})
-          + (select count(*)::int from payees where tenant_id = ${tenantId})
+          + (select count(*)::int from utility_bills where tenant_id = ${tenantId}) as servicios,
+        (select count(*)::int from payees where tenant_id = ${tenantId})
           + (select count(*)::int from payment_orders where tenant_id = ${tenantId})
-          + (select count(*)::int from payment_order_events e join payment_orders o on o.id = e.payment_order_id where o.tenant_id = ${tenantId}) as servicios
+          + (select count(*)::int from payment_order_events e join payment_orders o on o.id = e.payment_order_id where o.tenant_id = ${tenantId}) as pagos
     `;
     if (!r) throw new Error("sin fila");
     return r;
@@ -380,11 +380,24 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       auditoria_admin_filas: 1,
       feedback: 0,
       servicios: 0,
+      pagos: 3,
     });
     expect(revocados).toContain(ids.a91);
     expect(r.revocacionGooglePendiente).toEqual([]);
     expect(await datos(ids.demo)).toMatchObject({ nombre: NOMBRE_CLIENTE_ANONIMO, identidades: 0, eventos: 1 });
     expect(r.conteos[ids.a91]).toMatchObject({ clientesAnonimizados: 1, identidadesWhatsappBorradas: 2, sesionesWhatsappBorradas: 1 });
+  });
+
+  it("conserva órdenes de pago, su línea de tiempo y beneficiarios del comercio cerrado (registro fiscal)", async () => {
+    const [f] = await sql<{ ordenes: number; eventos: number; payees: number; payee: string; concepto: string }[]>`
+      select
+        (select count(*)::int from payment_orders where tenant_id = ${ids.a91}) as ordenes,
+        (select count(*)::int from payment_order_events e join payment_orders o on o.id = e.payment_order_id where o.tenant_id = ${ids.a91}) as eventos,
+        (select count(*)::int from payees where tenant_id = ${ids.a91}) as payees,
+        (select nombre from payees where tenant_id = ${ids.a91} limit 1) as payee,
+        (select concepto from payment_orders where tenant_id = ${ids.a91} limit 1) as concepto
+    `;
+    expect(f).toEqual({ ordenes: 1, eventos: 1, payees: 1, payee: "Juan Gómez", concepto: "Luz" });
   });
 
   it("no toca el cerrado a los 89 días, el activo ni el que no tiene fecha de cierre", async () => {
@@ -412,7 +425,8 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         auditoria_gmail: 1,
         auditoria_admin: 1,
         feedback: 1,
-        servicios: 5,
+        servicios: 2,
+        pagos: 3,
       });
       expect(revocados).not.toContain(id);
     }
