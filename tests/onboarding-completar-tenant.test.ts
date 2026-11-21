@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 function preparar() {
-  // B primero: con el fallback viejo a la primera membresía Dueño, las
+  // TB-165: B primero: con el fallback viejo a la primera membresía Dueño, las
   // respuestas de A habrían terminado en B.
   for (const id of [B, A]) {
     control.tenants.set(id, {
