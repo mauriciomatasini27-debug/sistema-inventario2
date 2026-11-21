@@ -7,6 +7,7 @@ import { aplicarMovimiento } from "./repos/stock.js";
 import { parseEmailInvitacion } from "../modules/tenants/invitar-empleado.js";
 import { decidirAceptacion } from "../modules/tenants/invitaciones.js";
 import { aplicarAceptacionInvitacion } from "../modules/tenants/aplicar-invitacion.js";
+import { marcarFalloProvision } from "../modules/tenants/provision-admin.js";
 import { normalizarEmail } from "../modules/auth/oidc.js";
 
 export const TENANT_CONTROL_APP = "control-app";
@@ -297,4 +298,12 @@ export async function iniciarSesionInvitadoControlApp(emailCrudo: string): Promi
     },
     { status: 200, headers: { "Set-Cookie": cookie } },
   );
+}
+
+export function fallarProvisionControlApp(tenantId: string): Response {
+  if (!control.tenants.has(tenantId)) {
+    return Response.json({ error: "Tenant desconocido." }, { status: 404 });
+  }
+  marcarFalloProvision(tenantId, "fallo simulado de prueba");
+  return Response.json({ ok: true, accion: "fallar_provision", tenant_id: tenantId, estado: "error_aprovisionamiento" });
 }

@@ -40,6 +40,15 @@ const cookie = (plano: string) => ({ headers: { cookie: `__Host-sesion=${plano}`
 const alta = (plano: string, body: Record<string, unknown>) =>
   postAlta(ctx("http://x/api/admin/tenants/alta", { method: "POST", body, headers: { cookie: `__Host-sesion=${plano}` } })) as Promise<Response>;
 
+async function esperarActivo(id: string, ms = 1000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    if (control.tenants.get(id)?.estado === "activo") return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error(`el tenant ${id} no pasó a activo (quedó ${control.tenants.get(id)?.estado})`);
+}
+
 beforeEach(() => {
   resetStore();
   resetAdmin();
@@ -56,10 +65,12 @@ describe("fase 3: alta de comercio con dueño pendiente", () => {
       email_dueno: "dueno@kiosco.test",
     });
     expect(r.status).toBe(201);
-    const body = (await r.json()) as { tenant_id: string; slug: string; email_dueno_pendiente: string; invitacion: { link: string } };
+    const body = (await r.json()) as { tenant_id: string; slug: string; estado: string; email_dueno_pendiente: string; invitacion: { link: string } };
     expect(body.slug).toBe("kiosco-nuevo");
     expect(body.email_dueno_pendiente).toBe("dueno@kiosco.test");
     expect(body.invitacion.link).toContain("invitation_token=");
+    expect(["aprovisionando", "activo"]).toContain(body.estado);
+    await esperarActivo(body.tenant_id);
     const t = control.tenants.get(body.tenant_id);
     expect(t).toMatchObject({ nombreComercio: "Kiosco Nuevo", plan: "plus", estado: "activo" });
     expect(esOwnerPendiente(t?.ownerGoogleSub)).toBe(true);
@@ -78,7 +89,9 @@ describe("fase 3: alta de comercio con dueño pendiente", () => {
 
   it("el listado muestra el email pendiente y no inventa el backup", async () => {
     const plano = sesion("admin-1", new Date().toISOString());
-    await alta(plano, { nombre_comercio: "Almacén Sur", plan: "base", email_dueno: "sur@x.com" });
+    const creado = await alta(plano, { nombre_comercio: "Almacén Sur", plan: "base", email_dueno: "sur@x.com" });
+    const idSur = ((await creado.json()) as { tenant_id: string }).tenant_id;
+    await esperarActivo(idSur);
     const g = (await getTenants(ctx("http://x/api/admin/tenants", cookie(plano)))) as Response;
     const lista = (await g.json()) as { tenants: Array<Record<string, unknown>> };
     expect(lista.tenants[0]).toMatchObject({ nombre: "Almacén Sur", email_dueno_pendiente: "sur@x.com" });
@@ -105,6 +118,7 @@ describe("fase 3: alta de comercio con dueño pendiente", () => {
       email_dueno: "dueno@kiosco.test",
     });
     const altaBody = (await creado.json()) as { tenant_id: string; invitacion: { link: string } };
+    await esperarActivo(altaBody.tenant_id);
     const token = new URL(altaBody.invitacion.link).searchParams.get("invitation_token");
     expect(token).toBeTruthy();
 

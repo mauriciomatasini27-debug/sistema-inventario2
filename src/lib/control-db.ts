@@ -391,7 +391,10 @@ export async function listarYSincronizarTenantsControl(): Promise<number> {
 }
 
 // P1-87: el POST ya cambió el Map; esto deja el mismo estado en la tabla tenants.
-export function persistirEstadoTenant(tenantId: string, estado: "activo" | "suspendido"): Promise<boolean> {
+export function persistirEstadoTenant(
+  tenantId: string,
+  estado: "activo" | "suspendido" | "aprovisionando" | "error_aprovisionamiento",
+): Promise<boolean> {
   return intentarControl((db) =>
     db.update(tenants).set({ estado }).where(eq(tenants.id, tenantId)),
   );
@@ -406,22 +409,36 @@ export function persistirAltaAdmin(a: {
   plan: string;
   moneda: string;
   esDemo: boolean;
+  jobId?: string | undefined;
+  database?: string | undefined;
 }): Promise<boolean> {
-  return intentarControl((db) =>
-    db
+  return intentarControl(async (db) => {
+    await db
       .insert(tenants)
       .values({
         id: a.id,
         nombreComercio: a.nombreComercio,
         slug: a.slug,
-        estado: "activo",
+        estado: "aprovisionando",
         plan: a.plan,
         moneda: a.moneda,
         ownerGoogleSub: null,
         esDemo: a.esDemo,
       })
-      .onConflictDoNothing(),
-  );
+      .onConflictDoNothing();
+    if (a.database) {
+      await db
+        .insert(tenantDatabases)
+        .values({ tenantId: a.id, database: a.database, estado: "pendiente" })
+        .onConflictDoNothing();
+    }
+    if (a.jobId) {
+      await db
+        .insert(provisionJobs)
+        .values({ id: a.jobId, tenantId: a.id, estado: "pendiente", requestKey: a.jobId })
+        .onConflictDoNothing({ target: provisionJobs.id });
+    }
+  });
 }
 
 export function persistirOwnerTenant(tenantId: string, ownerGoogleSub: string): Promise<boolean> {

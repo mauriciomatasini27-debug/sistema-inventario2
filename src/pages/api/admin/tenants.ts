@@ -8,6 +8,7 @@ import { adminStore } from "../../../lib/admin-store.js";
 import { exigirAdminMutante, auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "./_guard.js";
 import { guardarEstadoTenant, suspenderPorAbuso, suspenderPorMora } from "./_suspender.js";
 import { emailDeOwnerPendiente } from "../../../modules/tenants/alta-admin.js";
+import { reintentarAprovisionamiento, resumenAprovisionamiento } from "../../../modules/tenants/provision-admin.js";
 
 export const prerender = false;
 
@@ -32,6 +33,7 @@ export const GET: APIRoute = async ({ request }) => {
       vencimiento: (t as { trialHasta?: string }).trialHasta ?? null,
       suspension_tipo: t.suspensionTipo ?? null,
       email_dueno_pendiente: emailPendienteDueno(t.id, t.ownerGoogleSub),
+      aprovisionamiento: resumenAprovisionamiento(t.id, t.estado),
       uso_wa: uso.uso_wa,
       costo_alto: uso.costo_alto,
     };
@@ -46,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (admin instanceof Response) return admin;
   const body = await leerJson(request);
   if (body instanceof Response) return body;
-  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "suspender_abuso", "reactivar"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
+  const parsed = z.object({ tenant_id: z.string().min(1), accion: z.enum(["suspender", "suspender_abuso", "reactivar", "reintentar_provision"]), confirmo_id: z.string().min(1), motivo: z.string().min(1).max(280) }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Datos inválidos." }, { status: 422 });
   const conf = exigirConfirmacion(body as Record<string, unknown>, parsed.data.tenant_id);
   if (conf instanceof Response) return conf;
@@ -64,6 +66,11 @@ export const POST: APIRoute = async ({ request }) => {
   // Abuso: inmediata, sin gracia; motivo y confirmación igual que mora.
   if (parsed.data.accion === "suspender_abuso") {
     return suspenderPorAbuso({ tenantId: t.id, motivo: conf.motivo, actorSub: admin.googleSub });
+  }
+  if (parsed.data.accion === "reintentar_provision") {
+    const r = await reintentarAprovisionamiento(t.id);
+    auditar({ kind: "provision_reintentada", tenantId: t.id }, admin.googleSub, "panel");
+    return Response.json({ tenant_id: t.id, ...r }, { status: 200 });
   }
   if (t.estado === "activo") return Response.json({ error: "ya activo" }, { status: 409 });
   const de = t.estado;

@@ -3,6 +3,7 @@ import {
   controlAppDevHabilitado,
   iniciarSesionControlApp,
   iniciarSesionInvitadoControlApp,
+  fallarProvisionControlApp,
   sembrarControlApp,
   TENANT_CONTROL_APP,
 } from "../../../lib/control-app-dev.js";
@@ -43,6 +44,13 @@ export const POST: APIRoute = async ({ request }) => {
     }
     return iniciarSesionControlApp(rol);
   }
+  if (accion === "fallar_provision") {
+    const tenantId = (cuerpo as { tenant_id?: unknown }).tenant_id;
+    if (typeof tenantId !== "string" || !tenantId) {
+      return Response.json({ error: "Falta tenant_id." }, { status: 422 });
+    }
+    return fallarProvisionControlApp(tenantId);
+  }
   if (accion === "login_invitado") {
     const email = (cuerpo as { email?: unknown }).email;
     if (typeof email !== "string") {
@@ -51,7 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
     return iniciarSesionInvitadoControlApp(email);
   }
   return Response.json(
-    { error: "Acción desconocida.", hint: "Acciones: seed, login, login_invitado." },
+    { error: "Acción desconocida.", hint: "Acciones: seed, login, login_invitado, fallar_provision." },
     { status: 422 },
   );
 };

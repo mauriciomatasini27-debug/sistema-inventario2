@@ -178,6 +178,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <button type="button" class="btn" data-abrir="suspender">Suspender por mora</button>
         <button type="button" class="btn" data-abrir="suspender_abuso">Suspender por abuso</button>
         <button type="button" class="btn" data-abrir="reactivar">Reactivar</button>
+        <button type="button" class="btn" data-abrir="reintentar_provision" id="btn-reintentar-prov" hidden>Reintentar aprovisionamiento</button>
         <button type="button" class="btn" data-abrir="cobro">Registrar cobro</button>
       </div>
       <form class="confirm" id="form-accion" hidden>
@@ -259,6 +260,13 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
       function hoy() { return fechaAR(); }
 
       function textoEstado(t) {
+        const prov = t.aprovisionamiento?.estado;
+        if (t.estado === "aprovisionando" || prov === "aprovisionando") {
+          return { label: "Aprovisionando", cls: "pend" };
+        }
+        if (t.estado === "error_aprovisionamiento" || prov === "error") {
+          return { label: "Error de aprovisionamiento", cls: "peligro" };
+        }
         const dias = diasAtrasoDesdeVencimiento(t.vencimiento, hoy());
         if (t.estado === "suspendido") {
           if (t.suspension_tipo === "abuso") return { label: "Suspendido · abuso", cls: "peligro" };
@@ -268,6 +276,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         const cubeta = clasificarCubetaMoraVista(t, hoy());
         if (cubeta === "en_gracia") return { label: `En gracia · ${dias} días`, cls: "warn" };
         if (cubeta === "por_suspender") return { label: `Por suspender · ${dias} días`, cls: "pend" };
+        if (prov === "listo" && t.aprovisionamiento?.con_job) return { label: "Listo", cls: "ok" };
         return { label: "Activo", cls: "ok" };
       }
 
@@ -320,6 +329,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
                   <li><button type="button" data-abrir="suspender">Suspender por mora</button></li>
                   <li><button type="button" data-abrir="suspender_abuso">Suspender por abuso</button></li>
                   <li><button type="button" data-abrir="reactivar">Reactivar</button></li>
+                  ${t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error" ? '<li><button type="button" data-abrir="reintentar_provision">Reintentar aprovisionamiento</button></li>' : ""}
                 </ul>
               </details>
             </td>`;
@@ -342,6 +352,15 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
 
       function esc(s) {
         return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      async function esperarProvision(id) {
+        for (let i = 0; i < 20; i++) {
+          const fila = tenants.find((x) => x.id === id);
+          if (!fila || (fila.estado !== "aprovisionando" && fila.aprovisionamiento?.estado !== "aprovisionando")) return;
+          await new Promise((r) => setTimeout(r, 250));
+          await cargarTenants();
+        }
       }
 
       async function cargarTenants() {
@@ -430,6 +449,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           suspender: "Suspender por mora",
           suspender_abuso: "Suspender por abuso",
           reactivar: "Reactivar comercio",
+          reintentar_provision: "Reintentar aprovisionamiento",
         };
         $("form-accion-titulo").textContent = titulos[accion] + ". El ID tiene que coincidir.";
       }
@@ -439,13 +459,16 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         const t = abierto;
         const est = textoEstado(t);
         $("detalle-nombre").textContent = t.nombre || t.slug || t.id;
+        const btnProv = $("btn-reintentar-prov");
+        if (btnProv) btnProv.hidden = !(t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error");
         $("detalle-datos").innerHTML = `
           <dt>ID</dt><dd>${esc(t.id)}</dd>
           <dt>Slug</dt><dd>${esc(t.slug || "—")}</dd>
           <dt>Plan</dt><dd>${esc(t.plan || "—")}</dd>
           <dt>Estado</dt><dd>${esc(est.label)}</dd>
           <dt>Vencimiento</dt><dd>${esc(t.vencimiento ? t.vencimiento.slice(0, 10) : "—")}</dd>
-          <dt>Costo alto</dt><dd>${t.costo_alto ? "Sí" : "No"}</dd>`;
+          <dt>Costo alto</dt><dd>${t.costo_alto ? "Sí" : "No"}</dd>
+          <dt>Aprovisionamiento</dt><dd>${esc(t.aprovisionamiento?.estado === "error" ? (t.aprovisionamiento.error || "Error") : (t.aprovisionamiento?.estado === "aprovisionando" ? "Aprovisionando" : "Listo"))}</dd>`;
         void cargarFlags();
         void cargarAudit();
       }
@@ -541,8 +564,11 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           return;
         }
         $("detalle-estado").textContent = "Listo.";
+        const accionHecha = accionPendiente;
+        const idHecho = abierto.id;
         ocultarForms();
         await cargarTenants();
+        if (accionHecha === "reintentar_provision") await esperarProvision(idHecho);
       });
 
       $("form-cobro").addEventListener("submit", async (ev) => {
@@ -709,6 +735,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         formAlta.reset();
         delete slugAlta.dataset.tocado;
         await cargarTenants();
+        await esperarProvision(data.tenant_id);
       });
 
       void cargarTenants();
