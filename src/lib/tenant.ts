@@ -111,6 +111,19 @@ export function filaConTenant<T extends object>(fila: T): T & { tenantId: string
   return { ...fila, tenantId: tid };
 }
 
+// P10-90 (0053): tablas con tenant_id nullable (servicios y pagos). Escribe el
+// tenant cuando se puede determinar; en shared sin contexto falla como el resto.
+export function tenantIdFila(): string | null {
+  return tenantIdAlSellar() ?? null;
+}
+
+// P10-90 (0053): como dondeTenant, para repos que reciben el tenant explícito
+// (jobs de Gmail) en vez de tomarlo del contexto.
+export function dondeTenantExplicito(col: AnyPgColumn, tenantId: string, extra?: SQL): SQL | undefined {
+  if (!modoActual().shared) return extra;
+  return extra ? and(eq(col, tenantId), extra) : eq(col, tenantId);
+}
+
 /** Condición WHERE con tenant_id cuando corre shared. Si no, devuelve `extra` tal cual. */
 export function dondeTenant(col: AnyPgColumn, extra?: SQL): SQL | undefined {
   const tid = tenantIdShared();

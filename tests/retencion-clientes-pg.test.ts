@@ -13,6 +13,9 @@ import {
 } from "../src/jobs/retencion-clientes.js";
 import { ejecutarPurgaDemos } from "../src/jobs/purga-demos.js";
 import { control, resetStore } from "../src/lib/store.js";
+import { conTenant } from "../src/lib/tenant.js";
+import { altaPayee } from "../src/lib/repos/ordenes-pago.js";
+import { altaCuenta } from "../src/lib/repos/servicios.js";
 
 const URL_A = process.env.PG_TEST_URL_A;
 const hayPG = Boolean(URL_A);
@@ -39,6 +42,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       return hay;
     },
   };
+  const cuentaVieja = randomUUID();
   const ejecutarRetencionClientes = (ahora: Date, deps: DepsRetencion = depsTest) => ejecutarConDeps(ahora, deps);
 
   async function tenant(nombre: string, estado: string, extra: { esDemo?: boolean; trialHasta?: string } = {}) {
@@ -155,6 +159,21 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       insert into email_ingestion_drafts (tenant_id, connection_id, message_id, origen, vence_en)
       values (${tenantId}, ${g.id}, ${randomUUID()}, 'pdf_digital', now() + interval '7 days')
     `;
+    // P10-90 (0053): servicios y pagos del comercio.
+    const [sa] = await sql<{ id: string }[]>`
+      insert into service_accounts (tenant_id, servicio, proveedor, titular, email_origen)
+      values (${tenantId}, 'luz', 'EPEC', 'Juana Pérez', 'juana@ejemplo.com') returning id
+    `;
+    await sql`
+      insert into utility_bills (tenant_id, account_id, message_id, periodo, vencimiento, monto_centavos, origen)
+      values (${tenantId}, ${sa!.id}, ${`msg-${randomUUID()}`}, '2026-10', '2026-11-10', 1500, 'pdf_digital')
+    `;
+    const [pe] = await sql<{ id: string }[]>`insert into payees (tenant_id, nombre, cbu) values (${tenantId}, 'Juan Gómez', '0000003100000000000001') returning id`;
+    const [po] = await sql<{ id: string }[]>`
+      insert into payment_orders (tenant_id, idempotency_key, numero, payee_id, concepto, monto_centavos, vence_el, metodo_sugerido, instruccion_tipo, instruccion_snapshot, creado_por)
+      values (${tenantId}, ${randomUUID()}, ${`OP-${randomUUID().slice(0, 8)}`}, ${pe!.id}, 'Luz', 1500, now(), 'Transferencia', 'datos', ${sql.json({})}, 'sub-ret') returning id
+    `;
+    await sql`insert into payment_order_events (payment_order_id, a_estado, version, actor, origen) values (${po!.id}, 'preparada', 1, 'sub-ret', 'web')`;
     // P10-90: auditoría append-only (0052) y feedback a la plataforma.
     await sql`insert into auth_events (tenant_id, tipo, actor, detalle) values (${tenantId}, 'login', 'sub-ret', ${sql.json({ email: "duena@ejemplo.com" })})`;
     await sql`insert into gmail_connection_events (tenant_id, connection_id, evento, actor) values (${tenantId}, ${g.id}, 'conectada', 'sub-ret')`;
@@ -223,7 +242,12 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         (select count(*)::int from admin_audit_log where tenant_id = ${tenantId}
           and (actor_google_sub <> ${ACTOR_ANONIMO} or detalle ->> 'anonimizado' is distinct from 'true')) as auditoria_admin,
         (select count(*)::int from admin_audit_log where tenant_id = ${tenantId}) as auditoria_admin_filas,
-        (select count(*)::int from platform_feedback_reports where tenant_id = ${tenantId}::text) as feedback
+        (select count(*)::int from platform_feedback_reports where tenant_id = ${tenantId}::text) as feedback,
+        (select count(*)::int from service_accounts where tenant_id = ${tenantId})
+          + (select count(*)::int from utility_bills where tenant_id = ${tenantId})
+          + (select count(*)::int from payees where tenant_id = ${tenantId})
+          + (select count(*)::int from payment_orders where tenant_id = ${tenantId})
+          + (select count(*)::int from payment_order_events e join payment_orders o on o.id = e.payment_order_id where o.tenant_id = ${tenantId}) as servicios
     `;
     if (!r) throw new Error("sin fila");
     return r;
@@ -276,6 +300,8 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     // el activo (queda); subOtroCerrado también en el de 89 días (se anonimiza
     // porque su otra membresía es de un comercio en baja y la fila lo referencia).
     for (const sub of [subSolo, subCompartido, subOtroCerrado, subActivo]) await usuario(sub);
+    // P10-90 (0053): una cuenta vieja sin tenant_id no se puede atribuir y queda.
+    await sql`insert into service_accounts (id, servicio, proveedor, titular) values (${cuentaVieja}, 'luz', 'EPEC', 'Sin comercio')`;
     await sql`update tenants set owner_google_sub = ${subSolo} where id = ${ids.a91}`;
     // P10-90: login sin comercio de una persona que se retira y de una que sigue.
     await sql`insert into auth_events (tenant_id, tipo, actor, detalle) values (null, 'login', ${subSolo}, ${sql.json({ ip: "1.2.3.4" })})`;
@@ -353,6 +379,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       auditoria_admin: 0,
       auditoria_admin_filas: 1,
       feedback: 0,
+      servicios: 0,
     });
     expect(revocados).toContain(ids.a91);
     expect(r.revocacionGooglePendiente).toEqual([]);
@@ -385,6 +412,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
         auditoria_gmail: 1,
         auditoria_admin: 1,
         feedback: 1,
+        servicios: 5,
       });
       expect(revocados).not.toContain(id);
     }
@@ -408,6 +436,24 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
     // P10-90: el login sin comercio de quien se retiró queda anonimizado; el de quien sigue, no.
     expect((await sql`select 1 from auth_events where actor = ${subSolo}`).length).toBe(0);
     expect((await sql`select 1 from auth_events where actor = ${subCompartido}`).length).toBe(1);
+  });
+
+  it("la cuenta de servicio vieja sin comercio queda; las altas nuevas llevan tenant_id", async () => {
+    expect((await sql`select 1 from service_accounts where id = ${cuentaVieja}`).length).toBe(1);
+    const payeeId = randomUUID();
+    const p = await conTenant(ids.activo, () =>
+      altaPayee({ id: payeeId, nombre: `Gas Cuyana ${payeeId.slice(0, 6)}`, tipo: "servicio", medioPreferido: "Transferencia", alias: `gas.cuyana.${payeeId.slice(0, 6)}` }),
+    );
+    expect(p, JSON.stringify(p)).toMatchObject({ ok: true, fuente: "db" });
+    const c = await conTenant(ids.activo, () =>
+      altaCuenta({ servicio: "gas", proveedor: `Ecogas ${randomUUID().slice(0, 6)}`, titular: "Juana", debitoAutomatico: false }),
+    );
+    expect(c).toMatchObject({ ok: true, fuente: "db" });
+    if (!c.ok) throw new Error("sin cuenta");
+    const [fp] = await sql<{ t: string }[]>`select tenant_id::text as t from payees where id = ${payeeId}`;
+    const [fc] = await sql<{ t: string }[]>`select tenant_id::text as t from service_accounts where id = ${c.accountId}`;
+    expect(fp?.t).toBe(ids.activo);
+    expect(fc?.t).toBe(ids.activo);
   });
 
   it("borra sesión y código de WhatsApp solo del número que no sigue vinculado a otro comercio", async () => {

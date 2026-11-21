@@ -28,6 +28,8 @@ import {
 } from "../db/schema-proveedores.js";
 import { adminAuditLog, platformFeedbackReports, tenantLifecycleEvents } from "../db/schema-admin.js";
 import { customerMovements, customers } from "../db/schema-credito.js";
+import { serviceAccounts, utilityBills } from "../db/schema-servicios.js";
+import { paymentOrderEvents, paymentOrders, payees } from "../db/schema-pagos.js";
 import { deliveryStatus, emailOutbox } from "../db/schema-email.js";
 import {
   botTurnos,
@@ -80,6 +82,7 @@ export interface ConteoRetencion {
   googleRevocado: number;
   feedbackBorrado: number;
   auditoriaAnonimizada: number;
+  serviciosYPagosBorrados: number;
 }
 
 // P10-90: lo que el job necesita de afuera; los tests lo reemplazan.
@@ -404,7 +407,27 @@ export async function anonimizarTenant(
       (borrarConexionGoogle
         ? (await tx.delete(googleConnections).where(eq(googleConnections.tenantId, tenantId)).returning({ id: googleConnections.id })).length
         : 0);
+    // P10-90 (migración 0053): facturas y cuentas de servicios, beneficiarios
+    // y órdenes de pago del comercio (con su línea de tiempo). Las filas
+    // viejas sin tenant_id no se pueden atribuir y quedan.
+    const ordenes = await tx.select({ id: paymentOrders.id }).from(paymentOrders).where(eq(paymentOrders.tenantId, tenantId));
+    const eventosOrden =
+      ordenes.length > 0
+        ? (
+            await tx
+              .delete(paymentOrderEvents)
+              .where(inArray(paymentOrderEvents.paymentOrderId, ordenes.map((o) => o.id)))
+              .returning({ id: paymentOrderEvents.id })
+          ).length
+        : 0;
+    const serviciosYPagos =
+      eventosOrden +
+      (await tx.delete(paymentOrders).where(eq(paymentOrders.tenantId, tenantId)).returning({ id: paymentOrders.id })).length +
+      (await tx.delete(payees).where(eq(payees.tenantId, tenantId)).returning({ id: payees.id })).length +
+      (await tx.delete(utilityBills).where(eq(utilityBills.tenantId, tenantId)).returning({ id: utilityBills.id })).length +
+      (await tx.delete(serviceAccounts).where(eq(serviceAccounts.tenantId, tenantId)).returning({ id: serviceAccounts.id })).length;
     return {
+      serviciosYPagosBorrados: serviciosYPagos,
       ocrBorrados: ocr,
       borradoresProveedorBorrados: borradores,
       contactosProveedorBorrados: contactos,

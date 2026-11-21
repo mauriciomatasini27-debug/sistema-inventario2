@@ -16,6 +16,8 @@ import type { DetalleEventoOrden, InstruccionSnapshot } from "../modules/payment
 // OP6: beneficiarios con datos públicos de cobro (alias/CBU/CUIT/link).
 export const payees = pgTable("payees", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+  tenantId: uuid("tenant_id"),
   nombre: text("nombre").notNull(),
   tipo: text("tipo").notNull().default("proveedor"),
   cuit: text("cuit"),
@@ -38,6 +40,8 @@ export const payees = pgTable("payees", {
 // cashMovementId apunta al egreso manual de caja (OP9.2).
 export const paymentOrders = pgTable("payment_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+  tenantId: uuid("tenant_id"),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   numero: text("numero").notNull().unique(),
   payeeId: uuid("payee_id").notNull(),

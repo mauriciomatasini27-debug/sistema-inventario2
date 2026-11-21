@@ -372,6 +372,13 @@
       "when": 1795392000000,
       "tag": "0052_retencion_anonimiza_auditoria",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1795478400000,
+      "tag": "0053_servicios_pagos_tenant",
+      "breakpoints": true
     }
   ]
 }
