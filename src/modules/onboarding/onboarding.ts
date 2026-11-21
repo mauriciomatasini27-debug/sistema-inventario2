@@ -10,7 +10,6 @@ import {
 import { calcular_checklist, type DatosChecklist } from "./checklist.js";
 import { registrar_progreso } from "./video.js";
 import {
-  PASOS_WIZARD,
   esCompleto,
   marcarCompletado,
   retomar,
@@ -23,11 +22,9 @@ export type EventoVideo = "inicio" | "mitad" | "fin";
 
 type PersistenciaOpcional = PersistenciaOnboarding | undefined;
 
-// TB-165: `actualizar` es la única transición interna que necesita los tres
-// valores a la vez (quién, dónde y dónde se guarda); los demás helpers sólo
-// resuelven la persistencia. La API pública sigue explícita porque es el
-// límite con las rutas HTTP.
-interface ContextoOnboarding {
+// TB-165 [tenant]: quién, dónde y dónde se guarda viajan juntos en el contexto
+// de cada transición, así las rutas no repiten el triple userId/tenantId.
+export interface ContextoOnboarding {
   userId: string;
   tenantId: string;
   persistencia?: PersistenciaOpcional;
@@ -59,33 +56,25 @@ function actualizar(ctx: ContextoOnboarding, patch: Partial<OnboardingState>): O
 }
 
 // TB-165: lectura pura para que un GET no mute el estado del comercio.
-export function leerOnboarding(
-  userId: string,
-  tenantId: string,
-  persistencia?: PersistenciaOnboarding,
-): OnboardingState {
-  return persistenciaEfectiva(persistencia).leer(userId, tenantId);
+export function leerOnboarding(ctx: ContextoOnboarding): OnboardingState {
+  return persistenciaEfectiva(ctx.persistencia).leer(ctx.userId, ctx.tenantId);
 }
 
 export function marcarTourPaso(
-  userId: string,
-  tenantId: string,
+  ctx: ContextoOnboarding,
   paso: number,
   estado: TourEstado,
-  persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  return actualizar({ userId, tenantId, persistencia }, { tourUltimoPaso: paso, tourEstado: estado });
+  return actualizar(ctx, { tourUltimoPaso: paso, tourEstado: estado });
 }
 
 export function accionChecklist(
-  userId: string,
-  tenantId: string,
+  ctx: ContextoOnboarding,
   accion: AccionChecklist,
   paso: string | undefined,
-  persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva(persistencia);
-  const previo = p.leer(userId, tenantId);
+  const p = persistenciaEfectiva(ctx.persistencia);
+  const previo = p.leer(ctx.userId, ctx.tenantId);
   let patch: Partial<OnboardingState> = {};
   if (accion === "saltar" && paso && !previo.pasosSaltados.includes(paso)) {
     patch = { pasosSaltados: [...previo.pasosSaltados, paso] };
@@ -100,14 +89,12 @@ export function accionChecklist(
 }
 
 export function registrarVideo(
-  userId: string,
-  tenantId: string,
+  ctx: ContextoOnboarding,
   progreso: number,
   evento: EventoVideo,
-  persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva(persistencia);
-  const previo = p.leer(userId, tenantId);
+  const p = persistenciaEfectiva(ctx.persistencia);
+  const previo = p.leer(ctx.userId, ctx.tenantId);
   const avance = registrar_progreso(previo, { progreso, tipo: evento });
   return guardar(previo, avance, p);
 }
@@ -124,35 +111,41 @@ function completarDesde(
     previo,
     {
       wizardCompletado: true,
-      wizardPaso: esCompleto(wizard) ? PASOS_WIZARD.length : wizard.paso,
+      wizardPaso: esCompleto(wizard) ? wizard.pasos.length : wizard.paso,
       wizardEmpleados: [...wizard.empleados],
+      // TB-165: antes se guardaban sólo empleados; el resto se descartaba.
+      wizardRespuestas: { ...wizard.respuestas },
     },
     persistencia,
   );
 }
 
 export function completarWizard(
-  userId: string,
-  tenantId: string,
+  ctx: ContextoOnboarding,
   wizard: WizardState,
-  persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva(persistencia);
-  return completarDesde(p.leer(userId, tenantId), wizard, p);
+  const p = persistenciaEfectiva(ctx.persistencia);
+  return completarDesde(p.leer(ctx.userId, ctx.tenantId), wizard, p);
 }
 
-// TB-165: la ruta solo conoce empleados; el dueño arma el WizardState con sus
-// propias transiciones y hace el puente, sin estados sintéticos en la capa HTTP.
-export function completarWizardConEmpleados(
-  userId: string,
-  tenantId: string,
+// TB-165 [tenant]: la ruta entrega todas las respuestas y el puente arma el
+// WizardState con las transiciones del módulo, sin estados sintéticos en HTTP.
+// Antes sólo pasaba empleados y el resto se descartaba; ahora se fusiona con
+// lo ya persistido.
+export function completarWizardConRespuestas(
+  ctx: ContextoOnboarding,
+  respuestas: Record<string, string> | undefined,
   empleados: readonly string[] | undefined,
-  persistencia?: PersistenciaOnboarding,
 ): OnboardingState {
-  const p = persistenciaEfectiva(persistencia);
-  const previo = p.leer(userId, tenantId);
+  const p = persistenciaEfectiva(ctx.persistencia);
+  const previo = p.leer(ctx.userId, ctx.tenantId);
   const wizard = marcarCompletado(
-    retomar(previo.wizardPaso, {}, [...(empleados ?? previo.wizardEmpleados)], []),
+    retomar(
+      previo.wizardPaso,
+      { ...previo.wizardRespuestas, ...(respuestas ?? {}) },
+      [...(empleados ?? previo.wizardEmpleados)],
+      [],
+    ),
   );
   return completarDesde(previo, wizard, p);
 }
@@ -166,6 +159,19 @@ export function calcularChecklist(
   total: number;
   oculta: boolean;
 } {
-  const { pasos, listos, total } = calcular_checklist(foto);
-  return { pasos, listos, total, oculta: estado.checklistOculta };
+  const { pasos } = calcular_checklist(foto);
+  // TB-165: un paso saltado es «no aplica», no pendiente. Se fusiona acá (y no
+  // en calcular_checklist) para que el núcleo siga siendo puro y la
+  // persistencia del Dueño sea la única fuente del estado no aplica.
+  const conNoAplica = pasos.map((paso) => ({
+    ...paso,
+    noAplica: estado.pasosSaltados.includes(paso.id),
+  }));
+  const aplicables = conNoAplica.filter((paso) => !paso.noAplica);
+  return {
+    pasos: conNoAplica,
+    listos: aplicables.filter((paso) => paso.listo).length,
+    total: aplicables.length,
+    oculta: estado.checklistOculta,
+  };
 }

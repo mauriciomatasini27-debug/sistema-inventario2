@@ -118,6 +118,9 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         trialHasta: tenants.trialHasta,
         wizardCompletado: tenants.wizardCompletado,
         wizardPaso: tenants.wizardPaso,
+        // TB-165 [tenant]: la columna de la 0050 viaja con la fila para que la
+        // hidratación repueble las respuestas del cuestionario.
+        wizardRespuestas: tenants.wizardRespuestas,
       })
       .from(memberships)
       .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
@@ -145,6 +148,7 @@ async function leerMembresiasActivas(googleSub: string): Promise<FilaMembresiaDu
         trialHasta: f.trialHasta,
         wizardCompletado: f.wizardCompletado,
         wizardPaso: f.wizardPaso,
+        wizardRespuestas: f.wizardRespuestas,
       });
     }
     return listas;

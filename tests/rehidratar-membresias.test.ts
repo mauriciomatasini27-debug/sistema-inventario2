@@ -140,6 +140,31 @@ describe("rehidratar membresías después de un reinicio", () => {
     expect(control.onboardingState.get(clave)?.wizardPaso).toBe(5);
   });
 
+  it("TB-165: hidrata las respuestas del cuestionario desde la DB tras un reinicio", async () => {
+    await rehidratarMembresias(SUB, async () => [fila({
+      wizardCompletado: true,
+      wizardPaso: 5,
+      wizardRespuestas: { rubro: "Dietética", whatsapp: "5491112345678" },
+    })]);
+
+    expect(control.onboardingState.get(claveOnboarding(SUB, TENANT))?.wizardRespuestas).toEqual({
+      rubro: "Dietética",
+      whatsapp: "5491112345678",
+    });
+  });
+
+  it("TB-165: la memoria gana si ya tiene respuestas y la DB quedó desactualizada", async () => {
+    const clave = claveOnboarding(SUB, TENANT);
+    control.onboardingState.set(clave, {
+      ...estadoInicial(SUB, TENANT),
+      wizardRespuestas: { rubro: "Local" },
+    });
+
+    await rehidratarMembresias(SUB, async () => [fila({ wizardRespuestas: { rubro: "DB vieja" } })]);
+
+    expect(control.onboardingState.get(clave)?.wizardRespuestas).toEqual({ rubro: "Local" });
+  });
+
   it("ON12: comercio nuevo sin wizard queda en paso 0 e incompleto", async () => {
     await rehidratarMembresias(SUB, async () => [fila()]);
 

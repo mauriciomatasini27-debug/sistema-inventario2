@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
-import { jsonError, membershipActiva, resolverSesion } from "../../../lib/control.js";
+import { jsonError, membershipActiva, numeroWhatsappVinculado, resolverSesion } from "../../../lib/control.js";
 import { BaseNoDisponible } from "../../../lib/server-db.js";
 import { conTenant } from "../../../lib/tenant-mode.js";
 import { listarProductos } from "../../../lib/repos/catalogo.js";
 import { listarProveedores } from "../../../lib/repos/proveedores.js";
 import { crearAlmacenProductos, crearAlmacenSuppliers } from "../../../lib/repos/_almacen.js";
 import { calcularChecklist, leerOnboarding } from "../../../modules/onboarding/onboarding.js";
+import { tenantDelCuestionario } from "../../../modules/onboarding/acceso-tenant.js";
 import { pasos_para_rol } from "../../../modules/onboarding/tour.js";
 
 export const prerender = false;
@@ -46,7 +47,8 @@ function contarInvitaciones(tenantId: string): number {
 }
 
 // P1-26: /api/onboarding no está en PREFIJOS_DATOS, así que el middleware
-// no fija el comercio. El tenant autorizado es el de la query.
+// no fija el comercio. TB-165 [tenant]: el comercio lo fija la sesión; el
+// query es sólo un atajo cuando coincide con el autorizado.
 async function conteosDelComercio(tenantId: string) {
   return conTenant(tenantId, async () => {
     const filas = await filasProducto();
@@ -63,11 +65,17 @@ export const GET: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   const url = new URL(request.url);
-  const tenantId = url.searchParams.get("tenant_id") ?? "";
-  if (!tenantId) return jsonError("Falta el comercio.", 422);
+  const autorizado = tenantDelCuestionario(
+    request.headers.get("X-Tenant-Id") ?? ctx.tenantId ?? "",
+    url.searchParams.get("tenant_id"),
+  );
+  // TB-165 [tenant]: sin sesión con comercio, o con un query de otro comercio,
+  // se niega sin revelar si ese comercio existe.
+  if (!autorizado.ok) return jsonError("No tenés permiso en este comercio.", 403);
+  const tenantId = autorizado.tenantId;
   const m = membershipActiva(tenantId, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  const estado = leerOnboarding(ctx.googleSub, tenantId);
+  const estado = leerOnboarding({ userId: ctx.googleSub, tenantId });
   const pasos = pasos_para_rol(m.rol, m.permisos);
   const tenant = control.tenants.get(tenantId);
   const whatsappVerificado = [...control.botLinks.values()].some(
@@ -79,8 +87,19 @@ export const GET: APIRoute = async ({ request }) => {
     whatsappVerificado,
   });
   const ejemplo = [...control.ejemplos.values()].find((e) => e.tenantRealId === tenantId) ?? null;
+  // TB-165 [tenant]: el cuestionario no re-pregunta estos datos; los expone completos.
+  const numeroWhatsapp = numeroWhatsappVinculado(tenantId, ctx.googleSub);
   return Response.json({
-    comercio: tenant ? { nombre: tenant.nombreComercio, estado: tenant.estado, plan: tenant.plan } : null,
+    comercio: tenant
+      ? {
+          nombre: tenant.nombreComercio,
+          estado: tenant.estado,
+          plan: tenant.plan,
+          rubro: tenant.rubro ?? null,
+          whatsapp: numeroWhatsapp,
+        }
+      : null,
+    dueno: { nombre: control.users.get(ctx.googleSub)?.nombre ?? null },
     whatsapp: { verificado: whatsappVerificado },
     tour: { version: estado.tourVersion, ultimo_paso: estado.tourUltimoPaso, estado: estado.tourEstado, pasos },
     checklist: { listos: checklist.listos, total: checklist.total, pasos: checklist.pasos, oculta: checklist.oculta },

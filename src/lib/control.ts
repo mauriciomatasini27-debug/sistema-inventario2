@@ -100,6 +100,15 @@ export function contarMiembrosActivos(tenantId: string): number {
   return n;
 }
 
+// TB-165 [tenant]: el WhatsApp registrado para VINCULAR es del comercio y del
+// usuario; las rutas no necesitan conocer la colección del store.
+export function numeroWhatsappVinculado(tenantId: string, googleSub: string): string | null {
+  for (const c of control.vincularCodes.values()) {
+    if (c.tenantId === tenantId && c.googleSub === googleSub) return c.numeroRegistrado;
+  }
+  return null;
+}
+
 export function jsonError(mensaje: string, status: number): Response {
   return Response.json({ error: mensaje }, { status });
 }

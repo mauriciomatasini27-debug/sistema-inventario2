@@ -439,4 +439,6 @@ export const altaAutoservicioSchema = z.object({
 export const onboardingCompletarSchema = z.object({
   tenant_id: z.string().min(1).max(128).optional(),
   empleados: z.array(z.string().min(1).max(128)).optional(),
+  // TB-165: respuestas de los pasos desconocidos; antes no llegaban y se perdían.
+  respuestas: z.record(z.string(), z.string().min(1).max(500)).optional(),
 });

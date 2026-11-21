@@ -39,6 +39,17 @@ describe("onboarding-wizard-ruta completar", () => {
     expect(control.onboardingState.get(claveOnboarding("g-2", "t-1"))).toBeUndefined();
   });
 
+  it("TB-165: el guardado final conserva todas las respuestas del cuerpo", async () => {
+    control.tenants.set("t-1", { id: "t-1", nombreComercio: "K", slug: "k", estado: "activo", plan: "demo", moneda: "ARS", ownerGoogleSub: "g-1", esDemo: false });
+    control.memberships.set("m-1", { id: "m-1", tenantId: "t-1", googleSub: "g-1", rol: "dueno", permisos: [], estado: "activo" });
+    const plano = sesionEnStore("g-1", "t-1");
+    const respuestas = { productos: "Sí, cargar productos", caja: "Empezar en 0" };
+    const r = await POST(req(plano, { respuestas }));
+
+    expect(r.status).toBe(200);
+    expect(control.onboardingState.get(claveOnboarding("g-1", "t-1"))?.wizardRespuestas).toEqual(respuestas);
+  });
+
   it("200 marca completado resolviendo tenant desde memberships", async () => {
     control.tenants.set("t-1", { id: "t-1", nombreComercio: "K", slug: "k", estado: "activo", plan: "demo", moneda: "ARS", ownerGoogleSub: "g-1", esDemo: false });
     control.memberships.set("m-1", { id: "m-1", tenantId: "t-1", googleSub: "g-1", rol: "dueno", permisos: [], estado: "activo" });

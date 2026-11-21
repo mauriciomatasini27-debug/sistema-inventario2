@@ -1,5 +1,22 @@
 ---
+import { exigirDuenoDeRequest } from "../lib/tenant-context.js";
+import { tenantDelCuestionario } from "../modules/onboarding/acceso-tenant.js";
+
 // ONBOARDING-WIZARD (T2): ruta dedicada post-login.
+// TB-165: la página es sólo vista; las transiciones viven en wizard.ts.
+// TB-165: el cuestionario es del Dueño; el guard corre en servidor para que
+// un Empleado no llegue por navegación directa.
+const acceso = exigirDuenoDeRequest(Astro.request);
+if (!acceso.ok) return Astro.redirect("/panel", 302);
+// TB-165 [tenant]: el panel abre el cuestionario con el comercio ya resuelto.
+// El query sólo se acepta si coincide con el tenant autorizado por la sesión;
+// si no, se sale al panel antes de renderizar datos de otro comercio.
+const tenantCuestionario = tenantDelCuestionario(
+  acceso.tenantId,
+  Astro.url.searchParams.get("tenant_id"),
+);
+if (!tenantCuestionario.ok) return Astro.redirect("/panel", 302);
+const tenantId = tenantCuestionario.tenantId;
 ---
 <html lang="es">
   <head>
@@ -12,7 +29,7 @@
       * { box-sizing:border-box; }
       body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; overflow-x:hidden; }
       .topbar { position:fixed; top:12px; right:12px; }
-      .topbar button { background:var(--card); border:1px solid var(--line); color:var(--fg); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px; }
+      .topbar button, .topbar a { background:var(--card); border:1px solid var(--line); color:var(--fg); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px; text-decoration:none; margin-right:6px; }
       .phone { width:360px; max-width:100%; background:var(--card); border:1px solid var(--line); border-radius:20px; overflow:hidden; display:flex; flex-direction:column; }
       .phone-head { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
       .avatar { width:32px; height:32px; border-radius:50%; background:var(--accent); display:grid; place-items:center; font-weight:700; color:#fff; }
@@ -30,101 +47,176 @@
       .chip:hover { background:var(--accent); color:#fff; }
       .input { width:100%; margin-top:12px; background:var(--bg); border:1px solid var(--line); color:var(--fg); padding:12px; border-radius:10px; font-size:16px; }
       .state { font-size:11px; color:var(--muted); font-family:ui-monospace,monospace; white-space:pre-wrap; margin-top:8px; }
+      .datos-conocidos { width:100%; margin-bottom:8px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:12px; color:var(--muted); }
+      .datos-conocidos[hidden] { display:none; }
     </style>
   </head>
   <body>
-    <div class="topbar"><button id="temaToggle">Tema</button></div>
+    <div class="topbar"><a href="/panel" data-salir-cuestionario>Salir al panel</a><button id="temaToggle">Tema</button></div>
     <div class="phone">
       <div class="phone-head"><div class="avatar">M</div><div><div class="name">Modo</div><div class="sub">Onboarding</div></div></div>
       <div class="progress"><div id="p" style="width:0%"></div></div>
+      <div class="datos-conocidos" data-datos-conocidos hidden></div>
       <div class="body" id="body"></div>
     </div>
-    <script is:inline>
-      const steps = [
-        { key:"negocio", q:"¿Cómo se llama tu negocio?", type:"text" },
-        { key:"dueno", q:"¿Cómo te llamás?", type:"text" },
-        { key:"empleados", q:"¿Tenés empleados?", type:"choice", options:["Sí, tengo empleados","No, trabajo solo"] },
-        { key:"productos", q:"¿Querés cargar tus productos ahora?", type:"choice", options:["Sí, cargar productos","Más tarde"] },
-        { key:"caja", q:"¿Tenés dinero en la caja para empezar a vender?", type:"choice", options:["Sí, cargar monto","Empezar en 0"] },
-      ];
-      const storageKey = "onboarding-wizard";
-      let state = JSON.parse(localStorage.getItem(storageKey) || "null") || { paso:0, respuestas:{}, empleados:[], empleadosDone:false, saltados:[] };
-      const body = document.getElementById("body");
-      function save(){ localStorage.setItem(storageKey, JSON.stringify(state)); }
+    <script define:vars={{ tenantId }}>
+      // TB-165: antes acá había una copia de la máquina de estados. La página
+      // sólo renderiza y delega cada transición al módulo dueño del cuestionario.
+      import {
+        agregarEmpleado,
+        avanzar,
+        completarEmpleados,
+        conDatosConocidos,
+        estadoInicialWizard,
+        esCompleto,
+        pasoActual,
+        saltar,
+        subflujoEmpleadosActivo,
+        transicionConSalida,
+        type WizardState,
+      } from "../modules/onboarding/wizard.js";
+
+      // TB-165 [tenant]: el borrador del cuestionario es por comercio, no global.
+      const storageKey = "onboarding-wizard:" + tenantId;
+      let state: WizardState = estadoInicialWizard();
+      const crudo = localStorage.getItem(storageKey);
+      if (crudo) {
+        try {
+          const guardado = JSON.parse(crudo) as Partial<WizardState>;
+          state = { ...state, ...guardado, completado: guardado.completado ?? false };
+        } catch {
+          // TB-165: un guardado corrupto no debe trabar el cuestionario.
+        }
+      }
+
+      const body = document.getElementById("body")!;
+
+      // TB-165: datos ya capturados en el alta y en el proveedor de identidad.
+      // Se muestran completos y sólo lectura: el cuestionario no los repite.
+      async function cargarDatosConocidos() {
+        const el = document.querySelector("[data-datos-conocidos]");
+        if (!(el instanceof HTMLElement) || !tenantId) return;
+        try {
+          const r = await fetch("/api/onboarding/estado?tenant_id=" + encodeURIComponent(tenantId));
+          if (!r.ok) return;
+          const j = await r.json();
+          const filas = [
+            ["Comercio", j.comercio?.nombre],
+            ["Rubro", j.comercio?.rubro],
+            ["WhatsApp", j.comercio?.whatsapp],
+            ["Dueño", j.dueno?.nombre],
+          ].filter((fila): fila is [string, string] => typeof fila[1] === "string" && fila[1].length > 0);
+          el.replaceChildren();
+          for (const [etiqueta, valor] of filas) {
+            const d = document.createElement("div");
+            d.textContent = etiqueta + ": " + valor;
+            el.appendChild(d);
+          }
+          el.hidden = filas.length === 0;
+          // TB-165: con los datos reales se recalculan los pasos: lo que el
+          // alta ya capturó deja de preguntarse y lo que falta se agrega.
+          state = conDatosConocidos(state, {
+            rubro: j.comercio?.rubro,
+            whatsapp: j.comercio?.whatsapp,
+          });
+          save();
+          render();
+        } catch (e) {
+          console.warn("[onboarding] no se pudieron cargar los datos conocidos", e);
+        }
+      }
+      void cargarDatosConocidos();
+
+      function save() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+      function progreso() {
+        document.getElementById("p")!.style.width = (state.paso / state.pasos.length * 100) + "%";
+      }
+      function detalle() {
+        const st = document.createElement("div");
+        st.className = "state";
+        st.textContent = JSON.stringify(state.respuestas, null, 2) + "\nEmpleados: " + JSON.stringify(state.empleados);
+        body.appendChild(st);
+      }
+
       function render() {
         body.innerHTML = "";
-        if (state.paso >= steps.length) {
-          body.innerHTML = '<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">5 de 5 pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>';
-          document.getElementById("p").style.width = "100%";
-          fetch("/api/onboarding/completar", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ empleados: state.empleados }) }).catch((e) => { console.warn("onboarding completar falló", e); });
-          const btn = document.getElementById("irPanel");
-          if (btn) btn.onclick = () => { window.location.href = "/panel"; };
+        if (esCompleto(state)) {
+          body.innerHTML = `<div class="card"><h3>🎉 ¡Listo!</h3><p class="stepinfo">${state.pasos.length} de ${state.pasos.length} pasos completados</p><p>Ya podés vender.</p><button class="chip" id="irPanel" style="margin-top:12px;background:var(--accent);color:#fff;">Ir al panel</button></div>`;
+          progreso();
+          // TB-165: antes sólo se enviaban empleados y el resto se descartaba.
+          fetch("/api/onboarding/completar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: tenantId, empleados: state.empleados, respuestas: state.respuestas }) }).catch((e) => { console.warn("onboarding completar falló", e); });
+          document.getElementById("irPanel")!.onclick = () => { window.location.href = "/panel"; };
           return;
         }
-        // sub-flujo empleados
-        if (state.paso === 2 && state.respuestas.empleados && String(state.respuestas.empleados).startsWith("Sí") && !state.empleadosDone) {
-          const card = document.createElement("div"); card.className="card";
+        const paso = pasoActual(state);
+        if (!paso) return; // TB-165: sin paso activo no hay nada que renderizar.
+
+        // TB-165: la vista no conoce claves; el paso dice si abre el subflujo.
+        if (subflujoEmpleadosActivo(state)) {
+          const card = document.createElement("div"); card.className = "card";
           card.innerHTML = "<h3>Cargá los emails de tus empleados</h3><p>Les enviaremos un link para sumarse.</p>";
-          const list = document.createElement("div"); list.style.marginTop="8px";
-          state.empleados.forEach(e => { const d=document.createElement("div"); d.textContent=e; list.appendChild(d); });
+          const list = document.createElement("div"); list.style.marginTop = "8px";
+          state.empleados.forEach((e) => { const d = document.createElement("div"); d.textContent = e; list.appendChild(d); });
           card.appendChild(list);
-          const inp = document.createElement("input"); inp.className="input"; inp.type="email"; inp.placeholder="email@ejemplo.com";
-          const add = document.createElement("button"); add.className="chip"; add.textContent="Agregar"; add.style.marginTop="8px";
-          add.onclick = () => { if(!inp.value.trim()) return; state.empleados.push(inp.value.trim()); inp.value=""; save(); render(); };
+          const inp = document.createElement("input"); inp.className = "input"; inp.type = "email"; inp.placeholder = "email@ejemplo.com";
+          const add = document.createElement("button"); add.className = "chip"; add.textContent = "Agregar"; add.style.marginTop = "8px";
+          add.onclick = () => { if (!inp.value.trim()) return; state = agregarEmpleado(state, inp.value.trim()); inp.value = ""; save(); render(); };
           card.appendChild(inp); card.appendChild(add);
-          const done = document.createElement("button"); done.className="chip"; done.textContent="Enviar links y continuar"; done.style.marginTop="12px"; done.style.background="var(--accent)"; done.style.color="#fff";
+          const done = document.createElement("button"); done.className = "chip"; done.textContent = "Enviar links y continuar"; done.style.marginTop = "12px"; done.style.background = "var(--accent)"; done.style.color = "#fff";
           done.onclick = async () => {
-             for (const email of state.empleados) {
-               try { await fetch("/api/invitations", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email }) }); }
-               catch (e) { console.warn("invitación falló", e); }
-             }
-             state.empleadosDone=true; state.paso++; save(); render();
-           };
+            for (const email of state.empleados) {
+              try { await fetch("/api/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); }
+              catch (e) { console.warn("invitación falló", e); }
+            }
+            state = completarEmpleados(state);
+            save(); render();
+          };
           card.appendChild(done);
           body.appendChild(card);
-          document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-          const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
-          body.appendChild(st);
+          progreso();
+          detalle();
           return;
         }
-        const s = steps[state.paso];
-        const card = document.createElement("div"); card.className="card";
-        card.innerHTML = `<p class="stepinfo">${state.paso+1} de ${steps.length} pasos</p><h3>${s.q}</h3>`;
-        if (s.type === "choice") {
-          const wrap = document.createElement("div"); wrap.className="choices";
-          s.options.forEach(o => {
-            const b = document.createElement("button"); b.className="chip"; b.textContent=o;
+
+        const card = document.createElement("div"); card.className = "card";
+        card.innerHTML = `<p class="stepinfo">${state.paso + 1} de ${state.pasos.length} pasos</p><h3>${paso.titulo}</h3>`;
+        if (paso.tipo === "choice") {
+          const wrap = document.createElement("div"); wrap.className = "choices";
+          (paso.opciones ?? []).forEach((o) => {
+            const b = document.createElement("button"); b.className = "chip"; b.textContent = o;
             b.onclick = () => {
-              state.respuestas[s.key]=o;
-              if (s.key==="empleados" && o.startsWith("Sí")) { state.empleadosDone=false; save(); render(); return; }
-              if (s.key==="empleados" && o.startsWith("No")) { state.paso++; save(); render(); return; }
-              if (s.key==="productos" && o.startsWith("Sí")) { window.location.href="/panel/stock/importar"; return; }
-              if (s.key==="caja" && o.startsWith("Sí")) { window.location.href="/panel/caja"; return; }
-              state.paso++; save(); render();
+              // TB-165: las ramas «sí» guardan el avance antes de salir; si no,
+              // al volver del destino el cuestionario nunca se puede terminar.
+              // TB-165: la transición entrega el estado ya avanzado y el
+              // destino; se guarda antes de navegar para no perder el avance.
+              const t = transicionConSalida(state, o);
+              state = t.state;
+              save();
+              if (t.salida) { window.location.href = t.salida; return; }
+              render();
             };
             wrap.appendChild(b);
           });
           card.appendChild(wrap);
         } else {
-          const inp = document.createElement("input"); inp.className="input";
-          const btn = document.createElement("button"); btn.className="chip"; btn.textContent="Continuar"; btn.style.marginTop="10px";
-          btn.onclick = () => { if(!inp.value.trim()) return; state.respuestas[s.key]=inp.value.trim(); state.paso++; save(); render(); };
+          const inp = document.createElement("input"); inp.className = "input";
+          const btn = document.createElement("button"); btn.className = "chip"; btn.textContent = "Continuar"; btn.style.marginTop = "10px";
+          btn.onclick = () => { if (!inp.value.trim()) return; state = avanzar(state, inp.value.trim()); save(); render(); };
           card.appendChild(inp); card.appendChild(btn);
         }
-        const skip = document.createElement("button"); skip.className="chip"; skip.textContent="Saltar por ahora"; skip.style.marginTop="8px"; skip.style.opacity="0.7";
-        skip.onclick = () => { state.saltados = state.saltados || []; if(!state.saltados.includes(s.key)) state.saltados.push(s.key); state.paso++; save(); render(); };
+        const skip = document.createElement("button"); skip.className = "chip"; skip.textContent = "Saltar por ahora"; skip.style.marginTop = "8px"; skip.style.opacity = "0.7";
+        skip.onclick = () => { state = saltar(state); save(); render(); };
         card.appendChild(skip);
         body.appendChild(card);
-        document.getElementById("p").style.width = (state.paso/steps.length*100)+"%";
-        const st = document.createElement("div"); st.className="state"; st.textContent = JSON.stringify(state.respuestas,null,2) + "\\nEmpleados: " + JSON.stringify(state.empleados);
-        body.appendChild(st);
+        progreso();
+        detalle();
       }
-      // tema toggle
-      const temaBtn = document.getElementById("temaToggle");
-      if (localStorage.getItem("proto-tema")==="dark") document.body.classList.add("dark");
+
+      const temaBtn = document.getElementById("temaToggle")!;
+      if (localStorage.getItem("proto-tema") === "dark") document.body.classList.add("dark");
       temaBtn.onclick = () => {
         document.body.classList.toggle("dark");
-        localStorage.setItem("proto-tema", document.body.classList.contains("dark")?"dark":"light");
+        localStorage.setItem("proto-tema", document.body.classList.contains("dark") ? "dark" : "light");
       };
       render();
     </script>
