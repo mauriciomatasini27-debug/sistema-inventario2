@@ -54,8 +54,9 @@ describe("TB-165: completar guarda las respuestas en el comercio de la sesión",
 
     expect(r.status).toBe(200);
     expect(espejo.persistir).toHaveBeenCalledTimes(1);
-    expect(espejo.persistir.mock.calls[0]?.[0]).toBe(A);
-    expect(espejo.persistir.mock.calls[0]?.[3]).toEqual(RESPUESTAS_A);
+    const args = espejo.persistir.mock.calls[0] as unknown[];
+    expect(args[0]).toBe(A);
+    expect(args[3]).toEqual(RESPUESTAS_A);
     expect(leerOnboarding({ userId: SUB, tenantId: A }).wizardRespuestas).toEqual(RESPUESTAS_A);
     expect(leerOnboarding({ userId: SUB, tenantId: A }).wizardCompletado).toBe(true);
     expect(leerOnboarding({ userId: SUB, tenantId: B }).wizardRespuestas).toEqual({});
@@ -79,7 +80,9 @@ describe("TB-165: completar guarda las respuestas en el comercio de la sesión",
     const r = await completar(plano, { tenant_id: A, respuestas: RESPUESTAS_A });
 
     expect(r.status).toBe(200);
-    expect(espejo.persistir.mock.calls[0]?.[0]).toBe(A);
+    expect(espejo.persistir).toHaveBeenCalledTimes(1);
+    const argsA = espejo.persistir.mock.calls[0] as unknown[];
+    expect(argsA[0]).toBe(A);
     expect(leerOnboarding({ userId: SUB, tenantId: A }).wizardRespuestas).toEqual(RESPUESTAS_A);
     expect(leerOnboarding({ userId: SUB, tenantId: B }).wizardRespuestas).toEqual({});
   });
