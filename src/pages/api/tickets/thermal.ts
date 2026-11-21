@@ -3,7 +3,6 @@ import { render_ticket_thermal } from "../../../modules/sales/ticket_thermal.js"
 
 export const prerender = false;
 
-// Body: { comercio, comercioExtra?, ticketDefinitivo, provisorio, fechaIso,
 // medio, pagoACuenta?, offline?, sobreventa?, lineas:[{sku,cantidad,
 // precioCentavos,netoCentavos?,descuentoCentavos?}], totalBrutoCentavos,
 // totalDescuentoCentavos, totalNetoCentavos, qrUrl? } (centavos como string).

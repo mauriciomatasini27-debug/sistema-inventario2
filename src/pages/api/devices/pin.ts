@@ -13,7 +13,6 @@ const bodySchema = z.object({
   pin: z.string().min(4).max(6),
 });
 
-// sin el plano ni el hash.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

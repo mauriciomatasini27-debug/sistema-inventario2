@@ -10,7 +10,6 @@ import { buscarVentaPorId } from "../../../modules/sales/buscar_venta.js";
 
 export const prerender = false;
 
-// Body: { sale_id, toE164?, dentroVentana24h?, optIn?, comercio? }.
 // Header Idempotency-Key requerido (no duplica envío central).
 // Siempre devuelve wa_me_url (gratis); central solo si hay opt-in y no duplicado.
 export const POST: APIRoute = async ({ request }) => {

@@ -26,7 +26,6 @@ function leerCookie(header: string | null, nombre: string): string | null {
   return null;
 }
 
-// token como en el login, exige mismo sub + iat<2min + nonce, actualiza
 // reauth_at y rota el ID de sesión. Luego redirige a `continuar`.
 export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const url = new URL(request.url);

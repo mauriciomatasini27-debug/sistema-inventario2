@@ -13,7 +13,6 @@ const bodySchema = z.object({
   nombre: z.string().min(1).max(40),
 });
 
-// ("PC del mostrador", AU9.3). El nombre se muestra en Dispositivos y en el
 // historial de movimientos.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);

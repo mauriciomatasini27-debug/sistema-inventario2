@@ -4,7 +4,6 @@ import { obtenerBalance } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// PERS2-S12: el repo caja deriva desde cash_movements del tenant con DB
 // viva y desde memoria particionada solo en single sin base. Nunca caché
 export const GET: APIRoute = async () => {
   try {

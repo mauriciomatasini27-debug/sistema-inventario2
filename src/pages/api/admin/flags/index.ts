@@ -8,7 +8,6 @@ import { resolver_flag } from "../../../../modules/admin/flags.js";
 
 export const prerender = false;
 
-// GET lista resueltos (default del plan + override); POST crea/actualiza.
 export const GET: APIRoute = async ({ request }) => {
   const admin = await exigirAdminListo(request);
   if (admin instanceof Response) return admin;

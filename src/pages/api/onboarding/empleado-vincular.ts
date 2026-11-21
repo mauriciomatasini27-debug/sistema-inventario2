@@ -8,7 +8,6 @@ import { mensaje_numero_en_uso } from "../../../modules/onboarding/empleado.js";
 
 export const prerender = false;
 
-// VINCULAR opcional con rol empleado. Mismo mecanismo que ON2.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

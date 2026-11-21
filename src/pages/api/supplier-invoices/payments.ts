@@ -5,7 +5,6 @@ import { registrarPagoProveedorRepo } from "../../../lib/repos/facturas-proveedo
 
 export const prerender = false;
 
-// por el repo de caja.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

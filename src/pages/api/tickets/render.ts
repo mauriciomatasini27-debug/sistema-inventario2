@@ -3,7 +3,6 @@ import { buildTicketRender } from "../../../modules/sales/ticket_render.js";
 
 export const prerender = false;
 
-// Body: { comercio, ticket, lineas, linkPublico, fechaIso }.
 // 200 { html, text, qrPayload }; 422 si invariantes no cuadran.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

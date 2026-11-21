@@ -11,7 +11,6 @@ const bodySchema = z.object({
   modulo_origen: z.enum(["inventory", "purchases", "tickets"]),
 });
 
-// Emite URL firmada para subir foto (800px/200KB, ≤2MB). Stub local HMAC 15min;
 // R2 real va por env MEDIA_R2_* (documentado, no cableado aún).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

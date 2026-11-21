@@ -12,7 +12,6 @@ import {
 
 export const prerender = false;
 
-// durable (src/jobs/aprovisionar.ts): alta pendiente DB-first con espejo en
 // memoria, reclamo con advisory lock y 409 por requestKey también en frío.
 // La membership de Dueño se crea recién en el paso crear_membership_dueno:
 // nunca activa sin base completa.

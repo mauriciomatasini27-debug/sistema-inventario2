@@ -4,7 +4,6 @@ import { control } from "../../../lib/store.js";
 
 export const prerender = false;
 
-// Si hay movimientos sin sincronizar la app avisa antes (AU8.7, lado cliente).
 export const POST: APIRoute = async ({ request }) => {
   const idPlano = extraerSesionDeCookie(request.headers.get("cookie"));
   if (idPlano) {

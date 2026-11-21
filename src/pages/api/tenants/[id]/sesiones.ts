@@ -13,7 +13,6 @@ import { notificarAlertaSeguridad } from "../../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
 
-// (AU9.2, solo Dueño): sesiones activas de un miembro del comercio.
 export const GET: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
@@ -41,7 +40,6 @@ const cerrarSchema = z.object({
 });
 
 // Cierra sesiones sin revocar el acceso: el usuario puede volver a entrar
-// con Google. Para quitar el acceso está "Revocar acceso" (AU7).
 export const POST: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

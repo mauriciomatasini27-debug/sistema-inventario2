@@ -5,7 +5,6 @@ import { pagarFactura } from "../../../lib/repos/servicios.js";
 
 export const prerender = false;
 
-// PERS2-S16: persiste via repo de servicios (el egreso va por caja.ts).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

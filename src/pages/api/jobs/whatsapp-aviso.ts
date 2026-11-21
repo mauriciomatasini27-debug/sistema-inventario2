@@ -17,9 +17,6 @@ import { PLANTILLA_ALERTA_STOCK_BAJO } from "../../../modules/whatsapp/envio.js"
 
 export const prerender = false;
 
-// los webhooks de estado (B11.3).
-// PERS2-S18: el tenant sale de gateJob (en multi solo ese comercio; en
-// single todos como hoy) y el estado va por el repo whatsapp.
 export const POST: APIRoute = async ({ request }) => {
   return correrJob(request, async (tenantId) => {
     const ahoraMs = Date.now();

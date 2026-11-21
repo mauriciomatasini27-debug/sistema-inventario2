@@ -7,7 +7,6 @@ import {
 
 export const prerender = false;
 
-// PERS2-S8: el repo fiscal resuelve DB-first con backfill desde memoria y
 // espejo memoria; sin base queda en memoria como antes.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

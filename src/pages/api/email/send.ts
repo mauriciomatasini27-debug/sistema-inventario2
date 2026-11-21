@@ -13,7 +13,6 @@ const sendSchema = z.object({
   idempotency_key: z.string().min(1).max(128).optional(),
 });
 
-// encola en emailOutbox (best-effort) y devuelve 202 encolado.
 export const POST: APIRoute = async ({ request }) => {
   const headerKey = request.headers.get("Idempotency-Key") ?? "";
   let body: unknown;

@@ -5,7 +5,6 @@ import { encolarResumen, resumenMovimientosCaja } from "../../../lib/repos/email
 
 export const prerender = false;
 
-// Snapshot inmutable: total + por medio derivados de movimientos (SUM).
 // Reintento misma jornada => 409 (dedupe por tenant+fecha).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

@@ -5,9 +5,7 @@ import { promoverOperacion } from "../../../lib/repos/sync.js";
 
 export const prerender = false;
 
-// ya pusheado (cierra "sync reasigna definitivo" del Slice-0, ADR-0017).
 // con lock en DB, contador del store en memoria).
-// BaseNoDisponible y responde 503.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   let body: unknown;

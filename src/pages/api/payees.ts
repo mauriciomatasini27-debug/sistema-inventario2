@@ -5,7 +5,6 @@ import { altaPayee } from "../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// repo propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

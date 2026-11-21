@@ -5,7 +5,6 @@ import { registrarFactura } from "../../lib/repos/servicios.js";
 
 export const prerender = false;
 
-// PERS2-S16: persiste via repo de servicios (DB del tenant; memoria solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

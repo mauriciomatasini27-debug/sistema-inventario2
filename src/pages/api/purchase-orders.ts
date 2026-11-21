@@ -5,8 +5,6 @@ import { crearOrdenRepo } from "../../lib/repos/proveedores.js";
 
 export const prerender = false;
 
-// idempotency-key con cabecera+líneas en 1 tx y espejo memoria). En multi sin
-// base el repo propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

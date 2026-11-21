@@ -8,7 +8,6 @@ import { enCuarentena, horasSinSync, nivelAviso } from "../../../offline/avisos.
 
 export const prerender = false;
 
-// Registra device_sync_state (última vista + pendientes + última op) y devuelve
 // estado del indicador + aviso por antigüedad (24h/60h/72h cuarentena).
 // sin base propaga BaseNoDisponible y responde 503.
 export const POST: APIRoute = async ({ request }) => {

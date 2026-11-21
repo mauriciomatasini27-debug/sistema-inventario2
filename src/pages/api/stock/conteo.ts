@@ -6,8 +6,6 @@ import type { Sku } from "../../../modules/inventario/inventario.js";
 
 export const prerender = false;
 
-// sector) vs físico y aplica COMPENSATORIO append-only (nunca UPDATE).
-// sin base el repo propaga BaseNoDisponible (503).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

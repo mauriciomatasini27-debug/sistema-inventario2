@@ -5,7 +5,6 @@ import { altaCuenta, listarCuentasDetalle } from "../../lib/repos/servicios.js";
 
 export const prerender = false;
 
-// propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

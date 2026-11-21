@@ -5,8 +5,6 @@ import { cobroFiado } from "../../../lib/repos/fiado.js";
 
 export const prerender = false;
 
-// relectura; cobro e ingreso a caja entran en la misma transacción (P10-15).
-// Sin DB en single cae a memoria; si la transacción falla, el error se propaga
 // y no se escribe una mitad sola.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";

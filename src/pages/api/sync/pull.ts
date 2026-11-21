@@ -5,7 +5,6 @@ import { leerLote } from "../../../lib/repos/sync.js";
 
 export const prerender = false;
 
-// PERS-S2: DB-first sobre outbox con el mismo paginado por offset; con base
 // viva el catálogo (stock, prices y codes) sale de products y product_codes (ADR-0081, P1-58).
 // Sin DB o ante error, la vía memoria histórica resuelve igual que antes.
 // propaga BaseNoDisponible y responde 503.

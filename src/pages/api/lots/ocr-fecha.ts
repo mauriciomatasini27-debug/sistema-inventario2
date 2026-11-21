@@ -3,7 +3,6 @@ import { z } from "zod";
 
 export const prerender = false;
 
-// Acepta texto crudo tipo "VTO 03/2027", "Vence 12/25", propone fecha para confirmar.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

@@ -13,7 +13,6 @@ import {
 
 export const prerender = false;
 
-// Slice-0: sin sesión exige header X-Rol: dueno (empleado → 403).
 // Vinculada a factura 11/6/1 autorizada con CbtesAsoc + caja asociada si hubo cobro.
 // PERS2-S8: el repo fiscal resuelve DB-first. El header Idempotency-Key es la
 // idempotencia real: la clave repetida responde 409 aunque la memoria esté

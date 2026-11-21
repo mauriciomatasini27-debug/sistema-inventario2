@@ -6,7 +6,6 @@ import { confirmarPagoOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// PERS2-S15: el repo persiste por DB primero; el egreso va por caja.
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;

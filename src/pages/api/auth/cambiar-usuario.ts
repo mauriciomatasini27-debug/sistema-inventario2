@@ -6,7 +6,6 @@ import { persistirAuthEvent, revocarSesionDb } from "../../../lib/control-db.js"
 
 export const prerender = false;
 
-// mostrador (AU13.1): cierra la sesión actual y devuelve la URL de login con
 // prompt=select_account para que la siguiente persona elija su cuenta.
 // No es un logout silencioso: queda auditado como cambio_usuario.
 export const POST: APIRoute = async ({ request }) => {

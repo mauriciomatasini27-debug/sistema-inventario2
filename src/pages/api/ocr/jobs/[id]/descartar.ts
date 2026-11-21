@@ -6,7 +6,6 @@ import { descartarBorradorOcrRepo } from "../../../../../lib/repos/facturas-prov
 
 export const prerender = false;
 
-// 410 vencido (solo lectura).
 // PERS2-S20: job y evento por el repo de OCR; borrador por facturas-proveedor.
 export const POST: APIRoute = async ({ request, params }) => {
   let body: unknown;

@@ -6,7 +6,6 @@ import { resolverCaja } from "../../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// PERS2-S13: el repo caja resuelve en shift_handovers del tenant con DB viva.
 // P9-13: el rol sale de sesión + membership; el body `rol` se ignora.
 // Sin sesión vale el default dueño (legado slice-0).
 export const POST: APIRoute = async ({ request }) => {

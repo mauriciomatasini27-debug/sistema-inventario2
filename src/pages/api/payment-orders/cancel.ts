@@ -6,7 +6,6 @@ import { cancelarOrdenRepo } from "../../../lib/repos/ordenes-pago.js";
 
 export const prerender = false;
 
-// PERS2-S15: el repo persiste estado + evento con DB primero.
 export const POST: APIRoute = async ({ request }) => {
   const dueno = exigirDuenoDeRequest(request);
   if (!dueno.ok) return dueno.respuesta;

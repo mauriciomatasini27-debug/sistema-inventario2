@@ -5,7 +5,6 @@ import { registrarCorreccion } from "../../../lib/repos/ventas.js";
 
 export const prerender = false;
 
-// (ticket_payment_corrections con DB viva, memoria solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

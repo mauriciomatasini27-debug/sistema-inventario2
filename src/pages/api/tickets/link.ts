@@ -9,11 +9,9 @@ import { buscarVentaPorId } from "../../../modules/sales/buscar_venta.js";
 
 export const prerender = false;
 
-// PERS2-S5: la persistencia vive en el repo de tickets (DB-first, memoria solo
 // en single sin base). El plano nunca se guarda: solo va el SHA-256 hex.
 
 // Body: { sale_id, ttl_ms? }. Header Idempotency-Key requerido (E3).
-// 201 con token plano UNA vez + url; 409 retry; 404 venta; 422 inválido.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

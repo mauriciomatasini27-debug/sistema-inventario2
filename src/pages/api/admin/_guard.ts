@@ -1,4 +1,3 @@
-//
 // Todas las rutas /api/admin/* lo usan: sesión + allowlist por google_sub
 // (nunca email). Cada acto (exitoso o denegado) se audita en adminStore +
 // persist best-effort. Los POST mutantes exigen además confirmo_id igual al

@@ -7,7 +7,6 @@ import { nombreDatabase } from "../../../modules/tenants/aprovisionar.js";
 
 export const prerender = false;
 
-// La demo vive separada con es_demo true, modo simulado y banda fija.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);

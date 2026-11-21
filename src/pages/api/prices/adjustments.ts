@@ -8,9 +8,7 @@ import { registrarAjuste } from "../../../lib/repos/precios.js";
 
 export const prerender = false;
 
-// Solo el Dueño del comercio (sesión + membership dueño activa): el ajuste
 // PERS2-S6: DB-first en el repo de precios (clave repetida responde 409 con
-// relectura; ajuste + auditoría entran en 1 tx con espejo memoria). Sesión y
 // dueño quedan en memoria hasta el slice de auth.
 
 export const POST: APIRoute = async ({ request }) => {

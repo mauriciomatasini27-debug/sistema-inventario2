@@ -9,7 +9,6 @@ export const prerender = false;
 // POST /api/returns — devolución interna + NC automática (FE-S14/S15).
 // Borde fino: valida, decide devolución pura (tope C14) y NC fiscal (tope
 // contra facturado, CbtesAsoc) ANTES de persistir; aplica ambos en un solo
-// DB viva, memoria particionada solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

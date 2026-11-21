@@ -5,7 +5,6 @@ import { filtrar_historial, historial_a_csv } from "../../../modules/fiscal/hist
 
 export const prerender = false;
 
-// ISO-S4: el tenant lo resuelve el servidor y todo se filtra por él (DB y memoria).
 export const GET: APIRoute = async ({ url, request }) => {
   const t = tenantDeRequest(request);
   if (!t.ok) return t.respuesta;

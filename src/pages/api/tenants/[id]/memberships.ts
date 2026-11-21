@@ -7,7 +7,6 @@ import { actualizarBotFlagDb } from "../../../../lib/control-db.js";
 
 export const prerender = false;
 
-// membership (ADR-0001). E5: ante tenant ajeno o inexistente se responde 403
 // genérico sin revelar si el tenant existe.
 export const POST: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);

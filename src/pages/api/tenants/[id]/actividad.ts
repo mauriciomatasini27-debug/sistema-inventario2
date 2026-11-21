@@ -20,7 +20,6 @@ function nombreCorto(googleSub: string | undefined, propio: string): string {
   return "Un miembro";
 }
 
-// Dueño): eventos del comercio con texto legible. En monoproceso se lee de
 // control filtrado por tenant (réplica lógica del audit_log del comercio;
 // en producción esa réplica vive en la base del tenant).
 // ?formato=csv es exportación de auditoría: solo Dueño con reauth (AU12.4).
