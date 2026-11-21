@@ -63,6 +63,7 @@ export const POST: APIRoute = async ({ request }) => {
         minimo: v.umbral,
         ventas7d: 0,
         proveedor: v.proveedor,
+        ...(v.porPeso !== undefined ? { porPeso: v.porPeso } : {}),
         ...(v.reorderQty != null ? { reorderQty: v.reorderQty } : {}),
       })),
       destinatarios,

@@ -78,7 +78,7 @@ export async function listarCatalogoConFuente(tenantId?: string): Promise<{ item
   if (!db) return { items: conParticion(tenantId, catalogoVivoMemoria), fuente: "memoria" };
   try {
     const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
+      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty, porPeso: products.porPeso })
       .from(products);
     const aliases = await aliasesPorSku(db, tenantId);
     return {
@@ -89,6 +89,7 @@ export async function listarCatalogoConFuente(tenantId?: string): Promise<{ item
         umbral: p.minStock ?? 0,
         precioCentavos: p.precio,
         proveedor: null,
+        porPeso: p.porPeso,
         alias: aliases.get(p.sku) ?? [],
         ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
       })),
@@ -114,8 +115,12 @@ function esUmbralFaltante(e: unknown): boolean {
 function catalogoVivoMemoria(): ItemVivo[] {
   const fichas = crearAlmacenProductos().comoMapaSoloLectura();
   const umbrales = new Map<string, { minStock: number | null; reorderQty: number | null }>();
-  for (const f of fichas.values()) umbrales.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
-  return catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo(), umbrales);
+  const porPeso = new Map<string, boolean>();
+  for (const f of fichas.values()) {
+    umbrales.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
+    if (f.porPeso !== undefined) porPeso.set(f.sku, f.porPeso);
+  }
+  return catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo(), umbrales, porPeso);
 }
 
 // Sesión corta por número (30 min, sin datos de stock).
@@ -313,6 +318,7 @@ export async function catalogoAvisoVivo(tenantId?: string): Promise<ItemStock[]>
     stock: c.stock,
     umbral: c.umbral,
     proveedor: c.proveedor ?? null,
+    ...(c.porPeso !== undefined ? { porPeso: c.porPeso } : {}),
     ...(c.reorderQty != null ? { reorderQty: c.reorderQty } : {}),
   }));
 }

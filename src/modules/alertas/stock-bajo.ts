@@ -3,6 +3,8 @@
 // destinatarios por rol/canal (S3) y pie ver-todo + cobertura (S4).
 // pg_cron del job queda fuera del repo (issue #69).
 
+import { esCantidadValida } from "../../lib/cantidades.js";
+
 export type CanalAlerta = "whatsapp" | "email";
 export type CanalElegido = "whatsapp" | "email" | "ambos";
 
@@ -12,6 +14,11 @@ export function umbral_efectivo(minimo: number | null | undefined, ventas7d: num
   if (typeof minimo === "number" && minimo > 0) return Math.floor(minimo);
   if (ventas7d > 0) return Math.max(1, Math.ceil(ventas7d));
   return null;
+}
+
+export function umbralEnGramos(minimo: number | null | undefined): number | null {
+  if (typeof minimo !== "number" || !esCantidadValida(minimo, true)) return null;
+  return minimo;
 }
 
 // ALR-S2 AC: una sola alerta por tenant+producto+día. ADR-0043.

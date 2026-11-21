@@ -15,6 +15,7 @@ export function catalogo_vivo(
   stock: ReadonlyMap<string, number>,
   prices: ReadonlyMap<string, number>,
   umbrales?: ReadonlyMap<string, { minStock: number | null; reorderQty: number | null }>,
+  porPesoPorSku?: ReadonlyMap<string, boolean>,
 ): ItemVivo[] {
   return [...stock.entries()].map(([sku, qty]) => {
     const demo = NOMBRES_DEMO[sku];
@@ -23,6 +24,7 @@ export function catalogo_vivo(
       sku,
       nombre: demo?.nombre ?? sku,
       stock: qty,
+      porPeso: porPesoPorSku?.get(sku),
       // ALR-S1: el mínimo persistido manda; sin él vale el demo o 0 y el
       // job usa el fallback de rotación 7d.
       umbral: um?.minStock ?? demo?.umbral ?? 0,
