@@ -53,6 +53,7 @@ export interface ConexionGmail {
   readonly gmailHistoryCursor: string | null;
   readonly watchHistoryId: string | null;
   readonly watchExpiraAt: Date | null;
+  readonly labels: ReadonlyArray<string>;
 }
 
 export interface SaludConexionGmail {
@@ -140,6 +141,11 @@ export async function guardarConexionGmail(
     throw new Error("Google no devolvió refresh token");
   }
 
+  const labels =
+    input.labels && input.labels.length > 0
+      ? [...input.labels]
+      : (existente?.labels ?? ["INBOX"]);
+
   await db
     .insert(googleConnections)
     .values({
@@ -148,6 +154,7 @@ export async function guardarConexionGmail(
       tipo: TIPO,
       cuentaEmail: input.cuentaEmail,
       scopes: [...input.scopes],
+      labels,
       estado: "activa",
       consentimientoVersion: input.consentimientoVersion,
       consentimientoAt: new Date(),
@@ -167,7 +174,6 @@ export async function guardarConexionGmail(
             watchHistoryId: existente.watchHistoryId,
             watchExpiraAt: existente.watchExpiraAt,
             photosAlbumes: existente.photosAlbumes,
-            labels: existente.labels ?? ['INBOX'],
           }
         : {}),
     })
@@ -176,6 +182,7 @@ export async function guardarConexionGmail(
       set: {
         cuentaEmail: input.cuentaEmail,
         scopes: [...input.scopes],
+        ...(input.labels && input.labels.length > 0 ? { labels: [...input.labels] } : {}),
         estado: "activa",
         ultimoError: null,
         consentimientoVersion: input.consentimientoVersion,
@@ -211,6 +218,7 @@ export async function guardarConexionGmail(
     gmailHistoryCursor: existente?.gmailHistoryCursor ?? null,
     watchHistoryId: existente?.watchHistoryId ?? null,
     watchExpiraAt: existente?.watchExpiraAt ?? null,
+    labels,
   };
 }
 
@@ -241,6 +249,7 @@ function aConexion(fila: typeof googleConnections.$inferSelect): ConexionGmail {
     gmailHistoryCursor: fila.gmailHistoryCursor,
     watchHistoryId: fila.watchHistoryId,
     watchExpiraAt: fila.watchExpiraAt,
+    labels: fila.labels?.length ? fila.labels : ["INBOX"],
   };
 }
 

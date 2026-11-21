@@ -4,8 +4,9 @@ import {
   emailIngestionLog,
   serviceAccounts,
 } from "../../db/schema-servicios.js";
-import { emailIngestionDrafts } from "../../db/schema-google.js";
+import { emailIngestionDrafts, gmailConnectionEvents } from "../../db/schema-google.js";
 import { getTenantDb } from "../db.js";
+import { leerConexionGmail } from "./google-conexiones.js";
 import type {
   CuentaCatalogo,
   DecisionIngesta,
@@ -72,14 +73,34 @@ export async function actualizarActivoRemitenteIngesta(input: {
   readonly tenantId: string;
   readonly filtroId: string;
   readonly activo: boolean;
+  readonly actor?: string;
 }): Promise<boolean> {
   const db = getTenantDb(input.tenantId);
+  const [antes] = await db
+    .select({ activo: emailIngestionFilters.activo })
+    .from(emailIngestionFilters)
+    .where(eq(emailIngestionFilters.id, input.filtroId))
+    .limit(1);
+  if (!antes) return false;
+  if (antes.activo === input.activo) return true;
+
   const actualizados = await db
     .update(emailIngestionFilters)
     .set({ activo: input.activo })
     .where(eq(emailIngestionFilters.id, input.filtroId))
     .returning({ id: emailIngestionFilters.id });
-  return actualizados.length > 0;
+  if (actualizados.length === 0) return false;
+
+  const conexion = await leerConexionGmail(input.tenantId);
+  if (conexion) {
+    await db.insert(gmailConnectionEvents).values({
+      tenantId: input.tenantId,
+      connectionId: conexion.id,
+      evento: "filtros_actualizados",
+      actor: input.actor ?? "dueño",
+    });
+  }
+  return true;
 }
 
 export async function leerFiltrosIngesta(tenantId: string): Promise<ReadonlyArray<FiltroIngesta>> {
