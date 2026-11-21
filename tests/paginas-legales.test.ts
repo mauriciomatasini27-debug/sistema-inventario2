@@ -11,7 +11,7 @@ const PAGINAS = [
     archivo: "src/pages/privacidad.astro",
     ruta: "/privacidad",
     titulo: "Política de privacidad",
-    textos: ["hasta 90 días", "desde el 21 de noviembre de 2026", "10 días corridos", "5 días hábiles"],
+    textos: ["A los 90 días del cierre", "Revocamos en Google", "7 días antes del borrado", "anonimizados", "facturas de compra confirmadas", "desde el 21 de noviembre de 2026", "10 días corridos", "5 días hábiles"],
   },
   {
     archivo: "src/pages/terminos.astro",
@@ -23,7 +23,7 @@ const PAGINAS = [
     archivo: "src/pages/eliminar-datos.astro",
     ruta: "/eliminar-datos",
     titulo: "Eliminar datos",
-    textos: ["dentro de las 48 horas de verificado", "5 días hábiles"],
+    textos: ["dentro de las 48 horas de verificado", "5 días hábiles", "sección Plan"],
   },
 ] as const;
 
