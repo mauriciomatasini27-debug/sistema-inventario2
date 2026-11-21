@@ -1,6 +1,7 @@
 ---
 import PanelShell from "../components/panel/PanelShell.astro";
 import BienvenidaDialog from "../components/panel/BienvenidaDialog.astro";
+import GuiaEmpleado from "../components/panel/GuiaEmpleado.astro";
 import KpiStrip from "../components/panel/KpiStrip.astro";
 import UpsellCard from "../components/panel/UpsellCard.astro";
 import AsistenteDrawer from "../components/panel/AsistenteDrawer.astro";
@@ -8,15 +9,26 @@ import { esDueno, resolverRolEfectivo, resolverSesion } from "../lib/control.js"
 import { control } from "../lib/store.js";
 import { tenantDeRequest } from "../lib/tenant-context.js";
 import { puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
+import { orientacionParaPanel } from "../modules/onboarding/orientacion-panel.js";
 
 // BIEN-S2 (ADR-0115): tenant y sub en servidor; el diálogo solo para Dueño.
 // P1-35: el nombre del comercio activo va en el saludo (antes era genérico).
 const tenantRes = tenantDeRequest(Astro.request);
 const sesion = resolverSesion(Astro.request);
-const mostrarBienvenida =
+const esDuenoDelComercio =
   tenantRes.ok &&
   sesion !== null &&
   esDueno(tenantRes.tenantId, sesion.googleSub);
+// TB-165: el rol efectivo sale de sesión + membership activa (nunca del body)
+// y decide la orientación: el Empleado ve su guía corta, el Dueño su diálogo.
+const efectivo = resolverRolEfectivo(Astro.request);
+const orientacion = orientacionParaPanel(
+  efectivo.estado === "sesion" ? efectivo.rol : null,
+  efectivo.estado === "sesion" ? efectivo.permisos : [],
+  esDuenoDelComercio,
+);
+const mostrarBienvenida = orientacion.mostrarBienvenida;
+const guiaEmpleado = orientacion.pasosEmpleado;
 const bienvenidaTenantId = mostrarBienvenida ? tenantRes.tenantId : "";
 const bienvenidaGoogleSub = mostrarBienvenida ? sesion.googleSub : "";
 // TB-165: el cuestionario es una ruta opcional del Dueño, nunca la entrada
@@ -28,7 +40,7 @@ const nombreComercio = tenantRes.ok
   ? (control.tenants.get(tenantRes.tenantId)?.nombreComercio?.trim() || null)
   : null;
 const tituloPanel = nombreComercio ? `Inicio · ${nombreComercio}` : "Inicio";
-const nav = rolParaNav(resolverRolEfectivo(Astro.request));
+const nav = rolParaNav(efectivo);
 const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
 ---
 
@@ -37,6 +49,8 @@ const verSaldo = puedeVerSaldoCaja(nav.rol, nav.permisos);
   <p class="sub">Números de hoy, avisos y los tres accesos del día.</p>
 
   <KpiStrip verSaldo={verSaldo} />
+
+  {guiaEmpleado.length > 0 && <GuiaEmpleado pasos={guiaEmpleado} />}
 
   <section class="card" aria-label="Avisos">
     <h2>Avisos</h2>

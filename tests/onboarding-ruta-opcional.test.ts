@@ -14,7 +14,8 @@ describe("TB-165: cuestionario como ruta opcional desde el panel", () => {
 
   it("el guard del enlace exige esDueno", () => {
     const panel = leer("src/pages/panel.astro");
-    expect(panel).toMatch(/mostrarBienvenida[\s\S]{0,160}esDueno\(/);
+    // TB-165: el guard esDueno alimenta la orientación que decide el enlace.
+    expect(panel).toMatch(/esDueno\([\s\S]{0,600}mostrarBienvenida/);
   });
 
   it("el login nunca redirige al cuestionario", () => {
