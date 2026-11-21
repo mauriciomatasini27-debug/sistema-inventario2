@@ -11,22 +11,19 @@ const PAGINAS = [
     archivo: "src/pages/privacidad.astro",
     ruta: "/privacidad",
     titulo: "Política de privacidad",
-    placeholders: [
-      "[COMPLETAR: plazo de conservación]",
-      "[COMPLETAR: fecha de vigencia]",
-    ],
+    textos: ["hasta 90 días", "desde el 21 de noviembre de 2026", "10 días corridos", "5 días hábiles"],
   },
   {
     archivo: "src/pages/terminos.astro",
     ruta: "/terminos",
     titulo: "Términos de servicio",
-    placeholders: ["[COMPLETAR: fecha de vigencia]"],
+    textos: ["desde el 21 de noviembre de 2026"],
   },
   {
     archivo: "src/pages/eliminar-datos.astro",
     ruta: "/eliminar-datos",
     titulo: "Eliminar datos",
-    placeholders: ["[COMPLETAR: plazo de respuesta]"],
+    textos: ["dentro de las 48 horas de verificado", "5 días hábiles"],
   },
 ] as const;
 
@@ -51,12 +48,13 @@ describe("páginas legales (privacidad, términos y eliminación de datos)", () 
     }
   });
 
-  it("deja placeholders visibles para los datos que no están confirmados", () => {
+  it("publica plazos y vigencia confirmados, sin placeholders en el texto", () => {
     for (const pagina of PAGINAS) {
       const src = leer(pagina.archivo);
-      for (const placeholder of pagina.placeholders) {
-        expect(src, `${pagina.archivo}: ${placeholder}`).toContain(placeholder);
+      for (const texto of pagina.textos) {
+        expect(src, `${pagina.archivo}: ${texto}`).toContain(texto);
       }
+      expect(src, pagina.archivo).not.toMatch(/\[COMPLETAR: (plazo|fecha)/);
     }
   });
 
