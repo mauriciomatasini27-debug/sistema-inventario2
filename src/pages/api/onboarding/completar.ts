@@ -7,7 +7,7 @@ import { completarWizardConRespuestas } from "../../../modules/onboarding/onboar
 
 export const prerender = false;
 
-// POST /api/onboarding/completar — marca el wizard como completado.
+// ON12: marca el wizard completado y espera al espejo durable antes de responder.
 export const POST: APIRoute = async ({ request }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
