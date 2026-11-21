@@ -8,8 +8,6 @@ export function limpiar_vistos_notif(): void {
   limpiarVistosNotif();
 }
 
-// POST /api/payment-orders/sugerir-desde-notif — OP10 P2.
-// Dado el texto de una notificación bancaria (pegado por el comerciante),
 // sugiere órdenes en preparada|vencida con monto exacto y vencimiento
 // ±2 días. SOLO sugiere: jamás confirma ni paga (el toque explícito
 // `Ya pagué` sigue siendo el único camino a "pagada", OP9.1).

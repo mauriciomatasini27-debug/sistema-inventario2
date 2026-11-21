@@ -72,7 +72,6 @@ async function aliasesPorSku(db: TenantDb, tenantId?: string): Promise<Map<strin
 }
 
 // Catálogo vivo para el webhook (misma forma que Drizzle en prod).
-// ALR-S1: el umbral sale de products.min_stock (DB primero); sin mínimo
 // vale 0 y el job usa el fallback de rotación 7d.
 export async function listarCatalogoConFuente(tenantId?: string): Promise<{ items: ItemVivo[]; fuente: FuenteTurno }> {
   const db = dbVivaTenant(tenantId);

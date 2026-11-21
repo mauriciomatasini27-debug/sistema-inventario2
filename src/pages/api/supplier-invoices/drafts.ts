@@ -5,9 +5,6 @@ import { ingerirBorradorRepo } from "../../../lib/repos/facturas-proveedor.js";
 
 export const prerender = false;
 
-// POST /api/supplier-invoices/drafts — ingesta FP (foto bot -> OCR sugerencia).
-// Borrador MUTABLE; clave repetida => 200 con existente (E2).
-// PERS2-S14: el repo es dueño de duplicado → insert → espejo memoria.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

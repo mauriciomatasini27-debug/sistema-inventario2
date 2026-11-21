@@ -5,8 +5,6 @@ import { descartarBorradorRepo } from "../../../../lib/repos/facturas-proveedor.
 
 export const prerender = false;
 
-// POST /api/supplier-invoices/drafts/discard — descarta borrador pendiente.
-// PERS2-S14: el repo es dueño del descarte con espejo memoria.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

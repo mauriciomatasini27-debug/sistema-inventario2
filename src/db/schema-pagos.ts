@@ -1,17 +1,6 @@
 import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DetalleEventoOrden, InstruccionSnapshot } from "../modules/payments/ordenes.js";
 
-// LANE G — Tablas payments OP1-OP13 (ADR-0001 módulo payments). Mismo estilo
-// que schema.ts / schema-caja.ts. Viven en la DB del tenant (las órdenes son
-// del comercio); la allowlist global vive en la base de control con la misma
-// forma (ver officialPaymentDomains).
-// Dinero siempre bigint centavos. Append-only: payment_orders solo avanza por
-// máquina cerrada (preparada→pagada|cancelada|vencida) y payment_order_events
-// + payees_audit solo INSERT/SELECT: el REVOKE UPDATE/DELETE + triggers +
-// CHECK(estado) + UNIQUE parcial (una orden activa por respaldo) se aplica en
-// migración, no en este schema tipado (mismo criterio que schema.ts).
-// OP1: acá NO hay —ni habrá— columnas para credenciales de Mercado Pago,
-// homebanking o ARCA (verificado por test: tests/pagos-op1-sin-credenciales.test.ts).
 
 // OP6: beneficiarios con datos públicos de cobro (alias/CBU/CUIT/link).
 export const payees = pgTable("payees", {
@@ -34,8 +23,6 @@ export const payees = pgTable("payees", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// OP2: la orden de pago. supplierInvoiceId opaco hasta que exista Lane E;
-// cashMovementId apunta al egreso manual de caja (OP9.2).
 export const paymentOrders = pgTable("payment_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   idempotencyKey: text("idempotency_key").notNull().unique(),
@@ -72,7 +59,6 @@ export const paymentOrders = pgTable("payment_orders", {
   updatedAt: timestamp("updated_at"),
 });
 
-// OP13: línea de tiempo legible por orden (quién/cuándo/desde dónde).
 export const paymentOrderEvents = pgTable("payment_order_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   paymentOrderId: uuid("payment_order_id").notNull(),

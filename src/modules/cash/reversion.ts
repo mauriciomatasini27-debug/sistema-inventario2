@@ -1,11 +1,6 @@
 import type { Medio } from "../../lib/validation.js";
 import type { Movimiento, TipoMov } from "./caja.js";
 
-// C7 reversión (ADR-0004). Movimiento opuesto con revierte_a único + entrada
-// en cash_audit_log. Núcleo puro en memoria; en Postgres revierte_a es
-// UNIQUE (cash_reversals, ver schema-caja.ts) y el compensatorio es una fila
-// normal de cash_movements: nunca UPDATE, solo INSERT compensatorio.
-
 export interface ReversionInput {
   idempotencyKey: string;
   revierteA: string;
@@ -30,11 +25,6 @@ export interface AuditoriaReversion {
   motivo?: string | undefined;
 }
 
-// CAT-S5: asignación de ubicación a un producto. Reusa la lista de
-// auditoría en memoria (store.auditoria via crearListaAuditoria): la
-// asignación no mueve stock, así que no deja stock_movements; el
-// antes/después es la prueba auditable. Esta talla no agrega migración
-// nueva para auditoría.
 export interface AuditoriaUbicacion {
   accion: "ubicacion_asignada";
   sku: string;
@@ -43,9 +33,6 @@ export interface AuditoriaUbicacion {
   actor: string;
 }
 
-// CAT-S6: confirmación de conteo en dos roles. Reusa la lista de
-// auditoría en memoria: el ajuste deja stock_movements tipo
-// AJUSTE_CONTEO y acá queda quién contó, quién confirmó y el motivo.
 export interface AuditoriaConteo {
   accion: "conteo_confirmado";
   countId: string;
@@ -61,9 +48,6 @@ export interface AuditoriaConteoListo {
   confirmadoPor: string;
 }
 
-// STOCK-S9: completar el precio de un producto sembrado sin precio. Reusa la
-// lista de auditoría en memoria; en Postgres el historial va a
-// pricing_audit_log.
 export interface AuditoriaPrecioCompletado {
   accion: "precio_completado";
   sku: string;
@@ -94,14 +78,10 @@ export type ReversionResult =
   | { status: 409; error: string; original?: ReversionOk }
   | { status: 422; error: string };
 
-// Por qué tipo opuesto y mismo monto/metodo: la reversión anula el efecto en
-// el balance derivado (SUM) sin tocar la fila original inmutable.
 function tipoOpuesto(t: TipoMov): TipoMov {
   return t === "ingreso" ? "egreso" : "ingreso";
 }
 
-// POST /api/cash/reversals: 201 con el compensatorio, 409 si revierte_a ya
-// fue revertido (revierte_a único), 422 si revierte_a no existe.
 export function revertir_movimiento(input: ReversionInput): ReversionResult {
   const visto = input.vistos.get(input.idempotencyKey);
   if (visto) return { status: 409, error: "idempotency-key repetida", original: visto };

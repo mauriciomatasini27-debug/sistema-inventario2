@@ -1,4 +1,3 @@
-// LANE admin — Write-through best-effort (espejo de control-db.ts).
 //
 // adminStore sigue siendo la fuente de verdad en monoproceso; esto solo
 // agrega copia durable cuando hay CONTROL_DATABASE_URL viva. Nunca lanza:

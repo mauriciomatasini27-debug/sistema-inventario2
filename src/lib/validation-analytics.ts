@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Borde RT7/RT8/RT9/RT11: listas cerradas, mismo estilo que validation.ts.
 export const analyticsQuerySchema = z.object({
   desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

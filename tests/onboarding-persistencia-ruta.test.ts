@@ -30,8 +30,7 @@ function sembrar() {
   return sesionEnStore("g-1", "t-1");
 }
 
-// TB-165: espera a que la ruta llame al espejo, captura los argumentos y
-// habilita la respuesta para poder comprobar ambas cosas por separado.
+// TB-165 [tenant]: espera al espejo durable antes de responder para aislar la escritura.
 async function completarYEsperar(plano: string, body: Record<string, unknown>) {
   let respondio = false;
   const respuesta = Promise.resolve(POST(ctx("http://x/api/onboarding/completar", {

@@ -15,8 +15,6 @@ export function progreso_checklist(listos: number, total: number): string {
 }
 
 export function estado_paso_dialogo(paso: PasoChecklistDialogo, saltado: boolean): string {
-  // TB-165: el servidor ya marcó el paso como no aplica; el Set local del
-  // diálogo se queda sólo como compatibilidad con la respuesta anterior.
   if (saltado || paso.noAplica === true) return "No aplica";
   if (paso.listo) return "Listo";
   return paso.contador ?? "Pendiente";

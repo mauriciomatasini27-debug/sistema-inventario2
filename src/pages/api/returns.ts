@@ -9,9 +9,6 @@ export const prerender = false;
 // POST /api/returns — devolución interna + NC automática (FE-S14/S15).
 // Borde fino: valida, decide devolución pura (tope C14) y NC fiscal (tope
 // contra facturado, CbtesAsoc) ANTES de persistir; aplica ambos en un solo
-// bloque o no escribe nada. Idempotente por Idempotency-Key (409 con original).
-// PERS2-S25: memoria y tablas viven en el repo de ventas (sale_returns con
-// DB viva, memoria particionada solo en single sin base).
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });
@@ -24,7 +21,6 @@ export const POST: APIRoute = async ({ request }) => {
   const parsed = postReturnsSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   const b = parsed.data;
-  // ISO-S3: la NC hereda el tenant del contexto (mismo comercio de la factura).
   const tenantResuelto = tenantDeRequest(request);
   const tenantId = tenantResuelto.ok ? tenantResuelto.tenantId : undefined;
 

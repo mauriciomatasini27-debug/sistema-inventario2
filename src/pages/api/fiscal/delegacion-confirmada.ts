@@ -12,8 +12,6 @@ const schema = z.object({ tenant_id: z.string().min(1).max(128), cuit: z.string(
 
 const flexible = z.object({ tenant_id: z.string().min(1).max(128).optional(), cuit: z.string().min(11).max(14) });
 
-// POST /api/fiscal/delegacion/confirmada (Ya lo hice) → pendiente_proveedor + tarea fiscal.
-// La tarea vive en fiscal_jobs con clave texto, nunca en la cola de
 // aprovisionamiento (control.jobs es solo provision). Clave estable ante
 // reintento; sin DB resuelve igual con la clave derivada.
 export const POST: APIRoute = async ({ request }) => {

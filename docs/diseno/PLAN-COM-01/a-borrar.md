@@ -1,7 +1,7 @@
 ---
 id: PLAN-COM-01-A
 tipo: plan
-estado: propuesto
+estado: aceptado
 modulos: [admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas]
 depende_de: [PLAN-COM-01]
 reemplaza: []

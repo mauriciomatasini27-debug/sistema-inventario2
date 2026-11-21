@@ -6,8 +6,6 @@ import { estado_borrador_api } from "../../../../modules/ocr/jobs.js";
 
 export const prerender = false;
 
-// GET /api/ocr/jobs/:id — borrador con campos, confianza por campo y estado
-// pendiente/confirmable/vencida (más confirmada/descartada si ya resolvió).
 // PERS2-S20: job por el repo de OCR; borrador por facturas-proveedor.
 // OCR1-S4: fallback_nube sale del evento `ocr_borrador_listo` del job (ADR-0005
 // y ADR-0089). "ofrecido" es solo una opción de la nube, no una llamada.

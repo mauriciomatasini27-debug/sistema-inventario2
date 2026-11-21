@@ -18,7 +18,6 @@ export const GET: APIRoute = async ({ request }) => {
     return Response.json({ salud: [serializar(h)] }, { status: 200 });
   }
 
-  // Sin reader corriendo: proyección en vivo desde control (foto, no negocio).
   if (adminStore.health.size === 0) {
     const proyeccion = [...control.tenants.values()].map((t) => ({
       tenantId: t.id,

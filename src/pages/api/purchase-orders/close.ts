@@ -5,10 +5,6 @@ import { cerrarOrdenRepo } from "../../../lib/repos/proveedores.js";
 
 export const prerender = false;
 
-// POST /api/purchase-orders/close — cierra OC abierta (terminal, auditada).
-// PERS2-S24: DB-first en el repo de proveedores (con memoria caliente se
-// valida igual que antes y el cierre se escribe durable; con memoria fría se
-// reconstruye desde cabecera+líneas). En multi sin base el repo propaga
 // BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

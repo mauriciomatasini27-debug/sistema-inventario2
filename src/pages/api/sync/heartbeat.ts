@@ -8,11 +8,7 @@ import { enCuarentena, horasSinSync, nivelAviso } from "../../../offline/avisos.
 
 export const prerender = false;
 
-// POST /api/sync/heartbeat — SYNC-S3/S4 (PRD-SYNC-01, OF5/OF12/OF14).
-// Registra device_sync_state (última vista + pendientes + última op) y devuelve
 // estado del indicador + aviso por antigüedad (24h/60h/72h cuarentena).
-// PWA-S5: si el device está bloqueado/revocado => wipe:true para borrado remoto.
-// PERS2-S22: estado por dispositivo por el repo de sync (ADR-0061); en multi
 // sin base propaga BaseNoDisponible y responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;

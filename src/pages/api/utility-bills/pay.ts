@@ -5,8 +5,6 @@ import { pagarFactura } from "../../../lib/repos/servicios.js";
 
 export const prerender = false;
 
-// POST /api/utility-bills/pay — paga servicio (CS5.1, egreso gasto_operativo).
-// PERS2-S16: persiste via repo de servicios (el egreso va por caja.ts).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

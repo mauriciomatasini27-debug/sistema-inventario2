@@ -13,8 +13,6 @@ import { notificarAlertaSeguridad } from "../../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
 
-// GET /api/tenants/:id/sesiones?google_sub= — "Usuarios → Dispositivos"
-// (AU9.2, solo Dueño): sesiones activas de un miembro del comercio.
 export const GET: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
@@ -41,9 +39,7 @@ const cerrarSchema = z.object({
   todas: z.boolean().optional(),
 });
 
-// POST /api/tenants/:id/sesiones — cierre remoto por el Dueño (AU9.2).
 // Cierra sesiones sin revocar el acceso: el usuario puede volver a entrar
-// con Google. Para quitar el acceso está "Revocar acceso" (AU7).
 export const POST: APIRoute = async ({ request, params }) => {
   const ctx = resolverSesion(request);
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
@@ -52,7 +48,6 @@ export const POST: APIRoute = async ({ request, params }) => {
   if (!tenant || !esDueno(tenantId, ctx.googleSub)) {
     return jsonError("No tenés permiso para ver este comercio.", 403);
   }
-  // AU10.1: cerrar sesiones de otros exige reauth reciente.
   const reauth = exigirReauthReciente(ctx);
   if (reauth) return reauth;
   let body: unknown;

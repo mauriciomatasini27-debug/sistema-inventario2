@@ -11,8 +11,6 @@ import { jsonError, resolverSesion } from "../../../lib/control.js";
 
 export const prerender = false;
 
-// GET /api/auth/reauth?continuar=/ruta — inicia la reautenticación (AU10.2).
-// Redirige a Google con prompt=select_account y login_hint del usuario para
 // que confirme con la misma cuenta. El callback rota la sesión y retoma.
 export const GET: APIRoute = async ({ request, redirect }) => {
   const ctx = resolverSesion(request);

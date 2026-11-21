@@ -113,7 +113,6 @@ function completarDesde(
       wizardCompletado: true,
       wizardPaso: esCompleto(wizard) ? wizard.pasos.length : wizard.paso,
       wizardEmpleados: [...wizard.empleados],
-      // TB-165: antes se guardaban sólo empleados; el resto se descartaba.
       wizardRespuestas: { ...wizard.respuestas },
     },
     persistencia,
@@ -160,9 +159,7 @@ export function calcularChecklist(
   oculta: boolean;
 } {
   const { pasos } = calcular_checklist(foto);
-  // TB-165: un paso saltado es «no aplica», no pendiente. Se fusiona acá (y no
-  // en calcular_checklist) para que el núcleo siga siendo puro y la
-  // persistencia del Dueño sea la única fuente del estado no aplica.
+  // TB-165 [tenant]: «no aplica» sale de la persistencia del Dueño, no del cálculo puro.
   const conNoAplica = pasos.map((paso) => ({
     ...paso,
     noAplica: estado.pasosSaltados.includes(paso.id),

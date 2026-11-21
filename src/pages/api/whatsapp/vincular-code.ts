@@ -31,13 +31,11 @@ export const POST: APIRoute = async ({ request }) => {
   if (!parsed.success) return jsonError("Datos inválidos.", 422);
   const m = membershipActiva(parsed.data.tenant_id, ctx.googleSub);
   if (!m) return jsonError("No tenés permiso en este comercio.", 403);
-  // AU11.3: el Empleado necesita el interruptor "Puede usar el bot".
   if (!puedeUsarBot({ rol: m.rol, puedeUsarBot: m.puedeUsarBot })) {
     return jsonError("El dueño debe habilitarte el uso del bot desde Usuarios.", 403);
   }
   const numero = normalizar_ar(parsed.data.numero);
   if (!numero) return jsonError("El número no es un celular argentino válido.", 422);
-  // AU11.5: un número solo opera como un usuario a la vez.
   if (
     numeroOcupadoPorOtro({
       vinculos: [...control.botLinks.entries()].map(([numeroE164, l]) => ({ numeroE164, googleSub: l.googleSub, estado: l.estado })),

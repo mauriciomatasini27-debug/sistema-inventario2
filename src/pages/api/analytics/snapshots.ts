@@ -17,8 +17,6 @@ import { rotationSnapshots } from "../../../db/schema-analytics.js";
 
 export const prerender = false;
 
-// Snapshots en memoria P0 (misma forma que la tabla rotation_snapshots;
-// el adaptador Drizzle la persiste en la misma tx cuando hay DB viva).
 const tienda = new Map<string, SnapshotRotacion>();
 
 // FilaRotacion lleva dinero en bigint; en jsonb sale como string (ucursal el

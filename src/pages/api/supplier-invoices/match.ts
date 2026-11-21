@@ -4,9 +4,6 @@ import { matchearBorradorRepo } from "../../../lib/repos/facturas-proveedor.js";
 
 export const prerender = false;
 
-// POST /api/supplier-invoices/match — matching borrador vs OCs (FP, tolerancia 1%).
-// Solo lectura: el log durable lo escribe el confirm al vincular.
-// PERS2-S14: el repo une memoria caliente + DB fria.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

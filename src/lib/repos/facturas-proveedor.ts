@@ -60,7 +60,6 @@ import { registrarEgresoRetiro } from "./caja.js";
 // PERS2-S14 (ADR-0057): borradores, confirmacion, descarte, matching, cuenta
 // corriente y pagos a proveedores. DB primero via dbVivaTenant(); solo en
 // single sin base usa la memoria particionada. En multi sin base
-// dbVivaTenant lanza BaseNoDisponible y se propaga (la ruta responde 503).
 
 export interface RespuestaRepo {
   status: number;

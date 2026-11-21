@@ -26,8 +26,6 @@ function leerCookie(header: string | null, nombre: string): string | null {
   return null;
 }
 
-// GET /api/auth/reauth/callback — completa la reauth (AU10.2): valida el ID
-// token como en el login, exige mismo sub + iat<2min + nonce, actualiza
 // reauth_at y rota el ID de sesión. Luego redirige a `continuar`.
 export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   const url = new URL(request.url);
@@ -91,7 +89,6 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   }
   control.reauthFallos.delete(pendiente.googleSub);
 
-  // Rotación: el ID viejo se revoca y se crea uno nuevo con reauth fresca.
   const idPlanoViejo = extraerSesionDeCookie(header);
   const ahora = new Date();
   const vieja = idPlanoViejo ? control.sessions.get(sha256Hex(idPlanoViejo)) : undefined;

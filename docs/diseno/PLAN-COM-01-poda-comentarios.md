@@ -1,7 +1,7 @@
 ---
 id: PLAN-COM-01
 tipo: plan
-estado: propuesto
+estado: aceptado
 modulos: [admin, auth, bot, caja, compras, email, fiado, fiscal, inventario, offline, onboarding, pagos, persistencia, precios, tenant, ventas]
 depende_de: [ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006, ADR-0017, ADR-0018, ADR-0019, ADR-0020]
 reemplaza: []
@@ -13,7 +13,9 @@ resumen: |
 ---
 # PLAN-COM-01 - Plan de poda de comentarios de código
 
-Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md` (COM-S4), ADR-0064 (propuesto). Tipo: reference. Solo análisis: este plan no cambia código.
+Fecha: 2026-10-13. Fuentes: PRD `diseno/PRD-COM-01-poda-comentarios.md` (COM-S4), ADR-0064 (aceptado). Tipo: reference. Solo análisis: este plan no cambia código.
+
+Ratificado como inventario base el 2026-11-21. Los totales de abajo no incluyen `src/modules/cash/`: el relevamiento original excluía `src/modules` y ese módulo se podó aparte (TB-166). El resto del territorio no cubierto se relevó en #273. La ejecución por área —olas, gate, deuda y criterio de fin— está en `PLAN-COM-01/e-ejecucion.md` (PLAN-COM-01-E).
 
 ## Cómo se armó
 

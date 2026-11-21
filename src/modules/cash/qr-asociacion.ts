@@ -1,5 +1,3 @@
-// CAJA-S1 (PRD-CAJA-01, ADR-0027): asociación comprobante QR ↔ movimiento.
-// Pura, sin IO: la ruta arma los candidatos y el repo decide el estado.
 export interface QrReciboAsociar {
   monto_centavos: number | string | bigint;
   fecha_operacion: string | Date;
@@ -16,7 +14,6 @@ export type AsociacionQr =
   | { tipo: "toque"; candidatos: string[] }
   | { tipo: "sin_candidato" };
 
-// Ventana C13: monto exacto y |Δt| ≤ 15 min (15:00 entra, 15:01 no).
 const VENTANA_MS = 15 * 60 * 1000;
 
 function aCentavos(v: number | string | bigint): bigint {

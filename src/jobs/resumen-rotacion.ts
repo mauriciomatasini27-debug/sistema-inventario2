@@ -1,6 +1,3 @@
-// Job RT6: resumen semanal viernes 18:00 America/Argentina/Buenos_Aires.
-// Integrado al resumen del viernes (B9) por defecto: 0 plantillas adicionales.
-// Idempotente por dedupeKey rotacion:{desde}:{hasta}:viernes18h.
 import { describir_snapshot, encolar_snapshot } from "../modules/analytics/snapshots.js";
 import { calcular_rotacion } from "../modules/analytics/agregador.js";
 import { fuente_memoria } from "../modules/analytics/fuente.js";

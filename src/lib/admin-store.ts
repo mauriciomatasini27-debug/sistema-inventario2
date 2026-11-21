@@ -1,4 +1,3 @@
-// LANE admin — Store en memoria (espejo de control en store.ts).
 //
 // Fuente de verdad en monoproceso; admin-db agrega copia durable best-effort
 // cuando hay CONTROL_DATABASE_URL viva. Solo gestión, nunca negocio.

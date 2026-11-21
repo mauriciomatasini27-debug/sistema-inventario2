@@ -54,7 +54,6 @@ export const PREFIJOS_DATOS = [
   "/api/utility-bills",
   "/api/email-drafts",
   "/api/ocr",
-  // DASH-S8: resumen read-only de /panel/plan; el middleware fija el tenant
   // para que los repos de planes usen la base del comercio (ADR-0051).
   "/api/plan",
   // DASH-S12: el índice de /panel lee las features del plan del tenant.

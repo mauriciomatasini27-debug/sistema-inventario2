@@ -1,17 +1,3 @@
-// Job diario de vencimientos CS12/OP11 (03:00 America/Argentina, cron
-// fuera del repo: POST /api/jobs/vencimientos-servicios con X-Job-Secret).
-//
-// Recorre facturas de servicios (pendientes 3d + vencidas) y órdenes de
-// pago (preparadas 7d + vencidas), marca las órdenes vencidas con
-// marcar_vencidas (la "vencida" de servicios es derivada, no se persiste)
-// y manda un recordatorio WA por ítem y por día. Nada se paga ni se
-// prepara solo: las sugerencias de pago viajan en la respuesta para que
-// el comerciante decida (toque explícito CS5/OP9).
-//
-// Sin IO propia: el envío lo inyecta el llamador (igual que el aviso
-// matutino); el job solo registra en yaEnviados lo que el sender confirma
-// como ok. Sin opt-in/pausa no sale nada (B2). Vencidos de más de 30 días
-// no se recuerdan (evita spam eterno: se pagan o cancelan para callarlos).
 
 import {
   dias_para_vencer,

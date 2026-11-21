@@ -9,8 +9,6 @@ export interface DatosChecklist {
   esEjemplo?: boolean | undefined;
 }
 
-// TB-165: id canónico del paso de empleados. El wizard lo reusa como valor
-// de «no aplica» para que saltados y checklist hablen el mismo idioma.
 export const ID_CHECKLIST_EMPLEADO = "empleado" as const;
 
 export interface PasoChecklist {
@@ -18,7 +16,6 @@ export interface PasoChecklist {
   titulo: string;
   contador: string | null;
   listo: boolean;
-  // TB-165: el Dueño marcó el paso como no aplica (p.ej. «No tengo empleados»).
   noAplica?: boolean | undefined;
 }
 

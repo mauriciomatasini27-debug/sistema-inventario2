@@ -6,8 +6,6 @@ import { filtrarTexto, listaQuerySchema, paginar } from "../../lib/lista-paginad
 
 export const prerender = false;
 
-// GET /api/suppliers — listado read-only tenant-scoped (P3-7d, ADR-0020) para
-// el picker del panel. ?q= matchea nombre o CUIT sin distinguir mayúsculas,
 // ?limit= (default 20, tope 50) y ?cursor= offset. DB primero; en single sin
 // base cae a memoria; en multi sin base el repo propaga BaseNoDisponible -> 503.
 export const GET: APIRoute = async ({ url }) => {

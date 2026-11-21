@@ -5,9 +5,6 @@ import { altaCuenta, listarCuentasDetalle } from "../../lib/repos/servicios.js";
 
 export const prerender = false;
 
-// POST /api/service-accounts — alta de cuenta de servicio (CS8, anti-duplicada).
-// PERS2-S24: DB-first en el repo de servicios. En multi sin base el repo
-// propaga BaseNoDisponible y la ruta responde 503.
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -40,8 +37,6 @@ export const POST: APIRoute = async ({ request }) => {
   return Response.json({ account_id: r.accountId, servicio: r.servicio }, { status: 201 });
 };
 
-// GET /api/service-accounts — lista de cuentas para el panel CS7.
-// Sin emails de origen (no los necesita el panel); sin montos (las
 // cuentas nunca guardan dinero, solo las facturas).
 export const GET: APIRoute = async () => {
   try {

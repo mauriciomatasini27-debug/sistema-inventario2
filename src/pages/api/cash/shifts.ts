@@ -5,10 +5,6 @@ import { abrirTurno } from "../../../lib/repos/caja.js";
 
 export const prerender = false;
 
-// POST /api/cash/shifts — apertura de turno pendiente (C17).
-// Borde fino: valida, exige Idempotency-Key (409 con original), crea Turno
-// pendiente sin exponer esperado al que cuenta (conteo a ciegas en conciliar).
-// PERS2-S13: el repo caja persiste en shift_handovers del tenant con DB viva.
 export const POST: APIRoute = async ({ request }) => {
   const key = request.headers.get("Idempotency-Key") ?? "";
   if (!key) return Response.json({ error: "falta Idempotency-Key" }, { status: 422 });

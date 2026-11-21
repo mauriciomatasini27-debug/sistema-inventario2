@@ -1,7 +1,3 @@
-// Adaptador compartido de los jobs WA (B5/B9/B14). Sin Drizzle todavía:
-// lee control/store en memoria con la misma forma que las lecturas Drizzle
-// en prod. El envío real va por Cloud API con las credenciales del servidor;
-// sin credenciales el envío falla (se registra) pero el job no revienta.
 
 import { control, store } from "../lib/store.js";
 import { construir_texto, puede_disparar_envio, type PayloadEnvio } from "../modules/whatsapp/envio.js";
@@ -26,8 +22,6 @@ export function prefs_wa_de(tenantId: string, googleSub: string): Preferencias {
   };
 }
 
-// Comercios con número verificado y tenant activo o suspendido (B1.10: el
-// suspendido recibe avisos de solo lectura, pero no envía pedidos).
 export function comercios_con_bot(): ComercioWa[] {
   const out: ComercioWa[] = [];
   for (const [numero, l] of control.botLinks) {
@@ -105,8 +99,6 @@ export async function enviar_payload_wa(
   return r.ok;
 }
 
-// Email slice-0: se encola como enviado en el outbox en memoria (prod:
-// proveedor transaccional con Reply-To del comercio).
 export function encolar_email_simple(idempotencyKey: string, destinatario: string, asunto: string, texto: string): boolean {
   if (store.emailOutbox.has(idempotencyKey)) return true;
   store.emailOutbox.set(idempotencyKey, {

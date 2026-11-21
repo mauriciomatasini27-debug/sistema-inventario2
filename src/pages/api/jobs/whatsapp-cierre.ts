@@ -24,12 +24,6 @@ const cierreSchema = z.object({
 });
 
 // POST /api/jobs/whatsapp-cierre — resumen de cierre B14 por WA.
-// Solo con X-Job-Secret. Números exactos del snapshot (no recalcula),
-// una vez por jornada, solo al Dueño (B14.1/B14.4/B14.5). El email sale por
-// POST /api/email/close-summary con el mismo snapshot.
-// PERS2-S18: corre en el tenant de gateJob; el cierre y los movimientos van
-// por el repo caja (control sigue global). Cierre puntual, no barrido:
-// en multi exige X-Tenant-Id (SEC4-S2, sin fan-out).
 export const POST: APIRoute = async ({ request }) => {
   return correrJob(
     request,
