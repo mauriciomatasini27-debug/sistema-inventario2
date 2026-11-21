@@ -1,10 +1,6 @@
 import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { ResumenCierrePayload } from "../modules/email/resumen-cierre.js";
 
-// LANE Email — slice mínimo NE4 resumen_cierre (PRD Email NE1/NE4/NE11).
-// Núcleo puro en src/modules/email/; acá solo forma Drizzle.
-// Todo append-only salvo intentos/estado de outbox (worker con lock por fila
-// en migración). Dinero siempre bigint centavos. Sin tracking en plantillas.
 
 // ALR-S2: alerta de stock bajo por tenant+producto+día.
 export interface AlertaStockPayload {
