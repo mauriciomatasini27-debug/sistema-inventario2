@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://modoops2791.vercel.app/sitemap.xml

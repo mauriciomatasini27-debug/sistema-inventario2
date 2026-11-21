@@ -9,6 +9,7 @@ export interface Contacto {
 }
 
 export interface Plan {
+  id: "basico" | "plus" | "pro";
   nombre: string;
   precioUnico: string;
   destacado?: boolean;
@@ -43,6 +44,7 @@ export const business: Business = {
   },
   planes: [
     {
+      id: "basico",
       nombre: "Básico",
       precioUnico: "Consultar",
       features: [
@@ -53,6 +55,7 @@ export const business: Business = {
       ],
     },
     {
+      id: "plus",
       nombre: "Plus",
       precioUnico: "Precio a confirmar",
       destacado: true,
@@ -64,6 +67,7 @@ export const business: Business = {
       ],
     },
     {
+      id: "pro",
       nombre: "Pro",
       precioUnico: "A medida",
       features: [
@@ -296,7 +300,7 @@ export const landingBeats: readonly LandingBeat[] = [
     nav: "Planes",
     title: "Planes",
     lead: "Elegí por cajas, depósito y venta celular. Precios de lista por local.",
-    nota: "Precios de lista en ARS + IVA, validez 20 días. Básico Consultar, Plus Precio a confirmar, Pro A medida.",
+    nota: "Básico Consultar, Plus Precio a confirmar, Pro A medida.",
     garantia: GARANTIA_BAJA,
     empezar: {
       title: "Cómo empezar",
@@ -475,7 +479,7 @@ export const contactConfigured = !(
  * WhatsApp no renderiza SVG; reemplazar por foto real del local.
  */
 export const seo = {
-  site: "https://inventario.com.ar",
+  site: "https://modoops2791.vercel.app",
   title: "Inventario — Stock en tiempo real",
   description:
     "Sistema de inventario para kioscos y mostrador: caja, depósito y venta celular en un solo lugar.",

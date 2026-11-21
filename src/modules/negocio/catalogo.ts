@@ -27,7 +27,7 @@ const FUERA_CATALOGO_BASE = ["eCommerce", "MRP", "CRM", "B2B"] as const;
 
 /** ¿El texto comercial menciona Odoo? Puro. NEG-S1: propuesta/marketing => false. */
 export function mencionaOdoo(texto: string): boolean {
-  return /odoo/i.test(texto);
+  return /\bodoo\b/i.test(texto);
 }
 
 export type ValidacionPropuesta = { ok: true } | { ok: false; fuera: string[] };

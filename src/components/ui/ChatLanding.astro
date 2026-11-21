@@ -191,8 +191,12 @@ const waDirecto = whatsappWithUtm('chat');
       });
     }
 
+    function pantallaChica() {
+      return window.matchMedia('(max-width: 639px)').matches;
+    }
+
     function mostrarInvitacion() {
-      if (inviteDescartada || !(invitacion instanceof HTMLElement) || !panel.hidden) return;
+      if (pantallaChica() || inviteDescartada || !(invitacion instanceof HTMLElement) || !panel.hidden) return;
       var paso = pasos[invitePaso % pasos.length];
       pintarPaso(paso);
       invitacion.hidden = false;
@@ -217,7 +221,7 @@ const waDirecto = whatsappWithUtm('chat');
     }
 
     function programarInvitacion() {
-      if (inviteDescartada) return;
+      if (inviteDescartada || pantallaChica()) return;
       limpiarTimers();
       inviteTimer = window.setTimeout(mostrarInvitacion, reduced ? 1200 : 3500);
     }

@@ -16,7 +16,7 @@ interface Props {
 
 const { title, description, canonical, ogImage, ogType = 'website', noindex = false } = Astro.props;
 
-const siteBase = (Astro.site?.toString() ?? 'https://inventario.com.ar').replace(/\/$/, '');
+const siteBase = (Astro.site?.toString() ?? 'https://modoops2791.vercel.app').replace(/\/$/, '');
 const canonicalUrl = canonical ?? new URL(Astro.url.pathname, siteBase).toString();
 const imgBase = canonical ? new URL(canonicalUrl).origin : siteBase;
 const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toString();

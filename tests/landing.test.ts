@@ -65,7 +65,7 @@ describe("landing LP-S1/S7 (ADR-0010)", () => {
     for (const a of archivos) {
       const c = src(a);
       expect(c, a).not.toMatch(/GalaxyGroup/i);
-      expect(c, a).not.toMatch(/Odoo/i);
+      expect(c, a).not.toMatch(/\bOdoo\b/i);
       expect(c, a).not.toMatch(/fiscal AR/i);
       expect(c, a).not.toMatch(/155\.000/);
     }
@@ -168,7 +168,7 @@ describe("landing LP2 (ADR-0021)", () => {
     }
     const faqComp = src("components/sections/Faq.astro");
     expect(faqComp).toContain("beat.items");
-    expect(faqComp).not.toMatch(/Odoo/i);
+    expect(faqComp).not.toMatch(/\bOdoo\b/i);
     // E13-R4: FAQ propio; Contacto queda solo contacto+newsletter.
     expect(src("components/sections/Contacto.astro")).not.toContain("faq.items");
   });
@@ -226,11 +226,15 @@ describe("landing Gaps B0 (ADR-0022)", () => {
     expect(contacto).toContain("en configuración");
   });
 
-  it("E13-R2/R3: precios con moneda y validez, sin jerga SaaS", () => {
+  it("E13-R2/R3: precios sin montos publicados ni validez inventada, sin jerga SaaS", () => {
     const oferta = beatPorId("planes");
     expect(oferta.title).not.toContain("SaaS");
-    expect(oferta.nota).toContain("ARS");
-    expect(oferta.nota).toContain("20 días");
+    expect(oferta.nota).toContain("Consultar");
+    expect(oferta.nota).toContain("Precio a confirmar");
+    expect(oferta.nota).toContain("A medida");
+    expect(oferta.nota).not.toContain("ARS");
+    expect(oferta.nota).not.toMatch(/IVA/);
+    expect(oferta.nota).not.toContain("20 días");
   });
 
   it("E13-R5: error de formulario visible + doble env var documentada", () => {
