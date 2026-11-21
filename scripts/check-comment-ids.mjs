@@ -33,6 +33,8 @@ if (!git("rev-parse", "--verify", base).trim()) {
 
 const ID = /\b[A-Z][A-Z0-9]*[-\w]*\d[\w-]*\b/;
 const CLASE = /\[(plataforma|fiscal|tenant)\]/;
+const MARCADOR = /\b(TODO|FIXME|HACK|XXX|temporal|por ahora)\b/i;
+const ENLACE_ISSUE = /#\d+\b/;
 const SOLO_SEPARADOR = /^\s*\/\/[-\s=*:]*$/;
 
 function agregadosDe(diff) {
@@ -86,12 +88,18 @@ for (const b of bloques) {
   } else if (!b.lineas.some((l) => CLASE.test(l))) {
     problemas.push(`sin clase ADR-0064: ${b.archivo}: ${b.lineas[0].trim()}`);
   }
+  for (const l of b.lineas) {
+    if (MARCADOR.test(l) && !ENLACE_ISSUE.test(l)) {
+      problemas.push(`marcador temporal sin issue (COM-S7): ${b.archivo}: ${l.trim()}`);
+    }
+  }
 }
 
 if (problemas.length) {
   console.error(`check-comment-ids: ${problemas.length} bloque(s) inválido(s) (base ${base}):`);
   for (const p of problemas) console.error(`  ${p}`);
   console.error("clases ADR-0064: [plataforma], [fiscal], [tenant]");
+  console.error("COM-S7: TODO/FIXME/HACK/XXX/temporal/'por ahora' requieren #<issue> en la misma línea");
   process.exit(1);
 }
 

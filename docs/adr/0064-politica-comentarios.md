@@ -41,4 +41,4 @@ Menos comentarios y más issues. La regla de lint entra después de abrir los is
 
 - Ya aplicado en `src/modules/cash/` (TB-166): el grupo borrar, la consolidación de decisiones en ADR-0004 y ADR-0120, y el check de id con clase en `scripts/check-comment-ids.mjs`.
 - Ejecutar la poda por área sobre los dos inventarios: `PLAN-COM-01` y el relevamiento de #273 para `src/modules` (salvo `cash/`), `src/offline/` y middleware.
-- Completar COM-S6 (issues de los refactors) y COM-S7 (lint de marcadores temporales con enlace a issue). Las deudas de `cash/` siguen en borrador local (`PLAN-COM-01-D`) hasta su publicación.
+- COM-S7 ya está activo en `scripts/check-comment-ids.mjs`: todo marcador en línea nueva exige `#<issue>` en la misma línea. Falta COM-S6: publicar por área el resto de la deuda (65 issues del plan + 20 agrupados del inventario #273, de un total de 88 junto con los 3 de `cash/` ya publicados).
