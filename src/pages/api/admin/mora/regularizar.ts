@@ -3,7 +3,7 @@ import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirAsientoAdmin, persistirEventoVidaAdmin } from "../../../../lib/admin-db.js";
 import { persistirEstadoTenant } from "../../../../lib/control-db.js";
-import { auditar, exigirAdminListo, exigirConfirmacion, leerJson } from "../_guard.js";
+import { exigirAdminMutante, auditar, exigirConfirmacion, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { asentar_cobro } from "../../../../modules/admin/ledger.js";
 import { aplicar_evento_vida } from "../../../../modules/admin/mora.js";
@@ -13,7 +13,7 @@ export const prerender = false;
 // POST /api/admin/mora/regularizar — asienta cobro + lifecycle a activo en
 // una sola operación admin (PA6/PA7). Idempotente por idempotency_key del cobro.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = await exigirAdminListo(request);
+  const admin = await exigirAdminMutante(request);
   if (admin instanceof Response) return admin;
 
   const parsed = await leerJson(request);
@@ -80,6 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
   const deEstado = tenant.estado;
   const aEstado = aplicar_evento_vida(deEstado, "activo");
   tenant.estado = aEstado;
+  tenant.suspensionTipo = undefined;
   // Ya activo no emite evento de vida: no hay transición que registrar.
   if (aEstado !== deEstado && !adminStore.eventosVida.some((e) => e.idempotencyKey === idemKey)) {
     adminStore.eventosVida.push({

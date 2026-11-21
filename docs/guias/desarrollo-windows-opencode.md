@@ -135,7 +135,7 @@ Copiá `.env.example` a `.env` y completalo vos; nunca subas ni pegues `.env` en
 
 - Base: `CONTROL_DATABASE_URL`, `TENANT_DATABASE_URL` (para dev local podés apuntar las dos a `postgres://postgres@127.0.0.1:54329/pers_tenant_a`).
 - Login Google: `GOOGLE_LOGIN_CLIENT_ID`, `GOOGLE_LOGIN_CLIENT_SECRET`, `GOOGLE_LOGIN_REDIRECT`. Integraciones: `GOOGLE_INTEGRATIONS_*`.
-- Admin y sesiones: `ADMIN_ALLOWLIST_SUBS`, `SUPERADMIN_SUBS` (deprecada), `SESSION_TTL_HOURS`, `JOBS_SECRET`.
+- Admin y sesiones: `ADMIN_ALLOWLIST_SUBS` (exactamente un sub), `SESSION_TTL_HOURS`, `JOBS_SECRET`.
 - Fiscal: `ARCA_*`, `FISCAL_KMS_KEY_B64`, `FISCAL_KMS_KEY_ID`, `WSAA_BACKOFF_MS`. Dejalas vacías y se usa el fake en memoria.
 - Landing: `PUBLIC_FORMSPREE_FORM_ID`.
 - Herramientas: `GH_TOKEN` (opcional si hiciste `gh auth login`), `PW_CHANNEL` (opcional, Playwright).

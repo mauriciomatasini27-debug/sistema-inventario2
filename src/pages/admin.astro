@@ -4,21 +4,14 @@ import "../styles/tema.css";
 import TemaInicial from "../components/ui/TemaInicial.astro";
 import TemaToggle from "../components/ui/TemaToggle.astro";
 import CerrarSesion from "../components/ui/CerrarSesion.astro";
-// Panel admin multi-kiosco solo-gestión (ADR-0006/0011, PA1-PA14). Réplica del
-// craft Crextio del panel del comercio (index.astro): mismo lenguaje papel,
-// pills, segbar, bignums, cards, heatmap dark y SVG propios.
-// Sin datos de negocio jamás (Ley 25.326): solo contadores de gestión.
-// ADMIN-USO-DIARIO: la tarjeta Uso lee GET /api/admin/uso. La marca "Costo alto"
-// es texto, y el precio que muestra es el de referencia del catálogo de ejemplo.
-const pills = [
-  { label: "Tenants", href: "/admin", active: true },
-  { label: "Mora", href: "#mora", active: false },
-  { label: "Señales", href: "#senales", active: false },
-  { label: "Rollouts", href: "#rollouts", active: false },
-  { label: "Auditoría", href: "#auditoria", active: false },
-  { label: "Uso", href: "#uso", active: false },
-  { label: "Reportes", href: "#reportes-comercio", active: false },
-];
+import { resolverSesion } from "../lib/control.js";
+import { esAdminAllowlist, leerAllowlist } from "../modules/admin/guard.js";
+// PA1: la página solo existe para el sub del allowlist. Sin sesión o con otra
+// cuenta, 404 (no revela que hay panel); el ingreso va por /api/auth/login?next=/admin.
+const sesionAdmin = resolverSesion(Astro.request);
+if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
+  return new Response(null, { status: 404 });
+}
 ---
 <!doctype html>
 <html lang="es">
@@ -41,96 +34,71 @@ const pills = [
       * { box-sizing: border-box; }
       body { margin: 0; font-family: var(--font-sans); background: var(--papel); color: var(--tema-texto); }
       .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
-      /* Barra superior */
       .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
       .logo { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 16px; font-weight: 700; background: var(--card); }
-      nav.pills { display: flex; gap: 4px; background: var(--canvas); border-radius: 999px; padding: 4px; overflow-x: auto; max-width: 100%; }
-      nav.pills a { white-space: nowrap; text-decoration: none; color: var(--tema-texto-suave); font-size: 14px; padding: 8px 14px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center; }
-      nav.pills a.active, nav.pills a:hover { background: var(--tinta); color: var(--tema-fondo); }
+      .buscar { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); color: var(--tema-texto); min-height: 44px; min-width: min(280px, 100%); flex: 1; }
       .top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-      .top-right input { border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 14px; font-size: 14px; background: var(--card); min-height: 44px; }
-      .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tinta); color: var(--tema-fondo); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
-      /* Saludo + KPIs */
-      h1.hello { font-size: clamp(28px, 4vw, 44px); margin: 20px 0 4px; font-weight: 600; }
-      .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
-      .kpis { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-      .segbar { display: flex; height: 34px; border-radius: 999px; overflow: hidden; background: var(--canvas); min-width: min(420px, 100%); font-size: 12px; font-weight: 700; }
-      .segbar span { display: inline-flex; align-items: center; padding: 0 12px; min-width: 0; overflow: hidden; white-space: nowrap; }
-      .bignums { display: flex; gap: 28px; }
+      .badge { position: relative; border: 1px solid var(--tema-linea); border-radius: 999px; padding: 8px 14px; min-height: 44px; background: var(--card); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+      .badge b { display: inline-flex; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--llama); color: var(--color-void); font-size: 12px; align-items: center; justify-content: center; }
+      .kpis { display: flex; gap: 28px; flex-wrap: wrap; margin: 20px 0 16px; }
       .bignum { text-align: left; }
       .bignum b { font-size: clamp(28px, 4vw, 44px); font-weight: 600; display: block; }
       .bignum small { color: var(--muted); font-size: 12px; }
-      /* Tarjetas */
-      .grid { display: grid; gap: 16px; }
-      .grid.r1 { grid-template-columns: 240px 1fr 300px; }
-      .grid.r3 { grid-template-columns: repeat(4, 1fr); margin-top: 16px; }
       .card { background: var(--card); border-radius: var(--radio); padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); min-width: 0; }
-      .card h2 { font-size: 18px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
-      .card h2 a { text-decoration: none; color: var(--muted); border: 1px solid var(--tema-linea); border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-      .demo { font-size: 11px; background: var(--llama); color: var(--color-void); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
-      .live { font-size: 11px; background: var(--estado-vivo-tint); color: var(--estado-vivo); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
-      .denied { font-size: 11px; background: var(--estado-peligro-tint); color: var(--estado-peligro); border-radius: 999px; padding: 2px 8px; font-weight: 700; }
-      /* Timeline rollouts */
-      .tl { list-style: none; margin: 0; padding: 0; font-size: 13px; }
-      .tl li { border-left: 2px solid var(--tema-linea); margin-left: 8px; padding: 6px 0 6px 12px; position: relative; }
-      .tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--llama); position: absolute; left: -5px; top: 10px; }
-      .hora { display: inline-block; border: 1px solid var(--tema-linea); border-radius: 999px; padding: 1px 8px; font-size: 11px; margin-right: 6px; }
-      /* Tabla */
+      .card h2 { font-size: 18px; margin: 0 0 8px; }
+      .aviso { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--estado-peligro-tint); color: var(--estado-peligro); font-size: 14px; }
+      .aviso[hidden], .vacio[hidden] { display: none; }
+      .vacio { color: var(--muted); padding: 24px 8px; text-align: center; }
       table.mov { width: 100%; border-collapse: collapse; font-size: 13px; }
       table.mov th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px; border-bottom: 1px solid var(--canvas); }
-      table.mov td { padding: 8px 6px; border-bottom: 1px solid var(--canvas); overflow-wrap: anywhere; }
+      table.mov td { padding: 10px 6px; border-bottom: 1px solid var(--canvas); overflow-wrap: anywhere; }
+      table.mov tbody tr { cursor: pointer; }
+      table.mov tbody tr:hover, table.mov tbody tr.activa { background: color-mix(in srgb, var(--llama) 10%, transparent); }
       .pill { border-radius: 999px; padding: 2px 10px; font-size: 12px; }
-      .ok { background: var(--estado-ok-tint); color: var(--estado-ok); } .warn { background: var(--estado-aviso-tint); color: var(--estado-aviso); } .pend { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
-      /* Tarjeta oscura */
-      .dark { background: var(--tinta); color: var(--tema-fondo); }
-      .dark h2 a { color: var(--tema-fondo); border-color: var(--tema-linea); }
-      .heat { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin-top: 12px; }
-      .heat i { aspect-ratio: 1; border-radius: 50%; background: var(--color-mid); }
-      .heat i.on { background: var(--llama); }
-      .bign { font-size: 30px; }
-      /* Banner plataforma + placeholders */
-      .banner { display: flex; align-items: center; gap: 12px; background: var(--tinta); color: var(--tema-fondo); border-radius: var(--radio); padding: 14px 18px; margin-bottom: 16px; }
-      .banner a { background: var(--llama); color: var(--tinta); font-weight: 700; border-radius: 999px; padding: 10px 22px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
-      .mini { font-size: 13px; color: var(--tema-texto-suave); }
-      .mini a { color: var(--tema-texto); font-weight: 600; }
-      .estado { font-size: 12px; color: var(--muted); margin-top: 8px; }
-      /* P1-32: mismo CTA amarillo del banner, como <button> en la card Tenants. */
-      .cta-piloto {
-        background: var(--llama); color: var(--tinta); font-weight: 700; border: 0;
-        border-radius: 999px; padding: 10px 18px; min-height: 44px; cursor: pointer;
-        display: inline-flex; align-items: center; margin-top: 10px; font: inherit;
-      }
-      .cta-piloto:disabled { opacity: 0.55; cursor: wait; }
-      #tenants-confirmar,
-      #flags-form,
-      #cobros-form,
-      #reportes-confirmar { margin-top: 12px; display: grid; gap: 8px; max-width: 420px; }
-      #tenants-confirmar[hidden],
-      #reportes-confirmar[hidden] { display: none; }
-      #tenants-confirmar input,
-      #flags-form input,
-      #cobros-form input,
-      #reportes-confirmar input,
-      #reportes-confirmar select {
+      .ok { background: var(--estado-ok-tint); color: var(--estado-ok); }
+      .warn { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
+      .pend { background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
+      .peligro { background: var(--estado-peligro-tint); color: var(--estado-peligro); }
+      .menu { position: relative; display: inline-block; }
+      .menu summary { list-style: none; cursor: pointer; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; }
+      :global(.menu summary::-webkit-details-marker),
+      :global(.menu summary::marker) { display: none; content: none; }
+      .menu ul { position: absolute; right: 0; z-index: 3; margin: 0; padding: 6px; list-style: none; background: var(--card); border: 1px solid var(--tema-linea); border-radius: 12px; min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+      .menu button { width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 8px; cursor: pointer; color: inherit; }
+      .menu button:hover { background: var(--canvas); }
+      .fondo { position: fixed; inset: 0; background: color-mix(in srgb, var(--color-void) 40%, transparent); z-index: 20; }
+      .fondo[hidden] { display: none; }
+      .cajon { position: fixed; top: 0; right: 0; height: 100%; width: min(440px, 100%); background: var(--papel); color: var(--tema-texto); z-index: 21; overflow: auto; padding: 20px 20px 40px; box-shadow: -8px 0 24px rgba(0,0,0,.12); }
+      .cajon[hidden] { display: none; }
+      .cajon header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+      .cajon header h2 { margin: 0; font-size: 22px; flex: 1; }
+      .cerrar { border: 1px solid var(--tema-linea); background: var(--card); border-radius: 999px; min-width: 44px; min-height: 44px; cursor: pointer; font: inherit; }
+      .dato { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 14px; margin-bottom: 16px; }
+      .dato dt { color: var(--muted); }
+      .acciones { display: grid; gap: 8px; margin-bottom: 16px; }
+      .btn { border: 1px solid var(--tema-linea); background: var(--card); border-radius: 999px; padding: 10px 16px; min-height: 44px; font: inherit; font-weight: 600; cursor: pointer; color: inherit; }
+      .btn.llama { background: var(--llama); color: var(--color-void); border: 0; }
+      .btn:disabled { opacity: 0.55; cursor: wait; }
+      form.confirm { display: grid; gap: 8px; margin: 8px 0 16px; }
+      form.confirm[hidden] { display: none; }
+      form.confirm input, form.confirm select, form.confirm textarea {
         border: 1px solid var(--tema-linea); border-radius: 12px; padding: 8px 12px;
-        font: inherit; background: var(--papel); color: var(--tema-texto); min-height: 44px; width: 100%;
+        font: inherit; background: var(--card); color: var(--tema-texto); min-height: 44px; width: 100%;
       }
-      #flags-form input[type="checkbox"] { width: auto; min-height: 44px; }
-      :target { outline: 2px solid var(--llama); outline-offset: 4px; }
-      /* En oscuro, .dark y .banner quedan void sobre void: un borde los separa.
-         El primer segmento y el avatar invierten como en el panel. */
-      :global(:root[data-tema="oscuro"]) .dark,
-      :global(:root[data-tema="oscuro"]) .banner { border: 1px solid var(--color-mid); }
-      :global(:root[data-tema="oscuro"]) #seg-ok { background: var(--color-star-white); color: var(--color-void); }
-      :global(:root[data-tema="oscuro"]) .avatar { background: var(--color-star-white); color: var(--color-void); }
-      :global(:root[data-tema="oscuro"]) nav.pills a.active,
-      :global(:root[data-tema="oscuro"]) nav.pills a:hover { background: var(--color-star-white); color: var(--color-void); }
-      /* Primer segmento del segbar: void por defecto, invertido en oscuro. */
-      #seg-ok { background: var(--color-void); color: var(--color-star-white); }
-      #seg-prueba { color: var(--tema-texto); }
-      @media (max-width: 900px) {
-        .grid.r1, .grid.r3 { grid-template-columns: 1fr; }
-        .top-right input { display: none; }
+      form.confirm textarea { min-height: 72px; resize: vertical; }
+      .flags { display: grid; gap: 8px; margin: 0 0 16px; }
+      .flag { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+      .flag input { width: 20px; height: 20px; }
+      .mini { font-size: 13px; color: var(--muted); }
+      .audit { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+      .audit li { border-bottom: 1px solid var(--canvas); padding: 8px 0; }
+      #reportes { position: fixed; top: 72px; right: 16px; width: min(420px, calc(100% - 32px)); max-height: min(70vh, 560px); overflow: auto; z-index: 15; }
+      #reportes[hidden] { display: none; }
+      #reportes ul { list-style: none; margin: 0; padding: 0; }
+      #reportes li { border-bottom: 1px solid var(--canvas); padding: 10px 0; display: grid; gap: 6px; }
+      :global(:root[data-tema="oscuro"]) .cajon { border-left: 1px solid var(--color-mid); }
+      @media (max-width: 700px) {
+        .buscar { min-width: 100%; order: 3; }
       }
     </style>
   </head>
@@ -138,1153 +106,702 @@ const pills = [
     <div class="wrap">
       <div class="topbar">
         <span class="logo">Plataforma</span>
-        <nav class="pills" aria-label="Módulos admin">
-          {pills.map((p) => <a href={p.href} class={p.active ? "active" : ""}>{p.label}</a>)}
-        </nav>
-        <span class="top-right">
-          <input id="q" type="search" placeholder="Buscar tenant o acto" aria-label="Buscar en auditoría" />
-          <span class="avatar" title="Operador plataforma">A</span>
-          <CerrarSesion />
+        <input id="buscar" class="buscar" type="search" placeholder="Buscar comercio" aria-label="Buscar comercio" />
+        <div class="top-right">
+          <button type="button" class="badge" id="btn-reportes" aria-expanded="false" aria-controls="reportes">
+            Reportes <b id="n-reportes">0</b>
+          </button>
           <TemaToggle />
-        </span>
-      </div>
-
-      <h1 class="hello">Hola</h1>
-      <div class="sub">Panel admin · solo gestión, sin datos de negocio (Ley 25.326)</div>
-
-      <div class="kpis">
-        <div class="segbar" title="Estado de la flota">
-          <span id="seg-ok" style="width:70%">Al día 70%</span>
-          <span id="seg-mora" class="ember-coral" style="width:20%">Mora 20%</span>
-          <span id="seg-prueba" style="width:10%;background:repeating-linear-gradient(45deg,var(--tema-linea),var(--tema-linea) 4px,var(--tema-superficie) 4px,var(--tema-superficie) 8px)">Prueba</span>
-        </div>
-        <div class="bignums">
-          <div class="bignum"><b id="n-activos">—</b><small>Tenants activos <span class="demo" id="b-activos">demo</span></small></div>
-          <div class="bignum"><b id="n-mora">—</b><small>En mora <span class="demo" id="b-mora">demo</span></small></div>
-          <div class="bignum"><b id="n-senales">—</b><small>Señales pendientes <span class="demo" id="b-senales">demo</span></small></div>
+          <CerrarSesion />
         </div>
       </div>
 
-      <div class="banner">
-        <div><b>Mora 14 días · suspensión día 15</b><br /><span class="mini" style="color:var(--color-muted-dark)">En gracia no se suspende. Desde el día 15, Suspender y Reactivar piden motivo y el id, en Mora o en Tenants.</span></div>
-        <span style="margin-left:auto"></span>
-        <a href="#tenants">Ir a Tenants →</a>
+      <div class="kpis" id="kpis">
+        <div class="bignum"><b id="n-activos">—</b><small>Activos</small></div>
+        <div class="bignum"><b id="n-gracia">—</b><small>En gracia</small></div>
+        <div class="bignum"><b id="n-suspendidos">—</b><small>Suspendidos</small></div>
       </div>
 
-      <div class="grid r1">
-        <section class="card" id="rollouts" data-admin-tarjeta="rollouts">
-          <h2>Rollouts <span class="demo" id="b-rollouts">demo</span> <a href="#rollouts" aria-label="Ir a rollouts">↗</a></h2>
-          <ul class="tl" id="rollouts-lista" aria-live="polite"></ul>
-          <div class="estado" id="rollouts-estado">—</div>
-        </section>
+      <div id="error-lista" class="aviso" hidden></div>
 
-        <section class="card" id="auditoria">
-          <h2>Auditoría <a href="#auditoria" aria-label="Ir a auditoría">↗</a></h2>
-          <table class="mov">
-            <thead><tr><th></th><th>Acto</th><th>Tenant</th><th>Origen</th><th>Estado</th></tr></thead>
-            <tbody id="actos-body">
-              <tr><td>◉</td><td>mora_evaluada</td><td>—</td><td>panel</td><td><span class="pill ok">Al día</span></td></tr>
-              <tr><td>◉</td><td>senal_consumida</td><td>—</td><td>job</td><td><span class="pill warn">Consumida</span></td></tr>
-              <tr><td>◉</td><td>suspension_marcada</td><td>—</td><td>panel</td><td><span class="pill pend">A revisar</span></td></tr>
-            </tbody>
-          </table>
-          <div class="mini">Filas de ejemplo <span class="demo">demo</span> — lo real vive en <span style="font-family:monospace">GET /api/admin/actos</span></div>
-          <div class="estado" id="actos-estado">Auditoría: cargando…</div>
-        </section>
-
-        <section class="card dark" id="senales" data-admin-tarjeta="senales">
-          <h2>Señales por hora <span class="demo" id="b-senales-tarjeta">demo</span> <a href="#senales" aria-label="Ir a señales">↗</a></h2>
-          <div><span class="bign"><span id="heat-ok">0</span> ↗</span> &nbsp; <span class="bign" style="color:var(--color-muted-dark)"><span id="heat-pend">0</span> ↘</span></div>
-          <div class="mini" style="color:var(--color-muted-dark)">consumidas · descartadas</div>
-          <div class="heat" id="heat" aria-hidden="true"></div>
-          <button type="button" class="cta-piloto" id="btn-senales-consumir" data-admin-accion="senales-consumir">Consumir señales</button>
-          <div class="estado" id="senales-estado">—</div>
-        </section>
-      </div>
-
-      <section class="card" id="reportes-comercio" style="margin-bottom:16px">
-        <h2>Bandeja de reportes <span class="live">en vivo</span></h2>
-        <p class="mini">Solo administrador de plataforma. Los comercios no ven esta vista. Seguridad real en servidor.</p>
-        <div class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
-          <button type="button" class="cta-piloto" data-rep-filtro="todos" style="margin-top:0">Todos</button>
-          <button type="button" class="cta-piloto" data-rep-filtro="recibido" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Recibido</button>
-          <button type="button" class="cta-piloto" data-rep-filtro="en_revision" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">En revisión</button>
-          <button type="button" class="cta-piloto" data-rep-filtro="resuelto" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Resuelto</button>
+      <section class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <h2 style="margin:0;flex:1">Comercios</h2>
+          <button type="button" class="btn llama" id="btn-nuevo">+ Nuevo comercio</button>
         </div>
-        <ul class="tl" id="rep-admin-lista" aria-live="polite"></ul>
-        <form id="reportes-confirmar" hidden>
-          <p class="mini" id="reportes-confirmar-texto"></p>
-          <p class="mini">Id completo: <code id="reportes-id-visible"></code></p>
-          <select id="reportes-estado" name="estado" aria-label="Estado del reporte">
-            <option value="recibido">Recibido</option>
-            <option value="en_revision">En revisión</option>
-            <option value="resuelto">Resuelto</option>
-          </select>
-          <input id="reportes-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo del cambio de estado" />
-          <input id="reportes-confirmo" name="confirmo_id" required placeholder="Escribí el id del reporte" aria-label="Confirmación del id del reporte" autocomplete="off" />
-          <div>
-            <button type="submit" class="cta-piloto" id="reportes-enviar" style="margin-top:0">Confirmar estado</button>
-            <button type="button" class="cta-piloto" id="reportes-cancelar" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Cancelar</button>
-          </div>
+        <form class="confirm" id="form-alta" hidden>
+          <div class="mini">El dueño entra después con su Google, el mismo email.</div>
+          <label>Nombre <input name="nombre_comercio" required minlength="3" maxlength="80" /></label>
+          <label>Slug <input name="slug" placeholder="se arma solo con el nombre" /></label>
+          <label>Plan
+            <select name="plan">
+              <option value="base">base</option>
+              <option value="plus">plus</option>
+              <option value="demo">demo</option>
+            </select>
+          </label>
+          <label>Moneda
+            <select name="moneda">
+              <option value="ARS">ARS</option>
+            </select>
+          </label>
+          <label>Email del dueño <input name="email_dueno" type="email" required /></label>
+          <button type="submit" class="btn llama">Crear comercio</button>
+          <button type="button" class="btn" id="cancelar-alta">Cancelar</button>
+          <div class="mini" id="alta-estado"></div>
         </form>
-        <div class="estado" id="rep-admin-estado">Cargando bandeja…</div>
-      </section>
-
-      <section class="card" id="mora" style="margin-top:16px;overflow-x:auto">
-        <h2>Mora <a href="#mora" aria-label="Ir a mora">↗</a></h2>
-        <div class="mini">Gracia 14 días. El día 15 se puede suspender. Suspender usa <code>POST /api/admin/mora/suspender</code>; reactivar con cobro usa <code>POST /api/admin/mora/regularizar</code>. El dry-run de <code>POST /api/admin/mora/evaluar</code> no muta estado.</div>
-        <div class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
-          <button type="button" class="cta-piloto" data-mora-filtro="todos" aria-pressed="true" style="margin-top:0">Todos</button>
-          <button type="button" class="cta-piloto" data-mora-filtro="en_gracia" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">En gracia</button>
-          <button type="button" class="cta-piloto" data-mora-filtro="por_suspender" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Por suspender</button>
-          <button type="button" class="cta-piloto" data-mora-filtro="suspendido" aria-pressed="false" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Suspendidos</button>
-        </div>
-        <form id="mora-dryrun" class="fila" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px">
-          <input id="mora-dryrun-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant a evaluar" />
-          <input id="mora-dryrun-dias" name="dias_atraso" type="number" min="0" step="1" required placeholder="días de atraso" aria-label="Días de atraso" />
-          <input id="mora-dryrun-saldo" name="saldo_deudor_centavos" inputmode="numeric" required placeholder="saldo_deudor_centavos" aria-label="Saldo deudor en centavos" />
-          <button type="submit" class="cta-piloto" id="mora-dryrun-enviar" data-admin-accion="mora-evaluar" style="margin-top:0">Evaluar (dry-run)</button>
-        </form>
-        <div class="estado" id="mora-dryrun-estado" aria-live="polite">Dry-run: no muta estado.</div>
-        <table class="mov" id="mora-tabla">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Cubeta</th>
-              <th>Días</th>
-              <th>Vencimiento</th>
-              <th>Id</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="mora-body">
-            <tr><td colspan="6">Cargando…</td></tr>
-          </tbody>
-        </table>
-        <div class="estado" id="mora-estado" aria-live="polite">Cargando…</div>
-      </section>
-
-      <section class="card" id="uso" style="margin-top:16px;overflow-x:auto">
-        <h2>Uso y margen <span class="demo" id="b-uso">demo</span> <a href="#uso" aria-label="Ir a uso y margen">↗</a></h2>
-        <p class="mini">Contadores técnicos del día: mensajes de WhatsApp y consultas al asistente. Margen = precio del plan − costo técnico del mes. Se marca si ese costo supera la mitad del precio. El precio es de referencia del catálogo de ejemplo. Sin ventas, productos ni clientes.</p>
-        <ul id="uso-body" style="list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px">
-          <li>Cargando…</li>
-        </ul>
-        <div class="estado" id="uso-estado">Uso: cargando…</div>
-      </section>
-
-      <section class="card" id="tenants" style="margin-top:16px;overflow-x:auto">
-        <h2>Tenants <span class="demo" id="b-tenants">demo</span> <a href="#tenants" aria-label="Ir a tenants">↗</a></h2>
-        <div class="mini">Directorio de gestión. Suspender y reactivar piden motivo y el id escrito.<br /><span style="font-family:monospace">GET/POST /api/admin/tenants</span></div>
-        <button type="button" class="cta-piloto" id="btn-piloto-dos">Cargar 2 comercios piloto</button>
-        <div class="estado" id="piloto-resultado" aria-live="polite"></div>
         <table class="mov" id="tenants-tabla">
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>Slug</th>
-              <th>Estado</th>
               <th>Plan</th>
+              <th>Estado</th>
               <th>Vencimiento</th>
-              <th>Id</th>
-              <th>Acciones</th>
+              <th>Costo alto</th>
+              <th><span class="sr">Acciones</span></th>
             </tr>
           </thead>
-          <tbody id="tenants-body">
-            <tr><td colspan="7">Cargando…</td></tr>
-          </tbody>
+          <tbody id="tenants-body"></tbody>
         </table>
-        <form id="tenants-confirmar" hidden>
-          <p class="mini" id="tenants-confirmar-texto"></p>
-          <p class="mini">Id completo: <code id="tenants-id-visible"></code></p>
-          <input id="tenants-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo" />
-          <input id="tenants-confirmo" name="confirmo_id" required placeholder="Escribí el id del tenant" aria-label="Confirmación del id" autocomplete="off" />
-          <fieldset id="tenants-cobro" hidden>
-            <p class="mini">Cobro a asentar (solo reactivar con cobro).</p>
-            <input id="tenants-monto" name="monto_centavos" inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
-            <input id="tenants-medio" name="medio" placeholder="medio (transferencia, efectivo…)" aria-label="Medio de pago" />
-            <input id="tenants-referencia" name="referencia_externa" placeholder="referencia_externa" aria-label="Referencia externa" />
-            <input id="tenants-idempotency" name="idempotency_key" placeholder="idempotency_key" aria-label="Clave de idempotencia" />
-          </fieldset>
-          <div>
-            <button type="submit" class="cta-piloto" id="tenants-enviar" style="margin-top:0">Confirmar</button>
-            <button type="button" class="cta-piloto" id="tenants-cancelar" style="margin-top:0;background:var(--card);color:var(--tinta);border:1px solid var(--canvas)">Cancelar</button>
-          </div>
-        </form>
-        <div class="estado" id="tenants-estado" aria-live="polite">—</div>
+        <div id="tenants-vacio" class="vacio" hidden>No hay comercios.</div>
       </section>
-
-      <div class="grid r3">
-        <section class="card" id="cobros" data-admin-tarjeta="cobros">
-          <h2>Cobros <span class="demo" id="b-cobros">demo</span> <a href="#cobros">↗</a></h2>
-          <div class="mini">Asiento manual append-only (PA6).<br /><span style="font-family:monospace">POST /api/admin/ledger/asentar</span><br />Suspender está en <a href="#mora">Mora</a> y reactivar con cobro usa el formulario de <a href="#mora">Mora</a>; acá solo se asienta el cobro.</div>
-          <form id="cobros-form">
-            <input id="cobros-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del cobro" />
-            <input id="cobros-monto" name="monto_centavos" required inputmode="numeric" placeholder="monto_centavos" aria-label="Monto en centavos" />
-            <input id="cobros-medio" name="medio" required placeholder="medio" aria-label="Medio de pago" />
-            <input id="cobros-referencia" name="referencia_externa" required placeholder="referencia_externa" aria-label="Referencia externa" />
-            <input id="cobros-idempotency" name="idempotency_key" required placeholder="idempotency_key" aria-label="Clave de idempotencia" />
-            <button type="button" class="cta-piloto" data-admin-accion="cobro-asentar" style="margin-top:0">Asentar cobro</button>
-          </form>
-          <div class="estado" id="cobros-estado">—</div>
-        </section>
-        <section class="card" id="flags" data-admin-tarjeta="flags">
-          <h2>Flags <span class="demo" id="b-flags">demo</span> <a href="#flags">↗</a></h2>
-          <div class="mini">Overrides con motivo (PA12).<br /><span style="font-family:monospace">GET/POST /api/admin/flags</span></div>
-          <ul class="tl" id="flags-lista" aria-live="polite"></ul>
-          <form id="flags-form">
-            <input id="flags-tenant" name="tenant_id" required placeholder="tenant_id" aria-label="Tenant del flag" />
-            <input id="flags-nombre" name="flag" required placeholder="flag" aria-label="Nombre del flag" />
-            <label class="mini"><input id="flags-valor" name="valor" type="checkbox" /> valor</label>
-            <input id="flags-motivo" name="motivo" required maxlength="280" placeholder="Motivo" aria-label="Motivo del flag" />
-            <input id="flags-confirmo" name="confirmo_id" required placeholder="Escribí el id del tenant" aria-label="Confirmación del id del tenant" autocomplete="off" />
-            <input id="flags-expira" name="expira_en" placeholder="expira_en (opcional, ISO)" aria-label="Vencimiento del flag" />
-            <button type="button" class="cta-piloto" data-admin-accion="flags-guardar" style="margin-top:0">Guardar flag</button>
-          </form>
-          <div class="estado" id="flags-estado">—</div>
-        </section>
-        <section class="card" id="infra"><h2>Infra <a href="#infra">↗</a></h2><div class="mini"><b>Próximamente</b> (PA11).<br />Re-ejecutar migración Drizzle.</div></section>
-        <section class="card" id="apis"><h2>APIs <a href="#apis">↗</a></h2><div class="mini">Índice JSON en vivo:<br /><a href="/api/admin/salud">/api/admin/salud</a><br /><a href="/api/admin/actos">/api/admin/actos</a><br /><a href="/api/admin/uso">/api/admin/uso</a></div></section>
-      </div>
     </div>
-    <script>
-      import {
-        conteosMoraVista,
-        etiquetaCubetaMoraVista,
-        filasMoraParaTabla,
-        particionarMoraVista,
-      } from "../modules/admin/mora-vista.js";
-      import { fechaAR } from "../lib/fecha-ar.js";
-      import {
-        ejecutarAccionMora,
-        sugerirIdempotencyKey,
-        textoResultadoMora,
-        validarAccionMora,
-      } from "../modules/admin/mora-acciones.js";
-      // En vivo con degradado (CA3): si falla, todo sigue renderizado.
-      const marca = (id, viva) => {
-        const el = document.getElementById(id);
-        if (el) { el.textContent = viva ? "en vivo" : "demo"; el.className = viva ? "live" : "demo"; }
-      };
-      const get = async (url) => {
-        const r = await fetch(url);
-        if (r.status === 403) throw new Error("forbidden");
-        if (!r.ok) throw new Error("http " + r.status);
-        return r.json();
-      };
-      // P1-25: distinguir "sin sesión" vs "logueado pero fuera de allowlist".
-      let msgSinAdmin = "Sin permiso (403): iniciá sesión como admin.";
-      fetch("/api/auth/sesion-actual")
-        .then((r) => r.json())
-        .then((s) => {
-          if (!s || !s.logueado) {
-            msgSinAdmin = "Sin sesión: entrá con Admin desde la landing.";
-            return;
-          }
-          if (s.es_admin) return;
-          msgSinAdmin =
-            "Tu cuenta está logueada pero no está en ADMIN_ALLOWLIST_SUBS. Sub: " +
-            (s.google_sub || "(desconocido)");
-          const banner = document.getElementById("tenants-estado");
-          if (banner) banner.textContent = msgSinAdmin;
-        })
-        .catch(() => {
-          msgSinAdmin = "Sin sesión: entrá con Admin desde la landing.";
-        });
-      // P1-87: si el listado de tenants respondió, esos conteos pisan el demo y la proyección de salud.
-      let tenantsEnVivo = false;
-      let pendienteTenant = null;
-      // P1-89: la partición es la lista de mora. El filtro solo elige qué cubeta se pinta.
-      let particionMora = null;
-      let filtroMora = "todos";
-      const pintarFlota = (activos, mora, totalFilas) => {
-        document.getElementById("n-activos").textContent = String(activos);
-        document.getElementById("n-mora").textContent = String(mora);
-        const total = Math.max(totalFilas, 1);
-        const pct = Math.round((activos / total) * 100);
-        document.getElementById("seg-ok").textContent = "Al día " + pct + "%";
-        document.getElementById("seg-ok").style.width = pct + "%";
-        document.getElementById("seg-mora").textContent = "Mora " + (100 - pct) + "%";
-        document.getElementById("seg-mora").style.width = (100 - pct) + "%";
-        document.getElementById("seg-prueba").style.width = "0%";
-      };
-      const pintarSalud = (b) => {
-        const filas = b.salud || [];
-        const activos = filas.filter((f) => f.estadoVisto === "activo").length;
-        const mora = filas.filter((f) => f.estadoVisto === "suspendido").length;
-        document.getElementById("n-senales").textContent = filas.length;
-        marca("b-senales", true);
-        pintarHeatPorUltimaSenalEn(filas);
-        if (tenantsEnVivo) return;
-        pintarFlota(activos, mora, filas.length);
-        document.getElementById("tenants-estado").textContent = "En vivo: " + filas.length + " tenants (" + (b.salud[0] && b.salud[0].fuente === "proyeccion" ? "proyección control" : "señales") + ").";
-        marca("b-activos", true); marca("b-mora", true);
-      };
-      const cargarSalud = () => get("/api/admin/salud").then(pintarSalud).catch((e) => {
-        pintarHeatDemo();
-        if (e.message === "forbidden") {
-          if (!tenantsEnVivo) {
-            document.getElementById("n-activos").textContent = "—";
-            document.getElementById("n-mora").textContent = "—";
-            document.getElementById("tenants-estado").textContent = msgSinAdmin;
-          }
-          document.getElementById("n-senales").textContent = "—";
-          document.getElementById("actos-estado").textContent = msgSinAdmin;
-          return;
-        }
-        if (tenantsEnVivo) {
-          document.getElementById("n-senales").textContent = "5";
-          return;
-        }
-        document.getElementById("n-activos").textContent = "12";
-        document.getElementById("n-mora").textContent = "3";
-        document.getElementById("n-senales").textContent = "5";
-        document.getElementById("tenants-estado").textContent = "Sin conexión: mostrando demo.";
-      });
-      const idCorto = (id) => (id.length > 8 ? id.slice(0, 8) + "…" : id);
-      const celda = (texto) => {
-        const td = document.createElement("td");
-        td.textContent = texto;
-        return td;
-      };
-      const pintarTablaTenants = (lista) => {
-        const body = document.getElementById("tenants-body");
-        body.replaceChildren();
-        if (lista.length === 0) {
-          const tr = document.createElement("tr");
-          const td = document.createElement("td");
-          td.colSpan = 7;
-          td.textContent = "No hay tenants en control.";
-          tr.appendChild(td);
-          body.appendChild(tr);
-          return;
-        }
-        for (const t of lista) {
-          const tr = document.createElement("tr");
-          tr.appendChild(celda(t.nombre || "—"));
-          tr.appendChild(celda(t.slug || "—"));
-          const tdEst = document.createElement("td");
-          const pill = document.createElement("span");
-          const etiqueta = { activo: "Activo", suspendido: "Suspendido", pendiente: "Pendiente", baja: "Baja" };
-          const clase = { activo: "ok", suspendido: "warn", pendiente: "pend", baja: "pend" };
-          pill.className = "pill " + (clase[t.estado] || "pend");
-          pill.textContent = etiqueta[t.estado] || t.estado || "—";
-          tdEst.appendChild(pill);
-          tr.appendChild(tdEst);
-          tr.appendChild(celda(t.plan || "—"));
-          tr.appendChild(celda(t.vencimiento ? String(t.vencimiento).slice(0, 10) : "—"));
-          const idTd = celda(idCorto(String(t.id || "")));
-          idTd.title = String(t.id || "");
-          tr.appendChild(idTd);
-          const acc = document.createElement("td");
-          if (t.estado === "activo" || t.estado === "suspendido") {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "cta-piloto";
-            btn.style.marginTop = "0";
-            btn.textContent = t.estado === "activo" ? "Suspender" : "Reactivar";
-            btn.addEventListener("click", () =>
-              abrirConfirmacion(t, t.estado === "activo" ? "suspender" : "reactivar"),
-            );
-            acc.appendChild(btn);
-          }
-          tr.appendChild(acc);
-          body.appendChild(tr);
-        }
-      };
-      const abrirConfirmacion = (t, accion) => {
-        pendienteTenant = { id: String(t.id), accion };
-        const verbo = accion === "suspender"
-          ? "Suspender "
-          : accion === "regularizar"
-            ? "Reactivar con cobro "
-            : "Reactivar ";
-        document.getElementById("tenants-confirmar-texto").textContent =
-          verbo + (t.nombre || t.slug || "tenant") + ". Escribí el id completo y el motivo.";
-        document.getElementById("tenants-id-visible").textContent = t.id;
-        document.getElementById("tenants-motivo").value = "";
-        document.getElementById("tenants-confirmo").value = "";
-        const cobro = document.getElementById("tenants-cobro");
-        cobro.hidden = accion !== "regularizar";
-        if (accion === "regularizar") {
-          document.getElementById("tenants-monto").value = "";
-          document.getElementById("tenants-medio").value = "";
-          document.getElementById("tenants-referencia").value = "";
-          document.getElementById("tenants-idempotency").value = sugerirIdempotencyKey(String(t.id), fechaAR());
-        }
-        const form = document.getElementById("tenants-confirmar");
-        form.hidden = false;
-        form.scrollIntoView({ block: "nearest" });
-        document.getElementById("tenants-motivo").focus();
-      };
-      const botonAccion = (texto, onClick) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "cta-piloto";
-        btn.style.marginTop = "0";
-        btn.style.marginRight = "6px";
-        btn.textContent = texto;
-        btn.addEventListener("click", onClick);
-        return btn;
-      };
-      const abrirDryRun = (fila) => {
-        document.getElementById("mora-dryrun-tenant").value = String(fila.tenant.id);
-        document.getElementById("mora-dryrun-dias").value = String(fila.diasAtraso);
-        document.getElementById("mora-dryrun").scrollIntoView({ block: "nearest" });
-        document.getElementById("mora-dryrun-saldo").focus();
-      };
-      const ponerFilaUnica = (bodyId, columnas, texto) => {
-        const body = document.getElementById(bodyId);
-        body.replaceChildren();
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        td.colSpan = columnas;
-        td.textContent = texto;
-        tr.appendChild(td);
-        body.appendChild(tr);
-      };
-      // P1-89: si el listado falla, ninguna de las dos tablas puede quedar en Cargando….
-      const fallarListadoTenants = (mensaje) => {
-        particionMora = null;
-        tenantsEnVivo = false;
-        document.getElementById("tenants-estado").textContent = mensaje;
-        document.getElementById("mora-estado").textContent = mensaje;
-        ponerFilaUnica("tenants-body", 7, mensaje);
-        ponerFilaUnica("mora-body", 6, mensaje);
-      };
-      const marcarFiltroMora = () => {
-        document.querySelectorAll("[data-mora-filtro]").forEach((btn) => {
-          const on = btn.getAttribute("data-mora-filtro") === filtroMora;
-          btn.setAttribute("aria-pressed", on ? "true" : "false");
-          btn.style.background = on ? "" : "var(--card)";
-          btn.style.color = on ? "" : "var(--tinta)";
-          btn.style.border = on ? "" : "1px solid var(--canvas)";
-        });
-      };
-      const pintarTablaMora = () => {
-        if (!particionMora) return;
-        const filas = filasMoraParaTabla(particionMora, filtroMora);
-        const conteos = conteosMoraVista(particionMora);
-        const body = document.getElementById("mora-body");
-        if (filas.length === 0) {
-          ponerFilaUnica("mora-body", 6, "Nadie en esta lista.");
-        } else {
-          body.replaceChildren();
-          for (const fila of filas) {
-            const tr = document.createElement("tr");
-            const t = fila.tenant;
-            tr.appendChild(celda(t.nombre || "—"));
-            tr.appendChild(celda(etiquetaCubetaMoraVista(fila.cubeta)));
-            tr.appendChild(celda(String(fila.diasAtraso)));
-            tr.appendChild(celda(t.vencimiento ? String(t.vencimiento).slice(0, 10) : "—"));
-            const idTd = celda(idCorto(String(t.id || "")));
-            idTd.title = String(t.id || "");
-            tr.appendChild(idTd);
-            const acc = document.createElement("td");
-            acc.appendChild(botonAccion("Evaluar", () => abrirDryRun(fila)));
-            if (fila.accion === "suspender") {
-              acc.appendChild(botonAccion("Suspender", () => abrirConfirmacion(t, "suspender")));
-            } else if (fila.accion === "reactivar") {
-              acc.appendChild(botonAccion("Reactivar con cobro", () => abrirConfirmacion(t, "regularizar")));
-            }
-            tr.appendChild(acc);
-            body.appendChild(tr);
-          }
-        }
-        document.getElementById("mora-estado").textContent =
-          "En vivo: " + conteos.total + " en mora (" +
-          conteos.en_gracia + " en gracia, " +
-          conteos.por_suspender + " por suspender, " +
-          conteos.suspendido + " suspendidos).";
-      };
-      const cargarTenants = async () => {
-        const estado = document.getElementById("tenants-estado");
-        try {
-          const r = await fetch("/api/admin/tenants", { credentials: "same-origin" });
-          if (r.status === 403) {
-            fallarListadoTenants(msgSinAdmin);
-            return;
-          }
-          if (!r.ok) {
-            fallarListadoTenants("No se pudo listar tenants (http " + r.status + ").");
-            return;
-          }
-          const b = await r.json();
-          const lista = Array.isArray(b.tenants) ? b.tenants : [];
-          pintarTablaTenants(lista);
-          particionMora = particionarMoraVista(lista, fechaAR());
-          pintarTablaMora();
-          tenantsEnVivo = true;
-          marca("b-tenants", true);
-          estado.textContent = lista.length === 0
-            ? "En vivo: no hay tenants en control."
-            : ("En vivo: " + lista.length + " tenants.");
-          const activos = lista.filter((t) => t.estado === "activo").length;
-          // P1-89: n-mora es el total de las tres cubetas. La barra sigue el corte de activos.
-          pintarFlota(activos, conteosMoraVista(particionMora).total, lista.length);
-          marca("b-activos", true);
-          marca("b-mora", true);
-        } catch {
-          fallarListadoTenants("Sin conexión: el directorio no cargó.");
-        }
-      };
-      document.querySelectorAll("[data-mora-filtro]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          filtroMora = btn.getAttribute("data-mora-filtro") || "todos";
-          marcarFiltroMora();
-          pintarTablaMora();
-        });
-      });
-      // #221: dry-run explícito. No pide confirmo_id porque no muta estado.
-      document.getElementById("mora-dryrun").addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        const estado = document.getElementById("mora-dryrun-estado");
-        const tenantId = document.getElementById("mora-dryrun-tenant").value.trim();
-        const diasCrudo = document.getElementById("mora-dryrun-dias").value.trim();
-        const saldoCrudo = document.getElementById("mora-dryrun-saldo").value.trim();
-        if (!diasCrudo || !saldoCrudo) {
-          estado.textContent = "Completá días de atraso y saldo deudor.";
-          return;
-        }
-        let saldo;
-        try {
-          saldo = BigInt(saldoCrudo);
-        } catch {
-          estado.textContent = "Saldo inválido: usá centavos enteros.";
-          return;
-        }
-        const accion = {
-          tipo: "evaluar",
-          tenantId,
-          diasAtraso: Number(diasCrudo),
-          saldoDeudorCentavos: saldo,
-        };
-        const invalido = validarAccionMora(accion);
-        if (invalido) {
-          estado.textContent = invalido;
-          return;
-        }
-        estado.textContent = "Evaluando…";
-        estado.textContent = textoResultadoMora(await ejecutarAccionMora(accion, { fetch }));
-      });
-      document.getElementById("tenants-cancelar").addEventListener("click", () => {
-        pendienteTenant = null;
-        document.getElementById("tenants-confirmar").hidden = true;
-      });
-      document.getElementById("tenants-confirmar").addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        if (!pendienteTenant) return;
-        const enviar = document.getElementById("tenants-enviar");
-        const estado = document.getElementById("tenants-estado");
-        const motivo = document.getElementById("tenants-motivo").value.trim();
-        const confirmo = document.getElementById("tenants-confirmo").value.trim();
-        enviar.disabled = true;
-        let mensajeExito = "";
-        try {
-          if (pendienteTenant.accion === "suspender" || pendienteTenant.accion === "regularizar") {
-            const base = { tenantId: pendienteTenant.id, motivo, confirmoId: confirmo };
-            let accion;
-            if (pendienteTenant.accion === "suspender") {
-              accion = { tipo: "suspender", ...base };
-            } else {
-              let monto;
-              try {
-                monto = BigInt(document.getElementById("tenants-monto").value.trim());
-              } catch {
-                estado.textContent = "Monto inválido: usá centavos enteros.";
-                return;
-              }
-              accion = {
-                tipo: "regularizar",
-                ...base,
-                cobro: {
-                  montoCentavos: monto,
-                  medio: document.getElementById("tenants-medio").value.trim(),
-                  referenciaExterna: document.getElementById("tenants-referencia").value.trim(),
-                  idempotencyKey: document.getElementById("tenants-idempotency").value.trim(),
-                },
-              };
-            }
-            const r = await ejecutarAccionMora(accion, { fetch });
-            if (!r.ok) {
-              estado.textContent = textoResultadoMora(r);
-              return;
-            }
-            mensajeExito = textoResultadoMora(r);
-          } else {
-            const r = await fetch("/api/admin/tenants", {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                tenant_id: pendienteTenant.id,
-                accion: pendienteTenant.accion,
-                confirmo_id: confirmo,
-                motivo,
-              }),
-            });
-            const texto = await r.text();
-            let json = {};
-            try {
-              json = texto ? JSON.parse(texto) : {};
-            } catch {
-              json = {};
-            }
-            if (!r.ok) {
-              const crudo = json && json.error ? json.error : ("http " + r.status);
-              estado.textContent = crudo === "ya suspendido"
-                ? "Ese comercio ya está suspendido."
-                : crudo === "ya activo"
-                  ? "Ese comercio ya está activo."
-                  : crudo;
-              return;
-            }
-          }
-          pendienteTenant = null;
-          document.getElementById("tenants-confirmar").hidden = true;
-          await cargarTenants();
-          if (mensajeExito) estado.textContent = mensajeExito;
-        } catch (err) {
-          estado.textContent = err && err.message ? err.message : "red";
-        } finally {
-          enviar.disabled = false;
-        }
-      });
-      cargarSalud();
-      void cargarTenants();
-      // P1-32/P1-33: un comercio por google_sub. Primer alta = sesión; el segundo
-      // owner distinto. 201|409 con tenant_id = OK. P1-33: no await salud (si
-      // cuelga dejaba el botón disabled) y timeout 50s por POST.
-      document.getElementById("btn-piloto-dos").addEventListener("click", async () => {
-        const btn = document.getElementById("btn-piloto-dos");
-        const resultado = document.getElementById("piloto-resultado");
-        btn.disabled = true;
-        resultado.textContent = "Cargando 2 comercios piloto…";
-        const postJson = async (url, body) => {
-          const ac = new AbortController();
-          const timer = setTimeout(() => ac.abort(), 50000);
-          try {
-            const r = await fetch(url, {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-              signal: ac.signal,
-            });
-            const texto = await r.text();
-            let json = {};
-            try {
-              json = texto ? JSON.parse(texto) : {};
-            } catch (err) {
-              console.warn("P1-32 respuesta no JSON", url, r.status, err);
-            }
-            return { status: r.status, json };
-          } finally {
-            clearTimeout(timer);
-          }
-        };
-        try {
-          resultado.textContent = "Paso 1/2: alta Kiosco Lo de Mauri…";
-          const a1 = await postJson("/api/onboarding/alta", {
-            nombre_comercio: "Kiosco Lo de Mauri",
-            rubro: "kiosco",
-            request_key: "piloto-basico-t1",
-          });
-          const t1 = a1.json && a1.json.tenant_id;
-          const ok1 = (a1.status === 201 || a1.status === 409) && typeof t1 === "string";
-          resultado.textContent = ok1
-            ? ("Paso 1 OK (" + a1.status + "). Paso 2/2: Almacén Don Pepe…")
-            : ("Paso 1 falló: " + (a1.json && a1.json.error ? a1.json.error : ("http " + a1.status)));
-          const a2 = await postJson("/api/tenants", {
-            nombre_comercio: "Almacén Don Pepe",
-            plan: "base",
-            moneda: "ARS",
-            owner_google_sub: "piloto-basico-t2",
-            request_key: "piloto-basico-t2",
-          });
-          const t2 = a2.json && a2.json.tenant_id;
-          const ok2 = (a2.status === 201 || a2.status === 409) && typeof t2 === "string";
-          if (ok1 && ok2) {
-            resultado.textContent = "Piloto OK: t1=" + t1 + " t2=" + t2 + " (status " + a1.status + "/" + a2.status + ").";
-            void cargarSalud();
-            void cargarTenants();
-          } else {
-            const e1 = a1.json && a1.json.error ? a1.json.error : ("http " + a1.status);
-            const e2 = a2.json && a2.json.error ? a2.json.error : ("http " + a2.status);
-            resultado.textContent = "Piloto falló: t1 " + e1 + "; t2 " + e2;
-          }
-        } catch (err) {
-          const msg = err && err.name === "AbortError"
-            ? "timeout 50s (aprovisionamiento o red)"
-            : (err && err.message ? err.message : "red");
-          resultado.textContent = "Piloto falló: " + msg;
-        } finally {
-          btn.disabled = false;
-        }
-      });
-      const usd = (centavos) => {
-        if (centavos === null || centavos === undefined) return "—";
-        const n = Number(centavos);
-        if (!Number.isFinite(n)) return "—";
-        const sign = n < 0 ? "−" : "";
-        const abs = Math.abs(Math.trunc(n));
-        const ent = Math.floor(abs / 100);
-        const dec = String(abs % 100).padStart(2, "0");
-        return sign + "USD " + ent + "," + dec;
-      };
-      const filaUso = (f) => {
-        const li = document.createElement("li");
-        const head = document.createElement("div");
-        const nombre = document.createElement("b");
-        nombre.textContent = f.slug + " · " + f.plan;
-        head.appendChild(nombre);
-        head.appendChild(document.createTextNode(" "));
-        const pill = document.createElement("span");
-        // ADMIN-USO-DIARIO: el nodo nace en JS y no hereda el scope de Astro,
-        // así que el color va inline. El texto sigue siendo la marca.
-        pill.textContent = f.marcado ? "Costo alto" : (f.precioPlanCentavos === null ? "Sin precio" : "Dentro del margen");
-        pill.style.cssText = "border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;background:" + (f.marcado ? "var(--estado-aviso-tint)" : "var(--estado-ok-tint)") + ";color:" + (f.marcado ? "var(--estado-aviso)" : "var(--estado-ok)");
-        head.appendChild(pill);
-        const det = document.createElement("div");
-        det.className = "mini";
-        const precio = f.precioPlanCentavos === null ? "sin precio" : usd(f.precioPlanCentavos) + (f.ejemplo ? " (ejemplo)" : "");
-        const margen = f.margenCentavos === null ? "—" : usd(f.margenCentavos);
-        det.textContent = "WA " + f.mensajesWa + " · asistente " + f.consultasLlm + " · costo del mes " + usd(f.costoTecnicoCentavos) + " · precio " + precio + " · margen " + margen;
-        li.appendChild(head);
-        li.appendChild(det);
-        return li;
-      };
-      get("/api/admin/uso").then((b) => {
-        const tb = document.getElementById("uso-body");
-        tb.replaceChildren();
-        const filas = b.uso || [];
-        if (filas.length === 0) {
-          const li = document.createElement("li");
-          li.textContent = "No hay tenants.";
-          tb.appendChild(li);
-        }
-        filas.forEach((f) => tb.appendChild(filaUso(f)));
-        const altos = filas.filter((f) => f.marcado).length;
-        document.getElementById("uso-estado").textContent = "En vivo: " + filas.length + " tenants, " + altos + " con costo alto. Día " + (b.dia || "—") + ".";
-        marca("b-uso", true);
-      }).catch((e) => {
-        document.getElementById("uso-estado").textContent = e && e.message === "forbidden"
-          ? msgSinAdmin
-          : "Sin conexión: no hay contadores para mostrar.";
-        const tb = document.getElementById("uso-body");
-        tb.replaceChildren();
-        const li = document.createElement("li");
-        li.textContent = "Sin datos.";
-        tb.appendChild(li);
-      });
-      get("/api/admin/actos?limite=8").then((b) => {
-        const tb = document.getElementById("actos-body");
-        tb.innerHTML = "";
-        (b.actos || []).forEach((a) => {
-          const tr = document.createElement("tr");
-          const pill = a.kind.includes("suspens") || a.kind.includes("baja") ? "pend" : (a.kind.includes("descart") ? "warn" : "ok");
-          tr.innerHTML = "<td>◉</td><td></td><td></td><td></td><td><span class='pill " + pill + "'></span></td>";
-          tr.children[1].textContent = a.kind;
-          tr.children[2].textContent = (a.tenantId || "—").slice(0, 8);
-          tr.children[3].textContent = a.origen;
-          tr.children[4].firstChild.textContent = a.hash;
-          tb.appendChild(tr);
-        });
-        document.getElementById("actos-estado").textContent = "En vivo: últimos " + (b.actos || []).length + " actos.";
-      }).catch((e) => {
-        document.getElementById("actos-estado").textContent = e && e.message === "forbidden"
-          ? msgSinAdmin
-          : "Sin conexión: mostrando demo.";
-      });
-      // El color va inline porque Astro no alcanza a los <i> creados por JS.
-      const HEAT_SLOTS = 12;
-      const HEAT_VENTANA_HORAS = 11;
-      function celdaHeat(v) {
-        const i = document.createElement("i");
-        i.style.cssText = "aspect-ratio:1;border-radius:50%;background:" + (v ? "var(--color-llama)" : "var(--color-mid)");
-        return i;
-      }
-      function pintarHeatDemo() {
-        const heat = document.getElementById("heat");
-        const seed = [1,1,0,0,0,0,0,0,0,1,1,1, 1,1,1,0,0,0,0,1,1,1,1,1, 1,1,1,1,0,0,1,1,1,1,1,1, 1,1,1,1,1,0,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1];
-        heat.replaceChildren();
-        seed.forEach((v) => heat.appendChild(celdaHeat(!!v)));
-        marca("b-senales-tarjeta", false);
-      }
-      function pintarHeatPorUltimaSenalEn(filas) {
-        const heat = document.getElementById("heat");
-        if (!heat) return;
-        const horaMs = 60 * 60 * 1000;
-        const hora0 = new Date();
-        hora0.setMinutes(0, 0, 0);
-        const inicio = hora0.getTime() - HEAT_VENTANA_HORAS * horaMs;
-        const on = [];
-        for (let i = 0; i < HEAT_SLOTS; i++) on.push(false);
-        for (const f of filas || []) {
-          const raw = f && f.ultimaSenalEn;
-          if (!raw) continue;
-          const t = new Date(raw).getTime();
-          if (!Number.isFinite(t)) continue;
-          const idx = Math.floor((t - inicio) / horaMs);
-          if (idx >= 0 && idx < HEAT_SLOTS) on[idx] = true;
-        }
-        heat.replaceChildren();
-        on.forEach((v) => heat.appendChild(celdaHeat(v)));
-        marca("b-senales-tarjeta", true);
-      }
-      pintarHeatDemo();
-      // Buscador filtra la tabla de auditoría.
-      document.getElementById("q").addEventListener("input", (e) => {
-        const q = e.target.value.toLowerCase();
-        document.querySelectorAll("#actos-body tr").forEach((tr) => {
-          tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
-        });
-      });
-      const repLista = document.getElementById("rep-admin-lista");
-      const repEstado = document.getElementById("rep-admin-estado");
-      let repFiltro = "";
-      let pendienteReporte = null;
-      const cargarRepAdmin = () => {
-        const url = repFiltro ? "/api/admin/reportes?estado=" + encodeURIComponent(repFiltro) : "/api/admin/reportes";
-        get(url).then((b) => {
-          repLista.replaceChildren();
-          (b.items || []).forEach((it) => {
-            const li = document.createElement("li");
-            const tipo = document.createElement("b");
-            tipo.textContent = it.tipo === "problema" ? "Problema" : "Sugerencia";
-            li.appendChild(tipo);
-            li.appendChild(document.createTextNode(" · "));
-            const pill = document.createElement("span");
-            pill.className = "pill pend";
-            pill.textContent = it.estado === "en_revision" ? "En revisión" : (it.estado === "resuelto" ? "Resuelto" : "Recibido");
-            li.appendChild(pill);
-            li.appendChild(document.createElement("br"));
-            li.appendChild(document.createTextNode((it.nombre_comercio || "—") + " · " + String(it.texto || "").slice(0, 120)));
-            if (it.estado === "recibido" || it.estado === "en_revision") {
-              const btn = document.createElement("button");
-              btn.type = "button";
-              btn.className = "cta-piloto";
-              btn.style.marginTop = "8px";
-              btn.setAttribute("data-admin-accion", "reporte-estado");
-              btn.setAttribute("data-reporte-id", String(it.id || ""));
-              const siguiente = it.estado === "recibido" ? "en_revision" : "resuelto";
-              btn.setAttribute("data-reporte-estado", siguiente);
-              btn.textContent = siguiente === "en_revision" ? "Pasar a revisión" : "Marcar resuelto";
-              li.appendChild(document.createElement("br"));
-              li.appendChild(btn);
-            }
-            repLista.appendChild(li);
-          });
-          repEstado.textContent = "En vivo: " + (b.items || []).length + " reportes.";
-        }).catch((e) => {
-          repEstado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión.";
-        });
-      };
-      const abrirReporteEstado = (btn) => {
-        pendienteReporte = {
-          id: btn.getAttribute("data-reporte-id") || "",
-          estado: btn.getAttribute("data-reporte-estado") || "en_revision",
-        };
-        document.getElementById("reportes-confirmar-texto").textContent =
-          "Pasar el reporte a " + pendienteReporte.estado + ". Escribí el id completo y el motivo.";
-        document.getElementById("reportes-id-visible").textContent = pendienteReporte.id;
-        const selEstado = document.getElementById("reportes-estado");
-        if (selEstado) selEstado.value = pendienteReporte.estado;
-        document.getElementById("reportes-motivo").value = "";
-        document.getElementById("reportes-confirmo").value = "";
-        document.getElementById("reportes-confirmar").hidden = false;
-        document.getElementById("reportes-motivo").focus();
-      };
-      document.getElementById("reportes-cancelar").addEventListener("click", () => {
-        pendienteReporte = null;
-        document.getElementById("reportes-confirmar").hidden = true;
-      });
-      document.getElementById("reportes-confirmar").addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        if (!pendienteReporte) return;
-        const enviar = document.getElementById("reportes-enviar");
-        const motivo = document.getElementById("reportes-motivo").value.trim();
-        const confirmo = document.getElementById("reportes-confirmo").value.trim();
-        enviar.disabled = true;
-        try {
-          const r = await fetch("/api/admin/reportes/" + encodeURIComponent(pendienteReporte.id), {
-            method: "PATCH",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              accion: "estado",
-              estado: (document.getElementById("reportes-estado") && document.getElementById("reportes-estado").value) || pendienteReporte.estado,
-              confirmo_id: confirmo,
-              motivo,
-            }),
-          });
-          const json = await leerCuerpo(r);
-          if (!r.ok) {
-            repEstado.textContent = json && json.error ? json.error : ("http " + r.status);
-            return;
-          }
-          pendienteReporte = null;
-          document.getElementById("reportes-confirmar").hidden = true;
-          cargarRepAdmin();
-        } catch (err) {
-          repEstado.textContent = err && err.message ? err.message : "red";
-        } finally {
-          enviar.disabled = false;
-        }
-      });
-      document.querySelectorAll("[data-rep-filtro]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const f = btn.getAttribute("data-rep-filtro");
-          repFiltro = f === "todos" ? "" : f;
-          cargarRepAdmin();
-        });
-      });
-      cargarRepAdmin();
 
-      async function leerCuerpo(r) {
-        const texto = await r.text();
+    <div id="fondo" class="fondo" hidden></div>
+    <aside id="tenant-detalle" class="cajon" hidden aria-labelledby="detalle-nombre">
+      <header>
+        <h2 id="detalle-nombre">Comercio</h2>
+        <button type="button" class="cerrar" id="cerrar-detalle" aria-label="Cerrar">✕</button>
+      </header>
+      <dl class="dato" id="detalle-datos"></dl>
+      <form class="confirm" id="form-plan" style="margin-top:0">
+        <label>Plan
+          <select name="plan">
+            <option value="base">base</option>
+            <option value="plus">plus</option>
+            <option value="demo">demo</option>
+          </select>
+        </label>
+        <button type="submit" class="btn llama">Cambiar plan</button>
+        <div class="mini" id="plan-aviso" hidden></div>
+      </form>
+      <div class="acciones">
+        <button type="button" class="btn" data-abrir="suspender">Suspender por mora</button>
+        <button type="button" class="btn" data-abrir="suspender_abuso">Suspender por abuso</button>
+        <button type="button" class="btn" data-abrir="reactivar">Reactivar</button>
+        <button type="button" class="btn" data-abrir="reintentar_provision" id="btn-reintentar-prov" hidden>Reintentar aprovisionamiento</button>
+        <button type="button" class="btn" data-abrir="cobro">Registrar cobro</button>
+      </div>
+      <form class="confirm" id="form-accion" hidden>
+        <div class="mini" id="form-accion-titulo"></div>
+        <label>Motivo <textarea name="motivo" required></textarea></label>
+        <label>Escribí el ID del comercio <input name="confirmo_id" autocomplete="off" required /></label>
+        <button type="submit" class="btn llama">Confirmar</button>
+        <button type="button" class="btn" data-cancelar>Cancelar</button>
+      </form>
+      <form class="confirm" id="form-cobro" hidden>
+        <div class="mini">Registrar cobro (en pesos)</div>
+        <label>Monto en pesos <input name="pesos" type="number" min="0.01" step="0.01" required /></label>
+        <label>Medio <input name="medio" placeholder="transferencia" required /></label>
+        <label>Referencia <input name="referencia" required /></label>
+        <button type="submit" class="btn llama">Asentar cobro</button>
+        <button type="button" class="btn" data-cancelar>Cancelar</button>
+      </form>
+      <h2>Módulos</h2>
+      <div class="flags" id="flags-lista"></div>
+      <form class="confirm" id="form-flag" style="margin-top:0">
+        <label>Agregar módulo <input name="flag" placeholder="nombre del flag" autocomplete="off" /></label>
+        <button type="submit" class="btn">Agregar y activar</button>
+      </form>
+      <h2>Auditoría</h2>
+      <ul class="audit" id="detalle-audit"></ul>
+      <div class="mini" id="detalle-estado"></div>
+    </aside>
+
+    <section class="card" id="reportes" hidden>
+      <header style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <h2 style="flex:1;margin:0">Reportes</h2>
+        <button type="button" class="cerrar" id="cerrar-reportes" aria-label="Cerrar reportes">✕</button>
+      </header>
+      <ul id="reportes-lista"></ul>
+      <div class="mini" id="reportes-estado"></div>
+    </section>
+    <style>
+      .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    </style>
+
+    <script>
+      import { fechaAR } from "../lib/fecha-ar.js";
+      import { clasificarCubetaMoraVista, diasAtrasoDesdeVencimiento } from "../modules/admin/mora-vista.js";
+
+      // PA1.8: las acciones del panel piden reauth reciente. Ante 401
+      // reauth_requerida se confirma con Google y se vuelve a /admin.
+      const fetchOriginal = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const r = await fetchOriginal(...args);
+        const tipo = r.headers.get("content-type") ?? "";
+        if (r.status === 401 && tipo.includes("application/json")) {
+          let cuerpo;
+          try { cuerpo = await r.clone().json(); }
+          catch (e) { console.warn("reauth: el cuerpo no era JSON", e); }
+          if (cuerpo && cuerpo.codigo === "reauth_requerida" && cuerpo.reauth_url) {
+            window.location.assign(cuerpo.reauth_url);
+          }
+        }
+        return r;
+      };
+
+      /** @typedef {{ id: string, nombre: string|null, slug: string|null, estado: string, plan: string, vencimiento: string|null, suspension_tipo: string|null, uso_wa: number, costo_alto: boolean, usuarios?: { ocupados: number, limite: number } }} Tenant */
+
+      /** @type {Tenant[]} */
+      let tenants = [];
+      let planesCatalogo = [];
+      /** @type {Tenant | null} */
+      let abierto = null;
+      /** @type {"suspender"|"suspender_abuso"|"reactivar"|null} */
+      let accionPendiente = null;
+
+      const $ = (id) => document.getElementById(id);
+      const buscar = /** @type {HTMLInputElement} */ ($("buscar"));
+      const errorLista = $("error-lista");
+      const body = $("tenants-body");
+      const vacio = $("tenants-vacio");
+      const cajon = $("tenant-detalle");
+      const fondo = $("fondo");
+
+      function hoy() { return fechaAR(); }
+
+      function textoEstado(t) {
+        const prov = t.aprovisionamiento?.estado;
+        if (t.estado === "aprovisionando" || prov === "aprovisionando") {
+          return { label: "Aprovisionando", cls: "pend" };
+        }
+        if (t.estado === "error_aprovisionamiento" || prov === "error") {
+          return { label: "Error de aprovisionamiento", cls: "peligro" };
+        }
+        const dias = diasAtrasoDesdeVencimiento(t.vencimiento, hoy());
+        if (t.estado === "suspendido") {
+          if (t.suspension_tipo === "abuso") return { label: "Suspendido · abuso", cls: "peligro" };
+          if (t.suspension_tipo === "mora") return { label: "Suspendido · mora", cls: "peligro" };
+          return { label: "Suspendido", cls: "peligro" };
+        }
+        const cubeta = clasificarCubetaMoraVista(t, hoy());
+        if (cubeta === "en_gracia") return { label: `En gracia · ${dias} días`, cls: "warn" };
+        if (cubeta === "por_suspender") return { label: `Por suspender · ${dias} días`, cls: "pend" };
+        if (prov === "listo" && t.aprovisionamiento?.con_job) return { label: "Listo", cls: "ok" };
+        return { label: "Activo", cls: "ok" };
+      }
+
+      function filtrados() {
+        const q = (buscar.value || "").trim().toLowerCase();
+        if (!q) return tenants;
+        return tenants.filter((t) =>
+          [t.nombre, t.slug, t.id, t.plan].some((v) => (v ?? "").toLowerCase().includes(q)),
+        );
+      }
+
+      function pintarContadores() {
+        const h = hoy();
+        let activos = 0, gracia = 0, suspendidos = 0;
+        for (const t of tenants) {
+          if (t.estado === "suspendido") suspendidos += 1;
+          else if (clasificarCubetaMoraVista(t, h) === "en_gracia") gracia += 1;
+          else if (t.estado === "activo") activos += 1;
+        }
+        $("n-activos").textContent = String(activos);
+        $("n-gracia").textContent = String(gracia);
+        $("n-suspendidos").textContent = String(suspendidos);
+      }
+
+      function pintarTabla() {
+        const filas = filtrados();
+        body.replaceChildren();
+        if (!filas.length) {
+          vacio.hidden = false;
+          vacio.textContent = tenants.length ? "Ningún comercio coincide con la búsqueda." : "No hay comercios.";
+          return;
+        }
+        vacio.hidden = true;
+        for (const t of filas) {
+          const est = textoEstado(t);
+          const tr = document.createElement("tr");
+          if (abierto && abierto.id === t.id) tr.classList.add("activa");
+          tr.dataset.id = t.id;
+          tr.innerHTML = `
+            <td><strong>${esc(t.nombre || t.slug || t.id)}</strong><div class="mini">${esc(t.slug || t.id)}${t.email_dueno_pendiente ? " · dueño pendiente" : ""}</div></td>
+            <td>${esc(t.plan || "—")}</td>
+            <td><span class="pill ${est.cls}">${esc(est.label)}</span></td>
+            <td>${esc(t.vencimiento ? t.vencimiento.slice(0, 10) : "—")}</td>
+            <td>${t.costo_alto ? "Sí" : "No"}</td>
+            <td>
+              <details class="menu">
+                <summary aria-label="Acciones">⋯</summary>
+                <ul>
+                  <li><button type="button" data-ver>Ver detalle</button></li>
+                  <li><button type="button" data-abrir="suspender">Suspender por mora</button></li>
+                  <li><button type="button" data-abrir="suspender_abuso">Suspender por abuso</button></li>
+                  <li><button type="button" data-abrir="reactivar">Reactivar</button></li>
+                  ${t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error" ? '<li><button type="button" data-abrir="reintentar_provision">Reintentar aprovisionamiento</button></li>' : ""}
+                </ul>
+              </details>
+            </td>`;
+          tr.addEventListener("click", (ev) => {
+            const btn = ev.target.closest("button");
+            const menu = ev.target.closest("details");
+            if (menu && !btn) { ev.stopPropagation(); return; }
+            const ten = tenants.find((x) => x.id === t.id);
+            if (!ten) return;
+            if (btn && btn.dataset.abrir) {
+              ev.preventDefault();
+              abrirDetalle(ten, btn.dataset.abrir);
+            } else {
+              abrirDetalle(ten, null);
+            }
+          });
+          body.appendChild(tr);
+        }
+      }
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      async function esperarProvision(id) {
+        for (let i = 0; i < 20; i++) {
+          const fila = tenants.find((x) => x.id === id);
+          if (!fila || (fila.estado !== "aprovisionando" && fila.aprovisionamiento?.estado !== "aprovisionando")) return;
+          await new Promise((r) => setTimeout(r, 250));
+          await cargarTenants();
+        }
+      }
+
+      async function cargarTenants() {
+        errorLista.hidden = true;
         try {
-          return texto ? JSON.parse(texto) : {};
+          const r = await fetch("/api/admin/tenants");
+          if (!r.ok) throw new Error(await errorDe(r, "No se pudieron cargar los comercios."));
+          const data = await r.json();
+          tenants = Array.isArray(data.tenants) ? data.tenants : [];
+          planesCatalogo = Array.isArray(data.planes) ? data.planes : planesCatalogo;
+          pintarContadores();
+          pintarTabla();
+          if (abierto) {
+            abierto = tenants.find((t) => t.id === abierto.id) ?? abierto;
+            pintarDetalle();
+          }
+        } catch (e) {
+          tenants = [];
+          $("n-activos").textContent = "—";
+          $("n-gracia").textContent = "—";
+          $("n-suspendidos").textContent = "—";
+          pintarTabla();
+          errorLista.hidden = false;
+          errorLista.textContent = e instanceof Error ? e.message : "No se pudieron cargar los comercios.";
+        }
+      }
+
+      async function errorDe(r, fallback) {
+        try {
+          const j = await r.json();
+          if (j && typeof j.error === "string") return j.error;
+        } catch (e) {
+          console.warn("respuesta no JSON", e);
+        }
+        return fallback;
+      }
+
+      async function cargarReportesBadge() {
+        try {
+          const r = await fetch("/api/admin/reportes?estado=recibido");
+          if (!r.ok) throw new Error("fail");
+          const data = await r.json();
+          $("n-reportes").textContent = String((data.items ?? []).length);
         } catch {
-          return {};
+          $("n-reportes").textContent = "—";
         }
       }
-      function pintarRollouts(lista) {
-        const ul = document.getElementById("rollouts-lista");
-        ul.replaceChildren();
-        if (lista.length === 0) {
-          const li = document.createElement("li");
-          li.textContent = "No hay rollouts.";
-          ul.appendChild(li);
+
+      function abrirDetalle(t, accion) {
+        abierto = t;
+        cajon.hidden = false;
+        fondo.hidden = false;
+        pintarDetalle();
+        pintarTabla();
+        if (accion === "cobro") mostrarForm("cobro");
+        else if (accion) mostrarForm(accion);
+        else ocultarForms();
+      }
+
+      function cerrarDetalle() {
+        abierto = null;
+        cajon.hidden = true;
+        fondo.hidden = true;
+        ocultarForms();
+        pintarTabla();
+      }
+
+      function ocultarForms() {
+        $("form-accion").hidden = true;
+        $("form-cobro").hidden = true;
+        accionPendiente = null;
+      }
+
+      function mostrarForm(accion) {
+        if (accion === "cobro") {
+          $("form-accion").hidden = true;
+          $("form-cobro").hidden = false;
+          $("form-cobro").reset();
           return;
         }
-        for (const row of lista) {
-          const id = String(row.id || row.rollout_id || "");
-          const li = document.createElement("li");
-          const hora = document.createElement("span");
-          hora.className = "hora";
-          hora.textContent = row.estado || "—";
-          li.appendChild(hora);
-          const b = document.createElement("b");
-          b.textContent = id || "—";
-          li.appendChild(b);
-          li.appendChild(document.createTextNode(" · " + (row.tenantId || row.tenant_id || "—") + " · intentos " + String(row.intentos ?? 0)));
-          if (id) {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "cta-piloto";
-            btn.style.marginTop = "0";
-            btn.setAttribute("data-admin-accion", "rollout-reintentar");
-            btn.setAttribute("data-rollout-id", id);
-            btn.textContent = "Reintentar";
-            li.appendChild(document.createTextNode(" "));
-            li.appendChild(btn);
-          }
-          ul.appendChild(li);
-        }
-      }
-      async function cargarRollouts() {
-        const estado = document.getElementById("rollouts-estado");
-        try {
-          const b = await get("/api/admin/rollouts");
-          const lista = b.rollouts || [];
-          pintarRollouts(lista);
-          marca("b-rollouts", true);
-          estado.textContent = "En vivo: " + lista.length + " rollouts.";
-        } catch (e) {
-          marca("b-rollouts", false);
-          estado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión: sin rollouts.";
-          document.getElementById("rollouts-lista").replaceChildren();
-        }
-      }
-      async function reintentarRollout(rolloutId) {
-        const estado = document.getElementById("rollouts-estado");
-        if (!rolloutId) return;
-        try {
-          const r = await fetch("/api/admin/rollouts", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rollout_id: rolloutId }),
-          });
-          if (!r.ok) {
-            estado.textContent = "No se pudo reintentar (http " + r.status + ").";
-            return;
-          }
-          await cargarRollouts();
-        } catch (err) {
-          estado.textContent = err && err.message ? err.message : "red";
-        }
-      }
-      function pintarFlags(lista) {
-        const ul = document.getElementById("flags-lista");
-        ul.replaceChildren();
-        if (lista.length === 0) {
-          const li = document.createElement("li");
-          li.textContent = "Sin overrides.";
-          ul.appendChild(li);
-          return;
-        }
-        for (const f of lista) {
-          const li = document.createElement("li");
-          const vence = f.expiraEn ? " · vence " + String(f.expiraEn).slice(0, 10) : "";
-          li.textContent = (f.tenantId || "—") + " · " + (f.flag || "—") + " · " + (f.valor ? "sí" : "no") + " · " + (f.motivo || "—") + vence;
-          ul.appendChild(li);
-        }
-      }
-      async function cargarFlags() {
-        const estado = document.getElementById("flags-estado");
-        try {
-          const b = await get("/api/admin/flags");
-          pintarFlags(b.flags || []);
-          marca("b-flags", true);
-          estado.textContent = "En vivo: " + (b.flags || []).length + " overrides.";
-        } catch (e) {
-          marca("b-flags", false);
-          estado.textContent = e && e.message === "forbidden" ? msgSinAdmin : "Sin conexión: sin flags.";
-        }
-      }
-      async function guardarFlag() {
-        const form = document.getElementById("flags-form");
-        const estado = document.getElementById("flags-estado");
-        const tenantId = form.tenant_id.value.trim();
-        const flag = form.flag.value.trim();
-        const motivo = form.motivo.value.trim();
-        const confirmo = form.confirmo_id.value.trim();
-        const expira = form.expira_en.value.trim();
-        if (confirmo !== tenantId) {
-          estado.textContent = "Escribí el id del tenant para confirmar.";
-          return;
-        }
-        const cuerpo = {
-          tenant_id: tenantId,
-          flag,
-          valor: form.valor.checked,
-          motivo,
+        accionPendiente = accion;
+        $("form-cobro").hidden = true;
+        const form = $("form-accion");
+        form.hidden = false;
+        form.reset();
+        const titulos = {
+          suspender: "Suspender por mora",
+          suspender_abuso: "Suspender por abuso",
+          reactivar: "Reactivar comercio",
+          reintentar_provision: "Reintentar aprovisionamiento",
         };
-        if (expira) cuerpo.expira_en = expira;
+        $("form-accion-titulo").textContent = titulos[accion] + ". El ID tiene que coincidir.";
+      }
+
+      function pintarDetalle() {
+        if (!abierto) return;
+        const t = abierto;
+        const est = textoEstado(t);
+        $("detalle-nombre").textContent = t.nombre || t.slug || t.id;
+        const btnProv = $("btn-reintentar-prov");
+        if (btnProv) btnProv.hidden = !(t.estado === "error_aprovisionamiento" || t.aprovisionamiento?.estado === "error");
+        $("detalle-datos").innerHTML = `
+          <dt>ID</dt><dd>${esc(t.id)}</dd>
+          <dt>Slug</dt><dd>${esc(t.slug || "—")}</dd>
+          <dt>Estado</dt><dd>${esc(est.label)}</dd>
+          <dt>Vencimiento</dt><dd>${esc(t.vencimiento ? t.vencimiento.slice(0, 10) : "—")}</dd>
+          <dt>Costo alto</dt><dd>${t.costo_alto ? "Sí" : "No"}</dd>
+          <dt>Aprovisionamiento</dt><dd>${esc(t.aprovisionamiento?.estado === "error" ? (t.aprovisionamiento.error || "Error") : (t.aprovisionamiento?.estado === "aprovisionando" ? "Aprovisionando" : "Listo"))}</dd>`;
+        const sel = $("form-plan").querySelector('[name="plan"]');
+        if (sel) sel.value = t.plan || "base";
+        pintarAvisoPlan();
+        void cargarFlags();
+        void cargarAudit();
+      }
+
+      function limiteDePlan(plan) {
+        const fila = planesCatalogo.find((p) => p.id === plan);
+        if (fila && Number.isFinite(fila.limite)) return fila.limite;
+        return plan === "plus" ? 10 : 2;
+      }
+
+      function pintarAvisoPlan() {
+        const aviso = $("plan-aviso");
+        if (!abierto || !aviso) return;
+        const planNuevo = $("form-plan").querySelector('[name="plan"]').value;
+        const ocupados = abierto.usuarios?.ocupados ?? 0;
+        const limite = limiteDePlan(planNuevo);
+        const actual = abierto.plan;
+        if (planNuevo === actual) {
+          aviso.hidden = true;
+          aviso.textContent = "";
+          return;
+        }
+        if (ocupados > limite) {
+          aviso.hidden = false;
+          aviso.textContent = `Este comercio tiene ${ocupados} usuarios y el plan ${planNuevo} admite ${limite}. Se cambia igual; no se echa a nadie, pero no se van a poder invitar más hasta bajar del cupo.`;
+          return;
+        }
+        aviso.hidden = true;
+        aviso.textContent = "";
+      }
+
+      async function cargarFlags() {
+        const box = $("flags-lista");
+        box.textContent = "Cargando módulos…";
+        if (!abierto) return;
         try {
-          const r = await fetch("/api/admin/flags", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(cuerpo),
-          });
-          const json = await leerCuerpo(r);
-          if (!r.ok) {
-            estado.textContent = json && json.error ? json.error : ("http " + r.status);
+          const r = await fetch("/api/admin/flags?tenant_id=" + encodeURIComponent(abierto.id));
+          if (!r.ok) throw new Error(await errorDe(r, "No se pudieron cargar los módulos."));
+          const data = await r.json();
+          const flags = Array.isArray(data.flags) ? data.flags : [];
+          box.replaceChildren();
+          if (!flags.length) {
+            box.innerHTML = '<div class="mini">Sin módulos cargados.</div>';
             return;
           }
-          marca("b-flags", true);
-          await cargarFlags();
-        } catch (err) {
-          estado.textContent = err && err.message ? err.message : "red";
+          for (const f of flags) {
+            const row = document.createElement("label");
+            row.className = "flag";
+            const on = !!(f.resuelto ?? f.valor);
+            row.innerHTML = `<input type="checkbox" ${on ? "checked" : ""} /> <span>${esc(f.flag)}</span>`;
+            row.querySelector("input").addEventListener("change", async (ev) => {
+              const checked = ev.target.checked;
+              const motivo = window.prompt("Motivo del cambio de módulo:");
+              if (!motivo || !motivo.trim()) { ev.target.checked = !checked; return; }
+              const ok = await postFlag(abierto.id, f.flag, checked, motivo.trim());
+              if (!ok) ev.target.checked = !checked;
+            });
+            box.appendChild(row);
+          }
+        } catch (e) {
+          box.textContent = e instanceof Error ? e.message : "No se pudieron cargar los módulos.";
         }
       }
-      function rotarClaveCobro() {
-        const clave = document.getElementById("cobros-idempotency");
-        if (clave && crypto.randomUUID) clave.value = crypto.randomUUID();
-      }
-      function duplicadoMismoIntento(status, keyEnviada, keyActual) {
-        return status === 409 && !!keyEnviada && keyActual === keyEnviada;
-      }
-      async function asentarCobro() {
-        const form = document.getElementById("cobros-form");
-        const estado = document.getElementById("cobros-estado");
-        const keyEnviada = form.idempotency_key.value.trim();
-        let r;
-        try {
-          r = await fetch("/api/admin/ledger/asentar", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tenant_id: form.tenant_id.value.trim(),
-              monto_centavos: form.monto_centavos.value.trim(),
-              medio: form.medio.value.trim(),
-              referencia_externa: form.referencia_externa.value.trim(),
-              idempotency_key: keyEnviada,
-            }),
-          });
-        } catch (err) {
-          estado.textContent = err && err.message ? err.message : "red";
-          return;
-        }
-        const json = await leerCuerpo(r);
-        if (duplicadoMismoIntento(r.status, keyEnviada, form.idempotency_key.value.trim())) {
-          estado.textContent = "En vivo: ese cobro ya estaba asentado.";
-          marca("b-cobros", true);
-          rotarClaveCobro();
-          return;
-        }
-        if (!r.ok) {
-          estado.textContent = json && json.error ? json.error : ("http " + r.status);
-          return;
-        }
-        estado.textContent = "En vivo: cobro asentado.";
-        marca("b-cobros", true);
-        rotarClaveCobro();
-      }
-      async function consumirSenales() {
-        const estado = document.getElementById("senales-estado");
-        let r;
-        try {
-          r = await fetch("/api/admin/senales/consumir", {
-            method: "POST",
-            credentials: "same-origin",
-          });
-        } catch (err) {
-          estado.textContent = err && err.message ? err.message : "red";
-          return;
-        }
-        const b = await leerCuerpo(r);
-        if (!r.ok) {
-          estado.textContent = b && b.error ? b.error : ("http " + r.status);
-          return;
-        }
-        document.getElementById("heat-ok").textContent = String(b.consumidas ?? 0);
-        document.getElementById("heat-pend").textContent = String(b.descartadas ?? 0);
-        marca("b-senales", true);
-        estado.textContent = "En vivo: " + String(b.consumidas ?? 0) + " consumidas, " + String(b.descartadas ?? 0) + " descartadas.";
-        void cargarSalud();
-      }
-      async function ejecutarAccionAdmin(btn) {
-        const accion = btn.getAttribute("data-admin-accion");
-        if (accion === "rollout-reintentar") return reintentarRollout(btn.getAttribute("data-rollout-id"));
-        if (accion === "flags-guardar") return guardarFlag();
-        if (accion === "cobro-asentar") return asentarCobro();
-        if (accion === "senales-consumir") return consumirSenales();
-        if (accion === "reporte-estado") return abrirReporteEstado(btn);
-      }
-      document.addEventListener("click", (ev) => {
-        const btn = ev.target.closest("[data-admin-accion]");
-        if (!btn) return;
-        void ejecutarAccionAdmin(btn);
-      });
-      async function refrescarTarjetasAdmin() {
-        await Promise.all([cargarRollouts(), cargarFlags()]);
-      }
-      const claveCobro = document.getElementById("cobros-idempotency");
-      if (claveCobro && !claveCobro.value && crypto.randomUUID) claveCobro.value = crypto.randomUUID();
-      void refrescarTarjetasAdmin();
-      // P1-89: el SSR deja Tenants activo. El hash corrige al cargar y al cambiar.
-      const HREF_POR_HASH = {
-        mora: "#mora",
-        senales: "#senales",
-        rollouts: "#rollouts",
-        auditoria: "#auditoria",
-        uso: "#uso",
-        "reportes-comercio": "#reportes-comercio",
-      };
-      const marcarPillActiva = () => {
-        const clave = String(location.hash || "").replace(/^#/, "");
-        const href = HREF_POR_HASH[clave] || "/admin";
-        document.querySelectorAll("nav.pills a").forEach((a) => {
-          a.classList.toggle("active", a.getAttribute("href") === href);
+
+      async function postFlag(tenantId, flag, valor, motivo) {
+        const r = await fetch("/api/admin/flags", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tenant_id: tenantId, flag, valor, motivo }),
         });
-      };
-      marcarPillActiva();
-      window.addEventListener("hashchange", marcarPillActiva);
+        if (!r.ok) {
+          $("detalle-estado").textContent = await errorDe(r, "No se pudo guardar el módulo.");
+          return false;
+        }
+        $("detalle-estado").textContent = "Módulo actualizado.";
+        return true;
+      }
+
+      async function cargarAudit() {
+        const lista = $("detalle-audit");
+        lista.textContent = "";
+        if (!abierto) return;
+        try {
+          const r = await fetch("/api/admin/actos?tenant_id=" + encodeURIComponent(abierto.id) + "&limite=30");
+          if (!r.ok) throw new Error(await errorDe(r, "No se pudo cargar la auditoría."));
+          const data = await r.json();
+          const actos = Array.isArray(data.actos) ? data.actos : [];
+          if (!actos.length) {
+            lista.innerHTML = '<li class="mini">Sin actos todavía.</li>';
+            return;
+          }
+          lista.replaceChildren();
+          for (const a of actos) {
+            const li = document.createElement("li");
+            const cuando = a.creadoEn ? String(a.creadoEn).slice(0, 19).replace("T", " ") : "";
+            li.innerHTML = `<strong>${esc(a.kind)}</strong> · ${esc(cuando)} <div class="mini">${esc(a.origen || "")} · ${esc(a.hash || "")}</div>`;
+            lista.appendChild(li);
+          }
+        } catch (e) {
+          lista.innerHTML = `<li>${esc(e instanceof Error ? e.message : "No se pudo cargar la auditoría.")}</li>`;
+        }
+      }
+
+      $("form-accion").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!abierto || !accionPendiente) return;
+        const fd = new FormData(ev.currentTarget);
+        const r = await fetch("/api/admin/tenants", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: abierto.id,
+            accion: accionPendiente,
+            motivo: String(fd.get("motivo") ?? ""),
+            confirmo_id: String(fd.get("confirmo_id") ?? ""),
+          }),
+        });
+        if (!r.ok) {
+          $("detalle-estado").textContent = await errorDe(r, "No se pudo completar la acción.");
+          return;
+        }
+        $("detalle-estado").textContent = "Listo.";
+        const accionHecha = accionPendiente;
+        const idHecho = abierto.id;
+        ocultarForms();
+        await cargarTenants();
+        if (accionHecha === "reintentar_provision") await esperarProvision(idHecho);
+      });
+
+      $("form-cobro").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!abierto) return;
+        const fd = new FormData(ev.currentTarget);
+        const pesos = Number(fd.get("pesos"));
+        if (!Number.isFinite(pesos) || pesos <= 0) {
+          $("detalle-estado").textContent = "El monto tiene que ser mayor a 0.";
+          return;
+        }
+        const centavos = Math.round(pesos * 100);
+        const r = await fetch("/api/admin/ledger/asentar", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: abierto.id,
+            monto_centavos: String(centavos),
+            medio: String(fd.get("medio") ?? "").trim(),
+            referencia_externa: String(fd.get("referencia") ?? "").trim(),
+            idempotency_key: `cobro:${abierto.id}:${crypto.randomUUID()}`,
+          }),
+        });
+        if (!r.ok) {
+          $("detalle-estado").textContent = await errorDe(r, "No se pudo registrar el cobro.");
+          return;
+        }
+        $("detalle-estado").textContent = "Cobro asentado.";
+        ocultarForms();
+        await cargarAudit();
+      });
+
+      $("form-flag").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!abierto) return;
+        const fd = new FormData(ev.currentTarget);
+        const flag = String(fd.get("flag") ?? "").trim();
+        if (!flag) return;
+        const motivo = window.prompt("Motivo para activar el módulo:");
+        if (!motivo || !motivo.trim()) return;
+        if (await postFlag(abierto.id, flag, true, motivo.trim())) {
+          ev.currentTarget.reset();
+          await cargarFlags();
+        }
+      });
+
+      for (const form of [$("form-accion"), $("form-cobro")]) {
+        form.querySelector("[data-cancelar]").addEventListener("click", () => ocultarForms());
+      }
+      for (const btn of document.querySelectorAll("[data-abrir]")) {
+        if (btn.closest("#tenants-tabla")) continue;
+        btn.addEventListener("click", () => { if (abierto) mostrarForm(btn.dataset.abrir); });
+      }
+      $("cerrar-detalle").addEventListener("click", cerrarDetalle);
+      fondo.addEventListener("click", cerrarDetalle);
+      document.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") {
+          if (!$("reportes").hidden) { $("reportes").hidden = true; return; }
+          if (!cajon.hidden) cerrarDetalle();
+        }
+      });
+      buscar.addEventListener("input", pintarTabla);
+
+      const panelReportes = $("reportes");
+      $("btn-reportes").addEventListener("click", async () => {
+        const abrir = panelReportes.hidden;
+        panelReportes.hidden = !abrir;
+        $("btn-reportes").setAttribute("aria-expanded", String(abrir));
+        if (abrir) await cargarReportesLista();
+      });
+      $("cerrar-reportes").addEventListener("click", () => {
+        panelReportes.hidden = true;
+        $("btn-reportes").setAttribute("aria-expanded", "false");
+      });
+
+      async function cargarReportesLista() {
+        const lista = $("reportes-lista");
+        const estado = $("reportes-estado");
+        lista.replaceChildren();
+        estado.textContent = "Cargando…";
+        try {
+          const r = await fetch("/api/admin/reportes");
+          if (!r.ok) throw new Error(await errorDe(r, "No se pudieron cargar los reportes."));
+          const data = await r.json();
+          const items = Array.isArray(data.items) ? data.items : [];
+          if (!items.length) {
+            estado.textContent = "No hay reportes.";
+            return;
+          }
+          estado.textContent = "";
+          for (const item of items) {
+            const li = document.createElement("li");
+            li.innerHTML = `<strong>${esc(item.tipo || "reporte")}</strong> · ${esc(item.estado)}
+              <div>${esc(item.nombre_comercio || item.tenant_id || "")}</div>
+              <div class="mini">${esc(item.texto || "")}</div>
+              <div>
+                <button type="button" class="btn" data-est="en_revision">En revisión</button>
+                <button type="button" class="btn" data-est="resuelto">Resuelto</button>
+              </div>`;
+            li.querySelectorAll("button").forEach((b) => {
+              b.addEventListener("click", async () => {
+                const motivo = window.prompt("Motivo del cambio de estado:");
+                if (!motivo || !motivo.trim()) return;
+                const pr = await fetch("/api/admin/reportes/" + encodeURIComponent(item.id), {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ accion: "estado", estado: b.dataset.est, confirmo_id: item.id, motivo: motivo.trim() }),
+                });
+                if (!pr.ok) {
+                  estado.textContent = await errorDe(pr, "No se pudo actualizar el reporte.");
+                  return;
+                }
+                await cargarReportesLista();
+                await cargarReportesBadge();
+              });
+            });
+            lista.appendChild(li);
+          }
+        } catch (e) {
+          estado.textContent = e instanceof Error ? e.message : "No se pudieron cargar los reportes.";
+        }
+      }
+
+      $("form-plan").querySelector('[name="plan"]').addEventListener("change", pintarAvisoPlan);
+      $("form-plan").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        if (!abierto) return;
+        const plan = $("form-plan").querySelector('[name="plan"]').value;
+        const r = await fetch("/api/admin/tenants/plan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tenant_id: abierto.id, plan }),
+        });
+        if (!r.ok) {
+          $("detalle-estado").textContent = await errorDe(r, "No se pudo cambiar el plan.");
+          return;
+        }
+        const data = await r.json();
+        $("detalle-estado").textContent = data.ya ? "Ya estaba en ese plan." : "Plan actualizado.";
+        await cargarTenants();
+        await cargarAudit();
+      });
+
+      const formAlta = $("form-alta");
+      const nombreAlta = formAlta.querySelector('[name="nombre_comercio"]');
+      const slugAlta = formAlta.querySelector('[name="slug"]');
+      function slugDeNombre(nombre) {
+        return nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+      }
+      nombreAlta.addEventListener("input", () => {
+        if (!slugAlta.dataset.tocado) slugAlta.value = slugDeNombre(nombreAlta.value);
+      });
+      slugAlta.addEventListener("input", () => { slugAlta.dataset.tocado = slugAlta.value.trim() ? "1" : ""; });
+      $("btn-nuevo").addEventListener("click", () => {
+        formAlta.hidden = !formAlta.hidden;
+        if (!formAlta.hidden) nombreAlta.focus();
+      });
+      $("cancelar-alta").addEventListener("click", () => { formAlta.hidden = true; $("alta-estado").textContent = ""; });
+      formAlta.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(formAlta);
+        const estado = $("alta-estado");
+        estado.textContent = "Creando…";
+        const r = await fetch("/api/admin/tenants/alta", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            nombre_comercio: String(fd.get("nombre_comercio") ?? "").trim(),
+            slug: String(fd.get("slug") ?? "").trim() || undefined,
+            plan: String(fd.get("plan") ?? "base"),
+            moneda: String(fd.get("moneda") ?? "ARS"),
+            email_dueno: String(fd.get("email_dueno") ?? "").trim(),
+          }),
+        });
+        if (!r.ok) {
+          estado.textContent = await errorDe(r, "No se pudo crear el comercio.");
+          return;
+        }
+        const data = await r.json();
+        const link = data.invitacion?.link ?? "";
+        estado.innerHTML = link
+          ? `Listo. Invitación para ${esc(data.email_dueno_pendiente || "")}: <a href="${esc(link)}">${esc(link)}</a>`
+          : "Listo.";
+        formAlta.reset();
+        delete slugAlta.dataset.tocado;
+        await cargarTenants();
+        await esperarProvision(data.tenant_id);
+      });
+
+      void cargarTenants();
+      void cargarReportesBadge();
     </script>
   </body>
 </html>

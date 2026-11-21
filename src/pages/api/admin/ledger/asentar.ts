@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { control } from "../../../../lib/store.js";
 import { adminStore } from "../../../../lib/admin-store.js";
 import { persistirAsientoAdmin } from "../../../../lib/admin-db.js";
-import { auditar, exigirAdminListo, leerJson } from "../_guard.js";
+import { exigirAdminMutante, auditar, leerJson } from "../_guard.js";
 import { jsonError } from "../../../../lib/control.js";
 import { asentar_cobro } from "../../../../modules/admin/ledger.js";
 
@@ -11,7 +11,7 @@ export const prerender = false;
 // POST /api/admin/ledger/asentar — cobro manual append-only (PA6).
 // 409 si idempotency_key existe. Sin UPDATE/DELETE jamás.
 export const POST: APIRoute = async ({ request }) => {
-  const admin = await exigirAdminListo(request);
+  const admin = await exigirAdminMutante(request);
   if (admin instanceof Response) return admin;
 
   const parsed = await leerJson(request);

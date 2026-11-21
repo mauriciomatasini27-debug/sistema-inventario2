@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { jsonError } from "../../../../lib/control.js";
-import { exigirAdmin, exigirConfirmacion } from "../_guard.js";
+import { exigirAdminMutante, exigirAdmin, exigirConfirmacion } from "../_guard.js";
 import {
   cambiarEstadoReporte,
   leerReporte,
@@ -40,7 +40,7 @@ const patchEstado = z.object({
 });
 
 export const PATCH: APIRoute = async ({ request, params }) => {
-  const admin = exigirAdmin(request);
+  const admin = await exigirAdminMutante(request);
   if (admin instanceof Response) return admin;
   const id = params.id ?? "";
   const existente = await leerReporte(id);

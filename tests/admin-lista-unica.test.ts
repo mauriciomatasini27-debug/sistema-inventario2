@@ -60,24 +60,37 @@ describe("P9-12 lista única de admins", () => {
     expect(esAdminAllowlist("admin-a", leerAllowlist())).toBe(true);
   });
 
-  it("solo SUPERADMIN funciona como fallback, avisa una vez y sin subs", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("SUPERADMIN_SUBS ya no da acceso", () => {
     fijarListas("", "leg-1");
-    expect(leerAllowlist()).toEqual(["leg-1"]);
-    expect(esSuperadmin("leg-1")).toBe(true);
-    leerAllowlist();
-    expect(warn).toHaveBeenCalledTimes(1);
-    const mensaje = String(warn.mock.calls[0]?.[0] ?? "");
-    expect(mensaje).toContain("SUPERADMIN_SUBS");
-    expect(mensaje).toContain("ADMIN_ALLOWLIST_SUBS");
-    expect(mensaje).not.toContain("leg-1");
+    expect(leerAllowlist()).toEqual([]);
+    expect(esSuperadmin("leg-1")).toBe(false);
   });
 
-  it("ambas listas se unen, recortan, ignoran vacíos y dedupan", () => {
-    fijarListas(" a1 , comun,, ", "b1, comun ,  ");
-    expect(leerAllowlist()).toEqual(["a1", "comun", "b1"]);
-    expect(esSuperadmin("b1")).toBe(true);
-    expect(esSuperadmin("a1")).toBe(true);
+  it("dos subs cierran el panel para los dos y lo loguean una vez sin subs", async () => {
+    vi.resetModules();
+    const fresco = await import("../src/modules/admin/guard.js");
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    fijarListas("sub-a, sub-b");
+    expect(fresco.leerAllowlist()).toEqual([]);
+    expect(fresco.esAdminAllowlist("sub-a", fresco.leerAllowlist())).toBe(false);
+    expect(error).toHaveBeenCalledTimes(1);
+    const mensaje = String(error.mock.calls[0]?.[0] ?? "");
+    expect(mensaje).toContain("exactamente 1");
+    expect(mensaje).not.toContain("sub-a");
+  });
+
+  it("recorta y dedupa: el mismo sub repetido cuenta como uno", () => {
+    fijarListas(" a1 , a1,, ");
+    expect(leerAllowlist()).toEqual(["a1"]);
+  });
+
+  it("dos subs: la ruta admin responde 403 aun para un sub de la lista", async () => {
+    fijarListas("sub-a,sub-b");
+    const plano = sesionEnStore("sub-a");
+    const e = (await getEmbudo(
+      ctx("http://x/api/admin/onboarding/embudo", { headers: { cookie: `__Host-sesion=${plano}` } }),
+    )) as Response;
+    expect(e.status).toBe(403);
   });
 
   it("vacía: nadie es admin, 403 en tenants y en rutas exigirAdmin", async () => {

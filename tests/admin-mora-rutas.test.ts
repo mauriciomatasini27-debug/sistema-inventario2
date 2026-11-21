@@ -40,6 +40,7 @@ function tenant(id: string, estado: string) {
     moneda: "ARS",
     ownerGoogleSub: "d-" + id,
     esDemo: false,
+    trialHasta: "2020-01-01T00:00:00.000Z",
   };
 }
 

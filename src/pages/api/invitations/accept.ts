@@ -4,7 +4,7 @@ import { control } from "../../../lib/store.js";
 import { contarMiembrosActivos, jsonError, resolverSesion } from "../../../lib/control.js";
 import { leerInvitacionPorHash } from "../../../lib/control-db.js";
 import { decidirAceptacion, hashToken } from "../../../modules/tenants/invitaciones.js";
-import { PERMISOS_EMPLEADO_DEFAULT } from "../../../modules/auth/modelo.js";
+import { aplicarAceptacionInvitacion } from "../../../modules/tenants/aplicar-invitacion.js";
 import { crearSesion } from "../../../modules/auth/sesiones.js";
 
 export const prerender = false;
@@ -79,18 +79,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
   }
 
-  inv.estado = "aceptada";
-  inv.aceptadaPor = ctx.googleSub;
-  const id = crypto.randomUUID();
-  control.memberships.set(id, {
-    id,
-    tenantId: inv.tenantId,
-    googleSub: ctx.googleSub,
-    rol: inv.rol,
-    permisos: inv.permisos.length > 0 ? inv.permisos : [...PERMISOS_EMPLEADO_DEFAULT],
-    estado: "activo",
-  });
-  control.events.push({ tenantId: inv.tenantId, tipo: "invitacion_aceptada", actor: ctx.googleSub });
+  const aceptada = await aplicarAceptacionInvitacion(inv, ctx.googleSub);
 
   // Rotación al cambiar de rol/tenant (AU8.5): la sesión vieja se revoca.
   const vieja = control.sessions.get(ctx.sesion.idHash);
@@ -116,5 +105,5 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     path: "/",
     maxAge: 30 * 24 * 3600,
   });
-  return Response.json({ membership_id: id, tenant_id: inv.tenantId, rol: inv.rol }, { status: 201 });
+  return Response.json({ membership_id: aceptada.membershipId, tenant_id: aceptada.tenantId, rol: aceptada.rol }, { status: 201 });
 };

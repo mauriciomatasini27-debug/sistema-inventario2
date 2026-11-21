@@ -8,6 +8,7 @@ import {
   tenantDatabases,
   tenants,
 } from "../db/schema.js";
+import { esOwnerPendiente } from "../modules/tenants/alta-admin.js";
 import {
   MAX_REINTENTOS,
   PASOS_APROVISIONAMIENTO,
@@ -122,6 +123,9 @@ function ejecutarPasoMemoria(tenantId: string, database: string, paso: PasoAprov
     control.databases.set(tenantId, { tenantId, database, estado: "lista", schemaVersion: "1" });
   }
   if (paso === "crear_membership_dueno") {
+    // El alta del panel deja un owner pendiente (email). La membership de
+    // dueño se crea cuando esa persona entra con Google, no con el placeholder.
+    if (!owner || esOwnerPendiente(owner)) return;
     const ya = [...control.memberships.values()].some(
       (mm) => mm.tenantId === tenantId && mm.googleSub === owner && mm.estado === "activo",
     );
@@ -191,7 +195,7 @@ async function intentarDrizzle(jobId: string, worker: string): Promise<Resultado
             .values({ tenantId, database, estado: "lista", schemaVersion: "1" })
             .onConflictDoUpdate({ target: tenantDatabases.tenantId, set: { estado: "lista", schemaVersion: "1" } });
         }
-        if (paso === "crear_membership_dueno") {
+        if (paso === "crear_membership_dueno" && ownerSub && !esOwnerPendiente(ownerSub)) {
           const ya = await tx
             .select({ id: memberships.id })
             .from(memberships)
@@ -223,7 +227,7 @@ async function intentarDrizzle(jobId: string, worker: string): Promise<Resultado
           .insert(tenantDatabases)
           .values({ tenantId, database, estado: "lista", schemaVersion: "1" })
           .onConflictDoUpdate({ target: tenantDatabases.tenantId, set: { estado: "lista", schemaVersion: "1" } });
-        if (!membershipId) {
+        if (!membershipId && ownerSub && !esOwnerPendiente(ownerSub)) {
           const ya = await tx
             .select({ id: memberships.id })
             .from(memberships)
