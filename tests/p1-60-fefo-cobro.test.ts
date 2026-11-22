@@ -37,6 +37,8 @@ const hayPG = Boolean(process.env.PG_TEST_URL_A);
 const sufijo = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`.replace(/[^a-z0-9]/g, "").slice(0, 10);
 const AHORA = new Date("2026-11-06T15:00:00.000Z");
 const MARZO = new Date("2026-03-01T15:00:00.000Z");
+// AUD-VTA-05 T03: marca convenida para la sobreventa en el motivo del movimiento.
+const MARCA_SOBREVENTA = "sobreventa";
 
 describe("AUD-VTA-05 T01 el escritor único acepta VENTA con condición de resto", () => {
   it("compila solo si VENTA, la condición de resto y la tx del caller están en el contrato", () => {
@@ -118,6 +120,7 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
       .select({
         delta: stockMovements.delta,
         tipo: stockMovements.tipo,
+        motivo: stockMovements.motivo,
         loteId: stockMovements.loteId,
         venceEl: stockLots.venceEl,
       })
@@ -276,6 +279,9 @@ describe.skipIf(!hayPG)("P1-60 el cobro consume stock_lots en orden FEFO", () =>
       expect(movs.map((m) => m.delta)).toEqual([-3, -10]);
       expect(estado.lotes.map((l) => l.cantidadRestante)).toEqual([3, 10]);
       expect(estado.stockActual).toBe(13);
+      // AUD-VTA-05 T03: la marca vive en motivo y el tipo sigue siendo VENTA.
+      expect(movs.map((m) => m.motivo)).toEqual([MARCA_SOBREVENTA, MARCA_SOBREVENTA]);
+      expect(movs.every((m) => m.tipo === "VENTA")).toBe(true);
     });
   });
 
