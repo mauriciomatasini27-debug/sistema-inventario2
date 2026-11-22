@@ -5,6 +5,10 @@ import {
   comandosRestauracion,
   comandosRestauracionRamas,
   estadoBaseline,
+  estadoDelObjetivo,
+  estadoNormalizado,
+  evaluarGuarda,
+  validarRecibo,
   parsearCommitsPosteriores,
   parsearLocales,
   parsearRamas,
@@ -389,5 +393,157 @@ describe("worktrees-check: ramas locales y remotas", () => {
         `git push origin ${sha("2")}:refs/heads/mergeada-uno`,
       ]),
     );
+  });
+});
+
+describe("worktrees-check: guarda de revalidación", () => {
+  const recibo = (overrides: Record<string, unknown> = {}) => ({
+    objetivo: { tipo: "worktree", ruta: "/repo/wt" },
+    head: sha("a"),
+    estado: estadoNormalizado({ status: " M src/a.ts", mergeHead: null }),
+    ...overrides,
+  });
+
+  const actual = (overrides: Record<string, unknown> = {}) => ({
+    existeObjetivo: true,
+    head: sha("a"),
+    estado: estadoNormalizado({ status: " M src/a.ts", mergeHead: null }),
+    ...overrides,
+  });
+
+  it("normaliza el estado del árbol de trabajo desde una salida fija de git", () => {
+    expect(estadoNormalizado({ status: " M src/b.ts\n M src/a.ts\nUU src/c.ts", mergeHead: sha("9") })).toEqual({
+      archivos: ["src/a.ts", "src/b.ts", "src/c.ts"],
+      archivosCambios: 3,
+      conflictosSinStage: 1,
+      mergeHead: sha("9"),
+      mergeConRamaPorDefecto: null,
+      sucio: true,
+    });
+  });
+
+  it("acepta recibos de los tres tipos de objetivo", () => {
+    for (const objetivo of [
+      { tipo: "worktree", ruta: "/repo/wt" },
+      { tipo: "rama-local", nombre: "mauri/tarea" },
+      { tipo: "rama-remota", nombre: "origin/mauri/tarea" },
+    ]) {
+      expect(validarRecibo(recibo({ objetivo })).ok).toBe(true);
+    }
+  });
+
+  it("permite la operación cuando HEAD y estado coinciden", () => {
+    const resultado = evaluarGuarda({ recibo: recibo(), actual: actual() });
+    expect(resultado).toMatchObject({ decision: "permitir", codigoSalida: 0 });
+    expect(resultado.motivo).toContain("sin cambios");
+  });
+
+  it("niega con el HEAD observado y el actual cuando cambió", () => {
+    const resultado = evaluarGuarda({ recibo: recibo(), actual: actual({ head: sha("b") }) });
+    expect(resultado).toMatchObject({ decision: "negar", codigoSalida: 1 });
+    expect(resultado.motivo).toContain(sha("a"));
+    expect(resultado.motivo).toContain(sha("b"));
+    expect(resultado.motivo).toContain("/repo/wt");
+    expect(resultado.observado?.head).toBe(sha("a"));
+    expect(resultado.actual?.head).toBe(sha("b"));
+  });
+
+  it("niega cuando otra sesión limpió un worktree que estaba sucio", () => {
+    const resultado = evaluarGuarda({
+      recibo: recibo(),
+      actual: actual({ estado: estadoNormalizado({ status: "", mergeHead: null }) }),
+    });
+    expect(resultado).toMatchObject({ decision: "negar", codigoSalida: 1 });
+    expect(resultado.motivo).toContain("estado");
+    expect(resultado.motivo).toContain("src/a.ts");
+    expect(resultado.observado?.estado.archivos).toEqual(["src/a.ts"]);
+    expect(resultado.actual?.estado.archivos).toEqual([]);
+  });
+
+  it("niega un recibo viejo de merge ya cerrado", () => {
+    const resultado = evaluarGuarda({
+      recibo: recibo({
+        estado: estadoNormalizado({
+          status: "UU tests/x.test.ts",
+          mergeHead: sha("9"),
+          mergeConRamaPorDefecto: true,
+        }),
+      }),
+      actual: actual({ estado: estadoNormalizado({ status: "", mergeHead: null }) }),
+    });
+    expect(resultado).toMatchObject({ decision: "negar", codigoSalida: 1 });
+    expect(resultado.motivo).toContain("merge");
+    expect(resultado.observado?.estado.mergeHead).toBe(sha("9"));
+    expect(resultado.actual?.estado.mergeHead).toBeNull();
+  });
+
+  it("reporta entrada inválida con código distinto al de estado cambiado", () => {
+    const malFormado = evaluarGuarda({ recibo: recibo({ head: "corto" }), actual: actual() });
+    const inexistente = evaluarGuarda({ recibo: recibo(), actual: actual({ existeObjetivo: false }) });
+    const cambiado = evaluarGuarda({ recibo: recibo(), actual: actual({ head: sha("b") }) });
+    expect(malFormado).toMatchObject({ decision: "invalido", codigoSalida: 2 });
+    expect(inexistente).toMatchObject({ decision: "invalido", codigoSalida: 2 });
+    expect(malFormado.motivo).toContain("head");
+    expect(inexistente.motivo).toContain("/repo/wt");
+    expect(malFormado.codigoSalida).not.toBe(cambiado.codigoSalida);
+  });
+
+  it("rechaza un estado con archivos mal formados como entrada inválida", () => {
+    const resultado = evaluarGuarda({
+      recibo: recibo({ estado: { archivos: "no-es-array" } }),
+      actual: actual(),
+    });
+    expect(resultado).toMatchObject({ decision: "invalido", codigoSalida: 2 });
+    expect(resultado.motivo).toContain("estado.archivos");
+  });
+});
+
+describe("worktrees-check: guarda sobre salidas fijas de git y del tracker", () => {
+  const worktrees = [
+    { ruta: "/repo/wt-host", rama: "mauri/tracking", head: sha("a"), prunable: false },
+    { ruta: "/repo/wt-otro", rama: "mauri/otro", head: sha("b"), prunable: false },
+  ];
+  const estados = {
+    "/repo/wt-host": { status: " M src/a.ts", head: sha("a"), mergeHead: null },
+    "/repo/wt-otro": { status: "", head: sha("b"), mergeHead: null },
+  };
+  const locales = [{ nombre: "mauri/tracking", sha: sha("a"), upstream: "origin/mauri/tracking" }];
+  const remotas = [{ nombre: "origin/mauri/tracking", corto: "mauri/tracking", remoto: "origin", sha: sha("a") }];
+  const contexto = { worktrees, estados, locales, remotas };
+
+  it("relee worktree, rama local y rama remota desde los mismos datos del informe", () => {
+    const delWorktree = estadoDelObjetivo({ objetivo: { tipo: "worktree", ruta: "/repo/wt-host" }, ...contexto });
+    const deLocal = estadoDelObjetivo({ objetivo: { tipo: "rama-local", nombre: "mauri/tracking" }, ...contexto });
+    const deRemota = estadoDelObjetivo({ objetivo: { tipo: "rama-remota", nombre: "origin/mauri/tracking" }, ...contexto });
+
+    expect(delWorktree).toMatchObject({ existeObjetivo: true, head: sha("a") });
+    expect(delWorktree.estado.archivos).toEqual(["src/a.ts"]);
+    expect(deLocal).toMatchObject({ existeObjetivo: true, head: sha("a") });
+    expect(deLocal.estado.archivos).toEqual(["src/a.ts"]);
+    expect(deRemota).toMatchObject({ existeObjetivo: true, head: sha("a") });
+    expect(deRemota.estado.archivos).toEqual(["src/a.ts"]);
+  });
+
+  it("permite un recibo de rama remota con el estado observado en su worktree de tracking", () => {
+    const reciboRemoto = {
+      objetivo: { tipo: "rama-remota", nombre: "mauri/tracking", remoto: "origin" },
+      head: sha("a"),
+      estado: estadoNormalizado({ status: " M src/a.ts", mergeHead: null }),
+    };
+    const resultado = evaluarGuarda({
+      recibo: reciboRemoto,
+      actual: estadoDelObjetivo({ objetivo: reciboRemoto.objetivo, ...contexto }),
+    });
+    expect(resultado).toMatchObject({ decision: "permitir", codigoSalida: 0 });
+  });
+
+  it("reporta objetivo inexistente para los tres tipos", () => {
+    for (const objetivo of [
+      { tipo: "worktree", ruta: "/repo/no-existe" },
+      { tipo: "rama-local", nombre: "mauri/no-existe" },
+      { tipo: "rama-remota", nombre: "origin/no-existe" },
+    ]) {
+      expect(estadoDelObjetivo({ objetivo, ...contexto }).existeObjetivo).toBe(false);
+    }
   });
 });

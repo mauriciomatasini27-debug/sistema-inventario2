@@ -7,6 +7,8 @@ import {
   comandosRestauracion,
   comandosRestauracionRamas,
   estadoBaseline,
+  estadoDelObjetivo,
+  evaluarGuarda,
   parsearCommitsPosteriores,
   parsearLocales,
   parsearRemotas,
@@ -129,6 +131,36 @@ const refsRemotas = git(
 ).out;
 const locales = parsearLocales(refsLocales);
 const remotas = parsearRemotas(refsRemotas);
+
+const archivoGuarda = valor("--guarda", "");
+if (archivoGuarda) {
+  let recibo = null;
+  try {
+    recibo = JSON.parse(readFileSync(archivoGuarda, "utf8"));
+  } catch {
+    const invalido = evaluarGuarda({ recibo: null, actual: null });
+    console.log(`guarda: ${invalido.motivo}`);
+    process.exit(invalido.codigoSalida);
+  }
+
+  const actual = estadoDelObjetivo({
+    objetivo: recibo?.objetivo,
+    worktrees,
+    estados,
+    locales,
+    remotas,
+  });
+  const resultado = evaluarGuarda({ recibo, actual });
+  console.log(`guarda: ${resultado.motivo}`);
+  if (resultado.decision === "negar") {
+    const observado = resultado.observado?.estado;
+    const corriente = resultado.actual?.estado;
+    console.log(`  observado: HEAD ${resultado.observado?.head} · archivos [${observado?.archivos.join(", ")}] · mergeHead ${observado?.mergeHead ?? "null"}`);
+    console.log(`  actual:    HEAD ${resultado.actual?.head} · archivos [${corriente?.archivos.join(", ")}] · mergeHead ${corriente?.mergeHead ?? "null"}`);
+  }
+  process.exit(resultado.codigoSalida);
+}
+
 const remotasConocidas = new Set(remotas.map((r) => r.nombre));
 const prAbiertas = pullRequestsAbiertas(repo);
 const ahora = Date.now();
