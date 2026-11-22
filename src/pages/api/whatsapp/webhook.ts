@@ -59,6 +59,7 @@ import { evaluarCupoConsultaBot, planIncluye } from "../../../lib/repos/planes.j
 import { mesAR } from "../../../lib/fecha-ar.js";
 import { describir_cuenta } from "../../../modules/email/eventos-seguridad.js";
 import { encolar_email_simple } from "../../../jobs/whatsapp-adaptador.js";
+import { proveedorEmailDesdeEnv } from "../../../lib/email-resend.js";
 import { armar_link_wame } from "../../../modules/whatsapp/envio-proveedor.js";
 import { crearRegistroUsoIA } from "../../../lib/repos/ia-uso.js";
 import { crearLecturasIA } from "../../../lib/repos/ia-lecturas.js";
@@ -211,17 +212,18 @@ async function responderPayload(
 }
 
 // PLAN-S11: un mail por umbral y mes; sin email del Dueño no encola ni llama al proveedor.
-function encolarEmailCupoCuenta(opts: {
+async function encolarEmailCupoCuenta(opts: {
   readonly tenantId: string;
   readonly porcentaje: 80 | 100;
   readonly usado: number;
   readonly cupo: number;
   readonly ahoraMs: number;
-}): void {
+}): Promise<void> {
   const tenant = control.tenants.get(opts.tenantId);
   if (!tenant?.ownerGoogleSub) return;
   const email = control.users.get(tenant.ownerGoogleSub)?.email;
   if (typeof email !== "string" || email === "") return;
+  const proveedor = proveedorEmailDesdeEnv();
   const evento = describir_cuenta({
     kind: "cupo",
     porcentaje: opts.porcentaje,
@@ -230,7 +232,12 @@ function encolarEmailCupoCuenta(opts: {
     tenantId: opts.tenantId,
     mes: mesAR(opts.ahoraMs),
   });
-  encolar_email_simple(evento.idempotencyKey, email, evento.asunto, evento.texto);
+  await encolar_email_simple(evento.idempotencyKey, email, evento.asunto, evento.texto, {
+    proveedor,
+    replyToComercio: email,
+    nombreComercio: tenant.nombreComercio,
+    tenantId: opts.tenantId,
+  });
 }
 
 const RESPUESTA_OCR_SIN_BASE = "No pude leer el comprobante ahora. Reintentá en un rato." as const;
@@ -1086,7 +1093,7 @@ export const POST: APIRoute = async ({ request }) => {
       return Response.json({ ok: true, accion: "cuenta_suspendida", respuesta: cupoBot.mensaje, enviado });
     }
     if (cupoBot.tipo === "agotado") {
-      encolarEmailCupoCuenta({
+      await encolarEmailCupoCuenta({
         tenantId: r.tenantId,
         porcentaje: 100,
         usado: cupoBot.usado,
@@ -1103,7 +1110,7 @@ export const POST: APIRoute = async ({ request }) => {
       return Response.json({ ok: true, accion: "cupo_bot_agotado", respuesta, enviado });
     }
     if (cupoBot.tipo === "aviso") {
-      encolarEmailCupoCuenta({
+      await encolarEmailCupoCuenta({
         tenantId: r.tenantId,
         porcentaje: 80,
         usado: cupoBot.usado,

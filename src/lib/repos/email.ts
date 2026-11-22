@@ -33,31 +33,56 @@ export type EncolarEnvioResultado =
   | { ok: true; key: string; fuente: "db" | "memoria" }
   | { ok: false; codigo: "DUPLICADO"; key: string };
 
-function pendienteDeEnvio(input: { key: string; to: string; plantilla: string; vars: Record<string, string> }): OutboxPendiente {
+interface EntradaEnvio {
+  key: string;
+  to: string;
+  plantilla: string;
+  vars: Record<string, string>;
+  asunto?: string | undefined;
+  html?: string | undefined;
+  texto?: string | undefined;
+  estado?: "pendiente" | "enviado" | undefined;
+  providerMessageId?: string | null | undefined;
+}
+
+export async function existeEnvio(key: string, tenantId?: string): Promise<boolean> {
+  if (hayMemoria(tenantId) && conParticion(tenantId, () => crearAlmacenEmailOutbox().contiene(key))) return true;
+  const db = dbVivaTenant(tenantId);
+  if (!db) return false;
+  try {
+    const previo = await db
+      .select({ id: emailOutbox.id })
+      .from(emailOutbox)
+      .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, key)))
+      .limit(1);
+    return previo.length > 0;
+  } catch (e) {
+    conParticion(tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);
+    return false;
+  }
+}
+
+function pendienteDeEnvio(input: EntradaEnvio): OutboxPendiente {
   return {
     idempotencyKey: input.key,
     destinatario: input.to,
-    asunto: input.plantilla,
-    html: `<p>${input.plantilla}</p>`,
-    texto: Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla,
-    estado: "pendiente",
+    asunto: input.asunto ?? input.plantilla,
+    html: input.html ?? `<p>${input.plantilla}</p>`,
+    texto: input.texto ?? (Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla),
+    estado: input.estado ?? "pendiente",
     intentos: 0,
-    providerMessageId: null,
+    providerMessageId: input.providerMessageId ?? null,
   };
 }
 
 // Cola de envíos (CH-S1): email_outbox del tenant con DB viva, memoria
 // particionada en single sin base. En multi sin base propaga.
-export async function encolarEnvio(input: {
-  key: string;
+export async function encolarEnvio(input: EntradaEnvio & {
   stream: string;
-  to: string;
-  plantilla: string;
-  vars: Record<string, string>;
   tenantId?: string | undefined;
 }): Promise<EncolarEnvioResultado> {
   const usaMemoria = hayMemoria(input.tenantId);
-  if (usaMemoria && conParticion(input.tenantId, () => crearAlmacenEmailOutbox().contiene(input.key))) {
+  if (await existeEnvio(input.key, input.tenantId)) {
     return { ok: false, codigo: "DUPLICADO", key: input.key };
   }
   const db = dbVivaTenant(input.tenantId);
@@ -68,23 +93,18 @@ export async function encolarEnvio(input: {
     return { ok: true, key: input.key, fuente: "memoria" };
   }
   try {
-    const previo = await db
-      .select({ id: emailOutbox.id })
-      .from(emailOutbox)
-      .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, input.key)))
-      .limit(1);
-    if (previo[0]) return { ok: false, codigo: "DUPLICADO", key: input.key };
-    const texto = Object.keys(input.vars).length > 0 ? JSON.stringify(input.vars) : input.plantilla;
+    const envio = pendienteDeEnvio(input);
     await db.insert(emailOutbox).values(
       filaConTenant({
         categoria: input.stream,
         plantilla: input.plantilla,
-        destinatario: input.to,
-        asunto: input.plantilla,
-        html: `<p>${input.plantilla}</p>`,
-        texto,
-        idempotencyKey: input.key,
-        estado: "pendiente",
+        destinatario: envio.destinatario,
+        asunto: envio.asunto,
+        html: envio.html,
+        texto: envio.texto,
+        idempotencyKey: envio.idempotencyKey,
+        estado: envio.estado,
+        providerMessageId: envio.providerMessageId,
       }),
     );
   } catch (e) {
