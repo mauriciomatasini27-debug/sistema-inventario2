@@ -191,6 +191,8 @@ tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál
 
 Antes de crear un worktree para un issue o branch existente, corré `git worktree list`: es la fuente de verdad de los worktrees registrados. Si el branch ya está checado en algún directorio, trabajá ahí; en este entorno los branches `mauri/*` tienen su directorio canónico bajo `worktrees/<tema>` (p. ej. `~/worktrees/<tema>`). Creá uno nuevo solo si el branch no aparece en ninguno, con `git worktree add -b mauri/<tema> ~/worktrees/<tema> origin/main`. Retomar un issue sin este chequeo genera worktrees duplicados, un symlink de `node_modules` y limpieza posterior.
 
+Cada ticket termina, con su PR mergeado, con su worktree removido y su commit pusheado; comprobá el cierre con `npm run worktrees:check -- --repo <ruta> --duenos <archivo>` antes de cerrar la sesión.
+
 ## Flujo de un cambio
 
 1. `git fetch && git switch -c mauri/<tema> origin/main`. Si el branch ya tiene un worktree registrado, reutilizalo (ver "Worktrees: reutilizar el canónico") en vez de crear otro. Nunca commitees a `main` directo.
