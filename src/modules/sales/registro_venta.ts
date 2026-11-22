@@ -1,9 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
+import { crearAlmacenLotes, crearAlmacenStock, crearListaMovimientosStock } from "../../lib/repos/_almacen.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
-import { dondeTenant, esModoAisladoPorTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
-import { aplicarVentaLotes } from "../../lib/repos/stock.js";
+import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
+import { aplicarEnMemoria, aplicarVentaLotes, MOTIVO_SOBREVENTA } from "../../lib/repos/stock.js";
 import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
 import {
   products,
@@ -18,7 +19,7 @@ import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { store, type StoredTicket } from "../../lib/store.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "../../lib/repos/lotes.js";
 import type { Medio } from "../../lib/validation.js";
-import { lotesDesdeStock, type Sku } from "../inventario/inventario.js";
+import { lotesDesdeStock, type Lote, type LotId, type Sku } from "../inventario/inventario.js";
 import {
   vender_mostrador,
   type EfectoVenta,
@@ -199,13 +200,29 @@ function espejoMemoria(
   // PERS5-S3: el espejo se alinea al número del ticket (de memoria o de la
   // base) en vez de sumar 1: tras un reinicio no queda atrás del contador.
   if (e.ticket.definitivo) store.nextTicket = Math.max(store.nextTicket, Number(e.ticket.definitivo.slice(2)) + 1);
-  if (!e.ticket.sobreventa) {
-    for (const d of e.descuentos) {
-      store.stock.set(d.sku, (store.stock.get(d.sku) ?? 0) - d.cantidad);
-    }
-  }
+  const existencias = crearAlmacenStock();
+  const movimientos = crearListaMovimientosStock();
+  const lotes = crearAlmacenLotes();
+  const bajar = !e.ticket.sobreventa;
   for (const m of e.movimientosStock) {
-    store.stockMoves.push({ idemKey: key, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo });
+    aplicarEnMemoria(
+      {
+        idemKey: key,
+        sku: m.sku,
+        loteId: m.loteId,
+        delta: m.delta,
+        tipo: m.tipo,
+        ...(e.ticket.sobreventa ? { motivo: MOTIVO_SOBREVENTA } : m.motivo ? { motivo: m.motivo } : {}),
+      },
+      existencias,
+      movimientos,
+      lotes,
+      {
+        ...(bajar && m.loteId !== null ? { condicionResto: -m.delta } : {}),
+        bajarCantidades: bajar,
+        exigirResto: false,
+      },
+    );
   }
 }
 
@@ -253,9 +270,23 @@ function espejarAltaMemoria(lineas: ReadonlyArray<LineaVentaInput>): void {
   }
 }
 
+function lotesParaVentaMemoria(): Lote[] {
+  const reales: Lote[] = [...crearAlmacenLotes().comoMapaSoloLectura().values()]
+    .filter((l) => l.cantidadRestante > 0)
+    .map((l) => ({
+      id: l.id as LotId,
+      sku: l.sku as Sku,
+      cantidad: l.cantidadRestante,
+      venceEl: l.venceEl ? new Date(l.venceEl) : null,
+      costoCentavos: BigInt(l.costoCentavos),
+    }));
+  const conLote = new Set(reales.map((l) => l.sku));
+  return [...reales, ...lotesDesdeStock(store.stock).filter((l) => !conLote.has(l.sku))];
+}
+
 function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
   const skusSinStockInicial = skusSinStockInicialMemoria(i.lineas);
-  const lotes = lotesDesdeStock(store.stock);
+  const lotes = lotesParaVentaMemoria();
   const costos = costosVigentesMemoria();
   const r = vender_mostrador({
     idempotencyKey: i.key,
@@ -289,13 +320,11 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   return { ok: true, venta: { saleId, efecto: e, pagosConId, fuente: "memoria" } };
 }
 
-// AUD-VTA-02: con base viva, una falla a mitad de camino en multi/shared no
-// confirma la venta en memoria (otra instancia no la ve y el stock de la base
-// no baja). Lanza BaseNoDisponible y la ruta responde 503 para que la caja
-// reintente. En single el respaldo en memoria sigue como antes.
-function caidaDeBase(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
-  if (esModoAisladoPorTenant()) throw new BaseNoDisponible();
-  return viaMemoria(i);
+// AUD-VTA-02: con base viva, una falla a mitad de camino no confirma la venta
+// en memoria (otra instancia no la ve y el stock de la base no baja). Lanza
+// BaseNoDisponible y la ruta responde 503 para que la caja reintente.
+function caidaDeBase(): never {
+  throw new BaseNoDisponible();
 }
 
 export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: true; venta: VentaRegistrada } | RegistroVentaFallo> {
@@ -315,7 +344,7 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
     const fila = previo[0];
     if (fila) return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: filaVentaJson(fila) };
   } catch {
-    return caidaDeBase(i);
+    return caidaDeBase();
   }
 
   let costos: ReadonlyMap<string, bigint>;
@@ -506,11 +535,11 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
         const fila = previo[0];
         return { ok: false, codigo: "YA_VISTA_DB", status: 409, original: fila ? filaVentaJson(fila) : null };
       } catch {
-        return caidaDeBase(i);
+        return caidaDeBase();
       }
     }
-    // AUD-VTA-02: caída de DB a mitad de camino; la tx revirtió. Single cae
-    // a memoria; multi/shared responde 503.
-    return caidaDeBase(i);
+    // AUD-VTA-02: caída de DB a mitad de camino; la tx revirtió y la ruta
+    // responde 503 sin confirmar nada en memoria.
+    return caidaDeBase();
   }
 }
