@@ -1,0 +1,7 @@
+{
+  "tag": "0052_retencion_anonimiza_auditoria",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Aplicada el 2026-11-22 en el proyecto Supabase rpdrzvrmuuglfavynyph con autorización explícita de Mauricio (la autorización original del 2026-11-21 03:34 está registrada en el SQL) y el SQL exacto de drizzle/0052_retencion_anonimiza_auditoria.sql mediante Supabase MCP apply_migration. Verificado después de aplicar: la función retencion_append_only_guard existe y los triggers auth_events_no_update, gmail_connection_events_no_update y admin_audit_log_no_update están activos en sus tablas. El historial de Supabase registra 0052_retencion_anonimiza_auditoria (version 20261122003457). No se hizo ningún UPDATE ni DELETE sobre datos.",
+  "backup": "Sin dump previo: el cambio es CREATE OR REPLACE FUNCTION y DROP/CREATE TRIGGER, sin modificación de filas."
+}
