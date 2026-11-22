@@ -69,6 +69,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     </section>
   ) : null}
   <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
+  <section class="card" id="cola-cabecera" hidden>
+    <h2>Completá tu catálogo</h2>
+    <p>Para vender con precio y con el stock registrado en el Historial.</p>
+    <p class="estado"><span id="cola-quedan"></span> <span id="cola-indicador"></span></p>
+  </section>
   <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
@@ -99,7 +104,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       <h2>Catálogo</h2>
       <div class="kpi">
         <div><b id="stock-productos">…</b><small>Productos</small></div>
-        <div><b id="stock-umbral">…</b><small>Con stock mínimo</small></div>
+        <div><b id="stock-umbral">…</b><small>Bajo mínimo</small></div>
       </div>
       <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
       <div class="estado" id="estado-stock" role="status">Cargando…</div>
@@ -265,6 +270,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 <script>
   import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+  import { derivarProximaAccion } from "../../modules/stock/proxima-accion.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
@@ -290,17 +296,43 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
-  const pintarCatalogo = (items) => {
+  type KpisCatalogo = { bajo_minimo: number; sin_verificar: number; total: number; con_minimo: number };
+
+  const estadoCola = { precio: 0, stockInicial: 0, sugerido: false, avisoMinimo: false };
+
+  const pintarCola = () => {
+    const accion = derivarProximaAccion({
+      totalPrecioPendiente: estadoCola.precio,
+      totalStockInicialPendiente: estadoCola.stockInicial,
+      sugeridoVigente: estadoCola.sugerido,
+      puedeCrearProductos: puedeCrearProducto,
+      avisoMinimo: estadoCola.avisoMinimo,
+    });
+    $("precio-pendiente").hidden = accion.tipo !== "precio";
+    $("stock-inicial").hidden = accion.tipo !== "stock_inicial";
+    $("catalogo-sugerido").hidden = accion.tipo !== "sugerido";
+    const cabecera = $("cola-cabecera");
+    if (cabecera) cabecera.hidden = accion.tipo === "todo_al_dia";
+    const quedan = $("cola-quedan");
+    if (quedan) quedan.textContent = accion.quedan > 0 ? `Quedan ${accion.quedan}.` : "Todo al día.";
+    const indicador = $("cola-indicador");
+    if (indicador) indicador.textContent = accion.mostrarIndicador ? `Paso ${accion.indice} de ${accion.pasos.length}.` : "";
+  };
+
+  const pintarCatalogo = (items, kpis?: KpisCatalogo) => {
     publicarCatalogo(items);
-    const conUmbral = items.filter((p) => p.min_stock !== null && p.min_stock !== undefined).length;
-    $("stock-productos").textContent = String(items.length);
-    $("stock-umbral").textContent = String(conUmbral);
+    $("stock-productos").textContent = String(kpis?.total ?? items.length);
+    $("stock-umbral").textContent = String(kpis?.bajo_minimo ?? 0);
+    estadoCola.avisoMinimo = (kpis?.bajo_minimo ?? 0) > 0;
+    pintarCola();
     const resumen = $("stock-resumen");
     if (resumen) {
-      resumen.textContent =
+      const base =
         items.length === 0
           ? "Sin productos cargados."
-          : `${items.length} producto${items.length === 1 ? "" : "s"} · ${conUmbral} con stock mínimo`;
+          : `${items.length} producto${items.length === 1 ? "" : "s"} · ${kpis?.con_minimo ?? 0} con mínimo cargado`;
+      const sinVerificar = kpis?.sin_verificar ?? 0;
+      resumen.textContent = base + (sinVerificar > 0 ? ` · ${sinVerificar} sin verificar` : "");
     }
     $("estado-stock").textContent = mensaje(
       derivarEstado({ cargando: false, error: false, items: items.length }),
@@ -314,12 +346,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       pintarCatalogo(catalogoMil());
       return;
     }
-    fetch("/api/products")
+    fetch("/api/products?panel=1")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
       })
-      .then((j) => pintarCatalogo(j.productos || []))
+      .then((j) => pintarCatalogo(j.productos || [], j.kpis))
       .catch((error) => {
         console.warn("[panel/stock] catálogo", error);
         $("stock-productos").textContent = "—";
@@ -366,7 +398,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   };
 
   const pintarStockInicial = (items, total) => {
-    $("stock-inicial").hidden = total === 0;
+    estadoCola.stockInicial = total;
+    pintarCola();
     const lista = $("stock-inicial-lista");
     lista.textContent = "";
     items.forEach((p) => {
@@ -451,7 +484,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   };
 
   const pintarPreciosPendientes = (items, total) => {
-    $("precio-pendiente").hidden = total === 0;
+    estadoCola.precio = total;
+    pintarCola();
     const lista = $("precio-pendiente-lista");
     lista.textContent = "";
     items.forEach((p) => {
@@ -498,7 +532,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   };
 
   const ocultarCatalogoSugerido = () => {
-    $("catalogo-sugerido").hidden = true;
+    estadoCola.sugerido = false;
+    pintarCola();
   };
 
   const catalogoSugeridoDescartado = () => {
@@ -530,7 +565,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       lista.appendChild(li);
     });
     $("estado-catalogo-sugerido").textContent = "";
-    $("catalogo-sugerido").hidden = false;
+    estadoCola.sugerido = true;
+    pintarCola();
   };
 
   const cargarCatalogoSugerido = () => {

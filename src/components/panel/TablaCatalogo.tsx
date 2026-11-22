@@ -40,7 +40,7 @@ const sinSeleccionEnServidor = () => null;
 
 const ENCABEZADOS: Record<Columnas, readonly string[]> = {
   precios: ["SKU", "Nombre", "Precio"],
-  stock: ["SKU", "Nombre", "Precio", "Mínimo", "A reponer"],
+  stock: ["Código de producto", "Nombre", "Precio", "Stock disponible", "Mínimo"],
 };
 
 function CeldaPrecio({ centavos, porPeso }: { centavos: number | string; porPeso?: boolean | undefined }) {
@@ -71,8 +71,18 @@ const CELDAS: Record<Columnas, (p: ProductoCatalogo) => ReactNode> = {
       <td className="sku">{p.sku}</td>
       <td className="nombre">{p.nombre}</td>
       <CeldaPrecio centavos={p.precioCentavos} porPeso={p.porPeso} />
-      <td className="tnum cantidad">{p.min_stock ?? "—"}</td>
-      <td className="tnum cantidad">{p.reorder_qty ?? "—"}</td>
+      <td
+        className="tnum cantidad"
+        title={p.stock_disponible === null || p.stock_disponible === undefined ? "Sin Stock disponible verificable" : undefined}
+      >
+        {p.stock_disponible ?? "—"}
+      </td>
+      <td
+        className="tnum cantidad"
+        title={p.min_stock === null || p.min_stock === undefined ? "Sin mínimo cargado: la alerta usa rotación de 7 días" : undefined}
+      >
+        {p.min_stock ?? "—"}
+      </td>
     </>
   ),
 };
@@ -148,10 +158,10 @@ export default function TablaCatalogo({ columnas, etiqueta }: Props) {
         .tabla-catalogo--precios th:nth-child(1) { width: 30%; }
         .tabla-catalogo--precios th:nth-child(2) { width: 40%; }
         .tabla-catalogo--precios th:nth-child(3) { width: 30%; }
-        .tabla-catalogo--stock th:nth-child(1) { width: 20%; }
+        .tabla-catalogo--stock th:nth-child(1) { width: 18%; }
         .tabla-catalogo--stock th:nth-child(2) { width: 26%; }
-        .tabla-catalogo--stock th:nth-child(3) { width: 30%; }
-        .tabla-catalogo--stock th:nth-child(4) { width: 12%; }
+        .tabla-catalogo--stock th:nth-child(3) { width: 28%; }
+        .tabla-catalogo--stock th:nth-child(4) { width: 16%; }
         .tabla-catalogo--stock th:nth-child(5) { width: 12%; }
         @media (max-width: 899px) {
           .tabla-catalogo--stock { table-layout: auto; min-width: 22rem; width: max-content; max-width: none; }
