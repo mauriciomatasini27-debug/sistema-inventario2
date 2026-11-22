@@ -185,9 +185,13 @@ async function siguienteNumero(
   ordenes: AlmacenVivo<PaymentOrder>,
   vistos: AlmacenVivo<PaymentOrder>,
 ): Promise<{ numero: string; n: number }> {
-  // P10-90 (0053): sin filtro por comercio a propósito: payment_orders.numero
-  // es UNIQUE global, así que el próximo número tiene que mirar todas las filas.
-  const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders);
+  // ADR-0123 [tenant]: correlativo propio de cada comercio; sin el filtro, el
+  // máximo de otro comercio avanzaría la serie de este. Los almacenes en memoria
+  // son globales pero están particionados por comercio, así que no mezclan series.
+  const filas = await db
+    .select({ numero: paymentOrders.numero })
+    .from(paymentOrders)
+    .where(dondeTenant(paymentOrders.tenantId));
   const numeros = filas.map((f) => f.numero);
   for (const o of ordenes.comoMapaSoloLectura().values()) numeros.push(o.numero);
   for (const o of vistos.comoMapaSoloLectura().values()) numeros.push(o.numero);
