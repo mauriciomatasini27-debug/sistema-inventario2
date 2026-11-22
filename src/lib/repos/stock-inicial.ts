@@ -1,14 +1,16 @@
-import { and, asc, count, desc, eq, notExists, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, asc, count, desc, eq, notExists, sql } from "drizzle-orm";
 import { products, stockMovements } from "../../db/schema.js";
 import { dbVivaTenant, intentarLeer, type TenantDb } from "../server-db.js";
-import { dondeTenant, filaConTenant } from "../tenant-scope.js";
+import { dondeTenant } from "../tenant-scope.js";
 import { listarAltasAlVender } from "../ticket-memoria.js";
 import {
+  crearAlmacenLotes,
   crearAlmacenProductos,
   crearAlmacenStock,
   crearListaMovimientosStock,
   type StoredStockMovement,
 } from "./_almacen.js";
+import { asegurarLoteGenerico } from "./lote-generico.js";
 import { subconsultaVentas30d, ventasPorProductoMemoria } from "./_ventas-30d.js";
 import { aplicarEnMemoria, aplicarMovimiento } from "./stock.js";
 
@@ -101,15 +103,27 @@ async function cargarStockInicialMemoria(
   if (crearListaMovimientosStock().listar().some((m) => m.sku === sku && m.tipo === "ALTA")) {
     return { ok: false, codigo: "NO_PENDIENTE" };
   }
+  const loteId = await asegurarLoteGenerico(sku);
   await aplicarMovimiento({
     idemKey: `stock-inicial:${sku}`,
     sku,
-    loteId: null,
+    loteId,
     delta: cantidad,
     tipo: "ALTA",
     motivo: "stock inicial",
+    condicionResto: 0,
   });
   return { ok: true };
+}
+
+function esChoqueStockInicial(e: unknown): boolean {
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (typeof cur === "object" && cur !== null && "code" in cur && (cur as { code: unknown }).code === "23505") return true;
+    cur = typeof cur === "object" && cur !== null && "cause" in cur ? (cur as { cause?: unknown }).cause : undefined;
+  }
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("stock_movements_stock_inicial_unico");
 }
 
 export async function cargarStockInicial(
@@ -136,34 +150,27 @@ export async function cargarStockInicial(
     crearListaMovimientosStock().anteFalloPersistencia(e);
     return cargarStockInicialMemoria(sku, cantidad);
   }
+  const loteId = await asegurarLoteGenerico(sku);
   const registro: StoredStockMovement = {
     idemKey: `stock-inicial:${sku}`,
     sku,
-    loteId: null,
+    loteId,
     delta: cantidad,
     tipo: "ALTA",
     motivo: "stock inicial",
   };
   try {
     await db.transaction(async (tx) => {
-      const fila = await tx
-        .insert(stockMovements)
-        .values(filaConTenant(registro))
-        .onConflictDoNothing()
-        .returning({ id: stockMovements.id });
-      // Sin fila, otro "Guardar" ganó el índice parcial: nada que sumar.
-      if (!fila[0]) tx.rollback();
-      const wSku = dondeTenant(products.tenantId, eq(products.sku, sku)) ?? eq(products.sku, sku);
-      await tx
-        .update(products)
-        .set({ stockActual: sql`${products.stockActual} + ${cantidad}` })
-        .where(wSku);
+      await aplicarMovimiento({ ...registro, condicionResto: 0, tx });
     });
   } catch (e) {
-    if (e instanceof TransactionRollbackError) return { ok: false, codigo: "NO_PENDIENTE" };
+    if (esChoqueStockInicial(e)) return { ok: false, codigo: "NO_PENDIENTE" };
     crearListaMovimientosStock().anteFalloPersistencia(e);
     throw e;
   }
-  aplicarEnMemoria(registro, crearAlmacenStock(), crearListaMovimientosStock());
+  aplicarEnMemoria(registro, crearAlmacenStock(), crearListaMovimientosStock(), crearAlmacenLotes(), {
+    condicionResto: 0,
+    exigirResto: false,
+  });
   return { ok: true };
 }

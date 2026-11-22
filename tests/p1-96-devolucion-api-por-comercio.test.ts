@@ -5,6 +5,7 @@ import {
   cashMovements,
   products,
   sales,
+  stockLots,
   stockMovements,
   ticketCounters,
   ticketLines,
@@ -176,6 +177,7 @@ describe.skipIf(!PG)("P1-96 API /api/returns: D-* por comercio (Seam B)", () => 
         await db.delete(tickets).where(inArray(tickets.saleId, saleIds));
         await db.delete(sales).where(inArray(sales.id, saleIds));
         await db.delete(ticketCounters).where(eq(ticketCounters.tenantId, tid));
+        await db.delete(stockLots).where(inArray(stockLots.sku, skus));
         await db.delete(products).where(inArray(products.sku, skus));
       });
     }

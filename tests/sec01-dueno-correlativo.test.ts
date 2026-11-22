@@ -8,7 +8,8 @@ import { conTenant, tenantPorDefecto } from "../src/lib/tenant-mode.js";
 import { tenantDeRequest } from "../src/lib/tenant-context.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
-import { idMappings, outbox, products, sales, ticketCounters, tickets } from "../src/db/schema.js";
+import { idMappings, outbox, products, sales, ticketCounters, tickets,
+  stockLots } from "../src/db/schema.js";
 import { POST as postPrepare } from "../src/pages/api/payment-orders/prepare.js";
 import { POST as postCancel } from "../src/pages/api/payment-orders/cancel.js";
 import { POST as postConfirmPaid } from "../src/pages/api/payment-orders/confirm-paid.js";
@@ -419,6 +420,7 @@ describe.skipIf(!hayPG)("SEC-S4 PG: ventas y promote comparten ticket_counters",
       await db.delete(sales).where(eq(sales.idempotencyKey, ventaKey));
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

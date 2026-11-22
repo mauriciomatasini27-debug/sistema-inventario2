@@ -14,6 +14,7 @@ import {
   ticketLines,
   ticketPayments,
   tickets,
+  stockLots,
 } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
@@ -379,6 +380,7 @@ describe.skipIf(!hayPG)("P10-7 multi con PG local: estado en outbox, reintento y
       await db.delete(outbox).where(eq(outbox.opId, opDescarte));
       await db.delete(idMappings).where(eq(idMappings.opId, opRetry));
       await db.delete(idMappings).where(eq(idMappings.opId, opDescarte));
+      if (skuPG) await db.delete(stockLots).where(eq(stockLots.sku, skuPG));
       if (productIdPG) await db.delete(products).where(eq(products.id, productIdPG));
     });
     delete process.env.TENANT_MODE;

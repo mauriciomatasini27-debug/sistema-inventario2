@@ -19,7 +19,8 @@ import { ticketDiscounts } from "../../db/schema-tickets.js";
 import { store, type StoredTicket } from "../../lib/store.js";
 import { costosVigentesMemoria, costosVigentesPorSku } from "../../lib/repos/lotes.js";
 import type { Medio } from "../../lib/validation.js";
-import { lotesDesdeStock, type Lote, type LotId, type Sku } from "../inventario/inventario.js";
+import { type Lote, type LotId, type Sku } from "../inventario/inventario.js";
+import { lotesDesdeStockGenerico } from "../inventario/lote-generico.js";
 import {
   vender_mostrador,
   type EfectoVenta,
@@ -281,7 +282,7 @@ function lotesParaVentaMemoria(): Lote[] {
       costoCentavos: BigInt(l.costoCentavos),
     }));
   const conLote = new Set(reales.map((l) => l.sku));
-  return [...reales, ...lotesDesdeStock(store.stock).filter((l) => !conLote.has(l.sku))];
+  return [...reales, ...lotesDesdeStockGenerico(store.stock).filter((l) => !conLote.has(l.sku))];
 }
 
 function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada } | RegistroVentaFallo {
