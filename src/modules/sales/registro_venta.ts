@@ -3,7 +3,7 @@ import { getTenantDb } from "../../lib/db.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
 import { dondeTenant, esModoAisladoPorTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
-import { aplicarVentaLotes } from "../../lib/repos/stock.js";
+import { aplicarVentaLotes, MOTIVO_SOBREVENTA } from "../../lib/repos/stock.js";
 import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
 import {
   products,
@@ -205,7 +205,14 @@ function espejoMemoria(
     }
   }
   for (const m of e.movimientosStock) {
-    store.stockMoves.push({ idemKey: key, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo });
+    store.stockMoves.push({
+      idemKey: key,
+      sku: m.sku,
+      loteId: m.loteId,
+      delta: m.delta,
+      tipo: m.tipo,
+      ...(e.ticket.sobreventa ? { motivo: MOTIVO_SOBREVENTA } : {}),
+    });
   }
 }
 
