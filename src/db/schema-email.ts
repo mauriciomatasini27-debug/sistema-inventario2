@@ -14,6 +14,12 @@ export interface AlertaStockPayload {
   readonly canal?: "whatsapp" | "email" | undefined;
 }
 
+export interface EntregaNotificacionPayload {
+  readonly idempotencyKey: string;
+  readonly canal: "whatsapp" | "email";
+  readonly referencia: string;
+}
+
 // NE11/§6.3: evento de dominio con dedupe. Un resumen_cierre por jornada.
 export const notificationEvents = pgTable(
   "notification_events",
@@ -24,7 +30,7 @@ export const notificationEvents = pgTable(
   version: integer("version").notNull().default(1),
   refTipo: text("ref_tipo"),
   refId: text("ref_id"),
-  payload: jsonb("payload").$type<ResumenCierrePayload | AlertaStockPayload>().notNull(),
+  payload: jsonb("payload").$type<ResumenCierrePayload | AlertaStockPayload | EntregaNotificacionPayload>().notNull(),
   dedupeKey: text("dedupe_key").notNull(),
   estado: text("estado").notNull().default("pendiente"),
   procesarDesde: timestamp("procesar_desde"),

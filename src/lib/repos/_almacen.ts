@@ -1,6 +1,6 @@
 import { esModoAisladoPorTenant } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { control, importacionesEnMemoria, store, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { control, importacionesEnMemoria, notificationDeliveriesEnMemoria, store, type EntregaEnMemoria, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -625,6 +625,10 @@ export function crearAlmacenEmailOutbox(): AlmacenVivo<OutboxPendiente> {
 
 export function crearAlmacenEmailEventos(): AlmacenVivo<EventoResumen> {
   return crearAlmacenVivo(store.emailEventos);
+}
+
+export function crearAlmacenNotificationDeliveries(): AlmacenVivo<EntregaEnMemoria> {
+  return crearAlmacenVivo(notificationDeliveriesEnMemoria());
 }
 
 // Corte 18: grants offline + registro de devices (SYNC-S5/S6, PRD-SYNC-01).

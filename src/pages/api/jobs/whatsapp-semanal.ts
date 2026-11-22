@@ -3,17 +3,13 @@ import { control } from "../../../lib/store.js";
 import { correrJob } from "../../../lib/jobs-tenant.js";
 import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
+import { reclamadorDb } from "../../../lib/repos/notification-deliveries.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
 import { PLANTILLA_RESUMEN_SEMANAL } from "../../../modules/whatsapp/resumen-semanal.js";
 import { encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
-
-// Idempotencia por canal en proceso (prod: notification_deliveries por
-// idempotencyKey en Drizzle).
-const enviadasWa = new Map<string, string>();
-const enviadasEmail = new Map<string, string>();
 
 export function semana_iso(fecha: Date): string {
   const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
@@ -43,7 +39,11 @@ export const POST: APIRoute = async ({ request }) => {
     const resultados = [];
     for (const c of comercios) {
       const email = control.users.get(c.googleSub)?.email ?? "";
-      const r = await ejecutar_job_viernes({ wa: enviadasWa, email: enviadasEmail }, sender, {
+      const tiendas = {
+        wa: reclamadorDb(c.tenantId, c.googleSub, "whatsapp"),
+        email: reclamadorDb(c.tenantId, c.googleSub, "email"),
+      };
+      const r = await ejecutar_job_viernes(tiendas, sender, {
         comercio: {
           tenantId: c.tenantId,
           nombreComercio: c.nombreComercio,

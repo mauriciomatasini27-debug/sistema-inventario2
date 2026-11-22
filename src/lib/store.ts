@@ -16,6 +16,13 @@ import type { CanalElegido } from "../modules/alertas/stock-bajo.js";
 import type { ImportacionRegistrada } from "./repos/importaciones.js";
 import { esModoAisladoPorTenant, tenantActual } from "./tenant-mode.js";
 
+export interface EntregaEnMemoria {
+  readonly idempotencyKey: string;
+  readonly canal: "whatsapp" | "email";
+  readonly googleSub: string;
+  readonly referencia: string;
+}
+
 export interface StoredTicket {
   sale_id: string;
   ticket_definitivo: string | null;
@@ -192,6 +199,7 @@ function crearEstado() {
   payOrderCounter: 1,
   emailEventos: new Map<string, EventoResumen>(),
   emailOutbox: new Map<string, OutboxPendiente>(),
+  notificationDeliveries: new Map<string, EntregaEnMemoria>(),
   // Promociones sync offline: op_id -> provisorio + definitivo T-* asignado
   // por POST /api/sync/promote (ADR-0017). Monoproceso en C1; C2 lo lleva a
   // Postgres con lock (idMappings es la copia durable best-effort).
@@ -273,6 +281,10 @@ export function importacionesEnMemoria(): Map<string, ImportacionRegistrada> {
   return estadoActual().importaciones;
 }
 
+export function notificationDeliveriesEnMemoria(): Map<string, EntregaEnMemoria> {
+  return estadoActual().notificationDeliveries;
+}
+
 export function resetStore() {
   // Por qué limpiar todas: en multi fuera de contexto (setup de tests) no hay
   // partición actual; se descartan todas y se resetea la de single.
@@ -338,6 +350,7 @@ export function resetStore() {
   s.payOrderCounter = 1;
   s.emailEventos.clear();
   s.emailOutbox.clear();
+  s.notificationDeliveries.clear();
   s.promociones.clear();
   s.ocrJobs.clear();
   s.ocrJobsByKey.clear();
