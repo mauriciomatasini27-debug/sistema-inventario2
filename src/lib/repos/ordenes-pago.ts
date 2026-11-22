@@ -81,8 +81,9 @@ async function payeesVivos(db: TenantDb, payeesAlm: AlmacenVivo<Payee>): Promise
     for (const f of filas) {
       if (!vivos.has(f.id)) vivos.set(f.id, payeeDeFila(f));
     }
-  } catch {
-    // Sin filas frias la memoria caliente alcanza; el error real lo vera el insert.
+  } catch (e) {
+    console.warn("[ordenes-pago] no se pudieron leer los beneficiarios de la base", { error: e });
+    payeesAlm.anteFalloPersistencia(e);
   }
   return vivos;
 }
