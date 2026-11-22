@@ -28,6 +28,10 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
     // P10-33: la 0057 renombra html/texto del outbox a su forma cifrada.
     expect(journal.entries.some((e) => e.tag === "0057_email_outbox_cifrado")).toBe(true);
+    // #357: 0058 devices.nombre; ambas conviven en el journal final.
+    expect(journal.entries.some((e) => e.tag === "0058_devices_nombre")).toBe(true);
+    // #295 + #357 pueden mergear en cualquier orden: comparar con los .sql
+    // reales evita que un literal se quede corto cuando llegue el otro tag.
     expect(journal.entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");

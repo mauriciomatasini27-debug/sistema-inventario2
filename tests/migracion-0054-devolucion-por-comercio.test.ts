@@ -12,8 +12,9 @@ describe("P1-96 migración 0054: D-* por comercio", () => {
   it("el journal registra 0054 justo después de 0053", () => {
     const entries = journal().entries;
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(54);
+    // El journal crece con cada tag mergeado (#295, #357): contar los .sql.
     expect(entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
-    // 0055 (unicidad), 0056 (venta por peso) y 0057 (outbox cifrado) vienen después; cada una la comprueba su propio test.
+    // 0055, 0056, 0057 (outbox cifrado) y 0058 (devices) vienen después; cada una la comprueba su propio test.
   });
 });
 
