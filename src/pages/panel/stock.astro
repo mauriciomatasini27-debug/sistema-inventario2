@@ -278,7 +278,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 
   const $ = (id) => document.getElementById(id);
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
-  const puedeCrearProducto = $("catalogo-sugerido")?.dataset.puedeCrear !== "no";
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
@@ -855,7 +854,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     const efecto = efectoCodigoDesconocido();
     estado.replaceChildren();
     estado.append(efecto.mensaje + " ");
-    if (!puedeCrearProducto || !efecto.crearProducto) return;
+    // STOCK-S2 [rol]: el alta por código desconocido no pide crear_productos;
+    // el alta al vuelo crea el producto sin chequear rol, igual que en /venta.
+    if (!efecto.crearProducto) return;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = "Crear producto con este código";
