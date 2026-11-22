@@ -1,37 +1,69 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
-import TableroAcciones from "../../components/panel/TableroAcciones.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
+import { resolverRolEfectivo } from "../../lib/control.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 const tenant = tenantDeRequest(Astro.request);
 const tenantId = tenant.ok ? tenant.tenantId : null;
+const rolEfectivo = resolverRolEfectivo(Astro.request);
+const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
+const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
-  <TableroAcciones
-    acciones={[
-      { href: "#alta-producto-card", label: "Agregar producto", ancho: "completo" as const },
-      { href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" },
-      { href: "/panel/alertas/umbrales", label: "Editar umbrales" },
-      { href: "/panel/precios", label: "Precios" },
-    ]}
-  />
+  <div id="stock-contexto" data-rol={rol} data-permisos={JSON.stringify(permisos)} hidden></div>
+  <div class="panel-stock-layout">
+    <div class="panel-stock-catalogo">
+      <div class="grid">
+        <section class="card" data-harness={harness}>
+          <h2>Catálogo</h2>
+          <div class="kpi">
+            <div><b id="stock-productos">…</b><small>Productos</small></div>
+            <div><b id="stock-umbral">…</b><small>Bajo mínimo</small></div>
+          </div>
+          <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
+          <div class="estado" id="estado-stock" role="status">Cargando…</div>
+        </section>
+        <section class="card" id="lotes-card">
+          <h2>Lotes FEFO</h2>
+          <p class="estado">Consulta de lotes: el ingreso de mercadería se hace desde «Registrar ingreso».</p>
+          <button id="lote-buscar" type="button">Buscar lotes</button>
+          <ul class="lista" id="lote-lista"></ul>
+          <div class="estado" id="estado-lotes" role="status">Cargando…</div>
+        </section>
+      </div>
+    </div>
+    <div class="panel-stock-accion">
+  <section class="card" id="registro-codigo">
+    <h2>Registrar movimiento</h2>
+    <div class="fila">
+      <label>Acción
+        <select id="accion-codigo">
+          <option value="agregar">Agregar producto</option>
+          <option value="ingreso">Registrar ingreso</option>
+          <option value="conteo">Contar stock</option>
+          <option value="lotes">Consultar lotes</option>
+        </select>
+      </label>
+      <label>Código de producto
+        <input id="codigo-producto" type="text" maxlength="64" autocomplete="off" placeholder="Escaneá o escribí el código" />
+      </label>
+      <button id="leer-camara" type="button">Escanear</button>
+    </div>
+    <video id="camara-video" class="camara-video" hidden playsinline muted></video>
+    <div class="estado" id="estado-codigo" role="status"></div>
+  </section>
+  <p><button id="cta-agregar-producto" type="button">Agregar producto</button></p>
   <section class="card" id="alta-producto-card">
     <h2>Agregar producto</h2>
-    <p class="estado">Nombre obligatorio. El código es opcional; si no ponés uno, generamos un SKU interno.</p>
+    <p class="estado">Nombre obligatorio. El código de producto se toma del campo de arriba; si no ponés uno, generamos un código interno.</p>
     <form id="alta-producto-form">
       <div class="fila">
         <label>Nombre
           <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
         </label>
-      </div>
-      <div class="fila">
-        <label>Código de producto (opcional)
-          <input id="alta-codigo" data-campo="codigo" type="text" maxlength="64" autocomplete="off" inputmode="numeric" />
-        </label>
-        <button id="alta-leer-camara" type="button">Escanear</button>
       </div>
       <div class="fila">
         <label>Precio de venta (pesos, opcional)
@@ -42,28 +74,47 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         </label>
       </div>
       <div class="fila">
+        <label>Costo de ingreso (pesos, opcional)
+          <input id="alta-costo" data-campo="costo" type="text" inputmode="decimal" autocomplete="off" value="0" />
+        </label>
+      </div>
+      <div class="fila">
         <label>Ubicación (opcional)
           <select id="alta-ubicacion" data-campo="location_id">
             <option value="">Sin ubicación</option>
           </select>
         </label>
       </div>
+      <div class="fila">
+        <label>
+          <input id="alta-por-peso" data-campo="por_peso" type="checkbox" />
+          Se vende por peso
+        </label>
+      </div>
+      <p class="estado" id="alta-aviso-por-peso" hidden></p>
       <button id="alta-producto-enviar" type="submit">Guardar producto</button>
       <div class="estado" id="estado-alta-producto" role="status"></div>
       <div class="fila" id="alta-duplicado-acciones" hidden>
         <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
       </div>
+      <button id="reintentar-ingreso" type="button" hidden>Reintentar solo el ingreso</button>
     </form>
   </section>
   <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
+  <section class="card" id="cola-cabecera" hidden>
+    <h2>Completá tu catálogo</h2>
+    <p>Para vender con precio y con el stock registrado en el Historial.</p>
+    <p class="estado"><span id="cola-quedan"></span> <span id="cola-indicador"></span></p>
+  </section>
   <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
     <div class="fila">
       <button id="catalogo-sugerido-crear" type="button">Crear seleccionados</button>
-      <button id="catalogo-sugerido-no" type="button">No, gracias</button>
+      <button id="catalogo-sugerido-no" type="button">Omitir sugerencias</button>
     </div>
+    <p class="estado">Si las omitís, no volverán a mostrarse hasta una versión nueva de la plantilla.</p>
     <div class="estado" id="estado-catalogo-sugerido" role="status"></div>
   </section>
 
@@ -81,35 +132,11 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     <div class="estado" id="estado-precio-pendiente" role="status"></div>
   </section>
 
-  <div class="grid dos">
-    <section class="card" data-harness={harness}>
-      <h2>Catálogo</h2>
-      <div class="kpi">
-        <div><b id="stock-productos">…</b><small>Productos</small></div>
-        <div><b id="stock-umbral">…</b><small>Con stock mínimo</small></div>
-      </div>
-      <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
-      <div class="estado" id="estado-stock" role="status">Cargando…</div>
-    </section>
-
-    <section class="card">
-      <h2>Lotes FEFO</h2>
-      <div class="fila">
-        <label>SKU
-          <input id="lote-sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
-        </label>
-        <button id="lote-buscar" type="button">Buscar</button>
-        <button id="leer-camara" type="button">Leer con la cámara</button>
-      </div>
-      <video id="camara-video" class="camara-video" hidden playsinline muted></video>
-      <ul class="lista" id="lote-lista"></ul>
-      <div class="estado" id="estado-lotes" role="status">Cargando…</div>
-    </section>
-  </div>
-
+  <p><button id="abrir-ubicaciones" type="button" aria-expanded="false" aria-controls="ubicaciones">Ubicaciones</button></p>
   <div class="grid">
-    <section class="card" id="ubicaciones">
+    <section class="card" id="ubicaciones" hidden>
       <h2>Ubicaciones</h2>
+      <button id="cerrar-ubicaciones" type="button">Cerrar</button>
       <div class="aviso" id="aviso-ubicaciones" hidden>
         <p>Estas ubicaciones las armamos según tu rubro. Cambiales el nombre para que coincidan con tu local</p>
         <button id="aviso-ubicaciones-cerrar" type="button">Entendido</button>
@@ -127,55 +154,59 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     </section>
   </div>
 
-  <div class="grid dos">
-    <section class="card">
-      <h2>Ingreso de mercadería</h2>
+  <div class="grid">
+    <section class="card" id="ingreso-card">
+      <h2>Registrar ingreso</h2>
       <form id="ingreso-form">
         <div class="fila">
-          <label>SKU
-            <input id="ingreso-sku" data-campo="sku" type="text" placeholder="demo-sku-1" autocomplete="off" />
-          </label>
           <label>Cantidad
             <input id="ingreso-cantidad" data-campo="cantidad" type="number" min="1" step="1" inputmode="numeric" value="1" />
           </label>
-        </div>
-        <div class="fila">
           <label>Costo (pesos)
             <input id="ingreso-costo" data-campo="costo_centavos" type="text" inputmode="decimal" placeholder="Ej. 1.234,50" autocomplete="off" value="0" />
           </label>
-          <label>Vence el
+        </div>
+        <div class="fila">
+          <label>Vence el (opcional)
             <input id="ingreso-vence" data-campo="vence_el" type="datetime-local" />
           </label>
         </div>
         <button id="ingreso-enviar" type="submit">Ingresar</button>
-        <div class="estado" id="estado-ingreso" role="status">Completá el SKU y la cantidad.</div>
+        <div class="estado" id="estado-ingreso" role="status">Completá el código de producto y la cantidad.</div>
       </form>
     </section>
 
-    <section class="card">
-      <h2>Conteo ciego</h2>
-      <p class="estado">Creá un conteo CAT-S6 y confirmalo como dueño para ajustar stock.</p>
+    <section class="card" id="conteo-card">
+      <h2>Contar stock</h2>
+      <p class="estado">El conteo se confirma con tu rol efectivo. Si sos Empleado, queda listo para revisar.</p>
       <form id="conteo-form">
-        <label>SKU
-          <input id="conteo-sku" data-campo="sku" type="text" autocomplete="off" />
-        </label>
         <label>Cantidad física
           <input id="conteo-fisico" data-campo="fisico" type="number" min="0" max="9999" step="1" value="0" />
         </label>
         <label>Contado por
           <input id="conteo-por" data-campo="contado_por" type="text" value="panel" autocomplete="off" />
         </label>
-        <label>Motivo (dueño)
+        <label>Motivo (Dueño)
           <input id="conteo-motivo" data-campo="motivo" type="text" maxlength="280" placeholder="Ajuste por conteo" autocomplete="off" />
         </label>
         <button id="conteo-enviar" type="submit">Crear y confirmar conteo</button>
-        <div class="estado" id="estado-conteo" role="status">Completá SKU y cantidad física.</div>
+        <div class="estado" id="estado-conteo" role="status">Completá código de producto y cantidad física.</div>
       </form>
     </section>
+  </div>
+    </div>
   </div>
 </PanelShell>
 
 <style>
+  .panel-stock-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .panel-stock-catalogo { order: 2; min-width: 0; }
+  .panel-stock-accion { order: 1; min-width: 0; }
+  @media (min-width: 900px) {
+    .panel-stock-layout { grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr); align-items: start; }
+    .panel-stock-catalogo { order: 1; }
+    .panel-stock-accion { order: 2; }
+  }
   .camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
   .aviso {
     margin-bottom: 12px;
@@ -252,15 +283,17 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
 <script>
   import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+  import { derivarProximaAccion } from "../../modules/stock/proxima-accion.js";
+  import { armarConteo, armarIngreso, clavesIdempotencia, type AccionCodigo } from "../../modules/stock/operaciones-panel.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
-  import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
   import {
     accionSiCodigoDuplicado,
     armarAltaProducto,
+    avisoPorPeso,
     mensajeErrorAlta,
   } from "../../modules/stock/alta-producto-panel.js";
   import {
@@ -272,20 +305,96 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
 
   const $ = (id) => document.getElementById(id);
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
+  const permiteAltaCatalogo = true;
+  const codigoActual = () => ($("codigo-producto") as HTMLInputElement).value.trim();
+  const ponerCodigo = (codigo: string) => {
+    const campo = $("codigo-producto") as HTMLInputElement;
+    campo.value = codigo.trim();
+    campo.dispatchEvent(new Event("input"));
+  };
+  const accionActual = () => ($("accion-codigo") as HTMLSelectElement).value as AccionCodigo;
+  const elegirAccion = (accion: AccionCodigo) => {
+    const selector = $("accion-codigo") as HTMLSelectElement;
+    selector.value = accion;
+    selector.dispatchEvent(new Event("change"));
+  };
+  const rolActual = (): "dueno" | "empleado" =>
+    $("stock-contexto")?.dataset.rol === "empleado" ? "empleado" : "dueno";
+  const mostrarAccion = () => {
+    const accion = accionActual();
+    const secciones: Record<AccionCodigo, string> = {
+      agregar: "alta-producto-card",
+      ingreso: "ingreso-card",
+      conteo: "conteo-card",
+      lotes: "lotes-card",
+    };
+    for (const [clave, id] of Object.entries(secciones)) {
+      const seccion = $(id);
+      if (seccion) seccion.hidden = clave !== accion;
+    }
+  };
+  $("accion-codigo")?.addEventListener("change", mostrarAccion);
+  $("cta-agregar-producto")?.addEventListener("click", () => {
+    elegirAccion("agregar");
+    $("alta-nombre")?.focus();
+  });
+  $("abrir-ubicaciones")?.addEventListener("click", () => {
+    const panel = $("ubicaciones");
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    $("abrir-ubicaciones")?.setAttribute("aria-expanded", panel.hidden ? "false" : "true");
+    if (!panel.hidden) {
+      cargarUbicaciones();
+      $("ubicacion-nombre")?.focus();
+    }
+  });
+  $("cerrar-ubicaciones")?.addEventListener("click", () => {
+    const panel = $("ubicaciones");
+    if (panel) panel.hidden = true;
+    $("abrir-ubicaciones")?.setAttribute("aria-expanded", "false");
+    $("abrir-ubicaciones")?.focus();
+  });
+  mostrarAccion();
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
-  const pintarCatalogo = (items) => {
+  type KpisCatalogo = { bajo_minimo: number; sin_verificar: number; total: number; con_minimo: number };
+
+  const estadoCola = { precio: 0, stockInicial: 0, sugerido: false, avisoMinimo: false };
+
+  const pintarCola = () => {
+    const accion = derivarProximaAccion({
+      totalPrecioPendiente: estadoCola.precio,
+      totalStockInicialPendiente: estadoCola.stockInicial,
+      sugeridoVigente: estadoCola.sugerido,
+      puedeCrearProductos: permiteAltaCatalogo,
+      avisoMinimo: estadoCola.avisoMinimo,
+    });
+    $("precio-pendiente").hidden = accion.tipo !== "precio";
+    $("stock-inicial").hidden = accion.tipo !== "stock_inicial";
+    $("catalogo-sugerido").hidden = accion.tipo !== "sugerido";
+    const cabecera = $("cola-cabecera");
+    if (cabecera) cabecera.hidden = accion.tipo === "todo_al_dia";
+    const quedan = $("cola-quedan");
+    if (quedan) quedan.textContent = accion.quedan > 0 ? `Quedan ${accion.quedan}.` : "Todo al día.";
+    const indicador = $("cola-indicador");
+    if (indicador) indicador.textContent = accion.mostrarIndicador ? `Paso ${accion.indice} de ${accion.pasos.length}.` : "";
+  };
+
+  const pintarCatalogo = (items, kpis?: KpisCatalogo) => {
     publicarCatalogo(items);
-    const conUmbral = items.filter((p) => p.min_stock !== null && p.min_stock !== undefined).length;
-    $("stock-productos").textContent = String(items.length);
-    $("stock-umbral").textContent = String(conUmbral);
+    $("stock-productos").textContent = String(kpis?.total ?? items.length);
+    $("stock-umbral").textContent = String(kpis?.bajo_minimo ?? 0);
+    estadoCola.avisoMinimo = (kpis?.bajo_minimo ?? 0) > 0;
+    pintarCola();
     const resumen = $("stock-resumen");
     if (resumen) {
-      resumen.textContent =
+      const base =
         items.length === 0
           ? "Sin productos cargados."
-          : `${items.length} producto${items.length === 1 ? "" : "s"} · ${conUmbral} con stock mínimo`;
+          : `${items.length} producto${items.length === 1 ? "" : "s"} · ${kpis?.con_minimo ?? 0} con mínimo cargado`;
+      const sinVerificar = kpis?.sin_verificar ?? 0;
+      resumen.textContent = base + (sinVerificar > 0 ? ` · ${sinVerificar} sin verificar` : "");
     }
     $("estado-stock").textContent = mensaje(
       derivarEstado({ cargando: false, error: false, items: items.length }),
@@ -299,12 +408,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       pintarCatalogo(catalogoMil());
       return;
     }
-    fetch("/api/products")
+    fetch("/api/products?panel=1")
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
         return r.json();
       })
-      .then((j) => pintarCatalogo(j.productos || []))
+      .then((j) => pintarCatalogo(j.productos || [], j.kpis))
       .catch((error) => {
         console.warn("[panel/stock] catálogo", error);
         $("stock-productos").textContent = "—";
@@ -351,7 +460,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   };
 
   const pintarStockInicial = (items, total) => {
-    $("stock-inicial").hidden = total === 0;
+    estadoCola.stockInicial = total;
+    pintarCola();
     const lista = $("stock-inicial-lista");
     lista.textContent = "";
     items.forEach((p) => {
@@ -436,7 +546,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   };
 
   const pintarPreciosPendientes = (items, total) => {
-    $("precio-pendiente").hidden = total === 0;
+    estadoCola.precio = total;
+    pintarCola();
     const lista = $("precio-pendiente-lista");
     lista.textContent = "";
     items.forEach((p) => {
@@ -483,21 +594,13 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   };
 
   const ocultarCatalogoSugerido = () => {
-    $("catalogo-sugerido").hidden = true;
-  };
-
-  const catalogoSugeridoDescartado = () => {
-    try {
-      return avisoCatalogoDescartado(localStorage, tenantId);
-    } catch (error) {
-      console.warn("[panel/stock] aviso catálogo", error);
-      return false;
-    }
+    estadoCola.sugerido = false;
+    pintarCola();
   };
 
   const pintarCatalogoSugerido = (j) => {
     const productos = Array.isArray(j.productos) ? j.productos : [];
-    if (j.sembrado === true || productos.length === 0 || catalogoSugeridoDescartado()) {
+    if (j.sembrado === true || productos.length === 0) {
       ocultarCatalogoSugerido();
       return;
     }
@@ -515,7 +618,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       lista.appendChild(li);
     });
     $("estado-catalogo-sugerido").textContent = "";
-    $("catalogo-sugerido").hidden = false;
+    estadoCola.sugerido = true;
+    pintarCola();
   };
 
   const cargarCatalogoSugerido = () => {
@@ -575,22 +679,34 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       (input) => input.value,
     );
     if (nombres.length === 0) {
-      $("estado-catalogo-sugerido").textContent = "Elegí al menos un producto o usá \"No, gracias\".";
+      $("estado-catalogo-sugerido").textContent = "Elegí al menos un producto o usá «Omitir sugerencias».";
       return;
     }
     sembrarCatalogoSugerido(nombres);
   });
-  $("catalogo-sugerido-no").addEventListener("click", () => {
+  $("catalogo-sugerido-no").addEventListener("click", async () => {
+    const estado = $("estado-catalogo-sugerido");
+    estado.textContent = "Guardando…";
     try {
-      descartarAvisoCatalogo(localStorage, tenantId);
+      const r = await fetch("/api/stock/plantilla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombres: [] }),
+      });
+      if (!r.ok) {
+        estado.textContent = "No se guardó el descarte. Reintentá.";
+        return;
+      }
+      ocultarCatalogoSugerido();
+      cargarCatalogo();
     } catch (error) {
-      console.warn("[panel/stock] aviso catálogo", error);
+      console.warn("[panel/stock] omitir sugerencias", error);
+      estado.textContent = mensaje("error", "");
     }
-    ocultarCatalogoSugerido();
   });
 
   const buscarLotes = () => {
-    const sku = $("lote-sku").value.trim().toUpperCase();
+    const sku = codigoActual().toUpperCase();
     return fetch("/api/lots?sku=" + encodeURIComponent(sku))
       .then((r) => {
         if (!r.ok) throw new Error("http " + r.status);
@@ -833,17 +949,14 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     }
   });
 
-  const abrirAltaConCodigo = (codigo: string, destinoSku?: HTMLInputElement | null) => {
-    const seccion = $("alta-producto-card");
-    const codigoInput = $("alta-codigo");
-    if (!(seccion instanceof HTMLElement) || !(codigoInput instanceof HTMLInputElement)) return;
-    seccion.scrollIntoView({ behavior: "smooth", block: "start" });
-    codigoInput.value = codigo.trim();
-    $("alta-nombre").focus();
-    if (destinoSku) destinoSku.value = "";
+  const abrirAltaConCodigo = (codigo: string) => {
+    elegirAccion("agregar");
+    ponerCodigo(codigo);
+    $("alta-producto-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("alta-nombre")?.focus();
   };
 
-  const mostrarDesconocidoConAlta = (estado: HTMLElement, codigo: string, destinoSku?: HTMLInputElement | null) => {
+  const mostrarDesconocidoConAlta = (estado: HTMLElement, codigo: string) => {
     const efecto = efectoCodigoDesconocido();
     estado.replaceChildren();
     estado.append(efecto.mensaje + " ");
@@ -853,7 +966,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = "Crear producto con este código";
-    btn.addEventListener("click", () => abrirAltaConCodigo(codigo, destinoSku));
+    btn.addEventListener("click", () => abrirAltaConCodigo(codigo));
     estado.appendChild(btn);
   };
 
@@ -862,18 +975,33 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     if (acciones) acciones.hidden = true;
   };
 
+  const porPesoCheck = $("alta-por-peso") as HTMLInputElement | null;
+  const avisoPeso = $("alta-aviso-por-peso");
+  const pintarAvisoPorPeso = () => {
+    if (!avisoPeso || !porPesoCheck) return;
+    const texto = avisoPorPeso(porPesoCheck.checked);
+    avisoPeso.textContent = texto;
+    avisoPeso.hidden = texto === "";
+  };
+  porPesoCheck?.addEventListener("change", pintarAvisoPorPeso);
+  pintarAvisoPorPeso();
+
   $("alta-producto-form")?.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const form = evento.currentTarget as HTMLFormElement;
     limpiarErrores(form);
     ocultarDuplicadoAlta();
+    const reintentar = $("reintentar-ingreso") as HTMLButtonElement | null;
+    if (reintentar) reintentar.hidden = true;
     const estado = $("estado-alta-producto");
     const nombre = $("alta-nombre").value.trim();
-    const codigo = $("alta-codigo").value.trim();
+    const codigo = codigoActual();
     const errores: Record<string, string> = {};
     if (!nombre) errores.nombre = mensajeCampo("nombre", REQUERIDO);
     const precio = parsearPesos($("alta-precio").value);
+    const costoAlta = parsearPesos($("alta-costo").value);
     if ($("alta-precio").value.trim() !== "" && !precio.ok) errores.precio = mensajePesos(precio.motivo);
+    if (!costoAlta.ok) errores.costo = mensajePesos(costoAlta.motivo);
     const cantidadRaw = $("alta-cantidad").value.trim();
     const cantidad = cantidadRaw === "" ? 0 : Number($("alta-cantidad").value);
     if (cantidadRaw !== "" && (!Number.isInteger(cantidad) || cantidad < 0)) {
@@ -886,19 +1014,21 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     }
     const ubicacion = $("alta-ubicacion");
     const locationId = ubicacion instanceof HTMLSelectElement && ubicacion.value ? ubicacion.value : undefined;
+    const entropia = crypto.randomUUID();
+    const claves = clavesIdempotencia(entropia);
     const cuerpo = armarAltaProducto({
       nombre,
       ...(codigo ? { codigo } : {}),
       precioCentavos: precio.ok ? precio.centavos : 0,
-      entropiaSku: crypto.randomUUID(),
+      porPeso: porPesoCheck?.checked ?? false,
+      entropiaSku: entropia,
       ...(locationId ? { locationId } : {}),
     });
     estado.textContent = "Guardando producto…";
-    const idemAlta = crypto.randomUUID();
     try {
       const r = await fetch("/api/products", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": idemAlta },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": claves.alta },
         body: JSON.stringify(cuerpo),
       });
       const j = await r.json().catch((error) => {
@@ -923,9 +1053,9 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
             acciones.hidden = false;
             abrir.onclick = () => {
               marcarSkuSeleccionado(accionDuplicado.sku);
-              $("lote-sku").value = accionDuplicado.sku;
-              $("ingreso-sku").value = accionDuplicado.sku;
-              toast.success("SKU " + accionDuplicado.sku + " listo para ingreso o lotes.");
+              elegirAccion("ingreso");
+              ponerCodigo(accionDuplicado.sku);
+              toast.success("Código " + accionDuplicado.sku + " listo para ingreso o lotes.");
             };
           }
           return;
@@ -943,8 +1073,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
                 acciones.hidden = false;
                 abrir.onclick = () => {
                   marcarSkuSeleccionado(dup.sku);
-                  $("lote-sku").value = dup.sku;
-                  $("ingreso-sku").value = dup.sku;
+                  elegirAccion("ingreso");
+                  ponerCodigo(dup.sku);
                 };
               }
               return;
@@ -956,23 +1086,43 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
         return;
       }
       const skuCreado = typeof j.sku === "string" ? j.sku : cuerpo.sku;
-      if (cantidad > 0) {
-        const idemIngreso = idemAlta;
-        const ingreso = await fetch("/api/stock/ingreso", {
+      const enviarIngreso = (pendiente: { body: unknown; key: string }) =>
+        fetch("/api/stock/ingreso", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Idempotency-Key": idemIngreso },
-          body: JSON.stringify({
-            sku: skuCreado,
-            cantidad,
-            costo_centavos: precio.ok ? precio.centavos : 0,
-            controla_vencimiento: false,
-            vence_el: null,
-          }),
+          headers: { "Content-Type": "application/json", "Idempotency-Key": pendiente.key },
+          body: JSON.stringify(pendiente.body),
         });
-        if (!ingreso.ok) {
+      let ingresoPendiente: { body: unknown; key: string } | null = null;
+      if (cantidad > 0) {
+        const ingreso = armarIngreso({
+          sku: skuCreado,
+          cantidad,
+          costoCentavos: costoAlta.ok ? costoAlta.centavos : 0,
+          entropia,
+        });
+        ingresoPendiente = { body: ingreso.body, key: ingreso.idempotencyKey };
+        const pendiente = ingresoPendiente;
+        const resultado = await enviarIngreso(pendiente);
+        if (!resultado.ok) {
           toast.error("Producto creado, pero no se cargó el stock inicial.");
           estado.textContent = "Producto creado. Revisá el ingreso de mercadería para cargar stock.";
+          if (reintentar) reintentar.hidden = false;
         }
+      }
+      if (reintentar) {
+        reintentar.onclick = async () => {
+          const pendiente = ingresoPendiente;
+          if (!pendiente) return;
+          reintentar.hidden = true;
+          const resultado = await enviarIngreso(pendiente);
+          if (resultado.ok) {
+            toast.success("Stock inicial cargado.");
+            cargarCatalogo();
+          } else {
+            estado.textContent = "No se pudo cargar el stock inicial. Reintentá.";
+            reintentar.hidden = false;
+          }
+        };
       }
       toast.success("Producto guardado.");
       estado.textContent = "Producto " + skuCreado + " guardado.";
@@ -986,10 +1136,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     }
   });
 
-  ["lote-sku", "ingreso-sku"].forEach((id) =>
-    $(id).addEventListener("input", (evento) => marcarSkuSeleccionado((evento.currentTarget as HTMLInputElement).value)),
-  );
-  $("lote-buscar").addEventListener("click", buscarLotes);
+  const campoCodigo = $("codigo-producto") as HTMLInputElement;
+  campoCodigo.addEventListener("input", () => marcarSkuSeleccionado(codigoActual()));
+  $("lote-buscar")?.addEventListener("click", buscarLotes);
+  $("accion-codigo")?.addEventListener("change", () => {
+    if (accionActual() === "lotes") buscarLotes();
+  });
 
   // STOCK-E4: Enter es el cierre del lector. No abre la cámara ni crea el producto.
   const resolverEnPantalla = (raw: string) => resolverLectura({
@@ -998,39 +1150,34 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     skusLocales: [],
     fetch: (url) => fetch(url),
   });
-  const avisarDesconocido = (estado: HTMLElement, codigo: string, destinoSku?: HTMLInputElement | null) => {
-    mostrarDesconocidoConAlta(estado, codigo, destinoSku);
-  };
-  const alEnter = (input: HTMLInputElement, estado: HTMLElement, despues: (sku: string) => void) => {
-    input.addEventListener("keydown", async (ev) => {
-      const efecto = efectoDeTecla(ev.key);
-      if (!efecto.buscar || efecto.abrirCamara) return;
-      ev.preventDefault();
-      const res = await resolverEnPantalla(input.value);
-      if (res.estado === "encontrado") {
-        input.value = res.sku;
-        input.dispatchEvent(new Event("input"));
-        despues(res.sku);
-        return;
-      }
-      if (res.estado === "desconocido") avisarDesconocido(estado, input.value, input);
-    });
-  };
-  alEnter($("lote-sku"), $("estado-lotes"), () => { buscarLotes(); });
-  alEnter($("ingreso-sku"), $("estado-ingreso"), () => {});
-  let campoCamara = $("lote-sku");
-  for (const id of ["lote-sku", "ingreso-sku", "alta-codigo"]) {
-    $(id)?.addEventListener("focus", () => { campoCamara = $(id); });
-  }
-  $("alta-leer-camara")?.addEventListener("click", () => {
-    const altaCodigo = $("alta-codigo");
-    if (altaCodigo instanceof HTMLInputElement) {
-      campoCamara = altaCodigo;
-      $("leer-camara").click();
+  const ejecutarAccion = () => {
+    const destinos: Record<AccionCodigo, string> = {
+      agregar: "alta-nombre",
+      ingreso: "ingreso-enviar",
+      conteo: "conteo-fisico",
+      lotes: "lote-buscar",
+    };
+    if (accionActual() === "lotes") {
+      buscarLotes();
+      return;
     }
+    $(destinos[accionActual()])?.focus();
+  };
+  campoCodigo.addEventListener("keydown", async (ev) => {
+    const efecto = efectoDeTecla(ev.key);
+    if (!efecto.buscar || efecto.abrirCamara) return;
+    ev.preventDefault();
+    const res = await resolverEnPantalla(campoCodigo.value);
+    if (res.estado === "encontrado") {
+      ponerCodigo(res.sku);
+      ejecutarAccion();
+      return;
+    }
+    if (res.estado === "desconocido") mostrarDesconocidoConAlta($("estado-codigo"), campoCodigo.value);
   });
+
   let sesion: { cerrar: () => void } | null = null;
-  $("leer-camara").addEventListener("click", async () => {
+  $("leer-camara")?.addEventListener("click", async () => {
     const video = $("camara-video");
     if (!(video instanceof HTMLVideoElement)) return;
     if (sesion) {
@@ -1038,31 +1185,23 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       sesion = null;
       return;
     }
-    const destino = campoCamara;
     sesion = sesionCamara(video);
     try {
       const codigo = await sesion.leer();
       sesion = null;
       if (!codigo) return;
-      const estado =
-        destino.id === "ingreso-sku"
-          ? $("estado-ingreso")
-          : destino.id === "alta-codigo"
-            ? $("estado-alta-producto")
-            : $("estado-lotes");
       const res = await resolverEnPantalla(codigo);
       if (res.estado === "encontrado") {
-        destino.value = res.sku;
-        destino.dispatchEvent(new Event("input"));
-        if (destino.id === "lote-sku") buscarLotes();
+        ponerCodigo(res.sku);
+        ejecutarAccion();
         return;
       }
-      avisarDesconocido(estado, codigo, destino);
+      mostrarDesconocidoConAlta($("estado-codigo"), codigo);
     } catch (error) {
       console.warn("[panel/stock] cámara", error);
       if (sesion) sesion.cerrar();
       sesion = null;
-      $("estado-lotes").textContent = "No se pudo abrir la cámara.";
+      $("estado-codigo").textContent = "No se pudo abrir la cámara.";
     }
   });
 
@@ -1071,7 +1210,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-ingreso");
     const form = $("ingreso-form");
-    const sku = $("ingreso-sku").value.trim();
+    const sku = codigoActual();
     const cantidad = Number($("ingreso-cantidad").value);
     const costo = parsearPesos($("ingreso-costo").value);
     const errores = {};
@@ -1084,18 +1223,18 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       return;
     }
     const vence = $("ingreso-vence").value;
+    const operacion = armarIngreso({
+      sku,
+      cantidad,
+      costoCentavos: costo.ok ? costo.centavos : 0,
+      venceEl: vence,
+    });
     estado.textContent = "Ingresando…";
     try {
       const r = await fetch("/api/stock/ingreso", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({
-          sku,
-          cantidad: Number($("ingreso-cantidad").value),
-          costo_centavos: costo.ok ? costo.centavos : 0,
-          controla_vencimiento: vence !== "",
-          vence_el: vence === "" ? null : new Date(vence).toISOString(),
-        }),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": operacion.idempotencyKey },
+        body: JSON.stringify(operacion.body),
       });
       const j = await r.json().catch((error) => {
         console.warn("[panel/stock] respuesta sin JSON", r.status, error);
@@ -1111,7 +1250,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       }
       estado.textContent = "Lote ingresado: " + (j.id || sku) + ".";
       cargarCatalogo();
-      if ($("lote-sku").value.trim()) buscarLotes();
     } catch (error) {
       console.warn("[panel/stock] ingreso", error);
       estado.textContent = mensaje("error", "");
@@ -1124,10 +1262,12 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     limpiarErrores(evento.currentTarget as HTMLElement);
     const estado = $("estado-conteo");
     const form = $("conteo-form");
-    const sku = $("conteo-sku").value.trim();
+    const sku = codigoActual();
     const fisico = Number($("conteo-fisico").value);
     const contadoPor = $("conteo-por").value.trim() || "panel";
     const motivo = $("conteo-motivo").value.trim() || "Ajuste por conteo";
+    const rol = rolActual();
+    const operacion = armarConteo({ sku, fisico, contadoPor, rol, ...(rol === "dueno" ? { motivo } : {}) });
     const errores = {};
     if (!sku) errores.sku = mensajeCampo("sku", REQUERIDO);
     if (!Number.isInteger(fisico) || fisico < 0) errores.fisico = mensajeCampo("fisico", REQUERIDO);
@@ -1140,8 +1280,8 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
     try {
       const crear = await fetch("/api/counts", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ contado_por: contadoPor, lineas: [{ sku, fisico }] }),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": operacion.idempotencyKey },
+        body: JSON.stringify(operacion.crear.body),
       });
       const creado = await crear.json().catch((error) => {
         console.warn("[panel/stock] conteo sin JSON", crear.status, error);
@@ -1159,7 +1299,7 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
       const conf = await fetch("/api/counts?id=" + encodeURIComponent(creado.id), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rol: "dueno", confirmado_por: contadoPor, motivo }),
+        body: JSON.stringify(operacion.confirmar.body),
       });
       const j = await conf.json().catch((error) => {
         console.warn("[panel/stock] confirmar conteo sin JSON", conf.status, error);
@@ -1182,6 +1322,4 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
   cargarCatalogoSugerido();
   cargarStockInicialPanel();
   cargarPreciosPendientes();
-  buscarLotes();
-  cargarUbicaciones();
 </script>

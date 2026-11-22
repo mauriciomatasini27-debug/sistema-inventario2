@@ -6,6 +6,7 @@ import type { EmailProvider } from "../modules/email/proveedor.js";
 import { clasificar_error, proximo_reintento } from "../modules/email/outbox.js";
 import { hash_email } from "../modules/email/entregabilidad.js";
 import { PLANTILLAS_EMAIL_AVISO_WA } from "../modules/whatsapp/avisos-cuenta.js";
+import { descifrarCampoOutbox } from "../modules/email/outbox-cifrado.js";
 
 // P10-92: manda lo pendiente de email_outbox con el EmailProvider que le
 // pasen (Resend en producción, fake en tests). Corre dentro del comercio:
@@ -135,8 +136,8 @@ export async function ejecutarEnvioEmails(
     const res = await proveedor.send({
       para: f.destinatario,
       asunto: f.asunto,
-      html: f.html,
-      texto: f.texto,
+      html: descifrarCampoOutbox(f.htmlCiphertext, f.tenantId, "html"),
+      texto: descifrarCampoOutbox(f.textoCiphertext, f.tenantId, "texto"),
       idempotencyKey: `${f.tenantId}:${f.idempotencyKey}`,
       categoria: f.categoria,
       plantilla: f.plantilla,

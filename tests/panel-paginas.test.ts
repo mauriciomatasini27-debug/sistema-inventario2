@@ -69,8 +69,8 @@ describe("panel: cada pill resuelve a una página real", () => {
     expect(caja).toContain("puedeVerSaldoCaja");
     const stock = leer("src/pages/panel/stock.astro");
     expect(stock).not.toContain("data-puede-crear");
-    expect(stock).not.toContain("puedeCrearProductos");
-    expect(stock).toContain('{ href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" }');
+    expect(stock).toContain('<option value="agregar">Agregar producto</option>');
+    expect(stock).toContain('id="codigo-producto"');
   });
 
   it("spec 433 T2: el formulario de importar es visible para el Empleado (rojo si vuelve el gate)", () => {
@@ -158,12 +158,11 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(urlsFetch(src)).toEqual([]);
   });
 
-  it("umbrales de alerta se enlaza desde stock y desde la tarjeta de stock", () => {
+  it("umbrales de alerta ya no se enlaza desde stock: queda en Más y en la tarjeta de stock", () => {
     const destino = "/panel/alertas/umbrales";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain(destino);
-    expect(stock).toContain("TableroAcciones");
+    expect(stock).not.toContain(destino);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 

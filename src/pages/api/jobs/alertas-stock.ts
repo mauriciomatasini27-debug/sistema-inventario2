@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { correrJob } from "../../../lib/jobs-tenant.js";
 import { esSingle } from "../../../lib/tenant-context.js";
+import { control } from "../../../lib/store.js";
+import { proveedorEmailDesdeEnv } from "../../../lib/email-resend.js";
 import {
   catalogoAvisoVivo,
   listarComerciosBot,
@@ -39,6 +41,8 @@ export const POST: APIRoute = async ({ request }) => {
     const comercios = esSingle() ? listarComerciosBot() : uno ? [uno] : [];
     const comercio = comercios.find((c) => c.tenantId === tenantId) ?? comercios[0];
     if (!comercio) return Response.json({ fecha, modo, alertas: [], enviadas: 0 }, { status: 200 });
+    const proveedor = proveedorEmailDesdeEnv();
+    const replyToComercio = control.users.get(comercio.googleSub)?.email ?? "";
     const hayCred = cred_wa() !== null;
     const personas = await cargarPersonasAlerta(comercio.tenantId);
     const destinatarios = resolver_destinatarios({
@@ -63,6 +67,7 @@ export const POST: APIRoute = async ({ request }) => {
         minimo: v.umbral,
         ventas7d: 0,
         proveedor: v.proveedor,
+        ...(v.porPeso !== undefined ? { porPeso: v.porPeso } : {}),
         ...(v.reorderQty != null ? { reorderQty: v.reorderQty } : {}),
       })),
       destinatarios,
@@ -72,9 +77,16 @@ export const POST: APIRoute = async ({ request }) => {
         const ok = await enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_ALERTA_STOCK_BAJO });
         return ok ? { ok: true } : { ok: false, error: "envio_wa" };
       },
-      enviarEmail: (destino, texto, meta) => {
+      enviarEmail: async (destino, texto, meta) => {
         const key = meta?.clave ? `${meta.clave}:email` : `alerta-email:${destino}`;
-        return { ok: encolar_email_simple(key, destino, "Stock bajo", texto) };
+        return {
+          ok: await encolar_email_simple(key, destino, "Stock bajo", texto, {
+            proveedor,
+            replyToComercio,
+            nombreComercio: comercio.nombreComercio,
+            tenantId: comercio.tenantId,
+          }),
+        };
       },
     });
     return Response.json(

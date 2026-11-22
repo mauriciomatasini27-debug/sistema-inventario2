@@ -187,9 +187,15 @@ tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál
 | Solo docs | `npm run verify -- --docs-only` |
 | E2E | `npm run dev` en otra terminal y `npm run test:e2e` |
 
+## Worktrees: reutilizar el canónico
+
+Antes de crear un worktree para un issue o branch existente, corré `git worktree list`: es la fuente de verdad de los worktrees registrados. Si el branch ya está checado en algún directorio, trabajá ahí; en este entorno los branches `mauri/*` tienen su directorio canónico bajo `worktrees/<tema>` (p. ej. `~/worktrees/<tema>`). Creá uno nuevo solo si el branch no aparece en ninguno, con `git worktree add -b mauri/<tema> ~/worktrees/<tema> origin/main`. Retomar un issue sin este chequeo genera worktrees duplicados, un symlink de `node_modules` y limpieza posterior.
+
+Cada ticket termina, con su PR mergeado, con su worktree removido y su commit pusheado; comprobá el cierre con `npm run worktrees:check -- --repo <ruta> --duenos <archivo>` antes de cerrar la sesión.
+
 ## Flujo de un cambio
 
-1. `git fetch && git switch -c mauri/<tema> origin/main`. Nunca commitees a `main` directo.
+1. `git fetch && git switch -c mauri/<tema> origin/main`. Si el branch ya tiene un worktree registrado, reutilizalo (ver "Worktrees: reutilizar el canónico") en vez de crear otro. Nunca commitees a `main` directo.
 2. Trabajá con OpenCode. Si es un ítem del roadmap, agregá `docs/roadmap/avances/<id>.md` (formato en `docs/roadmap/avances/README.md`); `docs/ROADMAP.md`, `docs/INDEX.md` y `docs/ESTADO.md` no se editan a mano ni se commitean en la rama.
 3. `git fetch && git rebase origin/main` y después `npm run verify`, que tiene que dar verde. Los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) los regenera `main`, no la rama, así el PR no queda CONFLICTING cuando otro se mergeó antes. Si la rama ya los trae, `verify` falla en la guarda `docs:generados` y te dice cómo quitarlos (`git checkout $(git merge-base origin/main HEAD) -- <archivo>`).
 4. Commiteá y `git push -u origin mauri/<tema>`, después `gh pr create`.

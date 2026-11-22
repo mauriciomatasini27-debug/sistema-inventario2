@@ -124,8 +124,9 @@ describe.skipIf(!hayPG)("P10-92 job enviar-emails en Postgres", () => {
           tenantId,
           destinatario: para,
           asunto: "Asunto privado",
-          html: "<p>hola</p>",
-          texto: "hola",
+          // Fila legacy: el job debe seguir enviando el plano sin prefijo.
+          htmlCiphertext: "<p>hola</p>",
+          textoCiphertext: "hola",
           idempotencyKey: `k-${id}`,
         }),
     );

@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
-import { planDePasos, resumir } from "./verify-lib.mjs";
+import { dependenciasIncumplidas, maxWorkersVerify, planDePasos, resumir, textoResumen } from "./verify-lib.mjs";
+
+// RETRO-04: tope por defecto para que el gate sea reproducible; el env explícito gana.
+process.env.VITEST_MAX_WORKERS = String(maxWorkersVerify());
 
 const args = process.argv.slice(2);
 const docsOnly = args.includes("--docs-only");
@@ -57,16 +60,22 @@ if (!docsOnly) {
 
 const resultados = [];
 for (const paso of planDePasos({ docsOnly })) {
+  const faltan = dependenciasIncumplidas(paso, resultados);
+  if (faltan.length > 0) {
+    const motivo = `porque falló ${faltan.join(", ")}`;
+    resultados.push({ nombre: paso.nombre, skipped: true, motivo });
+    console.log(`verify: se salta ${paso.nombre} (${motivo})`);
+    continue;
+  }
   const inicio = Date.now();
   const code = correr(comandoDe(paso));
   resultados.push({ nombre: paso.nombre, code, ms: Date.now() - inicio });
-  if (code !== 0) break;
 }
 
-const { ok, fallidos, total } = resumir(resultados);
+const resumen = resumir(resultados);
 if (rutaRecibo) {
-  const recibo = { fecha: new Date().toISOString(), head: head(), docsOnly, pg, ok, pasos: resultados };
+  const recibo = { fecha: new Date().toISOString(), head: head(), docsOnly, pg, ok: resumen.ok, pasos: resultados };
   writeFileSync(rutaRecibo, `${JSON.stringify(recibo, null, 2)}\n`);
 }
-console.log(ok ? `verify ok (${total} pasos)` : `verify falló en: ${fallidos.join(", ")}`);
-process.exit(ok ? 0 : 1);
+console.log(textoResumen(resumen, { rutaRecibo }));
+process.exit(resumen.ok ? 0 : 1);

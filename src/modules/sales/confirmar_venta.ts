@@ -1,4 +1,5 @@
-import { lotesDesdeStock, type Sku } from "../inventario/inventario.js";
+import { type Sku } from "../inventario/inventario.js";
+import { lotesDesdeStockGenerico } from "../inventario/lote-generico.js";
 import { derivar_balance } from "../cash/caja.js";
 import { vender_mostrador, PAGO_A_CUENTA, type TicketDefinitivo, type TicketEmitido } from "./vender_mostrador.js";
 import type { DescuentoSpec } from "./descuentos.js";
@@ -7,6 +8,7 @@ export interface LineaVenta {
   product_id: string;
   qty: number;
   precio_centavos: bigint;
+  porPeso?: boolean | undefined;
 }
 
 export interface ConfirmarVentaInput {
@@ -66,12 +68,17 @@ export function confirmar_venta(input: ConfirmarVentaInput): ConfirmarVentaResul
 
   const r = vender_mostrador({
     idempotencyKey: input.idempotencyKey,
-    lineas: input.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: l.precio_centavos })),
+    lineas: input.lineas.map((l) => ({
+      sku: l.product_id as Sku,
+      cantidad: l.qty,
+      precioCentavos: l.precio_centavos,
+      porPeso: l.porPeso,
+    })),
     medio: input.medio,
     deviceCode: input.device_code,
     seqLocal: input.seq_local,
     offline: input.offline,
-    lotes: lotesDesdeStock(input.stockDisponible),
+    lotes: lotesDesdeStockGenerico(input.stockDisponible),
     vistos,
     ultimoDefinitivo: ultimo,
     grant: { rol: "dueno" },

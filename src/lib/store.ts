@@ -16,6 +16,13 @@ import type { CanalElegido } from "../modules/alertas/stock-bajo.js";
 import type { ImportacionRegistrada } from "./repos/importaciones.js";
 import { esModoAisladoPorTenant, tenantActual } from "./tenant-mode.js";
 
+export interface EntregaEnMemoria {
+  readonly idempotencyKey: string;
+  readonly canal: "whatsapp" | "email";
+  readonly googleSub: string;
+  readonly referencia: string;
+}
+
 export interface StoredTicket {
   sale_id: string;
   ticket_definitivo: string | null;
@@ -35,6 +42,8 @@ export interface StoredMovement {
   idempotency_key: string;
   // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
   ocurrido_en?: string;
+  // P10-27 [rol]: quién registró el movimiento, desde la sesión de la ruta.
+  actor?: string;
 }
 
 export interface StoredStockMovement {
@@ -50,6 +59,7 @@ export interface FichaCatalogo {
   sku: string;
   nombre: string;
   precioCentavos: number;
+  porPeso?: boolean | undefined;
   origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined;
   sector: string;
   locationId: string | null;
@@ -206,6 +216,7 @@ function crearEstado() {
   payOrderCounter: 1,
   emailEventos: new Map<string, EventoResumen>(),
   emailOutbox: new Map<string, OutboxPendiente>(),
+  notificationDeliveries: new Map<string, EntregaEnMemoria>(),
   // Promociones sync offline: op_id -> provisorio + definitivo T-* asignado
   // por POST /api/sync/promote (ADR-0017). Monoproceso en C1; C2 lo lleva a
   // Postgres con lock (idMappings es la copia durable best-effort).
@@ -287,6 +298,10 @@ export function importacionesEnMemoria(): Map<string, ImportacionRegistrada> {
   return estadoActual().importaciones;
 }
 
+export function notificationDeliveriesEnMemoria(): Map<string, EntregaEnMemoria> {
+  return estadoActual().notificationDeliveries;
+}
+
 export function resetStore() {
   // Por qué limpiar todas: en multi fuera de contexto (setup de tests) no hay
   // partición actual; se descartan todas y se resetea la de single.
@@ -352,6 +367,7 @@ export function resetStore() {
   s.payOrderCounter = 1;
   s.emailEventos.clear();
   s.emailOutbox.clear();
+  s.notificationDeliveries.clear();
   s.promociones.clear();
   s.ocrJobs.clear();
   s.ocrJobsByKey.clear();
@@ -397,6 +413,7 @@ export function resetStore() {
   control.ejemplos.clear();
   control.bienvenidas.clear();
   control.semillasProductos.clear();
+  control.semillasProductosVersion.clear();
   control.proveedorContactos.clear();
   control.proveedorInvitaciones.clear();
   control.proveedorCupo.clear();
@@ -497,9 +514,8 @@ export const control = {
   // crear; acá queda el hash. Revocado => cuarentena post-revocación.
   offlineGrants: new Map<string, { grantId: string; tokenHash: string; tenantId: string; googleSub: string; deviceCode: string; alcance: string; expiraEn: string; revocadoEn?: string | undefined }>(),
   devices: new Map<string, { deviceCode: string; tenantId: string; registradoPor: string; registradoEn: string }>(),
-  // AU9.3: nombres asignados por el Dueño a dispositivos del local
-  // (device_code -> nombre). Vive en memoria en Slice-0; en producción se
-  // persiste en `devices` de la base del comercio.
+  // P10-34 [tenant]: espejo de devices.nombre. Queda para el modo single sin
+  // P10-34 [tenant]: base y para hidratar la UI, pero la fuente con base viva es la tabla.
   deviceNames: new Map<string, string>(),
   // P1-3 PIN de mostrador por device_code: hash scrypt (nunca el plano),
   // bloqueo local y fallos para rate-limit. Fuente en memoria; copia
@@ -535,6 +551,7 @@ export const control = {
   // PRD-STOCK-01 STOCK-S8 (ADR-0107): tenants con la plantilla de productos
   // ya confirmada. Espejo en memoria de tenant_product_seeds.
   semillasProductos: new Set<string>(),
+  semillasProductosVersion: new Map<string, string>(),
   // #68 PROV-durable: espejo de `proveedor-wa`. La fila vive en la base del
   // comercio; sin base estos mapas son la copia. `resetStore` los tira.
   proveedorContactos: new Map<string, import("../modules/whatsapp/proveedor.js").ContactoProveedor>(),

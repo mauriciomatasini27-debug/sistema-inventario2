@@ -9,6 +9,7 @@ import {
 } from "../inventario/inventario.js";
 import { registrar_movimiento, type Movimiento, type Rol } from "../cash/caja.js";
 import { aplicar_descuentos, type DescuentoSpec, type LineaConDescuento } from "./descuentos.js";
+import { esCantidadValida } from "./linea_peso.js";
 
 // Orquestador puro venta mostrador (TV1/TV3/TV6/TV7, ADR-0004).
 // Compone descontar + total + siguiente_numero + registrar_movimiento en orden
@@ -33,6 +34,7 @@ export interface LineaMostrador {
   readonly sku: Sku;
   readonly cantidad: number;
   readonly precioCentavos: bigint;
+  readonly porPeso?: boolean | undefined;
 }
 
 export type TicketEmitido =
@@ -129,14 +131,19 @@ export function vender_mostrador(input: VenderMostradorInput): VentaMostradorRes
   const visto = input.vistos.get(input.idempotencyKey);
   if (visto) return { ok: false, codigo: "YA_VISTA", status: 409, original: visto };
   for (const l of input.lineas) {
-    if (!l.sku || !Number.isInteger(l.cantidad) || l.cantidad < 1 || l.cantidad > 999 || l.precioCentavos < 0n) {
+    if (
+      !l.sku ||
+      (l.porPeso !== undefined && typeof l.porPeso !== "boolean") ||
+      !esCantidadValida(l.cantidad, l.porPeso) ||
+      l.precioCentavos < 0n
+    ) {
       return { ok: false, codigo: "LINEA_INVALIDA", status: 422 };
     }
   }
 
   const d = descontar({
     lotes: input.lotes,
-    lineas: input.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad })),
+    lineas: input.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad, porPeso: l.porPeso })),
     modo: input.offline ? "OFFLINE_PERMITIDO" : "ONLINE",
     idemKey: input.idempotencyKey,
     ...(input.skusSinStockInicial !== undefined ? { sobreventaPermitida: input.skusSinStockInicial } : {}),
@@ -147,7 +154,12 @@ export function vender_mostrador(input: VenderMostradorInput): VentaMostradorRes
   // precio (Lane C ya congeló). Sin specs el neto == bruto (vía rápida
   // idéntica a la anterior).
   const calc = aplicar_descuentos({
-    lineas: input.lineas.map((l) => ({ sku: l.sku as string, cantidad: l.cantidad, precioCentavos: l.precioCentavos })),
+    lineas: input.lineas.map((l) => ({
+      sku: l.sku as string,
+      cantidad: l.cantidad,
+      precioCentavos: l.precioCentavos,
+      porPeso: l.porPeso,
+    })),
     ...(input.descuentosLinea !== undefined ? { descuentosLinea: input.descuentosLinea } : {}),
     ...(input.descuentoTicket != null ? { descuentoTicket: input.descuentoTicket } : {}),
   });

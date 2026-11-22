@@ -3,6 +3,8 @@
 // (sales.ts hoy sobre store.stock, Drizzle con FOR UPDATE mañana) aplica.
 // Misma disciplina que confirmar_venta / caja / sync-policy.
 
+import { esCantidadValida as esCantidadSegunUnidad } from "../../lib/cantidades.js";
+
 declare const SkuBrand: unique symbol;
 export type Sku = string & { readonly [SkuBrand]: "Sku" };
 
@@ -41,6 +43,7 @@ export interface MovimientoStock {
 export interface LineaInventario {
   readonly sku: Sku;
   readonly cantidad: number;
+  readonly porPeso?: boolean | undefined;
 }
 
 export interface DescuentoPorLote {
@@ -110,8 +113,8 @@ export function costoUnitarioPorSku(lotes: ReadonlyArray<LoteConCosto>): Map<str
   return out;
 }
 
-function esCantidadValida(n: number): boolean {
-  return Number.isInteger(n) && n > 0 && n <= 999;
+function esCantidadValida(n: number, porPeso?: boolean | undefined): boolean {
+  return esCantidadSegunUnidad(n, porPeso);
 }
 
 /** Orden FEFO: venceEl ASC, NULLS LAST, desempate id ASC. */
@@ -149,7 +152,7 @@ export function descontar(args: {
 }): Resultado<DescuentoOk, "SIN_STOCK" | "LINEA_INVALIDA"> {
   if (args.lineas.length === 0 || !args.idemKey) return { ok: false, codigo: "LINEA_INVALIDA" };
   for (const l of args.lineas) {
-    if (!l.sku || !esCantidadValida(l.cantidad)) return { ok: false, codigo: "LINEA_INVALIDA" };
+    if (!l.sku || !esCantidadValida(l.cantidad, l.porPeso)) return { ok: false, codigo: "LINEA_INVALIDA" };
   }
 
   const pedidos = new Map<Sku, number>();

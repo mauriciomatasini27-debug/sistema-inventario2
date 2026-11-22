@@ -25,6 +25,7 @@ export const products = pgTable(
     sku: text("sku").notNull(),
   nombre: text("nombre").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
+  porPeso: boolean("por_peso").notNull().default(false),
   stockActual: integer("stock_actual").notNull().default(0),
   sector: text("sector").notNull().default("general"),
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): origen del producto; NULL en los
@@ -60,6 +61,9 @@ export const devices = pgTable(
     tenantId: uuid("tenant_id").notNull(),
     id: uuid("id").primaryKey().defaultRandom(),
     deviceCode: text("device_code").notNull(),
+  // P10-34 [tenant]: nombre asignado por el Dueño; nullable porque 0058 no
+  // P10-34 [tenant]: rompe las filas ya registradas sin nombre.
+  nombre: text("nombre"),
   plataforma: text("plataforma").notNull(),
   appVersion: text("app_version").notNull(),
   },

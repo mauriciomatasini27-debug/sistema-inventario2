@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { sslPostgresDesdeUrl } from "../scripts/db-migrate-lib.mjs";
@@ -21,7 +21,18 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
     expect(journal.entries.some((e) => e.tag === "0052_retencion_anonimiza_auditoria")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0053_servicios_pagos_tenant")).toBe(true);
-    expect(journal.entries.length).toBe(55);
+    // P1-96: 0054 de devoluciones y 0055 de unicidad viven en main.
+    expect(journal.entries.some((e) => e.tag === "0054_devolucion_por_comercio")).toBe(true);
+    expect(journal.entries.some((e) => e.tag === "0055_unicidad_por_comercio")).toBe(true);
+    // P10-93: la 0056 agrega products.por_peso (flag de venta por peso).
+    expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
+    // P10-33: la 0057 renombra html/texto del outbox a su forma cifrada.
+    expect(journal.entries.some((e) => e.tag === "0057_email_outbox_cifrado")).toBe(true);
+    // #357: 0058 devices.nombre; ambas conviven en el journal final.
+    expect(journal.entries.some((e) => e.tag === "0058_devices_nombre")).toBe(true);
+    // #295 + #357 pueden mergear en cualquier orden: comparar con los .sql
+    // reales evita que un literal se quede corto cuando llegue el otro tag.
+    expect(journal.entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -227,8 +238,9 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // P1-96: el wrapper aplica hasta la última migración del journal (0054 incluida).
-        expect(n[0]?.n).toBe(55);
+        // P1-96 + P10-93 [plataforma]: el wrapper aplica hasta la última migración del journal (0056 incluida).
+        const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: unknown[] };
+        expect(n[0]?.n).toBe(journal.entries.length);
       } finally {
         await db.end();
       }

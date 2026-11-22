@@ -1,12 +1,13 @@
 import { and, eq, isNull, like } from "drizzle-orm";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
-import { products, stockMovements } from "../../db/schema.js";
+import { products, stockMovements, tenants, whatsappIdentities } from "../../db/schema.js";
 import { notificationEvents, type AlertaStockPayload } from "../../db/schema-email.js";
 import { purchaseOrders } from "../../db/schema-proveedores.js";
 import { suppliers } from "../../db/schema-proveedores.js";
 import { productAliases, whatsappSessions } from "../../db/schema-whatsapp.js";
-import { conTenant, tenantActual } from "../tenant-mode.js";
-import { dbVivaTenant, type TenantDb } from "../server-db.js";
+import { conTenant, esModoAisladoPorTenant, esModoShared, tenantActual } from "../tenant-mode.js";
+import { getControlDb } from "../db.js";
+import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import {
   control,
   crearAlmacenPrecios,
@@ -78,7 +79,7 @@ export async function listarCatalogoConFuente(tenantId?: string): Promise<{ item
   if (!db) return { items: conParticion(tenantId, catalogoVivoMemoria), fuente: "memoria" };
   try {
     const filas = await db
-      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty })
+      .select({ sku: products.sku, nombre: products.nombre, stock: products.stockActual, precio: products.precioCentavos, minStock: products.minStock, reorderQty: products.reorderQty, porPeso: products.porPeso })
       .from(products);
     const aliases = await aliasesPorSku(db, tenantId);
     return {
@@ -89,6 +90,7 @@ export async function listarCatalogoConFuente(tenantId?: string): Promise<{ item
         umbral: p.minStock ?? 0,
         precioCentavos: p.precio,
         proveedor: null,
+        porPeso: p.porPeso,
         alias: aliases.get(p.sku) ?? [],
         ...(p.reorderQty != null ? { reorderQty: p.reorderQty } : {}),
       })),
@@ -114,8 +116,12 @@ function esUmbralFaltante(e: unknown): boolean {
 function catalogoVivoMemoria(): ItemVivo[] {
   const fichas = crearAlmacenProductos().comoMapaSoloLectura();
   const umbrales = new Map<string, { minStock: number | null; reorderQty: number | null }>();
-  for (const f of fichas.values()) umbrales.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
-  return catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo(), umbrales);
+  const porPeso = new Map<string, boolean>();
+  for (const f of fichas.values()) {
+    umbrales.set(f.sku, { minStock: f.minStock, reorderQty: f.reorderQty });
+    if (f.porPeso !== undefined) porPeso.set(f.sku, f.porPeso);
+  }
+  return catalogo_vivo(crearAlmacenStock().mapaVivo(), crearAlmacenPrecios().mapaVivo(), umbrales, porPeso);
 }
 
 // Sesión corta por número (30 min, sin datos de stock).
@@ -271,6 +277,63 @@ export async function listarMovimientosVista(ahoraMs: number, tenantId?: string)
   );
 }
 
+export interface BotLinkVivo {
+  readonly tenantId: string;
+  readonly googleSub: string;
+  readonly numero: string;
+  readonly estado: string;
+  readonly nombreComercio: string;
+  readonly estadoTenant: string;
+}
+
+// P10-29 [tenant]: identidades y comercios se leen de control (misma fuente que
+// duenoAviso). Sin URL en single/shared-lab se usa el mapa global; en multi sin
+// base se propaga BaseNoDisponible para que la ruta responda 503.
+export async function linksBotVivos(): Promise<Map<string, BotLinkVivo>> {
+  if (!process.env.CONTROL_DATABASE_URL) {
+    if (esModoAisladoPorTenant() && !esModoShared()) throw new BaseNoDisponible();
+    const memoria = new Map<string, BotLinkVivo>();
+    for (const [numero, l] of control.botLinks) {
+      const t = control.tenants.get(l.tenantId);
+      if (!t) continue;
+      memoria.set(numero, {
+        tenantId: l.tenantId,
+        googleSub: l.googleSub,
+        numero,
+        estado: l.estado,
+        nombreComercio: t.nombreComercio,
+        estadoTenant: t.estado,
+      });
+    }
+    return memoria;
+  }
+  const filas = await getControlDb()
+    .select({
+      numero: whatsappIdentities.numero,
+      tenantId: whatsappIdentities.tenantId,
+      googleSub: whatsappIdentities.googleSub,
+      estado: whatsappIdentities.estado,
+      nombreComercio: tenants.nombreComercio,
+      estadoTenant: tenants.estado,
+    })
+    .from(whatsappIdentities)
+    .innerJoin(tenants, eq(whatsappIdentities.tenantId, tenants.id))
+    .where(and(eq(whatsappIdentities.estado, "verificado"), isNull(whatsappIdentities.revocadoAt)));
+  const vivos = new Map<string, BotLinkVivo>();
+  for (const f of filas) {
+    if (!f.numero || !f.tenantId || !f.googleSub) continue;
+    vivos.set(f.numero, {
+      tenantId: f.tenantId,
+      googleSub: f.googleSub,
+      numero: f.numero,
+      estado: f.estado,
+      nombreComercio: f.nombreComercio,
+      estadoTenant: f.estadoTenant,
+    });
+  }
+  return vivos;
+}
+
 export interface ComercioBot {
   readonly tenantId: string;
   readonly nombreComercio: string;
@@ -313,6 +376,7 @@ export async function catalogoAvisoVivo(tenantId?: string): Promise<ItemStock[]>
     stock: c.stock,
     umbral: c.umbral,
     proveedor: c.proveedor ?? null,
+    ...(c.porPeso !== undefined ? { porPeso: c.porPeso } : {}),
     ...(c.reorderQty != null ? { reorderQty: c.reorderQty } : {}),
   }));
 }

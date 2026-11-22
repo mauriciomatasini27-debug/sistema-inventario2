@@ -1,10 +1,15 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { products } from "../../db/schema.js";
 import { tenantProductSeeds } from "../../db/schema-planes.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { tenantActual, tenantPorDefecto } from "../tenant-mode.js";
 import { tenantIdAlSellar } from "../tenant-scope.js";
-import { marcarProductosSembradosRubro, productosSembradosRubro } from "../eventos-control.js";
+import {
+  marcarProductosSembradosRubro,
+  marcarVersionSiembraProductos,
+  productosSembradosRubro,
+  versionSiembraProductos,
+} from "../eventos-control.js";
 import {
   VERSION_PLANTILLAS_PRODUCTOS_RUBRO,
   plantilla_productos_rubro,
@@ -35,7 +40,30 @@ export interface RegistroSiembraProductos {
   readonly cantidad: number;
 }
 
-// Idempotente: la primera siembra gana (ON CONFLICT DO NOTHING).
+async function leerRegistroSiembra(tenantId: string): Promise<RegistroSiembraProductos | null> {
+  const db = dbDe(tenantId);
+  if (!db) return null;
+  try {
+    const filas = await db
+      .select({
+        rubro: tenantProductSeeds.rubro,
+        version: tenantProductSeeds.plantillaVersion,
+        cantidad: tenantProductSeeds.cantidad,
+      })
+      .from(tenantProductSeeds)
+      .where(eq(tenantProductSeeds.tenantId, tenantId))
+      .limit(1);
+    return filas[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function versionVigente(tenantId: string): boolean {
+  const version = versionSiembraProductos(tenantId);
+  return version === null || version === VERSION_PLANTILLAS_PRODUCTOS_RUBRO;
+}
+
 export async function registrarSiembraProductos(
   tenantId: string,
   r: RegistroSiembraProductos,
@@ -43,14 +71,24 @@ export async function registrarSiembraProductos(
   const db = dbDe(tenantId);
   if (!db) {
     marcarProductosSembradosRubro(tenantId);
+    marcarVersionSiembraProductos(tenantId, r.version);
     return false;
   }
   try {
+    await db
+      .delete(tenantProductSeeds)
+      .where(
+        and(
+          eq(tenantProductSeeds.tenantId, tenantId),
+          ne(tenantProductSeeds.plantillaVersion, VERSION_PLANTILLAS_PRODUCTOS_RUBRO),
+        ),
+      );
     await db
       .insert(tenantProductSeeds)
       .values({ tenantId, rubro: r.rubro, plantillaVersion: r.version, cantidad: r.cantidad })
       .onConflictDoNothing();
     marcarProductosSembradosRubro(tenantId);
+    marcarVersionSiembraProductos(tenantId, r.version);
     return true;
   } catch {
     return false;
@@ -60,19 +98,9 @@ export async function registrarSiembraProductos(
 export async function leerSiembraProductos(
   tenantId: string = tenantActual() ?? tenantPorDefecto(),
 ): Promise<boolean> {
-  if (productosSembradosRubro(tenantId)) return true;
-  const db = dbDe(tenantId);
-  if (!db) return false;
-  try {
-    const filas = await db
-      .select({ t: tenantProductSeeds.tenantId })
-      .from(tenantProductSeeds)
-      .where(eq(tenantProductSeeds.tenantId, tenantId))
-      .limit(1);
-    return filas.length > 0;
-  } catch {
-    return false;
-  }
+  if (productosSembradosRubro(tenantId)) return versionVigente(tenantId);
+  const registro = await leerRegistroSiembra(tenantId);
+  return registro !== null && registro.version === VERSION_PLANTILLAS_PRODUCTOS_RUBRO;
 }
 
 class YaSembrado extends Error {}
@@ -101,6 +129,14 @@ export async function sembrarProductosRubro(
     let cantidad: number;
     try {
       cantidad = await db.transaction(async (tx) => {
+        await tx
+          .delete(tenantProductSeeds)
+          .where(
+            and(
+              eq(tenantProductSeeds.tenantId, tenantId),
+              ne(tenantProductSeeds.plantillaVersion, VERSION_PLANTILLAS_PRODUCTOS_RUBRO),
+            ),
+          );
         const seed = await tx
           .insert(tenantProductSeeds)
           .values({ tenantId, rubro, plantillaVersion: VERSION_PLANTILLAS_PRODUCTOS_RUBRO, cantidad: 0 })
@@ -132,11 +168,13 @@ export async function sembrarProductosRubro(
     } catch (e) {
       if (e instanceof YaSembrado) {
         marcarProductosSembradosRubro(tenantId);
+        marcarVersionSiembraProductos(tenantId, VERSION_PLANTILLAS_PRODUCTOS_RUBRO);
         return { ok: false, codigo: "YA_SEMBRADO" };
       }
       throw e;
     }
     marcarProductosSembradosRubro(tenantId);
+    marcarVersionSiembraProductos(tenantId, VERSION_PLANTILLAS_PRODUCTOS_RUBRO);
     return { ok: true, cantidad };
   }
 
@@ -165,5 +203,6 @@ export async function sembrarProductosRubro(
     creados += 1;
   }
   marcarProductosSembradosRubro(tenantId);
+  marcarVersionSiembraProductos(tenantId, VERSION_PLANTILLAS_PRODUCTOS_RUBRO);
   return { ok: true, cantidad: creados };
 }

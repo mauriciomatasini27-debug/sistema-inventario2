@@ -1,0 +1,6 @@
+{
+  "tag": "0057_email_outbox_cifrado",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente por Mauri el 2026-11-22 para la deuda #295 (cifrado de html/texto del outbox de email, plan PLAN-COM-01-B). Tag reservado antes del merge del PR que trae el .sql, igual que 0056. Aplicación pendiente en la base real."
+}

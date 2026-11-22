@@ -6,7 +6,8 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { utilityBills } from "../src/db/schema-servicios.js";
-import { cashMovements } from "../src/db/schema.js";
+import { cashMovements,
+  stockLots } from "../src/db/schema.js";
 import { products } from "../src/db/schema.js";
 import { randomUUID } from "node:crypto";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
@@ -177,6 +178,7 @@ async function borrarRastroPG() {
       await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, claveCobroPG));
       await db.delete(customerMovements).where(eq(customerMovements.customerId, clientePG));
       await db.delete(customers).where(eq(customers.id, clientePG));
+      await db.delete(stockLots).where(eq(stockLots.sku, skuPG));
       await db.delete(products).where(eq(products.sku, skuPG));
       await db.delete(utilityBills).where(eq(utilityBills.messageId, messagePG));
     });

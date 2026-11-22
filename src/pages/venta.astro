@@ -194,9 +194,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           <button id="visor-camara-cancelar" type="button">Cancelar</button>
         </dialog>
         <div class="datos-linea">
-          <label>Cantidad <input id="qty" type="number" value={harness.data === "worst" ? VENTA_WORST.qty : 1} min="1" /></label>
-          <label>Precio (pesos) <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
+          <label><span id="cantidad-etiqueta">Cantidad</span> <input id="qty" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="1" value={harness.data === "worst" ? VENTA_WORST.qty : 1} /></label>
+          <label><span id="precio-etiqueta">Precio (pesos)</span> <input id="precio" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Ej. 1.234,50" value={pesosParaInput(harness.data === "worst" ? VENTA_WORST.precioCentavos : 15000)} /></label>
         </div>
+        <p id="peso-error" class="estado" role="alert" hidden></p>
         <label id="alta-nombre-label" hidden>Nombre del producto nuevo <input id="alta-nombre" maxlength="120" /></label>
         <p id="alta-precio-ayuda" class="estado" hidden>Si no tiene precio cargado, poné el de esta venta en el campo Precio de arriba.</p>
         <ul id="resultados" hidden aria-label="Resultados"></ul>
@@ -282,12 +283,19 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import { codigoDispositivoLocal } from "../offline/device-code-local.js";
       import { debeDrenarPorVisibilidad, drenadoUnico, textoDeDrenado } from "../offline/drenado-unico.js";
       import { contarPendientesCola, reducirIndicadorSync } from "../offline/indicador-sync.js";
-      import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
+      import { agregarProvisorio, debeDescargar, descargarCatalogo, descartarCatalogoLegado, esPorPesoLocal, leerCatalogoLocal, precioLocal } from "../offline/catalogo-local.js";
       import { avisoStockLocalAgotado, stockLocal } from "../offline/stock-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import { formatearCentavos } from "../lib/panel-modulos.js";
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
+      import {
+        convertirKgAGramos,
+        esCantidadValida,
+        formatearKilogramos,
+        mensajeErrorPeso,
+        subtotalLinea,
+      } from "../modules/sales/linea_peso.js";
       import { evaluarVueltoEfectivo, totalCentavosCarrito } from "../modules/sales/vuelto_efectivo.js";
       import { hitsCatalogoLocal, unirHits } from "../modules/sales/buscar_venta_ticket.js";
       import { construir_resumen_ticket, construir_wa_me_url } from "../modules/sales/ticket_share.js";
@@ -335,6 +343,29 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       // migrarla); sin tenant no se lee ni se escribe catálogo.
       if (tenant) descartarCatalogoLegado(storage, tenant);
       let catalogo = leerCatalogoLocal(storage, tenant);
+      const porPesoActual = () => esPorPesoLocal(catalogo, $("sku").value.trim());
+      const limpiarErrorPeso = () => {
+        const aviso = $("peso-error");
+        if (!aviso) return;
+        aviso.textContent = "";
+        aviso.hidden = true;
+      };
+      const mostrarErrorPeso = (mensaje) => {
+        const aviso = $("peso-error");
+        if (aviso) {
+          aviso.textContent = mensaje;
+          aviso.hidden = false;
+        }
+        estado(mensaje);
+      };
+      const pintarUnidad = () => {
+        const porPeso = porPesoActual();
+        const etiquetaCantidad = $("cantidad-etiqueta");
+        const etiquetaPrecio = $("precio-etiqueta");
+        if (etiquetaCantidad) etiquetaCantidad.textContent = porPeso ? "Peso (kg)" : "Cantidad";
+        if (etiquetaPrecio) etiquetaPrecio.textContent = porPeso ? "Precio ($/kg)" : "Precio (pesos)";
+        $("qty").placeholder = porPeso ? "Ej. 1,250" : "1";
+      };
       const fechaCatalogo = (iso) => {
         const partes = fechaAR(new Date(iso)).split("-");
         return (partes[2] ?? "") + "/" + (partes[1] ?? "") + " " + horaMinutoAR(new Date(iso));
@@ -342,8 +373,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
       // el nombre para darlo de alta al cobrar. El precio es el de la línea.
       // TB-160: el alta solo sigue a un código desconocido. Una búsqueda a medias no es un alta.
-      // STOCK-S2 [rol]: el alta al vender no depende de crear_productos; registrar_venta
-      // crea el producto con origen alta_al_vender sin chequear rol.
       let pedirNombre = false;
       const mostrarAlta = () => {
         const sku = $("sku").value.trim();
@@ -358,6 +387,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           ? "Catálogo del " + fechaCatalogo(catalogo.descargadoEl)
           : "Sin catálogo descargado";
         mostrarAlta();
+        pintarUnidad();
       };
       mostrarCatalogo();
       let precioEditado = false;
@@ -373,7 +403,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           skuElegido = $("sku").value;
           precioEditado = false;
           pedirNombre = false;
+          limpiarErrorPeso();
         }
+        pintarUnidad();
         completarPrecio();
         mostrarAlta();
         programarBusqueda();
@@ -384,6 +416,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         skuElegido = sku;
         precioEditado = false;
         pedirNombre = false;
+        limpiarErrorPeso();
+        pintarUnidad();
         completarPrecio();
         mostrarAlta();
         estado("Lista.");
@@ -440,7 +474,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         return nombresLinea.get(linea.product_id) || linea.product_id;
       };
       const textoTotal = () => {
-        const total = carrito.reduce((acc, l) => acc + l.qty * l.precio_centavos, 0);
+        const total = carrito.reduce(
+          (acc, l) => acc + Number(subtotalLinea(l.qty, l.precio_centavos, l.porPeso)),
+          0,
+        );
         return "Total: " + formatearCentavos(total);
       };
       const pintarLineaLectura = (ul, linea) => {
@@ -451,13 +488,13 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         nombre.textContent = nombreDeLinea(linea);
         const qty = document.createElement("span");
         qty.className = "qty";
-        qty.textContent = String(linea.qty);
+        qty.textContent = linea.porPeso ? formatearKilogramos(linea.qty) + " kg" : String(linea.qty);
         const etiqueta = document.createElement("span");
         etiqueta.className = "etiqueta";
         etiqueta.textContent = "Subtotal";
         const monto = document.createElement("span");
         monto.className = "monto";
-        monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
+        monto.textContent = formatearCentavos(Number(subtotalLinea(linea.qty, linea.precio_centavos, linea.porPeso)));
         const menos = document.createElement("button");
         menos.type = "button";
         menos.textContent = "−";
@@ -491,10 +528,10 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           li.className = "producto";
           const nombre = document.createElement("span");
           nombre.className = "nombre";
-          nombre.textContent = nombreDeLinea(linea) + " × " + linea.qty;
+          nombre.textContent = nombreDeLinea(linea) + " × " + (linea.porPeso ? formatearKilogramos(linea.qty) + " kg" : linea.qty);
           const monto = document.createElement("span");
           monto.className = "monto";
-          monto.textContent = formatearCentavos(linea.qty * linea.precio_centavos);
+          monto.textContent = formatearCentavos(Number(subtotalLinea(linea.qty, linea.precio_centavos, linea.porPeso)));
           li.append(nombre, monto);
           ul.appendChild(li);
         }
@@ -516,15 +553,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         const idx = carrito.findIndex((l) => l.product_id === product_id);
         const linea = carrito[idx];
         if (!linea) return;
-        const qty = linea.qty + delta;
+        const qty = linea.qty + delta * (linea.porPeso ? 100 : 1);
         if (qty < 1) {
           carrito = carrito.filter((l) => l.product_id !== product_id);
           nombresLinea.delete(product_id);
           pintarCarrito();
           return;
         }
-        if (qty > 999) {
-          estado("la cantidad tiene que ser un entero de 1 a 999");
+        if (!esCantidadValida(qty, linea.porPeso)) {
+          estado(linea.porPeso ? "El peso tiene que estar entre 1 g y 1000 kg" : "la cantidad tiene que ser un entero de 1 a 999");
           return;
         }
         const next = carrito.slice();
@@ -540,12 +577,25 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           return false;
         }
         const product_id = $("sku").value.trim();
-        const qty = Number($("qty").value);
+        const porPeso = porPesoActual();
+        let qty;
+        if (porPeso) {
+          const gramos = convertirKgAGramos($("qty").value);
+          if (!gramos.ok) {
+            mostrarErrorPeso(mensajeErrorPeso(gramos.motivo));
+            return false;
+          }
+          qty = gramos.gramos;
+        } else {
+          qty = Number($("qty").value);
+        }
+        limpiarErrorPeso();
         const nombre = $("alta-nombre-label").hidden ? "" : $("alta-nombre").value.trim();
         const linea = {
           product_id,
           qty,
           precio_centavos: parseo.centavos,
+          ...(porPeso ? { porPeso: true } : {}),
           ...(nombre ? { alta: { nombre } } : {}),
         };
         const r = fusionarLinea(carrito, linea);
@@ -634,6 +684,8 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             $("sku").value = hit.sku;
             skuElegido = hit.sku;
             precioEditado = false;
+            limpiarErrorPeso();
+            pintarUnidad();
             completarPrecio();
             if (precioLocal(catalogo, hit.sku) === null) $("precio").value = pesosParaInput(hit.precioCentavos);
             if (hit.nombre && hit.nombre !== hit.sku) nombresLinea.set(hit.sku, hit.nombre);
@@ -772,11 +824,15 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           li.className = "producto";
           const nombre = document.createElement("span");
           nombre.className = "nombre";
-          nombre.textContent = l.sku + " × " + l.cantidad;
+          nombre.textContent = l.porPeso
+            ? l.sku + " — " + l.descripcion
+            : l.sku + " × " + l.cantidad;
           const monto = document.createElement("span");
           monto.className = "monto";
           const unit = Number(l.precio);
-          monto.textContent = formatearCentavos(Number.isFinite(unit) ? unit * l.cantidad : 0);
+          monto.textContent = l.porPeso
+            ? formatearCentavos(Number(l.subtotal ?? 0))
+            : formatearCentavos(Number.isFinite(unit) ? unit * l.cantidad : 0);
           li.append(nombre, monto);
           ul.appendChild(li);
         }
@@ -1391,6 +1447,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
           totalCentavos: BigInt(lastTicket.total),
           medio: lastTicket.medio,
           comercio: "Comercio",
+          lineas: lastTicket.lineas.map((l) => ({
+            sku: l.sku,
+            cantidad: l.cantidad,
+            precioCentavos: l.precio,
+            porPeso: l.porPeso,
+          })),
         });
         const wa = construir_wa_me_url({ toE164: to, resumen });
         if (!wa.ok) { estado("teléfono inválido"); return; }
@@ -1416,7 +1478,12 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
               provisorio: lastTicket.provisorio,
               fechaIso: new Date().toISOString(),
               medio: lastTicket.medio,
-              lineas: lastTicket.lineas.map((l) => ({ sku: l.sku, cantidad: l.cantidad, precioCentavos: l.precio })),
+              lineas: lastTicket.lineas.map((l) => ({
+                sku: l.sku,
+                cantidad: l.cantidad,
+                precioCentavos: l.precio,
+                porPeso: l.porPeso,
+              })),
               totalBrutoCentavos: lastTicket.total,
               totalDescuentoCentavos: "0",
               totalNetoCentavos: lastTicket.total,

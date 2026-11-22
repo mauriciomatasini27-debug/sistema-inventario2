@@ -1,9 +1,18 @@
+import { formatearPesos } from "./pesos.js";
+
 export interface ProductoCatalogo {
   sku: string;
   nombre: string;
   precioCentavos: number | string;
+  porPeso?: boolean | undefined;
   min_stock?: number | null;
   reorder_qty?: number | null;
+  stock_disponible?: number | null;
+}
+
+export function etiquetaPrecioCatalogo(p: Pick<ProductoCatalogo, "precioCentavos" | "porPeso">): string {
+  const precio = formatearPesos(p.precioCentavos);
+  return p.porPeso === true ? `${precio} / kg` : `${precio} / unidad`;
 }
 
 export const LOCALE_PRECIO = "es-AR";

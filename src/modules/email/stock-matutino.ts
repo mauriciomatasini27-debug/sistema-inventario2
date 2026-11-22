@@ -11,6 +11,7 @@ export interface ItemStock {
   readonly proveedor: string | null;
   readonly ubicacion?: string | null | undefined;
   readonly critico?: boolean | undefined;
+  readonly porPeso?: boolean | undefined;
   // ALR-S1: cantidad a reponer (products.reorder_qty); ausente = sin valor.
   readonly reorderQty?: number | null | undefined;
 }
@@ -24,6 +25,7 @@ export interface AlertaStock {
   readonly ubicacion: string | null;
   readonly sugerido: number;
   readonly urgente: boolean;
+  readonly porPeso?: boolean | undefined;
 }
 
 export function clave_matutino(tenantId: string, fecha: string): string {
@@ -57,6 +59,7 @@ export function calcular_matutino(
       ubicacion: it.ubicacion ?? null,
       sugerido: sugerido_para(it.stock, it.umbral, urgente),
       urgente,
+      porPeso: it.porPeso,
     });
   }
   alertas.sort((a, b) => {
@@ -76,6 +79,12 @@ export interface PlantillaMatutino {
 
 function escapar(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// P10-95 [tenant]: el stock por peso se mide en gramos; sin la unidad el número
+// crudo se lee como unidades y el aviso induce a pedir la cantidad equivocada.
+function cantidad(a: AlertaStock, valor: number): string {
+  return a.porPeso === true ? `${valor} g` : String(valor);
 }
 
 export function armar_matutino(args: {
@@ -105,7 +114,7 @@ export function armar_matutino(args: {
           items
             .map(
               (a) =>
-                `<tr><td style="padding:6px 0;border-bottom:1px solid #e7e2d9;">${escapar(a.nombre)} — quedan ${a.stock} (umbral ${a.umbral}) — sugerido: ${a.sugerido}` +
+                `<tr><td style="padding:6px 0;border-bottom:1px solid #e7e2d9;">${escapar(a.nombre)} — quedan ${cantidad(a, a.stock)} (umbral ${cantidad(a, a.umbral)}) — sugerido: ${cantidad(a, a.sugerido)}` +
                 (a.ubicacion ? ` — ${escapar(a.ubicacion)}` : "") +
                 (a.urgente ? ` <strong>URGENTE</strong>` : "") +
                 `</td></tr>`,
@@ -115,7 +124,7 @@ export function armar_matutino(args: {
     );
     bloquesTexto.push(
       `${prov} (${items.length}) — [Armar pedido]\n` +
-        items.map((a) => `  • ${a.nombre} — quedan ${a.stock} (umbral ${a.umbral}) — sugerido: ${a.sugerido}${a.urgente ? " URGENTE" : ""}`).join("\n"),
+        items.map((a) => `  • ${a.nombre} — quedan ${cantidad(a, a.stock)} (umbral ${cantidad(a, a.umbral)}) — sugerido: ${cantidad(a, a.sugerido)}${a.urgente ? " URGENTE" : ""}`).join("\n"),
     );
   }
   const guardados = args.guardadosViernes ?? 0;
@@ -134,7 +143,7 @@ export function armar_matutino(args: {
     bloquesTexto.join("\n\n") +
     guardTxt +
     `\n\n[Ver todas las alertas en la app]\nBaja: {{baja_url}}`;
-  const primeros = args.alertas.slice(0, 5).map((a) => `${a.nombre} (${a.stock})`).join(", ");
+  const primeros = args.alertas.slice(0, 5).map((a) => `${a.nombre} (${cantidad(a, a.stock)})`).join(", ");
   const resto = n > 5 ? ` y ${n - 5} más` : "";
   const waTexto = `Stock bajo (${n}): ${primeros}${resto}. Ver email.`;
   return { asunto, html, texto, waTexto };

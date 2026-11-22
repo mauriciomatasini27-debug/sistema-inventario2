@@ -32,6 +32,11 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // /api/devices/register: ruta de control con sesión que persiste el device y
 // su grant inicial en la base del tenant explícito del cuerpo (SYNC-S6,
 // PRD-SYNC-01); no corre bajo el middleware de datos.
+// /api/devices/nombrar: hermana de register; el Dueño nombra el device con
+// tenant_id del cuerpo validado por membership (P10-34, #357).
+// /api/auth/sesiones y /api/tenants/[id]/sesiones: listados de control con
+// sesión + membership propios que enriquecen el nombre desde devices.nombre;
+// el gate de datos resolvería el tenant por X-Tenant-Id, no por la ruta.
 // /api/onboarding/alta: alta ON1 con sesión que crea el comercio en control y
 // activa sus módulos de bot (BOT-S1, ADR-0039); no toca la base del tenant.
 // /api/onboarding/estado: P1-26 cuenta el catálogo del comercio autorizado
@@ -42,10 +47,14 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // /api/whatsapp/resumen: resumen read-only de la tarjeta `Bot` del panel, con
 // el tenant de la sesión + membership y base explícita (DASH-S3, ADR-0034).
 const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
+  "/api/admin/tenants/plan",
   "/api/billing/webhooks/mercadopago",
   "/api/bot-modulos",
   "/api/whatsapp/resumen",
   "/api/devices/register",
+  "/api/devices/nombrar",
+  "/api/auth/sesiones",
+  "/api/tenants/[id]/sesiones",
   "/api/email/send",
   "/api/jobs/alertas-stock",
   "/api/jobs/bot-pyme",
@@ -70,9 +79,24 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   // con X-Job-Secret por correrJob y tenant explícito, igual que gmail-poll.
   "/api/jobs/gmail-watch-renewer",
   "/api/admin/fiscal/certificados-vencimiento",
+  // P1-94: cambia el plan de otro comercio con auth de admin y tenant_id del
+  // cuerpo; si fuera ruta de datos el middleware resolvería el tenant de la
+  // sesión del admin en vez del comercio destinatario.
+  "/api/admin/tenants/plan",
 ]);
 
 describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", () => {
+  it("el cambio de plan de admin es excepción de control con comercio del body", () => {
+    const ruta = "/api/admin/tenants/plan";
+    expect(EXCEPCIONES_CONTROL.has(ruta)).toBe(true);
+    expect(esRutaDatos(ruta)).toBe(false);
+    // Si deja de ser excepción, el middleware tomaría el tenant de la sesión del
+    // admin en vez del tenant_id del cuerpo (P1-94).
+    const src = readFileSync(`src/pages${ruta}.ts`, "utf8");
+    expect(src).toContain("exigirAdminMutante(request)");
+    expect(src).toContain("tenant_id: z.string().min(1)");
+  });
+
   it("archivos que importan repos o tenant fuera de prefijo solo en excepciones", () => {
     const fuera: string[] = [];
     for (const f of rutasApi(join("src", "pages", "api"))) {
@@ -85,7 +109,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(26);
+    expect(EXCEPCIONES_CONTROL.size).toBe(30);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

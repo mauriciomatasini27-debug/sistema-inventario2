@@ -10,6 +10,7 @@ import {
   recalcular_lunes,
 } from "../src/modules/whatsapp/resumen-semanal.js";
 import { armar_cierre_wa, decidir_envio_cierre } from "../src/modules/whatsapp/resumen-cierre.js";
+import { reclamadorMemoria } from "../src/modules/whatsapp/entregas.js";
 import {
   armar_alerta_vencimiento,
   descartar_2_semanas,
@@ -77,7 +78,7 @@ describe("B9 semanal WA", () => {
 });
 
 describe("B14 cierre WA", () => {
-  it("usa snapshot exacto y no duplica por jornada", () => {
+  it("usa snapshot exacto y no duplica por jornada", async () => {
     const snap = {
       tenantId: "t1",
       cierreId: "c1",
@@ -93,13 +94,13 @@ describe("B14 cierre WA", () => {
     expect(r.texto).toContain("efectivo");
     // El texto sale del snapshot: si cambia el real, el WA no se mueve.
     const tienda = new Map<string, string>();
-    const d1 = decidir_envio_cierre(tienda, { snapshot: snap, rol: "dueno" });
+    const d1 = await decidir_envio_cierre(reclamadorMemoria(tienda), { snapshot: snap, rol: "dueno" });
     expect(d1.ok).toBe(true);
-    const d2 = decidir_envio_cierre(tienda, { snapshot: snap, rol: "dueno" });
+    const d2 = await decidir_envio_cierre(reclamadorMemoria(tienda), { snapshot: snap, rol: "dueno" });
     expect(d2).toEqual({ ok: false, motivo: "duplicado_jornada" });
-    const sinPermiso = decidir_envio_cierre(new Map(), { snapshot: snap, rol: "empleado", permisos: [] });
+    const sinPermiso = await decidir_envio_cierre(reclamadorMemoria(new Map()), { snapshot: snap, rol: "empleado", permisos: [] });
     expect(sinPermiso).toEqual({ ok: false, motivo: "sin_permiso" });
-    const conPermiso = decidir_envio_cierre(new Map(), {
+    const conPermiso = await decidir_envio_cierre(reclamadorMemoria(new Map()), {
       snapshot: snap,
       rol: "empleado",
       permisos: ["ver_saldos"],

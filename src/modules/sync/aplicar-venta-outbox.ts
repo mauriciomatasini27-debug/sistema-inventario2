@@ -31,7 +31,14 @@ export async function aplicarVentaOutbox(e: {
   const b = parsed.data;
   const reg = await registrar_venta({
     key: e.opId,
-    lineas: b.lineas,
+    // P10-93 [tenant]: no reenviamos `por_peso` del payload; el repo resuelve
+    // la unidad desde el catálogo por SKU/id también en el replay offline.
+    lineas: b.lineas.map((l) => ({
+      product_id: l.product_id,
+      qty: l.qty,
+      precio_centavos: l.precio_centavos,
+      ...(l.alta !== undefined ? { alta: l.alta } : {}),
+    })),
     medio: b.medio,
     deviceCode: b.device_code,
     seqLocal: b.seq_local,

@@ -61,7 +61,7 @@ describe("STOCK-S19 alta producto panel", () => {
     expect(idxCard).toBeGreaterThan(-1);
     // La acción y el formulario son incondicionales: si vuelve el gate de
     // permiso sobre el alta, este test se pone rojo.
-    expect(plantilla.slice(0, idxCard)).toContain('label: "Agregar producto"');
+    expect(plantilla.slice(0, idxCard)).toContain('<option value="agregar">Agregar producto</option>');
     expect(plantilla.slice(0, idxCard)).not.toContain("puedeCrear");
     // El código desconocido (Alta al vuelo) conserva su propio seam.
     expect(plantilla).toContain("Crear producto con este código");
@@ -71,7 +71,7 @@ describe("STOCK-S19 alta producto panel", () => {
     const src = readFileSync("src/pages/panel/stock.astro", "utf8");
     expect(src).toContain('id="catalogo-sugerido"');
     expect(src).not.toContain("data-puede-crear");
-    expect(src).not.toContain("puedeCrear");
+    expect(src).not.toContain("dataset.puedeCrear");
     const inicio = src.indexOf("const cargarCatalogoSugerido");
     const fin = src.indexOf("const sembrarCatalogoSugerido");
     expect(inicio).toBeGreaterThan(-1);

@@ -5,6 +5,9 @@
 // Reglas respetadas: TV2 sin costos, TV7 leyenda obligatoria, BigInt ARS,
 // QR como URL corta (no bitmap en P2), corte + feed como marcadores de texto.
 
+import { esCantidadValida } from "../../lib/cantidades.js";
+import { formatearKilogramos, subtotalPorPeso } from "./linea_peso.js";
+
 export const COLS_58 = 32 as const;
 export const COLS_80 = 48 as const;
 // Canónica con acento (igual que vender_mostrador.ts); el texto térmico la
@@ -19,6 +22,7 @@ export interface LineaThermal {
   readonly netoCentavos?: bigint | undefined;
   /** Descuento total de la línea (línea + prorrateo ticket). Solo display. */
   readonly descuentoCentavos?: bigint | undefined;
+  readonly porPeso?: boolean | undefined;
 }
 
 export interface TicketThermalInput {
@@ -122,6 +126,11 @@ function leftRight(l: string, r: string, cols: number): string {
   return ll.slice(0, maxL) + " " + rr;
 }
 
+function right(t: string, cols: number): string {
+  const s = asciiFallback(t).trim();
+  return s.length + 1 <= cols ? repeat(" ", cols - s.length) + s : s.slice(0, cols);
+}
+
 // Wrap sin romper palabras; palabra más larga que cols se corta duro.
 export function wrapWords(text: string, cols: number): string[] {
   const clean = asciiFallback(text).replace(/\s+/g, " ").trim();
@@ -162,15 +171,34 @@ function lineasCompactas(
 ): string[] {
   const out: string[] = [];
   for (const l of lineas) {
-    const neto = l.netoCentavos ?? BigInt(l.cantidad) * l.precioCentavos;
+    const neto =
+      l.netoCentavos ??
+      (l.porPeso === true ? subtotalPorPeso(l.cantidad, l.precioCentavos) : BigInt(l.cantidad) * l.precioCentavos);
+    const dto = l.descuentoCentavos ?? 0n;
+    const netoFmt = formatArs(neto);
+    if (l.porPeso === true) {
+      const etiqueta = `${formatearKilogramos(l.cantidad)} kg x ${formatArs(l.precioCentavos)}/kg`;
+      const skuMax = Math.max(0, cols - etiqueta.length - 1);
+      let skuCorto = asciiFallback(l.sku).trim().replace(/\s+/g, " ");
+      if (skuCorto.length > skuMax) skuCorto = skuCorto.slice(0, skuMax);
+      out.push(leftRight(skuCorto, etiqueta, cols));
+      out.push(right(`= ${formatArs(subtotalPorPeso(l.cantidad, l.precioCentavos))}`, cols));
+      if (dto > 0n) {
+        const netoTxt = `${netoFmt} (-${formatArs(dto)})`;
+        if (netoTxt.length + 1 <= cols) out.push(right(netoTxt, cols));
+        else {
+          out.push(right(netoFmt, cols));
+          for (const w of wrapWords(`(-${formatArs(dto)})`, cols)) out.push(w);
+        }
+      }
+      continue;
+    }
     const precio = formatArs(l.precioCentavos);
     const etiqueta = `${l.cantidad}x ${precio}`;
     const skuMax = Math.max(4, cols - etiqueta.length - 1);
     let skuCorto = asciiFallback(l.sku).trim().replace(/\s+/g, " ");
     if (skuCorto.length > skuMax) skuCorto = skuCorto.slice(0, skuMax);
     out.push(leftRight(skuCorto, etiqueta, cols));
-    const dto = l.descuentoCentavos ?? 0n;
-    const netoFmt = formatArs(neto);
     if (dto <= 0n) {
       out.push(
         netoFmt.length + 1 <= cols
@@ -201,9 +229,7 @@ function validar(input: TicketThermalInput): FalloThermal | null {
   for (const l of input.lineas) {
     if (
       !l.sku ||
-      !Number.isInteger(l.cantidad) ||
-      l.cantidad < 1 ||
-      l.cantidad > 999 ||
+      !esCantidadValida(l.cantidad, l.porPeso) ||
       l.precioCentavos < 0n
     ) {
       return { ok: false, codigo: "LINEA_INVALIDA" };

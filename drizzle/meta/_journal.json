@@ -386,6 +386,34 @@
       "when": 1795564800000,
       "tag": "0054_devolucion_por_comercio",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1795651200000,
+      "tag": "0055_unicidad_por_comercio",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795737600000,
+      "tag": "0056_products_por_peso",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1795824000000,
+      "tag": "0057_email_outbox_cifrado",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1795910400000,
+      "tag": "0058_devices_nombre",
+      "breakpoints": true
     }
   ]
 }
