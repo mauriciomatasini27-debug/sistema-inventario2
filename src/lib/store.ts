@@ -398,6 +398,7 @@ export function resetStore() {
   control.ejemplos.clear();
   control.bienvenidas.clear();
   control.semillasProductos.clear();
+  control.semillasProductosVersion.clear();
   control.proveedorContactos.clear();
   control.proveedorInvitaciones.clear();
   control.proveedorCupo.clear();
@@ -535,6 +536,7 @@ export const control = {
   // PRD-STOCK-01 STOCK-S8 (ADR-0107): tenants con la plantilla de productos
   // ya confirmada. Espejo en memoria de tenant_product_seeds.
   semillasProductos: new Set<string>(),
+  semillasProductosVersion: new Map<string, string>(),
   // #68 PROV-durable: espejo de `proveedor-wa`. La fila vive en la base del
   // comercio; sin base estos mapas son la copia. `resetStore` los tira.
   proveedorContactos: new Map<string, import("../modules/whatsapp/proveedor.js").ContactoProveedor>(),

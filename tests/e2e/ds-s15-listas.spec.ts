@@ -84,11 +84,11 @@ for (const tema of ["claro", "oscuro"] as const) {
 
     test("/panel/stock marca la fila del SKU tipeado y las cantidades tienen énfasis AA", async ({ page }) => {
       await abrir(page, "/panel/stock?data=mil", tema);
-      await page.locator("#ingreso-sku").fill(" mil-0002 ");
+      await page.locator("#codigo-producto").fill(" mil-0002 ");
       const seleccionadas = page.locator('table.tabla-catalogo tr[data-seleccionada="true"]');
       await expect(seleccionadas).toHaveCount(1);
       await expect(seleccionadas.locator("td.sku")).toHaveText("MIL-0002");
-      await page.locator("#ingreso-sku").fill("");
+      await page.locator("#codigo-producto").fill("");
       await expect(seleccionadas).toHaveCount(0);
       const cantidad = page.locator("table.tabla-catalogo td.cantidad").first();
       // Virtuoso puede re-renderizar la fila entre el locator y el evaluate: se reintenta.

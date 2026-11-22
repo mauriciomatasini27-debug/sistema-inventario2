@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
-import { dependenciasIncumplidas, planDePasos, resumir, textoResumen } from "./verify-lib.mjs";
+import { dependenciasIncumplidas, maxWorkersVerify, planDePasos, resumir, textoResumen } from "./verify-lib.mjs";
+
+// RETRO-04: tope por defecto para que el gate sea reproducible; el env explícito gana.
+process.env.VITEST_MAX_WORKERS = String(maxWorkersVerify());
 
 const args = process.argv.slice(2);
 const docsOnly = args.includes("--docs-only");

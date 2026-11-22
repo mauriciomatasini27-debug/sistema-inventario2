@@ -2,7 +2,16 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { resolverRolEfectivo } from "../../lib/control.js";
-import { actualizarProducto, altaProducto, buscarProductoPorCodigo, listarProductos } from "../../lib/repos/catalogo.js";
+import {
+  actualizarProducto,
+  altaProducto,
+  buscarProductoPorCodigo,
+  leerStockActualPorSkus,
+  listarProductos,
+} from "../../lib/repos/catalogo.js";
+import { listarMovimientos } from "../../lib/repos/stock.js";
+import { listarLotes } from "../../lib/repos/lotes.js";
+import { derivarStockCatalogo } from "../../modules/stock/stock-disponible.js";
 import { estadoAltaDesdeRol, puedeEditarUmbrales } from "../../modules/inventario/escaneo.js";
 
 export const prerender = false;
@@ -49,7 +58,42 @@ export const GET: APIRoute = async ({ url }) => {
       return Response.json({ productos: [], alta_corta: { codigo } });
     }
     const { fichas, fuente } = await listarProductos(q);
-    return Response.json({ productos: fichas.map(conCamposHttp), fuente });
+    const productos = fichas.map(conCamposHttp);
+    if (url.searchParams.get("panel") !== "1") return Response.json({ productos, fuente });
+
+    const [stocks, movimientos, lotes] = await Promise.all([
+      leerStockActualPorSkus(fichas.map((f) => f.sku)),
+      listarMovimientos(),
+      listarLotes(),
+    ]);
+    const restantePorSku = new Map<string, number>();
+    for (const lote of lotes) {
+      const sku = lote.sku.toUpperCase();
+      restantePorSku.set(sku, (restantePorSku.get(sku) ?? 0) + lote.cantidadRestante);
+    }
+    const derivado = derivarStockCatalogo(
+      fichas.map((f) => {
+        const stockActual = stocks.get(f.sku.toUpperCase()) ?? stocks.get(f.sku) ?? 0;
+        const restanteLotes = restantePorSku.get(f.sku.toUpperCase());
+        return {
+          sku: f.sku,
+          minStock: f.minStock,
+          stockActual,
+          ...(restanteLotes === undefined ? {} : { restanteLotes }),
+        };
+      }),
+      movimientos,
+    );
+    return Response.json({
+      productos: productos.map((p) => ({ ...p, stock_disponible: derivado.celdas.get(p.sku) ?? null })),
+      kpis: {
+        bajo_minimo: derivado.bajoMinimo,
+        sin_verificar: derivado.sinVerificar,
+        total: derivado.total,
+        con_minimo: derivado.conMinimo,
+      },
+      fuente,
+    });
   } catch (e) {
     if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
     throw e;
