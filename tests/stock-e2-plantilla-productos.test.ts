@@ -275,12 +275,18 @@ describe("STOCK-S7/S8 GET y POST /api/stock/plantilla", () => {
     expect((await enviarPlantilla({ nombres: [] })).status).toBe(403);
   });
 
-  it("un empleado no puede ver ni sembrar el catálogo", async () => {
+  it("spec 433 US 4: un empleado sin crear_productos ve y siembra el catálogo de su Comercio", async () => {
     comercio("empleado", "g-2");
     const plano = sesion("g-2", "t-1");
 
-    expect((await pedirPlantilla(plano)).status).toBe(403);
-    expect((await enviarPlantilla({ nombres: ["Agua mineral 500 ml"] }, plano)).status).toBe(403);
+    const get = await pedirPlantilla(plano);
+    expect(get.status).toBe(200);
+    expect(await get.json()).toMatchObject({ rubro: "kiosco", version: "v1", sembrado: false });
+
+    const post = await enviarPlantilla({ nombres: ["Agua mineral 500 ml"] }, plano);
+    expect(post.status).toBe(200);
+    expect(await post.json()).toEqual({ ok: true, cantidad: 1 });
+    expect(store.productos.has("PLT-AGUA-MINERAL-500-ML")).toBe(true);
   });
 
   it("el Dueño ve el rubro, la versión y las sugerencias sin sembrar", async () => {

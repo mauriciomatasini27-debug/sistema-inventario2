@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BaseNoDisponible } from "../../lib/server-db.js";
 import { resolverRolEfectivo } from "../../lib/control.js";
 import { actualizarProducto, altaProducto, buscarProductoPorCodigo, listarProductos } from "../../lib/repos/catalogo.js";
-import { estadoAltaDesdeRol, puedeEditarUmbrales } from "../../modules/inventario/escaneo.js";
+import { puedeEditarUmbrales } from "../../modules/inventario/escaneo.js";
 
 export const prerender = false;
 
@@ -16,9 +16,11 @@ function conLocationId<T extends { locationId: string | null; minStock: number |
   return { ...ficha, location_id: ficha.locationId, min_stock: ficha.minStock, reorder_qty: ficha.reorderQty };
 }
 
+const MENSAJE_NOMBRE_REQUERIDO = "Too small: expected string to have >=1 characters";
+
 const crearSchema = z.object({
   sku: z.string().min(1).max(64),
-  nombre: z.string().min(1).max(200),
+  nombre: z.string().max(200).refine((n) => n.trim().length > 0, MENSAJE_NOMBRE_REQUERIDO),
   precio_centavos: z.number().int().min(0),
   sector: z.string().max(64).default("general"),
   codigo: z.string().max(64).optional(),
@@ -51,8 +53,7 @@ export const GET: APIRoute = async ({ url }) => {
 };
 
 // POST /api/products — CAT-S1 alta. 409 sku o código duplicado.
-// P9-13: el estado de alta sale del rol de sesión + membership; el body
-// `rol` se ignora (zod lo recorta). Sin sesión vale el default dueño.
+// P9-13 [rol]: la sesión + membership siguen delimitando el comercio (ADR-0066).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {
@@ -67,11 +68,6 @@ export const POST: APIRoute = async ({ request }) => {
   if (rolEfectivo.estado === "sin_permiso") {
     return Response.json({ error: "No tenés permiso en este comercio." }, { status: 403 });
   }
-  const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
-  const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : b.permisos;
-  if (estadoAltaDesdeRol(rol, permisos) !== "activo") {
-    return Response.json({ error: "Necesitás permiso de alta de productos." }, { status: 403 });
-  }
   let r: Awaited<ReturnType<typeof altaProducto>>;
   try {
     r = await altaProducto({
@@ -81,7 +77,6 @@ export const POST: APIRoute = async ({ request }) => {
       sector: b.sector,
       ...(b.codigo !== undefined ? { codigo: b.codigo } : {}),
       controlaVencimiento: b.controla_vencimiento,
-      estado: estadoAltaDesdeRol(rol, permisos),
       ...(b.location_id !== undefined ? { locationId: b.location_id } : {}),
       ...(b.min_stock !== undefined ? { minStock: b.min_stock } : {}),
       ...(b.reorder_qty !== undefined ? { reorderQty: b.reorder_qty } : {}),

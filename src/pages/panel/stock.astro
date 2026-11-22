@@ -4,65 +4,59 @@ import TableroAcciones from "../../components/panel/TableroAcciones.astro";
 import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
-import { resolverRolEfectivo } from "../../lib/control.js";
-import { puedeCrearProductos, rolParaNav } from "../../lib/panel-modulos.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 const tenant = tenantDeRequest(Astro.request);
 const tenantId = tenant.ok ? tenant.tenantId : null;
-const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
-const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
   <TableroAcciones
     acciones={[
-      ...(puedeCrear ? [{ href: "#alta-producto-card", label: "Agregar producto", ancho: "completo" as const }] : []),
+      { href: "#alta-producto-card", label: "Agregar producto", ancho: "completo" as const },
       { href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" },
       { href: "/panel/alertas/umbrales", label: "Editar umbrales" },
       { href: "/panel/precios", label: "Precios" },
     ]}
   />
-  {puedeCrear ? (
-    <section class="card" id="alta-producto-card">
-      <h2>Agregar producto</h2>
-      <p class="estado">Nombre obligatorio. El código es opcional; si no ponés uno, generamos un SKU interno.</p>
-      <form id="alta-producto-form">
-        <div class="fila">
-          <label>Nombre
-            <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Código de barras (opcional)
-            <input id="alta-codigo" data-campo="codigo" type="text" maxlength="64" autocomplete="off" inputmode="numeric" />
-          </label>
-          <button id="alta-leer-camara" type="button">Escanear</button>
-        </div>
-        <div class="fila">
-          <label>Precio de venta (pesos, opcional)
-            <input id="alta-precio" data-campo="precio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 1.234,50" />
-          </label>
-          <label>Cantidad inicial (opcional)
-            <input id="alta-cantidad" data-campo="cantidad" type="number" min="0" max="99999" step="1" inputmode="numeric" />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Ubicación (opcional)
-            <select id="alta-ubicacion" data-campo="location_id">
-              <option value="">Sin ubicación</option>
-            </select>
-          </label>
-        </div>
-        <button id="alta-producto-enviar" type="submit">Guardar producto</button>
-        <div class="estado" id="estado-alta-producto" role="status"></div>
-        <div class="fila" id="alta-duplicado-acciones" hidden>
-          <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
-        </div>
-      </form>
-    </section>
-  ) : null}
+  <section class="card" id="alta-producto-card">
+    <h2>Agregar producto</h2>
+    <p class="estado">Nombre obligatorio. El código es opcional; si no ponés uno, generamos un SKU interno.</p>
+    <form id="alta-producto-form">
+      <div class="fila">
+        <label>Nombre
+          <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Código de producto (opcional)
+          <input id="alta-codigo" data-campo="codigo" type="text" maxlength="64" autocomplete="off" inputmode="numeric" />
+        </label>
+        <button id="alta-leer-camara" type="button">Escanear</button>
+      </div>
+      <div class="fila">
+        <label>Precio de venta (pesos, opcional)
+          <input id="alta-precio" data-campo="precio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 1.234,50" />
+        </label>
+        <label>Cantidad inicial (opcional)
+          <input id="alta-cantidad" data-campo="cantidad" type="number" min="0" max="99999" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Ubicación (opcional)
+          <select id="alta-ubicacion" data-campo="location_id">
+            <option value="">Sin ubicación</option>
+          </select>
+        </label>
+      </div>
+      <button id="alta-producto-enviar" type="submit">Guardar producto</button>
+      <div class="estado" id="estado-alta-producto" role="status"></div>
+      <div class="fila" id="alta-duplicado-acciones" hidden>
+        <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
+      </div>
+    </form>
+  </section>
   <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
-  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
+  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
@@ -525,7 +519,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   };
 
   const cargarCatalogoSugerido = () => {
-    if ($("catalogo-sugerido").dataset.puedeCrear === "no") return;
     fetch("/api/stock/plantilla")
       .then((r) => {
         if (r.status === 403) {

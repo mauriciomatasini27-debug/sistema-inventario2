@@ -68,9 +68,16 @@ describe("panel: cada pill resuelve a una página real", () => {
     expect(caja).toContain('id="saldo-caja"');
     expect(caja).toContain("puedeVerSaldoCaja");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain("data-puede-crear");
-    expect(stock).toContain("puedeCrearProductos");
-    expect(leer("src/pages/panel/stock/importar.astro")).toContain("hidden={!puedeCrear}");
+    expect(stock).not.toContain("data-puede-crear");
+    expect(stock).not.toContain("puedeCrearProductos");
+    expect(stock).toContain('{ href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" }');
+  });
+
+  it("spec 433 T2: el formulario de importar es visible para el Empleado (rojo si vuelve el gate)", () => {
+    const importar = leer("src/pages/panel/stock/importar.astro");
+    expect(importar).toContain('<form id="form-importar">');
+    expect(importar).not.toContain("hidden={!puedeCrear}");
+    expect(importar).not.toContain("No tenés permiso para dar de alta productos.");
   });
 
   it("cada destino de Más existe como página", () => {
