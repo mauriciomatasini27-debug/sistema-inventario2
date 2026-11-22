@@ -31,7 +31,7 @@ Dueño y Empleado pueden crear productos mediante **Alta al vuelo** y mediante *
 
 - El alta por código desconocido en la venta y en el panel de stock se ofrece a Dueño y Empleado por igual.
 - La Alta de catálogo no exige `crear_productos`: la creación explícita (`POST /api/products`) y la confirmación de importación (`/api/stock/importar/confirmar`) quedan disponibles para Dueño y Empleado dentro de su Comercio y con sesión válida.
-- El panel de stock muestra a ambos roles el formulario `Agregar producto`, la acción de importar y el catálogo sugerido; esos controles ya no se ocultan por permiso ni dependen de un `data-puede-crear`.
+- El panel de stock muestra a ambos roles el formulario `Agregar producto`, la acción de importar y el catálogo sugerido; esos controles ya no se ocultan por permiso ni dependen de un `data-puede-crear`. `/api/stock/plantilla` (GET y POST) tampoco exige Dueño: sesión válida, membership activa y Comercio siguen siendo el límite (ADR-0066).
 - El contrato HTTP y los mensajes de error se conservan; la validación de nombre y precio sigue vigente (T1 sumó el rechazo de nombres vacíos o solo espacios, reutilizando el mensaje original del esquema para que la respuesta 422 no cambie). Solo cambia la regla de autorización.
 - `Código de producto` conserva su definición: es el identificador, no un código de barras.
 - `Producto provisorio`, `Alta al vuelo` y `Alta de catálogo` pasan a ser términos del glosario.
