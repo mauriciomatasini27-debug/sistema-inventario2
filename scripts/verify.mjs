@@ -52,6 +52,7 @@ if (!docsOnly) {
     console.error("verify: falta Postgres (PG_TEST_URL_A/B). Corré en la caja o usá --docs-only.");
     process.exit(2);
   }
+  correr("node scripts/verify-preflight.mjs --sin-arch");
 }
 
 const resultados = [];

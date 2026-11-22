@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-// Diagnóstico previo a `npm run verify`: separa fallos del cambio de fallos del
-// entorno (arch con archivos ajenos al diff, bases con migraciones desalineadas).
+// Diagnóstico del entorno antes de `npm run verify`: separa fallos del cambio
+// de fallos ajenos (arch con archivos fuera del diff, bases desalineadas).
 // Es informativo: siempre sale con código 0 para no alterar el gate de merge.
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { clasificarArch, estadoMigraciones } from "./verify-preflight-lib.mjs";
+import { archivosPropios, clasificarFallosArch, estadoArch, estadoMigraciones } from "./verify-preflight-lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sinArch = process.argv.includes("--sin-arch");
 
 function git(...args) {
   try {
@@ -18,12 +19,14 @@ function git(...args) {
   }
 }
 
-function archivosCambiados() {
-  const lineas = [git("diff", "--name-only", "HEAD"), git("ls-files", "--others", "--exclude-standard")];
-  return lineas
-    .flatMap((s) => s.split(/\r?\n/))
-    .map((s) => s.trim().replace(/\\/g, "/"))
-    .filter(Boolean);
+function baseRef() {
+  const explicita = String(process.env.PREFLIGHT_BASE ?? "").trim();
+  if (explicita) return explicita;
+  for (const candidato of ["origin/main", "main"]) {
+    const base = git("merge-base", "HEAD", candidato).trim();
+    if (base) return base;
+  }
+  return git("rev-parse", "HEAD~1").trim() || "HEAD";
 }
 
 function journalEntries() {
@@ -53,25 +56,30 @@ async function conteoMigraciones(url) {
 }
 
 async function main() {
-  const cambiados = archivosCambiados();
-  const arch = spawnSync("npm", ["run", "check:arch"], { cwd: root, encoding: "utf8" });
-  const salida = `${arch.stdout ?? ""}\n${arch.stderr ?? ""}`;
-  const fallos = clasificarArch(salida, cambiados);
+  const base = baseRef();
+  const cambiados = archivosPropios(
+    git("diff", "--name-only", `${base}...HEAD`),
+    git("diff", "--name-only", "HEAD"),
+    git("ls-files", "--others", "--exclude-standard"),
+  );
 
+  let sucio = false;
   console.log("--- check:arch ---");
-  if (arch.status === 0) {
-    console.log("ok");
-  } else if (fallos.length === 0) {
-    console.log("falló, pero no se pudo atribuir ningún archivo (revisá la salida arriba)");
+  if (sinArch) {
+    console.log("omitido (--sin-arch)");
   } else {
+    const arch = spawnSync("npm", ["run", "check:arch"], { cwd: root, encoding: "utf8" });
+    const fallos = clasificarFallosArch(`${arch.stdout ?? ""}\n${arch.stderr ?? ""}`, cambiados);
+    const estado = estadoArch(arch.status, fallos);
+    console.log(`arch: ${estado.estado}${arch.status === 0 ? "" : ` (base ${base})`}`);
     for (const f of fallos) {
       console.log(`${f.archivo} [${f.origen === "mio" ? "MIO" : "PREEXISTENTE"}] -> ${f.ruta}`);
     }
+    sucio = estado.sucio;
   }
 
   const entries = journalEntries();
   console.log("--- migraciones ---");
-  let sucio = fallos.some((f) => f.origen === "preexistente");
   for (const [nombre, url] of [
     ["A", process.env.PG_TEST_URL_A || urlLocal("pers_tenant_a")],
     ["B", process.env.PG_TEST_URL_B || urlLocal("pers_tenant_b")],
@@ -83,7 +91,10 @@ async function main() {
       continue;
     }
     const estado = estadoMigraciones(aplicadas, entries);
-    console.log(`${nombre}: DB=${estado.aplicadas} journal=${estado.journal} [${estado.motivo.toUpperCase()}]${estado.detalle ? " " + estado.detalle : ""}`);
+    console.log(
+      `${nombre}: DB=${estado.aplicadas} journal=${estado.journal} [${estado.motivo.toUpperCase()}]${estado.detalle ? " " + estado.detalle : ""}`,
+    );
+    if (estado.remediacion) console.log(`  remediacion: ${estado.remediacion}`);
     if (!estado.ok) sucio = true;
   }
 

@@ -47,7 +47,7 @@ single-context. See `docs/agents/domain.md`.
 
 ## Gate de merge
 
-- Si `npm run verify` falla, corré `node scripts/verify-preflight.mjs` antes de atribuir el fallo: separa los archivos que están en tu diff de los ajenos, y chequea que las bases A/B tengan el mismo número de migraciones que `drizzle/meta/_journal.json`. Es diagnóstico, no cambia el gate.
+- `verify` corre `node scripts/verify-preflight.mjs --sin-arch` al arrancar y reporta si las bases A/B están alineadas con `drizzle/meta/_journal.json`. Si `verify` falla en `arch`, corré `node scripts/verify-preflight.mjs` (sin flag): atribuye cada archivo comparándolo con tu diff (`<base>...HEAD`) y dice cómo realinear las bases. Es diagnóstico, no cambia el gate.
 - `npm run verify` (Node 22, Postgres A/B) verde y `node scripts/cadena/puede-mergear.mjs <PR>` exit 0; después squash-merge y borrar la rama.
 - GitHub Actions quedó manual-only (`workflow_dispatch`, ADR-0086): el gate real es `npm run verify`.
 - `puede-mergear.mjs` bloquea si el título/cuerpo dice "No mergear"/"DO NOT MERGE", o si el PR agrega `drizzle/*.sql` cuyo tag no tiene `docs/roadmap/migraciones/<tag>.json` en `main`.
