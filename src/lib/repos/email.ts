@@ -2,8 +2,9 @@ import { eq } from "drizzle-orm";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { emailOutbox, notificationEvents } from "../../db/schema-email.js";
 import { listarMovimientosCaja } from "./movimientos-caja.js";
-import { conTenant, tenantActual } from "../tenant-mode.js";
+import { conTenant, tenantActual, tenantIdAlSellar } from "../tenant-mode.js";
 import { dbVivaTenant } from "../server-db.js";
+import { cifrarCampoOutbox } from "../../modules/email/outbox-cifrado.js";
 import { crearAlmacenEmailEventos, crearAlmacenEmailOutbox, crearListaMovimientos } from "./_almacen.js";
 import { encolar_resumen_cierre, type EncolarResultado, type OutboxPendiente } from "../../modules/email/resumen-cierre.js";
 import type { DatosCierre } from "../../modules/email/plantilla-cierre.js";
@@ -75,6 +76,25 @@ function pendienteDeEnvio(input: EntradaEnvio): OutboxPendiente {
   };
 }
 
+// P10-33 [tenant]: el AAD es el tenant con el que se sella la fila; sin contexto la fila cae al espejo en memoria.
+function tenantParaCifrar(tenantId?: string): string | null {
+  if (tenantId) return tenantId;
+  try {
+    return tenantIdAlSellar() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function cuerpoCifradoOutbox(html: string, texto: string, tenantId?: string) {
+  const tid = tenantParaCifrar(tenantId);
+  if (!tid) return { htmlCiphertext: html, textoCiphertext: texto };
+  return {
+    htmlCiphertext: cifrarCampoOutbox(html, tid, "html"),
+    textoCiphertext: cifrarCampoOutbox(texto, tid, "texto"),
+  };
+}
+
 // Cola de envíos (CH-S1): email_outbox del tenant con DB viva, memoria
 // particionada en single sin base. En multi sin base propaga.
 export async function encolarEnvio(input: EntradaEnvio & {
@@ -92,16 +112,17 @@ export async function encolarEnvio(input: EntradaEnvio & {
     });
     return { ok: true, key: input.key, fuente: "memoria" };
   }
+  const envio = pendienteDeEnvio(input);
+  // P10-33 [tenant]: cifrar fuera del try; sin clave se falla, no se cae al espejo.
+  const cuerpo = cuerpoCifradoOutbox(envio.html, envio.texto, input.tenantId);
   try {
-    const envio = pendienteDeEnvio(input);
     await db.insert(emailOutbox).values(
       filaConTenant({
         categoria: input.stream,
         plantilla: input.plantilla,
         destinatario: envio.destinatario,
         asunto: envio.asunto,
-        html: envio.html,
-        texto: envio.texto,
+        ...cuerpo,
         idempotencyKey: envio.idempotencyKey,
         estado: envio.estado,
         providerMessageId: envio.providerMessageId,
@@ -189,6 +210,7 @@ export async function encolarResumen(input: {
   if (r.status !== 201) return r;
   const db = dbVivaTenant(input.tenantId);
   if (!db) return r;
+  const cuerpo = cuerpoCifradoOutbox(r.envio.html, r.envio.texto, input.tenantId);
   try {
     await db.transaction(async (tx) => {
       await tx
@@ -211,8 +233,7 @@ export async function encolarResumen(input: {
             plantilla: "cierre_v1",
             destinatario: r.envio.destinatario,
             asunto: r.envio.asunto,
-            html: r.envio.html,
-            texto: r.envio.texto,
+            ...cuerpo,
             idempotencyKey: r.envio.idempotencyKey,
             estado: "pendiente",
           }),

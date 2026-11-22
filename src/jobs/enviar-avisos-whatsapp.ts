@@ -10,6 +10,7 @@ import { aviso_wa, PLANTILLAS_EMAIL_AVISO_WA } from "../modules/whatsapp/avisos-
 import type { ResultadoEnvio } from "../modules/whatsapp/cliente-cloud.js";
 import type { PayloadPlantilla } from "../modules/whatsapp/envio.js";
 import { LOTE_POR_DEFECTO, listoParaIntentar, marcar, tomar } from "./enviar-emails.js";
+import { descifrarCampoOutbox } from "../modules/email/outbox-cifrado.js";
 
 // WA-AVISOS-1: Avisos de cuenta por WhatsApp (Mauri 2026-11-21 04:15): las filas de
 // email_outbox con plantilla en PLANTILLAS_AVISO_WA salen como plantilla de
@@ -70,7 +71,8 @@ export async function ejecutarAvisosWhatsapp(
   for (const f of filas) {
     const dueno = duenos.get(f.tenantId) ?? (await deps.dueno(f.tenantId));
     duenos.set(f.tenantId, dueno);
-    const aviso = aviso_wa(f, dueno.comercio);
+    const texto = descifrarCampoOutbox(f.textoCiphertext, f.tenantId, "texto");
+    const aviso = aviso_wa({ plantilla: f.plantilla, idempotencyKey: f.idempotencyKey, texto }, dueno.comercio);
     if (aviso && !deps.aprobada(aviso.plantilla)) {
       r.sinPlantilla++;
       continue;

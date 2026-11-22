@@ -15,6 +15,7 @@ import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { proveedorContactos } from "../src/db/schema-proveedores.js";
 import { filaPg } from "./helpers/pg-tenant-fixture.js";
+import { descifrarCampoOutbox } from "../src/modules/email/outbox-cifrado.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
 const ENV_KEYS = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL"] as const;
@@ -261,9 +262,11 @@ describe.skipIf(!hayPG)("P1-81 periferia shared en Postgres", () => {
     expect(cruzada).toHaveLength(0);
     expect(filasA[0]?.destinatario).toBe(emailA);
     expect(filasB[0]?.destinatario).toBe(emailB);
-    expect(filasA[0]?.texto).not.toEqual(filasB[0]?.texto);
-    expect(filasA[0]?.texto).toContain("Comercio A");
-    expect(filasB[0]?.texto).toContain("Comercio B");
+    const textoA = descifrarCampoOutbox(filasA[0]!.textoCiphertext, tenantA, "texto");
+    const textoB = descifrarCampoOutbox(filasB[0]!.textoCiphertext, tenantB, "texto");
+    expect(textoA).not.toEqual(textoB);
+    expect(textoA).toContain("Comercio A");
+    expect(textoB).toContain("Comercio B");
     vi.useRealTimers();
   });
 });

@@ -38,6 +38,7 @@ import {
   whatsappUsage,
 } from "../db/schema-whatsapp.js";
 import { descifrarRefreshTokenGmail } from "../lib/repos/google-conexiones.js";
+import { cifrarCampoOutbox } from "../modules/email/outbox-cifrado.js";
 import { revocarTokenGoogle } from "../modules/integraciones/google-oauth.js";
 import { type AvisoRetencion, elegir_tenants_retencion, type TenantCerrable } from "../modules/tenants/retencion-clientes.js";
 
@@ -498,8 +499,12 @@ async function avisarDueno(aviso: AvisoRetencion): Promise<boolean> {
       plantilla: "retencion_aviso_v1",
       destinatario: fila.email,
       asunto,
-      html: `<p>${texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
-      texto,
+      htmlCiphertext: cifrarCampoOutbox(
+        `<p>${texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+        aviso.id,
+        "html",
+      ),
+      textoCiphertext: cifrarCampoOutbox(texto, aviso.id, "texto"),
       idempotencyKey: `retencion-aviso:${aviso.id}:${aviso.cierre}`,
       estado: "pendiente",
     })
