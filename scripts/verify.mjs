@@ -1,6 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
-import { dependenciasIncumplidas, planDePasos, resumir } from "./verify-lib.mjs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
+import {
+  REPORTE_VITEST,
+  dependenciasIncumplidas,
+  lineasResumen,
+  nombresTestsFallidos,
+  planDePasos,
+  resumir,
+} from "./verify-lib.mjs";
 
 const args = process.argv.slice(2);
 const docsOnly = args.includes("--docs-only");
@@ -58,21 +65,21 @@ const resultados = [];
 for (const paso of planDePasos({ docsOnly })) {
   const faltan = dependenciasIncumplidas(paso, resultados);
   if (faltan.length > 0) {
-    const motivo = `depende de ${faltan.join(", ")}`;
+    const motivo = `falló ${faltan.join(", ")}`;
     resultados.push({ nombre: paso.nombre, skipped: true, motivo });
-    console.log(`verify: se salta ${paso.nombre} (${motivo})`);
     continue;
   }
+  if (paso.nombre === "test" && existsSync(REPORTE_VITEST)) rmSync(REPORTE_VITEST);
   const inicio = Date.now();
   const code = correr(comandoDe(paso));
   resultados.push({ nombre: paso.nombre, code, ms: Date.now() - inicio });
 }
 
-const { ok, fallidos, saltados, total } = resumir(resultados);
+const resumen = resumir(resultados);
 if (rutaRecibo) {
-  const recibo = { fecha: new Date().toISOString(), head: head(), docsOnly, pg, ok, pasos: resultados };
+  const recibo = { fecha: new Date().toISOString(), head: head(), docsOnly, pg, ok: resumen.ok, pasos: resultados };
   writeFileSync(rutaRecibo, `${JSON.stringify(recibo, null, 2)}\n`);
 }
-if (saltados.length > 0) console.log(`verify se saltó: ${saltados.join(", ")} (motivo en el recibo)`);
-console.log(ok ? `verify ok (${total} pasos)` : `verify falló en: ${fallidos.join(", ")}`);
-process.exit(ok ? 0 : 1);
+const nombres = resumen.fallidos.includes("test") ? nombresTestsFallidos(REPORTE_VITEST) : [];
+for (const linea of lineasResumen(resumen, { rutaRecibo, nombres })) console.log(linea);
+process.exit(resumen.ok ? 0 : 1);
