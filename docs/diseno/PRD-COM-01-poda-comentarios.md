@@ -15,6 +15,8 @@ resumen: |
 
 Fuente: skill `no-comments` de pstack (agente `comment-sicko` en `.opencode/`). Uso en este sistema: todo `src/` de cualquier comercio, sin reglas por rubro salvo las que el código ya marca como propias de un rubro (por ejemplo kiosco). Restringido por ADR-0064. Tipo proceso según ADR-0016.
 
+> Estado al 2026-11-22: en curso. Ola 1 de `PLAN-COM-01-E` ejecutada por área hasta `src/lib/` (commit `338a16e`); las deudas publicadas se cierran por issue. Cerrada #337 (PR #409, commit `0ae65ea`): `payeesVivos` ya no traga el fallo del select de beneficiarios — `console.warn` + `anteFalloPersistencia`, `BaseNoDisponible` en multi y memoria caliente en single; ver `docs/roadmap/avances/P10-26.md` y `tests/com-337-payees-select-fallido.test.ts`.
+
 ## Problema
 
 Los agentes copian los comentarios junto con el código. Un comentario que explica un parche temporal hace que el parche se repita en otras rutas. Un comentario falso se repite como verdad: ya hubo comentarios que decían que una tabla no existía cuando la tabla estaba en `src/db`.
