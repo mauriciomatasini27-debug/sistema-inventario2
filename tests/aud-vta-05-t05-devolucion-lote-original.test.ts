@@ -334,6 +334,29 @@ describe.skipIf(!hayPG)("AUD-VTA-05 T05 devolución al Lote original con Postgre
     });
   });
 
+  it("el tope de unidades suma todos los Lotes de una devolución anterior", async () => {
+    const base = bases[0]!;
+    const sku = `T05DBTOPE${sufijo}`.toUpperCase();
+    skus.push(sku);
+    await conBase(base.url, async () => {
+      await sembrar(sku, 3, [
+        { cantidad: 2, vence: new Date("2026-11-20T00:00:00.000Z") },
+        { cantidad: 1, vence: new Date("2026-12-20T00:00:00.000Z") },
+      ]);
+      const saleId = await vender(sku, 3, `t05-db-tope-venta-${sufijo}`, 2000);
+
+      expect((await devolver(saleId, sku, 1, `t05-db-tope-dev1-${sufijo}`)).status).toBe(201);
+      expect((await devolver(saleId, sku, 2, `t05-db-tope-dev2-${sufijo}`)).status).toBe(201);
+
+      const estado = await estadoDe(sku);
+      expect(estado.stockActual).toBe(3);
+
+      // La plata alcanza (4000 <= 6000): el rechazo es por unidades.
+      const tercera = await devolver(saleId, sku, 1, `t05-db-tope-dev3-${sufijo}`);
+      expect(tercera.status).toBe(422);
+      expect(await tercera.json()).toMatchObject({ error: "devolución supera lo vendido", sku, disponible: 0 });
+    });
+  });
 });
 
 describe("AUD-VTA-05 T05 devolución al Lote original en memoria", () => {
@@ -452,4 +475,61 @@ describe("AUD-VTA-05 T05 devolución al Lote original en memoria", () => {
     expect(crearAlmacenStock().obtener(sku)).toBe(2);
   });
 
+  it("el tope de unidades suma todos los Lotes de una devolución anterior", async () => {
+    const sku = `T05TOPE${sufijo}`;
+    const pronto = await crearLote({
+      sku,
+      cantidad: 2,
+      venceEl: "2026-11-20T00:00:00.000Z",
+      costoCentavos: 100,
+      controlaVencimiento: true,
+      idemKey: `t05-tope-alta-pronto-${sufijo}`,
+    });
+    const tarde = await crearLote({
+      sku,
+      cantidad: 1,
+      venceEl: "2026-12-20T00:00:00.000Z",
+      costoCentavos: 100,
+      controlaVencimiento: true,
+      idemKey: `t05-tope-alta-tarde-${sufijo}`,
+    });
+    expect(pronto.ok && tarde.ok).toBe(true);
+    if (!pronto.ok || !tarde.ok) throw new Error("altas fallaron");
+
+    const v = await registrar_venta({
+      key: `t05-tope-venta-${sufijo}`,
+      lineas: [{ product_id: sku, qty: 3, precio_centavos: 2000 }],
+      medio: "Efectivo",
+      deviceCode: `t05-tope-${sufijo}`.slice(0, 32),
+      seqLocal: 1,
+      offline: false,
+      clientOccurredAt: "2026-11-06T15:00:00.000Z",
+    });
+    expect(v.ok).toBe(true);
+    if (!v.ok) throw new Error("venta rechazada");
+
+    const devolver = (key: string, cantidad: number, monto: bigint) =>
+      registrarDevolucion({
+        key,
+        saleId: v.venta.saleId,
+        montoCentavos: monto,
+        items: [{ sku, cantidad }],
+        medio: "Efectivo",
+        motivo: "devolución parcial",
+        actor: "duena",
+        clientOccurredAt: "2026-11-07T15:00:00.000Z",
+      });
+
+    expect((await devolver(`t05-tope-dev1-${sufijo}`, 1, 1000n)).ok).toBe(true);
+    expect((await devolver(`t05-tope-dev2-${sufijo}`, 2, 2000n)).ok).toBe(true);
+    expect(crearAlmacenStock().obtener(sku)).toBe(3);
+
+    // La plata alcanza (4000 <= 6000): el rechazo es por unidades.
+    const tercera = await devolver(`t05-tope-dev3-${sufijo}`, 1, 1000n);
+    expect(tercera.ok).toBe(false);
+    if (tercera.ok) throw new Error("la tercera devolución debió rechazarse");
+    if (tercera.status !== 422) throw new Error("la tercera devolución debió ser 422");
+    expect(tercera.error).toBe("devolución supera lo vendido");
+    expect(tercera.disponible).toBe(0);
+  });
 });
