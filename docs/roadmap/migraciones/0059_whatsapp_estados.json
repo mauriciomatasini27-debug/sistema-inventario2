@@ -1,6 +1,6 @@
 {
   "tag": "0059_whatsapp_estados",
   "fecha": "2026-11-22",
-  "aprobado_por": "PENDIENTE",
-  "evidencia": "Escrita para el pipeline de estados del webhook de WhatsApp (sent/delivered/read/failed) que necesita el panel de envíos. Tag reservado antes del merge del PR que trae el .sql. Aplicacion pendiente de aprobacion de Mauri y de correrla en las bases."
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente por Mauri el 2026-11-22 para el pipeline de estados del webhook de WhatsApp (sent/delivered/read/failed) que necesita el panel de envíos. Tag reservado antes del merge del PR que trae el .sql, igual que 0056 y 0058. Ejecutada el 2026-11-22 con el splitter y el filtro reales de scripts/db-migrate-lib.mjs sobre un Postgres embebido (PGlite 0.5.17 / PostgreSQL 18.7): 4 ALTER, 0 salteados, idempotente en segunda corrida, 2 filas previas intactas en NULL y columnas nuevas escribibles. Aplicación en las bases reales pendiente: TENANT_DATABASE_URL=… npm run db:migrate."
 }
