@@ -324,6 +324,7 @@ export interface FichaCatalogo {
   sku: string;
   nombre: string;
   precioCentavos: number;
+  porPeso?: boolean | undefined;
   // PRD-STOCK-01 STOCK-S9: espejo de products.origen en memoria.
   origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined;
   sector: string;

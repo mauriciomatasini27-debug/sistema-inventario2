@@ -1,7 +1,7 @@
 // pg_cron no se configura en este repo: el cron vive fuera y pega al endpoint.
 
 import type { DireccionAviso } from "../modules/alertas/destinatarios.js";
-import { clave_alerta_stock, es_quiebre, umbral_efectivo, type CanalAlerta } from "../modules/alertas/stock-bajo.js";
+import { clave_alerta_stock, es_quiebre, umbralEnGramos, umbral_efectivo, type CanalAlerta } from "../modules/alertas/stock-bajo.js";
 
 export interface ItemAlertaJob {
   readonly sku: string;
@@ -10,6 +10,7 @@ export interface ItemAlertaJob {
   readonly minimo: number | null | undefined;
   readonly ventas7d: number;
   readonly proveedor: string | null;
+  readonly porPeso?: boolean | undefined;
   readonly reorderQty?: number | null | undefined;
 }
 
@@ -92,7 +93,7 @@ export async function ejecutar_alertas_stock(args: {
   let omitidasYa = 0;
 
   for (const it of args.catalogo) {
-    const umbral = umbral_efectivo(it.minimo, it.ventas7d);
+    const umbral = it.porPeso === true ? umbralEnGramos(it.minimo) : umbral_efectivo(it.minimo, it.ventas7d);
     if (umbral == null) continue;
     if (!(it.stock <= umbral)) continue;
     if (args.modo === "quiebre" && !es_quiebre(it.stock)) continue;

@@ -30,6 +30,7 @@ export const POST: APIRoute = async ({ request }) => {
       precioCentavos?: string | number;
       netoCentavos?: string | number;
       descuentoCentavos?: string | number;
+      porPeso?: boolean;
     }>;
     totalBrutoCentavos?: string | number;
     totalDescuentoCentavos?: string | number;
@@ -56,6 +57,7 @@ export const POST: APIRoute = async ({ request }) => {
         precioCentavos: BigInt(l.precioCentavos as string),
         ...(l.netoCentavos != null ? { netoCentavos: BigInt(l.netoCentavos as string) } : {}),
         ...(l.descuentoCentavos != null ? { descuentoCentavos: BigInt(l.descuentoCentavos as string) } : {}),
+        ...(l.porPeso === true ? { porPeso: true } : {}),
       })),
       totalBrutoCentavos: BigInt(b.totalBrutoCentavos as string),
       totalDescuentoCentavos: BigInt(b.totalDescuentoCentavos as string),

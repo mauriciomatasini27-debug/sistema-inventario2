@@ -1,6 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { getTenantDb } from "../../lib/db.js";
-import { crearAlmacenLotes, crearAlmacenStock, crearListaMovimientosStock } from "../../lib/repos/_almacen.js";
+import {
+  crearAlmacenLotes,
+  crearAlmacenProductos,
+  crearAlmacenStock,
+  crearListaMovimientosStock,
+} from "../../lib/repos/_almacen.js";
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
 import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
@@ -38,6 +43,7 @@ export interface LineaVentaInput {
   readonly product_id: string;
   readonly qty: number;
   readonly precio_centavos: number;
+  readonly porPeso?: boolean | undefined;
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo. El SKU es product_id y
   // el precio es el de la línea; acá solo llega el nombre.
   readonly alta?: { readonly nombre: string } | undefined;
@@ -271,6 +277,12 @@ function espejarAltaMemoria(lineas: ReadonlyArray<LineaVentaInput>): void {
   }
 }
 
+// P10-93 [tenant]: la unidad la decide el catálogo, nunca el `por_peso` del body.
+// Un cliente viejo o malicioso no puede cambiar el significado de una línea.
+function resolverPorPesoMemoria(productId: string): boolean {
+  return crearAlmacenProductos().obtener(productId)?.porPeso === true;
+}
+
 function lotesParaVentaMemoria(): Lote[] {
   const reales: Lote[] = [...crearAlmacenLotes().comoMapaSoloLectura().values()]
     .filter((l) => l.cantidadRestante > 0)
@@ -291,7 +303,12 @@ function viaMemoria(i: RegistrarVentaInput): { ok: true; venta: VentaRegistrada 
   const costos = costosVigentesMemoria();
   const r = vender_mostrador({
     idempotencyKey: i.key,
-    lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+    lineas: i.lineas.map((l) => ({
+      sku: l.product_id as Sku,
+      cantidad: l.qty,
+      precioCentavos: BigInt(l.precio_centavos),
+      porPeso: resolverPorPesoMemoria(l.product_id),
+    })),
     medio: i.medio,
     deviceCode: i.deviceCode,
     seqLocal: i.seqLocal,
@@ -405,13 +422,28 @@ export async function registrar_venta(i: RegistrarVentaInput): Promise<{ ok: tru
       return aplicarVentaLotes(tx, { skus: skusLinea, offline: i.offline, ahora }, async (lotes) => {
         // AUD-VTA-01: la línea del ticket apunta al producto de este comercio.
         const prods = await tx
-          .select({ id: products.id, sku: products.sku })
+          .select({ id: products.id, sku: products.sku, porPeso: products.porPeso })
           .from(products)
-          .where(dondeTenant(products.tenantId, inArray(products.sku, skusLinea)));
+          .where(
+            dondeTenant(
+              products.tenantId,
+              or(inArray(products.sku, skusLinea), inArray(products.id, skusLinea.filter(esUuid))),
+            ),
+          );
         const idPorSku = new Map(prods.map((p) => [p.sku, p.id] as const));
+        const porPesoPorClave = new Map<string, boolean>();
+        for (const p of prods) {
+          porPesoPorClave.set(p.sku, p.porPeso);
+          porPesoPorClave.set(p.id, p.porPeso);
+        }
         const r = vender_mostrador({
           idempotencyKey: i.key,
-          lineas: i.lineas.map((l) => ({ sku: l.product_id as Sku, cantidad: l.qty, precioCentavos: BigInt(l.precio_centavos) })),
+          lineas: i.lineas.map((l) => ({
+            sku: l.product_id as Sku,
+            cantidad: l.qty,
+            precioCentavos: BigInt(l.precio_centavos),
+            porPeso: porPesoPorClave.get(l.product_id) ?? false,
+          })),
           medio: i.medio,
           deviceCode: i.deviceCode,
           seqLocal: i.seqLocal,

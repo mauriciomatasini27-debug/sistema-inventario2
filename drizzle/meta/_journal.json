@@ -393,6 +393,13 @@
       "when": 1795651200000,
       "tag": "0055_unicidad_por_comercio",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795737600000,
+      "tag": "0056_products_por_peso",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant, filaConTenant, tenantIdAlSellar, tenantIdShared } from "../tenant-scope.js";
 import { aplicarVentaOutbox, type ResultadoAplicarVenta } from "../../modules/sync/aplicar-venta-outbox.js";
+import { esColumnaPorPesoFaltante } from "./drift-por-peso.js";
 import {
   crearAlmacenCodigos,
   crearAlmacenDeviceSeq,
@@ -21,10 +22,12 @@ import {
   crearAlmacenGrants,
   crearAlmacenOutbox,
   crearAlmacenPrecios,
+  crearAlmacenProductos,
   crearAlmacenPromociones,
   crearAlmacenStock,
   crearContadorTickets,
   type AlmacenVivo,
+  type FichaCatalogo,
   type ContadorAlmacen,
   type LatidoSync,
   type PromocionSync,
@@ -264,6 +267,7 @@ export interface LoteSync {
     stock: Record<string, number>;
     prices: Record<string, number>;
     codes: Record<string, string>;
+    por_peso: Record<string, boolean>;
   };
   readonly total: number;
   readonly fuente: "db" | "memoria";
@@ -293,35 +297,57 @@ function mapaCodigos(
 // local aún no tiene, así que nunca se usa select() completo aquí.
 async function catalogoDesdeDb(db: TenantDb): Promise<LoteSync["catalogo"]> {
   const wProd = dondeTenant(products.tenantId);
-  const filas = wProd
-    ? await db
-        .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
-        .from(products)
-        .where(wProd)
-    : await db
-        .select({ sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos })
-        .from(products);
+  const columnas = {
+    sku: products.sku,
+    stockActual: products.stockActual,
+    precioCentavos: products.precioCentavos,
+    porPeso: products.porPeso,
+  };
+  let filas: Array<{ sku: string; stockActual: number; precioCentavos: bigint; porPeso: boolean }>;
+  try {
+    filas = wProd
+      ? await db.select(columnas).from(products).where(wProd)
+      : await db.select(columnas).from(products);
+  } catch (e) {
+    if (!esColumnaPorPesoFaltante(e)) throw e;
+    const columnasSinFlag = { sku: products.sku, stockActual: products.stockActual, precioCentavos: products.precioCentavos };
+    filas = wProd
+      ? await db.select(columnasSinFlag).from(products).where(wProd).then((fs) => fs.map((f) => ({ ...f, porPeso: false })))
+      : await db.select(columnasSinFlag).from(products).then((fs) => fs.map((f) => ({ ...f, porPeso: false })));
+  }
   const stock: Record<string, number> = {};
   const prices: Record<string, number> = {};
+  const porPeso: Record<string, boolean> = {};
   for (const f of filas) {
     stock[f.sku] = f.stockActual;
     prices[f.sku] = Number(f.precioCentavos);
+    porPeso[f.sku] = f.porPeso;
   }
   const wCod = dondeTenant(productCodes.tenantId);
   const filasCodigos = wCod
     ? await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes).where(wCod)
     : await db.select({ codigo: productCodes.codigo, sku: productCodes.sku }).from(productCodes);
-  return { stock, prices, codes: mapaCodigos(filasCodigos.map((f) => [f.codigo, f.sku] as const), stock, prices) };
+  return { stock, prices, codes: mapaCodigos(filasCodigos.map((f) => [f.codigo, f.sku] as const), stock, prices), por_peso: porPeso };
 }
 
 // Catálogo del delta en memoria: solo para single sin base y fallback single.
-function catalogoMemoria(stock: AlmacenVivo<number>, precios: AlmacenVivo<number>): LoteSync["catalogo"] {
+function catalogoMemoria(
+  stock: AlmacenVivo<number>,
+  precios: AlmacenVivo<number>,
+  productos: AlmacenVivo<FichaCatalogo>,
+): LoteSync["catalogo"] {
   const stockMap = Object.fromEntries(stock.comoMapaSoloLectura().entries());
   const prices = Object.fromEntries(precios.comoMapaSoloLectura().entries());
+  const porPeso: Record<string, boolean> = {};
+  for (const [sku, ficha] of productos.comoMapaSoloLectura()) {
+    if (!Object.hasOwn(stockMap, sku) && !Object.hasOwn(prices, sku)) continue;
+    porPeso[sku] = ficha.porPeso ?? false;
+  }
   return {
     stock: stockMap,
     prices,
     codes: mapaCodigos(crearAlmacenCodigos().comoMapaSoloLectura(), stockMap, prices),
+    por_peso: porPeso,
   };
 }
 
@@ -332,6 +358,7 @@ function loteEnMemoria(
   promociones: AlmacenVivo<PromocionSync>,
   stock: AlmacenVivo<number>,
   precios: AlmacenVivo<number>,
+  productos: AlmacenVivo<FichaCatalogo>,
 ): LoteSync {
   const entries = Array.from(buzon.comoMapaSoloLectura().entries());
   const page = entries.slice(start, start + limite);
@@ -344,7 +371,7 @@ function loteEnMemoria(
       prov: m.provisorio,
       def: m.definitivo,
     })),
-    catalogo: catalogoMemoria(stock, precios),
+    catalogo: catalogoMemoria(stock, precios, productos),
     total: buzon.comoMapaSoloLectura().size,
     fuente: "memoria",
   };
@@ -362,8 +389,9 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
   const promociones = crearAlmacenPromociones();
   const stock = crearAlmacenStock();
   const precios = crearAlmacenPrecios();
+  const productos = crearAlmacenProductos();
   const db = dbVivaTenant();
-  if (!db) return loteEnMemoria(start, tope, buzon, promociones, stock, precios);
+  if (!db) return loteEnMemoria(start, tope, buzon, promociones, stock, precios, productos);
   try {
     const filas = await db
       .select()
@@ -385,7 +413,7 @@ export async function leerLote(start: number, limite: number): Promise<LoteSync>
     };
   } catch (e) {
     buzon.anteFalloPersistencia(e);
-    return loteEnMemoria(start, tope, buzon, promociones, stock, precios);
+    return loteEnMemoria(start, tope, buzon, promociones, stock, precios, productos);
   }
 }
 

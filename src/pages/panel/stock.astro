@@ -53,6 +53,13 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
             </select>
           </label>
         </div>
+        <div class="fila">
+          <label>
+            <input id="alta-por-peso" data-campo="por_peso" type="checkbox" />
+            Se vende por peso
+          </label>
+        </div>
+        <p class="estado" id="alta-aviso-por-peso" hidden></p>
         <button id="alta-producto-enviar" type="submit">Guardar producto</button>
         <div class="estado" id="estado-alta-producto" role="status"></div>
         <div class="fila" id="alta-duplicado-acciones" hidden>
@@ -267,6 +274,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   import {
     accionSiCodigoDuplicado,
     armarAltaProducto,
+    avisoPorPeso,
     mensajeErrorAlta,
   } from "../../modules/stock/alta-producto-panel.js";
   import {
@@ -868,6 +876,17 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     if (acciones) acciones.hidden = true;
   };
 
+  const porPesoCheck = $("alta-por-peso") as HTMLInputElement | null;
+  const avisoPeso = $("alta-aviso-por-peso");
+  const pintarAvisoPorPeso = () => {
+    if (!avisoPeso || !porPesoCheck) return;
+    const texto = avisoPorPeso(porPesoCheck.checked);
+    avisoPeso.textContent = texto;
+    avisoPeso.hidden = texto === "";
+  };
+  porPesoCheck?.addEventListener("change", pintarAvisoPorPeso);
+  pintarAvisoPorPeso();
+
   $("alta-producto-form")?.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const form = evento.currentTarget as HTMLFormElement;
@@ -896,6 +915,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       nombre,
       ...(codigo ? { codigo } : {}),
       precioCentavos: precio.ok ? precio.centavos : 0,
+      porPeso: porPesoCheck?.checked ?? false,
       entropiaSku: crypto.randomUUID(),
       ...(locationId ? { locationId } : {}),
     });

@@ -37,8 +37,8 @@ describe("ADR-0123 migración 0055: unicidad por comercio", () => {
   it("el journal registra 0055 justo después de 0054", () => {
     const entries = journal().entries;
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(55);
-    expect(entries.length).toBe(56);
-    expect(entries.at(-1)?.tag).toBe(TAG);
+    expect(entries.length).toBe(57);
+    expect(entries.at(-1)?.tag).toBe("0056_products_por_peso");
   });
 });
 
