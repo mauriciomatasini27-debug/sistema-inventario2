@@ -14,7 +14,7 @@ import {
   mensajeSinId,
   pieCheckMecanico,
 } from "./comentarios-politica.mjs";
-import { agruparBloquesLinea, comentariosNuevos } from "./comentarios-scan-lib.mjs";
+import { comentariosNuevos } from "./comentarios-scan-lib.mjs";
 
 function git(...args) {
   try {
@@ -118,9 +118,9 @@ for (const archivo of archivosAEscanear()) {
     }
   }
 
-  const bloques = agruparBloquesLinea(nuevos.map((c) => ({ ...c, archivo })));
-  for (const b of bloques) {
-    const cuerpo = b.lineas.map((l) => l.cuerpo).join("\n");
+  // Cada `//` se valida solo: un id/clase válido no tapa a la línea de al lado (issue #418).
+  for (const c of nuevos.filter((x) => x.kind === "line")) {
+    const cuerpo = c.texto.replace(/^\s*\/\/\s?/, "");
     if (!cuerpo.trim()) continue;
 
     const candidatos = extraerIdsDeTexto(cuerpo);
@@ -133,22 +133,22 @@ for (const archivo of archivosAEscanear()) {
         problemas.push({
           tipo: "id-desconocido",
           archivo,
-          linea: b.lineas[0].linea,
-          detalle: mensajeIdDesconocido(mal, archivo, b.lineas[0].linea, sugerenciaRama),
+          linea: c.linea,
+          detalle: mensajeIdDesconocido(mal, archivo, c.linea, sugerenciaRama),
         });
       } else {
         problemas.push({
           tipo: "sin-id",
           archivo,
-          linea: b.lineas[0].linea,
-          detalle: mensajeSinId(archivo, b.lineas[0].linea, sugerenciaRama),
+          linea: c.linea,
+          detalle: mensajeSinId(archivo, c.linea, sugerenciaRama),
         });
       }
     } else if (!RE_CLASE.test(cuerpo)) {
       problemas.push({
         tipo: "sin-clase",
         archivo,
-        linea: b.lineas[0].linea,
+        linea: c.linea,
       });
     }
   }

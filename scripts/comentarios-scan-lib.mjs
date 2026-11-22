@@ -128,7 +128,7 @@ export function comentariosNuevos(textoNuevo, textoViejo, path) {
   return comentariosDeArchivo(textoNuevo, path).filter((c) => !viejas.has(claveEstable(c)));
 }
 
-/** Agrupa comentarios `//` contiguos en bloques para id/clase. */
+/** Agrupa comentarios `//` contiguos para otros usos; la validación de id/clase es por línea (issue #418). */
 export function agruparBloquesLinea(comentarios) {
   const lineales = comentarios.filter((c) => c.kind === "line").sort((a, b) => a.linea - b.linea);
   /** @type {{ ultima: number, lineas: { linea: number, cuerpo: string, texto: string }[] }[]} */

@@ -112,6 +112,71 @@ describe("check-comment-ids", () => {
     expect(r.salida).toContain("[rol]");
   });
 
+  it("valida cada línea contigua: un #299 no se cura con un id válido al lado", () => {
+    const repo = repoGit("cci-linea-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(
+      join(repo, "src", "dos.ts"),
+      "// #299: deuda pendiente.\n// TB-165 [tenant]: el tenant sale de la sesión.\nexport const n = 1;\n",
+    );
+    const r = correr(repo);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toContain("dos.ts:1");
+    expect(r.salida).not.toContain("dos.ts:2");
+    expect(r.salida).toContain("Nombrá un id"); // #299 no es un token con guion: cae como sin-id.
+  });
+
+  it("acepta un bloque contiguo donde cada línea lleva id y clase", () => {
+    const repo = repoGit("cci-bloque-ok-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(
+      join(repo, "src", "dos.ts"),
+      "// TB-165 [tenant]: el tenant sale de la sesión.\n// P10-24 [rol]: el Empleado no ve costos.\nexport const n = 1;\n",
+    );
+    expect(correr(repo).estado).toBe(0);
+  });
+
+  it("una línea suelta sin id falla con sin-id y nombra la línea", () => {
+    const repo = repoGit("cci-sin-id-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(join(repo, "src", "s.ts"), "// texto sin id\nexport const s = 1;\n");
+    const r = correr(repo);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toContain("s.ts:1");
+    expect(r.salida).toContain("Nombrá un id");
+  });
+
+  it("una línea suelta con id desconocido falla con id-desconocido", () => {
+    const repo = repoGit("cci-id-mal-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(join(repo, "src", "m.ts"), "// NOPE-1 [tenant]: id que no existe.\nexport const m = 1;\n");
+    const r = correr(repo);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toContain("m.ts:1");
+    expect(r.salida).toContain("Usá un id registrado");
+    expect(r.salida).toContain("NOPE-1");
+  });
+
+  it("una línea suelta con id válido pero sin clase falla con sin-clase", () => {
+    const repo = repoGit("cci-sin-clase-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(join(repo, "src", "n.ts"), "// TB-165: id válido sin clase.\nexport const n = 1;\n");
+    const r = correr(repo);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toContain("n.ts:1");
+    expect(r.salida).toContain("Escribí el porqué en una línea");
+  });
+
   it("acepta [rol] con id registrado", () => {
     const repo = repoGit("cci-rol-");
     writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
