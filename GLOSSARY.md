@@ -24,6 +24,32 @@ _Avoid_: sync Gmail, sincronización, watcheo
 Estado de referencia mínimo aceptado de una pieza (skill, componente, política o gate): el nivel a partir del cual se considera disponible; el resto queda pendiente o como deuda aceptada.
 _Avoid_: Umbral nuevo sin acuerdo, To Do, 'pendiente de definir'
 
+### Stock y lotes
+
+**Historial de stock**:
+Registro inmutable de cada entrada y salida de mercadería de un comercio. Es la única verdad sobre el stock de un producto; cualquier otro número se comprueba contra él.
+_Avoid_: movimientos de stock, log de stock, stock_movements
+
+**Stock disponible**:
+Cantidad de un producto que se puede vender en un momento dado, resultante de las entradas y salidas registradas en el historial.
+_Avoid_: stock actual, existencias, saldo de stock
+
+**Lote**:
+Grupo de unidades de un mismo producto que entraron juntas y comparten vencimiento y costo. Es la unidad con la que se controla la rotación por vencimiento.
+_Avoid_: partida, batch
+
+**Lote genérico**:
+Lote sin vencimiento que representa mercadería que entró sin una identificación de lote, como la carga inicial o un ajuste.
+_Avoid_: lote ficticio, lote semilla
+
+**FEFO**:
+Regla por la que una venta descuenta primero las unidades con vencimiento más cercano y, entre las que vencen igual, las que entraron antes.
+_Avoid_: rotación por vencimiento, primero en vencer primero
+
+**Sobreventa**:
+Venta confirmada por una cantidad mayor a la que había disponible al registrarla. Se contabiliza en caja y fiado, pero no representa una salida de stock.
+_Avoid_: stock negativo, venta en descubierto
+
 ## Roles
 
 **Dueño**:
