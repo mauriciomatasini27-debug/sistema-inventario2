@@ -176,11 +176,16 @@ export async function acumuladoDevoluciones(saleId: string, enTx?: TxVentaAbiert
 export async function devolviblesPorSku(saleId: string, enTx?: TxVentaAbierta): Promise<Map<string, number> | null> {
   const vistosRet = crearAlmacenDevolucionVistos();
   const vendidas = new Map<string, number>();
-  const devueltas = new Map<string, { sku: string; cantidad: number }>();
+  const suma = (mapa: Map<string, { sku: string; cantidad: number }>, sku: string, idemKey: string, delta: number): void => {
+    const clave = `${idemKey}:${sku}`;
+    mapa.set(clave, { sku, cantidad: (mapa.get(clave)?.cantidad ?? 0) + Math.abs(delta) });
+  };
+  const memoria = new Map<string, { sku: string; cantidad: number }>();
   for (const m of crearListaMovimientosStock().listar()) {
     if (m.tipo !== "COMPENSATORIO" || vistosRet.obtener(m.idemKey)?.sale_id !== saleId) continue;
-    devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+    suma(memoria, m.sku, m.idemKey, m.delta);
   }
+  const enBase = new Map<string, { sku: string; cantidad: number }>();
   const db = enTx ?? dbVivaTenant();
   if (db) {
     try {
@@ -195,18 +200,23 @@ export async function devolviblesPorSku(saleId: string, enTx?: TxVentaAbierta): 
         .from(stockMovements)
         .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
         .where(dondeTenant(stockMovements.tenantId, and(eq(saleReturns.saleId, saleId), eq(stockMovements.tipo, "COMPENSATORIO"))));
-      for (const m of movs) devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+      for (const m of movs) suma(enBase, m.sku, m.idemKey, m.delta);
     } catch (e) {
       if (enTx) throw e;
       vistosRet.anteFalloPersistencia(e);
     }
   }
+  // T05: una devolución con varios Lotes escribe varios movimientos; sumar
+  // por idemKey+SKU y elegir la base cuando existe evita contar dos veces el
+  // espejo en memoria ni perder los movimientos anteriores al sobrescribir.
+  const devueltas = new Map(enBase);
+  for (const [clave, valor] of memoria) if (!devueltas.has(clave)) devueltas.set(clave, valor);
   // AUD-VTA-03: venta que solo vive en memoria (single sin base o caída).
   if (vendidas.size === 0) {
     for (const l of listarLineasTicket(saleId)) vendidas.set(l.product_id, (vendidas.get(l.product_id) ?? 0) + l.qty);
   }
   if (vendidas.size === 0) return null;
-  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - Math.abs(d.cantidad));
+  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - d.cantidad);
   return vendidas;
 }
 
