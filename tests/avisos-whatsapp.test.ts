@@ -182,8 +182,8 @@ describe.skipIf(!hayPG)("avisos de cuenta por WhatsApp en Postgres", () => {
           plantilla,
           destinatario: "dueno@ejemplo.com",
           asunto: "Asunto privado",
-          html: "<p>hola</p>",
-          texto: "hola",
+          htmlCiphertext: "<p>hola</p>",
+          textoCiphertext: "hola",
           // WA-AVISOS-1: Clave única por fila (tenant + idempotency_key); la fecha sigue siendo ISO.
           idempotencyKey: `retencion-aviso:${tenantId}:${new Date(Date.parse(CIERRE) + ids.length * 1000).toISOString()}`,
         }),

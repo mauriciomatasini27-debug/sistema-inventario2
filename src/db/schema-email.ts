@@ -52,8 +52,7 @@ export const notificationDeliveries = pgTable(
   (t) => [uniqueIndex("notification_deliveries_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
 );
 
-// NE11: outbox en misma tx que el cierre. html/texto se cifran en el
-// adaptador (columna en claro acá solo para tipar el slice).
+// P10-33 [tenant]: html/texto se guardan cifrados con AAD del comercio; las filas viejas en claro se leen por prefijo.
 export const emailOutbox = pgTable(
   "email_outbox",
   {
@@ -63,8 +62,8 @@ export const emailOutbox = pgTable(
   plantilla: text("plantilla").notNull().default("cierre_v1"),
   destinatario: text("destinatario").notNull(),
   asunto: text("asunto").notNull(),
-  html: text("html").notNull(),
-  texto: text("texto").notNull(),
+  htmlCiphertext: text("html_ciphertext").notNull(),
+  textoCiphertext: text("texto_ciphertext").notNull(),
   idempotencyKey: text("idempotency_key").notNull(),
   estado: text("estado").notNull().default("pendiente"),
   intentos: integer("intentos").notNull().default(0),

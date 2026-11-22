@@ -99,7 +99,7 @@ describe.skipIf(!hayPG)("P10-90 retención de datos de clientes", () => {
       values (${tenantId}, ${`sub-${randomUUID().slice(0, 6)}`}, 'whatsapp', true, 'ALTA')
     `;
     const [o] = await sql<{ id: string }[]>`
-      insert into email_outbox (tenant_id, destinatario, asunto, html, texto, idempotency_key)
+      insert into email_outbox (tenant_id, destinatario, asunto, html_ciphertext, texto_ciphertext, idempotency_key)
       values (${tenantId}, 'duena@ejemplo.com', 'Cierre', '<p>x</p>', 'x', ${randomUUID()})
       returning id
     `;

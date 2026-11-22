@@ -4,3 +4,7 @@
 for (const clave of Object.keys(process.env)) {
   if (clave.includes("DATABASE_URL")) delete process.env[clave];
 }
+
+// #295: clave fake de test para el outbox. Producción falla cerrado si falta
+// EMAIL_OUTBOX_CIPHER_KEY_B64; los tests no dependen de un secreto real.
+process.env.EMAIL_OUTBOX_CIPHER_KEY_B64 ??= Buffer.from("0123456789abcdef0123456789abcdef", "utf8").toString("base64");
