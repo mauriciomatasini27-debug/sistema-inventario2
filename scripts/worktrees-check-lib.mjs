@@ -12,15 +12,15 @@ const MOTIVOS = {
   limpioNoMergeado: "Limpio pero su rama aún no llegó a la rama por defecto",
 };
 
-function lineasDeStatus(status) {
-  return String(status ?? "")
+function lineasDe(salida) {
+  return String(salida ?? "")
     .replace(/\r\n/g, "\n")
     .split("\n")
     .filter(Boolean);
 }
 
 function archivosDelStatus(status) {
-  return lineasDeStatus(status)
+  return lineasDe(status)
     .map((linea) => /^(.{1,2})\s+(.+)$/.exec(linea))
     .filter(Boolean)
     .map((match) => match[2].trim().replace(/^"|"$/g, "").split(" -> ").at(-1))
@@ -28,7 +28,7 @@ function archivosDelStatus(status) {
 }
 
 function conflictosDelStatus(status) {
-  return lineasDeStatus(status).filter((linea) => /^[UAD]{2} /.test(linea) && linea[1] === "U").length;
+  return lineasDe(status).filter((linea) => /^[UAD]{2} /.test(linea) && linea[1] === "U").length;
 }
 
 export function clasificarWorktrees({
@@ -134,6 +134,146 @@ export function estadoBaseline({ clasificados, duenos = new Set() }) {
 
 export function comandosRestauracion(clasificados) {
   return (clasificados ?? []).map((w) => `git worktree add --detach ${w.ruta} ${w.head}`);
+}
+
+const MOTIVOS_RAMAS = {
+  prAbierto: "Rama con pull request abierto",
+  sistema: "Rama del sistema",
+  apuntada: "Una rama local con trabajo no mergeado apunta a esta remota",
+  mergeadaLocal: "Rama local mergeada en la rama por defecto",
+  mergeadaRemota: "Rama remota mergeada en la rama por defecto",
+  noMergeadaLocal: "Rama local con trabajo no mergeado",
+  noMergeadaRemota: "Rama remota con trabajo no mergeado",
+  sinPush: "Rama sin push: el upstream ya no existe en el remote",
+  stranded: "Rama sin upstream: solo reporte, no se ofrece para borrado",
+  unknown: "Sin datos de merge: solo reporte",
+};
+
+function clasificacion(bucket, motivo, candidata = false) {
+  return { bucket, motivo, candidata };
+}
+
+export function parsearLocales(salida) {
+  return lineasDe(salida).map((linea) => {
+    const [nombre = "", sha = "", upstream = ""] = linea.split("\t");
+    return { nombre, sha, upstream };
+  });
+}
+
+export function parsearRemotas(salida) {
+  return lineasDe(salida)
+    .map((linea) => {
+      const [ref = "", sha = ""] = linea.split("\t");
+      const nombre = ref.replace(/^refs\/remotes\//, "");
+      const corte = nombre.indexOf("/");
+      return {
+        nombre,
+        corto: corte >= 0 ? nombre.slice(corte + 1) : nombre,
+        remoto: corte >= 0 ? nombre.slice(0, corte) : "",
+        sha,
+      };
+    })
+    .filter((r) => r.corto !== "HEAD");
+}
+
+export function parsearRamas(locales, remotas) {
+  return { locales: parsearLocales(locales), remotas: parsearRemotas(remotas) };
+}
+
+export function parsearCommitsPosteriores(salida) {
+  return lineasDe(salida).map((linea) => {
+    const [sha = "", asunto = "", timestamp = "", archivos = "", inserciones = "", deletiones = ""] =
+      linea.split("\t");
+    return {
+      sha,
+      asunto,
+      fecha: Number(timestamp) * 1000,
+      archivos: Number(archivos) || 0,
+      inserciones: Number(inserciones) || 0,
+      deletiones: Number(deletiones) || 0,
+    };
+  });
+}
+
+export function clasificarRamas({
+  locales,
+  remotas,
+  ramaPorDefecto,
+  pullRequestsAbiertas = new Set(),
+  trabajoPosterior = {},
+  merges = {},
+  remotasConocidas = new Set(),
+  ahora,
+}) {
+  const diasDe = (commit) => Math.max(0, Math.floor((ahora - commit.fecha) / 86400000));
+  const detalle = (commits) => {
+    const c = commits[0];
+    return `Trabajo posterior al merge: ${c.sha} ${c.asunto} (${diasDe(c)} días, ${c.archivos} archivos, +${c.inserciones} −${c.deletiones})`;
+  };
+  const conCommits = (commits) => ({
+    dias: commits.length ? diasDe(commits[0]) : null,
+    commits: commits.map((c) => ({ ...c, dias: diasDe(c) })),
+  });
+
+  const localesClasificadas = (locales ?? []).map((r) => {
+    const commits = trabajoPosterior[r.nombre] ?? [];
+    const conTrabajo = commits.length > 0 || merges[r.sha] === false;
+    let resultado;
+    if (pullRequestsAbiertas.has(r.nombre)) {
+      resultado = clasificacion("protegida", MOTIVOS_RAMAS.prAbierto);
+    } else if (!r.upstream) {
+      resultado = clasificacion("stranded", MOTIVOS_RAMAS.stranded);
+    } else if (!remotasConocidas.has(r.upstream)) {
+      resultado = clasificacion("sin-push", MOTIVOS_RAMAS.sinPush);
+    } else if (commits.length > 0) {
+      resultado = clasificacion("trabajo-posterior-al-merge", detalle(commits));
+    } else if (merges[r.sha] === true) {
+      resultado = clasificacion("mergeada", MOTIVOS_RAMAS.mergeadaLocal, true);
+    } else if (merges[r.sha] === false) {
+      resultado = clasificacion("no-mergeada", MOTIVOS_RAMAS.noMergeadaLocal);
+    } else {
+      resultado = clasificacion("unknown", MOTIVOS_RAMAS.unknown);
+    }
+    return { ...r, ...resultado, ...conCommits(commits), conTrabajo };
+  });
+
+  const clavesProtegidas = new Set();
+  for (const r of localesClasificadas) {
+    if (!r.conTrabajo) continue;
+    clavesProtegidas.add(r.nombre);
+    if (r.upstream) clavesProtegidas.add(r.upstream);
+  }
+
+  const remotasClasificadas = (remotas ?? []).map((r) => {
+    const commits = trabajoPosterior[r.nombre] ?? [];
+    const esDelSistema = r.corto === ramaPorDefecto || r.nombre.endsWith(`/${ramaPorDefecto}`);
+    let resultado;
+    if (esDelSistema) {
+      resultado = clasificacion("protegida", MOTIVOS_RAMAS.sistema);
+    } else if (pullRequestsAbiertas.has(r.corto)) {
+      resultado = clasificacion("protegida", MOTIVOS_RAMAS.prAbierto);
+    } else if (clavesProtegidas.has(r.nombre) || clavesProtegidas.has(r.corto)) {
+      resultado = clasificacion("protegida", MOTIVOS_RAMAS.apuntada);
+    } else if (commits.length > 0) {
+      resultado = clasificacion("trabajo-posterior-al-merge", detalle(commits));
+    } else if (merges[r.sha] === true) {
+      resultado = clasificacion("mergeada", MOTIVOS_RAMAS.mergeadaRemota, true);
+    } else if (merges[r.sha] === false) {
+      resultado = clasificacion("no-mergeada", MOTIVOS_RAMAS.noMergeadaRemota);
+    } else {
+      resultado = clasificacion("unknown", MOTIVOS_RAMAS.unknown);
+    }
+    return { ...r, ...resultado, ...conCommits(commits) };
+  });
+
+  return { locales: localesClasificadas, remotas: remotasClasificadas };
+}
+
+export function comandosRestauracionRamas({ locales, remotas }) {
+  return [
+    ...(locales ?? []).map((r) => `git branch ${r.nombre} ${r.sha}`),
+    ...(remotas ?? []).map((r) => `git push ${r.remoto} ${r.sha}:refs/heads/${r.corto}`),
+  ];
 }
 
 export function parsearWorktrees(porcelain) {

@@ -2,9 +2,14 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  clasificarRamas,
   clasificarWorktrees,
   comandosRestauracion,
+  comandosRestauracionRamas,
   estadoBaseline,
+  parsearCommitsPosteriores,
+  parsearLocales,
+  parsearRemotas,
   parsearWorktrees,
 } from "./worktrees-check-lib.mjs";
 
@@ -112,9 +117,72 @@ for (const w of worktrees) {
   estados[w.ruta] = estadoDe(w.ruta, defaultHead);
 }
 
+const refsLocales = git(
+  repo,
+  ["for-each-ref", "--format=%(refname:short)%09%(objectname)%09%(upstream:short)", "refs/heads/"],
+  { raw: true },
+).out;
+const refsRemotas = git(
+  repo,
+  ["for-each-ref", "--format=%(refname)%09%(objectname)", "refs/remotes/"],
+  { raw: true },
+).out;
+const locales = parsearLocales(refsLocales);
+const remotas = parsearRemotas(refsRemotas);
+const remotasConocidas = new Set(remotas.map((r) => r.nombre));
+const prAbiertas = pullRequestsAbiertas(repo);
+const ahora = Date.now();
+
 const merges = {};
-for (const head of new Set(Object.values(estados).map((e) => e.head).filter(Boolean))) {
+const heads = new Set([
+  ...Object.values(estados).map((e) => e.head),
+  ...locales.map((r) => r.sha),
+  ...remotas.map((r) => r.sha),
+]);
+for (const head of heads) {
+  if (!head) continue;
   merges[head] = git(repo, ["merge-base", "--is-ancestor", head, defaultRef]).ok;
+}
+
+function totalesDe(salida) {
+  const totales = { archivos: 0, inserciones: 0, deletiones: 0 };
+  for (const linea of salida.split(/\r?\n/)) {
+    const [ins, del] = linea.split("\t");
+    if (ins === undefined || del === undefined) continue;
+    totales.archivos += 1;
+    totales.inserciones += Number(ins) || 0;
+    totales.deletiones += Number(del) || 0;
+  }
+  return totales;
+}
+
+const trabajoPosterior = {};
+for (const r of [...locales, ...remotas]) {
+  if (
+    merges[r.sha] !== false ||
+    prAbiertas.has(r.nombre) ||
+    prAbiertas.has(r.corto) ||
+    r.nombre === defaultBranch ||
+    r.corto === defaultBranch
+  ) {
+    continue;
+  }
+  const ref = locales.includes(r) ? `refs/heads/${r.nombre}` : `refs/remotes/${r.nombre}`;
+  const base = git(repo, ["merge-base", defaultRef, ref]);
+  if (!base.ok || !base.out) continue;
+  const log = git(repo, ["log", "--format=%H%x09%s%x09%ct", `${base.out}..${ref}`], { raw: true }).out;
+  if (!log.trim()) continue;
+  trabajoPosterior[r.nombre] = parsearCommitsPosteriores(
+    log
+      .trim()
+      .split(/\r?\n/)
+      .map((linea) => {
+        const sha = linea.split("\t")[0];
+        const stats = totalesDe(git(repo, ["show", "--format=", "--numstat", sha], { raw: true }).out);
+        return `${linea}\t${stats.archivos}\t${stats.inserciones}\t${stats.deletiones}`;
+      })
+      .join("\n"),
+  );
 }
 
 const clasificados = clasificarWorktrees({
@@ -123,23 +191,41 @@ const clasificados = clasificarWorktrees({
   merges,
   rutaPrincipal,
   ramaPorDefecto: defaultBranch,
-  ahora: Date.now(),
+  ahora,
   diasUmbral,
-  pullRequestsAbiertas: pullRequestsAbiertas(repo),
+  pullRequestsAbiertas: prAbiertas,
+});
+
+const ramas = clasificarRamas({
+  locales,
+  remotas,
+  ramaPorDefecto: defaultBranch,
+  pullRequestsAbiertas: prAbiertas,
+  trabajoPosterior,
+  merges,
+  remotasConocidas,
+  ahora,
 });
 
 const baseline = estadoBaseline({ clasificados, duenos: duenosDeclarados() });
 
 console.log("# Restauración (SHAs completos; el reflog expira)");
 for (const comando of comandosRestauracion(clasificados)) console.log(comando);
+for (const comando of comandosRestauracionRamas(ramas)) console.log(comando);
 console.log("");
-console.log(`# Worktrees: ${clasificados.length} | rama por defecto: ${defaultBranch} | umbral: ${diasUmbral} días`);
+console.log(`# Worktrees: ${clasificados.length} | ramas: ${ramas.locales.length} locales / ${ramas.remotas.length} remotas | rama por defecto: ${defaultBranch} | umbral: ${diasUmbral} días`);
 for (const w of clasificados) {
   const id = w.rama ? `${w.rama} @ ${w.headCorto}` : `detached ${w.headCorto}`;
   const extra = w.archivosCambios ? ` (${w.archivosCambios} archivos: ${w.archivos.join(", ")})` : "";
   const merge = w.mergeEnCurso ? ` [merge en curso${w.mergeConRamaPorDefecto ? " vigente" : " viejo"}]` : "";
   console.log(`${w.bucket.padEnd(18)} ${w.ruta.padEnd(48)} ${id}${extra}${merge} — ${w.motivo}`);
 }
+console.log("");
+console.log("# Ramas locales");
+for (const r of ramas.locales) console.log(`${r.bucket.padEnd(26)} ${r.nombre.padEnd(42)} @ ${r.sha.slice(0, 8)} — ${r.motivo}`);
+console.log("");
+console.log("# Ramas remotas");
+for (const r of ramas.remotas) console.log(`${r.bucket.padEnd(26)} ${r.nombre.padEnd(42)} @ ${r.sha.slice(0, 8)} — ${r.motivo}`);
 if (!baseline.ok) {
   console.log("");
   console.log("# Debajo de la Baseline");
@@ -147,7 +233,7 @@ if (!baseline.ok) {
 }
 if (args.includes("--json")) {
   console.log("");
-  console.log(JSON.stringify({ clasificados, baseline }, null, 2));
+  console.log(JSON.stringify({ clasificados, ramas, baseline }, null, 2));
 }
 
 process.exit(baseline.ok ? 0 : 1);

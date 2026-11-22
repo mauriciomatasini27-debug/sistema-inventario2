@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  clasificarRamas,
   clasificarWorktrees,
   comandosRestauracion,
+  comandosRestauracionRamas,
   estadoBaseline,
+  parsearCommitsPosteriores,
+  parsearLocales,
+  parsearRamas,
+  parsearRemotas,
   parsearWorktrees,
 } from "../scripts/worktrees-check-lib.mjs";
 
@@ -23,7 +29,7 @@ const porcelain = [
 ].join("\n");
 
 const SHA = "1".repeat(40);
-const sha = (n: number) => String(n).repeat(40);
+const sha = (n: number | string) => String(n).repeat(40);
 
 describe("worktrees-check: inventario desde porcelain", () => {
   it("separa registros huérfanos, worktrees con rama y detached", () => {
@@ -210,5 +216,178 @@ describe("worktrees-check: Baseline y restauración", () => {
       `git worktree add --detach /tmp/viejo ${"b".repeat(40)}`,
       `git worktree add --detach /repo/wt ${"c".repeat(40)}`,
     ]);
+  });
+});
+
+describe("worktrees-check: ramas locales y remotas", () => {
+  const localesPorcelain = [
+    `mauri/mergeada\t${sha("a")}\torigin/main`,
+    `mauri/con-pr\t${sha("b")}\torigin/main`,
+    `mauri/posterior\t${sha("c")}\torigin/mauri/posterior`,
+    `mauri/sin-upstream\t${sha("d")}\t`,
+    `mauri/sin-push\t${sha("8")}\torigin/ya-no-existe`,
+    `mauri/vieja-propia\t${sha("e")}\torigin/main`,
+  ].join("\n");
+
+  const remotasPorcelain = [
+    `refs/remotes/origin/HEAD\t${sha("1")}`,
+    `refs/remotes/origin/main\t${sha("1")}`,
+    `refs/remotes/origin/mergeada-uno\t${sha("2")}`,
+    `refs/remotes/origin/mergeada-dos\t${sha("3")}`,
+    `refs/remotes/origin/mergeada-tres\t${sha("4")}`,
+    `refs/remotes/origin/mauri/posterior\t${sha("5")}`,
+    `refs/remotes/origin/con-pr-remoto\t${sha("7")}`,
+    `refs/remotes/origin/con-pr\t${sha("10")}`,
+    `refs/remotes/origin/no-mergeada\t${sha("6")}`,
+  ].join("\n");
+
+  const logPosterior = [
+    `${sha("f")}\tArregla el stock\t${Date.UTC(2026, 10, 15) / 1000}\t3\t12\t4`,
+    `${sha("g")}\tAjusta el precio\t${Date.UTC(2026, 10, 18) / 1000}\t1\t5\t0`,
+  ].join("\n");
+  const logBaseVieja = `${sha("9")}\tCommit propio sobre base vieja\t${Date.UTC(2026, 10, 20) / 1000}\t2\t7\t1`;
+
+  const trabajoPosterior = {
+    "mauri/posterior": parsearCommitsPosteriores(logPosterior),
+    "mauri/vieja-propia": parsearCommitsPosteriores(logBaseVieja),
+  };
+
+  const remotasConocidas = new Set([
+    "origin/main",
+    "origin/mergeada-uno",
+    "origin/mergeada-dos",
+    "origin/mergeada-tres",
+    "origin/mauri/posterior",
+    "origin/con-pr-remoto",
+    "origin/con-pr",
+    "origin/no-mergeada",
+  ]);
+
+  const clasificarFixture = (overrides: Record<string, unknown> = {}) =>
+    clasificarRamas({
+      locales: parsearLocales(localesPorcelain),
+      remotas: parsearRemotas(remotasPorcelain),
+      ramaPorDefecto: "main",
+      pullRequestsAbiertas: new Set(["mauri/con-pr", "con-pr-remoto"]),
+      trabajoPosterior,
+      remotasConocidas,
+      merges: {
+        [sha("a")]: true,
+        [sha("b")]: true,
+        [sha("c")]: false,
+        [sha("e")]: false,
+        [sha("2")]: true,
+        [sha("3")]: true,
+        [sha("4")]: true,
+        [sha("5")]: false,
+        [sha("7")]: true,
+        [sha("10")]: true,
+      },
+      ahora: Date.UTC(2026, 10, 22),
+      ...overrides,
+    });
+
+  it("descarta origin/HEAD antes de clasificar ramas remotas", () => {
+    const remotas = parsearRemotas(remotasPorcelain);
+    expect(remotas.map((r) => r.nombre)).not.toContain("origin");
+    expect(remotas.map((r) => r.nombre)).toContain("origin/main");
+  });
+
+  it("parsea ramas locales con su upstream y ramas remotas con su corto", () => {
+    const { locales, remotas } = parsearRamas(localesPorcelain, remotasPorcelain);
+    expect(locales[0]).toEqual({ nombre: "mauri/mergeada", sha: sha("a"), upstream: "origin/main" });
+    expect(locales[3]?.upstream).toBe("");
+    expect(remotas[1]).toEqual({
+      nombre: "origin/mergeada-uno",
+      corto: "mergeada-uno",
+      remoto: "origin",
+      sha: sha("2"),
+    });
+  });
+
+  it("parsea el diffstat de cada commit posterior con SHA, asunto y fecha", () => {
+    expect(parsearCommitsPosteriores(logPosterior)).toEqual([
+      {
+        sha: sha("f"),
+        asunto: "Arregla el stock",
+        fecha: Date.UTC(2026, 10, 15),
+        archivos: 3,
+        inserciones: 12,
+        deletiones: 4,
+      },
+      {
+        sha: sha("g"),
+        asunto: "Ajusta el precio",
+        fecha: Date.UTC(2026, 10, 18),
+        archivos: 1,
+        inserciones: 5,
+        deletiones: 0,
+      },
+    ]);
+  });
+
+  it("mantiene el diffstat de cada commit, no el agregado del rango", () => {
+    const { locales } = clasificarFixture();
+    const posterior = locales.find((r: any) => r.nombre === "mauri/posterior");
+    expect(posterior.commits.map((c: any) => c.inserciones)).toEqual([12, 5]);
+    expect(posterior.commits.map((c: any) => c.archivos)).toEqual([3, 1]);
+    expect(posterior.motivo).toContain(sha("f"));
+    expect(posterior.motivo).toContain("+12");
+  });
+
+  it("distingue mergeadas, PR abierto, trabajo posterior, sin push y sin upstream", () => {
+    const { locales } = clasificarFixture();
+    const porNombre = Object.fromEntries(locales.map((r: any) => [r.nombre, r]));
+
+    expect(porNombre["mauri/mergeada"]).toMatchObject({ bucket: "mergeada", candidata: true });
+    expect(porNombre["mauri/con-pr"]).toMatchObject({ bucket: "protegida", candidata: false });
+    expect(porNombre["mauri/sin-upstream"]).toMatchObject({ bucket: "stranded", candidata: false });
+    expect(porNombre["mauri/sin-push"]).toMatchObject({ bucket: "sin-push", candidata: false });
+    expect(porNombre["mauri/posterior"]).toMatchObject({
+      bucket: "trabajo-posterior-al-merge",
+      candidata: false,
+      dias: 7,
+    });
+  });
+
+  it("un commit propio sobre una base vieja no congela las remotas mergeadas por contenencia", () => {
+    const { locales, remotas } = clasificarFixture();
+    const porLocal = Object.fromEntries(locales.map((r: any) => [r.nombre, r]));
+    const porRemota = Object.fromEntries(remotas.map((r: any) => [r.nombre, r]));
+
+    expect(porLocal["mauri/vieja-propia"]).toMatchObject({ conTrabajo: true, dias: 2 });
+    for (const nombre of ["origin/mergeada-uno", "origin/mergeada-dos", "origin/mergeada-tres"]) {
+      expect(porRemota[nombre]).toMatchObject({ bucket: "mergeada", candidata: true });
+    }
+    expect(porRemota["origin/main"].bucket).toBe("protegida");
+    expect(porRemota["origin/mauri/posterior"]).toMatchObject({ bucket: "protegida", candidata: false });
+    expect(porRemota["origin/no-mergeada"]).toMatchObject({ bucket: "unknown", candidata: false });
+  });
+
+  it("protege por PR abierto aunque el contenido ya esté en la rama por defecto", () => {
+    const { locales, remotas } = clasificarFixture();
+    const conPr = locales.find((r: any) => r.nombre === "mauri/con-pr");
+    const conPrRemoto = remotas.find((r: any) => r.nombre === "origin/con-pr-remoto");
+    expect(conPr).toMatchObject({ bucket: "protegida", candidata: false });
+    expect(conPr?.motivo).toContain("pull request abierto");
+    expect(conPrRemoto).toMatchObject({ bucket: "protegida", candidata: false });
+    expect(conPrRemoto?.motivo).toContain("pull request abierto");
+  });
+
+  it("no protege una remota por una rama local con PR abierto y sin trabajo no mergeado", () => {
+    const { remotas } = clasificarFixture();
+    const porNombre = Object.fromEntries(remotas.map((r: any) => [r.nombre, r]));
+    expect(porNombre["origin/con-pr"].candidata).toBe(true);
+    expect(porNombre["origin/con-pr-remoto"].candidata).toBe(false);
+  });
+
+  it("emite restauración de ramas con SHAs completos", () => {
+    const { locales, remotas } = clasificarFixture();
+    expect(comandosRestauracionRamas({ locales, remotas })).toEqual(
+      expect.arrayContaining([
+        `git branch mauri/mergeada ${sha("a")}`,
+        `git push origin ${sha("2")}:refs/heads/mergeada-uno`,
+      ]),
+    );
   });
 });
