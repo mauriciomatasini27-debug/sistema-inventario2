@@ -5,6 +5,7 @@ import { emailOutbox } from "../src/db/schema-email.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { ProveedorResend } from "../src/lib/email-resend.js";
 import { crearAlmacenEmailOutbox } from "../src/lib/repos/_almacen.js";
+import { existeEnvio } from "../src/lib/repos/email.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { encolar_email_simple } from "../src/jobs/whatsapp-adaptador.js";
@@ -79,17 +80,68 @@ describe("issue #299: encolar_email_simple con proveedor inyectado", () => {
     expect(crearAlmacenEmailOutbox().obtener("cupo:t1:100")).toMatchObject({ estado: "pendiente", providerMessageId: null });
   });
 
-  it("sin proveedor queda pendiente para el job en vez de marcarse enviado", async () => {
+  it("sin proveedor devuelve false y queda pendiente para que lo reintente P10-92", async () => {
     const ok = await encolar_email_simple("cupo:t1:sin-key", "duena@mail.com", "Aviso de cupo", "Usaste el 80%", {
       proveedor: null,
       replyToComercio: "kiosco@mail.com",
     });
 
-    expect(ok).toBe(true);
+    expect(ok).toBe(false);
     expect(crearAlmacenEmailOutbox().obtener("cupo:t1:sin-key")).toMatchObject({
       estado: "pendiente",
       providerMessageId: null,
     });
+  });
+
+  it("una fila pendiente no se dedupe: el segundo intento confirma con el proveedor", async () => {
+    const key = "cupo:t1:reintento";
+    const sinProveedor = await encolar_email_simple(key, "duena@mail.com", "Aviso", "Usaste el 80%", {
+      proveedor: null,
+      replyToComercio: "kiosco@mail.com",
+    });
+    expect(sinProveedor).toBe(false);
+    expect(await existeEnvio(key)).toBe(false);
+
+    const proveedor = new ProveedorQueCuenta();
+    const reintentado = await encolar_email_simple(key, "duena@mail.com", "Aviso", "Usaste el 80%", {
+      proveedor,
+      replyToComercio: "kiosco@mail.com",
+    });
+
+    expect(reintentado).toBe(true);
+    expect(proveedor.llamadas).toBe(1);
+    expect(await existeEnvio(key)).toBe(true);
+    expect(crearAlmacenEmailOutbox().obtener(key)).toMatchObject({ estado: "enviado", providerMessageId: "msg-1" });
+    expect(crearAlmacenEmailOutbox().mapaVivo().size).toBe(1);
+  });
+
+  it("una fila ya enviada sí se dedupe aunque haya proveedor", async () => {
+    const key = "cupo:t1:ya-enviado";
+    const proveedor = new ProveedorQueCuenta();
+    const deps = { proveedor, replyToComercio: "kiosco@mail.com" };
+    expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", deps)).toBe(true);
+    expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", deps)).toBe(true);
+    expect(await existeEnvio(key)).toBe(true);
+    expect(proveedor.llamadas).toBe(1);
+  });
+
+  it("multi sin base falla cerrado: no reporta éxito con memoria ajena", async () => {
+    process.env.TENANT_MODE = "multi";
+    delete process.env.TENANT_DATABASE_URL;
+    const tenantId = `multi-sin-base-${randomUUID()}`;
+    try {
+      await expect(
+        encolar_email_simple(`cupo:${tenantId}:x`, "duena@mail.com", "Aviso", "texto", {
+          proveedor: new ProveedorFake(),
+          replyToComercio: "kiosco@mail.com",
+          tenantId,
+        }),
+      ).rejects.toThrow("base_no_disponible");
+      expect(conTenant(tenantId, () => crearAlmacenEmailOutbox().mapaVivo().size)).toBe(0);
+    } finally {
+      delete process.env.TENANT_MODE;
+      delete process.env.TENANT_DATABASE_URL;
+    }
   });
 
   it("ProveedorResend reenvía reply_to al proveedor transaccional", async () => {
@@ -152,5 +204,55 @@ describe.skipIf(!hayPG)("issue #299: fila durable en email_outbox", () => {
     );
     expect(filas).toHaveLength(1);
     expect(filas[0]).toMatchObject({ estado: "enviado", providerMessageId: "fake-1", destinatario: "duena@mail.com" });
+  });
+
+  it("una fila pendiente en DB se reintenta y pasa a enviado sin duplicar la fila", async () => {
+    const key = `reintento-pg-${randomUUID()}`;
+    await conTenant(tenantId, async () => {
+      expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", {
+        proveedor: null,
+        replyToComercio: "kiosco@mail.com",
+        tenantId,
+      })).toBe(false);
+      expect(await existeEnvio(key, tenantId)).toBe(false);
+
+      expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", {
+        proveedor: new ProveedorFake(),
+        replyToComercio: "kiosco@mail.com",
+        tenantId,
+      })).toBe(true);
+      expect(await existeEnvio(key, tenantId)).toBe(true);
+    });
+
+    const filas = await conTenant(tenantId, () =>
+      getTenantDb().select().from(emailOutbox).where(eq(emailOutbox.idempotencyKey, key)),
+    );
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ estado: "enviado", providerMessageId: "fake-1" });
+  });
+
+  it("un espejo viejo en memoria no reenvía cuando la DB ya está enviada", async () => {
+    const key = `espejo-viejo-${randomUUID()}`;
+    await conTenant(tenantId, async () => {
+      expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", {
+        proveedor: null,
+        replyToComercio: "kiosco@mail.com",
+        tenantId,
+      })).toBe(false);
+
+      // P10-92 confirma en DB; el espejo en memoria sigue en pendiente.
+      await getTenantDb()
+        .update(emailOutbox)
+        .set({ estado: "enviado", providerMessageId: "msg-p10-92" })
+        .where(eq(emailOutbox.idempotencyKey, key));
+
+      const proveedor = new ProveedorQueCuenta();
+      expect(await encolar_email_simple(key, "duena@mail.com", "Aviso", "texto", {
+        proveedor,
+        replyToComercio: "kiosco@mail.com",
+        tenantId,
+      })).toBe(true);
+      expect(proveedor.llamadas).toBe(0);
+    });
   });
 });

@@ -23,7 +23,7 @@ export interface ComercioJob {
 
 export interface ResultadoCanal {
   readonly canal: "wa" | "email";
-  readonly estado: "enviado" | "omitido_optin" | "omitido_pausa" | "duplicado";
+  readonly estado: "enviado" | "pendiente" | "omitido_optin" | "omitido_pausa" | "duplicado";
   readonly idempotencyKey: string;
 }
 
@@ -103,8 +103,9 @@ export async function ejecutar_job_viernes(
       texto: textoEmail,
       idempotencyKey: emailKey,
     });
+    // P10-36 [tenant]: sin confirmación se libera el claim; la fila pendiente la reintenta P10-92.
     if (!ok) await tiendas.email.liberar(emailKey);
-    out.push({ canal: "email", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: emailKey });
+    out.push({ canal: "email", estado: ok ? "enviado" : "pendiente", idempotencyKey: emailKey });
   }
   return out;
 }

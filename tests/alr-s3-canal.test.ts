@@ -161,6 +161,25 @@ describe("ALR-S3 canal del encargado", () => {
     expect(waTos).toEqual(["+5491100000001"]);
   });
 
+  it("sin proveedor el email queda pendiente para P10-92, nunca marcado enviado", async () => {
+    const tenant = "t-alr-s3-pendiente";
+    persona({
+      tenantId: tenant,
+      sub: "due-pend",
+      rol: "dueno",
+      email: "due-pend@kiosco.test",
+      numero: "+5491100000031",
+      optIn: false,
+      canal: "email",
+      pausaHastaMs: null,
+    });
+    comercio(tenant, "due-pend");
+    await correr();
+    const filas = [...store.emailOutbox.values()];
+    expect(filas.length).toBeGreaterThan(0);
+    expect(filas.every((f) => f.estado === "pendiente" && f.providerMessageId === null)).toBe(true);
+  });
+
   it("canal pausado no recibe y el dueño activo sigue en la lista", async () => {
     const tenant = "t-alr-s3-pausa";
     const pausa = Date.now() + 60_000;
