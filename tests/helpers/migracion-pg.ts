@@ -64,18 +64,30 @@ export async function aplicarHasta(
         (r) => r.table_name,
       ),
     );
+    // 448: un viaje por statement hacía que este beforeAll pasara de 3-5s en
+    // solitario a >15s con la suite en paralelo (Hook timed out sin asserts).
+    // El orden se preserva: el batch se ejecuta como una sola consulta simple.
+    const lote: string[] = [];
+    const aplicadas: Array<{ hash: string; when: number }> = [];
     for (const entry of hasta) {
       const body = readFileSync(`drizzle/${entry.tag}.sql`, "utf8");
       const parts = splitStatements(body);
       const { run } = filtrarStatementsPorTablas({ statements: parts, tablasExistentes: tablas });
-      for (const stmt of run) await sql.unsafe(stmt);
-      if (registrarAplicadas) {
-        await sql`insert into drizzle.__drizzle_migrations (hash, created_at) values (${hashMigration(body)}, ${entry.when})`;
-      }
+      lote.push(...run);
+      if (registrarAplicadas) aplicadas.push({ hash: hashMigration(body), when: entry.when });
       for (const stmt of run) {
         const m = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
         if (m) tablas.add(m[1]!);
       }
+    }
+    try {
+      if (lote.length > 0) await sql.unsafe(lote.join("\n"));
+      for (const a of aplicadas) {
+        await sql`insert into drizzle.__drizzle_migrations (hash, created_at) values (${a.hash}, ${a.when})`;
+      }
+    } catch (e) {
+      const nombreDb = new URL(url).pathname.slice(1);
+      throw new Error(`migración hasta ${tag} en ${nombreDb} falló: ${e instanceof Error ? e.message : String(e)}`);
     }
   } finally {
     await sql.end();
