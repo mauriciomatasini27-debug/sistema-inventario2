@@ -9,6 +9,7 @@ import { decidirAceptacion } from "../modules/tenants/invitaciones.js";
 import { aplicarAceptacionInvitacion } from "../modules/tenants/aplicar-invitacion.js";
 import { marcarFalloProvision } from "../modules/tenants/provision-admin.js";
 import { normalizarEmail } from "../modules/auth/oidc.js";
+import { fechaAR, sumarDiasAR } from "./fecha-ar.js";
 
 export const TENANT_CONTROL_APP = "control-app";
 const SUBS = {
@@ -46,7 +47,7 @@ function sembrar(vencidoHaceDias?: number, flota = false): Response {
     rubro: "almacen",
     // Fase 1: con vencido_hace_dias el tenant entra en mora para probar suspensión y gracia.
     trialHasta:
-      vencidoHaceDias === undefined ? undefined : new Date(Date.now() - vencidoHaceDias * 86_400_000).toISOString(),
+      vencidoHaceDias === undefined ? undefined : new Date(`${sumarDiasAR(fechaAR(), -vencidoHaceDias)}T00:00:00Z`).toISOString(),
   });
   if (flota) {
     const dia = 86_400_000;
