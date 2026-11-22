@@ -1,4 +1,5 @@
-import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { DetalleEventoOrden, InstruccionSnapshot } from "../modules/payments/ordenes.js";
 
 
@@ -25,43 +26,56 @@ export const payees = pgTable("payees", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const paymentOrders = pgTable("payment_orders", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
-  tenantId: uuid("tenant_id"),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
-  numero: text("numero").notNull().unique(),
-  payeeId: uuid("payee_id").notNull(),
-  tipo: text("tipo").notNull().default("proveedor"),
-  concepto: text("concepto").notNull(),
-  categoria: text("categoria").notNull().default("pago_proveedores"),
-  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
-  moneda: text("moneda").notNull().default("ARS"),
-  venceEl: timestamp("vence_el").notNull(),
-  metodoSugerido: text("metodo_sugerido").notNull(),
-  instruccionTipo: text("instruccion_tipo").notNull(),
-  // Snapshot inmutable de lo entregado al comerciante (OP6.3/7.2): aunque la
-  // ficha cambie después, la auditoría muestra qué datos/link se mandaron.
-  instruccionSnapshot: jsonb("instruccion_snapshot").$type<InstruccionSnapshot>().notNull(),
-  linkDominio: text("link_dominio"),
-  referencia: text("referencia"),
-  supplierInvoiceId: text("supplier_invoice_id"),
-  servicioId: text("servicio_id"),
-  estado: text("estado").notNull().default("preparada"),
-  version: integer("version").notNull().default(1),
-  cashMovementId: uuid("cash_movement_id"),
-  paidAt: timestamp("paid_at"),
-  paidAmountCentavos: bigint("paid_amount_centavos", { mode: "bigint" }),
-  paidMethod: text("paid_method"),
-  nota: text("nota"),
-  comprobanteRef: text("comprobante_ref"),
-  cancelMotivo: text("cancel_motivo"),
-  creadoPor: text("creado_por").notNull(),
-  confirmadoPor: text("confirmado_por"),
-  enviadoAt: timestamp("enviado_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at"),
-});
+export const paymentOrders = pgTable(
+  "payment_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+    tenantId: uuid("tenant_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    numero: text("numero").notNull(),
+    payeeId: uuid("payee_id").notNull(),
+    tipo: text("tipo").notNull().default("proveedor"),
+    concepto: text("concepto").notNull(),
+    categoria: text("categoria").notNull().default("pago_proveedores"),
+    montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+    moneda: text("moneda").notNull().default("ARS"),
+    venceEl: timestamp("vence_el").notNull(),
+    metodoSugerido: text("metodo_sugerido").notNull(),
+    instruccionTipo: text("instruccion_tipo").notNull(),
+    // Snapshot inmutable de lo entregado al comerciante (OP6.3/7.2): aunque la
+    // ficha cambie después, la auditoría muestra qué datos/link se mandaron.
+    instruccionSnapshot: jsonb("instruccion_snapshot").$type<InstruccionSnapshot>().notNull(),
+    linkDominio: text("link_dominio"),
+    referencia: text("referencia"),
+    supplierInvoiceId: text("supplier_invoice_id"),
+    servicioId: text("servicio_id"),
+    estado: text("estado").notNull().default("preparada"),
+    version: integer("version").notNull().default(1),
+    cashMovementId: uuid("cash_movement_id"),
+    paidAt: timestamp("paid_at"),
+    paidAmountCentavos: bigint("paid_amount_centavos", { mode: "bigint" }),
+    paidMethod: text("paid_method"),
+    nota: text("nota"),
+    comprobanteRef: text("comprobante_ref"),
+    cancelMotivo: text("cancel_motivo"),
+    creadoPor: text("creado_por").notNull(),
+    confirmadoPor: text("confirmado_por"),
+    enviadoAt: timestamp("enviado_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("payment_orders_tenant_numero_unique").on(t.tenantId, t.numero),
+    uniqueIndex("payment_orders_tenant_idempotency_key_unique").on(t.tenantId, t.idempotencyKey),
+    uniqueIndex("payment_orders_numero_legacy_unique")
+      .on(t.numero)
+      .where(sql`"tenant_id" IS NULL`),
+    uniqueIndex("payment_orders_idempotency_key_legacy_unique")
+      .on(t.idempotencyKey)
+      .where(sql`"tenant_id" IS NULL`),
+  ],
+);
 
 export const paymentOrderEvents = pgTable("payment_order_events", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -1,4 +1,5 @@
-import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // LANE F — Consumos de Servicios CS1-CS12 (Nivel 2, Compras y gastos).
 // Tablas nuevas del módulo utilities. Vive en la DB del tenant (1 DB por
@@ -37,24 +38,33 @@ export const serviceAccounts = pgTable("service_accounts", {
 // el egreso/vencimiento de caja (el adaptador lo aplica; acá solo el tipo).
 // La "vencida" NO se persiste: se deriva (derivar_estado) para no tener que
 // reescribir filas. messageId UNIQUE = idempotencia Gmail (CS9.1).
-export const utilityBills = pgTable("utility_bills", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
-  tenantId: uuid("tenant_id"),
-  accountId: uuid("account_id").notNull(),
-  messageId: text("message_id").notNull().unique(),
-  periodo: text("periodo").notNull(),
-  vencimiento: text("vencimiento").notNull(),
-  montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
-  estado: text("estado").notNull().default("pendiente"),
-  necesitaRevision: boolean("necesita_revision").notNull().default(false),
-  // canal = por dónde entró; origen = cómo se extrajo (pdf_digital/ocr/email_respaldo).
-  canal: text("canal").notNull().default("manual"),
-  gmailAttachmentId: text("gmail_attachment_id"),
-  origen: text("origen").notNull(),
-  confianza: jsonb("confianza").notNull().default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const utilityBills = pgTable(
+  "utility_bills",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // P10-90 (0053): comercio dueño de la fila; null en filas viejas sin dato seguro.
+    tenantId: uuid("tenant_id"),
+    accountId: uuid("account_id").notNull(),
+    messageId: text("message_id").notNull(),
+    periodo: text("periodo").notNull(),
+    vencimiento: text("vencimiento").notNull(),
+    montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+    estado: text("estado").notNull().default("pendiente"),
+    necesitaRevision: boolean("necesita_revision").notNull().default(false),
+    // canal = por dónde entró; origen = cómo se extrajo (pdf_digital/ocr/email_respaldo).
+    canal: text("canal").notNull().default("manual"),
+    gmailAttachmentId: text("gmail_attachment_id"),
+    origen: text("origen").notNull(),
+    confianza: jsonb("confianza").notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("utility_bills_tenant_message_id_unique").on(t.tenantId, t.messageId),
+    uniqueIndex("utility_bills_message_id_legacy_unique")
+      .on(t.messageId)
+      .where(sql`"tenant_id" IS NULL`),
+  ],
+);
 
 // CS1.4: filtros de ingesta (remitentes + keywords). Solo se procesa lo que
 // matchea un filtro activo; lo demás ni se descarga (solo id en el log).

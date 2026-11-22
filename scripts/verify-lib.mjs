@@ -35,8 +35,32 @@ export function planDePasos({ docsOnly = false } = {}) {
   return nombres.map((nombre) => ({ nombre, ...DEFS[nombre] }));
 }
 
+// Un paso con prerequisito roto se salta; los independientes siguen corriendo
+// para que una sola pasada informe todos los fallos del gate.
+export const ESCRITORES_DOCS = ["docs:migraciones", "roadmap", "docs:estado", "docs:index"];
+const CHECKS_DOCS = [
+  "docs:generados",
+  "docs:comentarios-check",
+  "docs:estado-check",
+  "docs:index-check",
+  "docs:migraciones-check",
+  "roadmap-check",
+];
+
+export function dependenciasIncumplidas(paso, resultados = []) {
+  const items = Array.isArray(resultados) ? resultados : [];
+  const fallidos = items.filter((r) => !r.skipped && r.code !== 0).map((r) => r.nombre);
+  if (paso.nombre === "skips") return fallidos.filter((n) => n === "test");
+  // Si un check falló, el writer correspondiente no debe regenerar callado.
+  if (ESCRITORES_DOCS.includes(paso.nombre)) {
+    return fallidos.filter((n) => CHECKS_DOCS.includes(n));
+  }
+  return [];
+}
+
 export function resumir(resultados) {
   const items = Array.isArray(resultados) ? resultados : [];
-  const fallidos = items.filter((r) => r.code !== 0).map((r) => r.nombre);
-  return { ok: fallidos.length === 0, fallidos, total: items.length };
+  const fallidos = items.filter((r) => !r.skipped && r.code !== 0).map((r) => r.nombre);
+  const saltados = items.filter((r) => r.skipped).map((r) => r.nombre);
+  return { ok: fallidos.length === 0, fallidos, saltados, total: items.length };
 }

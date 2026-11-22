@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PASOS_CI, PASOS_DOCS, planDePasos, resumir } from "../scripts/verify-lib.mjs";
+import {
+  PASOS_CI,
+  PASOS_DOCS,
+  dependenciasIncumplidas,
+  planDePasos,
+  resumir,
+} from "../scripts/verify-lib.mjs";
 
 describe("verify: plan de pasos", () => {
   it("completo corre los pasos de CI y después los de docs", () => {
@@ -42,6 +48,42 @@ describe("verify: plan de pasos", () => {
   });
 });
 
+describe("verify: pasos dependientes", () => {
+  it("skips se salta si falló test, aunque los demás pasos sigan", () => {
+    expect(
+      dependenciasIncumplidas({ nombre: "skips" }, [
+        { nombre: "arch", code: 1 },
+        { nombre: "test", code: 1 },
+      ]),
+    ).toEqual(["test"]);
+  });
+
+  it("skips corre cuando test pasó aunque arch haya fallado", () => {
+    expect(
+      dependenciasIncumplidas({ nombre: "skips" }, [
+        { nombre: "arch", code: 1 },
+        { nombre: "test", code: 0 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("los escritores de docs se saltan si falló un check de docs", () => {
+    expect(
+      dependenciasIncumplidas({ nombre: "docs:estado" }, [
+        { nombre: "docs:estado-check", code: 1 },
+      ]),
+    ).toEqual(["docs:estado-check"]);
+  });
+
+  it("un check de docs fallido no bloquea la suite de tests", () => {
+    expect(
+      dependenciasIncumplidas({ nombre: "test" }, [
+        { nombre: "docs:estado-check", code: 1 },
+      ]),
+    ).toEqual([]);
+  });
+});
+
 describe("verify: resumen", () => {
   it("ok cuando ningún paso falló", () => {
     expect(resumir([{ nombre: "a", code: 0 }, { nombre: "b", code: 0 }]).ok).toBe(true);
@@ -51,5 +93,16 @@ describe("verify: resumen", () => {
     const r = resumir([{ nombre: "a", code: 0 }, { nombre: "b", code: 1 }]);
     expect(r.ok).toBe(false);
     expect(r.fallidos).toEqual(["b"]);
+  });
+
+  it("no cuenta como fallo un paso saltado y lo reporta aparte", () => {
+    const r = resumir([
+      { nombre: "arch", code: 1 },
+      { nombre: "test", code: 0 },
+      { nombre: "skips", skipped: true },
+    ]);
+    expect(r.ok).toBe(false);
+    expect(r.fallidos).toEqual(["arch"]);
+    expect(r.saltados).toEqual(["skips"]);
   });
 });

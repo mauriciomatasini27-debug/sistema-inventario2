@@ -24,6 +24,10 @@ _Avoid_: sync Gmail, sincronización, watcheo
 Estado de referencia mínimo aceptado de una pieza (skill, componente, política o gate): el nivel a partir del cual se considera disponible; el resto queda pendiente o como deuda aceptada.
 _Avoid_: Umbral nuevo sin acuerdo, To Do, 'pendiente de definir'
 
+**Unicidad por comercio**:
+Restricción de identidad cuyo alcance es un Tenant (Comercio): el mismo valor puede existir en dos comercios, pero no repetirse dentro de uno.
+_Avoid_: unicidad global, clave única global
+
 ### Stock y lotes
 
 **Historial de stock**:
