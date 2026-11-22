@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PASOS_CI,
@@ -5,6 +8,7 @@ import {
   dependenciasIncumplidas,
   planDePasos,
   resumir,
+  textoResumen,
 } from "../scripts/verify-lib.mjs";
 
 describe("verify: plan de pasos", () => {
@@ -104,5 +108,78 @@ describe("verify: resumen", () => {
     expect(r.ok).toBe(false);
     expect(r.fallidos).toEqual(["arch"]);
     expect(r.saltados).toEqual(["skips"]);
+  });
+});
+
+describe("verify: mensajes del resumidor", () => {
+  function conFalloTest() {
+    return planDePasos().map((p) => {
+      if (p.nombre === "test") return { nombre: p.nombre, code: 1 };
+      if (p.nombre === "skips") return { nombre: p.nombre, skipped: true, motivo: "porque falló test" };
+      return { nombre: p.nombre, code: 0 };
+    });
+  }
+
+  it("nombra los tests fallidos leyendo el reporte JSON de Vitest", () => {
+    const dir = mkdtempSync(join(tmpdir(), "verify-reporte-"));
+    const reporte = join(dir, "report.json");
+    writeFileSync(
+      reporte,
+      JSON.stringify({
+        testResults: [
+          {
+            assertionResults: [
+              { fullName: "suite > caso rojo", status: "failed" },
+              { fullName: "suite > caso verde", status: "passed" },
+            ],
+          },
+        ],
+      }),
+    );
+    const txt = textoResumen(resumir(conFalloTest()), { rutaRecibo: null, reporte });
+    expect(txt).toContain("verify falló en: test");
+    expect(txt).toContain("suite > caso rojo");
+    expect(txt).not.toContain("caso verde");
+    expect(txt).toContain(reporte);
+    expect(txt).toMatch(/node -e .*assertionResults/);
+  });
+
+  it("nombra la suite fallida cuando el fallo es de hook y no hay asserts fallidos", () => {
+    const dir = mkdtempSync(join(tmpdir(), "verify-suite-"));
+    const reporte = join(dir, "report.json");
+    writeFileSync(
+      reporte,
+      JSON.stringify({ testResults: [{ name: "tests/hook-roto.test.ts", status: "failed", assertionResults: [] }] }),
+    );
+    const txt = textoResumen(resumir(conFalloTest()), { rutaRecibo: null, reporte });
+    expect(txt).toContain("suites fallidas");
+    expect(txt).toContain("tests/hook-roto.test.ts");
+  });
+
+  it("da la ruta y el comando concreto cuando el reporte no es legible", () => {
+    const txt = textoResumen(resumir(conFalloTest()), { rutaRecibo: null, reporte: "no-existe.json" });
+    expect(txt).toContain("no-existe.json");
+    expect(txt).toMatch(/node -e .*assertionResults/);
+  });
+
+  it("distingue el paso omitido del fallido, con motivo inline", () => {
+    const txt = textoResumen(resumir(conFalloTest()), { rutaRecibo: null, reporte: "no-existe.json" });
+    expect(txt).toContain("verify omitió skips");
+    expect(txt).toContain("porque falló test");
+    expect(txt).not.toContain("motivo en el recibo");
+  });
+
+  it("solo menciona el recibo si se escribió", () => {
+    const r = resumir(conFalloTest());
+    const sin = textoResumen(r, { rutaRecibo: null, reporte: "no-existe.json" });
+    const con = textoResumen(r, { rutaRecibo: ".verify-receipt.json", reporte: "no-existe.json" });
+    expect(sin).not.toMatch(/recibo/i);
+    expect(con).toContain(".verify-receipt.json");
+  });
+
+  it("sin fallos conserva verify ok (18 pasos)", () => {
+    const todos = planDePasos().map((p) => ({ nombre: p.nombre, code: 0 }));
+    expect(todos).toHaveLength(18);
+    expect(textoResumen(resumir(todos))).toBe(`verify ok (${todos.length} pasos)`);
   });
 });
