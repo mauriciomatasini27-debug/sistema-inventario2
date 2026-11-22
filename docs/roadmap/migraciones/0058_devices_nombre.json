@@ -1,0 +1,6 @@
+{
+  "tag": "0058_devices_nombre",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente por Mauri el 2026-11-22 para la deuda #357 (persistir el nombre del device en la tabla devices, plan PLAN-COM-01-B). Tag reservado antes del merge del PR que trae el .sql, igual que 0056. Aplicación pendiente en la base real."
+}
