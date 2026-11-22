@@ -17,6 +17,28 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
   <div id="stock-contexto" data-rol={rol} data-permisos={JSON.stringify(permisos)} hidden></div>
+  <div class="panel-stock-layout">
+    <div class="panel-stock-catalogo">
+      <div class="grid">
+        <section class="card" data-harness={harness}>
+          <h2>Catálogo</h2>
+          <div class="kpi">
+            <div><b id="stock-productos">…</b><small>Productos</small></div>
+            <div><b id="stock-umbral">…</b><small>Bajo mínimo</small></div>
+          </div>
+          <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
+          <div class="estado" id="estado-stock" role="status">Cargando…</div>
+        </section>
+        <section class="card" id="lotes-card">
+          <h2>Lotes FEFO</h2>
+          <p class="estado">Consulta de lotes: el ingreso de mercadería se hace desde «Registrar ingreso».</p>
+          <button id="lote-buscar" type="button">Buscar lotes</button>
+          <ul class="lista" id="lote-lista"></ul>
+          <div class="estado" id="estado-lotes" role="status">Cargando…</div>
+        </section>
+      </div>
+    </div>
+    <div class="panel-stock-accion">
   <section class="card" id="registro-codigo">
     <h2>Registrar movimiento</h2>
     <div class="fila">
@@ -117,26 +139,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     <div class="estado" id="estado-precio-pendiente" role="status"></div>
   </section>
 
-  <div class="grid dos">
-    <section class="card" data-harness={harness}>
-      <h2>Catálogo</h2>
-      <div class="kpi">
-        <div><b id="stock-productos">…</b><small>Productos</small></div>
-        <div><b id="stock-umbral">…</b><small>Bajo mínimo</small></div>
-      </div>
-      <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
-      <div class="estado" id="estado-stock" role="status">Cargando…</div>
-    </section>
-
-    <section class="card" id="lotes-card">
-      <h2>Lotes FEFO</h2>
-      <p class="estado">Consulta de lotes: el ingreso de mercadería se hace desde «Registrar ingreso».</p>
-      <button id="lote-buscar" type="button">Buscar lotes</button>
-      <ul class="lista" id="lote-lista"></ul>
-      <div class="estado" id="estado-lotes" role="status">Cargando…</div>
-    </section>
-  </div>
-
   <p><button id="abrir-ubicaciones" type="button" aria-expanded="false" aria-controls="ubicaciones">Ubicaciones</button></p>
   <div class="grid">
     <section class="card" id="ubicaciones" hidden>
@@ -159,7 +161,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     </section>
   </div>
 
-  <div class="grid dos">
+  <div class="grid">
     <section class="card" id="ingreso-card">
       <h2>Registrar ingreso</h2>
       <form id="ingreso-form">
@@ -199,9 +201,19 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       </form>
     </section>
   </div>
+    </div>
+  </div>
 </PanelShell>
 
 <style>
+  .panel-stock-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .panel-stock-catalogo { order: 2; min-width: 0; }
+  .panel-stock-accion { order: 1; min-width: 0; }
+  @media (min-width: 900px) {
+    .panel-stock-layout { grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr); align-items: start; }
+    .panel-stock-catalogo { order: 1; }
+    .panel-stock-accion { order: 2; }
+  }
   .camara-video { width: 100%; max-height: 180px; border-radius: 8px; background: var(--color-void); }
   .aviso {
     margin-bottom: 12px;

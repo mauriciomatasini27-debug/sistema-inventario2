@@ -31,6 +31,14 @@ describe("STOCK-R8: contrato visual del catálogo simplificado", () => {
     expect(stock).toContain("clavesIdempotencia");
   });
 
+  it("el catálogo y la acción se acomodan por ancho de pantalla", () => {
+    const stock = leer("src/pages/panel/stock.astro");
+    expect(stock).toContain("panel-stock-layout");
+    expect(stock).toContain(".panel-stock-catalogo { order: 2; min-width: 0; }");
+    expect(stock).toContain(".panel-stock-accion { order: 1; min-width: 0; }");
+    expect(stock).toContain("@media (min-width: 900px)");
+  });
+
   it("solo el bloque de acción ganadora queda visible", () => {
     const stock = leer("src/pages/panel/stock.astro");
     expect(stock).toContain('id="cola-cabecera"');
