@@ -1,8 +1,8 @@
 import { control } from "./store.js";
 
 // P10-34 [tenant]: espejo en memoria de devices.nombre para el modo single sin
-// base. Los repos no importan el store directo: el espejo es un adaptador del
-// plano de control y la fuente con base viva sigue siendo la tabla.
+// P10-34 [tenant]: base. Los repos no importan el store directo: el espejo es
+// P10-34 [tenant]: un adaptador del plano de control; con base viva manda la tabla.
 
 export function nombreEnMemoria(deviceCode: string): string | undefined {
   return control.deviceNames.get(deviceCode);

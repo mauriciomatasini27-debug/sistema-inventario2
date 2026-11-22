@@ -4,9 +4,9 @@ import { dbVivaTenant } from "../server-db.js";
 import { fijarNombreEnMemoria, nombresEnMemoria } from "../nombres-dispositivos-memoria.js";
 
 // P10-34 [tenant]: #357; la fuente del nombre del device es devices.nombre de
-// la base del comercio. El Map queda como espejo y como fuente en single sin
-// base. dbVivaTenant lanza BaseNoDisponible en multi/shared sin base, así la
-// ruta decide 503 antes de escribir un nombre que parecería persistido.
+// P10-34 [tenant]: la base del comercio. El Map queda como espejo y como fuente
+// P10-34 [tenant]: en single sin base. dbVivaTenant lanza BaseNoDisponible en
+// P10-34 [tenant]: multi/shared sin base, así la ruta decide 503 antes de escribir.
 
 export interface FuenteNombreDevice {
   readonly fuente: "db" | "memoria";
@@ -18,14 +18,14 @@ export interface NombresDevices {
 }
 
 // P10-34 [tenant]: escribe el nombre y deja el espejo; en single sin DB la
-// memoria manda y en multi sin DB lanza BaseNoDisponible.
+// P10-34 [tenant]: memoria manda y en multi sin DB lanza BaseNoDisponible.
 export async function guardarNombreDevice(
   tenantId: string,
   deviceCode: string,
   nombre: string,
 ): Promise<FuenteNombreDevice> {
   // P10-34 [tenant]: el chequeo de base va primero; en multi sin base no se
-  // toca el espejo para no dejar un nombre que parezca persistido.
+  // P10-34 [tenant]: toca el espejo para no dejar un nombre que parezca persistido.
   const db = dbVivaTenant(tenantId);
   fijarNombreEnMemoria(deviceCode, nombre);
   if (!db) return { fuente: "memoria" };
@@ -37,7 +37,7 @@ export async function guardarNombreDevice(
         deviceCode,
         nombre,
         // P10-34 [tenant]: devices exige plataforma y versión aunque el alta
-        // real escriba device_sync_state; estos valores son solo marcadores.
+        // P10-34 [tenant]: real escriba device_sync_state; estos valores son marcadores.
         plataforma: "desconocida",
         appVersion: "0",
       })
@@ -52,7 +52,7 @@ export async function guardarNombreDevice(
 }
 
 // P10-34 [tenant]: lee los nombres desde DB e hidrata el espejo; sin base
-// (single) la memoria es la única fuente.
+// P10-34 [tenant]: (single) la memoria es la única fuente.
 export async function nombresDevices(
   tenantId: string,
   deviceCodes: readonly string[],

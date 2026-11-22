@@ -62,7 +62,7 @@ export const devices = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     deviceCode: text("device_code").notNull(),
   // P10-34 [tenant]: nombre asignado por el Dueño; nullable porque 0058 no
-  // rompe las filas ya registradas sin nombre.
+  // P10-34 [tenant]: rompe las filas ya registradas sin nombre.
   nombre: text("nombre"),
   plataforma: text("plataforma").notNull(),
   appVersion: text("app_version").notNull(),
