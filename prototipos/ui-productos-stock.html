@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PROTOTIPO — /panel/stock simplificada</title>
+<!--
+  PROTOTIPO DESECHABLE. Rama prototype/ui-productos-stock. Nunca mergear.
+  Pregunta: "¿Cómo se ve /panel/stock con la regla de próxima acción, la cola única y el campo de código único?"
+  Tres variantes estructuralmente distintas, conmutables por ?variant=A|B|C y por la barra flotante.
+  Piel tablero B (#158) reutilizada; sin persistencia; sin mutations reales.
+-->
+<style>
+  :root{--void:#1a1a1a;--sup:#2b2b2b;--sup2:#3a3a3a;--txt:#f7f5f2;--mut:#cfc9b8;--line:#4a4a4a;--cta:#bf360c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--void);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+  button,input,select{font:inherit;color:inherit}
+  .app{max-width:1180px;margin:0 auto;padding:18px 20px 130px}
+  .app.mobile{max-width:390px;padding:12px 12px 150px}
+  h1{font-size:1.6rem;margin:0}h2{font-size:1.05rem;margin:0 0 8px}h3{font-size:.9rem;margin:12px 0 6px;color:var(--mut)}
+  .topo{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+  .topo .sub{color:var(--mut);font-size:.85rem}
+  .nav{display:flex;gap:6px;overflow:auto;margin-bottom:14px}
+  .nav span{padding:7px 12px;border:1px solid var(--line);border-radius:999px;color:var(--mut);font-size:.8rem;white-space:nowrap}
+  .nav span.on{background:var(--sup2);color:var(--txt);border-color:var(--sup2)}
+  .app.mobile .nav{display:none}
+  .bottomnav{display:none}
+  .app.mobile .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--sup);border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around;z-index:8}
+  .bottomnav span{font-size:.72rem;color:var(--mut)}.bottomnav span.on{color:var(--txt)}
+  .card{background:var(--sup);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .btn{background:var(--sup2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn.cta{background:var(--cta);border-color:var(--cta);color:#fff;font-weight:600}
+  .btn.mini{padding:5px 9px;font-size:.8rem}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:8px 0}
+  label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--mut);flex:1;min-width:110px}
+  input,select{background:var(--void);border:1px solid var(--line);border-radius:7px;padding:7px 9px;min-height:38px;width:100%}
+  .paso{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .pill{background:var(--sup2);border-radius:999px;padding:3px 9px;font-size:.75rem;color:var(--mut)}
+  .pill.fuerte{background:var(--cta);color:#fff}
+  .resto{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px;color:var(--mut);font-size:.82rem}
+  .resto div{padding:3px 0}
+  .tabla{width:100%;border-collapse:collapse;font-size:.84rem}
+  .tabla th{text-align:left;color:var(--mut);font-weight:500;border-bottom:1px solid var(--line);padding:7px 6px}
+  .tabla td{padding:7px 6px;border-bottom:1px solid #353535}
+  .tabla tr.bajo td:first-child{border-left:3px solid var(--cta)}
+  .nota{color:var(--mut);font-size:.76rem;margin:8px 0 0}
+  .codigo{display:flex;gap:6px;align-items:end;flex-wrap:wrap}
+  .codigo > label{flex:2}
+  .codigo select{flex:1;min-width:140px}
+  .grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
+  .app.mobile .grid2{grid-template-columns:1fr}
+  .app.mobile .accion{order:-1}
+  .franja{width:100%;text-align:left;background:var(--sup);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;color:var(--txt)}
+  .franja b{color:var(--cta)}
+  .sheet{position:fixed;z-index:9;left:0;right:0;bottom:56px;background:var(--sup);border-top:2px solid var(--cta);border-radius:14px 14px 0 0;padding:16px 20px 22px;max-height:62vh;overflow:auto}
+  .app:not(.mobile) .sheet{bottom:0;left:50%;right:auto;transform:translateX(-50%);width:min(760px,90vw);border:1px solid var(--cta)}
+  .rail{display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:start}
+  .app.mobile .rail{grid-template-columns:1fr}
+  .pasos{display:flex;flex-direction:column;gap:6px}
+  .app.mobile .pasos{flex-direction:row;overflow:auto}
+  .pasos button{text-align:left;background:var(--sup);border:1px solid var(--line);border-radius:8px;padding:10px;cursor:pointer;white-space:nowrap}
+  .pasos button.on{border-color:var(--cta);background:var(--sup2)}
+  .lateral{position:fixed;z-index:10;top:0;right:0;height:100%;width:min(340px,92vw);background:var(--sup);border-left:1px solid var(--cta);padding:18px;overflow:auto}
+  .lotes{background:var(--void);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:.8rem;color:var(--mut)}
+  .lotes div{padding:3px 0}
+  .estado{margin-top:16px;background:#111;border:1px dashed var(--line);border-radius:8px;padding:9px;color:#9fd3a3;font-size:.72rem;white-space:pre-wrap}
+  .protobar{position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:10px;display:flex;gap:6px;align-items:center;background:#f7f5f2;color:#1a1a1a;border-radius:999px;padding:6px 9px;box-shadow:0 4px 18px #0009;font-size:.8rem}
+  .app.mobile ~ .protobar{bottom:64px}
+  .protobar button{border:0;background:#e3ddd0;border-radius:999px;padding:5px 10px;cursor:pointer;color:#1a1a1a}
+  .protobar .etiqueta{min-width:158px;text-align:center;font-weight:600}
+  .protobar .extra{border-left:1px solid #bbb;padding-left:8px}
+</style>
+</head>
+<body>
+<div id="app" class="app"></div>
+<div class="protobar">
+  <button data-cmd="variant-prev" aria-label="Variante anterior">←</button>
+  <span class="etiqueta" id="etiqueta"></span>
+  <button data-cmd="variant-next" aria-label="Variante siguiente">→</button>
+  <span class="extra">Vista <button data-cmd="vista">390 / escritorio</button></span>
+  <span class="extra">Rol <button data-cmd="rol">Dueño / Empleado</button></span>
+</div>
+<script>
+const NOMBRES = { A: 'A · Acción + catálogo', B: 'B · Franja expandible', C: 'C · Rail + hoja' };
+const ORDEN = ['A','B','C'];
+const q = new URLSearchParams(location.search);
+const estado = {
+  variant: ORDEN.includes(q.get('variant')) ? q.get('variant') : 'A',
+  rol: q.get('rol') === 'empleado' ? 'empleado' : 'dueno',
+  mobile: q.get('vista') === '390',
+  accion: 'ingreso',
+  confirmados: 0,
+  omitido: false,
+  franja: false,
+  hoja: 'catatalogo',
+  ubicaciones: false
+};
+const productos = [
+  ['INT-102','Leche entera 1 L','$1.250','12','6'],
+  ['INT-118','Pan lactal','$980','4','8'],
+  ['INT-131','Café molido 500 g','$4.200','0','3'],
+  ['INT-144','Aceite 1 L','$2.100','9','4'],
+  ['INT-157','Arroz 1 kg','$1.480','22','5'],
+  ['INT-163','Azúcar 1 kg','$1.120','7','4']
+];
+function deudas(){
+  return {
+    precio: Math.max(0, 3 - estado.confirmados),
+    stockInicial: 2,
+    sugerido: estado.rol === 'dueno' && !estado.omitido
+  };
+}
+function ganadora(d){
+  if (d.precio > 0) return { titulo: 'Completá el precio', detalle: d.precio + ' productos sin precio · primero los más vendidos', boton: 'Cargar precio' };
+  if (d.stockInicial > 0) return { titulo: 'Cargá el stock inicial', detalle: d.stockInicial + ' productos dados de alta al vender', boton: 'Cargar stock' };
+  return { titulo: 'Catálogo sugerido para tu rubro', detalle: 'Elegí los productos de tu rubro', boton: 'Ver sugerencias' };
+}
+function pasos(d){
+  const n = (d.precio>0?1:0) + (d.stockInicial>0?1:0) + (d.sugerido?1:0);
+  return { n, actual: Math.min(1, n) };
+}
+function queda(d){ return d.precio + d.stockInicial + (d.sugerido?1:0); }
+function cta(){
+  return estado.rol === 'dueno' ? '<button class="btn cta" data-cmd="noop">Agregar producto</button>' : '';
+}
+function campo(){
+  const opciones = [
+    ['alta','Agregar producto'],['ingreso','Registrar ingreso'],['conteo','Contar stock'],['lotes','Consultar lotes']
+  ].filter(o => o[0] !== 'alta' || estado.rol === 'dueno');
+  return `<div class="codigo">
+    <label>Código de producto<input placeholder="Escanear o escribir" /></label>
+    <select data-cmd="accion" aria-label="Acción">${opciones.map(o=>`<option value="${o[0]}" ${estado.accion===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+    <button class="btn mini" data-cmd="noop">▢ Escanear</button>
+  </div>${campos()}`;
+}
+function campos(){
+  if (estado.accion === 'ingreso') return `<div class="fila">
+    <label>Cantidad<input value="1" inputmode="numeric" /></label>
+    <label>Costo (pesos)<input value="0" inputmode="decimal" /></label>
+    <label>Vence el (opcional)<input type="date" /></label></div>
+    <p class="nota">Sin fecha = lote genérico. Costo ≠ precio de venta.</p>`;
+  if (estado.accion === 'conteo') return `<div class="fila">
+    <label>Cantidad física<input inputmode="numeric" /></label>
+    <label>Contado por<input placeholder="Nombre" /></label>
+    <label>Motivo<input placeholder="Ajuste" /></label></div>
+    <p class="nota">Dueño: confirma y ajusta · Empleado: queda <code>listo_revisar</code>.</p>`;
+  if (estado.accion === 'lotes') return `<div class="lotes">
+    <div>FEFO · INT-118 · vence 12/02 · 4 u. · costo $910</div>
+    <div>FEFO · INT-131 · vence 28/02 · 0 u. · costo $3.700</div>
+    <div>Genérico · INT-102 · sin vencimiento · 12 u. · costo $1.000</div></div>
+    <p class="nota">Solo consulta: el alta de lote se hace en «Registrar ingreso».</p>`;
+  return `<div class="fila"><label>Nombre<input /></label><label>Precio de venta<input /></label><label>Cantidad inicial<input value="0" /></label></div>
+    <p class="nota">Alta con stock = dos operaciones, una clave de idempotencia por cada una.</p>`;
+}
+function cola(d){
+  const p = pasos(d), g = ganadora(d), restantes = [];
+  if (d.stockInicial>0) restantes.push(`Cargá stock inicial · ${d.stockInicial}`);
+  if (d.sugerido) restantes.push('Catálogo sugerido para tu rubro');
+  if (d.precio>0) restantes.push(`Completá el precio · ${d.precio}`);
+  return `<div class="paso"><b>Completá tu catálogo</b>
+      ${p.n>1?`<span class="pill fuerte">${p.actual} de ${p.n}</span>`:''}
+      <span class="pill">quedan ${queda(d)}</span></div>
+    <div class="card" style="border-color:var(--cta)">
+      <h2>${g.titulo}</h2><p class="nota">${g.detalle}</p>
+      <div class="fila"><button class="btn cta" data-cmd="confirmar">${g.boton}</button>
+      <button class="btn mini" data-cmd="omitir">Omitir sugerencias</button></div>
+    </div>
+    <div class="resto">Resto de la cola (no accionable):<div>· ${restantes.join('</div><div>· ')}</div></div>`;
+}
+function tabla(){
+  return `<table class="tabla"><thead><tr>
+    <th>Código de producto</th><th>Nombre</th><th>Precio</th><th>Stock disponible</th><th>Mínimo</th>
+    </tr></thead><tbody>${productos.map(p=>`<tr class="${Number(p[3])<Number(p[4])?'bajo':''}">
+    <td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td><td>${p[3]}</td><td>${p[4]}</td></tr>`).join('')}</tbody></table>
+    <p class="nota">Columnas definitivas pendientes del ticket de KPIs. Stock disponible = derivado del Historial.</p>`;
+}
+function cabecera(){
+  return `<div class="topo"><h1>Stock</h1><span class="sub">Catálogo, lotes FEFO e ingreso de mercadería · PROTOTIPO</span>
+    <span class="pill">${estado.rol === 'dueno' ? 'Dueño' : 'Empleado'}</span></div>
+    <div class="nav"><span>Inicio</span><span class="on">Productos</span><span>Vender</span><span>Fiado</span><span>Más</span></div>
+    <div class="bottomnav"><span>Inicio</span><span class="on">Productos</span><span>Vender</span><span>Fiado</span><span>Más</span></div>`;
+}
+function variantA(d){
+  return `<div class="grid2"><section class="card">
+    <div class="paso"><h2>Catálogo</h2>${cta()}</div>
+    <p class="resumen">${productos.length} productos · ${productos.filter(p=>Number(p[4])>0).length} con mínimo cargado</p>
+    ${tabla()}</section>
+    <section class="card accion"><h2>Registro</h2>${cola(d)}
+      <h3>Un código, cuatro acciones</h3>${campo()}
+      <div class="fila"><button class="btn mini" data-cmd="ubicaciones">Ubicaciones ▸</button></div>
+    </section></div>`;
+}
+function variantB(d){
+  return `<button class="franja" data-cmd="franja"><span>Completá tu catálogo · <b>${ganadora(d).titulo}</b> · quedan ${queda(d)}</span><span>▾ expandir</span></button>
+    <section class="card" style="margin-top:12px">
+      <div class="paso"><h2>Catálogo</h2>${cta()}<span class="pill">${pasos(d).n} pasos</span></div>
+      ${tabla()}</section>
+    ${estado.franja?`<div class="sheet"><div class="paso"><b>Completá tu catálogo</b>
+      ${pasos(d).n>1?`<span class="pill fuerte">1 de ${pasos(d).n}</span>`:''}</div>
+      ${cola(d)}<h3>Un código, cuatro acciones</h3>${campo()}
+      <div class="fila"><button class="btn mini" data-cmd="ubicaciones">Ubicaciones ▸</button>
+      <button class="btn mini" data-cmd="franja">Cerrar</button></div></div>`:''}`;
+}
+function variantC(d){
+  const items = [['catatalogo','1 · Completá tu catálogo'],['registro','2 · Registrar movimiento'],['lotes','3 · Consultar lotes'],['ubicaciones','4 · Ubicaciones']];
+  return `<div class="rail"><div class="pasos">${items.map(i=>`<button data-cmd="hoja" data-valor="${i[0]}" class="${estado.hoja===i[0]?'on':''}">${i[1]}</button>`).join('')}</div>
+    <section class="card"><div class="paso"><h2>Catálogo</h2>${cta()}</div>
+      ${cola(d)}${tabla()}</section></div>
+    ${estado.hoja==='ubicaciones'
+      ? `<div class="lateral"><div class="paso"><h2>Ubicaciones</h2><button class="btn mini" data-cmd="cerrar-hoja">✕</button></div>
+          <div class="fila"><label>Nueva ubicación<input /></label><button class="btn mini" data-cmd="noop">Crear</button></div>
+          <div class="resto"><div>Depósito · <button class="btn mini" data-cmd="noop">Renombrar</button></div>
+          <div>Heladera · <button class="btn mini" data-cmd="noop">Renombrar</button></div></div></div>`
+      : `<div class="sheet"><div class="paso"><b>${estado.hoja==='lotes'?'Consultar lotes':estado.hoja==='registro'?'Registrar movimiento':'Completá tu catálogo'}</b>
+          <button class="btn mini" data-cmd="cerrar-hoja">✕</button></div>
+          ${estado.hoja==='lotes' ? campo().replace('data-cmd="accion"','data-cmd="accion"') : campo()}
+          ${estado.hoja==='catatalogo'?cola(d):''}</div>`}`;
+}
+function render(){
+  const app = document.getElementById('app');
+  app.className = 'app' + (estado.mobile ? ' mobile' : '');
+  const d = deudas();
+  app.innerHTML = cabecera() +
+    (estado.variant==='A'?variantA(d):estado.variant==='B'?variantB(d):variantC(d)) +
+    (estado.ubicaciones && estado.variant!=='C' ? `<aside class="lateral"><div class="paso"><h2>Ubicaciones</h2>
+      <button class="btn mini" data-cmd="ubicaciones">✕</button></div>
+      <div class="fila"><label>Nueva ubicación<input /></label><button class="btn mini" data-cmd="noop">Crear</button></div>
+      <div class="resto"><div>Depósito · <button class="btn mini" data-cmd="noop">Renombrar</button></div>
+      <div>Heladera · <button class="btn mini" data-cmd="noop">Renombrar</button></div></div></aside>` : '') +
+    `<pre class="estado">ESTADO DEL PROTOTIPO (sin persistencia)
+${JSON.stringify({variant:estado.variant, rol:estado.rol, vista:estado.mobile?'390px':'escritorio', accion:estado.accion,
+  paso:pasos(d).actual+' de '+pasos(d).n, quedan:queda(d), sugerido:d.sugerido,
+  deudas:{precio:d.precio,stockInicial:d.stockInicial}, confirmados:estado.confirmados,
+  omitido:estado.omitido, ubicaciones:estado.ubicaciones}, null, 1)}</pre>`;
+  document.getElementById('etiqueta').textContent = NOMBRES[estado.variant];
+}
+function sync(){
+  const p = new URLSearchParams();
+  p.set('variant', estado.variant); p.set('rol', estado.rol); p.set('vista', estado.mobile?'390':'escritorio');
+  history.replaceState(null, '', location.pathname + '?' + p.toString());
+  render();
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-cmd]');
+  if (!t) return;
+  const cmd = t.dataset.cmd;
+  if (cmd === 'variant-next' || cmd === 'variant-prev') {
+    const i = ORDEN.indexOf(estado.variant);
+    estado.variant = ORDEN[(i + (cmd==='variant-next'?1:ORDEN.length-1)) % ORDEN.length];
+    estado.franja = false; estado.ubicaciones = false;
+  } else if (cmd === 'vista') estado.mobile = !estado.mobile;
+  else if (cmd === 'rol') { estado.rol = estado.rol==='dueno'?'empleado':'dueno'; estado.omitido = false; }
+  else if (cmd === 'ubicaciones') estado.ubicaciones = !estado.ubicaciones;
+  else if (cmd === 'franja') estado.franja = !estado.franja;
+  else if (cmd === 'hoja') { estado.hoja = t.dataset.valor; estado.ubicaciones = false; }
+  else if (cmd === 'cerrar-hoja') estado.hoja = 'catatalogo';
+  else if (cmd === 'omitir') estado.omitido = true;
+  else if (cmd === 'confirmar') estado.confirmados += 1;
+  sync();
+});
+document.addEventListener('change', e => {
+  if (e.target.dataset.cmd === 'accion') { estado.accion = e.target.value; if (estado.variant==='C') estado.hoja='registro'; sync(); }
+});
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  document.querySelector(`[data-cmd="variant-${e.key==='ArrowRight'?'next':'prev'}"]`).click();
+});
+sync();
+</script>
+</body>
+</html>
