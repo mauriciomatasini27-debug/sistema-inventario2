@@ -1,0 +1,7 @@
+{
+  "tag": "0053_servicios_pagos_tenant",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Aplicada el 2026-11-22 en el proyecto Supabase rpdrzvrmuuglfavynyph con autorización explícita de Mauricio (la autorización original del 2026-11-21 03:56 está registrada en el SQL) y el SQL exacto de drizzle/0053_servicios_pagos_tenant.sql mediante Supabase MCP apply_migration. Verificado después de aplicar: columna tenant_id presente en service_accounts, utility_bills, payees y payment_orders, con los cuatro índices service_accounts_tenant_idx, utility_bills_tenant_idx, payees_tenant_idx y payment_orders_tenant_idx. Las cuatro tablas tenían 0 filas, así que el backfill no movió datos. El historial de Supabase registra 0053_servicios_pagos_tenant (version 20261122003511).",
+  "backup": "Sin dump previo: columnas nullable agregadas con ADD COLUMN IF NOT EXISTS sobre tablas vacías."
+}
