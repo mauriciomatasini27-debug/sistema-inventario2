@@ -80,8 +80,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
     <div class="fila">
       <button id="catalogo-sugerido-crear" type="button">Crear seleccionados</button>
-      <button id="catalogo-sugerido-no" type="button">No, gracias</button>
+      <button id="catalogo-sugerido-no" type="button">Omitir sugerencias</button>
     </div>
+    <p class="estado">Si las omitís, no volverán a mostrarse hasta una versión nueva de la plantilla.</p>
     <div class="estado" id="estado-catalogo-sugerido" role="status"></div>
   </section>
 
@@ -276,7 +277,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
   import { CLAVE_AVISO_UBICACIONES, mostrarAvisoUbicaciones } from "../../modules/onboarding/ubicaciones-aviso.js";
-  import { avisoCatalogoDescartado, descartarAvisoCatalogo } from "../../modules/onboarding/catalogo-aviso.js";
   import {
     accionSiCodigoDuplicado,
     armarAltaProducto,
@@ -536,18 +536,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     pintarCola();
   };
 
-  const catalogoSugeridoDescartado = () => {
-    try {
-      return avisoCatalogoDescartado(localStorage, tenantId);
-    } catch (error) {
-      console.warn("[panel/stock] aviso catálogo", error);
-      return false;
-    }
-  };
-
   const pintarCatalogoSugerido = (j) => {
     const productos = Array.isArray(j.productos) ? j.productos : [];
-    if (j.sembrado === true || productos.length === 0 || catalogoSugeridoDescartado()) {
+    if (j.sembrado === true || productos.length === 0) {
       ocultarCatalogoSugerido();
       return;
     }
@@ -627,18 +618,30 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       (input) => input.value,
     );
     if (nombres.length === 0) {
-      $("estado-catalogo-sugerido").textContent = "Elegí al menos un producto o usá \"No, gracias\".";
+      $("estado-catalogo-sugerido").textContent = "Elegí al menos un producto o usá «Omitir sugerencias».";
       return;
     }
     sembrarCatalogoSugerido(nombres);
   });
-  $("catalogo-sugerido-no").addEventListener("click", () => {
+  $("catalogo-sugerido-no").addEventListener("click", async () => {
+    const estado = $("estado-catalogo-sugerido");
+    estado.textContent = "Guardando…";
     try {
-      descartarAvisoCatalogo(localStorage, tenantId);
+      const r = await fetch("/api/stock/plantilla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombres: [] }),
+      });
+      if (!r.ok) {
+        estado.textContent = "No se guardó el descarte. Reintentá.";
+        return;
+      }
+      ocultarCatalogoSugerido();
+      cargarCatalogo();
     } catch (error) {
-      console.warn("[panel/stock] aviso catálogo", error);
+      console.warn("[panel/stock] omitir sugerencias", error);
+      estado.textContent = mensaje("error", "");
     }
-    ocultarCatalogoSugerido();
   });
 
   const buscarLotes = () => {
