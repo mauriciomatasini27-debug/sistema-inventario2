@@ -6,10 +6,13 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** cerrado
+**Claim:** libre
+**Avance:** docs/roadmap/avances/AUD-VTA-01.md
+**Rama:** mauri/aud-vta-05-integration (solo local; worktree `/tmp/opencode/aud-vta-05/integration`)
 
-- [ ] Una venta al contado registra el movimiento en el Historial, actualiza el Stock disponible y descuenta el resto del Lote elegido por FEFO en una sola transacción.
-- [ ] Si falla la actualización del Lote, no quedan ni el movimiento ni el cambio de Stock disponible.
-- [ ] El escritor acepta una condición de resto suficiente y bloquea la fila cuando la operación lo exige.
-- [ ] Dos ventas concurrentes sobre el mismo SKU no dejan resto negativo ni Stock disponible distinto de la suma de Lotes.
-- [ ] Las rutas existentes de venta y de fiado responden igual y sus pruebas siguen pasando.
+- [x] Una venta al contado registra el movimiento en el Historial, actualiza el Stock disponible y descuenta el resto del Lote elegido por FEFO en una sola transacción.
+- [x] Si falla la actualización del Lote, no quedan ni el movimiento ni el cambio de Stock disponible.
+- [x] El escritor acepta una condición de resto suficiente y bloquea la fila cuando la operación lo exige.
+- [x] Dos ventas concurrentes sobre el mismo SKU no dejan resto negativo ni Stock disponible distinto de la suma de Lotes.
+- [x] Las rutas existentes de venta y de fiado responden igual y sus pruebas siguen pasando.

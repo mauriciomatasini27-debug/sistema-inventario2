@@ -93,21 +93,13 @@ describe.skipIf(!hayPG)("AUD-VTA-05 T06 comando read-only contra Postgres", () =
   }
 
   beforeAll(async () => {
-    url = await asegurarBasePrivada("aud_vta_05_t06", process.env.PG_TEST_URL_A ?? "");
+    // RETRO-AUD-03: el helper limpia los SKUs T06% de corridas anteriores.
+    url = await asegurarBasePrivada("aud_vta_05_t06", process.env.PG_TEST_URL_A ?? "", ["T06%"]);
     sql = postgres(url, { max: 1 });
-    // Base privada de este archivo: limpia filas de corridas anteriores.
-    await sql`DELETE FROM stock_movements WHERE sku LIKE 'T06%'`;
-    await sql`DELETE FROM stock_lots WHERE sku LIKE 'T06%'`;
-    await sql`DELETE FROM products WHERE sku LIKE 'T06%'`;
   });
 
   afterAll(async () => {
-    if (sql) {
-      await sql`DELETE FROM stock_movements WHERE sku LIKE 'T06%'`;
-      await sql`DELETE FROM stock_lots WHERE sku LIKE 'T06%'`;
-      await sql`DELETE FROM products WHERE sku LIKE 'T06%'`;
-      await sql.end();
-    }
+    if (sql) await sql.end();
   });
 
   beforeEach(async () => {
@@ -180,5 +172,15 @@ describe.skipIf(!hayPG)("AUD-VTA-05 T06 comando read-only contra Postgres", () =
     });
     expect(r.estado).toBe(0);
     expect(r.json.comercios.map((c: any) => c.tenantId)).toEqual([TENANT_A]);
+  });
+
+  it("la base privada vuelve a arrancar limpia en otra corrida", async () => {
+    const sku = `T06STALE${sufijo}`;
+    await sembrar(TENANT_A, sku, 1, 1, 1);
+    expect((await sql`SELECT count(*)::int AS n FROM products WHERE sku = ${sku}`)[0]?.n).toBe(1);
+
+    await asegurarBasePrivada("aud_vta_05_t06", process.env.PG_TEST_URL_A ?? "", ["T06%"]);
+    const despues = await sql`SELECT count(*)::int AS n FROM products WHERE sku = ${sku}`;
+    expect(despues[0]?.n).toBe(0);
   });
 });
