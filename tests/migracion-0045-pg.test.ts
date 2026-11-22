@@ -21,7 +21,7 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
     expect(journal.entries.some((e) => e.tag === "0052_retencion_anonimiza_auditoria")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0053_servicios_pagos_tenant")).toBe(true);
-    expect(journal.entries.length).toBe(55);
+    expect(journal.entries.length).toBe(56);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -228,7 +228,7 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
         // P1-96: el wrapper aplica hasta la última migración del journal (0054 incluida).
-        expect(n[0]?.n).toBe(55);
+        expect(n[0]?.n).toBe(56);
       } finally {
         await db.end();
       }

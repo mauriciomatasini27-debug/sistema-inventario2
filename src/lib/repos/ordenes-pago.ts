@@ -185,8 +185,6 @@ async function siguienteNumero(
   ordenes: AlmacenVivo<PaymentOrder>,
   vistos: AlmacenVivo<PaymentOrder>,
 ): Promise<{ numero: string; n: number }> {
-  // P10-90 (0053): sin filtro por comercio a propósito: payment_orders.numero
-  // es UNIQUE global, así que el próximo número tiene que mirar todas las filas.
   const filas = await db.select({ numero: paymentOrders.numero }).from(paymentOrders);
   const numeros = filas.map((f) => f.numero);
   for (const o of ordenes.comoMapaSoloLectura().values()) numeros.push(o.numero);

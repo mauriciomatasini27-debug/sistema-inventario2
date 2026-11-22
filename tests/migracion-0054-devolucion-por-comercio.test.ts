@@ -11,8 +11,8 @@ describe("P1-96 migración 0054: D-* por comercio", () => {
   it("el journal registra 0054 justo después de 0053", () => {
     const entries = journal().entries;
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(54);
-    expect(entries.length).toBe(55);
-    expect(entries.at(-1)?.tag).toBe(TAG);
+    expect(entries.length).toBe(56);
+    // 0055 ya es la última; la comprueba su propio test de migración.
   });
 });
 

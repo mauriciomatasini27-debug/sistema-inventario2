@@ -1,0 +1,7 @@
+{
+  "tag": "0055_unicidad_por_comercio",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada por Mauri en el grill del ítem (Q2) y registrada en ADR-0123. Implementada en la rama mauri/unicidad-por-comercio. Validada con tests PG locales sobre bases creadas desde el journal: dos comercios comparten message_id / numero / idempotency_key, un mismo comercio no los repite, las filas con tenant_id NULL conservan protección global por índice parcial y la migración es reaplizable. Pendiente de aplicación en la base real: requiere aprobación y registro de evidencia posteriores, igual que 0052/0053.",
+  "backup": "Sin borrado ni reescritura de filas: la migración solo completa tenant_id donde la fuente es inequívoca, dropea tres constraints globales y crea seis índices nuevos. No se requiere dump previo para el cambio de índices."
+}

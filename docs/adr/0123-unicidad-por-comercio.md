@@ -20,7 +20,7 @@ Estado: aceptado. Fecha: 2026-11-22. Fuentes: ADR-0003, ADR-0103, ADR-0116, 0051
 
 `utility_bills.message_id`, `payment_orders.numero` y `payment_orders.idempotency_key` dejan de ser únicos en toda la base y pasan a ser únicos dentro de un Tenant (Comercio). `siguienteNumero` calcula la secuencia `OP-####` por comercio, con el mismo formato de siempre. La respuesta ante un duplicado dentro del comercio sigue siendo 409; no cambia el contrato de las APIs.
 
-Las filas legadas cuyo comercio no se puede resolver se backfillean cuando hay una fuente inequívoca; para el resto se mantiene la protección global con un índice único parcial sobre las claves de esas filas. `email_ingestion_log.message_id` queda fuera de alcance: no tiene `tenant_id` y meterlo exigiría agregar y backfillear una columna nueva.
+Las filas legadas cuyo comercio no se puede resolver se backfillean cuando hay una fuente inequívoca; para el resto se mantiene la protección **entre ellas** con un índice único parcial (`WHERE tenant_id IS NULL`): dos filas sin comercio no pueden repetir la clave, pero una fila sin comercio y una con comercio sí pueden compartirla. `email_ingestion_log.message_id` queda fuera de alcance: no tiene `tenant_id` y meterlo exigiría agregar y backfillear una columna nueva.
 
 ## Por qué
 
