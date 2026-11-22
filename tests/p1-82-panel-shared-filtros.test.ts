@@ -90,16 +90,21 @@ describe.skipIf(!hayPG)("P1-82 panel shared: productos, devoluciones y turnos ai
         )
         .returning({ id: sales.id });
       saleIdA = v!.id;
-      await db.insert(saleReturns).values({
-        idempotencyKey: keyRetA,
-        saleId: saleIdA,
-        numeroDevolucion: numDevA,
-        montoCentavos: 12_345n,
-        acumuladoNuevoCentavos: 12_345n,
-        medio: "Efectivo",
-        motivo: "p1-82",
-        actor: "test",
-      });
+      await db.insert(saleReturns).values(
+        filaPg(
+          {
+            idempotencyKey: keyRetA,
+            saleId: saleIdA,
+            numeroDevolucion: numDevA,
+            montoCentavos: 12_345n,
+            acumuladoNuevoCentavos: 12_345n,
+            medio: "Efectivo",
+            motivo: "p1-82",
+            actor: "test",
+          },
+          tenantA,
+        ),
+      );
       await db.insert(shiftHandovers).values(
         filaPg(
           {

@@ -12,6 +12,10 @@ _Avoid_: SKU, código de barras, barcode, PLU
 Organización propietaria de los datos (productos, ventas, clientes, caja) en el sistema. Cada request de datos se resuelve a un único tenant, que determina qué base o filas se usan.
 _Avoid_: organization, cuenta, tenant_id
 
+**Numero de devolucion (D-\*)**:
+Correlativo propio de cada Comercio para sus devoluciones: empieza en `D-000001` y sigue en orden dentro de ese Comercio, sin reutilizar el número de la venta ni depender de lo que emitan otros comercios.
+_Avoid_: número global de devolución, correlativo único en toda la base, número de ticket de venta
+
 **Ingesta Gmail**:
 Flujo de lectura de comprobantes (facturas de servicios) que entran por correo Gmail: clasificación capa 1, extracción de PDF/OCR/cuerpo, creación de un borrador pendiente y registro de log.
 _Avoid_: sync Gmail, sincronización, watcheo
