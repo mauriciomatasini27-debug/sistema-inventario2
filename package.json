@@ -31,7 +31,8 @@
     "cargar:credenciales": "node scripts/cargar-credenciales.mjs",
     "roadmap": "node scripts/roadmap.mjs",
     "verify": "node scripts/verify.mjs",
-    "verificar:formal": "bash scripts/verificar-formal.sh"
+    "verificar:formal": "bash scripts/verificar-formal.sh",
+    "conciliar:stock": "node scripts/conciliar-stock.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.12",
