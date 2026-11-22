@@ -151,12 +151,11 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(urlsFetch(src)).toEqual([]);
   });
 
-  it("umbrales de alerta se enlaza desde stock y desde la tarjeta de stock", () => {
+  it("umbrales de alerta ya no se enlaza desde stock: queda en Más y en la tarjeta de stock", () => {
     const destino = "/panel/alertas/umbrales";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain(destino);
-    expect(stock).toContain("TableroAcciones");
+    expect(stock).not.toContain(destino);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 

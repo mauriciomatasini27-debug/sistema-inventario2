@@ -20,6 +20,17 @@ describe("STOCK-R8: contrato visual del catálogo simplificado", () => {
     expect(stock).not.toContain("<small>Con stock mínimo</small>");
   });
 
+  it("el campo de código es único y el conteo usa el rol efectivo", () => {
+    const stock = leer("src/pages/panel/stock.astro");
+    expect(stock).toContain('id="codigo-producto"');
+    expect(stock).toContain("Registrar ingreso");
+    expect(stock).toContain("Contar stock");
+    expect(stock).toContain("Consultar lotes");
+    expect(stock).not.toContain('rol: "dueno"');
+    expect(stock).toContain("rolActual()");
+    expect(stock).toContain("clavesIdempotencia");
+  });
+
   it("solo el bloque de acción ganadora queda visible", () => {
     const stock = leer("src/pages/panel/stock.astro");
     expect(stock).toContain('id="cola-cabecera"');

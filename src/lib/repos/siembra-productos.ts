@@ -64,7 +64,6 @@ function versionVigente(tenantId: string): boolean {
   return version === null || version === VERSION_PLANTILLAS_PRODUCTOS_RUBRO;
 }
 
-// Idempotente: la primera siembra de la versión vigente gana (ON CONFLICT DO NOTHING).
 export async function registrarSiembraProductos(
   tenantId: string,
   r: RegistroSiembraProductos,

@@ -26,12 +26,16 @@ describe("TB-163: piel B en todo el panel (solo oscuro tras TB-TEMA-CLARO)", () 
 });
 
 describe("TB-163: Productos y Fiado mobile-first", () => {
-  it("Stock expone acciones rápidas sin links duplicados en la tarjeta", () => {
+  it("Stock usa un solo campo de código en lugar de la barra de acciones rápidas", () => {
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain("TableroAcciones");
+    expect(stock).not.toContain("TableroAcciones");
+    expect(stock).toContain('id="codigo-producto"');
+    expect(stock).toContain('id="accion-codigo"');
+    expect(stock).not.toContain('id="lote-sku"');
+    expect(stock).not.toContain('id="ingreso-sku"');
+    expect(stock).not.toContain('id="conteo-sku"');
     expect(stock).toContain('id="stock-resumen"');
     expect(stock).not.toContain("Importar stock desde CSV");
-    expect(stock).toContain("stock-resumen");
   });
 
   it("Fiado lista cartera con saldo real vía APIs existentes", () => {
