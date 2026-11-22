@@ -17,6 +17,7 @@ import {
   type StoredStockMovement,
 } from "./_almacen.js";
 import { conteo_por_sector, normalizarSector, type LineaFisica } from "../../modules/inventario/sectores.js";
+import { asegurarLoteGenerico } from "./lote-generico.js";
 
 // PERS2-S23 (ADR-0062): stock, movimientos y conteos. Los movimientos de
 // stock se escriben solo por este modulo. DB primero via dbVivaTenant();
@@ -302,13 +303,10 @@ export async function aplicarVentaLotes<T>(
       if (filas.length === 0) {
         const stock = stockDe.get(sku) ?? 0;
         if (stock > 0) {
-          lotes.push({
-            id: `seed-${sku}` as LotId,
-            sku: sku as Sku,
-            cantidad: stock,
-            venceEl: null,
-            costoCentavos: 0n,
-          });
+          const id = await asegurarLoteGenerico(sku, tx, stock);
+          const wLote = dondeTenant(stockLots.tenantId, eq(stockLots.id, id)) ?? eq(stockLots.id, id);
+          await tx.update(stockLots).set({ cantidad: stock, cantidadRestante: stock }).where(wLote);
+          lotes.push({ id: id as LotId, sku: sku as Sku, cantidad: stock, venceEl: null, costoCentavos: 0n });
         }
         continue;
       }
@@ -455,7 +453,8 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
         for (const l of lineas) {
           const dif = l.fisico - l.teorico;
           if (dif !== 0) {
-            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId: null, delta: dif, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
+            const loteId = await asegurarLoteGenerico(l.sku, undefined, l.teorico);
+            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId, delta: dif, tipo: "AJUSTE_CONTEO", motivo: input.motivo, condicionResto: 0 });
           }
         }
         if (enMemoria) enMemoria.estado = "confirmado";
@@ -478,7 +477,8 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
   enMemoria.estado = "confirmado";
   for (const d of enMemoria.diferencias) {
     if (d.diferencia !== 0) {
-      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
+      const loteId = await asegurarLoteGenerico(d.sku, undefined, d.teorico);
+      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId, delta: d.diferencia, tipo: "AJUSTE_CONTEO", motivo: input.motivo, condicionResto: 0 });
     }
   }
   auditoria.agregar({ accion: "conteo_confirmado", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor, motivo: input.motivo });
@@ -526,6 +526,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     fisico: d.fisico,
     diferencia: d.diferencia,
   }));
+  const teoricoDe = new Map(diferencias.map((d) => [d.sku, d.teorico]));
   if (db) {
     try {
       const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
@@ -536,7 +537,8 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
         await db.insert(stockCountLines).values(filaConTenant({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico }));
       }
       for (const m of r.valor.movimientos) {
-        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
+        const loteId = await asegurarLoteGenerico(m.sku as string, undefined, teoricoDe.get(m.sku as string));
+        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, condicionResto: 0, ...(m.motivo ? { motivo: m.motivo } : {}) });
       }
       espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
       return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
@@ -554,7 +556,8 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     }
   }
   for (const m of r.valor.movimientos) {
-    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
+    const loteId = await asegurarLoteGenerico(m.sku as string, undefined, teoricoDe.get(m.sku as string));
+    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, condicionResto: 0, ...(m.motivo ? { motivo: m.motivo } : {}) });
   }
   const id = crypto.randomUUID();
   espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);

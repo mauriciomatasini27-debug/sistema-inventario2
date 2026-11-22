@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray, sql } from "drizzle-orm";
-import { products, stockImports, stockLots, stockMovements } from "../../db/schema.js";
+import { eq, inArray } from "drizzle-orm";
+import { products, stockImports } from "../../db/schema.js";
 import { BaseNoDisponible, dbVivaTenant, type TenantDb } from "../server-db.js";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { altaProducto } from "./catalogo.js";
-import { crearLote } from "./lotes.js";
+import { asegurarLoteGenerico } from "./lote-generico.js";
+import { aplicarMovimiento } from "./stock.js";
 import { crearAlmacenProductos, importacionesEnMemoria } from "./_almacen.js";
 
 // El fast path y el catch del constraint único resuelven la carrera entre dos
@@ -171,35 +172,17 @@ export async function aplicarImportacionStock(
       }
 
       for (const fila of entrada.filasValidas) {
-        const lotes = await tx
-          .insert(stockLots)
-          .values(
-            filaConTenant({
-              sku: fila.sku,
-              cantidad: fila.cantidad,
-              cantidadRestante: fila.cantidad,
-              venceEl: null,
-              costoCentavos: 0n,
-            }),
-          )
-          .returning({ id: stockLots.id });
-        const idLote = lotes[0]?.id;
-        if (!idLote) throw new ImportacionPersistenciaError("crear-lote", new Error("stock_lots sin id"));
-        await tx.insert(stockMovements).values(
-          filaConTenant({
-            idemKey: `import:${idImportacion}:${fila.sku}`,
-            sku: fila.sku,
-            loteId: idLote,
-            delta: fila.cantidad,
-            tipo: "ALTA",
-            motivo: "importacion",
-          }),
-        );
-        const wSku = dondeTenant(products.tenantId, eq(products.sku, fila.sku)) ?? eq(products.sku, fila.sku);
-        await tx
-          .update(products)
-          .set({ stockActual: sql`${products.stockActual} + ${fila.cantidad}` })
-          .where(wSku);
+        const idLote = await asegurarLoteGenerico(fila.sku, tx);
+        await aplicarMovimiento({
+          idemKey: `import:${idImportacion}:${fila.sku}`,
+          sku: fila.sku,
+          loteId: idLote,
+          delta: fila.cantidad,
+          tipo: "ALTA",
+          motivo: "importacion",
+          condicionResto: 0,
+          tx,
+        });
       }
 
       return {
@@ -258,15 +241,16 @@ async function aplicarEnMemoria(entrada: AplicarImportacionEntrada): Promise<Apl
   }
 
   for (const fila of entrada.filasValidas) {
-    const lote = await crearLote({
-      sku: fila.sku,
-      cantidad: fila.cantidad,
-      venceEl: null,
-      costoCentavos: 0,
-      controlaVencimiento: false,
+    const idLote = await asegurarLoteGenerico(fila.sku);
+    await aplicarMovimiento({
       idemKey: `import:${idImportacion}:${fila.sku}`,
+      sku: fila.sku,
+      loteId: idLote,
+      delta: fila.cantidad,
+      tipo: "ALTA",
+      motivo: "importacion",
+      condicionResto: 0,
     });
-    if (!lote.ok) throw new ImportacionPersistenciaError("crear-lote", new Error(lote.codigo));
   }
 
   const importacion: ImportacionRegistrada = {

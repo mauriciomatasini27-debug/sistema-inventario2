@@ -5,7 +5,8 @@ import { resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
-import { idMappings, outbox, products, sales, ticketCounters, tickets } from "../src/db/schema.js";
+import { idMappings, outbox, products, sales, ticketCounters, tickets,
+  stockLots } from "../src/db/schema.js";
 import { saleReturns } from "../src/db/schema-tickets.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
 import { POST as postReturns } from "../src/pages/api/returns.js";
@@ -177,6 +178,7 @@ describe.skipIf(!hayPG)("PERS5 multi con PG local: correlativos D-* y T-* en la 
       await db.delete(customers).where(eq(customers.id, cliente));
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

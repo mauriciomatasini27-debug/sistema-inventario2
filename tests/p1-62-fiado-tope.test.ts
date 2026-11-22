@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
-import { products, sales, stockMovements, ticketLines, tickets } from "../src/db/schema.js";
+import { products, sales, stockMovements, ticketLines, tickets,
+  stockLots } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { rolParaFiado } from "../src/lib/control.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -94,6 +95,7 @@ describe.skipIf(!hayPG)("P1-62 el servidor aplica el tope de la ficha", () => {
         await db.delete(customerMovements).where(inArray(customerMovements.customerId, ids));
         await db.delete(customers).where(inArray(customers.id, ids));
       }
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

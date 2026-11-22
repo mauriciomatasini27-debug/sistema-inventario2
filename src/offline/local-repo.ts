@@ -1,5 +1,6 @@
 import { confirmar_venta } from "../modules/sales/confirmar_venta.js";
-import { descontar, lotesDesdeStock, type Sku } from "../modules/inventario/inventario.js";
+import { descontar, type Sku } from "../modules/inventario/inventario.js";
+import { lotesDesdeStockGenerico } from "../modules/inventario/lote-generico.js";
 import { store } from "../lib/store.js";
 import { encolar } from "./outbox-store.js";
 import type {
@@ -34,7 +35,7 @@ export async function aplicarVenta(input: VenderInput, deviceCode: string = DEFA
   const op = await encolar(toEfectoVenta(input), deviceCode);
   // Cobertura FEFO antes del ticket; offline nunca bloquea (E2 marca sobreventa).
   const decision = descontar({
-    lotes: lotesDesdeStock(store.stock),
+    lotes: lotesDesdeStockGenerico(store.stock),
     lineas: [{ sku: input.sku as Sku, cantidad: input.cant }],
     modo: "OFFLINE_PERMITIDO",
     idemKey: op.opId,

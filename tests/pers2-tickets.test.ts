@@ -7,7 +7,8 @@ import { filaPg } from "./helpers/pg-tenant-fixture.js";
 import { resetStore } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { products, sales, tickets } from "../src/db/schema.js";
+import { products, sales, tickets,
+  stockLots } from "../src/db/schema.js";
 import { ticketLinks, ticketLinkRevocations } from "../src/db/schema-tickets.js";
 import { POST as postSales } from "../src/pages/api/sales.js";
 import { GET as getTickets } from "../src/pages/api/tickets.js";
@@ -138,6 +139,7 @@ async function borrarRastroPG() {
           await db.delete(tickets).where(eq(tickets.saleId, saleId));
           await db.delete(sales).where(eq(sales.id, saleId));
         }
+        await db.delete(stockLots).where(eq(stockLots.sku, skuPG));
         await db.delete(products).where(eq(products.sku, skuPG));
       } finally {
         await db.execute(sql`alter table ticket_links enable trigger ticket_links_no_update`);
