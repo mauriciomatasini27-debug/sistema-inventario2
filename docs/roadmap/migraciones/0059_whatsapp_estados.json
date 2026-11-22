@@ -1,0 +1,6 @@
+{
+  "tag": "0059_whatsapp_estados",
+  "fecha": "2026-11-22",
+  "aprobado_por": "PENDIENTE",
+  "evidencia": "Escrita para el pipeline de estados del webhook de WhatsApp (sent/delivered/read/failed) que necesita el panel de envíos. Tag reservado antes del merge del PR que trae el .sql. Aplicacion pendiente de aprobacion de Mauri y de correrla en las bases."
+}
