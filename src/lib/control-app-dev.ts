@@ -3,12 +3,14 @@ import { control, resetStore, store } from "./store.js";
 import { cookieSesion, crearSesion } from "../modules/auth/sesiones.js";
 import { crearProveedorCobro } from "./repos/planes.js";
 import { altaProducto } from "./repos/catalogo.js";
+import { asegurarLoteGenerico } from "./repos/lote-generico.js";
 import { aplicarMovimiento } from "./repos/stock.js";
 import { parseEmailInvitacion } from "../modules/tenants/invitar-empleado.js";
 import { decidirAceptacion } from "../modules/tenants/invitaciones.js";
 import { aplicarAceptacionInvitacion } from "../modules/tenants/aplicar-invitacion.js";
 import { marcarFalloProvision } from "../modules/tenants/provision-admin.js";
 import { normalizarEmail } from "../modules/auth/oidc.js";
+import { fechaAR, sumarDiasAR } from "./fecha-ar.js";
 
 export const TENANT_CONTROL_APP = "control-app";
 const SUBS = {
@@ -46,7 +48,7 @@ function sembrar(vencidoHaceDias?: number, flota = false): Response {
     rubro: "almacen",
     // Fase 1: con vencido_hace_dias el tenant entra en mora para probar suspensión y gracia.
     trialHasta:
-      vencidoHaceDias === undefined ? undefined : new Date(Date.now() - vencidoHaceDias * 86_400_000).toISOString(),
+      vencidoHaceDias === undefined ? undefined : new Date(`${sumarDiasAR(fechaAR(), -vencidoHaceDias)}T00:00:00Z`).toISOString(),
   });
   if (flota) {
     const dia = 86_400_000;
@@ -171,13 +173,15 @@ export async function sembrarControlApp(vencidoHaceDias?: number, flota = false)
       reorderQty: Math.max(1, p.minStock),
     });
     if (!alta.ok) return Response.json({ error: `No pude sembrar ${p.sku}: ${alta.error}` }, { status: 500 });
+    const loteId = await asegurarLoteGenerico(p.sku);
     await aplicarMovimiento({
       idemKey: `control-app:alta:${p.sku}`,
       sku: p.sku,
-      loteId: null,
+      loteId,
       delta: p.stock,
       tipo: "ALTA",
       motivo: "seed control-app",
+      condicionResto: 0,
     });
   }
   await crearProveedorCobro().crearSuscripcion({ tenantId: TENANT_CONTROL_APP, planId: "plus" });

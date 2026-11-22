@@ -42,6 +42,7 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // /api/whatsapp/resumen: resumen read-only de la tarjeta `Bot` del panel, con
 // el tenant de la sesión + membership y base explícita (DASH-S3, ADR-0034).
 const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
+  "/api/admin/tenants/plan",
   "/api/billing/webhooks/mercadopago",
   "/api/bot-modulos",
   "/api/whatsapp/resumen",

@@ -13,6 +13,7 @@ import {
   ticketLines,
   ticketPayments,
   tickets,
+  stockLots,
 } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { aplicarVentaOutbox } from "../src/modules/sync/aplicar-venta-outbox.js";
@@ -230,6 +231,7 @@ describe.skipIf(!hayPG)("P10-6 multi con PG local: la venta queda aplicada y el 
       }
       await db.delete(outbox).where(eq(outbox.opId, opPG));
       await db.delete(idMappings).where(eq(idMappings.opId, opPG));
+      if (skuPG) await db.delete(stockLots).where(eq(stockLots.sku, skuPG));
       if (productIdPG) await db.delete(products).where(eq(products.id, productIdPG));
     });
     delete process.env.TENANT_MODE;
@@ -333,6 +335,7 @@ describe.skipIf(!hayPG)("STOCK-S1 multi con PG: el push offline crea products.or
       await db.delete(stockMovements).where(eq(stockMovements.idemKey, opId));
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

@@ -1,11 +1,22 @@
-# Verificación formal de la cola offline de venta y de la baja programada de plan
+# Verificación formal de la cola offline de venta, la baja de plan y los Lotes y stock
 
-Dos modelos TLA+ en este directorio:
+Tres modelos TLA+ en este directorio:
 
 - `VentaSync.tla`: la cola offline de `/venta` y su drenaje contra `POST /api/sync/push` (VF-S1).
 - `PlanCambio.tla`: la baja programada de plan de PLAN-S4 y su rodado perezoso (VF-S4).
+- `StockLotes.tla`: Lotes y stock con el Historial como única fuente de verdad (AUD-VTA-05).
 
-Ambos cubren promesas de `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md` y ADR-0097.
+Los dos primeros cubren promesas de `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md` y ADR-0097; el tercero cubre la spec #398 y ADR-0124. El modelo de stock corre **solo** en `npm run verificar:formal`: no entra en `npm run verify`.
+
+## Java en este box
+
+No hay `java` en el PATH (RETRO-AUD-04). El JRE 17 está fijado en `~/.cache/sistema-inventario/jdk-17`; corré:
+
+```bash
+JAVA_HOME="$HOME/.cache/sistema-inventario/jdk-17" npm run verificar:formal
+```
+
+El jar de TLA+ se descarga y se verifica por SHA256 solo la primera vez, en `$XDG_CACHE_HOME/sistema-inventario/tla`.
 
 ## Qué verifica VentaSync
 
@@ -79,11 +90,46 @@ Los números de la tabla son de `-workers 1`. Con más workers los estados gener
 - "Exactamente una vez en `hasta`" se chequea como seguridad: a lo sumo una vez y nunca antes de `hasta` sobre la fila persistida. Que el rodado ocurra se apoya en `planVigenteDe`, que ya devuelve el programado desde `hasta` en cualquier lectura; no hay ley de liveness.
 - Dos pedidos concurrentes con lecturas viejas: gana el último que escribe (`programarCambioPlan` no compara contra lo leído). Las leyes se cumplen igual; el modelo no exige que el último pedido sea el "correcto".
 
+## Qué verifica StockLotes
+
+Modelo de AUD-VTA-05 sobre `aplicarMovimiento` (`src/lib/repos/stock.ts`), `aplicarVentaLotes`, la sobreventa marcada (T03), el fallo de base sin espejo (T04) y la devolución al Lote original (T05). Dos escritores corren intercalados con claves de idempotencia acotadas: reintentar una clave ya aplicada no agrega movimientos. `bdHist` es el Historial de la base y `memHist`/`memStock`/`memLotes` son el espejo en memoria; `Confirmar` escribe ambos en un paso, representando el commit y su espejo dentro del mismo seam.
+
+Cuatro leyes:
+
+- `TresNumeros`: en cada store, Stock disponible = Historial (suma de deltas sin la sobreventa marcada) = suma del resto de los Lotes.
+- `SinEspejoTrasFallo`: si la base configurada falla, el intento no cambia memoria y ningún movimiento vive solo en el espejo.
+- `DevolucionAlLoteOriginal`: cada devolución reingresa a los Lotes consumidos por la venta de la misma clave de idempotencia, con reparto proporcional, sobrante por redondeo al Lote de vencimiento más cercano y movimientos escritos en la misma transacción.
+- `BajaConMovimiento`: toda baja de Lote tiene su movimiento en el Historial, y todo movimiento de salida (salvo la sobreventa) tiene su baja.
+
+Además de `stock-lotes.cfg`, una config de quiebre reproduce el bug original:
+
+| Config | Banderas | Ley | Esperado |
+|---|---|---|---|
+| `stock-lotes` | `ESPEJO_TRAS_FALLO=FALSE` | las cuatro | se cumplen (55.054 estados distintos) |
+| `quiebre-stock-espejo` | `ESPEJO_TRAS_FALLO=TRUE` | `SinEspejoTrasFallo` | violada (traza de 3 estados) |
+
+El contraejemplo del quiebre es `Alta` → `Falla de base`: con `ESPEJO_TRAS_FALLO`, la memoria baja el Stock disponible y el resto del Lote y escribe un movimiento `VENTA` que la base nunca confirmó. Se demostró primero la violación con la config de quiebre (rojo) y después se verificó la config principal (verde).
+
+## Cotas de StockLotes
+
+`MAXCANT = 3` unidades por Lote, `MAXSTOCK = 6`, `MAXMOV = 5` movimientos en el Historial, `MAXOPS = 2` operaciones por escritor (`Ops = {o1, o2}`) y `Idem = {k1, k2, k3}`. Tres Lotes (`l1` vence antes, `l2` después, `gen` genérico sin vencimiento). Búsqueda completa, `-workers 1` y `CHECK_DEADLOCK FALSE`.
+
+## Qué queda afuera de StockLotes
+
+- El modo sin base configurada: la memoria es legítima y atómica; acá siempre hay base y lo que se comprueba es que un fallo no se espeje.
+- Costos, precios, caja, fiado y el informe de rotación. La sobreventa se modela como movimiento marcado que no baja proyecciones.
+- FEFO real por fecha civil: `Expira` es un orden fijo de tres Lotes, con `gen` al final.
+- El reparto con más de dos Lotes por SKU: una venta consume a lo sumo dos, suficiente para probar proporcionalidad y sobrante.
+- La conciliación read-only (`npm run conciliar:stock`) y la reparación de desvíos históricos: están fuera de este modelo.
+- El modelo de `VentaSync.tla`: este es un spec separado y no toca la cola offline.
+
 ## Cómo correr
 
 ```bash
 npm run verificar:formal
 ```
+
+Este comando es opcional y queda fuera de `npm run verify`.
 
 Java 17+ y `tla2tools.jar` quedan fuera de `package.json`. El script los busca y, si faltan, avisa el motivo y sale 0 (no rompe `npm run verify`). Busca Java en `$JAVA_HOME/bin/java` y, si no está, en el `PATH`. Descarga `tla2tools.jar` 1.7.4 a `${XDG_CACHE_HOME:-$HOME/.cache}/sistema-inventario/tla/`, fuera del repo, y verifica su SHA256 antes de usarlo. El cache no ensucia `git status`.
 
@@ -91,6 +137,7 @@ Para ver el contraejemplo completo de una config:
 
 ```bash
 bash scripts/verificar-formal.sh --traza quiebre-sigue-tras-fallo
+bash scripts/verificar-formal.sh --traza quiebre-stock-espejo
 ```
 
 ## Salida esperada
@@ -106,6 +153,8 @@ ok  quiebre-dos-cambios: TLC encontró la violación esperada de UnSoloCambio (t
 ok  quiebre-subida-sin-cobro: TLC encontró la violación esperada de SinUpgradeSinCobro (traza de 4 estados)
 ok  quiebre-sin-hasta: TLC encontró la violación esperada de ProgramadoCompleto (traza de 4 estados)
 ok  quiebre-no-cancela: TLC encontró la violación esperada de CancelaMismoPlan (traza de 7 estados)
+ok  stock-lotes: se cumplen TresNumeros, SinEspejoTrasFallo, DevolucionAlLoteOriginal, BajaConMovimiento (55054 estados distintos)
+ok  quiebre-stock-espejo: TLC encontró la violación esperada de SinEspejoTrasFallo (traza de 3 estados)
 ```
 
 ## Qué significa un FALLA

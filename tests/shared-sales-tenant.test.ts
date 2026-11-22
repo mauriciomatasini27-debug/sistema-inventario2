@@ -9,6 +9,7 @@ import {
   ticketLines,
   ticketPayments,
   tickets,
+  stockLots,
 } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { getTenantDb } from "../src/lib/db.js";
@@ -130,6 +131,7 @@ describe.skipIf(!hayPG)("ADR-0116 C6 ventas shared en Postgres", () => {
         await db.delete(stockMovements).where(inArray(stockMovements.idemKey, claves));
         await db.delete(sales).where(inArray(sales.id, saleIds));
       }
+      if (skus.length > 0) await db.delete(stockLots).where(inArray(stockLots.sku, skus));
       if (skus.length > 0) await db.delete(products).where(inArray(products.sku, skus));
     });
   });

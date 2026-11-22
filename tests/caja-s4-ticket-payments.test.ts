@@ -155,6 +155,7 @@ describe.skipIf(!hayPG)("CAJA-S4 PG: ticket_payments.cash_movement_id referencia
         await db.delete(tickets).where(eq(tickets.saleId, saleId));
         await db.delete(sales).where(eq(sales.id, saleId));
       }
+      await db.execute(sql`delete from stock_lots where sku = ${skuPG}`);
       await db.execute(sql`delete from products where sku = ${skuPG}`);
       delete process.env.TENANT_DATABASE_URL;
     }

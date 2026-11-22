@@ -5,7 +5,8 @@ import { control, resetStore } from "../src/lib/store.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { cashMovements, products, sales, stockMovements, ticketPayments, tickets } from "../src/db/schema.js";
+import { cashMovements, products, sales, stockMovements, ticketPayments, tickets,
+  stockLots } from "../src/db/schema.js";
 import { GET as getSesion } from "../src/pages/api/auth/sesion-actual.js";
 import { POST as postAlta } from "../src/pages/api/onboarding/alta.js";
 import { POST as postTenants } from "../src/pages/api/tenants.js";
@@ -102,7 +103,9 @@ async function borrarRastro() {
       }
       await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, cajaKeyA));
       await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, cajaKeyB));
+      await db.delete(stockLots).where(eq(stockLots.sku, skuA));
       await db.delete(products).where(eq(products.sku, skuA));
+      await db.delete(stockLots).where(eq(stockLots.sku, skuB));
       await db.delete(products).where(eq(products.sku, skuB));
     });
   }

@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
-import { products, sales, stockMovements, ticketLines, tickets } from "../src/db/schema.js";
+import { products, sales, stockMovements, ticketLines, tickets,
+  stockLots } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { altaClienteRapida, listarClientes, ventaACuenta } from "../src/lib/repos/fiado.js";
@@ -142,6 +143,7 @@ describe.skipIf(!hayPG)("P1-64 alta rápida de cliente", () => {
         await db.delete(customerMovements).where(inArray(customerMovements.customerId, ids));
         await db.delete(customers).where(inArray(customers.id, ids));
       }
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;
