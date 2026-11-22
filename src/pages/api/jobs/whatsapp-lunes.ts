@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request }) => {
   const hoy = fechaAR(new Date(ahoraMs));
   const sender: Enviador = async ({ destino, texto }) =>
     enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_RESUMEN_SEMANAL });
-  const porTenant = new Map(comercios_con_bot().map((c) => [c.tenantId, c]));
+  const porTenant = new Map((await comercios_con_bot()).map((c) => [c.tenantId, c]));
   const resultados = [];
   for (const snapshot of tiendaLunes.values()) {
     if (snapshot.lunesFecha !== hoy) continue;
