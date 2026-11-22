@@ -340,15 +340,16 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       };
       // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
       // el nombre para darlo de alta al cobrar. El precio es el de la línea.
-      const puedeCrear = document.body.dataset.crearProductos !== "no";
       // TB-160: el alta solo sigue a un código desconocido. Una búsqueda a medias no es un alta.
+      // STOCK-S2 [rol]: el alta al vender no depende de crear_productos; registrar_venta
+      // crea el producto con origen alta_al_vender sin chequear rol.
       let pedirNombre = false;
       const mostrarAlta = () => {
         const sku = $("sku").value.trim();
-        const altaVisible = puedeCrear && pedirNombre && sku !== "" && precioLocal(catalogo, sku) === null;
+        const altaVisible = pedirNombre && sku !== "" && precioLocal(catalogo, sku) === null;
         $("alta-nombre-label").hidden = !altaVisible;
         const ayuda = $("alta-precio-ayuda");
-        if (ayuda) ayuda.hidden = !altaVisible || !puedeCrear;
+        if (ayuda) ayuda.hidden = !altaVisible;
       };
       const mostrarCatalogo = () => {
         // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).
