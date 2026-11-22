@@ -23,20 +23,26 @@ import { descontar, type Sku } from "../src/modules/inventario/inventario.js";
 import { registrar_venta } from "../src/modules/sales/registro_venta.js";
 import { filaPg } from "./helpers/pg-tenant-fixture.js";
 
-// P1-60: VENTA no entra por aplicarMovimiento. Si el tipo vuelve a
-// aceptarla, esta asignación deja de compilar.
+// AUD-VTA-05 T01: la VENTA entra por el escritor único y delega en él las
+// tres escrituras. Si el contrato se achica, estas asignaciones dejan de compilar.
 type Tipo = MovimientoStockNuevo["tipo"];
-type Sobró = Exclude<Tipo, "ALTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO">;
-const ventaQuedaAfuera: [Sobró] extends [never] ? true : never = true;
+type VentaDentro = [Extract<Tipo, "VENTA">] extends [never] ? never : true;
+const ventaDentro: VentaDentro = true;
+type CondicionDisponible = "condicionResto" extends keyof MovimientoStockNuevo ? true : never;
+const condicionDisponible: CondicionDisponible = true;
+type TxDisponible = "tx" extends keyof MovimientoStockNuevo ? true : never;
+const txDisponible: TxDisponible = true;
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
 const sufijo = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6)}`.replace(/[^a-z0-9]/g, "").slice(0, 10);
 const AHORA = new Date("2026-11-06T15:00:00.000Z");
 const MARZO = new Date("2026-03-01T15:00:00.000Z");
 
-describe("P1-60 el tipo de aplicarMovimiento no incluye VENTA", () => {
-  it("compila solo con alta, merma, ajuste y compensatorio", () => {
-    expect(ventaQuedaAfuera).toBe(true);
+describe("AUD-VTA-05 T01 el escritor único acepta VENTA con condición de resto", () => {
+  it("compila solo si VENTA, la condición de resto y la tx del caller están en el contrato", () => {
+    expect(ventaDentro).toBe(true);
+    expect(condicionDisponible).toBe(true);
+    expect(txDisponible).toBe(true);
   });
 });
 
