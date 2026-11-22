@@ -59,7 +59,7 @@ async function postAlta(body: Record<string, unknown>): Promise<Response> {
   return (await POSTProducts(ctx("http://x/api/products", { body }))) as Response;
 }
 
-describe("P3-1 CAT-S2 alta corta precargada + pendiente revision", () => {
+describe("P3-1 CAT-S2 alta corta precargada y estado de alta", () => {
   it("codigo inexistente ofrece alta_corta; alta dueno/empleado define estado", async () => {
     const noExiste = (await GETProducts(ctx("http://x/api/products?codigo=NOEXISTE"))) as Response;
     expect(noExiste.status).toBe(200);

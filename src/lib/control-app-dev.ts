@@ -166,7 +166,6 @@ export async function sembrarControlApp(vencidoHaceDias?: number, flota = false)
       precioCentavos: p.precioCentavos,
       sector: p.sector,
       controlaVencimiento: false,
-      estado: "activo",
       minStock: p.minStock,
       reorderQty: Math.max(1, p.minStock),
     });

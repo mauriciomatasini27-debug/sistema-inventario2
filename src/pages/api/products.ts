@@ -76,7 +76,6 @@ export const POST: APIRoute = async ({ request }) => {
       sector: b.sector,
       ...(b.codigo !== undefined ? { codigo: b.codigo } : {}),
       controlaVencimiento: b.controla_vencimiento,
-      estado: "activo",
       ...(b.location_id !== undefined ? { locationId: b.location_id } : {}),
       ...(b.min_stock !== undefined ? { minStock: b.min_stock } : {}),
       ...(b.reorder_qty !== undefined ? { reorderQty: b.reorder_qty } : {}),

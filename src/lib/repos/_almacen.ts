@@ -330,7 +330,7 @@ export interface FichaCatalogo {
   locationId: string | null;
   archivado: boolean;
   controlaVencimiento: boolean;
-  estado: "activo" | "pendiente_revision";
+  estado: "activo";
   // ALR-S1: mínimo y cantidad a reponer (products.min_stock/reorder_qty).
   // null = sin mínimo (la alerta usa la rotación 7d).
   minStock: number | null;
