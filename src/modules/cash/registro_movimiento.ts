@@ -2,6 +2,7 @@ import { dbVivaTenant } from "../../lib/server-db.js";
 import { insertarMovimientosCaja, listarMovimientosCaja, type FilaMovimientoCaja } from "../../lib/repos/movimientos-caja.js";
 import { store, type StoredMovement } from "../../lib/store.js";
 import type { Medio } from "../../lib/validation.js";
+import { puede_registrar, type OrigenMov, type Rol } from "./caja.js";
 
 export interface RegistrarMovimientoInput {
   readonly key: string;
@@ -11,6 +12,8 @@ export interface RegistrarMovimientoInput {
   readonly origen: string;
   readonly sale_id?: string | undefined;
   readonly monto_centavos: number;
+  readonly rol?: Rol | undefined;
+  readonly actor?: string | undefined;
 }
 
 export type RegistroMovimientoFallo =
@@ -34,6 +37,7 @@ function espejoMemoria(i: RegistrarMovimientoInput): StoredMovement {
     monto_centavos: String(i.monto_centavos),
     origen: i.origen,
     ...(i.sale_id !== undefined ? { sale_id: i.sale_id } : {}),
+    ...(i.actor !== undefined ? { actor: i.actor } : {}),
     idempotency_key: i.key,
     ocurrido_en: new Date().toISOString(),
   };
@@ -45,7 +49,7 @@ function reglasDominio(i: RegistrarMovimientoInput): RegistroMovimientoFallo | n
   if (i.origen === "venta" && i.sale_id === undefined) {
     return { ok: false, codigo: "VENTA_EXIGE_SALE_ID", status: 422 };
   }
-  if (i.origen === "sueldo" || (i.origen === "retiro" && i.categoria_id === "retiro_dueno")) {
+  if (!puede_registrar({ origen: i.origen as OrigenMov, categoria_id: i.categoria_id, rol: i.rol ?? "dueno" })) {
     return { ok: false, codigo: "REQUIERE_DUENO", status: 403 };
   }
   return null;

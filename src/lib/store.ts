@@ -35,6 +35,8 @@ export interface StoredMovement {
   idempotency_key: string;
   // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
   ocurrido_en?: string;
+  // P10-27 [rol]: quién registró el movimiento, desde la sesión de la ruta.
+  actor?: string;
 }
 
 export interface StoredStockMovement {
