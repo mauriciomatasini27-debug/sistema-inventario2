@@ -9,6 +9,7 @@ export interface EmailEnvio {
   readonly idempotencyKey: string;
   readonly categoria: string;
   readonly plantilla: string;
+  readonly replyTo?: string | undefined;
 }
 
 export type EnvioResultado =

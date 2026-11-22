@@ -14,6 +14,12 @@ export interface AlertaStockPayload {
   readonly canal?: "whatsapp" | "email" | undefined;
 }
 
+export interface EntregaNotificacionPayload {
+  readonly idempotencyKey: string;
+  readonly canal: "whatsapp" | "email";
+  readonly referencia: string;
+}
+
 // NE11/§6.3: evento de dominio con dedupe. Un resumen_cierre por jornada.
 export const notificationEvents = pgTable(
   "notification_events",
@@ -24,7 +30,7 @@ export const notificationEvents = pgTable(
   version: integer("version").notNull().default(1),
   refTipo: text("ref_tipo"),
   refId: text("ref_id"),
-  payload: jsonb("payload").$type<ResumenCierrePayload | AlertaStockPayload>().notNull(),
+  payload: jsonb("payload").$type<ResumenCierrePayload | AlertaStockPayload | EntregaNotificacionPayload>().notNull(),
   dedupeKey: text("dedupe_key").notNull(),
   estado: text("estado").notNull().default("pendiente"),
   procesarDesde: timestamp("procesar_desde"),
@@ -52,8 +58,7 @@ export const notificationDeliveries = pgTable(
   (t) => [uniqueIndex("notification_deliveries_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],
 );
 
-// NE11: outbox en misma tx que el cierre. html/texto se cifran en el
-// adaptador (columna en claro acá solo para tipar el slice).
+// P10-33 [tenant]: html/texto se guardan cifrados con AAD del comercio; las filas viejas en claro se leen por prefijo.
 export const emailOutbox = pgTable(
   "email_outbox",
   {
@@ -63,8 +68,8 @@ export const emailOutbox = pgTable(
   plantilla: text("plantilla").notNull().default("cierre_v1"),
   destinatario: text("destinatario").notNull(),
   asunto: text("asunto").notNull(),
-  html: text("html").notNull(),
-  texto: text("texto").notNull(),
+  htmlCiphertext: text("html_ciphertext").notNull(),
+  textoCiphertext: text("texto_ciphertext").notNull(),
   idempotencyKey: text("idempotency_key").notNull(),
   estado: text("estado").notNull().default("pendiente"),
   intentos: integer("intentos").notNull().default(0),

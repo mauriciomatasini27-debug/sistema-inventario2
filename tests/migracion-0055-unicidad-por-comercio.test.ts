@@ -40,7 +40,7 @@ describe("ADR-0123 migración 0055: unicidad por comercio", () => {
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(55);
     // #295 y #357 suman tags: el largo va con los .sql presentes en la rama.
     expect(entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
-    // #357: la última del journal es 0058_devices_nombre (0057 solo registrado).
+    expect(entries.some((e) => e.tag === "0057_email_outbox_cifrado")).toBe(true);
     expect(entries.at(-1)?.tag).toBe("0058_devices_nombre");
   });
 });

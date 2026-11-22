@@ -14,7 +14,7 @@ import {
   mensajeSinId,
   pieCheckMecanico,
 } from "./comentarios-politica.mjs";
-import { agruparBloquesLinea, comentariosNuevos } from "./comentarios-scan-lib.mjs";
+import { comentariosNuevos } from "./comentarios-scan-lib.mjs";
 
 function git(...args) {
   try {
@@ -116,11 +116,11 @@ for (const archivo of archivosAEscanear()) {
         problemas.push({ tipo: "com-s7", archivo, linea: c.linea, vista: c.texto.trim() });
       }
     }
-  }
 
-  const bloques = agruparBloquesLinea(nuevos.map((c) => ({ ...c, archivo })));
-  for (const b of bloques) {
-    const cuerpo = b.lineas.map((l) => l.cuerpo).join("\n");
+    // #418: id y clase se validan por comentario de línea individual; agrupar
+    // líneas contiguas dejaba pasar una línea inválida pegada a una válida.
+    if (c.kind !== "line") continue;
+    const cuerpo = c.texto.replace(/^\s*\/\/\s?/, "");
     if (!cuerpo.trim()) continue;
 
     const candidatos = extraerIdsDeTexto(cuerpo);
@@ -128,28 +128,25 @@ for (const archivo of archivosAEscanear()) {
     const falsoId = candidatos.find((id) => !idsConocidos.has(id));
 
     if (!idValido) {
-      const mal = falsoId ?? candidatos[0];
+      // Un id con forma de issue (#\d+) tampoco es un id de ítem registrado.
+      const mal = falsoId ?? candidatos[0] ?? ENLACE_ISSUE.exec(cuerpo)?.[0];
       if (mal) {
         problemas.push({
           tipo: "id-desconocido",
           archivo,
-          linea: b.lineas[0].linea,
-          detalle: mensajeIdDesconocido(mal, archivo, b.lineas[0].linea, sugerenciaRama),
+          linea: c.linea,
+          detalle: mensajeIdDesconocido(mal, archivo, c.linea, sugerenciaRama),
         });
       } else {
         problemas.push({
           tipo: "sin-id",
           archivo,
-          linea: b.lineas[0].linea,
-          detalle: mensajeSinId(archivo, b.lineas[0].linea, sugerenciaRama),
+          linea: c.linea,
+          detalle: mensajeSinId(archivo, c.linea, sugerenciaRama),
         });
       }
     } else if (!RE_CLASE.test(cuerpo)) {
-      problemas.push({
-        tipo: "sin-clase",
-        archivo,
-        linea: b.lineas[0].linea,
-      });
+      problemas.push({ tipo: "sin-clase", archivo, linea: c.linea });
     }
   }
 

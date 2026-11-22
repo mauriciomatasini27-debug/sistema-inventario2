@@ -185,6 +185,57 @@ describe("check-comment-ids", () => {
     expect(mal.estado).toBe(1);
     expect(mal.salida).toContain("b.ts");
   });
+
+  it("falla por línea: id de issue pegado a una línea válida nombra la primera", () => {
+    const repo = repoGit("cci-por-linea-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(
+      join(repo, "src", "dos.ts"),
+      "// #299: deuda vieja sin registrar.\n// TB-165 [tenant]: el tenant sale de la sesión.\nexport const d = 1;\n",
+    );
+    const r = correr(repo);
+    expect(r.estado).toBe(1);
+    expect(r.salida).toContain("src/dos.ts:1");
+    expect(r.salida).toContain("#299");
+  });
+
+  it("acepta un bloque contiguo donde cada línea lleva su id y su clase", () => {
+    const repo = repoGit("cci-bloque-valido-");
+    writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+    commitTodo(repo, "main");
+    execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+    writeFileSync(
+      join(repo, "src", "bloque.ts"),
+      "// TB-165 [tenant]: el tenant sale de la sesión.\n// P10-24 [rol]: el Empleado no ve costos.\nexport const b = 1;\n",
+    );
+    const r = correr(repo);
+    expect(r.estado).toBe(0);
+  });
+
+  it("clasifica cada línea suelta: sin-id, id-desconocido y sin-clase", () => {
+    function caso(nombre: string, comentario: string) {
+      const repo = repoGit(`cci-caso-${nombre}-`);
+      writeFileSync(join(repo, "src", "ok.ts"), "export const ok = 1;\n");
+      commitTodo(repo, "main");
+      execFileSync("git", ["checkout", "-q", "-b", "feat"], { cwd: repo });
+      writeFileSync(join(repo, "src", "caso.ts"), `${comentario}\nexport const c = 1;\n`);
+      return correr(repo);
+    }
+
+    const sinId = caso("sin-id", "// Sin id, solo texto explicativo.");
+    expect(sinId.estado).toBe(1);
+    expect(sinId.salida).toContain("Nombrá un id de ítem registrado en src/caso.ts:1");
+
+    const desconocido = caso("id-desc", "// P10-999 [tenant]: id que no existe.");
+    expect(desconocido.estado).toBe(1);
+    expect(desconocido.salida).toContain('no "P10-999" en src/caso.ts:1');
+
+    const sinClase = caso("sin-clase", "// TB-165: id válido pero sin clase.");
+    expect(sinClase.estado).toBe(1);
+    expect(sinClase.salida).toContain("Escribí el porqué en una línea con clase e id (src/caso.ts:1)");
+  });
 });
 
 describe("check-comment-ids en el repo real", () => {

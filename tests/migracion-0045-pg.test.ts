@@ -26,7 +26,9 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0055_unicidad_por_comercio")).toBe(true);
     // P10-93: la 0056 agrega products.por_peso (flag de venta por peso).
     expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
-    // #357: 0058 devices.nombre; el 0057 queda reservado en el registro de tags.
+    // P10-33: la 0057 renombra html/texto del outbox a su forma cifrada.
+    expect(journal.entries.some((e) => e.tag === "0057_email_outbox_cifrado")).toBe(true);
+    // #357: 0058 devices.nombre; ambas conviven en el journal final.
     expect(journal.entries.some((e) => e.tag === "0058_devices_nombre")).toBe(true);
     // #295 + #357 pueden mergear en cualquier orden: comparar con los .sql
     // reales evita que un literal se quede corto cuando llegue el otro tag.

@@ -3,6 +3,7 @@
 // exacto del cierre sin recalcular. Solo dueño o empleado con ver saldos.
 
 import { formatear_pesos } from "../email/plantilla-cierre.js";
+import type { ReclamadorEntrega } from "./entregas.js";
 
 export const PLANTILLA_CIERRE_CAJA = "resumen_cierre_caja" as const;
 
@@ -58,25 +59,27 @@ export function armar_cierre_wa(snapshot: SnapshotCaja): ResumenCierreWa {
   };
 }
 
-export type TiendaCierreWa = Map<string, string>;
+export type TiendaCierreWa = ReclamadorEntrega;
 
 export type DecisionCierre =
   | { readonly ok: true; readonly resumen: ResumenCierreWa }
   | { readonly ok: false; readonly motivo: "sin_permiso" | "duplicado_jornada" };
 
-// Una vez por jornada: si la clave ya está en la tienda, no duplica.
-export function decidir_envio_cierre(
+// P10-31 [tenant]: el reclamo por jornada es atómico en la tienda inyectada;
+// con base viva la clave es única por comercio, no por proceso.
+export async function decidir_envio_cierre(
   tienda: TiendaCierreWa,
   args: {
     snapshot: SnapshotCaja;
     rol: "dueno" | "empleado";
     permisos?: ReadonlyArray<string> | undefined;
   },
-): DecisionCierre {
+): Promise<DecisionCierre> {
   if (!puede_ver_cierre(args.rol, args.permisos ?? [])) return { ok: false, motivo: "sin_permiso" };
   const key = clave_cierre_wa(args.snapshot.tenantId, args.snapshot.fechaJornada);
-  if (tienda.has(key)) return { ok: false, motivo: "duplicado_jornada" };
+  if (!(await tienda.reclamar(key, args.snapshot.cierreId))) {
+    return { ok: false, motivo: "duplicado_jornada" };
+  }
   const resumen = armar_cierre_wa(args.snapshot);
-  tienda.set(key, args.snapshot.cierreId);
   return { ok: true, resumen };
 }
