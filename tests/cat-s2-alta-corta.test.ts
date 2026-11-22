@@ -77,10 +77,12 @@ describe("P3-1 CAT-S2 alta corta precargada + pendiente revision", () => {
     expect(((await altaDueno.json()) as { estado: string }).estado).toBe("activo");
 
     // P9-13: el body `rol` se ignora; manda la membership de la sesión.
-    tenantConMiembro("t-alta", "emp-1", "empleado");
+    // spec 433 T1: el alta ya no pide crear_productos; el body forjado tampoco.
+    tenantConMiembro("t-alta", "emp-1", "empleado", ["registrar_devoluciones"]);
     const planoEmp = sesionDe("emp-1", "t-alta");
-    const altaPend = (await POSTProducts(conSesion("http://x/api/products", planoEmp, { sku: "ALTA-2", nombre: "Pend", precio_centavos: 100, codigo: "779998", rol: "dueno", permisos: ["crear_productos"] }))) as Response;
-    expect(altaPend.status).toBe(403);
+    const altaEmp = (await POSTProducts(conSesion("http://x/api/products", planoEmp, { sku: "ALTA-2", nombre: "Alta empleado", precio_centavos: 100, codigo: "779998", rol: "dueno", permisos: ["crear_productos"] }))) as Response;
+    expect(altaEmp.status).toBe(201);
+    expect(((await altaEmp.json()) as { estado: string; nombre: string }).estado).toBe("activo");
 
     tenantConMiembro("t-alta", "emp-2", "empleado", ["crear_productos"]);
     const planoPermiso = sesionDe("emp-2", "t-alta");
@@ -107,7 +109,7 @@ function fijarMulti(): void {
   process.env["TENANT_DATABASE_URL_tenant-b"] = process.env.PG_TEST_URL_B ?? "";
 }
 
-describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: sin permiso no da de alta", () => {
+describe.skipIf(!hayPG)("spec 433 T1: alta de empleado con PG local y aislamiento", () => {
   const skuPG = `S2-${sufijoPG}`.slice(0, 32);
   const codPG = `S2C-${sufijoPG}`.slice(0, 32);
 
@@ -121,16 +123,44 @@ describe.skipIf(!hayPG)("P3-1 CAT-S2 multi con PG local: sin permiso no da de al
     modoSingleSinDb();
   });
 
-  it("empleado sin crear_productos recibe 403 y no escribe en la DB", async () => {
+  it("empleado sin crear_productos persiste el alta en su comercio, sin stock ni origen provisorio", async () => {
     fijarMulti();
-    tenantConMiembro("tenant-a", "emp-s2", "empleado");
+    tenantConMiembro("tenant-a", "emp-s2", "empleado", ["registrar_devoluciones"]);
     const plano = sesionDe("emp-s2", "tenant-a");
     const alta = (await conTenant("tenant-a", () =>
-      POSTProducts(conSesion("http://x/api/products", plano, { sku: skuPG, nombre: "Pend DB", precio_centavos: 100, codigo: codPG, rol: "dueno", permisos: ["crear_productos"] })),
+      POSTProducts(conSesion("http://x/api/products", plano, { sku: skuPG, nombre: "Alta DB", precio_centavos: 100, codigo: codPG, rol: "dueno", permisos: ["crear_productos"] })),
     )) as Response;
-    expect(alta.status).toBe(403);
+    expect(alta.status).toBe(201);
+    expect(((await alta.json()) as { estado: string }).estado).toBe("activo");
+
+    const filas = await conTenant("tenant-a", () =>
+      getTenantDb()
+        .select({ nombre: products.nombre, stock: products.stockActual, origen: products.origen, tenantId: products.tenantId })
+        .from(products)
+        .where(eq(products.sku, skuPG)),
+    );
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ nombre: "Alta DB", stock: 0 });
+    expect(filas[0]?.origen).not.toBe("alta_al_vender");
+    expect(filas[0]?.tenantId).toBeTruthy();
+
+    const filasB = await conTenant("tenant-b", () =>
+      getTenantDb().select({ sku: products.sku }).from(products).where(eq(products.sku, skuPG)),
+    );
+    expect(filasB).toEqual([]);
+
     const leido = (await conTenant("tenant-a", () => GETProducts(ctx(`http://x/api/products?codigo=${codPG}`)))) as Response;
     const j = (await leido.json()) as { productos: unknown[] };
-    expect(j.productos).toEqual([]);
+    expect(j.productos.length).toBe(1);
+  });
+
+  it("sesión de otro comercio no puede dar de alta aquí", async () => {
+    fijarMulti();
+    tenantConMiembro("tenant-b", "emp-b", "empleado");
+    const planoB = sesionDe("emp-b", "tenant-b");
+    const intento = (await conTenant("tenant-a", () =>
+      POSTProducts(conSesion("http://x/api/products", planoB, { sku: `${skuPG}-B`, nombre: "Ajeno", precio_centavos: 100 })),
+    )) as Response;
+    expect(intento.status).toBe(403);
   });
 });

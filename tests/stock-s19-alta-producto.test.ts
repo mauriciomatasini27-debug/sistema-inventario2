@@ -7,6 +7,8 @@ import { getTenantDb } from "../src/lib/db.js";
 import { products, productCodes } from "../src/db/schema.js";
 import { eq } from "drizzle-orm";
 import { POST as postProducts } from "../src/pages/api/products.js";
+import { nivelStock } from "../src/lib/repos/stock.js";
+import { crearAlmacenProductos } from "../src/lib/repos/_almacen.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import {
   armarAltaProducto,
@@ -81,12 +83,20 @@ describe("STOCK-S19 alta producto panel", () => {
     expect(abrir).toEqual({ tipo: "abrir", sku: "SKU-1", mensaje: expect.any(String) });
   });
 
-  it("stock panel expone el formulario solo con permiso", () => {
+  it("spec 433 T1: el panel ofrece Agregar producto sin exigir crear_productos", () => {
     const src = readFileSync("src/pages/panel/stock.astro", "utf8");
-    expect(src).toContain('id="alta-producto-card"');
-    expect(src).toContain("Agregar producto");
-    expect(src).toContain("Crear producto con este código");
-    expect(src).toContain("{puedeCrear ?");
+    const finFrontmatter = src.indexOf("---", 3) + 3;
+    const plantilla = src.slice(finFrontmatter);
+    const idxCard = plantilla.indexOf('id="alta-producto-card"');
+    expect(idxCard).toBeGreaterThan(-1);
+    // La acción y el formulario son incondicionales: si vuelve el gate de
+    // permiso sobre el alta, este test se pone rojo.
+    expect(plantilla.slice(0, idxCard)).toContain('label: "Agregar producto"');
+    expect(plantilla.slice(0, idxCard)).not.toContain("puedeCrear");
+    // El código desconocido (Alta al vuelo) y el catálogo sugerido conservan
+    // su propio seam: no son parte de esta historia.
+    expect(plantilla).toContain("Crear producto con este código");
+    expect(src).toContain("data-puede-crear");
   });
 });
 
@@ -97,16 +107,61 @@ describe("STOCK-S19 POST /api/products permiso y aislamiento", () => {
     delete process.env.TENANT_DATABASE_URL;
   });
 
-  it("empleado sin crear_productos recibe 403", async () => {
-    tenantConMiembro("t-s19", "emp-s19", "empleado");
+  it("spec 433 T1: empleado con permisos por defecto crea Alta de catálogo activa", async () => {
+    tenantConMiembro("t-s19", "emp-s19", "empleado", ["registrar_devoluciones"]);
     const plano = sesionDe("emp-s19", "t-s19");
     const r = (await postProducts(
       ctx("http://x/api/products", {
         headers: { cookie: `__Host-sesion=${plano}` },
-        body: { sku: "S19-NO", nombre: "No", precio_centavos: 100 },
+        // Cuerpo con rol y permisos forjados: la decisión debe venir de la sesión.
+        body: {
+          sku: "S19-EMP",
+          nombre: "Alta del empleado",
+          precio_centavos: 1250,
+          codigo: "S19-E1",
+          rol: "dueno",
+          permisos: ["crear_productos"],
+        },
+      }),
+    )) as Response;
+    expect(r.status).toBe(201);
+    const j = (await r.json()) as { sku: string; nombre: string; precioCentavos: number; estado: string; origen?: string };
+    expect(j).toMatchObject({ sku: "S19-EMP", nombre: "Alta del empleado", precioCentavos: 1250, estado: "activo" });
+    expect(j.origen).not.toBe("alta_al_vender");
+    expect(nivelStock("S19-EMP")).toBe(0);
+  });
+
+  it("spec 433 T1: sesión sin membership en el comercio sigue rechazada", async () => {
+    tenantConMiembro("t-s19", "dueno-s19", "dueno");
+    const plano = sesionDe("visitante-s19", "t-s19");
+    const r = (await postProducts(
+      ctx("http://x/api/products", {
+        headers: { cookie: `__Host-sesion=${plano}` },
+        body: { sku: "S19-FUERA", nombre: "Fuera", precio_centavos: 100 },
       }),
     )) as Response;
     expect(r.status).toBe(403);
+    expect(nivelStock("S19-FUERA")).toBe(0);
+  });
+
+  it("spec 433 T1: nombres inválidos siguen rechazándose sin dejar fila", async () => {
+    tenantConMiembro("t-s19-val", "emp-val", "empleado", ["registrar_devoluciones"]);
+    const plano = sesionDe("emp-val", "t-s19-val");
+    const casos = [
+      ["S19-V1", ""],
+      ["S19-V2", "   "],
+      ["S19-V3", "x".repeat(201)],
+    ] as const;
+    for (const [sku, nombre] of casos) {
+      const r = (await postProducts(
+        ctx("http://x/api/products", {
+          headers: { cookie: `__Host-sesion=${plano}` },
+          body: { sku, nombre, precio_centavos: 100 },
+        }),
+      )) as Response;
+      expect(r.status, `${sku} / ${JSON.stringify(nombre)}`).toBe(422);
+      expect(crearAlmacenProductos().contiene(sku), sku).toBe(false);
+    }
   });
 
   it("alta sin código en memoria y duplicado en el mismo comercio", async () => {
