@@ -1,6 +1,0 @@
-{
-  "tag": "0055_products_por_peso",
-  "fecha": "2026-11-21",
-  "aprobado_por": "Mauri",
-  "evidencia": "Autorizada explícitamente por Mauricio en el grilling de la venta por peso (T1, #385, P10-93). Agrega products.por_peso boolean NOT NULL DEFAULT false. Aplicación pendiente en la base real; se registra el tag antes del merge del PR."
-}

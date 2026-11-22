@@ -259,13 +259,11 @@ export async function crearLote(input: CrearLoteInput): Promise<CrearLoteResulta
         }),
       )
       .onConflictDoNothing();
+    await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     almacenLotes.guardar(id, { ...lote });
-    const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
     return { ok: true, lote, fuente: "db" };
   } catch (e) {
     almacenLotes.anteFalloPersistencia(e);
-    almacenLotes.guardar(id, { ...lote });
-    const r = await aplicarMovimiento({ idemKey: input.idemKey, sku: input.sku, loteId: id, delta: input.cantidad, tipo: "ALTA" });
-    return { ok: true, lote, fuente: r.fuente };
+    throw e;
   }
 }

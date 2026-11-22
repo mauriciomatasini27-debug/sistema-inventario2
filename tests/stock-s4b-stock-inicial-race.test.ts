@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { products, stockMovements } from "../src/db/schema.js";
+import { products, stockLots, stockMovements } from "../src/db/schema.js";
 import { cargarStockInicial } from "../src/lib/repos/stock-inicial.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
 import { filaPg } from "./helpers/pg-tenant-fixture.js";
@@ -28,6 +28,7 @@ describe.skipIf(!hayPG)("STOCK-S4b stock inicial: ALTA única bajo dos Guardar",
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
       await db.delete(stockMovements).where(eq(stockMovements.sku, sku));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
       await db.insert(products).values(
         filaPg({
@@ -47,6 +48,7 @@ describe.skipIf(!hayPG)("STOCK-S4b stock inicial: ALTA única bajo dos Guardar",
     await conTenant("tenant-a", async () => {
       const db = getTenantDb();
       await db.delete(stockMovements).where(eq(stockMovements.sku, sku));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

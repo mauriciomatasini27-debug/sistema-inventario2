@@ -110,6 +110,8 @@ spec_de_cfg() {
       printf 'VentaSync.tla\n' ;;
     plan-cambio|quiebre-baja-antes|quiebre-dos-cambios|quiebre-subida-sin-cobro|quiebre-sin-hasta|quiebre-no-cancela)
       printf 'PlanCambio.tla\n' ;;
+    stock-lotes|quiebre-stock-espejo)
+      printf 'StockLotes.tla\n' ;;
     *)
       return 1 ;;
   esac
@@ -217,5 +219,8 @@ correr_quiebre "PlanCambio.tla" "quiebre-dos-cambios" "UnSoloCambio"
 correr_quiebre "PlanCambio.tla" "quiebre-subida-sin-cobro" "SinUpgradeSinCobro"
 correr_quiebre "PlanCambio.tla" "quiebre-sin-hasta" "ProgramadoCompleto"
 correr_quiebre "PlanCambio.tla" "quiebre-no-cancela" "CancelaMismoPlan"
+
+correr_ok "StockLotes.tla" "stock-lotes" "TresNumeros, SinEspejoTrasFallo, DevolucionAlLoteOriginal, BajaConMovimiento"
+correr_quiebre "StockLotes.tla" "quiebre-stock-espejo" "SinEspejoTrasFallo"
 
 exit "$fallo"

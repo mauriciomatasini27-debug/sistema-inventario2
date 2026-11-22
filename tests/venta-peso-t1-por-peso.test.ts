@@ -221,13 +221,13 @@ describe("T1 #385 snapshot offline: el flag viaja con el catálogo", () => {
 });
 
 describe("T1 #385 migración nueva sin editar las aplicadas", () => {
-  it("el journal trae el tag 0054 y el SQL agrega por_peso con default false", () => {
+  it("el journal trae el tag 0056 y el SQL agrega por_peso con default false", () => {
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
       entries: { tag: string }[];
     };
-    expect(journal.entries.some((e) => e.tag === "0055_products_por_peso")).toBe(true);
+    expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
     expect(journal.entries.length).toBeGreaterThanOrEqual(55);
-    const sql = readFileSync("drizzle/0055_products_por_peso.sql", "utf8");
+    const sql = readFileSync("drizzle/0056_products_por_peso.sql", "utf8");
     expect(sql).toContain('"por_peso" boolean NOT NULL DEFAULT false');
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS');
     for (const tag of ["0051_ggl_p240_gmail_dedupe_tenant", "0052_retencion_anonimiza_auditoria", "0053_servicios_pagos_tenant"]) {
@@ -237,9 +237,9 @@ describe("T1 #385 migración nueva sin editar las aplicadas", () => {
 
   it("el tag nuevo tiene su registro de migración", () => {
     const registro = JSON.parse(
-      readFileSync("docs/roadmap/migraciones/0055_products_por_peso.json", "utf8"),
+      readFileSync("docs/roadmap/migraciones/0056_products_por_peso.json", "utf8"),
     ) as { tag: string };
-    expect(registro.tag).toBe("0055_products_por_peso");
+    expect(registro.tag).toBe("0056_products_por_peso");
   });
 });
 

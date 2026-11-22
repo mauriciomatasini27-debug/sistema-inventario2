@@ -72,16 +72,18 @@ describe.skipIf(!hayPG)("IA-S2 lecturas reales contra Postgres por tenant", () =
         brutoCentavos: 40000n,
         netoCentavos: 40000n,
       });
-      await db.insert(saleReturns).values({
-        idempotencyKey: `${keyA}-dev`,
-        saleId: saleA,
-        numeroDevolucion: `D-IA2-${sufijo}`,
-        montoCentavos: 10000n,
-        acumuladoNuevoCentavos: 10000n,
-        medio: "Efectivo",
-        motivo: "prueba ia2",
-        actor: "test",
-      });
+      await db.insert(saleReturns).values(
+        filaPg({
+          idempotencyKey: `${keyA}-dev`,
+          saleId: saleA,
+          numeroDevolucion: `D-IA2-${sufijo}`,
+          montoCentavos: 10000n,
+          acumuladoNuevoCentavos: 10000n,
+          medio: "Efectivo",
+          motivo: "prueba ia2",
+          actor: "test",
+        }),
+      );
       await db.insert(stockMovements).values([
         filaPg({ idemKey: keyA, sku: skuA, delta: -4, tipo: "VENTA", createdAt: momento }),
         filaPg({ idemKey: `${keyA}-dev`, sku: skuA, delta: 1, tipo: "COMPENSATORIO", createdAt: momento }),

@@ -1,0 +1,6 @@
+{
+  "tag": "0056_products_por_peso",
+  "fecha": "2026-11-21",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente por Mauricio en el grilling de la venta por peso (T1, #385, P10-93). Agrega products.por_peso boolean NOT NULL DEFAULT false. Tag renumerado de 0055 a 0056 porque main ya mergeó 0055_unicidad_por_comercio. Aplicación pendiente en la base real; se registra el tag antes del merge del PR."
+}

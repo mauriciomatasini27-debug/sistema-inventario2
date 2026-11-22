@@ -3,13 +3,14 @@ import { eq, inArray } from "drizzle-orm";
 import { control, resetStore, store } from "../src/lib/store.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
-import { products, sales, stockMovements, ticketLines } from "../src/db/schema.js";
+import { products, sales, stockLots, stockMovements, ticketLines } from "../src/db/schema.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { aplicarMovimiento } from "../src/lib/repos/stock.js";
 import {
   cargarStockInicial,
   listarPendientesStockInicial,
 } from "../src/lib/repos/stock-inicial.js";
+import { idLoteGenerico } from "../src/modules/inventario/lote-generico.js";
 import { GET as getInicial, POST as postInicial } from "../src/pages/api/stock/inicial.js";
 import { ctx } from "./helpers/ctx.js";
 import { asegurarBasePrivada } from "./helpers/pg-privada.js";
@@ -176,7 +177,7 @@ describe("STOCK-S4 repo en memoria: pendientes de stock inicial", () => {
       {
         idemKey: "stock-inicial:S4-X",
         sku: "S4-X",
-        loteId: null,
+        loteId: idLoteGenerico("S4-X"),
         delta: 3,
         tipo: "ALTA",
         motivo: "stock inicial",
@@ -404,6 +405,7 @@ describe.skipIf(!hayPG)("STOCK-S4 multi con PG: ventana de 30 días y ALTA", () 
         await db.delete(sales).where(inArray(sales.id, saleIds));
       }
       await db.delete(stockMovements).where(inArray(stockMovements.sku, todos));
+      await db.delete(stockLots).where(inArray(stockLots.sku, todos));
       await db.delete(products).where(inArray(products.sku, todos));
     });
     delete process.env.TENANT_MODE;

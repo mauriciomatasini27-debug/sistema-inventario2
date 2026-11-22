@@ -3,68 +3,10 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
-import {
-  hashMigration,
-  splitStatements,
-  sslPostgresDesdeUrl,
-  filtrarStatementsPorTablas,
-} from "../scripts/db-migrate-lib.mjs";
+import { sslPostgresDesdeUrl } from "../scripts/db-migrate-lib.mjs";
+import { aplicarHasta, crearBase } from "./helpers/migracion-pg.js";
 
 const hayPG = Boolean(process.env.PG_TEST_URL_A);
-
-async function crearBase(nombreDb: string, urlReferencia: string): Promise<string> {
-  const u = new URL(urlReferencia);
-  u.pathname = `/${nombreDb}`;
-  const url = u.toString();
-  const mantenimiento = new URL(urlReferencia);
-  mantenimiento.pathname = "/postgres";
-  const admin = postgres(mantenimiento.toString(), { max: 1, ssl: sslPostgresDesdeUrl(mantenimiento.toString()) });
-  try {
-    await admin.unsafe(`CREATE DATABASE "${nombreDb}"`);
-  } catch (e) {
-    if (typeof e !== "object" || e === null || !("code" in e) || e.code !== "42P04") throw e;
-  } finally {
-    await admin.end();
-  }
-  return url;
-}
-
-/** Igual que scripts/db-migrate.mjs: P1-69 filtra ALTER si la tabla no existe aún. */
-async function aplicarHasta(tag: string, url: string): Promise<void> {
-  const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
-    entries: { tag: string; when: number }[];
-  };
-  const idx = journal.entries.findIndex((e) => e.tag === tag);
-  if (idx < 0) throw new Error(`tag ${tag} no está en journal`);
-  const hasta = journal.entries.slice(0, idx + 1);
-  const sql = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
-  try {
-    await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
-    await sql`
-      CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
-        id serial primary key,
-        hash text not null,
-        created_at bigint
-      )
-    `;
-    const tablas = new Set(
-      (await sql`select table_name from information_schema.tables where table_schema = 'public'`).map((r) => r.table_name),
-    );
-    for (const entry of hasta) {
-      const body = readFileSync(`drizzle/${entry.tag}.sql`, "utf8");
-      const parts = splitStatements(body);
-      const { run } = filtrarStatementsPorTablas({ statements: parts, tablasExistentes: tablas });
-      for (const stmt of run) await sql.unsafe(stmt);
-      await sql`insert into drizzle.__drizzle_migrations (hash, created_at) values (${hashMigration(body)}, ${entry.when})`;
-      for (const stmt of run) {
-        const m = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/i);
-        if (m) tablas.add(m[1]!);
-      }
-    }
-  } finally {
-    await sql.end();
-  }
-}
 
 describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
   it("journal registra 0045, 0046 rubro, 0047 periferia, 0049 onboarding, 0050 respuestas y 0051 gmail", () => {
@@ -79,9 +21,12 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     // P10-90: la 0052 deja al job de retención anonimizar actor/detalle de la auditoría.
     expect(journal.entries.some((e) => e.tag === "0052_retencion_anonimiza_auditoria")).toBe(true);
     expect(journal.entries.some((e) => e.tag === "0053_servicios_pagos_tenant")).toBe(true);
-    // P10-93: la 0055 agrega products.por_peso (flag de venta por peso).
-    expect(journal.entries.some((e) => e.tag === "0055_products_por_peso")).toBe(true);
-    expect(journal.entries.length).toBeGreaterThanOrEqual(55);
+    // P1-96: 0054 de devoluciones y 0055 de unicidad viven en main.
+    expect(journal.entries.some((e) => e.tag === "0054_devolucion_por_comercio")).toBe(true);
+    expect(journal.entries.some((e) => e.tag === "0055_unicidad_por_comercio")).toBe(true);
+    // P10-93: la 0056 agrega products.por_peso (flag de venta por peso).
+    expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
+    expect(journal.entries.length).toBe(57);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);
@@ -96,7 +41,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
     async () => {
       const nombre = `m45_piloto_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0044_piloto_schema_tenant_precios", url);
+      await aplicarHasta("0044_piloto_schema_tenant_precios", url, { registrarAplicadas: true });
       const tid = randomUUID();
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
@@ -138,7 +83,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
     async () => {
       const nombre = `m45_dup_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0044_piloto_schema_tenant_precios", url);
+      await aplicarHasta("0044_piloto_schema_tenant_precios", url, { registrarAplicadas: true });
       const tid = randomUUID();
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
@@ -168,7 +113,7 @@ describe.skipIf(!hayPG)("P1-76 migración 0045 en Postgres", () => {
     async () => {
       const nombre = `m45_prod_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0044_piloto_schema_tenant_precios", url);
+      await aplicarHasta("0044_piloto_schema_tenant_precios", url, { registrarAplicadas: true });
       const ts = "2024-01-15T12:00:00.000Z";
       const t1 = randomUUID();
       const t2 = randomUUID();
@@ -265,7 +210,7 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
     async () => {
       const nombre = `m47_post46_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0046_tenants_rubro", url);
+      await aplicarHasta("0046_tenants_rubro", url, { registrarAplicadas: true });
       const db0 = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db0`select count(*)::int as n from drizzle.__drizzle_migrations`;
@@ -287,7 +232,7 @@ describe.skipIf(!hayPG)("P1-81 migración 0047 tras 0046", () => {
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
         const n = await db`select count(*)::int as n from drizzle.__drizzle_migrations`;
-        // ON12/TB-165 + 0051 + 0052/0053 (P10-90) + 0055 (P10-93) [plataforma]: el wrapper aplica hasta la última migración del journal.
+        // P1-96 + P10-93 [plataforma]: el wrapper aplica hasta la última migración del journal (0056 incluida).
         const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: unknown[] };
         expect(n[0]?.n).toBe(journal.entries.length);
       } finally {
@@ -304,7 +249,7 @@ describe.skipIf(!hayPG)("ON12 migración 0049_tenants_onboarding_wizard en Postg
     async () => {
       const nombre = `m49_onboarding_${Date.now()}`;
       const url = await crearBase(nombre, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0048_ggl_p0_huecos", url);
+      await aplicarHasta("0048_ggl_p0_huecos", url, { registrarAplicadas: true });
       const viejo = randomUUID();
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       try {
@@ -354,7 +299,7 @@ describe.skipIf(!hayPG)("P10-90 migración 0053 tenant_id en servicios y pagos",
     "completa por egreso, mensaje, facturas y órdenes; deja null lo ambiguo o sin relación",
     async () => {
       const url = await crearBase(`m53_backfill_${Date.now()}`, process.env.PG_TEST_URL_A ?? "");
-      await aplicarHasta("0052_retencion_anonimiza_auditoria", url);
+      await aplicarHasta("0052_retencion_anonimiza_auditoria", url, { registrarAplicadas: true });
       const db = postgres(url, { max: 1, ssl: sslPostgresDesdeUrl(url) });
       const t1 = randomUUID();
       const t2 = randomUUID();

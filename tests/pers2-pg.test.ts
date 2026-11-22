@@ -5,7 +5,8 @@ import { eq } from "drizzle-orm";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { customerMovements, customers } from "../src/db/schema-credito.js";
-import { products } from "../src/db/schema.js";
+import { products,
+  stockLots } from "../src/db/schema.js";
 import { POST as ventaFiadoPOST } from "../src/pages/api/credit/sales-on-account.js";
 import { GET as saldoGET } from "../src/pages/api/credit/balance.js";
 import { filaPg } from "./helpers/pg-tenant-fixture.js";
@@ -42,6 +43,7 @@ async function borrarCliente() {
       const db = getTenantDb();
       await db.delete(customerMovements).where(eq(customerMovements.customerId, cliente));
       await db.delete(customers).where(eq(customers.id, cliente));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
   }

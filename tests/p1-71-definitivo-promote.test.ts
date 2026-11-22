@@ -16,6 +16,7 @@ import {
   ticketLines,
   ticketPayments,
   tickets,
+  stockLots,
 } from "../src/db/schema.js";
 import { ticketDiscounts } from "../src/db/schema-tickets.js";
 import { POST as POSTPush } from "../src/pages/api/sync/push.js";
@@ -81,6 +82,7 @@ describe.skipIf(!hayPG)("P1-71 promote completa tickets.definitivo", () => {
       }
       await db.delete(outbox).where(eq(outbox.opId, opId));
       await db.delete(idMappings).where(eq(idMappings.opId, opId));
+      await db.delete(stockLots).where(eq(stockLots.sku, sku));
       await db.delete(products).where(eq(products.sku, sku));
     });
     delete process.env.TENANT_MODE;

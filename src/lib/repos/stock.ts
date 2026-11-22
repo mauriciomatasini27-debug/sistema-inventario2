@@ -5,6 +5,7 @@ import { dbVivaTenant, type TenantDb } from "../server-db.js";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import {
   crearAlmacenConteoVistos,
+  crearAlmacenLotes,
   crearAlmacenSectores,
   crearAlmacenStock,
   crearListaAuditoria,
@@ -16,6 +17,7 @@ import {
   type StoredStockMovement,
 } from "./_almacen.js";
 import { conteo_por_sector, normalizarSector, type LineaFisica } from "../../modules/inventario/sectores.js";
+import { asegurarLoteGenerico } from "./lote-generico.js";
 
 // PERS2-S23 (ADR-0062): stock, movimientos y conteos. Los movimientos de
 // stock se escriben solo por este modulo. DB primero via dbVivaTenant();
@@ -74,17 +76,21 @@ function espejarConteoSector(
 }
 
 export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
-// P1-60: la VENTA no entra por aplicarMovimiento. Ese camino abre otra
-// conexión, no baja cantidad_restante y, si la base falla, espeja memoria y sigue.
 export type TipoMovimientoNoVenta = Exclude<TipoMovimientoStock, "VENTA">;
+
+export const MOTIVO_SOBREVENTA = "sobreventa" as const;
 
 export interface MovimientoStockNuevo {
   readonly idemKey: string;
   readonly sku: string;
   readonly loteId: string | null;
   readonly delta: number;
-  readonly tipo: TipoMovimientoNoVenta;
+  readonly tipo: TipoMovimientoStock;
   readonly motivo?: string | undefined;
+  readonly condicionResto?: number | undefined;
+  readonly createdAt?: Date | undefined;
+  readonly bajarCantidades?: boolean | undefined;
+  readonly tx?: TxVentaAbierta | undefined;
 }
 
 // Por qué espejo: la memoria del proceso sigue hasta el retiro (P2.2).
@@ -112,8 +118,8 @@ export async function movimientoDuplicado(idemKey: string, tipo: TipoMovimientoS
   }
 }
 
-// Escritura unica de movimientos: espejo memoria + stock_movements durable +
-// products.stock_actual. En multi sin base propaga BaseNoDisponible.
+type TxEscritura = Pick<TenantDb, "insert" | "update" | "select">;
+
 export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuente: "db" | "memoria" }> {
   const registro: StoredStockMovement = {
     idemKey: m.idemKey,
@@ -125,12 +131,10 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
   };
   const existencias = crearAlmacenStock();
   const movimientos = crearListaMovimientosStock();
-  const db = dbVivaTenant();
-  if (!db) {
-    aplicarEnMemoria(registro, existencias, movimientos);
-    return { fuente: "memoria" };
-  }
-  try {
+  const lotes = crearAlmacenLotes();
+  const bajar = m.bajarCantidades !== false;
+
+  const escribir = async (db: TxEscritura): Promise<void> => {
     await db.insert(stockMovements).values(
       filaConTenant({
         idemKey: m.idemKey,
@@ -139,19 +143,59 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
         delta: m.delta,
         tipo: m.tipo,
         ...(m.motivo !== undefined ? { motivo: m.motivo } : {}),
+        ...(m.createdAt !== undefined ? { createdAt: m.createdAt } : {}),
       }),
     );
+    if (!bajar) return;
+    // AUD-VTA-01 [tenant]: el SKU se repite entre comercios; sin el tenant,
+    // la venta de A también baja el stock_actual de B.
     const wProd = dondeTenant(products.tenantId, eq(products.sku, m.sku)) ?? eq(products.sku, m.sku);
-    await db
-      .update(products)
-      .set({ stockActual: sql`${products.stockActual} + ${m.delta}` })
-      .where(wProd);
-    aplicarEnMemoria(registro, existencias, movimientos);
+    await db.update(products).set({ stockActual: sql`${products.stockActual} + ${m.delta}` }).where(wProd);
+    if (m.loteId !== null && m.condicionResto !== undefined) {
+      await db
+        .select({ id: stockLots.id })
+        .from(stockLots)
+        .where(eq(stockLots.id, m.loteId))
+        .for("update");
+      const actualizado = await db
+        .update(stockLots)
+        .set({ cantidadRestante: sql`${stockLots.cantidadRestante} + ${m.delta}` })
+        .where(and(eq(stockLots.id, m.loteId), sql`${stockLots.cantidadRestante} >= ${m.condicionResto}`))
+        .returning({ id: stockLots.id });
+      if (!actualizado[0]) throw new Error("el lote no alcanzó");
+    }
+  };
+
+  const reflejar = (exigirResto: boolean): void =>
+    aplicarEnMemoria(
+      registro,
+      existencias,
+      movimientos,
+      lotes,
+      {
+        ...(m.condicionResto !== undefined ? { condicionResto: m.condicionResto } : {}),
+        bajarCantidades: bajar,
+        exigirResto,
+      },
+    );
+
+  const db = m.tx ?? dbVivaTenant();
+  if (!db) {
+    reflejar(true);
+    return { fuente: "memoria" };
+  }
+  if (m.tx) {
+    await escribir(m.tx);
+    return { fuente: "db" };
+  }
+  try {
+    await db.transaction(escribir);
+    reflejar(false);
     return { fuente: "db" };
   } catch (e) {
+    if (m.condicionResto !== undefined) throw e;
     movimientos.anteFalloPersistencia(e);
-    aplicarEnMemoria(registro, existencias, movimientos);
-    return { fuente: "memoria" };
+    throw e;
   }
 }
 
@@ -159,9 +203,22 @@ export function aplicarEnMemoria(
   m: StoredStockMovement,
   existencias: AlmacenVivo<number>,
   movimientos: ListaAlmacen<StoredStockMovement>,
+  lotes?: ReturnType<typeof crearAlmacenLotes>,
+  opts?: { condicionResto?: number | undefined; bajarCantidades?: boolean | undefined; exigirResto?: boolean | undefined },
 ): void {
-  existencias.guardar(m.sku, (existencias.obtener(m.sku) ?? 0) + m.delta);
+  const bajar = opts?.bajarCantidades !== false;
+  let resto: ReturnType<ReturnType<typeof crearAlmacenLotes>["obtener"]> | undefined;
+  if (bajar && lotes && m.loteId !== null && opts?.condicionResto !== undefined) {
+    const lote = lotes.obtener(m.loteId);
+    if (!lote && opts.exigirResto) throw new Error("el lote no alcanzó");
+    if (lote) {
+      if (opts.exigirResto && lote.cantidadRestante < opts.condicionResto) throw new Error("el lote no alcanzó");
+      resto = { ...lote, cantidadRestante: lote.cantidadRestante + m.delta };
+    }
+  }
+  if (bajar) existencias.guardar(m.sku, (existencias.obtener(m.sku) ?? 0) + m.delta);
   movimientos.agregar(m);
+  if (lotes && m.loteId !== null && resto) lotes.guardar(m.loteId, resto);
 }
 
 /** Tx que ya abrió el caller de la venta; esta API no abre otra. */
@@ -206,9 +263,6 @@ function validarConsumoVenta(lotes: readonly Lote[], consumo: ConsumoVentaLotes)
   }
 }
 
-// P1-60: única escritura de una VENTA. Primero products.sku y después
-// stock_lots.id, siempre en ese orden, para que dos cobros no se traben.
-// La semilla existe solo si el SKU no tiene ninguna fila de lote.
 export async function aplicarVentaLotes<T>(
   tx: TxVentaAbierta,
   pedido: PedidoLotesVenta,
@@ -249,13 +303,10 @@ export async function aplicarVentaLotes<T>(
       if (filas.length === 0) {
         const stock = stockDe.get(sku) ?? 0;
         if (stock > 0) {
-          lotes.push({
-            id: `seed-${sku}` as LotId,
-            sku: sku as Sku,
-            cantidad: stock,
-            venceEl: null,
-            costoCentavos: 0n,
-          });
+          const id = await asegurarLoteGenerico(sku, tx, stock);
+          const wLote = dondeTenant(stockLots.tenantId, eq(stockLots.id, id)) ?? eq(stockLots.id, id);
+          await tx.update(stockLots).set({ cantidad: stock, cantidadRestante: stock }).where(wLote);
+          lotes.push({ id: id as LotId, sku: sku as Sku, cantidad: stock, venceEl: null, costoCentavos: 0n });
         }
         continue;
       }
@@ -275,42 +326,18 @@ export async function aplicarVentaLotes<T>(
   const { consumo, valor } = await decidir(lotes);
   validarConsumoVenta(lotes, consumo);
   if (consumo.tomas.length > 0) {
-    // P1-61: el orden FEFO vive en tomas[]; createdAt es el instante de la venta.
-    await tx.insert(stockMovements).values(
-      consumo.tomas.map((t) =>
-        filaConTenant({
-          idemKey: consumo.idemKey,
-          sku: t.sku,
-          loteId: loteIdParaFila(t.loteId),
-          delta: -t.cantidad,
-          tipo: "VENTA" as const,
-          createdAt: pedido.ahora,
-        }),
-      ),
-    );
-  }
-  if (consumo.bajarCantidades) {
-    const porSku = new Map<string, number>();
     for (const t of consumo.tomas) {
-      const loteId = loteIdParaFila(t.loteId);
-      if (loteId) {
-        const updated = await tx
-          .update(stockLots)
-          .set({ cantidadRestante: sql`${stockLots.cantidadRestante} - ${t.cantidad}` })
-          .where(and(eq(stockLots.id, loteId), sql`${stockLots.cantidadRestante} >= ${t.cantidad}`))
-          .returning({ id: stockLots.id });
-        if (!updated[0]) throw new Error("el lote no alcanzó para la toma");
-      }
-      porSku.set(t.sku, (porSku.get(t.sku) ?? 0) + t.cantidad);
-    }
-    for (const [sku, cantidad] of porSku) {
-      // AUD-VTA-01: el SKU se repite entre comercios; sin el tenant, la venta
-      // de A también bajaba el stock_actual de B.
-      const wStock = dondeTenant(products.tenantId, eq(products.sku, sku)) ?? eq(products.sku, sku);
-      await tx
-        .update(products)
-        .set({ stockActual: sql`${products.stockActual} - ${cantidad}` })
-        .where(wStock);
+      await aplicarMovimiento({
+        idemKey: consumo.idemKey,
+        sku: t.sku,
+        loteId: loteIdParaFila(t.loteId),
+        delta: -t.cantidad,
+        tipo: "VENTA",
+        createdAt: pedido.ahora,
+        bajarCantidades: consumo.bajarCantidades,
+        ...(consumo.bajarCantidades ? { condicionResto: t.cantidad } : { motivo: MOTIVO_SOBREVENTA }),
+        tx,
+      });
     }
   }
   return valor;
@@ -426,7 +453,8 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
         for (const l of lineas) {
           const dif = l.fisico - l.teorico;
           if (dif !== 0) {
-            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId: null, delta: dif, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
+            const loteId = await asegurarLoteGenerico(l.sku, undefined, l.teorico);
+            await aplicarMovimiento({ idemKey: `conteo:${input.id}:${l.sku}`, sku: l.sku, loteId, delta: dif, tipo: "AJUSTE_CONTEO", motivo: input.motivo, condicionResto: 0 });
           }
         }
         if (enMemoria) enMemoria.estado = "confirmado";
@@ -449,7 +477,8 @@ export async function confirmarConteo(input: ConfirmarConteoInput): Promise<Conf
   enMemoria.estado = "confirmado";
   for (const d of enMemoria.diferencias) {
     if (d.diferencia !== 0) {
-      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId: null, delta: d.diferencia, tipo: "AJUSTE_CONTEO", motivo: input.motivo });
+      const loteId = await asegurarLoteGenerico(d.sku, undefined, d.teorico);
+      await aplicarMovimiento({ idemKey: `conteo:${input.id}:${d.sku}`, sku: d.sku, loteId, delta: d.diferencia, tipo: "AJUSTE_CONTEO", motivo: input.motivo, condicionResto: 0 });
     }
   }
   auditoria.agregar({ accion: "conteo_confirmado", countId: input.id, contadoPor, confirmadoPor: input.confirmadoPor, motivo: input.motivo });
@@ -497,6 +526,7 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     fisico: d.fisico,
     diferencia: d.diferencia,
   }));
+  const teoricoDe = new Map(diferencias.map((d) => [d.sku, d.teorico]));
   if (db) {
     try {
       const previas = await db.select({ id: stockCounts.id }).from(stockCounts).where(eq(stockCounts.idemKey, input.key)).limit(1);
@@ -507,7 +537,8 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
         await db.insert(stockCountLines).values(filaConTenant({ countId: id, sku: d.sku, teorico: d.teorico, fisico: d.fisico }));
       }
       for (const m of r.valor.movimientos) {
-        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
+        const loteId = await asegurarLoteGenerico(m.sku as string, undefined, teoricoDe.get(m.sku as string));
+        await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, condicionResto: 0, ...(m.motivo ? { motivo: m.motivo } : {}) });
       }
       espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);
       return { ok: true, conteoId: id, sector: r.valor.sector, diferencias: r.valor.diferencias, movimientos: r.valor.movimientos.length, unidadesAjuste: r.valor.unidadesAjuste };
@@ -525,7 +556,8 @@ export async function conteoPorSector(input: ConteoSectorInput): Promise<ConteoS
     }
   }
   for (const m of r.valor.movimientos) {
-    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId: m.loteId as string | null, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, ...(m.motivo ? { motivo: m.motivo } : {}) });
+    const loteId = await asegurarLoteGenerico(m.sku as string, undefined, teoricoDe.get(m.sku as string));
+    await aplicarMovimiento({ idemKey: m.idemKey, sku: m.sku as string, loteId, delta: m.delta, tipo: m.tipo as TipoMovimientoNoVenta, condicionResto: 0, ...(m.motivo ? { motivo: m.motivo } : {}) });
   }
   const id = crypto.randomUUID();
   espejarConteoSector(id, input.key, r.valor.sector, diferencias, conteos, vistos);

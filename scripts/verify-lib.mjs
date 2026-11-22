@@ -1,11 +1,14 @@
 // RETRO-03: el gate de ids de comentarios va primero para fallar temprano.
-export const PASOS_CI = ["comentarios", "typecheck", "arch", "test", "skips", "build"];
+// RETRO-AUD-01: issues-locales va primero: un avance `hecho` con el issue abierto
+// se detecta antes de gastar el resto del verify.
+export const PASOS_CI = ["comentarios", "issues-locales", "typecheck", "arch", "test", "skips", "build"];
 // DOCS-GATE-CHECK: los --check van antes de los writers para que el gate
 // falle nombrando el comando en vez de regenerar callado.
 export const PASOS_DOCS = ["docs:generados", "docs:comentarios-check", "docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check", "docs:migraciones", "roadmap", "docs:estado", "docs:index", "docs:check"];
 
 const DEFS = {
   comentarios: { node: "scripts/check-comment-ids.mjs" },
+  "issues-locales": { node: "scripts/verificar-issues-locales.mjs" },
   typecheck: { script: "typecheck" },
   arch: { script: "check:arch" },
   test: {
@@ -32,8 +35,32 @@ export function planDePasos({ docsOnly = false } = {}) {
   return nombres.map((nombre) => ({ nombre, ...DEFS[nombre] }));
 }
 
+// Un paso con prerequisito roto se salta; los independientes siguen corriendo
+// para que una sola pasada informe todos los fallos del gate.
+export const ESCRITORES_DOCS = ["docs:migraciones", "roadmap", "docs:estado", "docs:index"];
+const CHECKS_DOCS = [
+  "docs:generados",
+  "docs:comentarios-check",
+  "docs:estado-check",
+  "docs:index-check",
+  "docs:migraciones-check",
+  "roadmap-check",
+];
+
+export function dependenciasIncumplidas(paso, resultados = []) {
+  const items = Array.isArray(resultados) ? resultados : [];
+  const fallidos = items.filter((r) => !r.skipped && r.code !== 0).map((r) => r.nombre);
+  if (paso.nombre === "skips") return fallidos.filter((n) => n === "test");
+  // Si un check falló, el writer correspondiente no debe regenerar callado.
+  if (ESCRITORES_DOCS.includes(paso.nombre)) {
+    return fallidos.filter((n) => CHECKS_DOCS.includes(n));
+  }
+  return [];
+}
+
 export function resumir(resultados) {
   const items = Array.isArray(resultados) ? resultados : [];
-  const fallidos = items.filter((r) => r.code !== 0).map((r) => r.nombre);
-  return { ok: fallidos.length === 0, fallidos, total: items.length };
+  const fallidos = items.filter((r) => !r.skipped && r.code !== 0).map((r) => r.nombre);
+  const saltados = items.filter((r) => r.skipped).map((r) => r.nombre);
+  return { ok: fallidos.length === 0, fallidos, saltados, total: items.length };
 }

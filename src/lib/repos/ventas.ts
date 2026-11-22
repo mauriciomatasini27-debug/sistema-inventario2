@@ -1,5 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
-import { products, sales, SERIE_DEVOLUCION, stockMovements, ticketCounters, ticketLines } from "../../db/schema.js";
+import { and, eq } from "drizzle-orm";
+import { products, sales, SERIE_DEVOLUCION, stockLots, stockMovements, ticketCounters, ticketLines } from "../../db/schema.js";
 import { filaContadorTicket, whereContadorTicket } from "./ticket-counters.js";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { saleReturns, ticketPaymentCorrections } from "../../db/schema-tickets.js";
@@ -12,6 +12,7 @@ import {
   crearAlmacenDevolucionVistos,
   crearAlmacenIdempotenciaVentas,
   crearContadorDevoluciones,
+  crearAlmacenLotes,
   crearAlmacenStock,
   crearListaMovimientos,
   crearListaMovimientosCredito,
@@ -32,6 +33,7 @@ import { corregir_medio, type CorreccionOk } from "../../modules/sales/correccio
 import { LEYENDA_NO_FISCAL } from "../../modules/sales/vender_mostrador.js";
 import type { Sku } from "../../modules/inventario/inventario.js";
 import { aplicarEnMemoria, aplicarMovimiento, type TxVentaAbierta } from "./stock.js";
+import { asegurarLoteGenerico } from "./lote-generico.js";
 import { registrarMovimientoDevolucion } from "./caja.js";
 import { insertarMovimientosCaja } from "./movimientos-caja.js";
 import { acumuladoNcParaVenta, asegurarDoc, buscarFacturaParaNd } from "./fiscal.js";
@@ -174,11 +176,16 @@ export async function acumuladoDevoluciones(saleId: string, enTx?: TxVentaAbiert
 export async function devolviblesPorSku(saleId: string, enTx?: TxVentaAbierta): Promise<Map<string, number> | null> {
   const vistosRet = crearAlmacenDevolucionVistos();
   const vendidas = new Map<string, number>();
-  const devueltas = new Map<string, { sku: string; cantidad: number }>();
+  const suma = (mapa: Map<string, { sku: string; cantidad: number }>, sku: string, idemKey: string, delta: number): void => {
+    const clave = `${idemKey}:${sku}`;
+    mapa.set(clave, { sku, cantidad: (mapa.get(clave)?.cantidad ?? 0) + Math.abs(delta) });
+  };
+  const memoria = new Map<string, { sku: string; cantidad: number }>();
   for (const m of crearListaMovimientosStock().listar()) {
     if (m.tipo !== "COMPENSATORIO" || vistosRet.obtener(m.idemKey)?.sale_id !== saleId) continue;
-    devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+    suma(memoria, m.sku, m.idemKey, m.delta);
   }
+  const enBase = new Map<string, { sku: string; cantidad: number }>();
   const db = enTx ?? dbVivaTenant();
   if (db) {
     try {
@@ -193,19 +200,144 @@ export async function devolviblesPorSku(saleId: string, enTx?: TxVentaAbierta): 
         .from(stockMovements)
         .innerJoin(saleReturns, eq(saleReturns.idempotencyKey, stockMovements.idemKey))
         .where(dondeTenant(stockMovements.tenantId, and(eq(saleReturns.saleId, saleId), eq(stockMovements.tipo, "COMPENSATORIO"))));
-      for (const m of movs) devueltas.set(`${m.idemKey}:${m.sku}`, { sku: m.sku, cantidad: m.delta });
+      for (const m of movs) suma(enBase, m.sku, m.idemKey, m.delta);
     } catch (e) {
       if (enTx) throw e;
       vistosRet.anteFalloPersistencia(e);
     }
   }
+  // T05: una devolución con varios Lotes escribe varios movimientos; sumar
+  // por idemKey+SKU y elegir la base cuando existe evita contar dos veces el
+  // espejo en memoria ni perder los movimientos anteriores al sobrescribir.
+  const devueltas = new Map(enBase);
+  for (const [clave, valor] of memoria) if (!devueltas.has(clave)) devueltas.set(clave, valor);
   // AUD-VTA-03: venta que solo vive en memoria (single sin base o caída).
   if (vendidas.size === 0) {
     for (const l of listarLineasTicket(saleId)) vendidas.set(l.product_id, (vendidas.get(l.product_id) ?? 0) + l.qty);
   }
   if (vendidas.size === 0) return null;
-  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - Math.abs(d.cantidad));
+  for (const d of devueltas.values()) vendidas.set(d.sku, (vendidas.get(d.sku) ?? 0) - d.cantidad);
   return vendidas;
+}
+
+interface ConsumoVentaLote {
+  readonly sku: string;
+  readonly loteId: string | null;
+  readonly cantidad: number;
+  readonly venceEl: Date | null;
+}
+
+interface RepartoLote {
+  readonly sku: string;
+  readonly loteId: string | null;
+  readonly cantidad: number;
+}
+
+interface ReingresoLote extends RepartoLote {
+  readonly loteId: string | null;
+  readonly motivo?: string | null | undefined;
+}
+
+async function consumosVentaPorIdempotencia(key: string, tx?: TxVentaAbierta): Promise<ConsumoVentaLote[]> {
+  const db = tx ?? dbVivaTenant();
+  if (!db) {
+    const lotes = crearAlmacenLotes().comoMapaSoloLectura();
+    return crearListaMovimientosStock()
+      .listar()
+      .filter((m) => m.tipo === "VENTA" && m.idemKey === key && m.delta < 0)
+      .map((m) => {
+        const vence = m.loteId ? lotes.get(m.loteId)?.venceEl : null;
+        return { sku: m.sku, loteId: m.loteId, cantidad: -m.delta, venceEl: vence ? new Date(vence) : null };
+      });
+  }
+  const cond = and(eq(stockMovements.idemKey, key), eq(stockMovements.tipo, "VENTA"));
+  const filas = await db
+    .select({ sku: stockMovements.sku, loteId: stockMovements.loteId, delta: stockMovements.delta, venceEl: stockLots.venceEl })
+    .from(stockMovements)
+    .leftJoin(stockLots, eq(stockMovements.loteId, stockLots.id))
+    .where(dondeTenant(stockMovements.tenantId, cond));
+  return filas
+    .filter((f) => f.delta < 0)
+    .map((f) => ({ sku: f.sku, loteId: f.loteId, cantidad: -f.delta, venceEl: f.venceEl }));
+}
+
+function repartoProporcional(
+  consumos: readonly ConsumoVentaLote[],
+  items: readonly { sku: string; cantidad: number }[],
+): RepartoLote[] {
+  const porSku = new Map<string, ConsumoVentaLote[]>();
+  for (const c of consumos) {
+    if (c.cantidad <= 0) continue;
+    const arr = porSku.get(c.sku);
+    if (arr) arr.push(c);
+    else porSku.set(c.sku, [c]);
+  }
+  const pedido = new Map<string, number>();
+  for (const it of items) pedido.set(it.sku, (pedido.get(it.sku) ?? 0) + it.cantidad);
+  const out: RepartoLote[] = [];
+  for (const [sku, cantidad] of pedido) {
+    const lotes = porSku.get(sku) ?? [];
+    if (lotes.length === 0) {
+      out.push({ sku, loteId: null, cantidad });
+      continue;
+    }
+    const total = lotes.reduce((a, c) => a + c.cantidad, 0);
+    const partes = lotes.map((c) => ({ sku, loteId: c.loteId, cantidad: Math.floor((cantidad * c.cantidad) / total) }));
+    const sobrante = cantidad - partes.reduce((a, p) => a + p.cantidad, 0);
+    if (sobrante > 0) {
+      let indice = 0;
+      for (let i = 1; i < lotes.length; i += 1) {
+        const candidato = lotes[i]!.venceEl;
+        const actual = lotes[indice]!.venceEl;
+        if (candidato !== null && (actual === null || candidato.getTime() < actual.getTime())) indice = i;
+      }
+      const parte = partes[indice]!;
+      partes[indice] = { ...parte, cantidad: parte.cantidad + sobrante };
+    }
+    out.push(...partes.filter((p) => p.cantidad > 0));
+  }
+  return out;
+}
+
+async function productoExiste(sku: string, tx?: TxVentaAbierta): Promise<boolean> {
+  const db = tx ?? dbVivaTenant();
+  if (!db) return crearAlmacenStock().obtener(sku) !== undefined;
+  const filas = await db
+    .select({ sku: products.sku })
+    .from(products)
+    .where(dondeTenant(products.tenantId, eq(products.sku, sku)))
+    .limit(1);
+  return filas.length > 0;
+}
+
+async function reingresarLotes(
+  key: string,
+  reparto: readonly RepartoLote[],
+  motivo: string | null | undefined,
+  enMemoria: boolean,
+  tx?: TxVentaAbierta,
+): Promise<ReingresoLote[]> {
+  const reingresos: ReingresoLote[] = [];
+  for (const r of reparto) {
+    let loteId = r.loteId;
+    if (loteId === null) {
+      if (enMemoria || (await productoExiste(r.sku, tx))) loteId = await asegurarLoteGenerico(r.sku, tx);
+    } else if (enMemoria && !crearAlmacenLotes().contiene(loteId)) {
+      loteId = await asegurarLoteGenerico(r.sku);
+    }
+    await aplicarMovimiento({
+      idemKey: key,
+      sku: r.sku,
+      loteId,
+      delta: r.cantidad,
+      tipo: "COMPENSATORIO",
+      ...(loteId !== null ? { condicionResto: 0 } : {}),
+      ...(motivo != null ? { motivo } : {}),
+      ...(tx !== undefined ? { tx } : {}),
+    });
+    reingresos.push({ sku: r.sku, loteId, cantidad: r.cantidad, ...(motivo != null ? { motivo } : {}) });
+  }
+  return reingresos;
 }
 
 function ultimoNumeroDevolucion(): DevolucionSeq | null {
@@ -257,7 +389,7 @@ function espejoMemoriaDevolucion(
 type SalidaTxDevolucion =
   | { readonly estado: "repetida"; readonly original: VistoDevolucion }
   | { readonly estado: "fallo"; readonly fallo: Extract<DevolucionResult, { ok: false }> }
-  | { readonly estado: "ok"; readonly numero: string; readonly efecto: EfectoDevolucion };
+  | { readonly estado: "ok"; readonly numero: string; readonly efecto: EfectoDevolucion; readonly reingresos: readonly ReingresoLote[] };
 
 export async function registrarDevolucion(input: RegistrarDevolucionInput): Promise<RegistrarDevolucionResultado> {
   const vistosRet = crearAlmacenDevolucionVistos();
@@ -352,6 +484,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
   // AUD-VTA-04: true cuando stock y caja ya se escribieron en la tx de la
   // devolución; después del commit solo queda el espejo en memoria.
   let efectosEnTx = false;
+  let reingresos: readonly ReingresoLote[] = [];
   const cajaId = crypto.randomUUID();
 
   if (!db) {
@@ -378,7 +511,8 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         // concurrentes: sin 409 falsos y sin recorrer sale_returns.
         let filas = await tx.select().from(ticketCounters).where(whereContadorTicket(SERIE_DEVOLUCION)).for("update");
         if (!filas[0]) {
-          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns);
+          // P1-96 [tenant]: sin este filtro, un comercio nuevo hereda el máximo D-* de todos y arranca donde terminó otro.
+          const previas = await tx.select({ numero: saleReturns.numeroDevolucion }).from(saleReturns).where(dondeTenant(saleReturns.tenantId));
           let maximo = 0;
           for (const f of previas) {
             const m = /^D-(\d+)$/.exec(f.numero);
@@ -400,39 +534,28 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
         if (!dev.ok) return { estado: "fallo", fallo: dev };
         const n = ultimo + 1;
         const num = siguiente_numero_devolucion(seq);
-        await tx.insert(saleReturns).values({
-          id: returnId,
-          idempotencyKey: input.key,
-          saleId: input.saleId,
-          numeroDevolucion: num,
-          montoCentavos: input.montoCentavos,
-          acumuladoPrevioCentavos: acumuladoTx,
-          acumuladoNuevoCentavos: acumuladoTx + input.montoCentavos,
-          medio: input.medio,
-          fueAcuenta: venta.fueAcuenta,
-          motivo: input.motivo,
-          actor: input.actor,
-        });
+        await tx.insert(saleReturns).values(
+          filaConTenant({
+            id: returnId,
+            idempotencyKey: input.key,
+            saleId: input.saleId,
+            numeroDevolucion: num,
+            montoCentavos: input.montoCentavos,
+            acumuladoPrevioCentavos: acumuladoTx,
+            acumuladoNuevoCentavos: acumuladoTx + input.montoCentavos,
+            medio: input.medio,
+            fueAcuenta: venta.fueAcuenta,
+            motivo: input.motivo,
+            actor: input.actor,
+          }),
+        );
         await tx.update(ticketCounters).set({ ultimo: n }).where(whereContadorTicket(SERIE_DEVOLUCION));
-        // AUD-VTA-04: stock inverso y caja opuesta en la misma tx que
-        // sale_returns: o queda todo o no queda nada.
-        for (const m of dev.efecto.movimientosStock) {
-          const delta = Math.abs(m.delta);
-          await tx.insert(stockMovements).values(
-            filaConTenant({
-              idemKey: input.key,
-              sku: m.sku,
-              loteId: null,
-              delta,
-              tipo: "COMPENSATORIO",
-              ...(m.motivo ? { motivo: m.motivo } : {}),
-            }),
-          );
-          await tx
-            .update(products)
-            .set({ stockActual: sql`${products.stockActual} + ${delta}` })
-            .where(dondeTenant(products.tenantId, eq(products.sku, m.sku)) ?? eq(products.sku, m.sku));
-        }
+        // AUD-VTA-04: reingreso y caja opuesta en la misma tx que
+        // sale_returns: o queda todo o no queda nada. El Lote sale del
+        // Historial de la venta original y lo escribe el escritor único.
+        const consumos = await consumosVentaPorIdempotencia(venta.idempotency_key, tx);
+        const reparto = repartoProporcional(consumos, input.items);
+        const aplicados = await reingresarLotes(input.key, reparto, dev.efecto.movimientosStock[0]?.motivo, false, tx);
         if (dev.efecto.movimientoCaja) {
           await insertarMovimientosCaja(tx, [
             {
@@ -447,7 +570,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
             },
           ]);
         }
-        return { estado: "ok", numero: num, efecto: dev.efecto };
+        return { estado: "ok", numero: num, efecto: dev.efecto, reingresos: aplicados };
       });
       if (salida.estado === "repetida") {
         vistosRet.guardar(input.key, salida.original);
@@ -456,6 +579,7 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       if (salida.estado === "fallo") return mapearFallo(salida.fallo);
       numero = salida.numero;
       efecto = salida.efecto;
+      reingresos = salida.reingresos;
       efectosEnTx = true;
       espejoMemoriaDevolucion(input.key, returnId, numero, input);
     } catch (err) {
@@ -491,9 +615,17 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
     // AUD-VTA-04: la base ya tiene stock y caja; acá solo el espejo en memoria.
     const existencias = crearAlmacenStock();
     const movimientosStock = crearListaMovimientosStock();
-    for (const m of e.movimientosStock) {
-      const registro = { idemKey: input.key, sku: m.sku, loteId: null, delta: Math.abs(m.delta), tipo: "COMPENSATORIO" as const };
-      aplicarEnMemoria(m.motivo ? { ...registro, motivo: m.motivo } : registro, existencias, movimientosStock);
+    const lotes = crearAlmacenLotes();
+    for (const r of reingresos) {
+      const registro = {
+        idemKey: input.key,
+        sku: r.sku,
+        loteId: r.loteId,
+        delta: r.cantidad,
+        tipo: "COMPENSATORIO" as const,
+        ...(r.motivo ? { motivo: r.motivo } : {}),
+      };
+      aplicarEnMemoria(registro, existencias, movimientosStock, lotes, { condicionResto: 0, exigirResto: false });
     }
     if (e.movimientoCaja) {
       crearListaMovimientos().agregar({
@@ -508,15 +640,10 @@ export async function registrarDevolucion(input: RegistrarDevolucionInput): Prom
       });
     }
   }
-  for (const m of efectosEnTx ? [] : e.movimientosStock) {
-    await aplicarMovimiento({
-      idemKey: input.key,
-      sku: m.sku,
-      loteId: null,
-      delta: Math.abs(m.delta),
-      tipo: "COMPENSATORIO",
-      ...(m.motivo ? { motivo: m.motivo } : {}),
-    });
+  if (!efectosEnTx) {
+    const consumos = await consumosVentaPorIdempotencia(venta.idempotency_key);
+    const reparto = repartoProporcional(consumos, input.items);
+    await reingresarLotes(input.key, reparto, e.movimientosStock[0]?.motivo, db === null);
   }
   if (e.movimientoCaja && !efectosEnTx) {
     await registrarMovimientoDevolucion({
