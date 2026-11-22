@@ -22,3 +22,11 @@ export function productosSembradosRubro(tenantId: string): boolean {
 export function marcarProductosSembradosRubro(tenantId: string): void {
   control.semillasProductos.add(tenantId);
 }
+
+export function versionSiembraProductos(tenantId: string): string | null {
+  return control.semillasProductosVersion.get(tenantId) ?? null;
+}
+
+export function marcarVersionSiembraProductos(tenantId: string, version: string): void {
+  control.semillasProductosVersion.set(tenantId, version);
+}

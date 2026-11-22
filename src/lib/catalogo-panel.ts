@@ -7,6 +7,7 @@ export interface ProductoCatalogo {
   porPeso?: boolean | undefined;
   min_stock?: number | null;
   reorder_qty?: number | null;
+  stock_disponible?: number | null;
 }
 
 export function etiquetaPrecioCatalogo(p: Pick<ProductoCatalogo, "precioCentavos" | "porPeso">): string {
