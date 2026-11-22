@@ -238,7 +238,7 @@ describe("PERS2-S18 single sin DB: avisos y cierre como hoy", () => {
     const j = (await r.json()) as { resultados: Array<{ tenant_id: string; canales: Array<{ canal: string; estado: string }> }> };
     const mio = j.resultados.find((x) => x.tenant_id === tenantId);
     expect(mio?.canales.find((c) => c.canal === "wa")?.estado).toBe("omitido_pausa");
-    expect(mio?.canales.find((c) => c.canal === "email")?.estado).toBe("enviado");
+    expect(mio?.canales.find((c) => c.canal === "email")?.estado).toBe("pendiente");
     expect(store.emailOutbox.size).toBe(1);
   });
 

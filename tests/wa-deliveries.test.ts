@@ -159,8 +159,9 @@ describe.skipIf(!hayPG)("WA cierre/semanal: idempotencia persistida en notificat
 
     await conTenant(TENANT, async () => {
       const filas = await getTenantDb().select().from(notificationDeliveries).where(inArray(notificationDeliveries.idempotencyKey, claves));
-      expect(filas).toHaveLength(2);
-      expect(new Set(filas.map((f) => f.canal))).toEqual(new Set(["whatsapp", "email"]));
+      // Sin proveedor el email queda pendiente y su claim se libera: P10-92 lo reintenta.
+      expect(filas).toHaveLength(1);
+      expect(filas[0]?.canal).toBe("whatsapp");
     });
 
     conTenant(TENANT, () => store.notificationDeliveries.clear());
@@ -169,7 +170,8 @@ describe.skipIf(!hayPG)("WA cierre/semanal: idempotencia persistida en notificat
     const resultados = (await r2.json() as { resultados: Array<{ tenant_id: string; canales: Array<{ canal: string; estado: string }> }> }).resultados;
     const mios = resultados.find((x) => x.tenant_id === TENANT)?.canales ?? [];
     expect(mios.find((c) => c.canal === "wa")?.estado).toBe("duplicado");
-    expect(mios.find((c) => c.canal === "email")?.estado).toBe("duplicado");
+    // El email quedó pendiente sin proveedor: se libera el claim para que P10-92 lo reintente.
+    expect(mios.find((c) => c.canal === "email")?.estado).toBe("pendiente");
     await borrarEntregas(claves);
   });
 });

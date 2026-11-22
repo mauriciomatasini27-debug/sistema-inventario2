@@ -155,5 +155,6 @@ export async function encolar_email_simple(
     providerMessageId: res?.ok ? res.providerMessageId : null,
     tenantId: deps.tenantId,
   });
-  return res === null || res.ok;
+  // P10-36 [tenant]: sin proveedor o con fallo la fila queda pendiente para P10-92; no es un envío confirmado.
+  return res?.ok === true;
 }
