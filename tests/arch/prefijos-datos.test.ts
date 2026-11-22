@@ -70,9 +70,24 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   // con X-Job-Secret por correrJob y tenant explícito, igual que gmail-poll.
   "/api/jobs/gmail-watch-renewer",
   "/api/admin/fiscal/certificados-vencimiento",
+  // P1-94: cambia el plan de otro comercio con auth de admin y tenant_id del
+  // cuerpo; si fuera ruta de datos el middleware resolvería el tenant de la
+  // sesión del admin en vez del comercio destinatario.
+  "/api/admin/tenants/plan",
 ]);
 
 describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", () => {
+  it("el cambio de plan de admin es excepción de control con comercio del body", () => {
+    const ruta = "/api/admin/tenants/plan";
+    expect(EXCEPCIONES_CONTROL.has(ruta)).toBe(true);
+    expect(esRutaDatos(ruta)).toBe(false);
+    // Si deja de ser excepción, el middleware tomaría el tenant de la sesión del
+    // admin en vez del tenant_id del cuerpo (P1-94).
+    const src = readFileSync(`src/pages${ruta}.ts`, "utf8");
+    expect(src).toContain("exigirAdminMutante(request)");
+    expect(src).toContain("tenant_id: z.string().min(1)");
+  });
+
   it("archivos que importan repos o tenant fuera de prefijo solo en excepciones", () => {
     const fuera: string[] = [];
     for (const f of rutasApi(join("src", "pages", "api"))) {
@@ -85,7 +100,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(26);
+    expect(EXCEPCIONES_CONTROL.size).toBe(27);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");
