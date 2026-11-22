@@ -63,6 +63,7 @@ single-context. See `docs/agents/domain.md`.
 ## Desarrollo local (fuera del box)
 
 - Windows: WSL2 Ubuntu con Node 22 y Postgres 17; guía en `docs/guias/desarrollo-windows-opencode.md`. Windows nativo no corre `npm run verify` completo (scripts bash).
+- Worktrees: antes de crear uno para un issue/branch existente, seguí la convención de `docs/guias/desarrollo-windows-opencode.md` (sección "Worktrees: reutilizar el canónico").
 - Fuera del box no hay `/workspace/.cadena.lock`: no tomes el lock; rama propia (`mauri/<tema>`), nunca push a `main`, PR + `npm run verify` + `puede-mergear.mjs`. La Cadena del box saltea los PRs que no abrió.
 
 ## OpenCode (modelos)

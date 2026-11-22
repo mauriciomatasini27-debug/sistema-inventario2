@@ -187,9 +187,24 @@ tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál
 | Solo docs | `npm run verify -- --docs-only` |
 | E2E | `npm run dev` en otra terminal y `npm run test:e2e` |
 
+## Worktrees: reutilizar el canónico
+
+Antes de crear un worktree para un issue o branch existente, corré `git worktree list` (fuente de verdad de los worktrees registrados). Si el branch ya está checado en alguno de los directorios listados, trabajá ahí: no crees otro. Creá uno nuevo recién si el branch no aparece en ninguno.
+
+En este entorno los worktrees canónicos viven bajo `worktrees/<tema>` y llevan el branch `mauri/<tema>`: por ejemplo `worktrees/issue-295` tiene `mauri/issue-295`, `worktrees/promos-rt9` tiene `mauri/promos-rt9` y `worktrees/habilitar-mcp-supabase` tiene `mauri/habilitar-mcp-supabase`. El checkout principal del repo también cuenta: `git worktree list` lo lista primero con su branch. Si el branch aparece en un directorio temporal bajo `/tmp`, usalo solo si el directorio existe y la entrada no figura como `prunable`; si ya no existe, no lo reutilices ni lo muevas: creá el worktree canónico. No borres worktrees existentes (los administra Mauri).
+
+Si el branch no aparece, ahí sí crealo con el nombre de siempre:
+
+```bash
+git worktree list                                          # primer paso, siempre
+git worktree add -b mauri/<tema> worktrees/<tema> origin/main
+```
+
+Retomar un issue malgasta comandos, un symlink de `node_modules` y una limpieza si se salta el primer paso: el worktree canónico ya tiene el branch, las dependencias y el historial del tema.
+
 ## Flujo de un cambio
 
-1. `git fetch && git switch -c mauri/<tema> origin/main`. Nunca commitees a `main` directo.
+1. `git fetch` y `git worktree list` (ver sección Worktrees): si el branch ya está en un worktree, trabajá ahí; si no, `git worktree add -b mauri/<tema> worktrees/<tema> origin/main`. Nunca commitees a `main` directo.
 2. Trabajá con OpenCode. Si es un ítem del roadmap, agregá `docs/roadmap/avances/<id>.md` (formato en `docs/roadmap/avances/README.md`); `docs/ROADMAP.md`, `docs/INDEX.md` y `docs/ESTADO.md` no se editan a mano ni se commitean en la rama.
 3. `git fetch && git rebase origin/main` y después `npm run verify`, que tiene que dar verde. Los generados (`docs/ESTADO.md`, `docs/ROADMAP.md`, `docs/INDEX.md`, `docs/graph.json`) los regenera `main`, no la rama, así el PR no queda CONFLICTING cuando otro se mergeó antes. Si la rama ya los trae, `verify` falla en la guarda `docs:generados` y te dice cómo quitarlos (`git checkout $(git merge-base origin/main HEAD) -- <archivo>`).
 4. Commiteá y `git push -u origin mauri/<tema>`, después `gh pr create`.
