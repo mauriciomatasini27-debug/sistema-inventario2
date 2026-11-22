@@ -22,7 +22,7 @@ describe("control-app: base local", () => {
       propia: false,
       accion: "ya_estaba",
       corriendo: true,
-      puerto: 54329,
+      puerto: Number(process.env.PG_LOCAL_PORT ?? "54329"),
     });
     expect(llamadas).toHaveLength(1);
   });
