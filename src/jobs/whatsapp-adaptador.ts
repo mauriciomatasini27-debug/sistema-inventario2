@@ -1,5 +1,7 @@
 
-import { control, store } from "../lib/store.js";
+import { store } from "../lib/store.js";
+import { prefsDe } from "../lib/repos/alerta-prefs.js";
+import { linksBotVivos } from "../lib/repos/whatsapp.js";
 import { construir_texto, puede_disparar_envio, type PayloadEnvio } from "../modules/whatsapp/envio.js";
 import { enviar_whatsapp } from "../modules/whatsapp/cliente-cloud.js";
 import type { Preferencias } from "../modules/whatsapp/optin.js";
@@ -13,27 +15,27 @@ export interface ComercioWa {
 }
 
 // B2: ausente => optIn false (sin opt-in no sale ninguna plantilla).
-export function prefs_wa_de(tenantId: string, googleSub: string): Preferencias {
-  const p = control.waPrefs.get(`${tenantId}:${googleSub}`);
+export async function prefs_wa_de(tenantId: string, googleSub: string): Promise<Preferencias> {
+  const p = await prefsDe(tenantId, googleSub);
   return {
-    optIn: p?.optIn ?? false,
-    avisoHora: p?.avisoHora ?? "08:00",
-    pausadoHastaMs: p?.pausadoHastaMs ?? null,
+    optIn: p.optIn,
+    avisoHora: p.avisoHora,
+    pausadoHastaMs: p.pausadoHastaMs,
   };
 }
 
-export function comercios_con_bot(): ComercioWa[] {
+export async function comercios_con_bot(): Promise<ComercioWa[]> {
+  const links = await linksBotVivos();
   const out: ComercioWa[] = [];
-  for (const [numero, l] of control.botLinks) {
+  for (const [numero, l] of links) {
     if (l.estado !== "verificado") continue;
-    const t = control.tenants.get(l.tenantId);
-    if (!t || (t.estado !== "activo" && t.estado !== "suspendido")) continue;
+    if (l.estadoTenant !== "activo" && l.estadoTenant !== "suspendido") continue;
     out.push({
       tenantId: l.tenantId,
-      nombreComercio: t.nombreComercio,
+      nombreComercio: l.nombreComercio,
       googleSub: l.googleSub,
       numero,
-      prefs: prefs_wa_de(l.tenantId, l.googleSub),
+      prefs: await prefs_wa_de(l.tenantId, l.googleSub),
     });
   }
   return out;
@@ -46,7 +48,6 @@ export function cred_wa(): { readonly phoneNumberId: string; readonly token: str
   return { phoneNumberId, token };
 }
 
-// WA-VENTANA: ids aprobados en Meta viven en WHATSAPP_PLANTILLAS_APROBADAS (JSON).
 export function id_plantilla_aprobada(nombre: string): string | null {
   const raw = process.env.WHATSAPP_PLANTILLAS_APROBADAS ?? "";
   if (!raw.trim()) return null;
@@ -60,9 +61,7 @@ export function id_plantilla_aprobada(nombre: string): string | null {
 }
 
 export interface OpcionesEnvioJobWa {
-  /** Por defecto false: los jobs proactivos salen fuera de la ventana 24h. */
   readonly dentroVentana24h?: boolean | undefined;
-  /** Nombre lógico de plantilla (clave en WHATSAPP_PLANTILLAS_APROBADAS). */
   readonly nombrePlantilla?: string | undefined;
 }
 
@@ -75,8 +74,6 @@ function resolver_guarda_ventana(opts: OpcionesEnvioJobWa | undefined): boolean 
   return puede_disparar_envio({ dentroVentana24h, idPlantillaAprobada });
 }
 
-// Envía texto libre por Cloud API. Nunca lanza: false si no hay
-// credenciales, ventana/plantilla no habilita envío, o el envío falla.
 export async function enviar_texto_wa(
   toE164: string,
   texto: string,
@@ -85,8 +82,6 @@ export async function enviar_texto_wa(
   return enviar_payload_wa(toE164, construir_texto(texto), opts);
 }
 
-// BOT-S8: mismo envío, con payload interactivo (botones de acciones). Nunca
-// lanza: false si no hay credenciales, ventana/plantilla no habilita envío, o falla.
 export async function enviar_payload_wa(
   toE164: string,
   payload: PayloadEnvio,
