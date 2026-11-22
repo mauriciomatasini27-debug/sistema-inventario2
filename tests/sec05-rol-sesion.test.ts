@@ -125,13 +125,14 @@ describe("P9-13 PATCH /api/products: umbrales con rol de sesión, body ignorado"
 });
 
 describe("P9-13 POST /api/products: estado de alta con rol de sesión", () => {
-  it("empleado con rol:'dueno' forjado recibe 403 sin crear_productos", async () => {
-    tenantConMiembro("t-rol-1", "emp-1", "empleado");
+  it("spec 433 T1: empleado sin crear_productos crea igual; rol y permisos forjados se ignoran", async () => {
+    tenantConMiembro("t-rol-1", "emp-1", "empleado", ["registrar_devoluciones"]);
     const plano = sesionDe("emp-1", "t-rol-1");
     const r = (await postProducts(
       conSesion("http://x/api/products", plano, { body: { sku: "SEC05-5", nombre: "Forjado", precio_centavos: 100, rol: "dueno", permisos: ["crear_productos"] } }),
     )) as Response;
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(201);
+    expect(((await r.json()) as { estado: string }).estado).toBe("activo");
   });
 
   it("empleado con crear_productos en membership (no en body) da de alta activo", async () => {
