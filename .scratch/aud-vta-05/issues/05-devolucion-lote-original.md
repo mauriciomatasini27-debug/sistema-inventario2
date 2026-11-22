@@ -1,6 +1,6 @@
 # 05: Devolución al Lote original
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** Una devolución devuelve la mercadería a los Lotes de los que salió. El adaptador recupera los Lotes consumidos por la venta original a través de la clave de idempotencia y reingresa a ellos en la misma transacción que registra la devolución. El reparto es proporcional a lo consumido por SKU y el sobrante por redondeo va al Lote de vencimiento más cercano. El formulario y el núcleo de devolución no cambian.
 

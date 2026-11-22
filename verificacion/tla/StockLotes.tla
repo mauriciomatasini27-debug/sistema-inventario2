@@ -2,7 +2,7 @@
 EXTENDS Naturals, Sequences, FiniteSets
 
 (***************************************************************************
-Lotes y stock: el Historial de stock es la unica fuente de verdad (ADR-0123).
+Lotes y stock: el Historial de stock es la unica fuente de verdad (ADR-0124).
 Describe el seam de src/lib/repos/stock.ts y sus caller de T01..T05:
 
   aplicarMovimiento(m)   -> Alta, Venta, BajaVencido, Devolucion

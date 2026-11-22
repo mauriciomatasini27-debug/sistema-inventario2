@@ -1,6 +1,6 @@
 # 03: Sobreventa marcada y excluida del Stock disponible
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** La sobreventa deja de ser una excepción invisible: su movimiento lleva una marca explícita, no descuenta stock y se reporta como excepción esperada. Sigue contabilizándose en caja y en fiado y sigue apareciendo en el informe de rotación, porque la marca no cambia el tipo de movimiento.
 

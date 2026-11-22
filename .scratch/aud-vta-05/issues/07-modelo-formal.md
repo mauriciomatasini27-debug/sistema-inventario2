@@ -1,6 +1,6 @@
 # 07: Modelo formal de Lotes y stock
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** Una verificación formal separada de la del Historial de sincronización de venta. El modelo comprueba la invariante de los tres números, la propagación de fallo de base, la devolución al Lote original y que toda baja de Lote tenga su movimiento. Incluye una configuración de quiebre que demuestra que el modelo detecta el bug que esta decisión corrige.
 

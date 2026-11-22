@@ -1,6 +1,6 @@
 # 04: Un mismo escritor en memoria y con base
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** El escritor único rige también en el modo memoria: la venta descuenta el Lote además del Stock disponible y del Historial. Si hay base configurada y falla, la operación falla en lugar de espejarse en memoria; si no hay base configurada, la memoria es el modo legítimo y la escritura es atómica. Desaparece la divergencia entre modos.
 

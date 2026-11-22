@@ -1,5 +1,5 @@
 ---
-id: ADR-0123
+id: ADR-0124
 tipo: adr
 estado: aceptado
 modulos: [inventario, ventas, catalogo, caja]
@@ -10,7 +10,7 @@ modifica: []
 modificado_por: []
 resumen: El historial de stock es la única fuente de verdad; stock y lotes pasan a ser proyecciones de un único seam, verificables y conciliables sin reescribir datos.
 ---
-# ADR-0123 - Historial de stock como única fuente de verdad
+# ADR-0124 - Historial de stock como única fuente de verdad
 
 Estado: aceptado. Fecha: 2026-11-22. Fuentes: `docs/traspaso/pendientes-2026-11-21.md` (desincronización lotes/stock, bug 5 de la auditoría de ventas), `docs/diseno/PRD-CAT-01-catalogo-lotes-ubicaciones.md`, `docs/03-inventario-precios/inventario-parte-3.md:69`, `docs/08-operacion-admin-analytics/reportes-rotacion.md:737`, `docs/diseno/PRD-PERS-06-sync-pull-catalogo-db.md:20` y relevamiento de `src/db/schema.ts`, `src/lib/repos/stock.ts`, `src/lib/repos/lotes.ts`, `src/lib/repos/ventas.ts` y `src/modules/sales/registro_venta.ts`.
 

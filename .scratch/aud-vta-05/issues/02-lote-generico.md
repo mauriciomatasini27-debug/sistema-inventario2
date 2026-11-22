@@ -1,6 +1,6 @@
 # 02: Lote genérico para toda entrada de stock
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** Toda mercadería que entra al comercio queda representada por un Lote real. La carga inicial, la importación, los conteos y el entorno de ejemplo crean o actualizan un Lote genérico sin vencimiento, y el movimiento apunta a él. Desaparece el Lote virtual que hoy se inventa para vender stock semilla.
 

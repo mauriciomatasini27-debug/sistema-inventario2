@@ -6,7 +6,7 @@ Tres modelos TLA+ en este directorio:
 - `PlanCambio.tla`: la baja programada de plan de PLAN-S4 y su rodado perezoso (VF-S4).
 - `StockLotes.tla`: Lotes y stock con el Historial como única fuente de verdad (AUD-VTA-05).
 
-Los dos primeros cubren promesas de `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md` y ADR-0097; el tercero cubre la spec #398 y ADR-0123. El modelo de stock corre **solo** en `npm run verificar:formal`: no entra en `npm run verify`.
+Los dos primeros cubren promesas de `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md` y ADR-0097; el tercero cubre la spec #398 y ADR-0124. El modelo de stock corre **solo** en `npm run verificar:formal`: no entra en `npm run verify`.
 
 ## Java en este box
 

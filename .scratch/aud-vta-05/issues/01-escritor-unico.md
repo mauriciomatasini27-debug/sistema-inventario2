@@ -1,6 +1,6 @@
 # 01: Escritor único del Historial y las proyecciones
 
-**Spec:** #398 · **ADR:** ADR-0123
+**Spec:** #398 · **ADR:** ADR-0124
 
 **What to build:** Una venta al contado deja el Historial de stock, el Stock disponible y el resto del Lote elegido por FEFO como tres vistas de una sola escritura. El escritor de stock pasa a ser el único lugar que registra el movimiento y actualiza ambas proyecciones, y el camino de venta delega en él la escritura. Es el paso de expansión del seam: los escritores actuales siguen funcionando y serán migrados por los tickets siguientes.
 
