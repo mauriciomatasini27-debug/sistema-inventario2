@@ -335,8 +335,6 @@ export function puedeVerSaldoCaja(rol: "dueno" | "empleado", permisos: readonly 
   return rol === "dueno" || permisos.includes("ver_saldos_caja");
 }
 
-export { puedeCrearProductos } from "../modules/inventario/escaneo.js";
-
 export function setTexto(id: string, texto: string): void {
   const el = document.getElementById(id);
   if (el) el.textContent = texto;

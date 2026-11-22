@@ -15,7 +15,8 @@ import Modo from "../components/panel/Modo.astro";
 import PanelBuscar from "../components/panel/PanelBuscar.astro";
 import ReportesComercioDialog from "../components/panel/ReportesComercioDialog.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
-import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
+import { puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
+import { puedeCrearProductos } from "../modules/inventario/escaneo.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);

@@ -5,8 +5,6 @@ import {
   puedeCrearProductos,
   siguienteMetodo,
 } from "../src/modules/inventario/escaneo.js";
-import { puedeCrearProductos as puedeCrearDesdePanel } from "../src/lib/panel-modulos.js";
-
 describe("P3-1 CAT-S2 escaneo puro", () => {
   it("orden de metodos de identificacion", () => {
     expect([...METODOS_IDENTIFICACION]).toEqual(["hid", "camara", "texto", "foto"]);
@@ -21,9 +19,7 @@ describe("P3-1 CAT-S2 escaneo puro", () => {
   it("normaliza codigo escaneado", () => {
     expect(normalizarCodigoEscaneado("  abc-1 ")).toBe("ABC-1");
   });
-  it("spec 433 T0: una sola decision de alta compartida por UI y API", () => {
-    expect(puedeCrearDesdePanel).toBe(puedeCrearProductos);
-
+  it("puedeCrearProductos conserva la politica de crear_productos de /venta", () => {
     const casos: Array<{ rol: "dueno" | "empleado"; permisos: readonly string[]; esperado: boolean }> = [
       { rol: "dueno", permisos: [], esperado: true },
       { rol: "dueno", permisos: ["crear_productos"], esperado: true },

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ctx } from "./helpers/ctx.js";
-import { control, resetStore } from "../src/lib/store.js";
-import { crearSesion } from "../src/modules/auth/sesiones.js";
+import { reiniciarAltaCatalogo, sesionDe, tenantConMiembro } from "./helpers/alta-catalogo.js";
 import { POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
 import { POST as postShifts } from "../src/pages/api/cash/shifts.js";
 import { POST as postConciliate } from "../src/pages/api/cash/shifts/conciliate.js";
@@ -9,43 +8,6 @@ import { POST as postResolve } from "../src/pages/api/cash/shifts/resolve.js";
 
 // P9-13: el rol para autorizar sale de sesión + membership, nunca del body.
 // El body `rol` forjado debe ignorarse: manda membership.rol.
-
-function modoSingleSinDb() {
-  delete process.env.TENANT_MODE;
-  delete process.env.TENANT_DATABASE_URL;
-  delete process.env["TENANT_DATABASE_URL_tenant-a"];
-  delete process.env["TENANT_DATABASE_URL_tenant-b"];
-}
-
-function tenantConMiembro(tenantId: string, sub: string, rol: "dueno" | "empleado", permisos: string[] = []) {
-  control.tenants.set(tenantId, {
-    id: tenantId,
-    nombreComercio: "Kiosco Rol",
-    slug: "kiosco-rol",
-    estado: "activo",
-    plan: "base",
-    moneda: "ARS",
-    ownerGoogleSub: "dueno-1",
-    esDemo: false,
-  });
-  const mid = `m-${tenantId}-${sub}`;
-  control.memberships.set(mid, { id: mid, tenantId, googleSub: sub, rol, permisos, estado: "activo" });
-}
-
-function sesionDe(sub: string, tenantId: string | null): string {
-  const ahora = new Date();
-  const c = crearSesion({ googleSub: sub, tenantId, ahora });
-  control.sessions.set(c.registro.idHash, {
-    idHash: c.registro.idHash,
-    googleSub: sub,
-    tenantId,
-    expiraAt: c.registro.expiraAt,
-    expiraAbsoluta: c.registro.expiraAbsoluta,
-    lastSeenAt: ahora.toISOString(),
-    reauthAt: ahora.toISOString(),
-  });
-  return c.idPlano;
-}
 
 function conSesion(url: string, plano: string, opts: { method?: string; body?: Record<string, unknown>; headers?: Record<string, string> } = {}) {
   return ctx(url, {
@@ -79,8 +41,7 @@ async function turnoEnDisputa(): Promise<string> {
 }
 
 beforeEach(() => {
-  modoSingleSinDb();
-  resetStore();
+  reiniciarAltaCatalogo();
 });
 
 describe("P9-13 PATCH /api/products: umbrales con rol de sesión, body ignorado", () => {
@@ -124,7 +85,7 @@ describe("P9-13 PATCH /api/products: umbrales con rol de sesión, body ignorado"
   });
 });
 
-describe("P9-13 POST /api/products: estado de alta con rol de sesión", () => {
+describe("P9-13 POST /api/products: Alta de catálogo con rol de sesión", () => {
   it("spec 433 T1: empleado sin crear_productos crea igual; rol y permisos forjados se ignoran", async () => {
     tenantConMiembro("t-rol-1", "emp-1", "empleado", ["registrar_devoluciones"]);
     const plano = sesionDe("emp-1", "t-rol-1");
@@ -140,6 +101,16 @@ describe("P9-13 POST /api/products: estado de alta con rol de sesión", () => {
     const plano = sesionDe("emp-2", "t-rol-1");
     const r = (await postProducts(
       conSesion("http://x/api/products", plano, { body: { sku: "SEC05-6", nombre: "Con permiso", precio_centavos: 100, rol: "empleado" } }),
+    )) as Response;
+    expect(r.status).toBe(201);
+    expect(((await r.json()) as { estado: string }).estado).toBe("activo");
+  });
+
+  // US 19 pide rechazar altas sin sesión; en single/legacy se preserva P9-13
+  // (default Dueño) y se documenta en ADR-0124. Caracterización: no cambiar.
+  it("legado sin sesión conserva el default Dueño y el alta devuelve 201", async () => {
+    const r = (await postProducts(
+      ctx("http://x/api/products", { body: { sku: "SEC05-LEGADO", nombre: "Legado", precio_centavos: 100 } }),
     )) as Response;
     expect(r.status).toBe(201);
     expect(((await r.json()) as { estado: string }).estado).toBe("activo");
