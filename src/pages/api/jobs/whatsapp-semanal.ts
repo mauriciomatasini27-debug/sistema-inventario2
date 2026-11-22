@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { control } from "../../../lib/store.js";
 import { correrJob } from "../../../lib/jobs-tenant.js";
+import { proveedorEmailDesdeEnv } from "../../../lib/email-resend.js";
 import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
@@ -34,9 +35,14 @@ export const POST: APIRoute = async ({ request }) => {
     const semanaISO = semana_iso(new Date(ahoraMs));
     const calculo = await calculoSemanalVivo();
     const baseWeb = process.env.PUBLIC_APP_URL ?? "https://app.local";
+    const proveedor = proveedorEmailDesdeEnv();
     const sender: Enviador = async ({ canal, destino, texto, idempotencyKey }) => {
       if (canal === "wa") return enviar_texto_wa(destino, texto, { nombrePlantilla: PLANTILLA_RESUMEN_SEMANAL });
-      return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto);
+      return encolar_email_simple(idempotencyKey, destino, `Resumen semanal ${semanaISO}`, texto, {
+        proveedor,
+        replyToComercio: destino,
+        tenantId,
+      });
     };
     const uno = obtenerComercioBot(tenantId);
     const comercios = esModoAisladoPorTenant() ? (uno ? [uno] : []) : listarComerciosBot();

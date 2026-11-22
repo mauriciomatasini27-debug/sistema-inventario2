@@ -33,6 +33,7 @@ export class ProveedorResend implements EmailProvider {
           subject: envio.asunto,
           html: envio.html,
           text: envio.texto,
+          ...(envio.replyTo ? { reply_to: envio.replyTo } : {}),
         }),
         signal: ctrl.signal,
       });

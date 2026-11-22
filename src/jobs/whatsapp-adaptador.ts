@@ -1,10 +1,12 @@
 
-import { store } from "../lib/store.js";
 import { prefsDe } from "../lib/repos/alerta-prefs.js";
 import { linksBotVivos } from "../lib/repos/whatsapp.js";
+import { encolarEnvio, existeEnvio } from "../lib/repos/email.js";
 import { construir_texto, puede_disparar_envio, type PayloadEnvio } from "../modules/whatsapp/envio.js";
 import { enviar_whatsapp } from "../modules/whatsapp/cliente-cloud.js";
 import type { Preferencias } from "../modules/whatsapp/optin.js";
+import type { EmailProvider, EnvioResultado } from "../modules/email/proveedor.js";
+import { armar_email_proveedor } from "../modules/whatsapp/envio-proveedor.js";
 
 export interface ComercioWa {
   readonly tenantId: string;
@@ -94,17 +96,64 @@ export async function enviar_payload_wa(
   return r.ok;
 }
 
-export function encolar_email_simple(idempotencyKey: string, destinatario: string, asunto: string, texto: string): boolean {
-  if (store.emailOutbox.has(idempotencyKey)) return true;
-  store.emailOutbox.set(idempotencyKey, {
-    idempotencyKey,
-    destinatario,
-    asunto,
-    html: `<p>${texto}</p>`,
+export interface EncolarEmailSimpleDeps {
+  readonly proveedor: EmailProvider | null;
+  readonly replyToComercio: string;
+  readonly nombreComercio?: string | undefined;
+  readonly tenantId?: string | undefined;
+}
+
+// P10-30 [tenant]: el envío lo hace el proveedor inyectado (Resend en prod,
+// fake en tests) y el resultado queda en email_outbox; antes se marcaba
+// "enviado" en el mapa del slice-0 sin mandar nada. El reply_to del comercio
+// no tiene columna (sin migración): viaja en el sobre, no en la fila.
+export async function encolar_email_simple(
+  idempotencyKey: string,
+  destinatario: string,
+  asunto: string,
+  texto: string,
+  deps: EncolarEmailSimpleDeps,
+): Promise<boolean> {
+  if (await existeEnvio(idempotencyKey, deps.tenantId)) return true;
+  const sobre = armar_email_proveedor({
+    para: destinatario,
+    replyToComercio: deps.replyToComercio,
+    comercio: deps.nombreComercio ?? asunto,
     texto,
-    estado: "enviado",
-    intentos: 0,
-    providerMessageId: null,
   });
-  return true;
+  const asuntoFinal = asunto || sobre.asunto;
+  const html = `<p>${texto}</p>`;
+  let res: EnvioResultado | null = null;
+  if (deps.proveedor) {
+    try {
+      res = await deps.proveedor.send({
+        para: sobre.para,
+        asunto: asuntoFinal,
+        html,
+        texto: sobre.texto,
+        idempotencyKey,
+        categoria: "aviso_wa",
+        plantilla: "aviso_simple_v1",
+        replyTo: sobre.replyTo,
+      });
+    } catch {
+      res = { ok: false, motivo: "error" };
+    }
+  }
+  await encolarEnvio({
+    key: idempotencyKey,
+    stream: "aviso_wa",
+    to: sobre.para,
+    plantilla: "aviso_simple_v1",
+    vars: {},
+    asunto: asuntoFinal,
+    html,
+    texto: sobre.texto,
+    // P10-30 [tenant]: sin proveedor queda pendiente para el job; con fallo
+    // también, para que reintente con el backoff de P10-92.
+    estado: res?.ok ? "enviado" : "pendiente",
+    providerMessageId: res?.ok ? res.providerMessageId : null,
+    tenantId: deps.tenantId,
+  });
+  return res === null || res.ok;
 }
