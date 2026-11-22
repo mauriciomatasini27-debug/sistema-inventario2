@@ -6,9 +6,12 @@
 
 **Blocked by:** 01 (escritor único).
 
-**Status:** ready-for-agent
+**Status:** cerrado
+**Claim:** libre
+**Avance:** docs/roadmap/avances/AUD-VTA-02.md
+**Rama:** mauri/aud-vta-05-integration (solo local; worktree `/tmp/opencode/aud-vta-05/integration`)
 
-- [ ] Cargar stock inicial crea un Lote genérico sin vencimiento y su movimiento apunta a él.
-- [ ] Importar stock, confirmar conteos y sembrar el entorno de ejemplo crean o actualizan Lotes reales.
-- [ ] Vender mercadería que entró sin Lote descuenta el Lote genérico persistido; no se genera ningún Lote virtual.
-- [ ] El Historial, el Stock disponible y la suma de los Lotes siguen siendo iguales después de cada entrada.
+- [x] Cargar stock inicial crea un Lote genérico sin vencimiento y su movimiento apunta a él.
+- [x] Importar stock, confirmar conteos y sembrar el entorno de ejemplo crean o actualizan Lotes reales.
+- [x] Vender mercadería que entró sin Lote descuenta el Lote genérico persistido; no se genera ningún Lote virtual.
+- [x] El Historial, el Stock disponible y la suma de los Lotes siguen siendo iguales después de cada entrada.

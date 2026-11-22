@@ -6,10 +6,13 @@
 
 **Blocked by:** 03 (sobreventa marcada), 05 (devolución al Lote original).
 
-**Status:** ready-for-agent
+**Status:** cerrado
+**Claim:** libre
+**Avance:** docs/roadmap/avances/AUD-VTA-05-T06.md
+**Rama:** mauri/aud-vta-05-integration (solo local; worktree `/tmp/opencode/aud-vta-05/integration`)
 
-- [ ] El comando reporta por comercio y SKU el Stock disponible, la suma de Lotes y la suma del Historial.
-- [ ] La salida es estructurada y el código de salida es 1 con desvío y 0 sin desvío.
-- [ ] La sobreventa marcada se excluye del cálculo.
-- [ ] El comando no escribe en la base: se puede ejecutar en producción sin efectos.
-- [ ] El desvío histórico se reporta sin repararlo.
+- [x] El comando reporta por comercio y SKU el Stock disponible, la suma de Lotes y la suma del Historial.
+- [x] La salida es estructurada y el código de salida es 1 con desvío y 0 sin desvío.
+- [x] La sobreventa marcada se excluye del cálculo.
+- [x] El comando no escribe en la base: se puede ejecutar en producción sin efectos.
+- [x] El desvío histórico se reporta sin repararlo.

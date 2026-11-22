@@ -8,6 +8,16 @@ Tres modelos TLA+ en este directorio:
 
 Los dos primeros cubren promesas de `docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md` y ADR-0097; el tercero cubre la spec #398 y ADR-0123. El modelo de stock corre **solo** en `npm run verificar:formal`: no entra en `npm run verify`.
 
+## Java en este box
+
+No hay `java` en el PATH (RETRO-AUD-04). El JRE 17 está fijado en `~/.cache/sistema-inventario/jdk-17`; corré:
+
+```bash
+JAVA_HOME="$HOME/.cache/sistema-inventario/jdk-17" npm run verificar:formal
+```
+
+El jar de TLA+ se descarga y se verifica por SHA256 solo la primera vez, en `$XDG_CACHE_HOME/sistema-inventario/tla`.
+
 ## Qué verifica VentaSync
 
 Tres leyes sobre el código arreglado (VF-S2):
