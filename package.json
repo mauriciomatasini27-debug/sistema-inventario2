@@ -31,6 +31,7 @@
     "cargar:credenciales": "node scripts/cargar-credenciales.mjs",
     "roadmap": "node scripts/roadmap.mjs",
     "verify": "node scripts/verify.mjs",
+    "worktrees:check": "node scripts/worktrees-check.mjs",
     "verificar:formal": "bash scripts/verificar-formal.sh",
     "conciliar:stock": "node scripts/conciliar-stock.mjs"
   },
