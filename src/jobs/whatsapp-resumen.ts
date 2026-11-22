@@ -9,6 +9,7 @@ import {
 import { armar_cierre_wa, type SnapshotCaja } from "../modules/whatsapp/resumen-cierre.js";
 import { armar_bloque_promos, topear_3_por_impacto, type Sugerencia } from "../modules/whatsapp/promos.js";
 import type { CalculoSemanal } from "../modules/email/resumen-semanal.js";
+import type { ReclamadorEntrega } from "../modules/whatsapp/entregas.js";
 
 export interface ComercioJob {
   readonly tenantId: string;
@@ -45,7 +46,7 @@ export function dia_iso_en_zona(ahora: Date, zona: string): string {
 
 
 export async function ejecutar_job_viernes(
-  tiendas: { wa: Map<string, string>; email: Map<string, string> },
+  tiendas: { wa: ReclamadorEntrega; email: ReclamadorEntrega },
   sender: Enviador,
   args: {
     comercio: ComercioJob;
@@ -65,7 +66,7 @@ export async function ejecutar_job_viernes(
     out.push({ canal: "wa", estado: "omitido_optin", idempotencyKey: waKey });
   } else if (!puede_enviar_whatsapp(comercio.prefsWa, args.ahoraMs)) {
     out.push({ canal: "wa", estado: "omitido_pausa", idempotencyKey: waKey });
-  } else if (tiendas.wa.has(waKey)) {
+  } else if (!(await tiendas.wa.reclamar(waKey, "enviado"))) {
     out.push({ canal: "wa", estado: "duplicado", idempotencyKey: waKey });
   } else {
     const resumen = armar_resumen_semanal_wa({
@@ -81,7 +82,7 @@ export async function ejecutar_job_viernes(
         ? `${resumen.texto}\nPromos: ${bloque.lineas.join(" / ")} Ver promos: ${args.baseWeb}/promos`
         : resumen.texto;
     const ok = await sender({ canal: "wa", destino: comercio.destinoWa, texto, idempotencyKey: waKey });
-    if (ok) tiendas.wa.set(waKey, "enviado");
+    if (!ok) await tiendas.wa.liberar(waKey);
     out.push({ canal: "wa", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: waKey });
   }
 
@@ -89,7 +90,7 @@ export async function ejecutar_job_viernes(
     out.push({ canal: "email", estado: "omitido_optin", idempotencyKey: emailKey });
   } else if (!puede_enviar_email(comercio.prefsEmail, args.ahoraMs)) {
     out.push({ canal: "email", estado: "omitido_pausa", idempotencyKey: emailKey });
-  } else if (tiendas.email.has(emailKey)) {
+  } else if (!(await tiendas.email.reclamar(emailKey, "enviado"))) {
     out.push({ canal: "email", estado: "duplicado", idempotencyKey: emailKey });
   } else {
     const textoEmail =
@@ -102,7 +103,7 @@ export async function ejecutar_job_viernes(
       texto: textoEmail,
       idempotencyKey: emailKey,
     });
-    if (ok) tiendas.email.set(emailKey, "enviado");
+    if (!ok) await tiendas.email.liberar(emailKey);
     out.push({ canal: "email", estado: ok ? "enviado" : "omitido_pausa", idempotencyKey: emailKey });
   }
   return out;

@@ -3,20 +3,16 @@ import { z } from "zod";
 import { control } from "../../../lib/store.js";
 import { correrJob } from "../../../lib/jobs-tenant.js";
 import { leerCierre, listarMovimientos } from "../../../lib/repos/caja.js";
+import { reclamadorDb } from "../../../lib/repos/notification-deliveries.js";
 import { derivar_balance, type Movimiento } from "../../../modules/cash/caja.js";
 import {
   clave_cierre_wa,
   decidir_envio_cierre,
   PLANTILLA_CIERRE_CAJA,
-  type TiendaCierreWa,
 } from "../../../modules/whatsapp/resumen-cierre.js";
 import { cred_wa, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
 export const prerender = false;
-
-// Jornadas ya avisadas por WA en proceso (prod: notification_deliveries por
-// idempotencyKey en Drizzle, una por jornada B14.1).
-const avisadas: TiendaCierreWa = new Map<string, string>();
 
 const cierreSchema = z.object({
   tenant_id: z.string().min(1),
@@ -61,7 +57,8 @@ export const POST: APIRoute = async ({ request }) => {
         monto_centavos: BigInt(m.monto_centavos),
         origen: m.origen as Movimiento["origen"],
       }));
-      const d = decidir_envio_cierre(avisadas, {
+      const tienda = reclamadorDb(tenantId, dueno.googleSub, "whatsapp");
+      const d = await decidir_envio_cierre(tienda, {
         snapshot: {
           tenantId,
           cierreId: `cierre:${tenantId}:${fechaJornada}`,
@@ -77,7 +74,7 @@ export const POST: APIRoute = async ({ request }) => {
       const enviado = await enviar_texto_wa(link[0], d.resumen.texto, { nombrePlantilla: PLANTILLA_CIERRE_CAJA });
       if (!enviado) {
         // No se marca: se puede reintentar (la clave se libera).
-        avisadas.delete(clave_cierre_wa(tenantId, fechaJornada));
+        await tienda.liberar(clave_cierre_wa(tenantId, fechaJornada));
         return Response.json({ error: "fallo_envio" }, { status: 502 });
       }
       return Response.json(
