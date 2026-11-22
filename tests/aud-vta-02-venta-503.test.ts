@@ -10,9 +10,9 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { registrar_venta } from "../src/modules/sales/registro_venta.js";
 import { ctx } from "./helpers/ctx.js";
 
-// AUD-VTA-02: si la base falla dentro de la tx de la venta, en shared la venta
-// no se confirma en memoria: registrar_venta lanza BaseNoDisponible y
-// POST /api/sales responde 503. En single el respaldo en memoria no cambia.
+// AUD-VTA-02: si la base falla dentro de la tx de la venta, la venta no se
+// confirma en memoria: registrar_venta lanza BaseNoDisponible y POST /api/sales
+// responde 503. Sin base configurada, el modo memoria sigue siendo legítimo.
 
 const PG = process.env.PG_TEST_URL_A;
 const ENV = ["TENANT_MODE", "TENANT_DATABASE_URL", "CONTROL_DATABASE_URL", "DEFAULT_TENANT_ID"] as const;
@@ -150,13 +150,16 @@ describe.skipIf(!PG)("AUD-VTA-02 falla de base a mitad de la venta", () => {
     expect(await stockDe(tA, s)).toBe(0);
   });
 
-  it("single: la caída de base sigue cayendo a memoria como antes", async () => {
+  it("single con base configurada: propaga el fallo y no confirma en memoria", async () => {
     delete process.env.TENANT_MODE;
     process.env.DEFAULT_TENANT_ID = tA;
     const s = nuevoSku("AUJ");
     await sembrar(tA, s, 1);
     store.stock.set(s, 1);
-    const r = await vender(tA, `${PREFIJO}${randomUUID()}`, s);
-    expect(r.ok && r.venta.fuente).toBe("memoria");
+    const key = `${PREFIJO}${randomUUID()}`;
+    await expect(vender(tA, key, s)).rejects.toBeInstanceOf(BaseNoDisponible);
+    expect(await stockDe(tA, s)).toBe(1);
+    expect(store.stock.get(s)).toBe(1);
+    expect(conTenant(tA, () => store.idempotency.has(key))).toBe(false);
   });
 });

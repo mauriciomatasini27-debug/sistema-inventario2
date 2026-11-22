@@ -194,8 +194,7 @@ export async function aplicarMovimiento(m: MovimientoStockNuevo): Promise<{ fuen
   } catch (e) {
     if (m.condicionResto !== undefined) throw e;
     movimientos.anteFalloPersistencia(e);
-    reflejar(false);
-    return { fuente: "memoria" };
+    throw e;
   }
 }
 
