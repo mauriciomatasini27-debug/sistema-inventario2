@@ -77,6 +77,8 @@ function espejarConteoSector(
 export type TipoMovimientoStock = "ALTA" | "VENTA" | "COMPENSATORIO" | "MERMA" | "AJUSTE_CONTEO";
 export type TipoMovimientoNoVenta = Exclude<TipoMovimientoStock, "VENTA">;
 
+export const MOTIVO_SOBREVENTA = "sobreventa" as const;
+
 export interface MovimientoStockNuevo {
   readonly idemKey: string;
   readonly sku: string;
@@ -335,7 +337,7 @@ export async function aplicarVentaLotes<T>(
         tipo: "VENTA",
         createdAt: pedido.ahora,
         bajarCantidades: consumo.bajarCantidades,
-        ...(consumo.bajarCantidades ? { condicionResto: t.cantidad } : {}),
+        ...(consumo.bajarCantidades ? { condicionResto: t.cantidad } : { motivo: MOTIVO_SOBREVENTA }),
         tx,
       });
     }

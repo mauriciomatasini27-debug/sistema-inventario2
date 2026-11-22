@@ -4,7 +4,7 @@ import { crearAlmacenLotes, crearAlmacenStock, crearListaMovimientosStock } from
 import { insertarMovimientosCaja } from "../../lib/repos/movimientos-caja.js";
 import { filaContadorTicket, whereContadorTicket } from "../../lib/repos/ticket-counters.js";
 import { dondeTenant, tenantIdAlSellar, tenantIdShared } from "../../lib/tenant-scope.js";
-import { aplicarEnMemoria, aplicarVentaLotes } from "../../lib/repos/stock.js";
+import { aplicarEnMemoria, aplicarVentaLotes, MOTIVO_SOBREVENTA } from "../../lib/repos/stock.js";
 import { BaseNoDisponible, dbVivaTenant } from "../../lib/server-db.js";
 import {
   products,
@@ -206,7 +206,14 @@ function espejoMemoria(
   const bajar = !e.ticket.sobreventa;
   for (const m of e.movimientosStock) {
     aplicarEnMemoria(
-      { idemKey: key, sku: m.sku, loteId: m.loteId, delta: m.delta, tipo: m.tipo, ...(m.motivo ? { motivo: m.motivo } : {}) },
+      {
+        idemKey: key,
+        sku: m.sku,
+        loteId: m.loteId,
+        delta: m.delta,
+        tipo: m.tipo,
+        ...(e.ticket.sobreventa ? { motivo: MOTIVO_SOBREVENTA } : m.motivo ? { motivo: m.motivo } : {}),
+      },
       existencias,
       movimientos,
       lotes,
