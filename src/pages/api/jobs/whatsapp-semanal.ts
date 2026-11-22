@@ -6,6 +6,8 @@ import { esModoAisladoPorTenant } from "../../../lib/tenant-mode.js";
 import { calculoSemanalMemoria, calculoSemanalVivo, listarComerciosBot, obtenerComercioBot } from "../../../lib/repos/whatsapp.js";
 import type { CalculoSemanal } from "../../../modules/email/resumen-semanal.js";
 import { ejecutar_job_viernes, type Enviador } from "../../../jobs/whatsapp-resumen.js";
+import { filas_rotacion } from "../../../jobs/resumen-rotacion.js";
+import { sugerencias_promos_rotacion } from "../../../jobs/promos-semanales.js";
 import { PLANTILLA_RESUMEN_SEMANAL } from "../../../modules/whatsapp/resumen-semanal.js";
 import { encolar_email_simple, enviar_texto_wa } from "../../../jobs/whatsapp-adaptador.js";
 
@@ -46,6 +48,10 @@ export const POST: APIRoute = async ({ request }) => {
     };
     const uno = obtenerComercioBot(tenantId);
     const comercios = esModoAisladoPorTenant() ? (uno ? [uno] : []) : listarComerciosBot();
+    // P10-32 [tenant]: las sugerencias salen de la rotación del comercio del
+    // contexto y respetan el piso de costo RT9; sin candidatos viables el resumen
+    // sigue igual, sin bloque de promos ni plantilla adicional.
+    const promos = sugerencias_promos_rotacion(filas_rotacion(new Date(ahoraMs)));
     const resultados = [];
     for (const c of comercios) {
       const email = control.users.get(c.googleSub)?.email ?? "";
@@ -61,9 +67,7 @@ export const POST: APIRoute = async ({ request }) => {
         },
         semanaISO,
         calculo,
-        // B15: sin motor de promos en slice-0 (llega con rotación RT9); el
-        // resumen sale sin bloque de promos.
-        promos: [],
+        promos,
         baseWeb,
         ahoraMs,
       });
