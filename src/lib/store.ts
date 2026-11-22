@@ -153,7 +153,7 @@ function crearEstado() {
   // ADR-0106: espejo de products.origen = 'alta_al_vender' (sin DB).
   altasAlVender: new Set<string>(),
   // viva hay write-through best-effort a products/product_codes.
-  productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo" | "pendiente_revision"; minStock: number | null; reorderQty: number | null }>(),
+  productos: new Map<string, { sku: string; nombre: string; precioCentavos: number; origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined; sector: string; locationId: string | null; archivado: boolean; controlaVencimiento: boolean; estado: "activo"; minStock: number | null; reorderQty: number | null }>(),
   codigos: new Map<string, string>(),
   fotosProducto: new Map<string, Array<{ id: string; url: string; ancho: number; alto: number; bytes: number }>>(),
   // N1 CAT-S3: lotes en memoria (id -> lote). FEFO puro en inventario.ts.

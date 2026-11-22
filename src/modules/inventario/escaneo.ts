@@ -18,14 +18,8 @@ export function normalizarCodigoEscaneado(s: string): string {
 
 export type RolAlta = "dueno" | "empleado";
 
-export type EstadoAlta = "activo" | "pendiente_revision";
-
 export function puedeCrearProductos(rol: RolAlta, permisos: readonly string[]): boolean {
   return rol === "dueno" || permisos.includes("crear_productos");
-}
-
-export function estadoAltaDesdeRol(rol: RolAlta, permisos: readonly string[]): EstadoAlta {
-  return puedeCrearProductos(rol, permisos) ? "activo" : "pendiente_revision";
 }
 
 export type RolUmbral = "dueno" | "empleado" | "encargado";

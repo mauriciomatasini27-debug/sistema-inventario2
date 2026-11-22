@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   METODOS_IDENTIFICACION,
-  estadoAltaDesdeRol,
   normalizarCodigoEscaneado,
   puedeCrearProductos,
   siguienteMetodo,
@@ -22,13 +21,6 @@ describe("P3-1 CAT-S2 escaneo puro", () => {
   it("normaliza codigo escaneado", () => {
     expect(normalizarCodigoEscaneado("  abc-1 ")).toBe("ABC-1");
   });
-  it("estado de alta segun rol y permisos", () => {
-    expect(estadoAltaDesdeRol("dueno", [])).toBe("activo");
-    expect(estadoAltaDesdeRol("empleado", [])).toBe("pendiente_revision");
-    expect(estadoAltaDesdeRol("empleado", ["crear_productos"])).toBe("activo");
-    expect(estadoAltaDesdeRol("empleado", ["ver_saldos_caja"])).toBe("pendiente_revision");
-  });
-
   it("spec 433 T0: una sola decision de alta compartida por UI y API", () => {
     expect(puedeCrearDesdePanel).toBe(puedeCrearProductos);
 
@@ -43,7 +35,6 @@ describe("P3-1 CAT-S2 escaneo puro", () => {
 
     for (const { rol, permisos, esperado } of casos) {
       expect(puedeCrearProductos(rol, permisos)).toBe(esperado);
-      expect(estadoAltaDesdeRol(rol, permisos)).toBe(esperado ? "activo" : "pendiente_revision");
     }
   });
 });
