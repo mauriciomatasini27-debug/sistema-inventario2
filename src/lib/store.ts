@@ -485,9 +485,8 @@ export const control = {
   // crear; acá queda el hash. Revocado => cuarentena post-revocación.
   offlineGrants: new Map<string, { grantId: string; tokenHash: string; tenantId: string; googleSub: string; deviceCode: string; alcance: string; expiraEn: string; revocadoEn?: string | undefined }>(),
   devices: new Map<string, { deviceCode: string; tenantId: string; registradoPor: string; registradoEn: string }>(),
-  // AU9.3: nombres asignados por el Dueño a dispositivos del local
-  // (device_code -> nombre). Vive en memoria en Slice-0; en producción se
-  // persiste en `devices` de la base del comercio.
+  // P10-34 [tenant]: espejo de devices.nombre. Queda para el modo single sin
+  // base y para hidratar la UI, pero la fuente con base viva es la tabla.
   deviceNames: new Map<string, string>(),
   // P1-3 PIN de mostrador por device_code: hash scrypt (nunca el plano),
   // bloqueo local y fallos para rate-limit. Fuente en memoria; copia

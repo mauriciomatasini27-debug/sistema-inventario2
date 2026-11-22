@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { aplicarHasta, aplicarSolo, crearBase, journal } from "./helpers/migracion-pg.js";
@@ -37,8 +38,10 @@ describe("ADR-0123 migración 0055: unicidad por comercio", () => {
   it("el journal registra 0055 justo después de 0054", () => {
     const entries = journal().entries;
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(55);
-    expect(entries.length).toBe(57);
-    expect(entries.at(-1)?.tag).toBe("0056_products_por_peso");
+    // #295 y #357 suman tags: el largo va con los .sql presentes en la rama.
+    expect(entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
+    // #357: la última del journal es 0058_devices_nombre (0057 solo registrado).
+    expect(entries.at(-1)?.tag).toBe("0058_devices_nombre");
   });
 });
 

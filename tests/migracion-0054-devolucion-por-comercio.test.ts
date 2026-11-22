@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { aplicarHasta, aplicarSolo, crearBase, journal } from "./helpers/migracion-pg.js";
@@ -11,7 +12,8 @@ describe("P1-96 migración 0054: D-* por comercio", () => {
   it("el journal registra 0054 justo después de 0053", () => {
     const entries = journal().entries;
     expect(entries.findIndex((e) => e.tag === TAG)).toBe(54);
-    expect(entries.length).toBe(57);
+    // El journal crece con cada tag mergeado (#295, #357): contar los .sql.
+    expect(entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
     // 0055 (unicidad) y 0056 (venta por peso) vienen después; cada una la comprueba su propio test.
   });
 });

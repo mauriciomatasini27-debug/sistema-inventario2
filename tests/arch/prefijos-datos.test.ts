@@ -32,6 +32,11 @@ const USA_DATOS = /lib\/repos|tenantDeRequest|getTenantDb/;
 // /api/devices/register: ruta de control con sesión que persiste el device y
 // su grant inicial en la base del tenant explícito del cuerpo (SYNC-S6,
 // PRD-SYNC-01); no corre bajo el middleware de datos.
+// /api/devices/nombrar: hermana de register; el Dueño nombra el device con
+// tenant_id del cuerpo validado por membership (P10-34, #357).
+// /api/auth/sesiones y /api/tenants/[id]/sesiones: listados de control con
+// sesión + membership propios que enriquecen el nombre desde devices.nombre;
+// el gate de datos resolvería el tenant por X-Tenant-Id, no por la ruta.
 // /api/onboarding/alta: alta ON1 con sesión que crea el comercio en control y
 // activa sus módulos de bot (BOT-S1, ADR-0039); no toca la base del tenant.
 // /api/onboarding/estado: P1-26 cuenta el catálogo del comercio autorizado
@@ -47,6 +52,9 @@ const EXCEPCIONES_CONTROL: ReadonlySet<string> = new Set([
   "/api/bot-modulos",
   "/api/whatsapp/resumen",
   "/api/devices/register",
+  "/api/devices/nombrar",
+  "/api/auth/sesiones",
+  "/api/tenants/[id]/sesiones",
   "/api/email/send",
   "/api/jobs/alertas-stock",
   "/api/jobs/bot-pyme",
@@ -101,7 +109,7 @@ describe("SEC2-S2 toda ruta de datos vive bajo un prefijo de PREFIJOS_DATOS", ()
   });
 
   it("las excepciones existen y usan datos de verdad", () => {
-    expect(EXCEPCIONES_CONTROL.size).toBe(27);
+    expect(EXCEPCIONES_CONTROL.size).toBe(30);
     for (const ruta of EXCEPCIONES_CONTROL) {
       const archivo = `src/pages${ruta}.ts`;
       const src = readFileSync(archivo, "utf8");

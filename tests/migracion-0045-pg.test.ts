@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { sslPostgresDesdeUrl } from "../scripts/db-migrate-lib.mjs";
@@ -26,7 +26,11 @@ describe("P1-76 migración 0045_shared_tenant_sellar_nucleo", () => {
     expect(journal.entries.some((e) => e.tag === "0055_unicidad_por_comercio")).toBe(true);
     // P10-93: la 0056 agrega products.por_peso (flag de venta por peso).
     expect(journal.entries.some((e) => e.tag === "0056_products_por_peso")).toBe(true);
-    expect(journal.entries.length).toBe(57);
+    // #357: 0058 devices.nombre; el 0057 queda reservado en el registro de tags.
+    expect(journal.entries.some((e) => e.tag === "0058_devices_nombre")).toBe(true);
+    // #295 + #357 pueden mergear en cualquier orden: comparar con los .sql
+    // reales evita que un literal se quede corto cuando llegue el otro tag.
+    expect(journal.entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
     const i46 = journal.entries.findIndex((e) => e.tag === "0046_tenants_rubro");
     const i47 = journal.entries.findIndex((e) => e.tag === "0047_shared_tenant_periferia");
     expect(i46).toBe(46);

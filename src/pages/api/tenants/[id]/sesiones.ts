@@ -9,6 +9,8 @@ import {
 import { extraerSesionDeCookie, sha256Hex } from "../../../../modules/auth/sesiones.js";
 import { esDueno, exigirReauthReciente, jsonError, resolverSesion } from "../../../../lib/control.js";
 import { persistirAuthEvent, revocarSesionDb } from "../../../../lib/control-db.js";
+import { BaseNoDisponible } from "../../../../lib/server-db.js";
+import { nombresDevices } from "../../../../lib/repos/device-nombres.js";
 import { notificarAlertaSeguridad } from "../../../../lib/alertas-seguridad.js";
 
 export const prerender = false;
@@ -24,11 +26,21 @@ export const GET: APIRoute = async ({ request, params }) => {
   const objetivo = new URL(request.url).searchParams.get("google_sub") ?? "";
   if (!objetivo) return jsonError("Falta google_sub.", 422);
   const idPlano = extraerSesionDeCookie(request.headers.get("cookie"));
+  const codes = [...control.sessions.values()]
+    .filter((s) => s.googleSub === objetivo && s.dispositivoCodigo)
+    .flatMap((s) => (s.dispositivoCodigo ? [s.dispositivoCodigo] : []));
+  let nombres: Map<string, string>;
+  try {
+    nombres = (await nombresDevices(tenantId, codes)).nombres;
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   const visibles = listarSesionesDeMiembro({
     sesiones: [...control.sessions.values()],
     googleSubObjetivo: objetivo,
     idActualHash: idPlano ? sha256Hex(idPlano) : "",
-    nombres: control.deviceNames,
+    nombres,
   });
   return Response.json({ sesiones: visibles }, { status: 200 });
 };

@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { control } from "../../../lib/store.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { guardarNombreDevice } from "../../../lib/repos/device-nombres.js";
 import { validarNombreDispositivo } from "../../../modules/auth/dispositivos.js";
 import { esDueno, exigirReauthReciente, jsonError, resolverSesion } from "../../../lib/control.js";
 import { persistirAuthEvent } from "../../../lib/control-db.js";
@@ -35,7 +37,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (reauth) return reauth;
   const v = validarNombreDispositivo(parsed.data.nombre);
   if (!v.ok) return jsonError("Nombre de dispositivo inválido (1 a 40 caracteres).", 422);
-  control.deviceNames.set(parsed.data.device_code, v.valor ?? parsed.data.nombre.trim());
+  try {
+    await guardarNombreDevice(parsed.data.tenant_id, parsed.data.device_code, v.valor ?? parsed.data.nombre.trim());
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   control.events.push({
     tenantId: parsed.data.tenant_id,
     tipo: "dispositivo_nombrado",

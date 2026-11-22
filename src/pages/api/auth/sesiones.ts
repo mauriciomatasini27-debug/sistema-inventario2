@@ -12,6 +12,9 @@ import {
 } from "../../../modules/auth/dispositivos.js";
 import { jsonError, resolverSesion } from "../../../lib/control.js";
 import { persistirAuthEvent, revocarSesionDb } from "../../../lib/control-db.js";
+import { BaseNoDisponible } from "../../../lib/server-db.js";
+import { nombresDevices } from "../../../lib/repos/device-nombres.js";
+import { tenantPorDefecto } from "../../../lib/tenant-mode.js";
 
 export const prerender = false;
 
@@ -23,11 +26,20 @@ export const GET: APIRoute = async ({ request }) => {
   if (!ctx) return jsonError("Iniciá sesión con Google para continuar.", 403);
   const idPlano = extraerSesionDeCookie(request.headers.get("cookie"));
   const actual = idPlano ? sha256Hex(idPlano) : "";
+  const propias = [...control.sessions.values()].filter((s) => s.googleSub === ctx.googleSub);
+  const codes = propias.flatMap((s) => (s.dispositivoCodigo ? [s.dispositivoCodigo] : []));
+  let nombres: Map<string, string>;
+  try {
+    nombres = (await nombresDevices(ctx.tenantId ?? tenantPorDefecto(), codes)).nombres;
+  } catch (e) {
+    if (e instanceof BaseNoDisponible) return Response.json({ error: "base_no_disponible" }, { status: 503 });
+    throw e;
+  }
   const visibles = listarSesionesPropias({
     sesiones: [...control.sessions.values()],
     googleSub: ctx.googleSub,
     idActualHash: actual,
-    nombres: control.deviceNames,
+    nombres,
   });
   return Response.json({ sesiones: visibles }, { status: 200 });
 };
