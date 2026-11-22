@@ -31,10 +31,14 @@ Dueño y Empleado pueden crear productos mediante **Alta al vuelo** y mediante *
 
 - El alta por código desconocido en la venta y en el panel de stock se ofrece a Dueño y Empleado por igual.
 - La Alta de catálogo no exige `crear_productos`: la creación explícita (`POST /api/products`) y la confirmación de importación (`/api/stock/importar/confirmar`) quedan disponibles para Dueño y Empleado dentro de su Comercio y con sesión válida.
-- El panel de stock muestra a ambos roles el formulario `Agregar producto` y la acción de importar; esos controles ya no se ocultan por permiso.
-- El contrato HTTP y los mensajes de error se conservan; la validación de nombre y precio sigue vigente (T1 sumó el rechazo de nombres vacíos o solo espacios). Solo cambia la regla de autorización.
+- El panel de stock muestra a ambos roles el formulario `Agregar producto`, la acción de importar y el catálogo sugerido; esos controles ya no se ocultan por permiso ni dependen de un `data-puede-crear`. `/api/stock/plantilla` (GET y POST) tampoco exige Dueño: sesión válida, membership activa y Comercio siguen siendo el límite (ADR-0066).
+- El contrato HTTP y los mensajes de error se conservan; la validación de nombre y precio sigue vigente (T1 sumó el rechazo de nombres vacíos o solo espacios, reutilizando el mensaje original del esquema para que la respuesta 422 no cambie). Solo cambia la regla de autorización.
 - `Código de producto` conserva su definición: es el identificador, no un código de barras.
 - `Producto provisorio`, `Alta al vuelo` y `Alta de catálogo` pasan a ser términos del glosario.
+
+## Excepción heredada: modo single/legacy sin sesión
+
+La historia 19 de spec #433 pide rechazar el alta de un usuario sin sesión. En modo single/legacy se conserva deliberadamente el comportamiento P9-13: `resolverRolEfectivo` devuelve `legado` cuando no hay sesión y `POST /api/products` sigue escribiendo con el default Dueño (201). Este cambio no modifica ese modo, que está preservado desde T1/T2 para no romper flujos legacy; el límite de sesión válida + membership se aplica en el modo multi. `tests/sec05-rol-sesion.test.ts` fija este comportamiento con un test de caracterización.
 
 ## Pendientes
 

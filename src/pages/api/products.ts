@@ -16,9 +16,11 @@ function conLocationId<T extends { locationId: string | null; minStock: number |
   return { ...ficha, location_id: ficha.locationId, min_stock: ficha.minStock, reorder_qty: ficha.reorderQty };
 }
 
+const MENSAJE_NOMBRE_REQUERIDO = "Too small: expected string to have >=1 characters";
+
 const crearSchema = z.object({
   sku: z.string().min(1).max(64),
-  nombre: z.string().min(1).max(200).refine((n) => n.trim().length > 0, "nombre requerido"),
+  nombre: z.string().max(200).refine((n) => n.trim().length > 0, MENSAJE_NOMBRE_REQUERIDO),
   precio_centavos: z.number().int().min(0),
   sector: z.string().max(64).default("general"),
   codigo: z.string().max(64).optional(),
@@ -51,8 +53,7 @@ export const GET: APIRoute = async ({ url }) => {
 };
 
 // POST /api/products — CAT-S1 alta. 409 sku o código duplicado.
-// P9-13 [rol]: la sesión + membership siguen delimitando el comercio (ADR-0066);
-// el alta de catálogo no exige crear_productos y siempre queda activa.
+// P9-13 [rol]: la sesión + membership siguen delimitando el comercio (ADR-0066).
 export const POST: APIRoute = async ({ request }) => {
   let body: unknown;
   try {

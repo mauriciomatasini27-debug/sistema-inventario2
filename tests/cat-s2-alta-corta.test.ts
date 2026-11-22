@@ -1,66 +1,26 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { ctx } from "./helpers/ctx.js";
-import { control, resetStore } from "../src/lib/store.js";
-import { crearSesion } from "../src/modules/auth/sesiones.js";
+import { modoSingleSinDb, reiniciarAltaCatalogo, sesionDe, tenantConMiembro } from "./helpers/alta-catalogo.js";
 import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { productCodes, products } from "../src/db/schema.js";
 import { GET as GETProducts, POST as POSTProducts } from "../src/pages/api/products.js";
-
-function modoSingleSinDb(): void {
-  delete process.env.TENANT_MODE;
-  delete process.env.TENANT_DATABASE_URL;
-  delete process.env["TENANT_DATABASE_URL_tenant-a"];
-  delete process.env["TENANT_DATABASE_URL_tenant-b"];
-}
-
-// P9-13: el estado de alta sale de sesión + membership, nunca del body.
-function tenantConMiembro(tenantId: string, sub: string, rol: "dueno" | "empleado", permisos: string[] = []) {
-  control.tenants.set(tenantId, {
-    id: tenantId,
-    nombreComercio: "Kiosco Alta",
-    slug: "kiosco-alta",
-    estado: "activo",
-    plan: "base",
-    moneda: "ARS",
-    ownerGoogleSub: "dueno-s2",
-    esDemo: false,
-  });
-  const mid = `m-${tenantId}-${sub}`;
-  control.memberships.set(mid, { id: mid, tenantId, googleSub: sub, rol, permisos, estado: "activo" });
-}
-
-function sesionDe(sub: string, tenantId: string | null): string {
-  const ahora = new Date();
-  const c = crearSesion({ googleSub: sub, tenantId, ahora });
-  control.sessions.set(c.registro.idHash, {
-    idHash: c.registro.idHash,
-    googleSub: sub,
-    tenantId,
-    expiraAt: c.registro.expiraAt,
-    expiraAbsoluta: c.registro.expiraAbsoluta,
-    lastSeenAt: ahora.toISOString(),
-    reauthAt: ahora.toISOString(),
-  });
-  return c.idPlano;
-}
 
 function conSesion(url: string, plano: string, body: Record<string, unknown>) {
   return ctx(url, { body, headers: { cookie: `__Host-sesion=${plano}` } });
 }
 
 beforeEach(() => {
-  modoSingleSinDb();
-  resetStore();
+  reiniciarAltaCatalogo();
 });
 
 async function postAlta(body: Record<string, unknown>): Promise<Response> {
   return (await POSTProducts(ctx("http://x/api/products", { body }))) as Response;
 }
 
-describe("P3-1 CAT-S2 alta corta precargada y estado de alta", () => {
-  it("codigo inexistente ofrece alta_corta; alta dueno/empleado define estado", async () => {
+describe("P3-1 CAT-S2 alta corta precargada y Alta de catálogo", () => {
+  it("codigo inexistente ofrece alta_corta; el alta de dueño y empleado queda activa", async () => {
     const noExiste = (await GETProducts(ctx("http://x/api/products?codigo=NOEXISTE"))) as Response;
     expect(noExiste.status).toBe(200);
     const jNoExiste = (await noExiste.json()) as { productos: unknown[]; alta_corta?: { codigo: string } };

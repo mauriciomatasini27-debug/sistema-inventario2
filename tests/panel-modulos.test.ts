@@ -10,12 +10,12 @@ import {
   hrefModulo,
   montoParaInput,
   pillsPanel,
-  puedeCrearProductos,
   puedeVerSaldoCaja,
   rolParaNav,
   textoVentasPendientes,
   tienePantalla,
 } from "../src/lib/panel-modulos.js";
+import { puedeCrearProductos } from "../src/modules/inventario/escaneo.js";
 
 describe("panel-modulos: navegación de pills", () => {
   it("los módulos resuelven a una pantalla real, sin anclas muertas", () => {

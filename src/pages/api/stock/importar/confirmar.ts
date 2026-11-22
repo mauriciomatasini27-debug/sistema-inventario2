@@ -13,8 +13,7 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   const rolEfectivo = resolverRolEfectivo(request);
-  // P9-13 [rol]: la sesión + membership siguen delimitando el comercio (ADR-0066);
-  // la importación no exige crear_productos, igual que el alta de catálogo.
+  // P9-13 [rol]: la sesión + membership siguen delimitando el comercio (ADR-0066).
   if (rolEfectivo.estado === "sin_permiso") {
     return Response.json({ error: "No tenés permiso en este comercio." }, { status: 403 });
   }

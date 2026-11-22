@@ -68,8 +68,8 @@ describe("panel: cada pill resuelve a una página real", () => {
     expect(caja).toContain('id="saldo-caja"');
     expect(caja).toContain("puedeVerSaldoCaja");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain("data-puede-crear");
-    expect(stock).toContain("puedeCrearProductos");
+    expect(stock).not.toContain("data-puede-crear");
+    expect(stock).not.toContain("puedeCrearProductos");
     expect(stock).toContain('{ href: "/panel/stock/importar", label: "Importar CSV o Excel", ancho: "completo" }');
   });
 
