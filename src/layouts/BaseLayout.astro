@@ -59,24 +59,18 @@ const ogImageUrl = new URL(ogImage ?? '/images/og-inventario.png', imgBase).toSt
     <Toaster client:idle />
     <PwaRegistro />
     <script>
+      import { iniciarReveal } from '../lib/navegacion-reveal.js';
+
       (function () {
-        var els = document.querySelectorAll('main section[id], #inicio');
-        if (!('IntersectionObserver' in window)) return;
-        var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        els.forEach(function (el) {
-          el.classList.add('reveal');
-          if (reduced) el.classList.add('visible');
+        var els = Array.from(document.querySelectorAll('main section[id], #inicio'));
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        iniciarReveal({
+          elementos: els,
+          reduce: reduce,
+          crearObservador: 'IntersectionObserver' in window
+            ? function (callback) { return new IntersectionObserver(callback, { threshold: 0.12 }); }
+            : undefined,
         });
-        if (reduced) return;
-        var io = new IntersectionObserver(function (entries) {
-          entries.forEach(function (e) {
-            if (e.isIntersecting) {
-              e.target.classList.add('visible');
-              io.unobserve(e.target);
-            }
-          });
-        }, { threshold: 0.12 });
-        els.forEach(function (el) { io.observe(el); });
       })();
     </script>
   </body>

@@ -14,7 +14,7 @@ resumen: Pintado y motion dentro de un presupuesto: limitar backdrop-filter en s
 
 Fuente: bug "freeze al cambiar de ruta". Restringido por ADR-0132.
 
-> Estado al 2026-11-23: NAV-S5 implementado. Las tarjetas del panel ya no llevan `backdrop-filter`; el vidrio queda solo en la barra superior y en las tarjetas chicas de venta. INP/CLS por pantalla se miden con `scripts/medir-pintado.mjs`. NAV-S6 (reduced-motion en reveal y NumberFlow) sigue pendiente.
+> Estado al 2026-11-23: NAV-S5 y NAV-S6 implementados. Las tarjetas del panel ya no llevan `backdrop-filter` (el vidrio queda en la barra superior y en las tarjetas chicas de venta), INP/CLS por pantalla se miden con `scripts/medir-pintado.mjs`, y con `reduce` no corren reveal ni precios animados; con movimiento, las animaciones de entrada quedan acotadas a 240 ms.
 
 ## Problema
 
@@ -73,3 +73,13 @@ El script aborta si una ruta no renderizó (sin `h1` o con menos de 100 caracter
 Los selectores compuestos del `<style>` de PanelShell se auditaron: son cadenas largas de `:not()` para excluir botones especiales. No se reescribieron porque bajar su especificidad cambia el cascade y exige una revisión visual aparte; no aparecen como cuello en layout/recalc (17–29 ms con CPU 4x).
 
 Layout: `tests/e2e/nav-s5-pintado.spec.ts` comprueba 11 tarjetas visibles en caja, 0 con blur, topbar todavía con blur, sin desborde horizontal y alto de página mayor a 600 px.
+
+## Evidencia NAV-S6 (2026-11-23)
+
+| Caso | Antes | Después |
+|---|---|---|
+| `reduce` en `/` | `reveal` + `IntersectionObserver` (con CSS que los neutralizaba) | 0 observers, 0 secciones con `reveal`, contenido visible |
+| `reduce` en `/panel/precios` | NumberFlow dependía de `respectMotionPreference` sin prueba de regresión | 0 animaciones WAAPI tras publicar un cambio real de precio |
+| Movimiento permitido | reveal 600 ms; NumberFlow 900/450 ms | reveal 240 ms (`--motion-entrada`); NumberFlow 240/160 ms |
+
+`tests/e2e/nav-s6-reduced-motion.spec.ts`: 2/2 con la app sembrada. `tests/navegacion-nav-s6.test.ts`: 7/7 (reduce sin observer, intersección normal, sin IO y topes de duración). El presupuesto queda documentado en ADR-0132 § Presupuesto de motion.
