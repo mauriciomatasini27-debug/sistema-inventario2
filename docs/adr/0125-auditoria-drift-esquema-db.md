@@ -32,3 +32,11 @@ La revisión manual de drift es costosa y ya falló: migraciones 0056-0059 se ap
 
 - Definir si el drift bloquea `verify` (fail hard) o solo avisa en la primera corrida.
 - Confirmar el formato del diff y la lista de objetos comparados (incluir o no índices parciales y constraints).
+
+## Implementación (AUD-S1)
+
+- `audit:db` queda como paso separado, no dentro de `verify`: con el drift actual conocido el gate quedaría rojo de entrada; se evalúa sumarlo cuando AUD-S2 lo triagee a cero.
+- Compara por tabla: tablas y columnas faltantes/sobrantes, tipo, nulabilidad, default, unique de una columna, índices (nombre y columnas, incluye parciales) y PK; las FK se comparan desde las migraciones. `--estricto` agrega sobrantes de default, FK e índices; `--json` da la salida estructurada.
+- Defaults se normalizan (casts `::tipo`, `CURRENT_TIMESTAMP`→`now()`, `uuid_generate_v4()`→`gen_random_uuid()`, literales entre comillas); los defaults de columnas array no se comparan.
+- Correcciones del parser tras la primera corrida real (36 falsos positivos): se ignora `.$type<…>()` en la cadena de la columna (cortaba `notNull` y `default` en 15 columnas JSONB), se registra el `CONSTRAINT "x" UNIQUE` declarado en la línea de la columna y los `CREATE [UNIQUE] INDEX` dentro de bloques `DO`, y las FK compuestas se comparan como una sola constraint (antes se partían por columna) respetando `DROP CONSTRAINT`.
+
