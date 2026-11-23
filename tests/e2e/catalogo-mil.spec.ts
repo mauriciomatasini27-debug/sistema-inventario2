@@ -22,6 +22,9 @@ async function scrollAlFondoHasta(page: Page, sku: string) {
 
 async function correrMil(page: Page, url: string, tag: string) {
   await page.goto(url);
+  // client:visible no hidruta la isla fuera del viewport: en stock a 360px hay que
+  // acercar el catálogo antes de esperar las 1000 filas.
+  await page.locator('[data-harness="mil"]').scrollIntoViewIfNeeded();
   await expect(page.locator("table[aria-rowcount]"), `${tag}: tabla`).toHaveAttribute("aria-rowcount", "1000");
   await sinDesbordeHorizontal(page, tag);
   expect(await page.locator("table tr").count(), `${tag}: filas en el DOM`).toBeLessThan(80);

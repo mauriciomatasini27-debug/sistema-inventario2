@@ -187,6 +187,8 @@ tail -n 20 .opencode/modelos-caidos.log           # qué modelos cayeron y cuál
 | Solo docs | `npm run verify -- --docs-only` |
 | E2E | `npm run dev` en otra terminal y `npm run test:e2e` |
 
+Cuando corras Playwright en este box (o `control-app` sirva la app en :4321): `docs/guias/e2e-local.md` tiene el `LD_LIBRARY_PATH`, la secuencia de levantar/seed/login, el harness `?data=mil` y los fallos de entorno conocidos.
+
 ## Worktrees: reutilizar el canónico
 
 Antes de crear un worktree para un issue o branch existente, corré `git worktree list`: es la fuente de verdad de los worktrees registrados. Si el branch ya está checado en algún directorio, trabajá ahí; en este entorno los branches `mauri/*` tienen su directorio canónico bajo `worktrees/<tema>` (p. ej. `~/worktrees/<tema>`). Creá uno nuevo solo si el branch no aparece en ninguno, con `git worktree add -b mauri/<tema> ~/worktrees/<tema> origin/main`. Retomar un issue sin este chequeo genera worktrees duplicados, un symlink de `node_modules` y limpieza posterior.
