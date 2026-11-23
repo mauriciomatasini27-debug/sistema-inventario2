@@ -1,0 +1,37 @@
+{
+  "id": "caja",
+  "nombre": "Caja",
+  "ruta": "/panel/caja",
+  "rol": "duenio",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": true,
+      "detalle": "/panel/caja → 200 · h1 «Caja»",
+      "status": 200,
+      "url": "/panel/caja",
+      "h1": "Caja"
+    },
+    {
+      "nombre": "carga-balance",
+      "ok": true,
+      "detalle": "GET /api/cash/balance → 200 · total 2000000",
+      "status": 200
+    },
+    {
+      "nombre": "guarda",
+      "ok": true,
+      "detalle": "POST /api/cash/movements → 201 · 1ce1a404-42bd-40ca-beb0-0cc5fa497ccb",
+      "status": 201
+    },
+    {
+      "nombre": "relee",
+      "ok": true,
+      "detalle": "GET /api/cash/history → 200 · el egreso está en el histórico",
+      "status": 200
+    }
+  ],
+  "observaciones": [
+    "caja-1 reproducido: el movimiento acepta `nota` (201) y la relectura no la devuelve (no hay columna)."
+  ]
+}

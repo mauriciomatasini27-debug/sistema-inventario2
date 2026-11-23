@@ -50,10 +50,14 @@ caja-1, stock-1, stock-2, fiscal-1) o `ok (dominio)` con la explicación.
 
 Es una auditoría de código, no un script: el registro se rehace leyendo la pantalla, su handler y
 el repo. Las piezas que se usaron para armarlo y sirven para repetirlo:
-
 - Payloads por pantalla: buscar `fetch("/api/...` y `body: JSON.stringify(` en
   `src/pages/**/*.astro` y `src/components/**/*.astro`.
 - Contrato de cada handler: el `z.object({...})` del archivo en `src/pages/api/**`.
 - Columna: el `insert(...)` del repo, o el nombre de la columna en `src/db/schema*.ts`.
 - Para confirmar que una columna no tiene pantalla: `npm run check:columnas` dice que existe, y
   `grep` del nombre en `src/pages` y `src/components` dice si alguien la usa.
+
+El registro de trazabilidad se complementa con el **checklist de navegación** de AUD-S6
+(`checklist-navegacion.md`): donde el registro dice qué campo debería llegar a qué columna, el
+checklist prueba que la pantalla carga, guarda y relee con el payload real. Los dos se re-corren
+en cada iteración de diseño.
