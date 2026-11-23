@@ -1,18 +1,22 @@
-import { bigint, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // Control fiscal (ADR-0018 modelo mínimo D8/D3). Base control, no tenant.
 // Clave y TA solo *_ciphertext (envoltura KMS); plano solo en memoria servicio.
 // Inmutables de auditoría: solo INSERT/SELECT; REVOKE UPDATE/DELETE en migración.
-export const fiscalComputers = pgTable("fiscal_computers", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ambiente: text("ambiente").notNull(),
-  alias: text("alias").notNull(),
-  cuitProveedor: text("cuit_proveedor").notNull(),
-  certPem: text("cert_pem").notNull(),
-  keyCiphertext: text("key_ciphertext").notNull(),
-  kmsKeyId: text("kms_key_id").notNull(),
-  notAfter: timestamp("not_after", { withTimezone: true }),
-});
+export const fiscalComputers = pgTable(
+  "fiscal_computers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambiente: text("ambiente").notNull(),
+    alias: text("alias").notNull(),
+    cuitProveedor: text("cuit_proveedor").notNull(),
+    certPem: text("cert_pem").notNull(),
+    keyCiphertext: text("key_ciphertext").notNull(),
+    kmsKeyId: text("kms_key_id").notNull(),
+    notAfter: timestamp("not_after", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("fiscal_computers_ambiente_alias_key").on(t.ambiente, t.alias)],
+);
 
 export const arcaTokens = pgTable("arca_tokens", {
   fiscalComputerId: uuid("fiscal_computer_id").notNull(),
