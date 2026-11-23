@@ -4,7 +4,6 @@ import TablaCatalogo from "../../components/panel/TablaCatalogo.tsx";
 import { modoHarnessCatalogo } from "../../lib/catalogo-panel.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
 import { resolverRolEfectivo } from "../../lib/control.js";
-import { puedeCrearProductos, rolParaNav } from "../../lib/panel-modulos.js";
 
 const harness = modoHarnessCatalogo(Astro.url, import.meta.env.DEV);
 const tenant = tenantDeRequest(Astro.request);
@@ -12,8 +11,6 @@ const tenantId = tenant.ok ? tenant.tenantId : null;
 const rolEfectivo = resolverRolEfectivo(Astro.request);
 const rol = rolEfectivo.estado === "sesion" ? rolEfectivo.rol : "dueno";
 const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
-const navRol = rolParaNav(rolEfectivo);
-const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell titulo="Stock" subtitulo="Catálogo, lotes FEFO e ingreso de mercadería." activo="stock">
   <div id="stock-contexto" data-rol={rol} data-permisos={JSON.stringify(permisos)} hidden></div>
@@ -44,7 +41,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     <div class="fila">
       <label>Acción
         <select id="accion-codigo">
-          {puedeCrear ? <option value="agregar">Agregar producto</option> : null}
+          <option value="agregar">Agregar producto</option>
           <option value="ingreso">Registrar ingreso</option>
           <option value="conteo">Contar stock</option>
           <option value="lotes">Consultar lotes</option>
@@ -58,62 +55,58 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     <video id="camara-video" class="camara-video" hidden playsinline muted></video>
     <div class="estado" id="estado-codigo" role="status"></div>
   </section>
-  {puedeCrear ? (
-    <p><button id="cta-agregar-producto" type="button">Agregar producto</button></p>
-  ) : null}
-  {puedeCrear ? (
-    <section class="card" id="alta-producto-card">
-      <h2>Agregar producto</h2>
-      <p class="estado">Nombre obligatorio. El código de producto se toma del campo de arriba; si no ponés uno, generamos un código interno.</p>
-      <form id="alta-producto-form">
-        <div class="fila">
-          <label>Nombre
-            <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Precio de venta (pesos, opcional)
-            <input id="alta-precio" data-campo="precio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 1.234,50" />
-          </label>
-          <label>Cantidad inicial (opcional)
-            <input id="alta-cantidad" data-campo="cantidad" type="number" min="0" max="99999" step="1" inputmode="numeric" />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Costo de ingreso (pesos, opcional)
-            <input id="alta-costo" data-campo="costo" type="text" inputmode="decimal" autocomplete="off" value="0" />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Ubicación (opcional)
-            <select id="alta-ubicacion" data-campo="location_id">
-              <option value="">Sin ubicación</option>
-            </select>
-          </label>
-        </div>
-        <div class="fila">
-          <label>
-            <input id="alta-por-peso" data-campo="por_peso" type="checkbox" />
-            Se vende por peso
-          </label>
-        </div>
-        <p class="estado" id="alta-aviso-por-peso" hidden></p>
-        <button id="alta-producto-enviar" type="submit">Guardar producto</button>
-        <div class="estado" id="estado-alta-producto" role="status"></div>
-        <div class="fila" id="alta-duplicado-acciones" hidden>
-          <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
-        </div>
-        <button id="reintentar-ingreso" type="button" hidden>Reintentar solo el ingreso</button>
-      </form>
-    </section>
-  ) : null}
+  <p><button id="cta-agregar-producto" type="button">Agregar producto</button></p>
+  <section class="card" id="alta-producto-card">
+    <h2>Agregar producto</h2>
+    <p class="estado">Nombre obligatorio. El código de producto se toma del campo de arriba; si no ponés uno, generamos un código interno.</p>
+    <form id="alta-producto-form">
+      <div class="fila">
+        <label>Nombre
+          <input id="alta-nombre" data-campo="nombre" type="text" maxlength="200" autocomplete="off" required />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Precio de venta (pesos, opcional)
+          <input id="alta-precio" data-campo="precio" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 1.234,50" />
+        </label>
+        <label>Cantidad inicial (opcional)
+          <input id="alta-cantidad" data-campo="cantidad" type="number" min="0" max="99999" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Costo de ingreso (pesos, opcional)
+          <input id="alta-costo" data-campo="costo" type="text" inputmode="decimal" autocomplete="off" value="0" />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Ubicación (opcional)
+          <select id="alta-ubicacion" data-campo="location_id">
+            <option value="">Sin ubicación</option>
+          </select>
+        </label>
+      </div>
+      <div class="fila">
+        <label>
+          <input id="alta-por-peso" data-campo="por_peso" type="checkbox" />
+          Se vende por peso
+        </label>
+      </div>
+      <p class="estado" id="alta-aviso-por-peso" hidden></p>
+      <button id="alta-producto-enviar" type="submit">Guardar producto</button>
+      <div class="estado" id="estado-alta-producto" role="status"></div>
+      <div class="fila" id="alta-duplicado-acciones" hidden>
+        <button id="alta-abrir-existente" type="button">Abrir ese producto en el catálogo</button>
+      </div>
+      <button id="reintentar-ingreso" type="button" hidden>Reintentar solo el ingreso</button>
+    </form>
+  </section>
   <p class="resumen-pantalla" id="stock-resumen" aria-live="polite">Cargando catálogo…</p>
   <section class="card" id="cola-cabecera" hidden>
     <h2>Completá tu catálogo</h2>
     <p>Para vender con precio y con el stock registrado en el Historial.</p>
     <p class="estado"><span id="cola-quedan"></span> <span id="cola-indicador"></span></p>
   </section>
-  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} data-puede-crear={puedeCrear ? "si" : "no"} hidden>
+  <section class="card" id="catalogo-sugerido" data-tenant={tenantId ?? ""} hidden>
     <h2>Catálogo sugerido para tu rubro</h2>
     <p>Destildá lo que no vendés. Los creamos sin precio para que los completes.</p>
     <ul class="lista" id="catalogo-sugerido-lista"></ul>
@@ -312,7 +305,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 
   const $ = (id) => document.getElementById(id);
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
-  const puedeCrearProducto = $("catalogo-sugerido")?.dataset.puedeCrear !== "no";
+  const permiteAltaCatalogo = true;
   const codigoActual = () => ($("codigo-producto") as HTMLInputElement).value.trim();
   const ponerCodigo = (codigo: string) => {
     const campo = $("codigo-producto") as HTMLInputElement;
@@ -374,7 +367,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       totalPrecioPendiente: estadoCola.precio,
       totalStockInicialPendiente: estadoCola.stockInicial,
       sugeridoVigente: estadoCola.sugerido,
-      puedeCrearProductos: puedeCrearProducto,
+      puedeCrearProductos: permiteAltaCatalogo,
       avisoMinimo: estadoCola.avisoMinimo,
     });
     $("precio-pendiente").hidden = accion.tipo !== "precio";
@@ -630,7 +623,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
   };
 
   const cargarCatalogoSugerido = () => {
-    if ($("catalogo-sugerido").dataset.puedeCrear === "no") return;
     fetch("/api/stock/plantilla")
       .then((r) => {
         if (r.status === 403) {
@@ -968,7 +960,9 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     const efecto = efectoCodigoDesconocido();
     estado.replaceChildren();
     estado.append(efecto.mensaje + " ");
-    if (!puedeCrearProducto || !efecto.crearProducto) return;
+    // STOCK-S2 [rol]: el alta por código desconocido no pide crear_productos;
+    // el alta al vuelo crea el producto sin chequear rol, igual que en /venta.
+    if (!efecto.crearProducto) return;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = "Crear producto con este código";

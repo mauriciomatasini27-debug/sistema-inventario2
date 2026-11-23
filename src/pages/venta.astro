@@ -15,7 +15,8 @@ import Modo from "../components/panel/Modo.astro";
 import PanelBuscar from "../components/panel/PanelBuscar.astro";
 import ReportesComercioDialog from "../components/panel/ReportesComercioDialog.astro";
 import { resolverRolEfectivo } from "../lib/control.js";
-import { puedeCrearProductos, puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
+import { puedeVerSaldoCaja, rolParaNav } from "../lib/panel-modulos.js";
+import { puedeCrearProductos } from "../modules/inventario/escaneo.js";
 
 const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia", "A cuenta"];
 const harness = modoHarness(Astro.url, import.meta.env.DEV);
@@ -371,15 +372,14 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       };
       // STOCK-S2 (ADR-0106): si el SKU no está en el catálogo local, se pide
       // el nombre para darlo de alta al cobrar. El precio es el de la línea.
-      const puedeCrear = document.body.dataset.crearProductos !== "no";
       // TB-160: el alta solo sigue a un código desconocido. Una búsqueda a medias no es un alta.
       let pedirNombre = false;
       const mostrarAlta = () => {
         const sku = $("sku").value.trim();
-        const altaVisible = puedeCrear && pedirNombre && sku !== "" && precioLocal(catalogo, sku) === null;
+        const altaVisible = pedirNombre && sku !== "" && precioLocal(catalogo, sku) === null;
         $("alta-nombre-label").hidden = !altaVisible;
         const ayuda = $("alta-precio-ayuda");
-        if (ayuda) ayuda.hidden = !altaVisible || !puedeCrear;
+        if (ayuda) ayuda.hidden = !altaVisible;
       };
       const mostrarCatalogo = () => {
         // STOCK-S1: un snapshot con solo provisorios trae fecha epoch (no hubo descarga).

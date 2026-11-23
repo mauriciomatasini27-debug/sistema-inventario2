@@ -1,6 +1,6 @@
 import { esModoAisladoPorTenant } from "../tenant-mode.js";
 import { BaseNoDisponible } from "../server-db.js";
-import { control, importacionesEnMemoria, notificationDeliveriesEnMemoria, store, type EntregaEnMemoria, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
+import { control, importacionesEnMemoria, notificationDeliveriesEnMemoria, store, type EntregaEnMemoria, type FichaCatalogo, type StoredFiscalDoc, type StoredMovement, type StoredOutbox, type StoredReturn, type StoredStockMovement, type StoredTicket } from "../store.js";
 import type { CierreOk } from "../../modules/cash/cierre.js";
 import type { ConciliarOk, Drop, DropOk, Turno } from "../../modules/cash/turnos.js";
 import type { AuditEntry, ReversionOk } from "../../modules/cash/reversion.js";
@@ -18,7 +18,7 @@ import type { FacturaServicio } from "../../modules/utilities/facturas_servicios
 import type { OcrJob } from "../../modules/ocr/jobs.js";
 import type { EventoResumen, OutboxPendiente } from "../../modules/email/resumen-cierre.js";
 
-export type { StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
+export type { FichaCatalogo, StoredFiscalDoc, StoredMovement, StoredReturn, StoredStockMovement, StoredTicket };
 export type { StoredOutbox };
 
 // Puerto ARQ-S4: la elección memoria-vs-DB se cierra una sola vez en la
@@ -320,24 +320,6 @@ export function crearContadorTickets(): ContadorAlmacen {
 // de DB se propaga como BaseNoDisponible; en single la llamada sigue hacia
 // memoria. Precios y stock se reutilizan del corte 5; sectores, codigos,
 // productos, fotos y ubicaciones son propios de este corte.
-export interface FichaCatalogo {
-  sku: string;
-  nombre: string;
-  precioCentavos: number;
-  porPeso?: boolean | undefined;
-  // PRD-STOCK-01 STOCK-S9: espejo de products.origen en memoria.
-  origen?: "alta_al_vender" | "plantilla_rubro" | null | undefined;
-  sector: string;
-  locationId: string | null;
-  archivado: boolean;
-  controlaVencimiento: boolean;
-  estado: "activo" | "pendiente_revision";
-  // ALR-S1: mínimo y cantidad a reponer (products.min_stock/reorder_qty).
-  // null = sin mínimo (la alerta usa la rotación 7d).
-  minStock: number | null;
-  reorderQty: number | null;
-}
-
 export interface UbicacionCatalogo {
   id: string;
   nombre: string;
