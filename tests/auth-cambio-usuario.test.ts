@@ -46,7 +46,7 @@ describe("AU13 login con selector de cuenta", () => {
   it("prompt=select_account viaja a Google; otros valores se ignoran", async () => {
     const r = await getLogin(ctx("http://x/api/auth/login?prompt=select_account"));
     expect(r.status).toBe(302);
-    expect(r.headers.get("Location")).toBe("/api/auth/hacia-google");
+    expect(r.headers.get("Location")).toContain("/api/auth/hacia-google");
     expect(destinoDeCookies(setCookies(r))).toContain("prompt=select_account");
     const r2 = await getLogin(ctx("http://x/api/auth/login?prompt=consent"));
     expect(destinoDeCookies(setCookies(r2))).not.toContain("prompt=");

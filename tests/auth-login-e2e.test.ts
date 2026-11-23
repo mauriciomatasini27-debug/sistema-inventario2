@@ -89,7 +89,7 @@ describe("AU-FIX-S5 login punta a punta con redirect real", () => {
   it("login entrega state+PKCE en cookies y el callback crea sesión", async () => {
     const { rLogin, rHop, state, jar } = await loginYHop();
     expect(rLogin.status).toBe(302);
-    expect(rLogin.headers.get("Location")).toBe("/api/auth/hacia-google");
+    expect(rLogin.headers.get("Location")).toContain("/api/auth/hacia-google");
     expect(rHop.status).toBe(302);
     const loc = rHop.headers.get("Location") ?? "";
     expect(loc).toContain("accounts.google.com");
@@ -136,7 +136,7 @@ describe("P1-55 login hop same-origin antes de Google", () => {
   it("login 302 al hop con cookies oauth+destino; hop 302 a Google", async () => {
     const rLogin = await getLogin(ctx("http://x/api/auth/login"));
     expect(rLogin.status).toBe(302);
-    expect(rLogin.headers.get("Location")).toBe("/api/auth/hacia-google");
+    expect(rLogin.headers.get("Location")).toContain("/api/auth/hacia-google");
     const cookies = setCookies(rLogin);
     expect(cookies.some((c) => c.startsWith("__Host-oauth-destino="))).toBe(true);
     const destino = destinoDeCookies(cookies);
@@ -151,6 +151,25 @@ describe("P1-55 login hop same-origin antes de Google", () => {
 
   it("hop sin destino cookie vuelve a la landing con error", async () => {
     const rHop = await getHaciaGoogle(ctx("http://x/api/auth/hacia-google"));
+    expect(rHop.status).toBe(302);
+    expect(rHop.headers.get("Location")).toMatch(/^\/\?ingreso=error/);
+  });
+
+  it("P1-98: el hop usa ?d= cuando la cookie destino no llegó", async () => {
+    const rLogin = await getLogin(ctx("http://x/api/auth/login"));
+    const destino = destinoDeCookies(setCookies(rLogin));
+    const rHop = await getHaciaGoogle(
+      ctx(`http://x/api/auth/hacia-google?d=${encodeURIComponent(destino)}`),
+    );
+    expect(rHop.status).toBe(302);
+    expect(rHop.headers.get("Location")).toBe(destino);
+  });
+
+  it("P1-98: ?d= con otro origin no abre redirect", async () => {
+    const malo = "https://evil.example/o/oauth2/v2/auth";
+    const rHop = await getHaciaGoogle(
+      ctx(`http://x/api/auth/hacia-google?d=${encodeURIComponent(malo)}`),
+    );
     expect(rHop.status).toBe(302);
     expect(rHop.headers.get("Location")).toMatch(/^\/\?ingreso=error/);
   });
