@@ -1,0 +1,6 @@
+{
+  "tag": "0059_whatsapp_estados",
+  "fecha": "2026-11-22",
+  "aprobado_por": "Mauri",
+  "evidencia": "Autorizada explícitamente por Mauri el 2026-11-22 para el pipeline de estados del webhook de WhatsApp (sent/delivered/read/failed) que necesita el panel de envíos. Tag reservado antes del merge del PR que trae el .sql, igual que 0056 y 0058. Aplicada el 2026-11-22 en el proyecto Supabase rpdrzvrmuuglfavynyph en la misma transacción que 0056/0057/0058 (ver docs/roadmap/migraciones/0058_devices_nombre.json); el journal drizzle.__drizzle_migrations pasó de 52 a 60 filas. Verificada además con el splitter y el filtro reales de scripts/db-migrate-lib.mjs sobre PGlite (4 ALTER, 0 salteados, idempotente)."
+}
