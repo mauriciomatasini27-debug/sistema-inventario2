@@ -38,8 +38,11 @@ No se agregó endpoint agregado: el AC admite paralelo o un viaje, y `Promise.al
 
 NAV-S3 no implementa `AbortController`: la cancelación de `TablaCatalogo` y del fetch de stock/precios queda en NAV-S4, como declara el PRD-NAV-02.
 
+Evidencia NAV-S4 (2026-11-23): la carga de catálogo de `/panel/stock` y `/panel/precios` pasa por `cargarCatalogoPanel` (`src/lib/catalogo-carga.ts`), que aborta con `AbortController` en `pagehide`/`beforeunload` y descarta los callbacks posteriores al aborto. `TablaCatalogo` sigue leyendo el store `catalogo-panel` sin fetch propio. Tests: `tests/navegacion-nav-s4.test.ts` y `tests/e2e/nav-s4-cancelacion.spec.ts`.
+
 ## Pendientes
 
 - ~~Definir qué pantallas justifican endpoint agregado vs `Promise.all`.~~ Resuelto en NAV-S3: `Promise.all` alcanza para las cuatro pantallas; no se agrega endpoint agregado.
 - Medir cuánto aporta cada cascada (admin, caja, venta, stock) antes de elegir un endpoint agregado; la evidencia actual prueba orden de render, no milisegundos.
 - ~~Acordar el skeleton (estados vacío/cargando/error) con el design-system.~~ Resuelto: se reutiliza `.skel` y el patrón `aria-busy` de los KPI.
+- ~~Ligar `AbortController` al ciclo de vida de la carga de catálogo.~~ Resuelto en NAV-S4: stock y precios abortan al salir y la isla no refetchea.

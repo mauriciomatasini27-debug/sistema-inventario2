@@ -14,7 +14,7 @@ describe("STOCK-R8: contrato visual del catálogo simplificado", () => {
 
   it("/panel/stock pide el catálogo derivado y muestra el KPI correcto", () => {
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain('fetch("/api/products?panel=1")');
+    expect(stock).toContain('url: "/api/products?panel=1"');
     expect(stock).toContain("<small>Bajo mínimo</small>");
     expect(stock).toContain("sin verificar");
     expect(stock).not.toContain("<small>Con stock mínimo</small>");

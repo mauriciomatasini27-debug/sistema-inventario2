@@ -292,6 +292,7 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
   import { derivarProximaAccion } from "../../modules/stock/proxima-accion.js";
   import { armarConteo, armarIngreso, clavesIdempotencia, type AccionCodigo } from "../../modules/stock/operaciones-panel.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
+  import { cargarCatalogoPanel, type CargaEnCurso, type KpisCatalogo } from "../../lib/catalogo-carga.js";
   import { REQUERIDO, enteroMin, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
   import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
   import { mensajePesos, parsearPesos } from "../../lib/pesos.js";
@@ -365,8 +366,6 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
   const mensaje = (estado, vacio) =>
     estado === "cargando" ? "Cargando…" : estado === "error" ? "Sin conexión con el servidor." : estado === "vacio" ? vacio : "";
 
-  type KpisCatalogo = { bajo_minimo: number; sin_verificar: number; total: number; con_minimo: number };
-
   const estadoCola = { precio: 0, stockInicial: 0, sugerido: false, avisoMinimo: false };
 
   const pintarCola = () => {
@@ -411,19 +410,19 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
     );
   };
 
+  let cargaCatalogo: CargaEnCurso | undefined;
+
   const cargarCatalogo = () => {
     const harness = document.querySelector<HTMLElement>("[data-harness]")?.dataset.harness;
     if (harness === "mil") {
       pintarCatalogo(catalogoMil());
       return;
     }
-    fetch("/api/products?panel=1")
-      .then((r) => {
-        if (!r.ok) throw new Error("http " + r.status);
-        return r.json();
-      })
-      .then((j) => pintarCatalogo(j.productos || [], j.kpis))
-      .catch((error) => {
+    cargaCatalogo?.cancelar();
+    const carga = cargarCatalogoPanel({
+      url: "/api/products?panel=1",
+      alCargar: ({ productos, kpis }) => pintarCatalogo(productos, kpis),
+      alError: (error) => {
         console.warn("[panel/stock] catálogo", error);
         limpiarCatalogoSkel();
         marcarCargaLista("card-catalogo");
@@ -432,6 +431,15 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
         const resumen = $("stock-resumen");
         if (resumen) resumen.textContent = "No pudimos cargar el catálogo.";
         $("estado-stock").textContent = mensaje("error", "");
+      },
+    });
+    cargaCatalogo = carga;
+    void carga.terminada
+      .catch((error) => {
+        console.error("[panel/stock] reporte del catálogo", error);
+      })
+      .finally(() => {
+        if (cargaCatalogo === carga) cargaCatalogo = undefined;
       });
   };
 

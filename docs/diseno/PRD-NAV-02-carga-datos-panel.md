@@ -14,7 +14,7 @@ resumen: Carga de datos del panel sin cascadas: un único viaje por pantalla (ag
 
 Fuente: bug "freeze al cambiar de ruta". Restringido por ADR-0131.
 
-> Estado al 2026-11-23: NAV-S3 implementado. Las pantallas admin, caja, venta y stock agrupan sus cargas iniciales en `Promise.all` y muestran skeleton con `aria-busy` desde el HTML; el sync de uso del admin ya no encadena lecturas por tenant. NAV-S4 (TablaCatalogo sin refetch y con cancelación) sigue pendiente.
+> Estado al 2026-11-23: NAV-S3 y NAV-S4 implementados. Las pantallas admin, caja, venta y stock agrupan sus cargas iniciales en `Promise.all` y muestran skeleton con `aria-busy` desde el HTML; el sync de uso del admin ya no encadena lecturas por tenant. NAV-S4: stock y precios abortan el fetch del catálogo al salir de la página y `TablaCatalogo` sigue leyendo el store sin fetch propio.
 
 ## Problema
 
@@ -59,4 +59,11 @@ Evidencia automatizada:
 - `tests/e2e/kpi-skeleton.spec.ts` sigue cubriendo el skeleton compartido de los KPI del panel.
 
 No se midió TTFB contra una base lenta: la prueba es de orden de render (skeleton antes de la respuesta), no de milisegundos. Medir la ganancia con latencia de base queda como pendiente de ADR-0131.
+
+## Evidencia NAV-S4 (2026-11-23)
+
+- `src/lib/catalogo-carga.ts` concentra la única carga de catálogo de stock/precios: recibe la URL, adjunta un `AbortController` y aborta en `pagehide`/`beforeunload`. Los callbacks de éxito y error no corren si la señal ya está abortada.
+- `stock.astro` y `precios.astro` cancelan la carga anterior antes de volver a pedir y publican el resultado en el store `catalogo-panel`; `TablaCatalogo` no hace fetch propio ni duplica la fuente.
+- `tests/navegacion-nav-s4.test.ts` cubre la carga feliz, el aborto por `pagehide` y por `beforeunload`, la cancelación entre recargas, el error HTTP y las guardas estáticas de la isla.
+- `tests/e2e/nav-s4-cancelacion.spec.ts` retiene el catálogo de stock, navega a precios y comprueba que el request queda abortado, que el aborto lo dispara el listener de salida y que precios pinta sus propios datos.
 
