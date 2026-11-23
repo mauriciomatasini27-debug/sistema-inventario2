@@ -48,6 +48,14 @@ describe("P3-6b PA1 acceso", () => {
     expect(exigeReauth({ lastReauthEn: "2026-10-16T12:04:00Z", ahora }).ok).toBe(true);
     expect(exigeReauth({ lastReauthEn: null, ahora }).ok).toBe(false);
   });
+  it("tolera un salto hacia atrás del reloj del servidor", () => {
+    const ahora = new Date("2026-10-16T12:00:00Z");
+    // #448: NTP puede atrasar el reloj unos segundos justo después del
+    // reauth; ese `reauthAt` "en el futuro" es fresco, no una sesión vieja.
+    expect(exigeReauth({ lastReauthEn: "2026-10-16T12:00:03Z", ahora }).ok).toBe(true);
+    // La tolerancia es acotada: un futuro de 90 s no se acepta.
+    expect(exigeReauth({ lastReauthEn: "2026-10-16T12:01:30Z", ahora }).ok).toBe(false);
+  });
   it("confirmación destructiva exige motivo e ID escrito", () => {
     expect(exigirConfirmacion({ motivo: "", confirmo_id: "t1" }, "t1")).toBeInstanceOf(Response);
     expect(exigirConfirmacion({ motivo: "mora", confirmo_id: "otro" }, "t1")).toBeInstanceOf(Response);

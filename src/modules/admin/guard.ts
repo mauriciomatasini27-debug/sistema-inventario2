@@ -9,6 +9,9 @@ import { leerVarEntorno } from "../../lib/env.js";
 
 export const VENTANA_REAUTH_MIN = 5;
 
+// P10-38 [plataforma]: NTP atrasa el reloj y un reauth fresco parecía futuro (401).
+export const TOLERANCIA_RELOJ_MS = 60_000;
+
 let avisoAllowlistEmitido = false;
 
 function parsearLista(crudo: string): string[] {
@@ -52,8 +55,8 @@ export function exigeReauth(args: {
   if (!args.lastReauthEn) {
     return { ok: false, error: "Reautenticá tu sesión para continuar." };
   }
-  const haceMin = ((args.ahora ?? new Date()).getTime() - new Date(args.lastReauthEn).getTime()) / 60_000;
-  if (Number.isNaN(haceMin) || haceMin < 0 || haceMin > ventana) {
+  const deltaMs = (args.ahora ?? new Date()).getTime() - new Date(args.lastReauthEn).getTime();
+  if (Number.isNaN(deltaMs) || deltaMs < -TOLERANCIA_RELOJ_MS || deltaMs > ventana * 60_000) {
     return { ok: false, error: "Reautenticá tu sesión para continuar." };
   }
   return { ok: true };
