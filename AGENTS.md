@@ -4,6 +4,7 @@ Reglas cortas para agentes en este repo.
 
 ## Estado y lectura de docs
 
+- Gotchas de runtime de navegación (qué páginas usan `BaseLayout` vs `PanelShell`, islas `client:visible`, harness `?data=mil`): `docs/guias/gotchas-navegacion.md`.
 - Estado rápido: `docs/ESTADO.md` (autogenerado con `npm run docs:estado`; no editar a mano). En rama de trabajo, `npm run docs:estado` imprime el estado en stdout y no escribe el archivo.
 - Para trabajar un PRD/ADR o un módulo: `npm run docs:context <tema|modulo|id>` y leé solo los docs y rangos de líneas que cita (más `docs/INDEX.md` para ubicar algo). No leas docs completos "por las dudas".
 - Nunca leas `docs/archivo/` (histórico deprecado) salvo pedido explícito.
