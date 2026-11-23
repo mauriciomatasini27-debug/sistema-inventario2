@@ -1,0 +1,6 @@
+{
+  "tag": "0060_fiscal_computers_alias_unico",
+  "fecha": "2026-11-23",
+  "aprobado_por": "Mauri",
+  "evidencia": "Aprobada por Mauri el 2026-11-23. El índice único (ambiente, alias) ya existe en la base real y fiscal_computers tiene 0 filas, así que la migración es no-op: CREATE UNIQUE INDEX IF NOT EXISTS, idempotente. Pendiente de correr db:migrate en Supabase para dejar la fila del journal; no hay cambio de datos."
+}
