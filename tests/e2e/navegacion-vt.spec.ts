@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("NAV-S1: al enfocar un enlace del panel Astro prefetchea la página", async ({ page }) => {
+test("NAV-S1: al pasar el puntero o enfocar un enlace del panel Astro prefetchea la página", async ({ page }) => {
   await page.goto("/panel");
   await page.locator('a[href="/panel/stock"]:visible').first().hover();
   await expect

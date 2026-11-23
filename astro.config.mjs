@@ -9,7 +9,8 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
-  // NAV-S1 (ADR-0130): calienta la próxima página al pasar el puntero o enfocar el enlace.
+  // NAV-S1 (ADR-0130): precarga la próxima página para que la navegación MPA no
+  // espere el SSR; las View Transitions van por CSS, sin router SPA.
   prefetch: {
     prefetchAll: true,
     defaultStrategy: "hover",
