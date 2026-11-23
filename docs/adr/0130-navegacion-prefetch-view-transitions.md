@@ -2,13 +2,13 @@
 id: ADR-0130
 tipo: adr
 estado: propuesto
-modulos: [admin, landing]
+modulos: [admin, landing, panel]
 depende_de: []
 reemplaza: []
 reemplazado_por: ""
 modifica: []
 modificado_por: []
-resumen: La navegación entre rutas deja de ser un full reload SSR visible: se habilitan prefetch y View Transitions cross-document nativas, con MPA y sin JS como fallback, sin migrar a un router SPA.
+resumen: La navegación entre rutas deja de ser un full reload SSR visible: se habilitan prefetch y View Transitions cross-document nativas, con MPA y sin JS como fallback, sin migrar a un router SPA; además, las consultas lentas del panel salen del render crítico con server islands.
 ---
 # ADR-0130 - Navegación con prefetch y View Transitions
 
@@ -34,6 +34,14 @@ El costo medido es +20 a +28 ms de LCP (3–4 %) por el snapshot cross-document,
 - El alcance es todos los documentos (landing, panel, venta, admin, alta, ticket y onboarding), porque la transición necesita el opt-in en los dos extremos de cada enlace.
 - No se migra ningún layout ni página a un framework SPA.
 
+## Datos fuera del render crítico (NAV-S2)
+
+Las páginas del panel no esperan la base para emitir el primer byte. `integraciones.astro` y `integraciones-remitentes.astro` resuelven solo lo síncrono (sesión, tenant y rol) y delegan las consultas lentas a server islands de Astro (`server:defer`): `IntegracionGmail.astro` lee la salud de Gmail y `RemitentesGmail.astro` lee la lista de remitentes. Cada isla se renderiza después del HTML inicial y muestra un skeleton con `aria-busy="true"` como fallback.
+
+Se elige server island y no fetch cliente contra endpoints nuevos porque conserva el render server-side, los estados condicionales (conectada, reconectando, modo prueba, rol) y la autorización que ya usan las páginas, sin duplicar templates en JavaScript. `PanelShell.astro` queda igual: resuelve sesión/tenant/membresía de forma síncrona con el store en memoria y no agrega una consulta al render. Las islas reciben el `tenantId` ya autorizado por la página, no confían en un id del navegador, validan sesión + membership en el request de la isla (en single conservan el acceso legado) y responden `Cache-Control: private, no-store` porque el contenido es por comercio.
+
+Evidencia: `tests/navegacion-nav-s2.test.ts` (guarda de frontmatter, fallback y `PanelShell`) y `tests/e2e/nav-s2-islas.spec.ts` (skeleton antes de la isla, contenido después, script de la isla operativo).
+
 ## Evidencia
 
 - Medición repetible: `npm run medir:navegacion -- --base-url http://localhost:4321` (TTFB/LCP caliente y frío, View Transition y navegación sin JS). Resultados del 2026-11-23 en PRD-NAV-01.
@@ -42,5 +50,6 @@ El costo medido es +20 a +28 ms de LCP (3–4 %) por el snapshot cross-document,
 ## Pendientes
 
 - Repetir la medición contra el deploy (en dev el HTML no se cachea y el prefetch no se reutiliza), para confirmar que el prefetch baja el TTFB de producción.
+- Medir el TTFB de NAV-S2 con latencia de base simulada; la evidencia actual prueba el orden render/skeleton, no el ahorro de milisegundos.
 - Revisar el delta de LCP si el equipo lo considera bloqueante; hoy es de 3–4 % y no cambia el orden de magnitud.
 - Los scripts de panel/admin/venta no requieren migración mientras no se adopte un router SPA.

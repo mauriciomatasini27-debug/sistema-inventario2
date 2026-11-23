@@ -209,15 +209,17 @@ describe("GGL-S12 modo prueba", () => {
   });
 
   it("la pantalla ata el formulario al gate y no promete el vencimiento siempre", () => {
-    const src = readFileSync("src/pages/panel/integraciones.astro", "utf8");
-    expect(src).toContain("vista.mostrarFormulario");
-    expect(src).toContain("vista.textoLimite");
-    expect(src).toContain("vista.textoRefresh7Dias");
-    expect(src).toContain('id="limite-lista-prueba"');
-    expect(src).toContain('id="aviso-refresh-7-dias"');
-    expect(src).not.toContain("puede vencer a los 7 días");
-    const form = src.indexOf('action="/api/integrations/start"');
-    const rama = src.indexOf("vista.mostrarFormulario");
+    const pagina = readFileSync("src/pages/panel/integraciones.astro", "utf8");
+    const componente = readFileSync("src/components/panel/IntegracionGmail.astro", "utf8");
+    expect(pagina).toContain("<IntegracionGmail server:defer");
+    expect(componente).toContain("vista.mostrarFormulario");
+    expect(componente).toContain("vista.textoLimite");
+    expect(componente).toContain("vista.textoRefresh7Dias");
+    expect(componente).toContain('id="limite-lista-prueba"');
+    expect(componente).toContain('id="aviso-refresh-7-dias"');
+    expect(componente).not.toContain("puede vencer a los 7 días");
+    const form = componente.indexOf('action="/api/integrations/start"');
+    const rama = componente.indexOf("vista.mostrarFormulario");
     expect(rama).toBeGreaterThan(-1);
     expect(form).toBeGreaterThan(rama);
   });
