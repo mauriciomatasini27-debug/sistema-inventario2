@@ -9,9 +9,9 @@ reemplazado_por: ""
 modifica: []
 modificado_por: []
 resumen: |
-  Modelo free por skill y agente para OpenCode, con seis perfiles, respaldo en orden,
-  privacidad de Zen como primer criterio, aviso por stderr y log, y un runner que resuelve
-  la cadena, reintenta Error: Upstream con el mismo modelo sin marcarlo caído y reinicia opencode serve.
+  Modelo free por skill y agente para OpenCode, con siete perfiles (incluye `diseno` para UI),
+  respaldo en orden, privacidad de Zen como primer criterio, aviso por stderr y log, y un runner
+  que resuelve la cadena, reintenta Error: Upstream con el mismo modelo sin marcarlo caído y reinicia opencode serve.
 ---
 # PRD-OPENCODE-01 - Modelo free por skill con respaldo
 
@@ -62,7 +62,14 @@ La tabla sale de `.opencode/modelos-por-skill.json` y de `.opencode/pstack-model
 | interrogate | Revisión adversarial multi-modelo | juez | opencode/glm-5.3-flash-free |
 | interface-review | Revisión de interfaz de una rama o PR | juez | opencode/glm-5.3-flash-free |
 | swarm | Abanico de workers para cobertura o carreras | codigo | opencode/deepseek-v4.1-flash-free |
-| prototype | Sketch descartable para decidir | codigo | opencode/deepseek-v4.1-flash-free |
+| prototype | Sketch descartable para decidir | diseno | opencode-go/claude-haiku-5-5 |
+| variant | Variantes radicales de una misma ruta | diseno | opencode-go/claude-haiku-5-5 |
+| better-ui | Criterio visual sobre una pantalla o componente | diseno | opencode-go/claude-haiku-5-5 |
+| better-layout | Jerarquía, espaciado y grilla mobile-first | diseno | opencode-go/claude-haiku-5-5 |
+| better-typography | Escala y ritmo tipográfico | diseno | opencode-go/claude-haiku-5-5 |
+| better-colors | Paleta, contraste y estados de color | diseno | opencode-go/claude-haiku-5-5 |
+| emil-design-eng | Craft de interacción y detalle de UI | diseno | opencode-go/claude-haiku-5-5 |
+| build-design | Bajar un diseño a componentes respetando medidas | diseno | opencode-go/claude-haiku-5-5 |
 | tdd | Test que falla primero, cuando se pide | codigo | opencode/deepseek-v4.1-flash-free |
 | correct | Convierte una corrección repetida en guarda | codigo | opencode/deepseek-v4.1-flash-free |
 | verify-inventario | Verificación E2E de la PWA | codigo | opencode/deepseek-v4.1-flash-free |
@@ -141,10 +148,13 @@ Cada perfil es una lista en orden de preferencia. `.opencode/modelos.mjs` toma e
 | razon | deepseek-v4.1, glm-5.3, longcat-2.5, minimax-m3.1, big-pickle | Diseño, grounding y DAG. deepseek resuelve razon en 3 s y razon2 en 12 s, y explica la ventana horaria. glm segundo por 8 s y misma precisión. longcat tercero por 11 s. minimax cuarto por 10 s y verbosidad. big-pickle último por inestable. mimo queda afuera porque puede entrenar y tarda 19 s en bug2. |
 | juez | glm-5.3, longcat-2.5, minimax-m3.1, deepseek-v4.1, mimo-v2.6, big-pickle | El juez tiene que ser de otra familia que el ejecutor deepseek para no autoaprobar. glm encabeza por 5 s y 7 s en los dos casos. longcat segundo por 10 s y 7 s. minimax entra por exhaustividad, no por velocidad. deepseek baja al cuarto puesto por compartir familia con el ejecutor. mimo y big-pickle cierran por privacidad e inestabilidad. |
 | prosa | deepseek-v4.1, glm-5.3, longcat-2.5, minimax-m3.1 | Voseo y largo controlado. deepseek y glm son los mejores en la revisión manual. glm paga el "no perdas", así que va segundo. longcat queda tercero por 25 s y minimax cuarto por 10 s. mimo queda afuera porque puede entrenar. |
+| diseno | haiku-5-5, gemini-4-argon, gpt-6-luna, kimi-k3.1-pro, deepseek-v4.1-flash-free | Prototipos de UI mobile-first. Pesa más leer una captura a 360px y decidir jerarquía y gusto visual que resolver lógica, así que no arranca por el primario de código. haiku abre por criterio de diseño y bajo costo de iteración (3.850 req/5h); gemini-argon y gpt-6-luna entran por contexto largo y entrada de imagen para varias variantes en un archivo; kimi-k3.1-pro es el último Go; el deepseek free cierra para que la cadena siga viva sin key de Go. Todos los eslabones son sin retención porque el prototipo lleva copy y precios del producto. |
 | rapido | deepseek-v4.1, glm-5.3, beam-free, mimo-v2.6 | Tareas cortas de revisión y routing. deepseek abre por 3 s y sin retención. glm segundo por 5 s. beam es el más rápido y regular (2 a 9 s), pero retiene 30 días, así que solo es respaldo. mimo cierra porque puede entrenar. |
 | largo | minimax-m3.1, beam-free, deepseek-v4.1 | Lectura de transcripts y destilado. minimax y beam tienen 1M de contexto según `opencode.json`. minimax abre por ser sin retención. beam segundo por retención de 30 días. deepseek tercero por 250k de contexto, aunque sea el más rápido. |
 
-`perfilPorDefecto` es `razon`. Una skill nueva sin línea en el JSON hereda razon y no queda sin modelo. `poteto-mode` corre en razon porque sus decisiones son de arquitectura y orquestación, no de tipeo.
+`perfilPorDefecto` es `codigo`. Una skill nueva sin línea en el JSON hereda codigo y no queda sin modelo. `poteto-mode` corre en razon porque sus decisiones son de arquitectura y orquestación, no de tipeo.
+
+`diseno` existe separado de `codigo` porque el prototipo de UI se juzga mirando el render, no leyendo el diff: el modelo tiene que ver la captura a 360px, proponer variantes y elegir. El primario de codigo optimiza otra cosa (6/6 en `parsePrecioAR` y velocidad de edición) y no es el mejor juez de espaciado, jerarquía o copy. El perfil lo pide la rama UI del skill `prototype` y las skills de diseño del repo (`better-ui`, `better-layout`, `better-typography`, `better-colors`, `emil-design-eng`, `build-design`, `variant`). Un test fija que esas skills no vuelvan a caer en codigo y que ningún eslabón de `diseno` pueda entrenar con los datos. Para centrar un prototipo de un flujo o modelo de estado, seguí usando el perfil `razon`.
 
 La asignación por agente sale del mismo JSON. `poteto-agent` usa razon, `pstack-worker` usa codigo, `pstack-judge` usa juez y `comment-sicko` usa rapido. `tests/opencode-modelos.test.ts` exige que el `model` de cada agente en `opencode.json` sea el primero de su perfil, así no hay dos verdades.
 
