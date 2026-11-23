@@ -1,0 +1,49 @@
+{
+  "id": "stock",
+  "nombre": "Stock",
+  "ruta": "/panel/stock",
+  "rol": "duenio",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": true,
+      "detalle": "/panel/stock → 200 · h1 «Stock»",
+      "status": 200,
+      "url": "/panel/stock",
+      "h1": "Stock"
+    },
+    {
+      "nombre": "carga-listado",
+      "ok": true,
+      "detalle": "GET /api/products?panel=1 → 200 · 4 productos",
+      "status": 200
+    },
+    {
+      "nombre": "guarda",
+      "ok": true,
+      "detalle": "POST /api/products AUD6-062622 → 201",
+      "status": 201
+    },
+    {
+      "nombre": "relee",
+      "ok": true,
+      "detalle": "GET /api/products?codigo=AUD6-062622 → 200 · precio 123400 (esperado 123400)",
+      "status": 200
+    },
+    {
+      "nombre": "guarda-ingreso",
+      "ok": true,
+      "detalle": "POST /api/stock/ingreso AUD6-062622 → 201",
+      "status": 201
+    },
+    {
+      "nombre": "relee-lote",
+      "ok": true,
+      "detalle": "GET /api/lots?sku=AUD6-062622 → 200 · lote 5 u",
+      "status": 200
+    }
+  ],
+  "observaciones": [
+    "stock-1 (#477) no se prueba acá: el flag `controla_vencimiento` del alta vive en el espejo de memoria y la lectura es la misma memoria; el round-trip a base lo cubre AUD-S4."
+  ]
+}

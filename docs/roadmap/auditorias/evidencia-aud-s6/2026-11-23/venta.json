@@ -1,0 +1,44 @@
+{
+  "id": "venta",
+  "nombre": "Venta",
+  "ruta": "/venta",
+  "rol": "empleado",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": true,
+      "detalle": "/venta → 200 · h1 «Venta mostrador»",
+      "status": 200,
+      "url": "/venta",
+      "h1": "Venta mostrador"
+    },
+    {
+      "nombre": "carga-catalogo",
+      "ok": true,
+      "detalle": "GET /api/products?q=CAFE → 200 · CAFE-001 · precio 850000",
+      "status": 200
+    },
+    {
+      "nombre": "guarda",
+      "ok": true,
+      "detalle": "POST /api/sales (2 u) → 201 · ticket T-000001 · total 1700000",
+      "status": 201,
+      "sale_id": "3e52488b-0498-44ea-b4ae-45132785cbcf"
+    },
+    {
+      "nombre": "relee",
+      "ok": true,
+      "detalle": "GET /api/cash/history → 200 · egreso 1700000 con Efectivo",
+      "status": 200
+    },
+    {
+      "nombre": "por-peso",
+      "ok": false,
+      "detalle": "2,5 kg con el payload de /venta → 422 lineas: Poné un entero entre 1 y 999. · con el contrato del handler → 201 ",
+      "status": 422,
+      "codigo": "venta-1",
+      "issue": "#474"
+    }
+  ],
+  "observaciones": []
+}

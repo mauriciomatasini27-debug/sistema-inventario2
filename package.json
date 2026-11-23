@@ -19,6 +19,7 @@
     "check:arch": "vitest run --config vitest.arch.config.ts",
     "check:ui": "node scripts/check-ui.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
+    "check:navegacion": "node scripts/check-navegacion.mjs",
     "check:google-integrations": "node scripts/check-google-integrations-env.mjs",
     "review:scope": "node scripts/review-scope.mjs",
     "review:gate": "node scripts/cadena/interface-review-gate.mjs",

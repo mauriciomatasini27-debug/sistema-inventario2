@@ -1,0 +1,45 @@
+{
+  "id": "fiscal",
+  "nombre": "Fiscal",
+  "ruta": "/panel/fiscal/delegacion",
+  "rol": "duenio",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": true,
+      "detalle": "/panel/fiscal/delegacion → 200 · h1 «Facturación ARCA»",
+      "status": 200,
+      "url": "/panel/fiscal/delegacion",
+      "h1": "Facturación ARCA"
+    },
+    {
+      "nombre": "carga-estado",
+      "ok": false,
+      "detalle": "GET /api/fiscal/wizard (como lo llama la pantalla) → 422 · falta tenant_id",
+      "status": 422,
+      "codigo": "fiscal-3",
+      "issue": "#483"
+    },
+    {
+      "nombre": "carga-contrato",
+      "ok": true,
+      "detalle": "GET /api/fiscal/wizard?tenant_id=control-app → 200",
+      "status": 200
+    },
+    {
+      "nombre": "guarda",
+      "ok": true,
+      "detalle": "POST /api/fiscal/wizard avanzar → 200 · paso 1",
+      "status": 200
+    },
+    {
+      "nombre": "relee",
+      "ok": true,
+      "detalle": "GET /api/fiscal/wizard → 200 · paso 1",
+      "status": 200
+    }
+  ],
+  "observaciones": [
+    "fiscal-1 (#480) y fiscal-2 no se prueban acá: el modo de primera factura y `cola_pausada`/`aviso_revocacion` viven en memoria y el checklist corre en un solo proceso; reinstalar el server es el único experimento que los distingue."
+  ]
+}
