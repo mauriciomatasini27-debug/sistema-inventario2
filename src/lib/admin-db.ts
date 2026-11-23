@@ -332,20 +332,24 @@ function persistirUsoWaDiario(tenantId: string, dia: string, usoWa: number): Pro
 // proyecta a adminStore.usoDiario y, si el id es uuid, a tenant_daily_usage.
 export async function sincronizarUsoDiarioDesdeContadores(dia: string = fechaAR()): Promise<void> {
   const mes = dia.slice(0, 7);
-  for (const t of control.tenants.values()) {
-    const bot = await leerContadorPlanes(t.id, mes, FEATURE_BOT);
-    const llm = await leerContadorPlanes(t.id, mes, FEATURE_ASISTENTE);
-    const uso: UsoDiarioContadores = {
-      tenantId: t.id,
-      dia,
-      mensajesWa: bot.usado,
-      consultasLlm: llm.usado,
-      costoWaCentavos: bot.costoCentavos,
-      costoLlmCentavos: llm.costoCentavos,
-    };
-    guardarUsoDiario(adminStore.usoDiario, uso);
-    await persistirUsoWaDiario(t.id, dia, bot.usado);
-  }
+  await Promise.all(
+    [...control.tenants.values()].map(async (t) => {
+      const [bot, llm] = await Promise.all([
+        leerContadorPlanes(t.id, mes, FEATURE_BOT),
+        leerContadorPlanes(t.id, mes, FEATURE_ASISTENTE),
+      ]);
+      const uso: UsoDiarioContadores = {
+        tenantId: t.id,
+        dia,
+        mensajesWa: bot.usado,
+        consultasLlm: llm.usado,
+        costoWaCentavos: bot.costoCentavos,
+        costoLlmCentavos: llm.costoCentavos,
+      };
+      guardarUsoDiario(adminStore.usoDiario, uso);
+      await persistirUsoWaDiario(t.id, dia, bot.usado);
+    }),
+  );
 }
 
 export function resumenUsoEnListadoTenants(

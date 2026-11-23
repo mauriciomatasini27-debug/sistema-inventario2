@@ -208,6 +208,10 @@ export function kpiListo(fuente: FuenteKpi): void {
   if (!pendientes.length) strip.setAttribute("aria-busy", "false");
 }
 
+export function marcarCargaLista(id: string): void {
+  document.getElementById(id)?.setAttribute("aria-busy", "false");
+}
+
 export function pintarSegbar(porMedio: MedioVenta[]): void {
   const bar = document.getElementById("segbar");
   if (!bar) return;

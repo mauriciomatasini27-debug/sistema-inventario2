@@ -109,23 +109,23 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         <span class="logo">Plataforma</span>
         <input id="buscar" class="buscar" type="search" placeholder="Buscar comercio" aria-label="Buscar comercio" />
         <div class="top-right">
-          <button type="button" class="badge" id="btn-reportes" aria-expanded="false" aria-controls="reportes">
-            Reportes <b id="n-reportes">0</b>
+          <button type="button" class="badge" id="btn-reportes" aria-expanded="false" aria-controls="reportes" aria-busy="true">
+            Reportes <b id="n-reportes"><i class="skel" aria-hidden="true"></i></b>
           </button>
           <TemaToggle />
           <CerrarSesion />
         </div>
       </div>
 
-      <div class="kpis" id="kpis">
-        <div class="bignum"><b id="n-activos">—</b><small>Activos</small></div>
-        <div class="bignum"><b id="n-gracia">—</b><small>En gracia</small></div>
-        <div class="bignum"><b id="n-suspendidos">—</b><small>Suspendidos</small></div>
+      <div class="kpis" id="kpis" aria-busy="true">
+        <div class="bignum"><b id="n-activos"><i class="skel skel-monto" aria-hidden="true"></i></b><small>Activos</small></div>
+        <div class="bignum"><b id="n-gracia"><i class="skel skel-monto" aria-hidden="true"></i></b><small>En gracia</small></div>
+        <div class="bignum"><b id="n-suspendidos"><i class="skel skel-monto" aria-hidden="true"></i></b><small>Suspendidos</small></div>
       </div>
 
       <div id="error-lista" class="aviso" role="alert" hidden></div>
 
-      <section class="card" style="overflow-x:auto">
+      <section class="card" id="card-comercios" style="overflow-x:auto" aria-busy="true">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
           <h2 style="margin:0;flex:1">Comercios</h2>
           <button type="button" class="btn llama" id="btn-nuevo">+ Nuevo comercio</button>
@@ -162,7 +162,11 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
               <th><span class="sr">Acciones</span></th>
             </tr>
           </thead>
-          <tbody id="tenants-body"></tbody>
+          <tbody id="tenants-body">
+            {[0, 1, 2].map(() => (
+              <tr aria-hidden="true"><td colspan="6"><i class="skel skel-linea"></i></td></tr>
+            ))}
+          </tbody>
         </table>
         <div id="tenants-vacio" class="vacio" hidden>No hay comercios.</div>
       </section>
@@ -234,6 +238,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
 
     <script>
       import { fechaAR } from "../lib/fecha-ar.js";
+      import { marcarCargaLista } from "../lib/panel-dashboard.js";
       import { clasificarCubetaMoraVista, diasAtrasoDesdeVencimiento } from "../modules/admin/mora-vista.js";
 
       // PA1.8: las acciones del panel piden reauth reciente. Ante 401
@@ -314,11 +319,13 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         $("n-activos").textContent = String(activos);
         $("n-gracia").textContent = String(gracia);
         $("n-suspendidos").textContent = String(suspendidos);
+        marcarCargaLista("kpis");
       }
 
       function pintarTabla() {
         const filas = filtrados();
         body.replaceChildren();
+        marcarCargaLista("card-comercios");
         if (!filas.length) {
           vacio.hidden = false;
           vacio.textContent = tenants.length ? "Ningún comercio coincide con la búsqueda." : "No hay comercios.";
@@ -399,6 +406,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           $("n-activos").textContent = "—";
           $("n-gracia").textContent = "—";
           $("n-suspendidos").textContent = "—";
+          marcarCargaLista("kpis");
           pintarTabla();
           errorLista.hidden = false;
           errorLista.textContent = e instanceof Error ? e.message : "No se pudieron cargar los comercios.";
@@ -423,6 +431,8 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           $("n-reportes").textContent = String((data.items ?? []).length);
         } catch {
           $("n-reportes").textContent = "—";
+        } finally {
+          marcarCargaLista("btn-reportes");
         }
       }
 
@@ -495,8 +505,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         const sel = $("form-plan").querySelector('[name="plan"]');
         if (sel) sel.value = t.plan || "base";
         pintarAvisoPlan();
-        void cargarFlags();
-        void cargarAudit();
+        void Promise.all([cargarFlags(), cargarAudit()]);
       }
 
       function limiteDePlan(plan) {
@@ -528,8 +537,13 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
 
       async function cargarFlags() {
         const box = $("flags-lista");
-        box.textContent = "Cargando módulos…";
-        if (!abierto) return;
+        box.setAttribute("aria-busy", "true");
+        box.innerHTML = '<div aria-hidden="true"><div><i class="skel skel-linea"></i></div><div><i class="skel skel-linea"></i></div></div><p class="sr">Cargando módulos…</p>';
+        if (!abierto) {
+          box.replaceChildren();
+          marcarCargaLista("flags-lista");
+          return;
+        }
         try {
           const r = await fetch("/api/admin/flags?tenant_id=" + encodeURIComponent(abierto.id));
           if (!r.ok) throw new Error(await errorDe(r, "No se pudieron cargar los módulos."));
@@ -538,6 +552,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           box.replaceChildren();
           if (!flags.length) {
             box.innerHTML = '<div class="mini">Sin módulos cargados.</div>';
+            marcarCargaLista("flags-lista");
             return;
           }
           for (const f of flags) {
@@ -554,8 +569,10 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
             });
             box.appendChild(row);
           }
+          marcarCargaLista("flags-lista");
         } catch (e) {
           box.textContent = e instanceof Error ? e.message : "No se pudieron cargar los módulos.";
+          marcarCargaLista("flags-lista");
         }
       }
 
@@ -575,8 +592,13 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
 
       async function cargarAudit() {
         const lista = $("detalle-audit");
-        lista.textContent = "";
-        if (!abierto) return;
+        lista.setAttribute("aria-busy", "true");
+        lista.innerHTML = '<li aria-hidden="true"><i class="skel skel-linea"></i></li><li aria-hidden="true"><i class="skel skel-linea"></i></li>';
+        if (!abierto) {
+          lista.replaceChildren();
+          marcarCargaLista("detalle-audit");
+          return;
+        }
         try {
           const r = await fetch("/api/admin/actos?tenant_id=" + encodeURIComponent(abierto.id) + "&limite=30");
           if (!r.ok) throw new Error(await errorDe(r, "No se pudo cargar la auditoría."));
@@ -584,6 +606,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
           const actos = Array.isArray(data.actos) ? data.actos : [];
           if (!actos.length) {
             lista.innerHTML = '<li class="mini">Sin actos todavía.</li>';
+            marcarCargaLista("detalle-audit");
             return;
           }
           lista.replaceChildren();
@@ -593,8 +616,10 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
             li.innerHTML = `<strong>${esc(a.kind)}</strong> · ${esc(cuando)} <div class="mini">${esc(a.origen || "")} · ${esc(a.hash || "")}</div>`;
             lista.appendChild(li);
           }
+          marcarCargaLista("detalle-audit");
         } catch (e) {
           lista.innerHTML = `<li>${esc(e instanceof Error ? e.message : "No se pudo cargar la auditoría.")}</li>`;
+          marcarCargaLista("detalle-audit");
         }
       }
 
@@ -811,8 +836,7 @@ if (!sesionAdmin || !esAdminAllowlist(sesionAdmin.googleSub, leerAllowlist())) {
         await esperarProvision(data.tenant_id);
       });
 
-      void cargarTenants();
-      void cargarReportesBadge();
+      void Promise.all([cargarTenants(), cargarReportesBadge()]);
     </script>
   </body>
 </html>

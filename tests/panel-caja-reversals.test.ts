@@ -32,7 +32,7 @@ describe("P1-50: el dueño revierte un movimiento desde /panel/caja", () => {
   });
 
   it("confirma y postea /api/cash/reversals con JSON y una Idempotency-Key", () => {
-    const rev = bloque('$("rev-form").addEventListener', "cargarBalance();\n  cargarMovimientos();");
+    const rev = bloque('$("rev-form").addEventListener', "void Promise.all([");
     const post = rev.indexOf('fetch("/api/cash/reversals"');
     expect(rev.indexOf("confirmar(")).toBeGreaterThan(-1);
     expect(post).toBeGreaterThan(rev.indexOf("confirmar("));
@@ -47,7 +47,7 @@ describe("P1-50: el dueño revierte un movimiento desde /panel/caja", () => {
   });
 
   it("un 201 refresca el historial y el error usa textoError", () => {
-    const rev = bloque('$("rev-form").addEventListener', "cargarBalance();\n  cargarMovimientos();");
+    const rev = bloque('$("rev-form").addEventListener', "void Promise.all([");
     const ok = rev.indexOf("r.status === 201");
     const error = rev.indexOf("textoError(j.error, r.status)");
     expect(ok).toBeGreaterThan(-1);

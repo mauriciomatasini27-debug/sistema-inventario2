@@ -14,6 +14,8 @@ resumen: Carga de datos del panel sin cascadas: un único viaje por pantalla (ag
 
 Fuente: bug "freeze al cambiar de ruta". Restringido por ADR-0131.
 
+> Estado al 2026-11-23: NAV-S3 implementado. Las pantallas admin, caja, venta y stock agrupan sus cargas iniciales en `Promise.all` y muestran skeleton con `aria-busy` desde el HTML; el sync de uso del admin ya no encadena lecturas por tenant. NAV-S4 (TablaCatalogo sin refetch y con cancelación) sigue pendiente.
+
 ## Problema
 
 Tras recibir el HTML, muchas pantallas quedan "congeladas" mientras encadenan `await fetch(...)` secuenciales en scripts inline: `admin.astro` carga tenants → auditoría → reportes → flags en serie, y `caja.astro`, `venta.astro` y `stock.astro` repiten el patrón. La isla `TablaCatalogo` (`client:visible`) suma otra espera: se hidrata y pinta recién cuando el store `catalogo-panel` recibió los productos desde el script de la página.
@@ -36,3 +38,25 @@ Ninguna. Refactor de scripts inline y de la isla de catálogo existentes.
 | Feliz | Pantalla con cascada | admin/caja | datos en un viaje, skeleton inmediato |
 | Fallo | Cambio de ruta a mitad de fetch | desmontar stock | fetch abortado, sin warning de setState |
 | Fallo | Fetch con error | API caída | skeleton → estado de error, no pantalla congelada |
+
+## Evidencia NAV-S3 (2026-11-23)
+
+Inventario y decisión por pantalla:
+
+| Pantalla | Cargas iniciales | Cómo quedaron |
+|---|---|---|
+| `/admin` | `GET /api/admin/tenants` + `GET /api/admin/reportes?estado=recibido`; el detalle suma `flags` + `actos` | Dos `Promise.all` (lista/badge y detalle/auditoría). Skeleton en contadores, tabla, badge y cajón. |
+| `/panel/caja` | `balance`, `history`, `due-items`, `close`, `qr` | Un `Promise.all` de cinco. Skeleton en saldo, movimientos, vencimientos y QR. |
+| `/venta` | catálogo local (solo baja si está vencido) + `balance` | Un `Promise.all` de catálogo y balance. Skeleton en balance. |
+| `/panel/stock` | `products?panel=1`, `plantilla`, `stock/inicial`, `stock/precio` | Un `Promise.all` de cuatro. Skeleton en KPIs y catálogo; la isla `TablaCatalogo` sigue leyendo el store que puebla la única fuente. |
+
+No se agregó un endpoint agregado por pantalla: el AC acepta “en paralelo o en un viaje”, y paralelizar evita duplicar contratos y autorización. La cascada real que quedaba estaba del lado del servidor en `sincronizarUsoDiarioDesdeContadores`: ahora lee bot y asistente en paralelo por tenant y espera a todos los tenants en un solo `Promise.all`.
+
+Evidencia automatizada:
+
+- `tests/navegacion-nav-s3.test.ts`: guarda estática de los `Promise.all`, del skeleton/`aria-busy` y de la limpieza en error.
+- `tests/e2e/nav-s3-skeleton.spec.ts`: retiene las respuestas de caja, el catálogo de stock y el balance de venta; comprueba skeleton antes de liberar y contenido después.
+- `tests/e2e/kpi-skeleton.spec.ts` sigue cubriendo el skeleton compartido de los KPI del panel.
+
+No se midió TTFB contra una base lenta: la prueba es de orden de render (skeleton antes de la respuesta), no de milisegundos. Medir la ganancia con latencia de base queda como pendiente de ADR-0131.
+

@@ -46,7 +46,7 @@ describe("P1-52: el dueño lista, carga y deshace un comprobante QR desde /panel
   });
 
   it("confirma y postea /api/cash/qr con origen manual y una Idempotency-Key", () => {
-    const alta = bloque('$("qr-form").addEventListener', "cargarBalance();");
+    const alta = bloque('$("qr-form").addEventListener', "void Promise.all([");
     const post = alta.indexOf('fetch("/api/cash/qr"');
     expect(alta.indexOf("confirmar(")).toBeGreaterThan(-1);
     expect(post).toBeGreaterThan(alta.indexOf("confirmar("));
@@ -65,7 +65,7 @@ describe("P1-52: el dueño lista, carga y deshace un comprobante QR desde /panel
   });
 
   it("un 201 refresca la lista y un 409 de duplicado dice que el número ya está cargado", () => {
-    const alta = bloque('$("qr-form").addEventListener', "cargarBalance();");
+    const alta = bloque('$("qr-form").addEventListener', "void Promise.all([");
     const ok = alta.indexOf("r.status === 201");
     const duplicado = alta.indexOf('j.error === "ya registrado"');
     expect(ok).toBeGreaterThan(-1);
