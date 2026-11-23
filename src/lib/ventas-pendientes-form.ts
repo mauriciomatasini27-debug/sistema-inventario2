@@ -390,7 +390,6 @@ export function payloadCorregido(
     salida["qty"] = qtyDeLinea(linea.qtyTexto, original);
     salida["precio_centavos"] = centsDeLinea(linea.precioTexto, original);
     if (linea.origen === null) {
-      delete salida["precio_id"];
       delete salida["alta"];
     }
     if (linea.nombre !== null) {

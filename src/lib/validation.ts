@@ -16,7 +16,6 @@ export const salesLineSchema = z
     qty: z.number().int().min(1).max(MAX_GRAMOS),
     precio_centavos: z.number().int().min(0).max(999_999_999),
     por_peso: z.boolean().default(false),
-    precio_id: z.string().max(64).optional(),
     // PRD-STOCK-01 STOCK-S2 (ADR-0106): alta al vuelo online. El SKU es
     // product_id y el precio es el de la línea; acá solo viaja el nombre.
     alta: z.object({ nombre: z.string().trim().min(1).max(120) }).optional(),
