@@ -1,0 +1,38 @@
+---
+id: PRD-NAV-01
+tipo: prd
+estado: propuesto
+modulos: [admin, landing]
+depende_de: [ADR-0130]
+reemplaza: []
+reemplazado_por: ""
+modifica: []
+modificado_por: []
+resumen: Navegación entre rutas sin freeze: prefetch + View Transitions de Astro con fallback MPA, y quitar el trabajo bloqueante del render crítico (frontmatter de layouts y páginas).
+---
+# PRD-NAV-01 - Navegación entre rutas sin freeze
+
+Fuente: bug reportado "al cambiar de ruta la UI se tilda". Restringido por ADR-0130.
+
+## Problema
+
+Al cambiar de ruta la UI se tilda. `astro.config.mjs` usa `output: "server"` sin `prefetch` ni View Transitions, así que cada navegación es un full reload: espera del primer byte del SSR, re-parseo del HTML y re-ejecución de los scripts inline. Encima, el render del panel hace trabajo sincrónico en el frontmatter (`PanelShell.astro` resuelve sesión/tenant/membresía en cada render) y páginas como `integraciones.astro` y `integraciones-remitentes.astro` hacen `await` a datos (salud Gmail, remitentes de ingesta) antes de emitir HTML.
+
+## Épica NAV-E1. Navegación y render fluido
+
+Requisito NAV-R1: la navegación entre rutas debe sentirse fluida — prefetch de la siguiente página, transición de vista con fallback MPA y sin trabajo bloqueante innecesario en el render crítico.
+
+- Historia NAV-S1. Habilitar `prefetch` y View Transitions en `astro.config.mjs` con fallback MPA y medir TTFB/LCP antes/después. AC: Given dos rutas del panel When navego Then la transición de vista evita el full reload y el LCP no empeora, y sin JS la navegación sigue funcionando como MPA. ADR: 0130. Talla M. Depende de: nada.
+- Historia NAV-S2. Auditar el frontmatter de `PanelShell.astro` (sesión/tenant/membresía) y las páginas con `await` bloqueante (`integraciones.astro`, `integraciones-remitentes.astro`) y mover lo lento fuera del render crítico (streaming o isla). AC: Given una página de panel When renderiza Then el primer byte no espera llamadas de datos lentas y la sesión se resuelve sin bloquear el HTML. ADR: 0130. Talla M. Depende de: NAV-S1.
+
+## Dependencias externas
+
+Ninguna. Es configuración de Astro y refactor de frontmatter existente.
+
+## Estrategia prueba
+
+| Tipo | Caso | Entrada | Resultado esperado |
+|---|---|---|---|
+| Feliz | Navegación con prefetch | clic en enlace del nav | transición de vista, sin full reload |
+| Fallo | Cliente sin JS | navegación | fallback MPA funciona |
+| Fallo | Frontmatter con await lento | página integraciones | el primer byte no espera el dato lento |
