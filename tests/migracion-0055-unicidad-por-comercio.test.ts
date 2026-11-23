@@ -41,7 +41,14 @@ describe("ADR-0123 migración 0055: unicidad por comercio", () => {
     // #295 y #357 suman tags: el largo va con los .sql presentes en la rama.
     expect(entries.length).toBe(readdirSync("drizzle").filter((f) => f.endsWith(".sql")).length);
     expect(entries.some((e) => e.tag === "0057_email_outbox_cifrado")).toBe(true);
-    expect(entries.at(-1)?.tag).toBe("0058_devices_nombre");
+    expect(entries.some((e) => e.tag === "0058_devices_nombre")).toBe(true);
+    // La punta del journal es la migración más nueva, sea la de esta rama o la que venga.
+    // Fijarla a un tag hacía fallar a toda rama que agregara un .sql (WA-ESTADOS-WEBHOOK).
+    const tagsEnDisco = readdirSync("drizzle")
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => f.replace(/\.sql$/, ""))
+      .sort();
+    expect(entries.at(-1)?.tag).toBe(tagsEnDisco.at(-1));
   });
 });
 

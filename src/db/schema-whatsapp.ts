@@ -28,6 +28,12 @@ export const whatsappUsage = pgTable("whatsapp_usage", {
   plantilla: text("plantilla"),
   costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(0n),
   estado: text("estado").notNull().default("enviado"),
+  // WA-ESTADOS-WEBHOOK [plataforma]: marca por salto; null hasta que Meta confirma entregado o leído.
+  entregadoEn: timestamp("entregado_en"),
+  leidoEn: timestamp("leido_en"),
+  // WA-ESTADOS-WEBHOOK [plataforma]: el código y el motivo del fallo viajan en el webhook de estados y se muestran al comerciante tal cual.
+  falloCodigo: integer("fallo_codigo"),
+  falloMotivo: text("fallo_motivo"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

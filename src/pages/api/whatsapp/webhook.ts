@@ -4,6 +4,8 @@ import { control } from "../../../lib/store.js";
 import { membershipActiva } from "../../../lib/control.js";
 import { persistirAuthEvent, persistirBotLink } from "../../../lib/control-db.js";
 import { DeduplicadorWamid, verificar_firma_meta } from "../../../modules/whatsapp/webhook.js";
+import { extraer_estados_meta, type EstadoRecibido } from "../../../modules/whatsapp/estados.js";
+import { aplicarEstadoEnvio } from "../../../lib/repos/whatsapp-estados.js";
 import { parsear_boton_alerta, texto_de_boton_alerta } from "../../../modules/whatsapp/boton-alerta.js";
 import { debeInvalidarPorIntentos, parsear_vincular, verificar_vincular } from "../../../modules/whatsapp/vincular.js";
 import {
@@ -840,6 +842,20 @@ async function atenderProveedor(opts: {
   return null;
 }
 
+// WA-ESTADOS-WEBHOOK [plataforma]: el estado no trae el comercio, así que se resuelve por el número destinatario con el mismo mapa de vínculos del bot.
+// WA-ESTADOS-WEBHOOK [plataforma]: un fallo al guardar no puede devolver 5xx porque Meta reintentaría el webhook y el perdedor es el flujo entrante.
+async function aplicarEstadosDeEnvio(estados: readonly EstadoRecibido[]): Promise<void> {
+  for (const e of estados) {
+    const link = control.botLinks.get(e.destinatario);
+    if (!link) continue;
+    try {
+      await conTenant(link.tenantId, () => aplicarEstadoEnvio({ ...e, tenantId: link.tenantId }));
+    } catch (err) {
+      console.error("[whatsapp] no se pudo guardar el estado de envío", err);
+    }
+  }
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const raw = await request.text();
   const firma = request.headers.get("X-Hub-Signature-256");
@@ -853,6 +869,12 @@ export const POST: APIRoute = async ({ request }) => {
     body = JSON.parse(raw);
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
+  }
+  // WA-ESTADOS-WEBHOOK [plataforma]: los estados de entrega llegan al mismo webhook con la misma firma y antes se descartaban; sin esto la fila queda en "enviado" para siempre.
+  const estados = extraer_estados_meta(body);
+  if (estados.length > 0) {
+    await aplicarEstadosDeEnvio(estados);
+    return Response.json({ ok: true, estados: estados.length });
   }
   const msg = extraer_mensaje(body);
   if (msg == null) return Response.json({ ok: true, ignorado: true });
