@@ -44,8 +44,14 @@ Medición con `scripts/medir-pintado.mjs` (3 corridas, `--escala 2 --cpu 4`): la
 
 Los selectores compuestos de PanelShell se auditaron y no se reescribieron: reducir su especificidad cambia el cascade y requiere una revisión visual aparte; no son el cuello de layout/recalc en la medición.
 
+## Presupuesto de motion (NAV-S6)
+
+- Con `prefers-reduced-motion: reduce`: cero animaciones. `BaseLayout` no marca las secciones con `reveal` y no crea el `IntersectionObserver`; `NumberFlow` conserva `respectMotionPreference` y el `@media reduce` global corta animaciones y transiciones CSS, incluidas las view transitions.
+- Con movimiento permitido: una animación de entrada por superficie, sin bucles, usando solo `opacity`/`transform`. Tope de 240 ms por animación: `--motion-entrada` en `global.css` para `reveal` y `transformTiming` de 240 ms / `opacityTiming` de 160 ms en `TablaCatalogo`.
+- El presupuesto se valida con `tests/navegacion-nav-s6.test.ts` (tope y cableado) y `tests/e2e/nav-s6-reduced-motion.spec.ts` (reduce sin observer ni WAAPI; movimiento dentro de 240 ms con un cambio real de precio).
+
 ## Pendientes
 
 - ~~Medir INP/CLS por pantalla para priorizar qué superficie pierde el blur.~~ Resuelto en NAV-S5: caja, stock, precios, reportes y panel pierden el blur de sus 11 tarjetas; la medición queda en `scripts/medir-pintado.mjs`.
 - ~~Definir el budget numérico y dónde se documenta (tokens o gotchas de diseño).~~ Resuelto: § Presupuesto de este ADR y el script de medición.
-- Confirmar que `NumberFlow` con `respectMotionPreference` ya cubre el caso reduced-motion (NAV-S6).
+- ~~Confirmar que `NumberFlow` con `respectMotionPreference` ya cubre el caso reduced-motion (NAV-S6).~~ Resuelto en NAV-S6: `@number-flow/react` 0.6.2 desactiva `canAnimate` cuando `matchMedia('(prefers-reduced-motion: reduce)')` da true, y el custom element omite `element.animate` por el mismo motivo; la e2e lo comprueba con un cambio real de precio (0 animaciones WAAPI bajo reduce).

@@ -51,6 +51,8 @@ function CeldaPrecio({ centavos, porPeso }: { centavos: number | string; porPeso
         locales={LOCALE_PRECIO}
         format={FORMATO_PRECIO}
         respectMotionPreference
+        transformTiming={{ duration: 240, easing: "ease-out" }}
+        opacityTiming={{ duration: 160 }}
       />
       <span className="por-peso-unidad">{porPeso ? " / kg" : " / unidad"}</span>
       {porPeso ? <span className="por-peso-marca">Por peso</span> : null}

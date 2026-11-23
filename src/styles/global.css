@@ -75,6 +75,7 @@
 
   --spacing-section: 3.125rem;
   --spacing-element: 0.75rem;
+  --motion-entrada: 240ms;
   --radius-button: 5rem;
   --radius-card: 1.25rem;
   --width-content: 70rem;
@@ -170,7 +171,7 @@
   .reveal {
     opacity: 0;
     transform: translateY(16px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
+    transition: opacity var(--motion-entrada) ease, transform var(--motion-entrada) ease;
   }
 
   .reveal.visible {
