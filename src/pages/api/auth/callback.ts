@@ -104,6 +104,20 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
         }
       : undefined;
   if (!code || !state || !pendiente || stateCookie !== state || !verifier || !pendiente.nonce) {
+    console.warn("[DEBUG-login-a4f2] callback rechazado", {
+      sinCode: !code,
+      sinState: !state,
+      sinPendiente: !pendiente,
+      stateDistinto: stateCookie !== state,
+      sinVerifier: !verifier,
+      sinNonce: !pendiente?.nonce,
+      pendienteDelMapa: Boolean(enMapa),
+      tieneCookieState: Boolean(stateCookie),
+      tieneCookiePkce: Boolean(verifier),
+      tieneCookieNonce: Boolean(nonceCookie),
+      largoCookieState: stateCookie?.length ?? 0,
+      largoStateUrl: state?.length ?? 0,
+    });
     if (state) control.pendingAuth.delete(state);
     return falloIngreso(request, redirect, "Sesión de ingreso inválida o vencida. Volvé a intentarlo.");
   }

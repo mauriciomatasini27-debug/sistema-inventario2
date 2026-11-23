@@ -31,6 +31,10 @@ export const GET: APIRoute = async ({ request }) => {
     "__Host-oauth-destino=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
   );
   if (!destino) {
+    console.warn("[DEBUG-login-a4f2] hop sin destino", {
+      tieneCookieDestino: Boolean(crudo),
+      largoCookieDestino: crudo?.length ?? 0,
+    });
     headers.set("Location", "/?ingreso=error&mensaje=" + encodeURIComponent("Sesión de ingreso inválida o vencida. Volvé a intentarlo."));
     return new Response(null, { status: 302, headers });
   }
