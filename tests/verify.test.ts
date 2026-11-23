@@ -197,9 +197,9 @@ describe("verify: mensajes del resumidor", () => {
     expect(con).toContain(".verify-receipt.json");
   });
 
-  it("sin fallos conserva verify ok (18 pasos)", () => {
+  it("sin fallos conserva verify ok (19 pasos)", () => {
     const todos = planDePasos().map((p) => ({ nombre: p.nombre, code: 0 }));
-    expect(todos).toHaveLength(18);
+    expect(todos).toHaveLength(19);
     expect(textoResumen(resumir(todos))).toBe(`verify ok (${todos.length} pasos)`);
   });
 });
