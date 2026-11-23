@@ -382,7 +382,7 @@ function parsearElementoIndice(elemento, mapaPropiedad) {
   return indice;
 }
 
-/** @param {string} fuente @returns {EstadoEsquema} */
+/** @param {string} fuente @returns {EstadoEsquema & { exportaciones: Map<string, { tabla: string, propiedades: Record<string, string> }> }} */
 export function parsearEsquemaTS(fuente) {
   const texto = eliminarTipoGenerico(String(fuente));
   const exportaciones = new Map();
@@ -504,7 +504,16 @@ export function parsearEsquemaTS(fuente) {
     tablas[def.nombreTabla] = tabla;
   }
 
-  return { tablas, fks };
+  // AUD-S3: el check de columnas resuelve interpolaciones `${tabla}` y `${tabla.prop}`.
+  const detalleExportaciones = new Map();
+  for (const [variable, nombreTabla] of exportaciones) {
+    detalleExportaciones.set(variable, {
+      tabla: nombreTabla,
+      propiedades: Object.fromEntries(columnasPorPropiedad.get(nombreTabla) ?? []),
+    });
+  }
+
+  return { tablas, fks, exportaciones: detalleExportaciones };
 }
 
 /** @param {EstadoEsquema} destino @param {EstadoEsquema} origen @returns {EstadoEsquema} */
