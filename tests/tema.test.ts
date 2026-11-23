@@ -286,10 +286,11 @@ describe("tema: hoja de tema.css (DS-S4/S5)", () => {
     expect(tema).toContain("backdrop-filter");
   });
 
-  it("el opaco por reduced-transparency va después del @supports para ganarle", () => {
+  it("el opaco por reduced-transparency va después del @supports en las superficies que siguen vítreas", () => {
     expect(tema.indexOf("prefers-reduced-transparency")).toBeGreaterThan(tema.indexOf("@supports"));
-    for (const f of ["src/components/panel/PanelShell.astro"]) {
+    for (const f of ["src/components/panel/PanelTopbar.astro", "src/pages/venta.astro"]) {
       const s = leer(f);
+      expect(s, f).toContain("@supports");
       expect(s.indexOf("prefers-reduced-transparency"), f).toBeGreaterThan(s.indexOf("@supports"));
     }
   });
