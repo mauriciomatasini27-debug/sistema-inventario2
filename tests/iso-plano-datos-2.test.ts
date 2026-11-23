@@ -133,10 +133,25 @@ describe("ISO-S7 wizard y delegacion usan el tenant del contexto en multi", () =
 });
 
 describe("ISO-S7 regresion modo single", () => {
-  it("sin TENANT_MODE el body sin tenant_id sigue exigido como hoy", async () => {
+  it("sin TENANT_MODE el body sin tenant_id usa el tenant por defecto", async () => {
     delete process.env.TENANT_MODE;
     const r = await postWizard({ accion: "avanzar", paso: 1 });
-    expect(r.status).toBe(422);
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { paso: number }).paso).toBe(1);
+
+    const g = await getWizard("");
+    expect(g.status).toBe(200);
+    expect(((await g.json()) as { paso: number }).paso).toBe(1);
+  });
+
+  it("sin TENANT_MODE un tenant_id explícito sigue mandando", async () => {
+    delete process.env.TENANT_MODE;
+    const r = await postWizard({ tenant_id: "otro", accion: "avanzar", paso: 2 });
+    expect(r.status).toBe(200);
+
+    const g = await getWizard("?tenant_id=otro");
+    expect(g.status).toBe(200);
+    expect(((await g.json()) as { paso: number }).paso).toBe(2);
   });
 });
 

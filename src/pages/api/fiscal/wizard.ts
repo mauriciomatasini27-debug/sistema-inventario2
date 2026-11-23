@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { guardarWizardEstado, leerWizard } from "../../../lib/repos/fiscal.js";
-import { esModoMulti, tenantActual } from "../../../lib/tenant-mode.js";
+import { esModoMulti, tenantActual, tenantPorDefecto } from "../../../lib/tenant-mode.js";
 import {
   elegir_modo_primera_factura,
   enriquecer_vista_wizard,
@@ -19,10 +19,6 @@ const wizardBodySchema = z.object({
   accion: z.enum(["avanzar", "pausar", "resumir", "primera_factura"]),
   paso: z.number().int().min(0).max(6).optional(),
   modo_primera_factura: z.enum(["cae", "prueba_nc"]).optional(),
-});
-
-const wizardBodySingle = wizardBodySchema.extend({
-  tenant_id: z.string().min(1).max(128),
 });
 
 // En multi el tenant lo fija el servidor por request; el pedido distinto se corta.
@@ -45,15 +41,15 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return Response.json({ error: "json invalido" }, { status: 422 });
   }
-  const parsed = esModoMulti() ? wizardBodySchema.safeParse(body) : wizardBodySingle.safeParse(body);
+  const parsed = wizardBodySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 422 });
   let tenantId: string;
   if (esModoMulti()) {
-    const t = tenantFiscal((parsed.data as { tenant_id?: string }).tenant_id);
+    const t = tenantFiscal(parsed.data.tenant_id);
     if (!t.ok) return t.respuesta;
     tenantId = t.tenantId;
   } else {
-    tenantId = (parsed.data as { tenant_id: string }).tenant_id;
+    tenantId = parsed.data.tenant_id ?? tenantActual() ?? tenantPorDefecto();
   }
   const b = parsed.data;
   const cur = await leerWizard(tenantId);
@@ -76,9 +72,9 @@ export const POST: APIRoute = async ({ request }) => {
 export const GET: APIRoute = async ({ url }) => {
   const pedido = url.searchParams.get("tenant_id");
   if (!esModoMulti()) {
-    if (!pedido) return Response.json({ error: "falta tenant_id" }, { status: 422 });
-    const w = await leerWizard(pedido);
-    return Response.json(enriquecer_vista_wizard(pedido, w), { status: 200 });
+    const tenantId = pedido ?? tenantActual() ?? tenantPorDefecto();
+    const w = await leerWizard(tenantId);
+    return Response.json(enriquecer_vista_wizard(tenantId, w), { status: 200 });
   }
   const t = tenantFiscal(pedido ?? undefined);
   if (!t.ok) return t.respuesta;
