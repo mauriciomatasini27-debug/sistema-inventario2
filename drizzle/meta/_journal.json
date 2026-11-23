@@ -421,6 +421,13 @@
       "when": 1795996800000,
       "tag": "0059_whatsapp_estados",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1796083200000,
+      "tag": "0060_fiscal_computers_alias_unico",
+      "breakpoints": true
     }
   ]
 }
