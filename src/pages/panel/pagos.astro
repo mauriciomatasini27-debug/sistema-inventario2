@@ -1,0 +1,278 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
+---
+<PanelShell titulo="Pagos" subtitulo="Órdenes de pago a beneficiarios.">
+  <section class="card">
+    <h2>Órdenes de pago</h2>
+    <p class="estado">
+      Las facturas de proveedor se siguen pagando desde
+      <a href="/panel/proveedores">Proveedores</a>. Acá se operan órdenes de pago a
+      beneficiarios (pagos sueltos y servicios), que también generan su egreso en caja.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Beneficiario</th>
+          <th>Concepto</th>
+          <th>Importe</th>
+          <th>Vence</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="pagos-body"></tbody>
+    </table>
+    <div class="estado" id="estado-pagos" role="status">Cargando…</div>
+  </section>
+
+  <section class="card">
+    <h2>Nueva orden</h2>
+    <form id="pago-form">
+      <div class="fila">
+        <label>Beneficiario
+          <select id="pago-payee" data-campo="payee_id"></select>
+        </label>
+        <label>Concepto
+          <input id="pago-concepto" data-campo="concepto" type="text" maxlength="140" autocomplete="off" />
+        </label>
+      </div>
+      <div class="fila">
+        <label>Importe en centavos
+          <input id="pago-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" />
+        </label>
+        <label>Vence
+          <input id="pago-vence" data-campo="vence_el_ms" type="datetime-local" />
+        </label>
+        <label>Medio sugerido
+          <select id="pago-medio" data-campo="medio_sugerido">{medios.map((m) => <option value={m}>{m}</option>)}</select>
+        </label>
+      </div>
+      <div class="fila">
+        <label>Instrucción
+          <select id="pago-instruccion" data-campo="instruccion">
+            <option value="transferencia">Transferencia</option>
+            <option value="link">Link de pago</option>
+            <option value="codigo_pago">Código de pago</option>
+            <option value="efectivo">Efectivo</option>
+          </select>
+        </label>
+        <label>Link (opcional)
+          <input id="pago-link" data-campo="link_url" type="url" maxlength="512" autocomplete="off" />
+        </label>
+        <label>Referencia (opcional)
+          <input id="pago-referencia" data-campo="referencia" type="text" maxlength="64" autocomplete="off" />
+        </label>
+      </div>
+      <label>Nota (opcional)
+        <input id="pago-nota" data-campo="nota" type="text" maxlength="280" autocomplete="off" />
+      </label>
+      <button id="pago-enviar" type="submit">Preparar orden</button>
+      <div class="estado" id="estado-form" role="status">Elegí un beneficiario, el concepto, el importe y el vencimiento.</div>
+    </form>
+  </section>
+</PanelShell>
+
+<style>
+  .estado { color: var(--tema-texto-suave); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--tema-borde); }
+  .acciones { display: flex; flex-wrap: wrap; gap: 6px; }
+</style>
+
+<script>
+  import { toast } from "sonner";
+  import { REQUERIDO, erroresDesdeZod, mensajeCampo } from "../../lib/errores-campo.js";
+  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
+
+  const $ = (id) => document.getElementById(id);
+  const moneda = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
+  const fecha = (ms) => new Date(ms).toLocaleDateString("es-AR");
+  const centavos = (valor) => moneda.format(Number(valor) / 100);
+
+  let ordenes = [];
+  let payees = new Map();
+
+  const textoError = (error, status) => {
+    if (typeof error === "string") return error;
+    if (error && typeof error === "object") return JSON.stringify(error);
+    return "No se pudo completar (" + status + ").";
+  };
+
+  function pintarPayees() {
+    const select = $("pago-payee");
+    select.textContent = "";
+    const vacia = document.createElement("option");
+    vacia.value = "";
+    vacia.textContent = "Elegí un beneficiario";
+    select.appendChild(vacia);
+    [...payees.values()].forEach((p) => {
+      const option = document.createElement("option");
+      option.value = p.payee_id;
+      option.textContent = p.nombre + (p.alias ? " · " + p.alias : "");
+      select.appendChild(option);
+    });
+  }
+
+  function pintarOrdenes() {
+    const tbody = $("pagos-body");
+    tbody.textContent = "";
+    for (const o of ordenes) {
+      const fila = document.createElement("tr");
+      const celdas = [
+        o.numero,
+        payees.get(o.payee_id)?.nombre ?? o.payee_id,
+        o.concepto,
+        centavos(o.monto_centavos),
+        fecha(o.vence_el_ms),
+        o.estado,
+      ];
+      for (const texto of celdas) {
+        const td = document.createElement("td");
+        td.textContent = texto;
+        fila.appendChild(td);
+      }
+      const acciones = document.createElement("td");
+      acciones.className = "acciones";
+      if (o.estado === "preparada" || o.estado === "vencida") {
+        const pagar = document.createElement("button");
+        pagar.type = "button";
+        pagar.textContent = "Ya pagué";
+        pagar.addEventListener("click", () => confirmarPago(o));
+        const cancelar = document.createElement("button");
+        cancelar.type = "button";
+        cancelar.textContent = "Cancelar";
+        cancelar.addEventListener("click", () => cancelarOrden(o));
+        acciones.append(pagar, cancelar);
+      }
+      fila.appendChild(acciones);
+      tbody.appendChild(fila);
+    }
+    $("estado-pagos").textContent = ordenes.length === 0 ? "Todavía no hay órdenes de pago." : "";
+  }
+
+  async function cargar() {
+    const [rp, ro] = await Promise.all([fetch("/api/payees"), fetch("/api/payment-orders")]);
+    if (!rp.ok || !ro.ok) {
+      $("estado-pagos").textContent = "No pudimos cargar los pagos.";
+      if (!rp.ok) toast.error("No pudimos cargar los beneficiarios.");
+      if (!ro.ok) toast.error("No pudimos cargar las órdenes.");
+      return;
+    }
+    const jp = await rp.json();
+    const jo = await ro.json();
+    payees = new Map((jp.items ?? []).map((p) => [p.payee_id, p]));
+    ordenes = jo.items ?? [];
+    pintarPayees();
+    pintarOrdenes();
+  }
+
+  async function confirmarPago(orden) {
+    if (!window.confirm("¿Marcar " + orden.numero + " como pagada y registrar el egreso?")) return;
+    const res = await fetch("/api/payment-orders/confirm-paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        order_id: orden.order_id,
+        version_esperada: orden.version,
+        monto_pagado_centavos: Number(orden.monto_centavos),
+        medio: orden.medio_sugerido,
+        actor: "panel-web",
+      }),
+    });
+    const data = await res.json().catch((error) => {
+      console.warn("[panel/pagos] confirmar pago sin JSON", res.status, error);
+      return {};
+    });
+    if (!res.ok) {
+      toast.error(textoError(data.error, res.status));
+      return;
+    }
+    toast.success("Pago confirmado.");
+    await cargar();
+  }
+
+  async function cancelarOrden(orden) {
+    const motivo = window.prompt("Motivo de la cancelación");
+    if (!motivo || motivo.trim().length < 1) return;
+    const res = await fetch("/api/payment-orders/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: orden.order_id,
+        version_esperada: orden.version,
+        motivo: motivo.trim(),
+        actor: "panel-web",
+      }),
+    });
+    const data = await res.json().catch((error) => {
+      console.warn("[panel/pagos] cancelar orden sin JSON", res.status, error);
+      return {};
+    });
+    if (!res.ok) {
+      toast.error(textoError(data.error, res.status));
+      return;
+    }
+    toast.success("Orden cancelada.");
+    await cargar();
+  }
+
+  $("pago-form").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const form = evento.currentTarget;
+    limpiarErrores(form);
+    const payeeId = $("pago-payee").value;
+    const concepto = $("pago-concepto").value.trim();
+    const monto = Number($("pago-monto").value);
+    const vence = $("pago-vence").value;
+    const errores = {
+      ...(!payeeId ? { payee_id: mensajeCampo("payee_id", REQUERIDO) } : {}),
+      ...(!concepto ? { concepto: mensajeCampo("concepto", REQUERIDO) } : {}),
+      ...(!Number.isInteger(monto) || monto <= 0 ? { monto_centavos: mensajeCampo("monto_centavos", REQUERIDO) } : {}),
+      ...(!vence ? { vence_el_ms: mensajeCampo("vence_el_ms", REQUERIDO) } : {}),
+    };
+    if (mostrarErrores(form, errores)) {
+      $("estado-form").textContent = "Revisá los campos marcados.";
+      return;
+    }
+    const link = $("pago-link").value.trim();
+    const referencia = $("pago-referencia").value.trim();
+    const nota = $("pago-nota").value.trim();
+    $("estado-form").textContent = "Preparando…";
+    const res = await fetch("/api/payment-orders/prepare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({
+        payee_id: payeeId,
+        concepto,
+        monto_centavos: monto,
+        vence_el_ms: new Date(vence).getTime(),
+        medio_sugerido: $("pago-medio").value,
+        instruccion: $("pago-instruccion").value,
+        ...(link ? { link_url: link } : {}),
+        ...(referencia ? { referencia } : {}),
+        ...(nota ? { nota } : {}),
+        creado_por: "panel-web",
+      }),
+    });
+    const data = await res.json().catch((error) => {
+      console.warn("[panel/pagos] preparar orden sin JSON", res.status, error);
+      return {};
+    });
+    if (!res.ok) {
+      if (res.status === 422 && mostrarErrores(form, erroresDesdeZod(data.error))) {
+        $("estado-form").textContent = "Revisá los campos marcados.";
+        return;
+      }
+      $("estado-form").textContent = "No se preparó: " + textoError(data.error, res.status);
+      return;
+    }
+    form.reset();
+    $("estado-form").textContent = "Orden preparada.";
+    toast.success("Orden preparada.");
+    await cargar();
+  });
+
+  cargar();
+</script>

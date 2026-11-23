@@ -19,6 +19,7 @@ const PANTALLAS = [
   "src/pages/panel/fiado.astro",
   "src/pages/panel/devoluciones.astro",
   "src/pages/panel/consumos.astro",
+  "src/pages/panel/pagos.astro",
   "src/pages/panel/reportes.astro",
   "src/pages/panel/alertas/umbrales.astro",
   "src/pages/panel/alertas/destinatarios.astro",
@@ -30,7 +31,7 @@ const PANTALLAS = [
 
 // P1-39 counts + P1-63 tickets/returns: pantallas reales ya llaman esas rutas.
 const API_PERMITIDA =
-  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial)|tickets|returns|counts(?:\/|$|\?))/;
+  /^\/api\/(cash\/|products|lots|locations(?:\/|$)|stock\/|prices\/|suppliers|purchase-orders|supplier-invoices\/|credit\/|service-accounts|utility-bills\/|payment-orders(?:\/|$)|payees|email-drafts(?:\/|$)|analytics\/|alertas\/(destinatarios|historial)|bot-modulos|plan\/|sync\/|whatsapp\/(vinculos|vincular-code|desvincular|historial)|tickets|returns|counts(?:\/|$|\?))/;
 
 function archivoDeHref(href: string): string | null {
   const ruta = href.split("?")[0] ?? "";

@@ -88,6 +88,13 @@ async function payeesVivos(db: TenantDb, payeesAlm: AlmacenVivo<Payee>): Promise
   return vivos;
 }
 
+export async function listarPayeesActivos(): Promise<Payee[]> {
+  const payeesAlm = crearAlmacenPayees();
+  const db = dbVivaTenant();
+  const vivos = db ? await payeesVivos(db, payeesAlm) : payeesAlm.comoMapaSoloLectura();
+  return [...vivos.values()].filter((p) => p.activo);
+}
+
 function eventoDeFila(f: typeof paymentOrderEvents.$inferSelect): EventoOrden {
   const detalle = f.detalle ?? { motivo: null };
   return {
