@@ -1,15 +1,12 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import RemitentesGmail from "../../components/panel/RemitentesGmail.astro";
+import RemitentesVacio from "../../components/panel/RemitentesVacio.astro";
 import { esDueno, resolverSesion } from "../../lib/control.js";
-import {
-  actualizarActivoRemitenteIngesta,
-  listarRemitentesIngesta,
-  type RemitenteIngestaPanel,
-} from "../../lib/repos/gmail-ingesta.js";
+import { actualizarActivoRemitenteIngesta } from "../../lib/repos/gmail-ingesta.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
 
 const tenant = tenantDeRequest(Astro.request);
-let remitentes: ReadonlyArray<RemitenteIngestaPanel> = [];
 let dueno = false;
 let aviso = "";
 
@@ -32,57 +29,25 @@ if (tenant.ok) {
     }
     return Astro.redirect("/panel/integraciones-remitentes");
   }
-
-  remitentes = await listarRemitentesIngesta(tenant.tenantId);
 }
 ---
 <PanelShell titulo="Remitentes Gmail" subtitulo="Elegí de qué remitentes leemos facturas. Pausar aplica al próximo mail.">
   <p><a href="/panel/integraciones">← Volver a Gmail</a></p>
   {!tenant.ok ? (
-    <p class="aviso">Iniciá sesión para ver los remitentes.</p>
-  ) : !dueno ? (
-    <p class="aviso">Solo el dueño puede pausar o activar remitentes.</p>
-  ) : aviso ? (
-    <p class="aviso" role="status">{aviso}</p>
-  ) : null}
-
-  <section class="card">
-    <h2>Remitentes configurados</h2>
-    {remitentes.length === 0 ? (
-      <p>Todavía no hay remitentes. Los filtros se cargan cuando configurás servicios en el comercio.</p>
-    ) : (
-      <ul class="lista-remitentes">
-        {remitentes.map((r) => (
-          <li>
-            <div class="info">
-              <strong>{r.remitente}</strong>
-              {r.servicio ? <span class="meta"> · {r.servicio}</span> : null}
-              {r.proveedor ? <span class="meta"> ({r.proveedor})</span> : null}
-              <span class={`estado ${r.activo ? "activo" : "pausado"}`}>
-                {r.activo ? "Activo" : "Pausado"}
-              </span>
-            </div>
-            {dueno ? (
-              <form method="post">
-                <input type="hidden" name="filtro_id" value={r.id} />
-                <button type="submit" name="accion" value={r.activo ? "pausar" : "activar"}>
-                  {r.activo ? "Pausar" : "Activar"}
-                </button>
-              </form>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    )}
-  </section>
+    <>
+      <p class="aviso">Iniciá sesión para ver los remitentes.</p>
+      <RemitentesVacio />
+    </>
+  ) : (
+    <RemitentesGmail server:defer tenantId={tenant.tenantId} dueno={dueno} aviso={aviso}>
+      <section class="card" id="remitentes-skeleton" data-cargando="remitentes" aria-busy="true" slot="fallback">
+        <h2>Remitentes configurados</h2>
+        <p>Cargando remitentes…</p>
+      </section>
+    </RemitentesGmail>
+  )}
 </PanelShell>
 
 <style>
   .aviso { color: var(--tema-texto-suave); }
-  .lista-remitentes { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-  .lista-remitentes li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-  .meta { color: var(--tema-texto-suave); font-size: 0.95rem; }
-  .estado { margin-left: 8px; font-size: 0.9rem; }
-  .estado.activo { color: var(--tema-ok, #15803d); }
-  .estado.pausado { color: var(--tema-texto-suave); }
 </style>

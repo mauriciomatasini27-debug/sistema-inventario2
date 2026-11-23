@@ -1,219 +1,35 @@
 ---
 import PanelShell from "../../components/panel/PanelShell.astro";
+import IntegracionGmail from "../../components/panel/IntegracionGmail.astro";
 import { esDueno, resolverSesion } from "../../lib/control.js";
-import { leerSaludConexionGmail, type SaludConexionGmail } from "../../lib/repos/google-conexiones.js";
+import { decidirInicioGmail } from "../../modules/integraciones/google-oauth.js";
 import { control } from "../../lib/store.js";
 import { tenantDeRequest } from "../../lib/tenant-context.js";
-import {
-  CONSENTIMIENTO_GOOGLE_VERSION,
-  decidirInicioGmail,
-  vistaModoPruebaGmail,
-} from "../../modules/integraciones/google-oauth.js";
 
 const tenant = tenantDeRequest(Astro.request);
-let salud: SaludConexionGmail = {
-  estado: "sin_conexion",
-  cuentaEmail: null,
-  requiereReconexion: false,
-  avisoDueño: null,
-  watchActivo: false,
-  watchExpiraAt: null,
-  ultimaIngestaAt: null,
-  jobsPendientes: 0,
-};
 let dueno = false;
 let emailDueno = "";
 if (tenant.ok) {
-  salud = await leerSaludConexionGmail(tenant.tenantId);
   const sesion = resolverSesion(Astro.request);
   if (sesion) {
     dueno = esDueno(tenant.tenantId, sesion.googleSub);
     emailDueno = control.users.get(sesion.googleSub)?.email ?? "";
   }
 }
-
-const conectada = salud.estado === "activa";
-const mostrarConectar = salud.estado === "sin_conexion" || salud.requiereReconexion;
-const vista = vistaModoPruebaGmail({
-  decision: decidirInicioGmail({ email: emailDueno }),
-  hayConexion: salud.estado !== "sin_conexion",
-  esDueno: dueno,
-});
+const decision = decidirInicioGmail({ email: emailDueno });
 ---
 <PanelShell titulo="Gmail" subtitulo="Conectá la casilla que recibe las facturas de servicios.">
-  <section class="card" id="salud-gmail" data-estado={salud.estado}>
-    <h2>Estado de la conexión</h2>
-    {salud.estado === "sin_conexion" ? (
-      <p>Todavía no conectaste Gmail para este comercio.</p>
-    ) : (
-      <>
-        <p><strong>Cuenta:</strong> {salud.cuentaEmail}</p>
-        <p><strong>Estado:</strong> {salud.estado === "activa" ? "Activa" : salud.estado === "error" ? "Error transitorio" : "Revocada / hay que reconectar"}</p>
-        {salud.watchActivo ? (
-          <p>Notificaciones push activas{salud.watchExpiraAt ? ` (renovación ~ ${new Date(salud.watchExpiraAt).toLocaleString("es-AR")})` : ""}.</p>
-        ) : conectada ? (
-          <p>Watch de Gmail no activo todavía o vencido; la ingesta puede usar polling.</p>
-        ) : null}
-        {salud.ultimaIngestaAt ? (
-          <p>Última actividad de ingesta (solo metadatos): {new Date(salud.ultimaIngestaAt).toLocaleString("es-AR")}.</p>
-        ) : (
-          <p>Sin ingesta registrada todavía para este comercio.</p>
-        )}
-        {salud.jobsPendientes > 0 ? (
-          <p>Trabajos de ingesta en cola: {salud.jobsPendientes}.</p>
-        ) : null}
-        {salud.avisoDueño ? (
-          <p class="aviso-alerta" role="status">{salud.avisoDueño}</p>
-        ) : null}
-        {!mostrarConectar && vista.textoRefresh7Dias ? (
-          <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
-        ) : null}
-      </>
-    )}
-    {dueno && conectada ? (
-      <form id="form-desconectar-gmail" method="post" action="/api/integrations/disconnect">
-        <button type="submit" id="desconectar-gmail">Desconectar Gmail</button>
-      </form>
-    ) : null}
-    {dueno && salud.estado !== "sin_conexion" ? (
-      <p class="nav-remitentes"><a href="/panel/integraciones-remitentes">Administrar remitentes</a></p>
-    ) : null}
-    <p id="aviso-desconexion" class="aviso" role="status" hidden></p>
-  </section>
-
-  {mostrarConectar && vista.textoLimite ? (
-    <section class="card" id="limite-lista-prueba">
-      <h2>Modo prueba</h2>
-      <p>{vista.textoLimite}</p>
-      {vista.textoRefresh7Dias ? (
-        <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
-      ) : null}
+  {!tenant.ok ? (
+    <section class="card" id="salud-gmail">
+      <h2>Estado de la conexión</h2>
+      <p>Iniciá sesión para ver la conexión de Gmail.</p>
     </section>
-  ) : null}
-
-  {mostrarConectar && vista.mostrarFormulario ? (
-    <section class="card" id="consentimiento-gmail">
-      <h2>Qué permite esta conexión</h2>
-      <p>
-        Leemos los mails de la casilla que conectás, con permiso de solo lectura. El permiso de Google
-        alcanza a toda la casilla. La app filtra por remitente, pero el acceso técnico es amplio.
-      </p>
-      <p>
-        Guardamos la cuenta, los permisos otorgados y un token de renovación cifrado. No enviamos mail,
-        no borramos mail y no pedimos permiso para modificar la casilla.
-      </p>
-      <p>
-        Un adjunto que pases a lectura de factura puede verlo el servicio de OCR que use el comercio.
-        Podés desconectar después. Al desconectar se revoca el token en Google y se descarta la cola pendiente.
-      </p>
-      {vista.textoRefresh7Dias ? (
-        <p id="aviso-refresh-7-dias" class="aviso-alerta" role="status">{vista.textoRefresh7Dias}</p>
-      ) : null}
-
-      <form id="form-gmail" method="post" action="/api/integrations/start">
-        <input type="hidden" name="tipo" value="gmail" />
-        <input type="hidden" name="consentimiento_version" value={CONSENTIMIENTO_GOOGLE_VERSION} />
-        <label class="acepto" for="acepto-gmail">
-          <input id="acepto-gmail" name="acepto" type="checkbox" value="si" />
-          Leí el texto y acepto conectar Gmail.
-        </label>
-        <p id="aviso-rol" class="aviso" hidden>Solo el dueño del comercio puede conectar Gmail.</p>
-        <p id="aviso-envio" class="aviso" role="status"></p>
-        <button id="conectar-gmail" type="submit" disabled>Conectar Gmail</button>
-      </form>
-    </section>
-  ) : null}
-
+  ) : (
+    <IntegracionGmail server:defer tenantId={tenant.tenantId} dueno={dueno} decision={decision}>
+      <section class="card" id="gmail-skeleton" data-cargando="gmail" aria-busy="true" slot="fallback">
+        <h2>Estado de la conexión</h2>
+        <p>Cargando el estado de Gmail…</p>
+      </section>
+    </IntegracionGmail>
+  )}
 </PanelShell>
-
-<style>
-  .acepto { display: flex; gap: 12px; align-items: center; min-height: 44px; }
-  #acepto-gmail { width: 20px; min-width: 20px; height: 20px; min-height: 20px; padding: 0; flex: 0 0 auto; }
-  .aviso { color: var(--tema-texto-suave); margin: 0; }
-  .aviso-alerta { color: var(--tema-alerta, #b45309); margin: 0.5rem 0 0; }
-  #conectar-gmail:disabled { cursor: not-allowed; opacity: 0.45; }
-  .nav-remitentes { margin-top: 0.75rem; }
-</style>
-
-<script>
-  import { limpiarErrores, mostrarErrores } from "../../lib/errores-campo-dom.js";
-
-  const form = document.getElementById("form-gmail");
-  const aceptar = document.getElementById("acepto-gmail");
-  const boton = document.getElementById("conectar-gmail");
-  const avisoRol = document.getElementById("aviso-rol");
-  const avisoEnvio = document.getElementById("aviso-envio");
-  const formDesconectar = document.getElementById("form-desconectar-gmail");
-  const avisoDesconexion = document.getElementById("aviso-desconexion");
-
-  if (formDesconectar instanceof HTMLFormElement && avisoDesconexion) {
-    formDesconectar.addEventListener("submit", async (evento) => {
-      evento.preventDefault();
-      avisoDesconexion.hidden = false;
-      avisoDesconexion.textContent = "Desconectando…";
-      try {
-        const respuesta = await fetch("/api/integrations/disconnect", { method: "POST", credentials: "include" });
-        let datos: { error?: string } = {};
-        try {
-          datos = (await respuesta.json()) as { error?: string };
-        } catch {
-          avisoDesconexion.textContent = "No se pudo desconectar.";
-          return;
-        }
-        if (!respuesta.ok) {
-          avisoDesconexion.textContent = typeof datos.error === "string" ? datos.error : "No se pudo desconectar.";
-          return;
-        }
-        window.location.reload();
-      } catch {
-        avisoDesconexion.textContent = "No se pudo desconectar. Probá de nuevo.";
-      }
-    });
-  }
-
-  if (form instanceof HTMLFormElement && aceptar instanceof HTMLInputElement && boton instanceof HTMLButtonElement && avisoRol && avisoEnvio) {
-    const puedeEnviar = () => {
-      boton.disabled = !(form.dataset.dueno === "1" && aceptar.checked);
-    };
-
-    aceptar.addEventListener("change", () => {
-      limpiarErrores(form);
-      avisoEnvio.textContent = "";
-      puedeEnviar();
-    });
-
-    form.addEventListener("submit", (evento) => {
-      if (form.dataset.dueno !== "1" || !aceptar.checked) {
-        evento.preventDefault();
-        if (form.dataset.dueno === "1") {
-          avisoEnvio.textContent = "";
-          mostrarErrores(form, { acepto: "Aceptá el texto antes de conectar." });
-        } else {
-          avisoEnvio.textContent = "Solo el dueño del comercio puede conectar Gmail.";
-        }
-      }
-    });
-
-    fetch("/api/panel/indice")
-      .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
-      .then((datos) => {
-        const dueno =
-          typeof datos === "object" &&
-          datos !== null &&
-          "rol" in datos &&
-          datos.rol === "dueno";
-        form.dataset.dueno = dueno ? "1" : "0";
-        if (!dueno) {
-          aceptar.disabled = true;
-          avisoRol.hidden = false;
-        }
-        puedeEnviar();
-      })
-      .catch(() => {
-        form.dataset.dueno = "0";
-        aceptar.disabled = true;
-        avisoRol.hidden = false;
-        puedeEnviar();
-      });
-  }
-</script>

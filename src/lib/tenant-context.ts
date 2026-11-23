@@ -76,6 +76,14 @@ export function esRutaDatos(path: string): boolean {
   return PREFIJOS_DATOS.some((p) => path === p || path.startsWith(`${p}/`));
 }
 
+// NAV-S2 [tenant]: las server islands no pasan por el middleware de páginas;
+// validan sesión + membership antes de devolver datos del comercio.
+export function puedeVerTenantDeRequest(request: Request, tenantId: string): boolean {
+  if (esSingle()) return true;
+  const ctx = resolverSesion(request);
+  return Boolean(ctx && membershipActiva(tenantId, ctx.googleSub));
+}
+
 const METODOS_ESCRITURA: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // SUSP-GATE-1 (blocker 5 de la auditoría de venta): la suspensión por mora

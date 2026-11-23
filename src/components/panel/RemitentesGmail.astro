@@ -1,0 +1,85 @@
+---
+import {
+  listarRemitentesIngesta,
+  type RemitenteIngestaPanel,
+} from "../../lib/repos/gmail-ingesta.js";
+import { puedeVerTenantDeRequest } from "../../lib/tenant-context.js";
+import RemitentesVacio from "./RemitentesVacio.astro";
+
+interface Props {
+  tenantId: string;
+  dueno: boolean;
+  aviso?: string;
+}
+
+const { tenantId, dueno, aviso = "" } = Astro.props;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+const autorizado = puedeVerTenantDeRequest(Astro.request, tenantId);
+if (!autorizado) Astro.response.status = 403;
+// NAV-S2 [plataforma]: la lista se pide después del primer byte, en su propia isla.
+let remitentes: ReadonlyArray<RemitenteIngestaPanel> = [];
+let errorCarga = false;
+if (autorizado) {
+  try {
+    remitentes = await listarRemitentesIngesta(tenantId);
+  } catch {
+    errorCarga = true;
+  }
+}
+---
+
+{!autorizado ? null : errorCarga ? (
+  <section class="card" id="remitentes-error" data-estado="error_carga">
+    <h2>Remitentes configurados</h2>
+    <p>No se pudieron cargar los remitentes. Probá de nuevo en unos minutos.</p>
+  </section>
+) : (
+  <>
+{!dueno ? (
+  <p class="aviso">Solo el dueño puede pausar o activar remitentes.</p>
+) : aviso ? (
+  <p class="aviso" role="status">{aviso}</p>
+) : null}
+
+{remitentes.length === 0 ? (
+  <RemitentesVacio />
+) : (
+  <section class="card">
+    <h2>Remitentes configurados</h2>
+    <ul class="lista-remitentes">
+      {remitentes.map((r) => (
+        <li>
+          <div class="info">
+            <strong>{r.remitente}</strong>
+            {r.servicio ? <span class="meta"> · {r.servicio}</span> : null}
+            {r.proveedor ? <span class="meta"> ({r.proveedor})</span> : null}
+            <span class={`estado ${r.activo ? "activo" : "pausado"}`}>
+              {r.activo ? "Activo" : "Pausado"}
+            </span>
+          </div>
+          {dueno ? (
+            <form method="post">
+              <input type="hidden" name="filtro_id" value={r.id} />
+              <button type="submit" name="accion" value={r.activo ? "pausar" : "activar"}>
+                {r.activo ? "Pausar" : "Activar"}
+              </button>
+            </form>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+  </>
+)}
+
+<style>
+  .aviso { color: var(--tema-texto-suave); }
+  .lista-remitentes { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .lista-remitentes li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .meta { color: var(--tema-texto-suave); font-size: 0.95rem; }
+  .estado { margin-left: 8px; font-size: 0.9rem; }
+  .estado.activo { color: var(--tema-ok, #15803d); }
+  .estado.pausado { color: var(--tema-texto-suave); }
+</style>

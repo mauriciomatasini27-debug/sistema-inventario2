@@ -2,7 +2,7 @@
 id: PRD-NAV-01
 tipo: prd
 estado: propuesto
-modulos: [admin, landing]
+modulos: [admin, landing, panel]
 depende_de: [ADR-0130]
 reemplaza: []
 reemplazado_por: ""
@@ -14,7 +14,7 @@ resumen: Navegación entre rutas sin freeze: prefetch + View Transitions de Astr
 
 Fuente: bug reportado "al cambiar de ruta la UI se tilda". Restringido por ADR-0130.
 
-> Estado al 2026-11-23: NAV-S1 implementado con prefetch y View Transitions cross-document nativas. La navegación ya no muestra el blanco entre rutas y sin JS sigue siendo MPA; el full reload de base se mantiene (desvío del AC, ver Evidencia NAV-S1). NAV-S2 pendiente.
+> Estado al 2026-11-23: NAV-S1 implementado con prefetch y View Transitions cross-document nativas. La navegación ya no muestra el blanco entre rutas y sin JS sigue siendo MPA; el full reload de base se mantiene (desvío del AC, ver Evidencia NAV-S1). NAV-S2 implementado: salud de Gmail y remitentes salen del frontmatter y se renderizan en server islands con skeleton; el primer byte ya no espera la base.
 
 ## Problema
 
@@ -54,3 +54,12 @@ Medición con `npm run medir:navegacion -- --base-url <url> --latencia 150 --cor
 
 Lectura: la View Transition se dispara y el panel sigue navegando sin JS. El LCP sube 20–28 ms (3–4 %) por el snapshot cross-document; no se pudo verificar el ahorro real del prefetch porque el dev server de Astro no cachea el HTML. El AC "evita el full reload" no se cumple al pie de la letra: la navegación sigue siendo cross-document (decisión de ADR-0130 para no romper los scripts), pero ya no muestra el blanco y queda cubierta por la transición. Repetir la medición contra el deploy queda como pendiente del ADR.
 
+## Evidencia NAV-S2 (2026-11-23)
+
+Método: el HTML de `/panel/integraciones` y `/panel/integraciones-remitentes` ya no hace `await` a la base en el frontmatter. Cada consulta lenta vive en una server island (`server:defer`) con un fallback `aria-busy="true"`; la página resuelve sesión/tenant/rol de forma síncrona, como antes.
+
+- `tests/navegacion-nav-s2.test.ts`: guarda estática que falla si vuelve un `await` de datos en el frontmatter de las páginas, si desaparece el fallback o si `PanelShell.astro` empieza a esperar algo.
+- `tests/e2e/nav-s2-islas.spec.ts`: retiene la request a `/_server-islands/**`, comprueba que el skeleton está visible antes de liberarla y que después aparece el contenido de la isla. En Gmail también comprueba que el script de la isla se ejecuta (sin sesión de Dueño, el checkbox queda deshabilitado).
+- Las islas responden `Cache-Control: private, no-store`, reciben el tenant ya autorizado por la página y validan sesión + membership en el request de la isla; en single conservan el acceso legado sin sesión.
+
+No se midió TTFB contra una base lenta: la prueba es de orden de render (skeleton antes de la isla), no una medición de latencia. Repetir la medición con latencia de base queda como pendiente del ADR.
