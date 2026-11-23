@@ -39,15 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
   const next = { ...confirmar_delegacion({ ...wizard_inicial(), ...cur }) };
   await guardarWizardEstado(tenantId, next);
   const clave = `delegacion:${tenantId}:${b.cuit}`;
-  try {
-    if (process.env.CONTROL_DATABASE_URL) {
-      const { getControlDb } = await import("../../../lib/db.js");
-      const { fiscalJobs } = await import("../../../db/schema.js");
-      await getControlDb().insert(fiscalJobs).values({ clave, tenantId }).onConflictDoNothing();
-    }
-  } catch {
-    /* sin control viva la clave derivada manda */
-  }
+  // ADR-0125: la tabla fiscal_jobs real no tiene `clave` (id + fiscal_document_id),
+  // así que la tarea se identifica por la clave derivada que devuelve esta respuesta.
   const vista = enriquecer_vista_wizard(tenantId, next);
   return Response.json(
     {

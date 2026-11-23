@@ -11,7 +11,7 @@ export const fiscalComputers = pgTable("fiscal_computers", {
   certPem: text("cert_pem").notNull(),
   keyCiphertext: text("key_ciphertext").notNull(),
   kmsKeyId: text("kms_key_id").notNull(),
-  notAfter: timestamp("not_after"),
+  notAfter: timestamp("not_after", { withTimezone: true }),
 });
 
 export const arcaTokens = pgTable("arca_tokens", {
@@ -20,8 +20,8 @@ export const arcaTokens = pgTable("arca_tokens", {
   ambiente: text("ambiente").notNull(),
   tokenCiphertext: text("token_ciphertext").notNull(),
   signCiphertext: text("sign_ciphertext").notNull(),
-  expiration: timestamp("expiration").notNull(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  expiration: timestamp("expiration", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const tenantFiscalLinks = pgTable("tenant_fiscal_links", {
@@ -43,7 +43,7 @@ export const fiscalJobs = pgTable("fiscal_jobs", {
   fiscalDocumentId: uuid("fiscal_document_id").notNull(),
   estado: text("estado").notNull().default("pendiente"),
   intentos: bigint("intentos", { mode: "number" }).notNull().default(0),
-  proximoIntento: timestamp("proximo_intento"),
+  proximoIntento: timestamp("proximo_intento", { withTimezone: true }),
 });
 
 // FE-S21: pedido/respuesta ARCA sin token ni sign. Hoy el archivo vive en memoria
