@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 // RETRO-03: el gate de ids de comentarios va primero para fallar temprano.
 // RETRO-AUD-01: issues-locales va primero: un avance `hecho` con el issue abierto
 // se detecta antes de gastar el resto del verify.
-export const PASOS_CI = ["comentarios", "issues-locales", "typecheck", "arch", "test", "skips", "build"];
+export const PASOS_CI = ["comentarios", "issues-locales", "typecheck", "arch", "columnas", "test", "skips", "build"];
 // DOCS-GATE-CHECK: los --check van antes de los writers para que el gate
 // falle nombrando el comando en vez de regenerar callado.
 export const PASOS_DOCS = ["docs:generados", "docs:comentarios-check", "docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check", "docs:migraciones", "roadmap", "docs:estado", "docs:index", "docs:check"];
@@ -26,6 +26,7 @@ const DEFS = {
   "issues-locales": { node: "scripts/verificar-issues-locales.mjs" },
   typecheck: { script: "typecheck" },
   arch: { script: "check:arch" },
+  columnas: { script: "check:columnas" },
   test: {
     script: "test",
     extra: ["--", "--reporter=default", "--reporter=json", "--outputFile=vitest-report.json"],

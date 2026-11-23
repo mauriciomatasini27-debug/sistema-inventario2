@@ -11,6 +11,7 @@
     "db:migrate:kit": "drizzle-kit migrate",
     "db:migrate:check": "node scripts/db-migrate.mjs --check",
     "audit:db": "node scripts/audit-db.mjs",
+    "check:columnas": "node scripts/check-columnas.mjs",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:e2e": "playwright test",

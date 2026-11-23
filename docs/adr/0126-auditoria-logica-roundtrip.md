@@ -31,4 +31,13 @@ El código puede compilar y aun así referenciar columnas que no existen en la b
 ## Pendientes
 
 - Definir la lista exacta de módulos críticos de la primera pasada.
-- Decidir si el check estático falla `verify` ante una referencia inexistente o solo avisa.
+- (Resuelto en AUD-S3) El check estático falla `verify` ante una referencia inexistente; ver abajo.
+
+## Implementación (AUD-S3)
+
+- `npm run check:columnas` entra en `verify` (paso `columnas`, después de `arch`): **falla** ante una referencia a tabla o columna que no exista en `src/db/schema*.ts`, y nombra `archivo:línea`. Con el árbol actual da 0 hallazgos sobre 612 archivos y 126 tablas. Falta sumarlo a `.github/workflows/ci.yml`, que hoy es manual-only: el token del agente no tiene scope `workflow`.
+- Alcance: SQL crudo de `src/`, no las queries de Drizzle (esas ya las valida `tsc`). Resuelve las interpolaciones `${tabla}` y `${tabla.propiedad}` a `"tabla"` y `"tabla"."columna"` contra los exports del schema, y parsea las sentencias completas: tabla de `from|join|into|update`, columnas calificadas por alias, lista de columnas del `insert`, destinos del `set` y columnas sin calificar cuando la sentencia toca una única tabla real.
+- Lo que no cubre, a propósito para no dar falsos positivos: columnas sueltas dentro de un fragmento (`sql\`estado = 'pendiente'\`` armado con `sql.join`; las interpolaciones de columnas del schema en ese fragmento sí se validan), fuentes que son CTE (`from ranked`), joins con columnas sin calificar (ambiguas) y SQL armado en runtime con `sql.raw`.
+- Los `sql\`` de `src/db/schema*.ts` no se escanean: ese archivo es la referencia.
+- Lógica pura en `scripts/check-columnas-lib.mjs` con tests en `tests/check-columnas.test.ts`; el CLI solo recorre archivos y arma la salida.
+
