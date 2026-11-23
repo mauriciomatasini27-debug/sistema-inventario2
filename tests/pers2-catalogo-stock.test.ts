@@ -7,6 +7,7 @@ import { conTenant } from "../src/lib/tenant-mode.js";
 import { getTenantDb } from "../src/lib/db.js";
 import { products, stockMovements } from "../src/db/schema.js";
 import { purchaseOrders, purchaseOrderLines } from "../src/db/schema-proveedores.js";
+import { serviceAccounts } from "../src/db/schema-servicios.js";
 import { GET as getProducts, POST as postProducts, PATCH as patchProducts } from "../src/pages/api/products.js";
 import { GET as getLocations, POST as postLocations } from "../src/pages/api/locations.js";
 import { GET as getLots, POST as postLots } from "../src/pages/api/lots.js";
@@ -227,6 +228,32 @@ describe.skipIf(!hayPG)("PERS2-S23/S24 multi con PG local: ordenes y stock aisla
     delete process.env.TENANT_MODE;
     delete process.env["TENANT_DATABASE_URL_tenant-a"];
     delete process.env["TENANT_DATABASE_URL_tenant-b"];
+  });
+
+  it("AUD-FIX-S6: alias, email de origen y día de vencimiento se persisten", async () => {
+    fijarMulti();
+    const alias = `kiosco-gas-${sufijoPG}`;
+    const cuerpo = {
+      servicio: "gas",
+      proveedor: "Metrogas",
+      titular: "Kiosco Centro",
+      alias,
+      email_origen: "gas@kiosco.test",
+      vencimiento_tipico_dia: 10,
+    };
+    const r = await conTenant("tenant-a", () =>
+      postAccounts(ctx("http://x/api/service-accounts", { body: cuerpo })),
+    );
+    expect((r as Response).status).toBe(201);
+    const filas = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      return db.select().from(serviceAccounts).where(eq(serviceAccounts.alias, alias));
+    });
+    expect(filas[0]).toMatchObject({ emailOrigen: "gas@kiosco.test", vencimientoTipicoDia: 10 });
+    await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      await db.delete(serviceAccounts).where(eq(serviceAccounts.alias, alias));
+    });
   });
 
   it("orden creada y cerrada en A queda en purchase_orders de A y B no la ve", async () => {

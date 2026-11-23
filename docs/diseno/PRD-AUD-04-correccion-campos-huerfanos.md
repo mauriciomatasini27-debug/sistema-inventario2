@@ -37,6 +37,18 @@ Requisito AUD-R4: ningún campo huérfano de la primera pasada queda sin resolve
 - Historia AUD-FIX-S7. Fiscal: decidir el modo de primera factura en memoria (#480). AC: Given el
   modo When se elige Then se persiste o se acepta en memoria con justificación. ADR: 0129. Talla S.
 
+## Decisiones de implementación (2026-11-23)
+
+Aprobadas por Mauri:
+
+- S3: persistir `cash_movements.nota`.
+- S4: persistir `products.controla_vencimiento`.
+- S5: quitar `permisos[]` del payload de alta; no tenía consumidor y los permisos se resuelven desde la sesión.
+- S6: persistir alias, email de origen y día de vencimiento en `service_accounts`; el schema ya los tenía, la UI ahora los manda.
+- S7: persistir `fiscal_wizard.modo_primera_factura`.
+
+La migración es `0061_campos_huerfanos` para S3, S4 y S7. S5 no lleva columna y S6 no necesitó migración.
+
 ## Dependencias externas
 
 Migraciones nuevas para los hallazgos "persistir": aprobadas por Mauri y registradas en

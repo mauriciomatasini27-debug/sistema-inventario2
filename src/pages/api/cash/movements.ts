@@ -36,6 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
     origen: b.origen,
     sale_id: b.sale_id,
     monto_centavos: b.monto_centavos,
+    nota: b.nota,
     rol,
     actor,
   });

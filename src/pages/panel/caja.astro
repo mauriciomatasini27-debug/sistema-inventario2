@@ -20,7 +20,7 @@ const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
     <section class="card">
       <h2>Últimos movimientos</h2>
       <table>
-        <thead><tr><th>Id</th><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th></tr></thead>
+        <thead><tr><th>Id</th><th>Tipo</th><th>Medio</th><th>Importe</th><th>Origen</th><th>Nota</th></tr></thead>
         <tbody id="mov-body"></tbody>
       </table>
       <div class="estado" id="estado-movs" role="status">Cargando…</div>
@@ -75,6 +75,9 @@ const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
             <input id="mov-monto" data-campo="monto_centavos" type="number" min="1" step="1" inputmode="numeric" value="1000" />
           </label>
         </div>
+        <label>Nota (opcional)
+          <input id="mov-nota" data-campo="nota" type="text" maxlength="280" autocomplete="off" />
+        </label>
         <button id="mov-enviar" type="submit">Registrar</button>
         <div class="estado" id="estado-form" role="status">Completá el monto y registrá.</div>
       </form>
@@ -280,7 +283,7 @@ const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
         const tb = $("mov-body");
         tb.textContent = "";
         // P1-50: el id queda en la fila para copiarlo en revierte_a.
-        items.forEach((m) => tb.appendChild(celdas([m.id, m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])));
+        items.forEach((m) => tb.appendChild(celdas([m.id, m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen, m.nota ?? ""])));
         $("estado-movs").textContent = mensaje(
           derivarEstado({ cargando: false, error: false, items: items.length }),
           "Sin movimientos registrados.",
@@ -424,6 +427,7 @@ const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
     const estado = $("estado-form");
     const form = $("mov-form");
     const monto = Number($("mov-monto").value);
+    const nota = $("mov-nota").value.trim();
     if (!Number.isInteger(monto) || monto <= 0) {
       mostrarErrores(form, { monto_centavos: mensajeCampo("monto_centavos", MONTO) });
       estado.textContent = "Revisá los campos marcados.";
@@ -448,6 +452,7 @@ const verSaldo = puedeVerSaldoCaja(navRol.rol, navRol.permisos);
           categoria_id: "manual",
           origen: $("mov-origen").value,
           monto_centavos: Number($("mov-monto").value),
+          ...(nota ? { nota } : {}),
           device_code: "panel-web",
           seq_local: Date.now(),
           client_occurred_at: new Date().toISOString(),

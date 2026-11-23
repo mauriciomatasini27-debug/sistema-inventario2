@@ -73,6 +73,7 @@ function filaAMovimientoStore(f: FilaMovimientoCaja): StoredMovement {
     monto_centavos: f.montoCentavos.toString(),
     origen: f.origen,
     ...(f.saleId !== null ? { sale_id: f.saleId } : {}),
+    ...(f.nota !== null ? { nota: f.nota } : {}),
     idempotency_key: f.idempotencyKey,
   };
 }

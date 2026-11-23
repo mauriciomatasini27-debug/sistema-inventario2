@@ -64,6 +64,7 @@ export const POST: APIRoute = async ({ request }) => {
       return Response.json({ error: "delegacion_no_activa" }, { status: 422 });
     }
     elegir_modo_primera_factura(tenantId, modo);
+    next = { ...next, modoPrimeraFactura: modo };
   }
   const final = await guardarWizardEstado(tenantId, next);
   return Response.json(enriquecer_vista_wizard(tenantId, final), { status: 200 });

@@ -83,5 +83,6 @@ export const fiscalWizard = pgTable("fiscal_wizard", {
   paso: integer("paso").notNull().default(0),
   delegacion: text("delegacion").notNull().default("pendiente"),
   pausaEn: integer("pausa_en"),
+  modoPrimeraFactura: text("modo_primera_factura"),
   actualizadoEn: timestamp("actualizado_en").notNull().defaultNow(),
 });

@@ -16,7 +16,7 @@ describe("P1-50: el dueño revierte un movimiento desde /panel/caja", () => {
   it("la tabla de últimos movimientos muestra el id para pegarlo en revierte_a", () => {
     expect(caja).toContain("<th>Id</th>");
     const historial = bloque("const cargarMovimientos", "const cargarVencimientos");
-    expect(historial).toContain("celdas([m.id, m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen])");
+    expect(historial).toContain('celdas([m.id, m.tipo, m.metodo, formatearCentavos(m.monto_centavos), m.origen, m.nota ?? ""])');
   });
 
   it("la tarjeta pide el id, el motivo y quién lo carga, con actor panel-web", () => {

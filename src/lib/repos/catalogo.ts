@@ -55,6 +55,7 @@ function fichaDeFila(
   locationId: string | null = null,
   umbrales: { minStock: number | null; reorderQty: number | null } | null = null,
   porPeso = false,
+  controlaVencimiento = false,
 ): FichaProducto {
   return {
     sku: f.sku,
@@ -64,7 +65,7 @@ function fichaDeFila(
     sector,
     locationId,
     archivado: false,
-    controlaVencimiento: false,
+    controlaVencimiento,
     estado: "activo",
     minStock: umbrales?.minStock ?? null,
     reorderQty: umbrales?.reorderQty ?? null,
@@ -154,6 +155,37 @@ async function fijarPorPesoDb(db: TenantDb, sku: string, porPeso: boolean): Prom
     await db.update(products).set({ porPeso }).where(wSku ?? eq(products.sku, sku));
   } catch (e) {
     if (!esColumnaPorPesoFaltante(e)) throw e;
+  }
+}
+
+function esColumnaControlaVencimientoFaltante(e: unknown): boolean {
+  if (typeof (e as { code?: unknown }).code === "string" && (e as { code: string }).code === "42703") return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("controla_vencimiento");
+}
+
+async function controlaVencimientoDb(db: TenantDb, skus: readonly string[]): Promise<Map<string, boolean>> {
+  const mapa = new Map<string, boolean>();
+  if (skus.length === 0) return mapa;
+  try {
+    const wSkus = dondeTenant(products.tenantId, inArray(products.sku, [...skus]));
+    const filas = await db
+      .select({ sku: products.sku, controlaVencimiento: products.controlaVencimiento })
+      .from(products)
+      .where(wSkus ?? inArray(products.sku, [...skus]));
+    for (const f of filas) mapa.set(f.sku, f.controlaVencimiento);
+  } catch (e) {
+    if (!esColumnaControlaVencimientoFaltante(e)) throw e;
+  }
+  return mapa;
+}
+
+async function fijarControlaVencimientoDb(db: TenantDb, sku: string, controlaVencimiento: boolean): Promise<void> {
+  try {
+    const wSku = dondeTenant(products.tenantId, eq(products.sku, sku));
+    await db.update(products).set({ controlaVencimiento }).where(wSku ?? eq(products.sku, sku));
+  } catch (e) {
+    if (!esColumnaControlaVencimientoFaltante(e)) throw e;
   }
 }
 
@@ -262,8 +294,16 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
     // escritura más reciente del proceso; la DB rellena lo sin espejo.
     const umDb = enMem ? null : (await umbralesDb(db, [p.sku])).get(p.sku) ?? null;
     const ppDb = enMem ? undefined : (await porPesoDb(db, [p.sku])).get(p.sku);
+    const cvDb = enMem ? undefined : (await controlaVencimientoDb(db, [p.sku])).get(p.sku);
     const ficha: FichaProducto = {
-      ...fichaDeFila(p, enMem?.sector ?? normalizarSector(p.sector), enMem?.locationId ?? ubicDb, enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb, enMem?.porPeso ?? ppDb),
+      ...fichaDeFila(
+        p,
+        enMem?.sector ?? normalizarSector(p.sector),
+        enMem?.locationId ?? ubicDb,
+        enMem ? { minStock: enMem.minStock, reorderQty: enMem.reorderQty } : umDb,
+        enMem?.porPeso ?? ppDb,
+        enMem?.controlaVencimiento ?? cvDb ?? false,
+      ),
       estado: enMem?.estado ?? "activo",
     };
     const recientes = await fotosRecientesDb(db, [ficha.sku]);
@@ -310,8 +350,24 @@ export async function listarProductos(q: string): Promise<{ fichas: FichaListado
       db,
       filas.map((f) => f.sku),
     );
+    const cvDb = await controlaVencimientoDb(
+      db,
+      filas.map((f) => f.sku),
+    );
     for (const f of filas) {
-      if (!union.has(f.sku)) union.set(f.sku, fichaDeFila(f, normalizarSector(f.sector), ubicDb.get(f.sku) ?? null, umDb.get(f.sku) ?? null, ppDb.get(f.sku) ?? false));
+      if (!union.has(f.sku)) {
+        union.set(
+          f.sku,
+          fichaDeFila(
+            f,
+            normalizarSector(f.sector),
+            ubicDb.get(f.sku) ?? null,
+            umDb.get(f.sku) ?? null,
+            ppDb.get(f.sku) ?? false,
+            cvDb.get(f.sku) ?? false,
+          ),
+        );
+      }
     }
     let lista = [...union.values()];
     if (lista.length === 0 && existencias.contiene("demo-sku-1")) {
@@ -472,6 +528,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
       await fijarUmbralesDb(db, sku, { minStock: ficha.minStock, reorderQty: ficha.reorderQty });
     }
     if (ficha.porPeso) await fijarPorPesoDb(db, sku, true);
+    if (ficha.controlaVencimiento) await fijarControlaVencimientoDb(db, sku, true);
     espejoProducto(ficha, cod, input.foto, productos, existencias, precios, sectores, codigos, fotos);
     return { ok: true, ficha, fuente: "db" };
   } catch (e) {
@@ -601,7 +658,18 @@ export async function actualizarProducto(sku: string, parche: ParcheProducto): P
       .where(eq(products.sku, sku))
       .limit(1);
     const fila = filas[0];
-    const base = enMemoria ?? (fila ? fichaDeFila(fila, normalizarSector(fila.sector), (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null, (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null, (await porPesoDb(db, [fila.sku])).get(fila.sku) ?? false) : null);
+    const base =
+      enMemoria ??
+      (fila
+        ? fichaDeFila(
+            fila,
+            normalizarSector(fila.sector),
+            (await ubicacionesDb(db, [fila.sku])).get(fila.sku) ?? null,
+            (await umbralesDb(db, [fila.sku])).get(fila.sku) ?? null,
+            (await porPesoDb(db, [fila.sku])).get(fila.sku) ?? false,
+            (await controlaVencimientoDb(db, [fila.sku])).get(fila.sku) ?? false,
+          )
+        : null);
     if (!base) return { ok: false, codigo: "DESCONOCIDO", error: "desconocido" };
     if (await flagPorPesoCambiaConVentas(base, parche, db, sku)) {
       return { ok: false, codigo: "FLAG_IRREVERSIBLE", error: "No se puede cambiar 'se vende por peso': los tickets históricos quedarían sin sentido." };

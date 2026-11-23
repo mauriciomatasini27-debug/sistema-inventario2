@@ -256,6 +256,29 @@ describe.skipIf(!hayPG)("PERS2-S12/S13 multi con PG local: caja de A aislada de 
     expect(filasB.length).toBe(0);
   });
 
+  it("AUD-FIX-S3: la nota del movimiento se persiste en cash_movements", async () => {
+    fijarMulti();
+    const key = `pers2-caja-nota-${sufijoPG}`;
+    const r = await conTenant("tenant-a", () =>
+      postMovements(
+        ctx("http://x/api/cash/movements", {
+          body: { ...movimientoBody(12), nota: "ajuste de arqueo" },
+          headers: { "Idempotency-Key": key },
+        }),
+      ),
+    );
+    expect((r as Response).status).toBe(201);
+    const filas = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      return db.select({ nota: cashMovements.nota }).from(cashMovements).where(eq(cashMovements.idempotencyKey, key));
+    });
+    expect(filas[0]?.nota).toBe("ajuste de arqueo");
+    await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      await db.delete(cashMovements).where(eq(cashMovements.idempotencyKey, key));
+    });
+  });
+
   it("la misma key de retiro en B crea su propia fila (sin colision)", async () => {
     fijarMulti();
     const body = { fecha_jornada: "2026-10-10", monto_centavos: 50000, creado_por: "duena" };
