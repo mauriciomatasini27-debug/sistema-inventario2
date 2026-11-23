@@ -84,6 +84,20 @@ describe("audit:db · parseo de src/db/schema*.ts", () => {
     expect(tablas.device_pins.columnas.tenant_id.notNull).toBe(true);
   });
 
+  it("ignora $type<> y sigue leyendo notNull y defaults de la cadena", () => {
+    const { tablas } = esquema(`
+      import { jsonb, pgTable, text } from "drizzle-orm/pg-core";
+      export const t = pgTable("t", {
+        a: jsonb("a").$type<{ id: string }>().notNull(),
+        b: jsonb("b").$type<Record<string, string>>().notNull().default({}),
+        c: text("c").$type<string[]>().notNull().default([]),
+      });
+    `);
+    expect(tablas.t.columnas.a).toMatchObject({ tipo: "jsonb", notNull: true });
+    expect(tablas.t.columnas.b).toMatchObject({ notNull: true, default: "{}" });
+    expect(tablas.t.columnas.c).toMatchObject({ notNull: true, default: "[]" });
+  });
+
   it("fusiona tablas de varios archivos sin pisar índices", () => {
     const a = esquema(`export const x = pgTable("x", { id: text("id").primaryKey() }, (t) => [uniqueIndex("x_id_uq").on(t.id)]);`);
     const b = esquema(`export const y = pgTable("y", { id: text("id") });`);
@@ -143,6 +157,42 @@ describe("audit:db · parseo de drizzle/*.sql", () => {
     );
     expect(estado.tablas.t.indices.t_id_uq.unique).toBe(true);
     expect(estado.tablas.t.indices.t_id_idx.parcial).toBe(true);
+  });
+
+  it("registra el UNIQUE con nombre en la línea de la columna", () => {
+    const estado = migraciones(`CREATE TABLE "t" ("hash" text NOT NULL CONSTRAINT "t_hash_unique" UNIQUE, "id" uuid);`);
+    expect(estado.tablas.t.indices.t_hash_unique).toMatchObject({ columnas: ["hash"], unique: true, parcial: false });
+  });
+
+  it("registra el índice creado dentro de un bloque DO", () => {
+    const estado = migraciones(`CREATE TABLE "t" ("id" uuid, "request_key" text);
+      DO $do$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 't_request_key_uq') THEN
+          CREATE UNIQUE INDEX "t_request_key_uq" ON "t" ("request_key") WHERE "request_key" IS NOT NULL;
+        END IF;
+      END $do$;`);
+    expect(estado.tablas.t.indices.t_request_key_uq).toMatchObject({ columnas: ["request_key"], unique: true, parcial: true });
+  });
+
+  it("compara la FK compuesta como una sola y no una por columna", () => {
+    const estado = migraciones(
+      `CREATE TABLE "products" ("tenant_id" uuid, "sku" text);
+       CREATE TABLE "lotes" ("tenant_id" uuid, "sku" text);
+       ALTER TABLE "lotes" ADD CONSTRAINT "lotes_fk" FOREIGN KEY ("tenant_id", "sku") REFERENCES "products" ("tenant_id", "sku");`,
+    );
+    expect(estado.fks).toEqual([
+      { tabla: "lotes", columnas: ["tenant_id", "sku"], refTabla: "products", refColumnas: ["tenant_id", "sku"] },
+    ]);
+  });
+
+  it("DROP CONSTRAINT saca la FK vieja y deja el estado sin ella", () => {
+    const estado = migraciones(
+      `CREATE TABLE "a" ("sku" text);
+       CREATE TABLE "b" ("sku" text);
+       ALTER TABLE "b" ADD CONSTRAINT "b_a_fk" FOREIGN KEY ("sku") REFERENCES "a" ("sku");
+       ALTER TABLE "b" DROP CONSTRAINT IF EXISTS "b_a_fk";`,
+    );
+    expect(estado.fks).toEqual([]);
   });
 });
 

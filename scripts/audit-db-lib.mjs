@@ -242,6 +242,47 @@ function indiceTopLevel(texto, buscado) {
   return -1;
 }
 
+// `$type<...>()` solo anota tipos de TypeScript: se quita antes de parsear para que
+// `jsonb("x").$type<Rec>().notNull()` no corte la cadena en el genérico.
+function eliminarTipoGenerico(texto) {
+  let salida = "";
+  let i = 0;
+  for (;;) {
+    const inicio = texto.indexOf(".$type", i);
+    if (inicio < 0) return salida + texto.slice(i);
+    salida += texto.slice(i, inicio);
+    let j = inicio + 6;
+    while (j < texto.length && /\s/.test(texto[j])) j += 1;
+    if (texto[j] !== "<") {
+      salida += texto.slice(inicio, j);
+      i = j;
+      continue;
+    }
+    let profundidad = 0;
+    let k = j;
+    for (; k < texto.length; k += 1) {
+      if (texto[k] === "<") profundidad += 1;
+      else if (texto[k] === ">") {
+        profundidad -= 1;
+        if (profundidad === 0) {
+          k += 1;
+          break;
+        }
+      }
+    }
+    while (k < texto.length && /\s/.test(texto[k])) k += 1;
+    if (texto[k] === "(") {
+      const cierre = buscarCierre(texto, k, "(", ")");
+      if (cierre > 0) {
+        i = cierre + 1;
+        continue;
+      }
+    }
+    salida += texto.slice(inicio, k);
+    i = k;
+  }
+}
+
 function parsearCadenaLlamadas(texto) {
   const inicio = saltar(texto, 0);
   const m = /^([A-Za-z_$][\w$]*)\s*\(/.exec(texto.slice(inicio));
@@ -343,7 +384,7 @@ function parsearElementoIndice(elemento, mapaPropiedad) {
 
 /** @param {string} fuente @returns {EstadoEsquema} */
 export function parsearEsquemaTS(fuente) {
-  const texto = String(fuente);
+  const texto = eliminarTipoGenerico(String(fuente));
   const exportaciones = new Map();
   const reExport = /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*pgTable\s*\(/g;
   for (let m = reExport.exec(texto); m; m = reExport.exec(texto)) {
@@ -769,12 +810,14 @@ function parsearColumnaSql(definicion) {
     /\bDEFAULT\s+([\s\S]*?)(?=\s+(?:NOT\s+NULL|NULL|PRIMARY\s+KEY|UNIQUE|REFERENCES|CHECK|GENERATED|COLLATE)\b|$)/i,
   );
   const mFk = resto.match(/\bREFERENCES\s+(?:"?([\w$]+)"?\s*\.\s*)?"?([\w$]+)"?\s*\(\s*"([\w$]+)"\s*\)/i);
+  const mUniqueNombre = resto.match(/\bCONSTRAINT\s+"?([\w$]+)"?\s+UNIQUE\b/i);
   return {
     nombre,
     tipo: canonizarTipo(tipo.base, { largo: largoSiNumerico(tipo.params) }),
     notNull,
     pk,
     unique,
+    uniqueNombre: mUniqueNombre ? mUniqueNombre[1] : null,
     default: mDefault ? canonizarDefault(mDefault[1]) : null,
     fk: mFk ? { refTabla: mFk[2], refColumnas: [mFk[3]] } : null,
   };
@@ -817,10 +860,10 @@ export function parsearMigracionesSql(archivos) {
             }
             const mFk = item.match(/FOREIGN\s+KEY\s*\(([^)]*)\)\s*REFERENCES\s+(?:"?([\w$]+)"?\s*\.\s*)?"?([\w$]+)"?\s*\(([^)]*)\)/i);
             if (mFk) {
+              const columnasFk = columnasDeLista(mFk[1]);
               const refs = columnasDeLista(mFk[4]);
-              columnasDeLista(mFk[1]).forEach((col, i) => {
-                estado.fks.push({ tabla: nombre, columnas: [col], refTabla: mFk[3], refColumnas: [refs[i] ?? refs[0]] });
-              });
+              estado.fks.push({ tabla: nombre, columnas: columnasFk, refTabla: mFk[3], refColumnas: refs });
+              if (nombreConstraint) constraints.set(nombreConstraint, { tabla: nombre, tipo: "FOREIGN KEY", columnas: columnasFk });
             }
             continue;
           }
@@ -828,6 +871,9 @@ export function parsearMigracionesSql(archivos) {
           if (!col) continue;
           tabla.columnas[col.nombre] = { tipo: col.tipo, notNull: col.notNull, default: col.default, pk: col.pk, unique: col.unique };
           if (col.pk) tabla.pk.push(col.nombre);
+          if (col.uniqueNombre) {
+            tabla.indices[col.uniqueNombre] = { columnas: [col.nombre], unique: true, parcial: false };
+          }
           if (col.fk) estado.fks.push({ tabla: nombre, columnas: [col.nombre], ...col.fk });
         }
         tabla.pk.sort();
@@ -846,6 +892,9 @@ export function parsearMigracionesSql(archivos) {
           if (col) {
             tabla.columnas[col.nombre] = { tipo: col.tipo, notNull: col.notNull, default: col.default, pk: col.pk, unique: col.unique };
             if (col.pk && !tabla.pk.includes(col.nombre)) tabla.pk.push(col.nombre);
+            if (col.uniqueNombre) {
+              tabla.indices[col.uniqueNombre] = { columnas: [col.nombre], unique: true, parcial: false };
+            }
             if (col.fk) estado.fks.push({ tabla: nombre, columnas: [col.nombre], ...col.fk });
           }
           continue;
@@ -865,10 +914,7 @@ export function parsearMigracionesSql(archivos) {
           if (tipoConstraint === "FOREIGN KEY") {
             const mf = (a[4] ?? "").match(/REFERENCES\s+(?:"?([\w$]+)"?\s*\.\s*)?"?([\w$]+)"?\s*\(([^)]*)\)/i);
             if (mf) {
-              const refs = columnasDeLista(mf[3]);
-              columnas.forEach((col, i) => {
-                estado.fks.push({ tabla: nombre, columnas: [col], refTabla: mf[2], refColumnas: [refs[i] ?? refs[0]] });
-              });
+              estado.fks.push({ tabla: nombre, columnas, refTabla: mf[2], refColumnas: columnasDeLista(mf[3]) });
             }
           }
           continue;
@@ -931,7 +977,8 @@ export function parsearMigracionesSql(archivos) {
           const guardado = constraints.get(a[1]);
           if (guardado?.tipo === "PRIMARY KEY") tabla.pk = [];
           if (guardado?.tipo === "FOREIGN KEY") {
-            estado.fks = estado.fks.filter((fk) => !(fk.tabla === nombre && guardado.columnas.includes(fk.columnas[0])));
+            const propias = [...guardado.columnas].sort().join(",");
+            estado.fks = estado.fks.filter((fk) => !(fk.tabla === nombre && [...fk.columnas].sort().join(",") === propias));
           }
           delete tabla.indices[a[1]];
           constraints.delete(a[1]);
@@ -952,6 +999,25 @@ export function parsearMigracionesSql(archivos) {
         const parcial = /\bWHERE\b/i.test(sql.slice(cuerpo.fin));
         asegurar(tablaNombre).indices[nombre] = { columnas, unique: Boolean(m[1]), parcial };
         continue;
+      }
+
+      // 0012 crea su índice único dentro de un bloque DO: se registran los CREATE INDEX embebidos.
+      const reEmbebido = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+/gi;
+      for (let mi = reEmbebido.exec(sql); mi; mi = reEmbebido.exec(sql)) {
+        const trozo = sql.slice(mi.index);
+        const mIdx = trozo.match(
+          /^CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?("?[\w$]+"?)\s+ON\s+(?:ONLY\s+)?("?[\w$]+"?(?:\s*\.\s*"?[\w$]+"?)?)(?:\s+USING\s+[\w$]+)?\s*\(/i,
+        );
+        if (!mIdx) continue;
+        const cuerpoEmbebido = contenidoParentesis(trozo, mIdx[0].length - 1);
+        if (!cuerpoEmbebido) continue;
+        const columnas = columnasDeLista(cuerpoEmbebido.contenido).map((c) => c.replace(/\s+/g, " ").toLowerCase());
+        const parcial = /\bWHERE\b/i.test(trozo.slice(cuerpoEmbebido.fin, cuerpoEmbebido.fin + 300));
+        asegurar(mIdx[3].split(".").pop().replace(/"/g, "")).indices[mIdx[2].replace(/"/g, "")] = {
+          columnas,
+          unique: Boolean(mIdx[1]),
+          parcial,
+        };
       }
 
       m = sql.match(/^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?("?[\w$]+"?(?:\s*\.\s*"?[\w$]+"?)?)/i);
