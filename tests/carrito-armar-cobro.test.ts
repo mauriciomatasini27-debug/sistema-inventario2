@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { armarCobroDesdeCarrito, fusionarLinea, type LineaCarrito } from "../src/modules/sales/carrito_armar_cobro.js";
+import { postSalesSchema } from "../src/lib/validation.js";
 
 const CUANDO = "2026-01-01T12:00:00.000Z";
 
@@ -96,6 +97,24 @@ describe("carrito de /venta arma el cobro", () => {
       ok: false,
       codigo: "demasiadas_lineas",
     });
+  });
+
+  it("#474: el payload de una línea por peso cumple el contrato y no pierde por_peso", () => {
+    const armado = armarCobroDesdeCarrito({
+      carrito: [{ product_id: "PAPAS", qty: 2500, precio_centavos: 5000, porPeso: true }],
+      medio: "Efectivo",
+      device_code: "caja-01",
+      seq_local: 7,
+      offline: true,
+      occurredAtIso: CUANDO,
+    });
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+    const parsed = postSalesSchema.safeParse(armado.payload);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.lineas[0]?.por_peso).toBe(true);
+    expect(parsed.data.lineas[0]?.qty).toBe(2500);
   });
 
   it("rechaza sumar por encima de 999", () => {
