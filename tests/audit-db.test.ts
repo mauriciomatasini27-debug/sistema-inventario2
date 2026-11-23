@@ -218,12 +218,23 @@ describe("audit:db · canonización de tipos y defaults", () => {
 });
 
 describe("audit:db · diff base vs esperado", () => {
-  const baseDeFilas = (columnas: Array<Record<string, unknown>>) =>
+  type FilaBase = {
+    tabla: string;
+    columna: string;
+    data_type: string;
+    is_nullable: "YES" | "NO";
+    pk?: boolean;
+    default?: string;
+    udt_name?: string;
+    largo?: number;
+  };
+
+  const baseDeFilas = (columnas: FilaBase[]) =>
     estadoDesdeBase({
-      tablas: [...new Set(columnas.map((c) => c.tabla as string))],
-      columnas: columnas as never,
+      tablas: [...new Set(columnas.map((c) => c.tabla))],
+      columnas,
       indices: [],
-      pks: columnas.filter((c) => c.pk).map((c) => ({ tabla: c.tabla as string, columna: c.columna as string })),
+      pks: columnas.filter((c) => c.pk).map((c) => ({ tabla: c.tabla, columna: c.columna })),
       fks: [],
     });
 

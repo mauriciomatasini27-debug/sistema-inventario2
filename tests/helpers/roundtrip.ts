@@ -111,7 +111,7 @@ export function verificarTipos(tabla: string, cols: Record<string, Column>, fila
 
 function condicionPk(tabla: PgTable, nombre: string, cols: Record<string, Column>, fila: Fila): SQL {
   const props = propiedadesPk(tabla, nombre, cols);
-  const condiciones = props.map((prop) => eq(cols[prop]!, fila[prop] as never));
+  const condiciones = props.map((prop) => eq(cols[prop]!, fila[prop]));
   return condiciones.length === 1 ? condiciones[0]! : and(...condiciones)!;
 }
 
@@ -148,7 +148,7 @@ async function leerUna(db: Db, tabla: PgTable, cond: SQL, nombre: string): Promi
  * `overrides` fija claves ajenas, columnas con CHECK o claves de unicidad que
  * comparten corridas; el resto lo completa el harness.
  */
-export async function roundTrip(db: Db, tabla: PgTable, overrides: Fila = {}): Promise<Fila> {
+export async function roundTrip<T extends PgTable>(db: Db, tabla: T, overrides: Fila = {}): Promise<Fila> {
   const nombre = getTableName(tabla);
   const cols = getTableColumns(tabla) as Record<string, Column>;
 
@@ -161,7 +161,7 @@ export async function roundTrip(db: Db, tabla: PgTable, overrides: Fila = {}): P
     fila[prop] = Object.hasOwn(overrides, prop) ? overrides[prop] : valorCanonico(col, nombre);
   }
 
-  await db.insert(tabla).values(fila as never);
+  await db.insert(tabla).values(fila as T["$inferInsert"]);
   const cond = condicionPk(tabla, nombre, cols, fila);
 
   const releida = await leerUna(db, tabla, cond, nombre);
@@ -176,7 +176,7 @@ export async function roundTrip(db: Db, tabla: PgTable, overrides: Fila = {}): P
     for (const prop of nulables) nula[prop] = null;
     await db
       .update(tabla)
-      .set(Object.fromEntries(nulables.map((prop) => [prop, null])) as never)
+      .set(Object.fromEntries(nulables.map((prop) => [prop, null])) as Partial<T["$inferInsert"]>)
       .where(cond);
     const releidaNula = await leerUna(db, tabla, cond, nombre);
     expect({ tabla: nombre, fila: releidaNula }).toEqual({ tabla: nombre, fila: nula });
