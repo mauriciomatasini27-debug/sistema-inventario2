@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "$comentario": "Archivos que cada skill instalada debe tener en .agents/skills, tomados del árbol del commit pinneado en skills-lock.json. Lo chequea tests/skills-completas.test.ts: un archivo de menos, uno de más o un enlace relativo roto pone npm run verify en rojo. Si re-pinneás una skill, regenerá su lista desde el árbol del commit nuevo.",
+  "skills": {
+    "animate": [
+      "RECIPES.md",
+      "SKILL.md"
+    ],
+    "animation-performance": [
+      "SKILL.md"
+    ],
+    "animation-vocabulary": [
+      "SKILL.md"
+    ],
+    "ask-sonner": [
+      "API.md",
+      "SKILL.md"
+    ],
+    "better-accessibility": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "focus-and-keyboard.md",
+      "forms.md",
+      "hit-areas.md",
+      "motion-and-zoom.md",
+      "screen-readers.md",
+      "semantics-and-aria.md"
+    ],
+    "better-colors": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "color-formats.md",
+      "color-usage.md",
+      "contrast.md",
+      "palette-generation.md",
+      "palette-structure.md",
+      "token-naming.md"
+    ],
+    "better-interface": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "review-format.md"
+    ],
+    "better-layout": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "grouping-and-alignment.md",
+      "spacing-and-adaptivity.md"
+    ],
+    "better-typography": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "choosing-fonts.md",
+      "css-cheat-sheet.md",
+      "details-and-accessibility.md",
+      "spacing-and-sizing.md",
+      "variable-fonts-and-opentype.md",
+      "wrapping-and-punctuation.md"
+    ],
+    "better-ui": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "animations.md",
+      "enter-exit.md",
+      "icon-transitions.md",
+      "icons.md",
+      "performance.md",
+      "surfaces.md"
+    ],
+    "better-writing": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "patterns.md"
+    ],
+    "break": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "scenarios.md"
+    ],
+    "break-ui": [
+      "CATALOG.md",
+      "SKILL.md"
+    ],
+    "build-design": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "figma.md"
+    ],
+    "emil-design-eng": [
+      "SKILL.md"
+    ],
+    "explain-interface": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "find-the-effect.md",
+      "from-an-image.md",
+      "no-browser.md",
+      "read-the-system.md"
+    ],
+    "find-animation-opportunities": [
+      "SKILL.md"
+    ],
+    "improve-animations": [
+      "AUDIT.md",
+      "PLAN-TEMPLATE.md",
+      "SKILL.md"
+    ],
+    "interface-review": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "removed-signals.md",
+      "scope-resolution.md"
+    ],
+    "pick-ui-library": [
+      "SKILL.md"
+    ],
+    "prototype": [
+      "LOGIC.md",
+      "SKILL.md",
+      "UI.md",
+      "agents/openai.yaml"
+    ],
+    "review-animations": [
+      "SKILL.md",
+      "STANDARDS.md"
+    ],
+    "setup-matt-pocock-skills": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "domain.md",
+      "issue-tracker-github.md",
+      "issue-tracker-gitlab.md",
+      "issue-tracker-local.md",
+      "triage-labels.md"
+    ],
+    "state-machine": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "switcher.md"
+    ],
+    "triage": [
+      "AGENT-BRIEF.md",
+      "OUT-OF-SCOPE.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    "variant": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "picker.md"
+    ],
+    "web-design-guidelines": [
+      "SKILL.md",
+      "references/command.md"
+    ],
+    "writing-guidelines": [
+      "SKILL.md"
+    ]
+  }
+}
