@@ -4,6 +4,7 @@ import { control } from "../../../lib/store.js";
 import { membershipActiva } from "../../../lib/control.js";
 import { persistirAuthEvent, persistirBotLink } from "../../../lib/control-db.js";
 import { DeduplicadorWamid, verificar_firma_meta } from "../../../modules/whatsapp/webhook.js";
+import { parsear_boton_alerta, texto_de_boton_alerta } from "../../../modules/whatsapp/boton-alerta.js";
 import { debeInvalidarPorIntentos, parsear_vincular, verificar_vincular } from "../../../modules/whatsapp/vincular.js";
 import {
   enmascararNumero,
@@ -1386,7 +1387,21 @@ interface MensajeEntranteWa {
 
 function extraer_mensaje(body: unknown): MensajeEntranteWa | null {
   const boton = normalizarBotonEntrada(body);
-  if (boton) return { wamid: boton.wamid, remitente: boton.remitenteE164, texto: "", timestampMs: boton.timestampMs, adjunto: null, boton: boton.botonId };
+  if (boton) {
+    // WA-BOTONES-1 [plataforma]: los botones de la alerta de stock bajo no tienen handler propio; se traducen a su comando de texto y siguen el flujo normal, porque el quick reply de una plantilla no trae payload.
+    const accion = parsear_boton_alerta(boton.botonId);
+    if (accion !== null) {
+      return {
+        wamid: boton.wamid,
+        remitente: boton.remitenteE164,
+        texto: texto_de_boton_alerta(accion),
+        timestampMs: boton.timestampMs,
+        adjunto: null,
+        boton: null,
+      };
+    }
+    return { wamid: boton.wamid, remitente: boton.remitenteE164, texto: "", timestampMs: boton.timestampMs, adjunto: null, boton: boton.botonId };
+  }
   const texto = normalizarEntrada(body);
   if (texto) {
     return { wamid: texto.wamid, remitente: texto.remitenteE164, texto: texto.texto, timestampMs: texto.timestampMs, adjunto: null, boton: null };
