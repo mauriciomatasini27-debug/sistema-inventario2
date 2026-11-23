@@ -92,12 +92,6 @@ const cuentaBarra = datosCuentaBarra(nombreCrudo, rolMembresia);
         .panel-shell .grid.dos { grid-template-columns: 1fr 1fr; }
       }
       .panel-shell .card { min-width: 0; padding: 16px; border: 1px solid var(--tema-linea); border-radius: 16px; background: var(--tema-superficie); }
-      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        .panel-shell .card { background: var(--tema-vidrio); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-      }
-      @media (prefers-reduced-transparency: reduce) {
-        .panel-shell .card { background: var(--tema-superficie); -webkit-backdrop-filter: none; backdrop-filter: none; }
-      }
       .panel-shell .card h2 { margin: 0 0 8px; font-size: 18px; }
       .panel-shell .estado { margin-top: 8px; color: var(--tema-texto-suave); font-size: 12px; }
       .panel-shell .kpi { display: flex; flex-wrap: wrap; gap: 24px; }
@@ -169,7 +163,6 @@ const cuentaBarra = datosCuentaBarra(nombreCrudo, rolMembresia);
         --tema-texto-suave: var(--color-muted-dark);
         --tema-acento: var(--color-pendiente-oscuro);
         --tema-barra: var(--color-void);
-        --tema-vidrio: var(--color-charcoal);
         --tema-fila-hover: color-mix(in srgb, var(--color-star-white) 6%, transparent);
         --tema-fila-seleccionada: color-mix(in srgb, var(--color-star-glow) 14%, transparent);
         --tema-borde-encabezado: var(--color-mid);
@@ -189,8 +182,6 @@ const cuentaBarra = datosCuentaBarra(nombreCrudo, rolMembresia);
         background: var(--color-charcoal);
         border-color: var(--color-mid);
         color: var(--color-star-white);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
       }
       :root[data-tema="oscuro"] .tablero.panel-shell .atajos a:not(.sg-flame-cta) {
         background: var(--color-charcoal);
