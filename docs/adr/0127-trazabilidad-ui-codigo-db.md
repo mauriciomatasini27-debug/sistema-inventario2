@@ -30,5 +30,14 @@ La funcionalidad de UI/UX se audita con un registro de trazabilidad por módulo 
 
 ## Pendientes
 
-- Definir la lista de pantallas de la primera pasada (panel, venta, caja, stock, proveedores, servicios, pagos, fiscal).
-- Acordar el nivel de detalle del registro (campo a campo vs pantalla a pantalla).
+- (Resuelto en AUD-S5) La primera pasada cubre panel, venta, caja, stock, proveedores, servicios, pagos y fiscal.
+- (Resuelto en AUD-S5) Nivel de detalle: campo a campo para lo que se persiste; pantalla a pantalla para lo que solo se lee.
+
+## Implementación (AUD-S5)
+
+- `docs/roadmap/auditorias/trazabilidad-README.md` define el formato y los estados (`ok`, `ok (dominio)`, `huérfano`, `sin pantalla`), y cada módulo tiene su `trazabilidad-<modulo>.md` con cuatro secciones: campos persistidos, solo lectura, columnas del módulo sin pantalla y hallazgos.
+- Resultado de la primera pasada: **95 campos trazados y 16 hallazgos** en las 8 pantallas. Ningún campo relevado quedó sin columna sin estar reportado; los que no persisten están como `huérfano` con hallazgo o como `ok (dominio)` con la razón (vuelto, impresión térmica, cola offline).
+- Regla de hallazgos (calibra la decisión de arriba): un hallazgo **accionable** (un campo que se pierde, una columna que no se llena, una pantalla que no existe) se crea como issue hija de la épica #462; una **nota** (comportamiento por diseño o decisión de producto) queda en el registro y se revisa en la próxima pasada, sin issue. Hoy: 8 accionables (#474 venta-1, #475 venta-2, #476 caja-1, #477 stock-1, #478 stock-2, #479 servicios-1, #480 fiscal-1, #481 pagos-1) y 8 notas.
+- Hallazgos accionables de mayor impacto: `venta-1` (el payload de `/venta` manda `porPeso` y el handler espera `por_peso`, así que una línea por peso de más de 999 g devuelve 422, probado contra los handlers reales), `stock-1` (`controla_vencimiento` del alta solo vive en memoria), `fiscal-1` (el modo de primera factura solo vive en memoria) y `pagos-1` (la pantalla de pagos no existe: el módulo está solo en API).
+- El registro no es un test automático: se re-corre leyendo pantalla → handler → repo → columna. El README deja el procedimiento y los comandos (`npm run check:columnas` para confirmar que la columna existe; `grep` en `src/pages` y `src/components` para saber si alguna pantalla la usa).
+- Límite declarado: quedan fuera de esta pasada las pantallas fuera de la lista (fiado, precios, devoluciones, ventas pendientes, reportes, alertas, bot, integraciones, usuarios, plan), los diálogos secundarios y la UI móvil. Cada archivo dice qué no auditó.
