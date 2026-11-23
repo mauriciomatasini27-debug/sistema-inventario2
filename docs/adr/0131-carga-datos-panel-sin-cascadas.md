@@ -26,10 +26,20 @@ Tras recibir el HTML, la página queda "congelada" hasta que terminan las cascad
 
 - Patrón de carga: un viaje por pantalla (agregado o paralelo) + skeleton.
 - `TablaCatalogo` consume una única fuente de datos sin refetch propio.
-- `AbortController` ligado al ciclo de vida de cada pantalla.
+- `AbortController` ligado al ciclo de vida de cada pantalla (la cancelación de `TablaCatalogo` queda en NAV-S4).
+
+## Evidencia (NAV-S3, 2026-11-23)
+
+Las cuatro pantallas agrupan su carga inicial en `Promise.all`: `/admin` (lista + badge), `/panel/caja` (cinco fuentes), `/venta` (catálogo local + balance) y `/panel/stock` (catálogo, sugerido, stock inicial y precios). El detalle de `/admin` también carga flags y auditoría en paralelo. El HTML trae skeleton con `aria-busy="true"`; cada loader lo apaga y, si la API falla, quita el skeleton y muestra el estado de error.
+
+La cascada que quedaba del lado del servidor estaba en `sincronizarUsoDiarioDesdeContadores`, que encadenaba dos lecturas por tenant dentro de un `for`: ahora esas dos lecturas van en paralelo y los tenants se esperan con un único `Promise.all`.
+
+No se agregó endpoint agregado: el AC admite paralelo o un viaje, y `Promise.all` conserva contratos y autorización existentes. Evidencia en `tests/navegacion-nav-s3.test.ts`, `tests/e2e/nav-s3-skeleton.spec.ts` y `PRD-NAV-02` § Evidencia NAV-S3.
+
+NAV-S3 no implementa `AbortController`: la cancelación de `TablaCatalogo` y del fetch de stock/precios queda en NAV-S4, como declara el PRD-NAV-02.
 
 ## Pendientes
 
-- Definir qué pantallas justifican endpoint agregado vs `Promise.all`.
-- Medir cuánto aporta cada cascada (admin, caja, venta, stock) antes de elegir.
-- Acordar el skeleton (estados vacío/cargando/error) con el design-system.
+- ~~Definir qué pantallas justifican endpoint agregado vs `Promise.all`.~~ Resuelto en NAV-S3: `Promise.all` alcanza para las cuatro pantallas; no se agrega endpoint agregado.
+- Medir cuánto aporta cada cascada (admin, caja, venta, stock) antes de elegir un endpoint agregado; la evidencia actual prueba orden de render, no milisegundos.
+- ~~Acordar el skeleton (estados vacío/cargando/error) con el design-system.~~ Resuelto: se reutiliza `.skel` y el patrón `aria-busy` de los KPI.

@@ -17,13 +17,18 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
   <div class="panel-stock-layout">
     <div class="panel-stock-catalogo">
       <div class="grid">
-        <section class="card" data-harness={harness}>
+        <section class="card" data-harness={harness} id="card-catalogo" aria-busy="true">
           <h2>Catálogo</h2>
           <div class="kpi">
-            <div><b id="stock-productos">…</b><small>Productos</small></div>
-            <div><b id="stock-umbral">…</b><small>Bajo mínimo</small></div>
+            <div><b id="stock-productos"><i class="skel skel-monto" aria-hidden="true"></i></b><small>Productos</small></div>
+            <div><b id="stock-umbral"><i class="skel skel-monto" aria-hidden="true"></i></b><small>Bajo mínimo</small></div>
           </div>
           <TablaCatalogo client:visible columnas="stock" etiqueta="Catálogo de productos" />
+          <div id="catalogo-skel" aria-hidden="true">
+            {[0, 1, 2, 3].map(() => (
+              <div><i class="skel skel-linea"></i></div>
+            ))}
+          </div>
           <div class="estado" id="estado-stock" role="status">Cargando…</div>
         </section>
         <section class="card" id="lotes-card">
@@ -283,6 +288,7 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
 <script>
   import { toast } from "sonner";
   import { derivarEstado, textoError } from "../../lib/panel-modulos.js";
+  import { marcarCargaLista } from "../../lib/panel-dashboard.js";
   import { derivarProximaAccion } from "../../modules/stock/proxima-accion.js";
   import { armarConteo, armarIngreso, clavesIdempotencia, type AccionCodigo } from "../../modules/stock/operaciones-panel.js";
   import { catalogoMil, marcarSkuSeleccionado, publicarCatalogo } from "../../lib/catalogo-panel.js";
@@ -304,6 +310,7 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
   } from "../../modules/stock/escaner.js";
 
   const $ = (id) => document.getElementById(id);
+  const limpiarCatalogoSkel = () => { $("catalogo-skel")?.remove(); };
   const tenantId = $("catalogo-sugerido")?.dataset.tenant ?? "";
   const permiteAltaCatalogo = true;
   const codigoActual = () => ($("codigo-producto") as HTMLInputElement).value.trim();
@@ -382,6 +389,8 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
   };
 
   const pintarCatalogo = (items, kpis?: KpisCatalogo) => {
+    limpiarCatalogoSkel();
+    marcarCargaLista("card-catalogo");
     publicarCatalogo(items);
     $("stock-productos").textContent = String(kpis?.total ?? items.length);
     $("stock-umbral").textContent = String(kpis?.bajo_minimo ?? 0);
@@ -416,6 +425,8 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
       .then((j) => pintarCatalogo(j.productos || [], j.kpis))
       .catch((error) => {
         console.warn("[panel/stock] catálogo", error);
+        limpiarCatalogoSkel();
+        marcarCargaLista("card-catalogo");
         $("stock-productos").textContent = "—";
         $("stock-umbral").textContent = "—";
         const resumen = $("stock-resumen");
@@ -1318,8 +1329,10 @@ const permisos = rolEfectivo.estado === "sesion" ? rolEfectivo.permisos : [];
     }
   });
 
-  cargarCatalogo();
-  cargarCatalogoSugerido();
-  cargarStockInicialPanel();
-  cargarPreciosPendientes();
+  void Promise.all([
+    cargarCatalogo(),
+    cargarCatalogoSugerido(),
+    cargarStockInicialPanel(),
+    cargarPreciosPendientes(),
+  ]);
 </script>

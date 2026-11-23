@@ -116,11 +116,12 @@ describe("DS-S12 KpiStrip: marcado de carga", () => {
 
 describe("DS-S12 KpiStrip: estilos del skeleton", () => {
   const css = estilo(leer(KPI));
+  const cssTema = leer("src/styles/tema.css");
 
   it("el shimmer usa solo tokens de rol, sin colores sueltos", () => {
-    expect(css).toMatch(/linear-gradient\(90deg, var\(--tema-linea\)[^;]*var\(--tema-superficie\)/);
-    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
-    expect(css).toMatch(/\.skel \{[^}]*animation: kpi-shimmer /);
+    expect(cssTema).toMatch(/linear-gradient\(90deg, var\(--tema-linea\)[^;]*var\(--tema-superficie\)/);
+    expect(cssTema).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+    expect(cssTema).toMatch(/\.skel \{[^}]*animation: kpi-shimmer /);
   });
 
   it("la entrada de cada valor se escalona por --i", () => {

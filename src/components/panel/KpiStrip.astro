@@ -20,25 +20,11 @@ const { verSaldo = true } = Astro.props;
   /* DS-S12: skeleton con shimmer mientras cargan los KPI y entrada escalonada
      al llegar cada valor. Solo tokens de rol (claro y oscuro); `<i>` y no
      `<span>` para que no lo pinten las reglas `.segbar span:nth-child(n)`. */
-  .skel {
-    display: inline-block;
-    width: 2.5em;
-    height: 0.8em;
-    border-radius: 8px;
-    vertical-align: middle;
-    background: linear-gradient(90deg, var(--tema-linea) 0%, var(--tema-superficie) 50%, var(--tema-linea) 100%);
-    background-size: 200% 100%;
-    animation: kpi-shimmer 1.4s linear infinite;
-  }
   .skel.skel-barra { display: block; flex: 1; width: auto; height: 100%; border-radius: 999px; }
   #n-caja .skel { width: 4em; }
   .bignum.listo {
     animation: kpi-entra 240ms ease-out both;
     animation-delay: calc(var(--i, 0) * 60ms);
-  }
-  @keyframes kpi-shimmer {
-    from { background-position: 100% 0; }
-    to { background-position: -100% 0; }
   }
   @keyframes kpi-entra {
     from { opacity: 0; transform: translateY(4px); }

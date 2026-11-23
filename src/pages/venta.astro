@@ -259,7 +259,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         <p id="ticket-leyenda">DOCUMENTO NO VÁLIDO COMO FACTURA</p>
         <p id="ticket-modo" hidden>Sin conexión — número provisorio</p>
       </section>
-      <div class="card vidrio-card"><div id="balance" role="status">{harness.data === "worst" ? VENTA_WORST.balanceTexto : "Balance: —"}</div></div>
+      <div class="card vidrio-card" id="balance-card" aria-busy={harness.data === "worst" ? "false" : "true"}>
+        <div id="balance" role="status">
+          {harness.data === "worst" ? VENTA_WORST.balanceTexto : <i class="skel skel-linea" aria-hidden="true"></i>}
+        </div>
+      </div>
       {harness.data === "worst" && (
         <div class="card vidrio-card">
           <ul id="lineas-worst">
@@ -288,6 +292,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       import { avisoStockLocalAgotado, stockLocal } from "../offline/stock-local.js";
       import { fechaAR, horaMinutoAR } from "../lib/fecha-ar.js";
       import { formatearCentavos } from "../lib/panel-modulos.js";
+      import { marcarCargaLista } from "../lib/panel-dashboard.js";
       import { mensajePesos, parsearPesos, pesosParaInput } from "../lib/pesos.js";
       import { fusionarLinea, armarCobroDesdeCarrito } from "../modules/sales/carrito_armar_cobro.js";
       import {
@@ -805,7 +810,6 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         catalogo = r.snapshot;
         mostrarCatalogo();
       };
-      refrescarCatalogo();
       // 8.Ticket salida: snapshot para la tarjeta y para BT (TV15 P2).
       let lastSaleId = null;
       let lastTicket = null;
@@ -864,11 +868,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
       };
       // P1-36: mismo contrato que /panel/caja (JSON por_medio), no el body crudo.
       async function balance() {
-        if (document.body.dataset.verSaldo === "no") {
-          $("balance").hidden = true;
-          return;
-        }
         try {
+          if (document.body.dataset.verSaldo === "no") {
+            $("balance").hidden = true;
+            return;
+          }
           const r = await fetch("/api/cash/balance");
           if (!r.ok) {
             $("balance").textContent = "Balance: no disponible";
@@ -882,7 +886,11 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
               ? entradas.map(([m, c]) => m + " " + formatearCentavos(c)).join(" · ")
               : "Sin movimientos por medio.";
           $("balance").textContent = "Balance: " + formatearCentavos(total) + " · " + detalle;
-        } catch (e) { console.warn("[venta] sin red: se reintenta en sync", e); }
+        } catch (e) {
+          console.warn("[venta] sin red: se reintenta en sync", e);
+          $("balance").textContent = "Balance: no disponible";
+        }
+        finally { marcarCargaLista("balance-card"); }
       }
       const syncClienteFiado = () => {
         const aCuenta = $("medio").value === "A cuenta";
@@ -1521,7 +1529,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
         }
       };
       refrescarIndicador();
-      if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) balance();
+      if (!(import.meta.env.DEV && document.getElementById("lineas-worst"))) void Promise.all([refrescarCatalogo(), balance()]);
     </script>
       </div>
     </div>
