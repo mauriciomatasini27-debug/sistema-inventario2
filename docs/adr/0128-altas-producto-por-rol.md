@@ -1,5 +1,5 @@
 ---
-id: ADR-0125
+id: ADR-0128
 tipo: adr
 estado: aceptado
 modulos: [catalogo, inventario, ventas]
@@ -10,7 +10,7 @@ modifica: [ADR-0114]
 modificado_por: []
 resumen: Dueño y Empleado pueden crear productos por Alta al vuelo y por Alta de catálogo (creación e importación) sin crear_productos; el gate quedó retirado y la decisión cumplida.
 ---
-# ADR-0125 - Altas de producto y permisos por rol
+# ADR-0128 - Altas de producto y permisos por rol
 
 Estado: aceptado. Fecha: 2026-11-22. Decisión cumplida el 2026-11-22 por spec #433 (T0–T3): sin gate `crear_productos` ni `pendiente_revision`. Fuentes: reporte del escaneo en la venta (código desconocido sin UI de alta ni cobro), `src/pages/venta.astro`, `src/pages/panel/stock.astro`, `src/pages/api/products.ts`, `src/pages/api/stock/importar/confirmar.ts`, `src/modules/sales/registro_venta.ts`, `src/lib/panel-modulos.ts`, `src/modules/auth/modelo.ts`, ADR-0106, ADR-0114 y avance STOCK-S19.
 
