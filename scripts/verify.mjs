@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
-import { dependenciasIncumplidas, planDePasos, resumir, textoResumen } from "./verify-lib.mjs";
+import { dependenciasIncumplidas, maxWorkersVerify, planDePasos, resumir, textoResumen } from "./verify-lib.mjs";
+
+// RETRO-04: tope por defecto para que el gate sea reproducible; el env explícito gana.
+process.env.VITEST_MAX_WORKERS = String(maxWorkersVerify());
 
 const args = process.argv.slice(2);
 const docsOnly = args.includes("--docs-only");
@@ -52,6 +55,7 @@ if (!docsOnly) {
     console.error("verify: falta Postgres (PG_TEST_URL_A/B). Corré en la caja o usá --docs-only.");
     process.exit(2);
   }
+  correr("node scripts/verify-preflight.mjs --sin-arch");
 }
 
 const resultados = [];

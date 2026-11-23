@@ -2,5 +2,5 @@
   "tag": "0056_products_por_peso",
   "fecha": "2026-11-21",
   "aprobado_por": "Mauri",
-  "evidencia": "Autorizada explícitamente por Mauricio en el grilling de la venta por peso (T1, #385, P10-93). Agrega products.por_peso boolean NOT NULL DEFAULT false. Tag renumerado de 0055 a 0056 porque main ya mergeó 0055_unicidad_por_comercio. Aplicación pendiente en la base real; se registra el tag antes del merge del PR."
+  "evidencia": "Aplicada el 2026-11-22 en el proyecto Supabase rpdrzvrmuuglfavynyph con autorización explícita de Mauri (tarjeta 'Aplicá todo') mediante Supabase MCP execute_sql, en una sola transacción junto con 0057/0058/0059 y las filas de journal de 0052-0055. Agrega products.por_peso boolean NOT NULL DEFAULT false. Verificado: la columna está presente. El journal drizzle.__drizzle_migrations pasó de 52 a 60 filas."
 }

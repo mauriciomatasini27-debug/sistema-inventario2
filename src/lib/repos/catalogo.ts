@@ -254,8 +254,6 @@ export async function buscarProductoPorCodigo(codigo: string): Promise<{ ficha: 
       .limit(1);
     const p = prods[0];
     if (!p) return memoria ? { ficha: conPresentacion(memoria, fotoMemoria(memoria.sku)), fuente: "memoria" } : null;
-    // Por qué estado de memoria: products no tiene columna estado (CAT-S2,
-    // igual que archivado); sin esto un alta pendiente_revision se leería activo.
     // Por qué ubicación de memoria primero: el espejo es la escritura más
     // reciente del proceso; la DB solo rellena fichas sin espejo.
     const enMem = productos.obtener(p.sku);
@@ -381,7 +379,6 @@ export interface AltaProductoInput {
   readonly sector: string;
   readonly codigo?: string | undefined;
   readonly controlaVencimiento: boolean;
-  readonly estado?: "activo" | "pendiente_revision" | undefined;
   readonly locationId?: string | undefined;
   readonly minStock?: number | null | undefined;
   readonly reorderQty?: number | null | undefined;
@@ -424,7 +421,7 @@ export async function altaProducto(input: AltaProductoInput): Promise<AltaProduc
     locationId: input.locationId ?? null,
     archivado: false,
     controlaVencimiento: input.controlaVencimiento,
-    estado: input.estado ?? "activo",
+    estado: "activo",
     minStock: input.minStock ?? null,
     reorderQty: input.reorderQty ?? null,
   };

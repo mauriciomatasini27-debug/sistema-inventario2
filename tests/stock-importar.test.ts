@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import writeXlsxFile from "write-excel-file/node";
 import { ctx } from "./helpers/ctx.js";
+import { PERMISOS_EMPLEADO_DEFAULT } from "../src/modules/auth/modelo.js";
 import { control, resetStore, store } from "../src/lib/store.js";
+import { conModoTenant, conTenant } from "../src/lib/tenant.js";
+import { gateTenantDatos } from "../src/lib/tenant-context.js";
 import { crearSesion } from "../src/modules/auth/sesiones.js";
 import { POST as previewImportar } from "../src/pages/api/stock/importar/preview.js";
 import { POST as confirmarImportar } from "../src/pages/api/stock/importar/confirmar.js";
@@ -289,15 +292,71 @@ describe("STOCK-S10/S11/S12/S13 importación de stock CSV", () => {
     expect(nivelStock("CONF-2")).toBe(0);
   });
 
-  it("confirmar exige permiso de alta", async () => {
-    tenantConMiembro("t-import", "emp-import", "empleado", []);
+  it("spec 433 T2: empleado con permisos por defecto confirma CSV y crea productos en su comercio", async () => {
+    tenantConMiembro("t-import", "emp-import", "empleado", [...PERMISOS_EMPLEADO_DEFAULT]);
     const plano = sesionDe("emp-import", "t-import");
-    const csv = ["sku,nombre,precio,cantidad", "PERM-1,A,100,1", ""].join("\n");
+    const csv = ["sku,nombre,precio,cantidad", "PERM-1,Arroz,150.50,2", "PERM-2,Harina,100,3", ""].join("\n");
     const r = await confirmarArchivo(formConSha(csv, sha256Texto(csv)), "imp-perm-1", {
       cookie: conCookie(plano),
     });
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(201);
+    const j = (await r.json()) as ConfirmJson;
+    expect(j).toMatchObject({ filas_importadas: 2, filas_nuevas: 2, filas_error: 0, reintento: false });
+    expect(store.productos.get("PERM-1")).toMatchObject({ nombre: "Arroz", precioCentavos: 15050, estado: "activo" });
+    expect(store.productos.get("PERM-2")).toMatchObject({ nombre: "Harina", estado: "activo" });
+    expect(nivelStock("PERM-1")).toBe(2);
+    expect(nivelStock("PERM-2")).toBe(3);
+    expect(store.importaciones.size).toBe(1);
+  });
+
+  it("spec 433 T2: importación rechazada del empleado no deja filas parciales ni borradores", async () => {
+    tenantConMiembro("t-import-atom", "emp-atom", "empleado", [...PERMISOS_EMPLEADO_DEFAULT]);
+    const plano = sesionDe("emp-atom", "t-import-atom");
+    const csv = ["sku,nombre,precio,cantidad", "ATOM-1,Uno,10,1", "ATOM-1,Dos,20,2", ""].join("\n");
+    const r = await confirmarArchivo(formConSha(csv, sha256Texto(csv)), "imp-atom-1", {
+      cookie: conCookie(plano),
+    });
+    expect(r.status).toBe(422);
+    expect(((await r.json()) as ErrorJson).codigo).toBe("SIN_FILAS_VALIDAS");
+    expect(store.productos.size).toBe(0);
     expect(store.importaciones.size).toBe(0);
+    expect(nivelStock("ATOM-1")).toBe(0);
+    expect((await listarMovimientos()).filter((m) => m.sku === "ATOM-1")).toEqual([]);
+  });
+
+  it("spec 433 T2: sesión de otro comercio sigue rechazada", async () => {
+    tenantConMiembro("t-import", "emp-import", "empleado", [...PERMISOS_EMPLEADO_DEFAULT]);
+    tenantConMiembro("t-import-otro", "emp-otro", "empleado", [...PERMISOS_EMPLEADO_DEFAULT]);
+    const plano = sesionDe("emp-otro", "t-import-otro");
+    const csv = ["sku,nombre,precio,cantidad", "AJENO-1,Ajeno,100,1", ""].join("\n");
+    const r = await conTenant("t-import", () =>
+      confirmarArchivo(formConSha(csv, sha256Texto(csv)), "imp-ajeno-1", { cookie: conCookie(plano) }),
+    );
+    expect(r.status).toBe(403);
+    expect(store.productos.size).toBe(0);
+    expect(store.importaciones.size).toBe(0);
+  });
+
+  it("spec 433 T2: sin sesión en modo multi el gate de datos corta la importación", () => {
+    const gate = conModoTenant({ multi: true, shared: false, tenantPorDefecto: "slice0" }, () =>
+      gateTenantDatos(new Request("http://x/api/stock/importar/confirmar", { method: "POST" }), "/api/stock/importar/confirmar"),
+    );
+    expect(gate).not.toBeNull();
+    expect(gate?.ok).toBe(false);
+    if (gate && !gate.ok) expect(gate.respuesta.status).toBe(403);
+    expect(store.productos.size).toBe(0);
+  });
+
+  it("spec 433 T2: el dueño conserva el flujo de importación", async () => {
+    tenantConMiembro("t-import-dueno", "dueno-import", "dueno");
+    const plano = sesionDe("dueno-import", "t-import-dueno");
+    const csv = ["sku,nombre,precio,cantidad", "DUENO-1,Producto,100,2", ""].join("\n");
+    const r = await confirmarArchivo(formConSha(csv, sha256Texto(csv)), "imp-dueno-1", {
+      cookie: conCookie(plano),
+    });
+    expect(r.status).toBe(201);
+    expect(((await r.json()) as ConfirmJson).filas_nuevas).toBe(1);
+    expect(nivelStock("DUENO-1")).toBe(2);
   });
 
   it("confirmar sin conexión da 403 sensible_solo_online", async () => {
@@ -386,5 +445,30 @@ describe("STOCK-S10/S11/S12/S13 importación de stock CSV", () => {
     expect(confirm.filas_existentes).toBe(1);
     expect(nivelStock("XLSX-1")).toBe(4);
     expect(nivelStock("XLSX-EXIST")).toBe(3);
+  });
+
+  it("spec 433 T2: empleado con permisos por defecto confirma XLSX", async () => {
+    tenantConMiembro("t-import-xlsx", "emp-xlsx", "empleado", [...PERMISOS_EMPLEADO_DEFAULT]);
+    const plano = sesionDe("emp-xlsx", "t-import-xlsx");
+    const datos = [
+      [{ value: "sku" }, { value: "nombre" }, { value: "precio" }, { value: "cantidad" }],
+      [{ value: "EMPX-1" }, { value: "Producto XLSX" }, { value: 12.5 }, { value: 4 }],
+    ];
+    const buffer = await writeXlsxFile(datos).toBuffer();
+    const fd = new FormData();
+    fd.append("archivo", new Blob([new Uint8Array(buffer)]), "stock.xlsx");
+    const respPreview = await previsualizar(fd);
+    expect(respPreview.status).toBe(200);
+    const preview = (await respPreview.json()) as PreviewJson;
+    expect(preview.resumen.nuevas).toBe(1);
+
+    const fdConfirm = new FormData();
+    fdConfirm.append("archivo", new Blob([new Uint8Array(buffer)]), "stock.xlsx");
+    fdConfirm.append("archivo_sha256", preview.archivo.sha256);
+    const respConfirm = await confirmarArchivo(fdConfirm, "imp-xlsx-emp-1", { cookie: conCookie(plano) });
+    expect(respConfirm.status).toBe(201);
+    expect(((await respConfirm.json()) as ConfirmJson).filas_nuevas).toBe(1);
+    expect(store.productos.get("EMPX-1")).toMatchObject({ nombre: "Producto XLSX", estado: "activo" });
+    expect(nivelStock("EMPX-1")).toBe(4);
   });
 });

@@ -1,0 +1,26 @@
+{
+  "id": "panel",
+  "nombre": "Panel",
+  "ruta": "/panel",
+  "rol": "duenio",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": true,
+      "detalle": "/panel → 200 · h1 «Hola · Almacén Control App»",
+      "status": 200,
+      "url": "/panel",
+      "h1": "Hola · Almacén Control App"
+    },
+    {
+      "nombre": "carga-api",
+      "ok": true,
+      "detalle": "GET /api/panel/indice → 200 · 14 módulos",
+      "status": 200,
+      "modulos": 14
+    }
+  ],
+  "observaciones": [
+    "Pantalla de solo lectura: el panel no persiste nada propio; relee KPIs y módulos."
+  ]
+}

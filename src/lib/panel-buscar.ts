@@ -1,10 +1,4 @@
-import {
-  BARRA_TABLERO,
-  ENTRADAS_MAS,
-  puedeCrearProductos,
-  type EntradaMas,
-  type IdGrupoMas,
-} from "./panel-modulos.js";
+import { BARRA_TABLERO, ENTRADAS_MAS, type EntradaMas, type IdGrupoMas } from "./panel-modulos.js";
 
 export interface DestinoBuscar {
   readonly label: string;
@@ -24,9 +18,8 @@ const ETIQUETA_GRUPO: Record<IdGrupoMas, string> = {
 
 export const MAX_SUGERENCIAS_BUSCAR = 8;
 
-function entradaMasVisible(entrada: EntradaMas, rol: "dueno" | "empleado", permisos: readonly string[]): boolean {
+function entradaMasVisible(entrada: EntradaMas, rol: "dueno" | "empleado"): boolean {
   if (entrada.soloDueno && rol !== "dueno") return false;
-  if (entrada.href === "/panel/stock/importar" && !puedeCrearProductos(rol, permisos)) return false;
   return true;
 }
 
@@ -44,7 +37,7 @@ export function destinosBuscar(rol: "dueno" | "empleado", permisos: readonly str
     push({ label: a.label, href: a.href });
   }
   for (const e of ENTRADAS_MAS) {
-    if (!entradaMasVisible(e, rol, permisos)) continue;
+    if (!entradaMasVisible(e, rol)) continue;
     push({ label: e.label, href: e.href, grupo: e.grupo });
   }
   return salida;

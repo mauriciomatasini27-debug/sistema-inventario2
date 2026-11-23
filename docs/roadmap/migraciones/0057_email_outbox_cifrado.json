@@ -2,5 +2,5 @@
   "tag": "0057_email_outbox_cifrado",
   "fecha": "2026-11-22",
   "aprobado_por": "Mauri",
-  "evidencia": "Autorizada explícitamente por Mauri el 2026-11-22 para la deuda #295 (cifrado de html/texto del outbox de email, plan PLAN-COM-01-B). Tag reservado antes del merge del PR que trae el .sql, igual que 0056. Aplicación pendiente en la base real."
+  "evidencia": "Aplicada el 2026-11-22 en el proyecto Supabase rpdrzvrmuuglfavynyph con autorización explícita de Mauri (tarjeta 'Aplicá todo') mediante Supabase MCP execute_sql, en una sola transacción junto con 0056/0058/0059 y las filas de journal de 0052-0055. Renombra email_outbox.html a html_ciphertext y texto a texto_ciphertext (el código de main ya las espera cifradas). Verificado: ambas columnas *_ciphertext presentes. El journal drizzle.__drizzle_migrations pasó de 52 a 60 filas."
 }

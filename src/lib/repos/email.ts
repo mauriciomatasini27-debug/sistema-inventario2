@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { dondeTenant, filaConTenant } from "../tenant-scope.js";
 import { emailOutbox, notificationEvents } from "../../db/schema-email.js";
 import { listarMovimientosCaja } from "./movimientos-caja.js";
@@ -46,21 +46,37 @@ interface EntradaEnvio {
   providerMessageId?: string | null | undefined;
 }
 
-export async function existeEnvio(key: string, tenantId?: string): Promise<boolean> {
-  if (hayMemoria(tenantId) && conParticion(tenantId, () => crearAlmacenEmailOutbox().contiene(key))) return true;
+type EstadoFila = "pendiente" | "enviado";
+
+// P10-36 [tenant]: solo "enviado" prueba entrega; cualquier otro estado deja la fila reintentable.
+function estadoDeFila(estado: string): EstadoFila {
+  return estado === "enviado" ? "enviado" : "pendiente";
+}
+
+async function estadoFilaOutbox(key: string, tenantId?: string): Promise<EstadoFila | null> {
   const db = dbVivaTenant(tenantId);
-  if (!db) return false;
-  try {
-    const previo = await db
-      .select({ id: emailOutbox.id })
-      .from(emailOutbox)
-      .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, key)))
-      .limit(1);
-    return previo.length > 0;
-  } catch (e) {
-    conParticion(tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);
-    return false;
+  if (db) {
+    try {
+      const previo = await db
+        .select({ estado: emailOutbox.estado })
+        .from(emailOutbox)
+        .where(dondeTenant(emailOutbox.tenantId, eq(emailOutbox.idempotencyKey, key)))
+        .limit(1);
+      if (previo[0]) return estadoDeFila(previo[0].estado);
+    } catch (e) {
+      conParticion(tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);
+    }
   }
+  // P10-36 [tenant]: el espejo en memoria es solo fallback; P10-92 confirma en DB y puede dejarlo viejo.
+  if (hayMemoria(tenantId)) {
+    const memoria = conParticion(tenantId, () => crearAlmacenEmailOutbox().obtener(key));
+    if (memoria) return memoria.estado;
+  }
+  return null;
+}
+
+export async function existeEnvio(key: string, tenantId?: string): Promise<boolean> {
+  return (await estadoFilaOutbox(key, tenantId)) === "enviado";
 }
 
 function pendienteDeEnvio(input: EntradaEnvio): OutboxPendiente {
@@ -102,17 +118,41 @@ export async function encolarEnvio(input: EntradaEnvio & {
   tenantId?: string | undefined;
 }): Promise<EncolarEnvioResultado> {
   const usaMemoria = hayMemoria(input.tenantId);
-  if (await existeEnvio(input.key, input.tenantId)) {
+  const estadoPrevio = await estadoFilaOutbox(input.key, input.tenantId);
+  // P10-36 [tenant]: lo pendiente se reintenta, nunca se duplica; solo confirmarlo lo vuelve enviado.
+  if (estadoPrevio === "enviado" || (estadoPrevio === "pendiente" && input.estado !== "enviado")) {
     return { ok: false, codigo: "DUPLICADO", key: input.key };
   }
   const db = dbVivaTenant(input.tenantId);
+  const envio = pendienteDeEnvio(input);
   if (!db) {
     conParticion(input.tenantId, () => {
-      crearAlmacenEmailOutbox().guardar(input.key, pendienteDeEnvio(input));
+      crearAlmacenEmailOutbox().guardar(input.key, envio);
     });
     return { ok: true, key: input.key, fuente: "memoria" };
   }
-  const envio = pendienteDeEnvio(input);
+  if (estadoPrevio === "pendiente") {
+    // P10-36 [tenant]: el único por tenant+clave prohíbe insertar; confirma la fila ya encolada.
+    try {
+      await db
+        .update(emailOutbox)
+        .set({ estado: "enviado", providerMessageId: envio.providerMessageId })
+        .where(
+          dondeTenant(
+            emailOutbox.tenantId,
+            and(eq(emailOutbox.idempotencyKey, input.key), ne(emailOutbox.estado, "enviado")),
+          ),
+        );
+    } catch (e) {
+      conParticion(input.tenantId, () => crearAlmacenEmailOutbox()).anteFalloPersistencia(e);
+      conParticion(input.tenantId, () => crearAlmacenEmailOutbox().guardar(input.key, envio));
+      return { ok: true, key: input.key, fuente: "memoria" };
+    }
+    if (usaMemoria) {
+      conParticion(input.tenantId, () => crearAlmacenEmailOutbox().guardar(input.key, envio));
+    }
+    return { ok: true, key: input.key, fuente: "db" };
+  }
   // P10-33 [tenant]: cifrar fuera del try; sin clave se falla, no se cae al espejo.
   const cuerpo = cuerpoCifradoOutbox(envio.html, envio.texto, input.tenantId);
   try {

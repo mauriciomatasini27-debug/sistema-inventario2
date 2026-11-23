@@ -46,6 +46,7 @@ interface MensajeCrudo {
   readonly image?: { readonly id?: string; readonly mime_type?: string };
   readonly document?: { readonly id?: string; readonly mime_type?: string; readonly filename?: string };
   readonly interactive?: { readonly button_reply?: { readonly id?: string } };
+  readonly button?: { readonly text?: string; readonly payload?: string };
 }
 
 // Primer mensaje del webhook de la Cloud API (con o sin texto).
@@ -111,10 +112,16 @@ export interface MensajeBotonWA {
   readonly botonId: string;
 }
 
+// WA-BOTONES-1 [plataforma]: un quick reply de plantilla llega como type "button" con button.text y sin payload, y el id de un interactivo llega en interactive.button_reply.id; sin el primer caso el toque se descartaba.
 export function normalizarBotonEntrada(payload: unknown): MensajeBotonWA | null {
   const msg = mensajeCrudo(payload);
   if (!msg?.from || !msg.id) return null;
-  const id = msg.type === "interactive" ? msg.interactive?.button_reply?.id : undefined;
+  const id =
+    msg.type === "interactive"
+      ? msg.interactive?.button_reply?.id
+      : msg.type === "button"
+        ? (msg.button?.payload?.trim() || msg.button?.text?.trim())
+        : undefined;
   if (!id) return null;
   return {
     wamid: msg.id,

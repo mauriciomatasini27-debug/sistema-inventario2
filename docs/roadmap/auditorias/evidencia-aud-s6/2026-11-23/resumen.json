@@ -1,0 +1,113 @@
+{
+  "accion": "check-navegacion",
+  "historia": "AUD-S6",
+  "base": "http://localhost:4321",
+  "tomada_en": "2026-11-23T05:34:22.664Z",
+  "tenant": "control-app",
+  "pantallas": 8,
+  "pasos": 31,
+  "pasosOk": 28,
+  "pasosFallidos": 3,
+  "hallazgos": [
+    {
+      "pantalla": "venta",
+      "paso": "por-peso",
+      "detalle": "2,5 kg con el payload de /venta → 422 lineas: Poné un entero entre 1 y 999. · con el contrato del handler → 201 ",
+      "codigo": "venta-1",
+      "issue": "#474"
+    },
+    {
+      "pantalla": "fiscal",
+      "paso": "carga-estado",
+      "detalle": "GET /api/fiscal/wizard (como lo llama la pantalla) → 422 · falta tenant_id",
+      "codigo": "fiscal-3",
+      "issue": "#483"
+    },
+    {
+      "pantalla": "pagos",
+      "paso": "carga",
+      "detalle": "GET /panel/pagos → 404 · la pantalla no existe en el panel",
+      "codigo": "pagos-1",
+      "issue": "#481"
+    }
+  ],
+  "fallas": [],
+  "pantallasDetalle": [
+    {
+      "id": "panel",
+      "ruta": "/panel",
+      "rol": "duenio",
+      "pasos": 2,
+      "ok": 2,
+      "observaciones": [
+        "Pantalla de solo lectura: el panel no persiste nada propio; relee KPIs y módulos."
+      ]
+    },
+    {
+      "id": "venta",
+      "ruta": "/venta",
+      "rol": "empleado",
+      "pasos": 5,
+      "ok": 4,
+      "observaciones": []
+    },
+    {
+      "id": "caja",
+      "ruta": "/panel/caja",
+      "rol": "duenio",
+      "pasos": 4,
+      "ok": 4,
+      "observaciones": [
+        "caja-1 reproducido: el movimiento acepta `nota` (201) y la relectura no la devuelve (no hay columna)."
+      ]
+    },
+    {
+      "id": "stock",
+      "ruta": "/panel/stock",
+      "rol": "duenio",
+      "pasos": 6,
+      "ok": 6,
+      "observaciones": [
+        "stock-1 (#477) no se prueba acá: el flag `controla_vencimiento` del alta vive en el espejo de memoria y la lectura es la misma memoria; el round-trip a base lo cubre AUD-S4."
+      ]
+    },
+    {
+      "id": "proveedores",
+      "ruta": "/panel/proveedores",
+      "rol": "duenio",
+      "pasos": 4,
+      "ok": 4,
+      "observaciones": []
+    },
+    {
+      "id": "servicios",
+      "ruta": "/panel/consumos",
+      "rol": "duenio",
+      "pasos": 4,
+      "ok": 4,
+      "observaciones": [
+        "servicios-1 (#479) reproducido: el alta de la pantalla manda servicio/proveedor/titular y quedan sin poblar alias, email_origen, vencimiento_tipico_dia."
+      ]
+    },
+    {
+      "id": "fiscal",
+      "ruta": "/panel/fiscal/delegacion",
+      "rol": "duenio",
+      "pasos": 5,
+      "ok": 4,
+      "observaciones": [
+        "fiscal-1 (#480) y fiscal-2 no se prueban acá: el modo de primera factura y `cola_pausada`/`aviso_revocacion` viven en memoria y el checklist corre en un solo proceso; reinstalar el server es el único experimento que los distingue."
+      ]
+    },
+    {
+      "id": "pagos",
+      "ruta": "/panel/pagos",
+      "rol": "duenio",
+      "pasos": 1,
+      "ok": 0,
+      "observaciones": [
+        "pagos-1 (#481): el módulo existe solo en API (`/api/payment-orders/*`, `lib/repos/ordenes-pago.ts`, tabla `payment_orders`); sin pantalla no hay campo que trazar ni guarda que recorrer."
+      ]
+    }
+  ]
+}

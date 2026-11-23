@@ -8,6 +8,18 @@ Vocabulario del catálogo de productos del comercio y de la venta.
 Identificador corto y legible que se asigna a un producto para buscarlo y cobrarlo en la venta. Es único dentro de un comercio y es opcional: un producto puede no tenerlo.
 _Avoid_: SKU, código de barras, barcode, PLU
 
+**Alta al vuelo**:
+Creación de un producto a partir de un Código de producto desconocido durante una venta o una carga de stock.
+_Avoid_: alta rápida, crear sobre la marcha, alta desde el lector
+
+**Alta de catálogo**:
+Creación explícita de un producto en el catálogo del Comercio, con nombre y precio definidos, de forma manual o desde una importación.
+_Avoid_: alta manual, carga de catálogo, alta de producto
+
+**Producto provisorio**:
+Producto que nace de una Alta al vuelo: tiene Código de producto y un precio para esa operación, pero no tiene stock inicial.
+_Avoid_: producto temporal, producto fantasma, provisorio
+
 **Tenant (Comercio)**:
 Organización propietaria de los datos (productos, ventas, clientes, caja) en el sistema. Cada request de datos se resuelve a un único tenant, que determina qué base o filas se usan.
 _Avoid_: organization, cuenta, tenant_id

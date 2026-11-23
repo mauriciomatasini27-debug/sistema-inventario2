@@ -112,15 +112,16 @@ describe("job resumen semanal", () => {
     expect(r1.status).toBe(200);
     const resultados = r1.json["resultados"] as Array<{ tenant_id: string; canales: Array<{ canal: string; estado: string }> }>;
     const mio = resultados.find((x) => x.tenant_id === tenantId);
-    // Sin credenciales WA falla; el email igual sale (canales independientes).
+    // Sin credenciales WA falla; sin proveedor el email queda pendiente para P10-92 (no se reporta enviado).
     expect(mio?.canales.find((c) => c.canal === "wa")?.estado).toBe("omitido_pausa");
-    expect(mio?.canales.find((c) => c.canal === "email")?.estado).toBe("enviado");
+    expect(mio?.canales.find((c) => c.canal === "email")?.estado).toBe("pendiente");
     expect(store.emailOutbox.size).toBe(1);
 
     const r2 = await post(POSTSemanal, "http://x/api/jobs/whatsapp-semanal");
     const resultados2 = r2.json["resultados"] as Array<{ tenant_id: string; canales: Array<{ canal: string; estado: string }> }>;
     const mio2 = resultados2.find((x) => x.tenant_id === tenantId);
-    expect(mio2?.canales.find((c) => c.canal === "email")?.estado).toBe("duplicado");
+    // La fila pendiente no se dedupe: el canal sigue pendiente hasta que el proveedor confirme.
+    expect(mio2?.canales.find((c) => c.canal === "email")?.estado).toBe("pendiente");
   });
 
   it("sin ventas sale igual con la aclaración", () => {

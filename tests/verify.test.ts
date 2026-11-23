@@ -6,10 +6,30 @@ import {
   PASOS_CI,
   PASOS_DOCS,
   dependenciasIncumplidas,
+  maxWorkersVerify,
   planDePasos,
   resumir,
   textoResumen,
 } from "../scripts/verify-lib.mjs";
+
+describe("verify: workers de Vitest", () => {
+  it("topa los workers en 4 cuando no hay override", () => {
+    expect(maxWorkersVerify({})).toBe(4);
+  });
+
+  it("respeta el override explícito del box o de una corrida local", () => {
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "4" })).toBe(4);
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "2" })).toBe(2);
+    // Vitest parsea con parseInt: "2x" también da 2, no lo cambiamos acá.
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "2x" })).toBe(2);
+  });
+
+  it("un valor vacío o inválido no deja la suite sin tope", () => {
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "" })).toBe(4);
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "many" })).toBe(4);
+    expect(maxWorkersVerify({ VITEST_MAX_WORKERS: "0" })).toBe(4);
+  });
+});
 
 describe("verify: plan de pasos", () => {
   it("completo corre los pasos de CI y después los de docs", () => {

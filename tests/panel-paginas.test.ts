@@ -68,9 +68,16 @@ describe("panel: cada pill resuelve a una página real", () => {
     expect(caja).toContain('id="saldo-caja"');
     expect(caja).toContain("puedeVerSaldoCaja");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain("data-puede-crear");
-    expect(stock).toContain("puedeCrearProductos");
-    expect(leer("src/pages/panel/stock/importar.astro")).toContain("hidden={!puedeCrear}");
+    expect(stock).not.toContain("data-puede-crear");
+    expect(stock).toContain('<option value="agregar">Agregar producto</option>');
+    expect(stock).toContain('id="codigo-producto"');
+  });
+
+  it("spec 433 T2: el formulario de importar es visible para el Empleado (rojo si vuelve el gate)", () => {
+    const importar = leer("src/pages/panel/stock/importar.astro");
+    expect(importar).toContain('<form id="form-importar">');
+    expect(importar).not.toContain("hidden={!puedeCrear}");
+    expect(importar).not.toContain("No tenés permiso para dar de alta productos.");
   });
 
   it("cada destino de Más existe como página", () => {
@@ -151,12 +158,11 @@ describe("pantallas de módulo: solo APIs existentes, tokens y táctil", () => {
     expect(urlsFetch(src)).toEqual([]);
   });
 
-  it("umbrales de alerta se enlaza desde stock y desde la tarjeta de stock", () => {
+  it("umbrales de alerta ya no se enlaza desde stock: queda en Más y en la tarjeta de stock", () => {
     const destino = "/panel/alertas/umbrales";
     expect(archivoDeHref(destino)).toBe("src/pages/panel/alertas/umbrales.astro");
     const stock = leer("src/pages/panel/stock.astro");
-    expect(stock).toContain(destino);
-    expect(stock).toContain("TableroAcciones");
+    expect(stock).not.toContain(destino);
     expect(leer("src/components/panel/StockCard.astro")).toContain(`href="${destino}"`);
   });
 

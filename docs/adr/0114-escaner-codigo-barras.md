@@ -7,7 +7,7 @@ depende_de: [ADR-0002]
 reemplaza: []
 reemplazado_por: ""
 modifica: []
-modificado_por: []
+modificado_por: [ADR-0128]
 resumen: |
   El código de barras se lee primero con un lector USB o Bluetooth.
   La cámara queda como respaldo, y zxing-wasm cubre el navegador sin BarcodeDetector.

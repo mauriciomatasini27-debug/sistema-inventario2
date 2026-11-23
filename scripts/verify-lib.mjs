@@ -3,16 +3,30 @@ import { readFileSync } from "node:fs";
 // RETRO-03: el gate de ids de comentarios va primero para fallar temprano.
 // RETRO-AUD-01: issues-locales va primero: un avance `hecho` con el issue abierto
 // se detecta antes de gastar el resto del verify.
-export const PASOS_CI = ["comentarios", "issues-locales", "typecheck", "arch", "test", "skips", "build"];
+export const PASOS_CI = ["comentarios", "issues-locales", "typecheck", "arch", "columnas", "test", "skips", "build"];
 // DOCS-GATE-CHECK: los --check van antes de los writers para que el gate
 // falle nombrando el comando en vez de regenerar callado.
 export const PASOS_DOCS = ["docs:generados", "docs:comentarios-check", "docs:estado-check", "docs:index-check", "docs:migraciones-check", "roadmap-check", "docs:migraciones", "roadmap", "docs:estado", "docs:index", "docs:check"];
+
+// RETRO-04: sin tope, Vitest levanta ~nproc workers (12 acá) y la suite con PG A/B
+// flakea: 401s de auth y hooks de crearBase que timeout. El box ya exportaba 4.
+const MAX_WORKERS_VERIFY = 4;
+
+/** @param {NodeJS.ProcessEnv} env */
+export function maxWorkersVerify(env = process.env) {
+  const crudo = env.VITEST_MAX_WORKERS;
+  if (!crudo) return MAX_WORKERS_VERIFY;
+  // Vitest también parsea el env con parseInt: espejamos su contrato.
+  const workers = Number.parseInt(crudo, 10);
+  return Number.isInteger(workers) && workers > 0 ? workers : MAX_WORKERS_VERIFY;
+}
 
 const DEFS = {
   comentarios: { node: "scripts/check-comment-ids.mjs" },
   "issues-locales": { node: "scripts/verificar-issues-locales.mjs" },
   typecheck: { script: "typecheck" },
   arch: { script: "check:arch" },
+  columnas: { script: "check:columnas" },
   test: {
     script: "test",
     extra: ["--", "--reporter=default", "--reporter=json", "--outputFile=vitest-report.json"],

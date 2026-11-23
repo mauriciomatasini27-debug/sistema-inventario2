@@ -1,9 +1,5 @@
 ---
 import PanelShell from "../../../components/panel/PanelShell.astro";
-import { puedeCrearProductos, rolParaNav } from "../../../lib/panel-modulos.js";
-import { resolverRolEfectivo } from "../../../lib/control.js";
-const navRol = rolParaNav(resolverRolEfectivo(Astro.request));
-const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
 ---
 <PanelShell
   titulo="Importar stock"
@@ -18,8 +14,7 @@ const puedeCrear = puedeCrearProductos(navRol.rol, navRol.permisos);
     </p>
     <p><a href="/api/stock/importar/plantilla.csv">Descargar plantilla CSV</a></p>
 
-    {puedeCrear ? null : <p class="estado">No tenés permiso para dar de alta productos.</p>}
-    <form id="form-importar" hidden={!puedeCrear}>
+    <form id="form-importar">
       <div class="fila">
         <label>Archivo CSV o XLSX
           <input id="archivo-importar" data-campo="archivo" type="file" name="archivo" accept=".csv,.xlsx" required />

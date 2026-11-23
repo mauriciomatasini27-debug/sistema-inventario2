@@ -79,14 +79,14 @@ export const POST: APIRoute = async ({ request }) => {
       },
       enviarEmail: async (destino, texto, meta) => {
         const key = meta?.clave ? `${meta.clave}:email` : `alerta-email:${destino}`;
-        return {
-          ok: await encolar_email_simple(key, destino, "Stock bajo", texto, {
-            proveedor,
-            replyToComercio,
-            nombreComercio: comercio.nombreComercio,
-            tenantId: comercio.tenantId,
-          }),
-        };
+        const ok = await encolar_email_simple(key, destino, "Stock bajo", texto, {
+          proveedor,
+          replyToComercio,
+          nombreComercio: comercio.nombreComercio,
+          tenantId: comercio.tenantId,
+        });
+        // P10-36 [tenant]: sin proveedor la fila queda pendiente para P10-92; el canal no confirma envío.
+        return ok ? { ok: true } : { ok: false, error: proveedor ? "envio_email" : "sin_proveedor" };
       },
     });
     return Response.json(

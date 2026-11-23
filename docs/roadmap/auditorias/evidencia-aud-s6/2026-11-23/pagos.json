@@ -1,0 +1,19 @@
+{
+  "id": "pagos",
+  "nombre": "Pagos",
+  "ruta": "/panel/pagos",
+  "rol": "duenio",
+  "pasos": [
+    {
+      "nombre": "carga",
+      "ok": false,
+      "detalle": "GET /panel/pagos → 404 · la pantalla no existe en el panel",
+      "status": 404,
+      "codigo": "pagos-1",
+      "issue": "#481"
+    }
+  ],
+  "observaciones": [
+    "pagos-1 (#481): el módulo existe solo en API (`/api/payment-orders/*`, `lib/repos/ordenes-pago.ts`, tabla `payment_orders`); sin pantalla no hay campo que trazar ni guarda que recorrer."
+  ]
+}

@@ -335,10 +335,6 @@ export function puedeVerSaldoCaja(rol: "dueno" | "empleado", permisos: readonly 
   return rol === "dueno" || permisos.includes("ver_saldos_caja");
 }
 
-export function puedeCrearProductos(rol: "dueno" | "empleado", permisos: readonly string[]): boolean {
-  return rol === "dueno" || permisos.includes("crear_productos");
-}
-
 export function setTexto(id: string, texto: string): void {
   const el = document.getElementById(id);
   if (el) el.textContent = texto;
