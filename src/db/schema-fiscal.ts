@@ -64,7 +64,7 @@ export const fiscalDocuments = pgTable(
   estado: text("estado").notNull().default("pendiente"),
   // FE-S20/T3 (bandeja + reintentos): columnas creadas por la migración 0003.
   intentos: bigint("intentos", { mode: "number" }).notNull().default(0),
-  proximoIntento: timestamp("proximo_intento"),
+  proximoIntento: timestamp("proximo_intento", { withTimezone: true }),
   ultimoErrorCodigo: text("ultimo_error_codigo"),
   motivoCastellano: text("motivo_castellano"),
   noFacturar: jsonb("no_facturar").$type<MarcaNoFacturar>(),

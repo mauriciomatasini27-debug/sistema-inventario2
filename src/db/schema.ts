@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  foreignKey,
   integer,
   jsonb,
   pgTable,
@@ -277,16 +278,7 @@ export const authEvents = pgTable("auth_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Tareas fiscales de control con clave texto (delegacion-confirmada).
-// Tabla fiscal_jobs del lado control; la cola de aprovisionamiento nunca
-// aloja tareas fiscales. Sin cascadas destructivas.
-export const fiscalJobs = pgTable("fiscal_jobs", {
-  clave: text("clave").primaryKey(),
-  tenantId: text("tenant_id").notNull(),
-  estado: text("estado").notNull().default("pendiente"),
-  intentos: integer("intentos").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+// ADR-0125: fiscal_jobs se declara en schema-fiscal-control.ts (id + fiscal_document_id).
 
 // Cola mínima de aprovisionamiento (sin pg-boss por ahora).
 export const provisionJobs = pgTable("provision_jobs", {
@@ -336,26 +328,39 @@ export const productCodes = pgTable(
   {
     tenantId: uuid("tenant_id").notNull(),
     codigo: text("codigo").notNull(),
-    sku: text("sku")
-      .notNull()
-      .references(() => products.sku),
+    sku: text("sku").notNull(),
     padre: text("padre"),
   },
-  (t) => [primaryKey({ columns: [t.tenantId, t.codigo] })],
+  (t) => [
+    primaryKey({ columns: [t.tenantId, t.codigo] }),
+    foreignKey({
+      name: "product_codes_tenant_sku_products_fk",
+      columns: [t.tenantId, t.sku],
+      foreignColumns: [products.tenantId, products.sku],
+    }),
+  ],
 );
 
-export const stockLots = pgTable("stock_lots", {
-  tenantId: uuid("tenant_id").notNull(),
-  id: uuid("id").primaryKey().defaultRandom(),
-  sku: text("sku")
-    .notNull()
-    .references(() => products.sku),
-  cantidad: integer("cantidad").notNull(),
-  cantidadRestante: integer("cantidad_restante").notNull().default(0),
-  venceEl: timestamp("vence_el"),
-  costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(sql`0`),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const stockLots = pgTable(
+  "stock_lots",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    sku: text("sku").notNull(),
+    cantidad: integer("cantidad").notNull(),
+    cantidadRestante: integer("cantidad_restante").notNull().default(0),
+    venceEl: timestamp("vence_el"),
+    costoCentavos: bigint("costo_centavos", { mode: "bigint" }).notNull().default(sql`0`),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "stock_lots_tenant_sku_products_fk",
+      columns: [t.tenantId, t.sku],
+      foreignColumns: [products.tenantId, products.sku],
+    }),
+  ],
+);
 
 // PRD-STOCK-01 STOCK-S4 (ADR-0106): el índice parcial único
 // stock_movements_stock_inicial_unico (migración 0036) cubre las keys
@@ -394,16 +399,26 @@ export const stockImports = pgTable(
   (t) => [uniqueIndex("stock_imports_tenant_idem_uq").on(t.tenantId, t.idemKey)],
 );
 
-export const productPhotos = pgTable("product_photos", {
-  tenantId: uuid("tenant_id").notNull(),
-  id: uuid("id").primaryKey().defaultRandom(),
-  sku: text("sku").notNull().references(() => products.sku),
-  url: text("url").notNull(),
-  ancho: integer("ancho").notNull().default(800),
-  alto: integer("alto").notNull().default(800),
-  bytes: integer("bytes").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const productPhotos = pgTable(
+  "product_photos",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    sku: text("sku").notNull(),
+    url: text("url").notNull(),
+    ancho: integer("ancho").notNull().default(800),
+    alto: integer("alto").notNull().default(800),
+    bytes: integer("bytes").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "product_photos_tenant_sku_products_fk",
+      columns: [t.tenantId, t.sku],
+      foreignColumns: [products.tenantId, products.sku],
+    }),
+  ],
+);
 
 // Unicidad case-insensitive: índice locations_tenant_nombre_lower_uq (0045).
 export const locations = pgTable(

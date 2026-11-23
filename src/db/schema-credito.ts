@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, integer, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const customers = pgTable(
   "customers",
@@ -17,7 +17,7 @@ export const customers = pgTable(
     saldoCacheCentavos: bigint("saldo_cache_centavos", { mode: "bigint" }).notNull().default(sql`0`),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("customers_tenant_id_idx").on(t.tenantId)],
+  (t) => [index("customers_tenant_id_idx").on(t.tenantId)],
 );
 
 // Tipos cerrados (FC/ADR-0004): inicial, venta, cobro, devolucion,
