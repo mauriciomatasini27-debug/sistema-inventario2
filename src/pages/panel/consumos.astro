@@ -28,6 +28,17 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
             <input id="cuenta-titular" data-campo="titular" autocomplete="off" />
           </label>
         </div>
+        <div class="fila">
+          <label>Alias (opcional)
+            <input id="cuenta-alias" data-campo="alias" autocomplete="off" maxlength="100" />
+          </label>
+          <label>Email de origen (opcional)
+            <input id="cuenta-email" data-campo="email_origen" type="email" autocomplete="off" maxlength="320" />
+          </label>
+          <label>Día de vencimiento (opcional)
+            <input id="cuenta-dia" data-campo="vencimiento_tipico_dia" type="number" min="1" max="31" step="1" inputmode="numeric" />
+          </label>
+        </div>
         <button id="cuenta-enviar" type="submit">Crear cuenta</button>
         <div class="estado" id="estado-cuenta" role="status"></div>
       </form>
@@ -425,6 +436,9 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
     const servicio = ($("cuenta-servicio") as HTMLSelectElement).value;
     const proveedor = ($("cuenta-proveedor") as HTMLInputElement).value.trim();
     const titular = ($("cuenta-titular") as HTMLInputElement).value.trim();
+    const alias = ($("cuenta-alias") as HTMLInputElement).value.trim();
+    const emailOrigen = ($("cuenta-email") as HTMLInputElement).value.trim();
+    const diaVencimiento = ($("cuenta-dia") as HTMLInputElement).value.trim();
     const errores = {
       ...(!servicio ? { servicio: mensajeCampo("servicio", REQUERIDO) } : {}),
       ...(proveedor.length < 2 ? { proveedor: mensajeCampo("proveedor", REQUERIDO) } : {}),
@@ -439,7 +453,12 @@ const medios = ["Efectivo", "Debito", "Mercado Pago", "QR", "Transferencia"];
       const r = await fetch("/api/service-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ servicio, proveedor, titular }),
+        body: JSON.stringify({
+          servicio, proveedor, titular,
+          ...(alias ? { alias } : {}),
+          ...(emailOrigen ? { email_origen: emailOrigen } : {}),
+          ...(diaVencimiento ? { vencimiento_tipico_dia: Number(diaVencimiento) } : {}),
+        }),
       });
       const j = await r.json().catch((error) => {
         console.warn("[panel/consumos] respuesta sin JSON", r.status, error);

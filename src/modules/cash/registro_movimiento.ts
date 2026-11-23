@@ -12,6 +12,7 @@ export interface RegistrarMovimientoInput {
   readonly origen: string;
   readonly sale_id?: string | undefined;
   readonly monto_centavos: number;
+  readonly nota?: string | undefined;
   readonly rol?: Rol | undefined;
   readonly actor?: string | undefined;
 }
@@ -37,6 +38,7 @@ function espejoMemoria(i: RegistrarMovimientoInput): StoredMovement {
     monto_centavos: String(i.monto_centavos),
     origen: i.origen,
     ...(i.sale_id !== undefined ? { sale_id: i.sale_id } : {}),
+    ...(i.nota !== undefined ? { nota: i.nota } : {}),
     ...(i.actor !== undefined ? { actor: i.actor } : {}),
     idempotency_key: i.key,
     ocurrido_en: new Date().toISOString(),
@@ -87,6 +89,7 @@ export async function registrar_movimiento_db_first(
       categoriaId: i.categoria_id,
       origen: i.origen,
       montoCentavos: BigInt(i.monto_centavos),
+      nota: i.nota ?? null,
     }]);
   } catch (e) {
     if (esConflictoUnico(e)) {

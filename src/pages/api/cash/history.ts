@@ -25,6 +25,7 @@ export const GET: APIRoute = async ({ url }) => {
       monto_centavos: m.monto_centavos,
       origen: m.origen,
       ...(m.sale_id !== undefined ? { sale_id: m.sale_id } : {}),
+      ...(m.nota !== undefined ? { nota: m.nota } : {}),
       idempotency_key: m.idempotency_key,
     })),
     total: filtrados.length,

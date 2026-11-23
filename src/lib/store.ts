@@ -39,6 +39,7 @@ export interface StoredMovement {
   monto_centavos: string;
   origen: string;
   sale_id?: string;
+  nota?: string;
   idempotency_key: string;
   // CAJA-S1: instante de ocurrencia para asociar QR ±15 min.
   ocurrido_en?: string;
@@ -226,7 +227,7 @@ function crearEstado() {
   ocrJobsByKey: new Map<string, string>(),
     ocrEventos: [] as Array<{ tipo: string; payload: unknown }>,
   // T3 fiscal (FE-S4/S5/S25): wizard por tenant + historial append-only.
-  fiscalWizard: new Map<string, { paso: number; delegacion: import("../modules/fiscal/wizard.js").DelegacionEstado; pausaEn: number | null }>(),
+  fiscalWizard: new Map<string, { paso: number; delegacion: import("../modules/fiscal/wizard.js").DelegacionEstado; pausaEn: number | null; modoPrimeraFactura: import("../modules/fiscal/wizard.js").ModoPrimeraFactura | null }>(),
   fiscalHistorial: [] as Array<{ id: string; cuando: string; evento: string; docId: string }>,
   // Bot WA B4-B15: sesiones cortas por número (paso + contexto sin stock,
   // TTL 30 min aplicado en el adaptador), claves de idempotencia por canal

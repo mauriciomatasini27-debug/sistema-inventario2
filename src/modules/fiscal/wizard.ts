@@ -10,6 +10,7 @@ export interface WizardEstado {
   readonly paso: number;
   readonly delegacion: DelegacionEstado;
   readonly pausaEn: number | null;
+  readonly modoPrimeraFactura: ModoPrimeraFactura | null;
 }
 
 export interface ResultadoPruebaDelegacion {
@@ -36,7 +37,7 @@ const modoPrimeraFacturaPorTenant = new Map<string, ModoPrimeraFactura>();
 const avisoRevocacionPorTenant = new Map<string, string>();
 
 export function wizard_inicial(): WizardEstado {
-  return { paso: 0, delegacion: "pendiente", pausaEn: null };
+  return { paso: 0, delegacion: "pendiente", pausaEn: null, modoPrimeraFactura: null };
 }
 
 export function wizard_avanzar(w: WizardEstado, paso: number): WizardEstado {
@@ -147,7 +148,7 @@ export function enriquecer_vista_wizard(
     mensaje_dueno: mensaje_delegacion_dueno(w, ultimoMotivoPrueba),
     cola_pausada: cola_fiscal_pausada(tenantId),
     estado_enlace: estado_enlace_fiscal(w.delegacion),
-    modo_primera_factura: leer_modo_primera_factura(tenantId),
+    modo_primera_factura: w.modoPrimeraFactura ?? leer_modo_primera_factura(tenantId),
     aviso_revocacion: leer_aviso_revocacion(tenantId),
   };
 }

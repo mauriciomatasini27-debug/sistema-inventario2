@@ -191,6 +191,7 @@ describe.skipIf(!hayPG)("STOCK-S19 multi PG: aislamiento entre comercios", () =>
   const sufijo = `${Date.now().toString(36)}`.toUpperCase();
   const skuCompartido = `S19-${sufijo}`.slice(0, 20);
   const codigoCompartido = `C19-${sufijo}`.slice(0, 20);
+  const skuVence = `S19V-${sufijo}`.slice(0, 20);
 
   beforeEach(() => {
     resetStore();
@@ -204,8 +205,25 @@ describe.skipIf(!hayPG)("STOCK-S19 multi PG: aislamiento entre comercios", () =>
       const db = getTenantDb();
       await db.delete(productCodes).where(eq(productCodes.codigo, codigoCompartido));
       await db.delete(products).where(eq(products.sku, skuCompartido));
+      await db.delete(products).where(eq(products.sku, skuVence));
     });
     delete process.env.TENANT_MODE;
+  });
+
+  it("AUD-FIX-S4: controla_vencimiento del alta se persiste en products", async () => {
+    const r = (await conTenant("tenant-a", () =>
+      postProducts(
+        ctx("http://x/api/products", {
+          body: { sku: skuVence, nombre: "Vence", precio_centavos: 100, controla_vencimiento: true },
+        }),
+      ),
+    )) as Response;
+    expect(r.status).toBe(201);
+    const filas = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      return db.select({ controla: products.controlaVencimiento }).from(products).where(eq(products.sku, skuVence));
+    });
+    expect(filas[0]?.controla).toBe(true);
   });
 
   it("mismo SKU en tenant B no filtra datos de tenant A", async () => {

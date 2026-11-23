@@ -27,6 +27,7 @@ export const products = pgTable(
   nombre: text("nombre").notNull(),
   precioCentavos: bigint("precio_centavos", { mode: "bigint" }).notNull(),
   porPeso: boolean("por_peso").notNull().default(false),
+  controlaVencimiento: boolean("controla_vencimiento").notNull().default(false),
   stockActual: integer("stock_actual").notNull().default(0),
   sector: text("sector").notNull().default("general"),
   // PRD-STOCK-01 STOCK-S2 (ADR-0106): origen del producto; NULL en los
@@ -158,6 +159,7 @@ export const cashMovements = pgTable(
   categoriaId: text("categoria_id").notNull(),
   origen: text("origen").notNull(),
   montoCentavos: bigint("monto_centavos", { mode: "bigint" }).notNull(),
+  nota: text("nota"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("cash_movements_tenant_idempotency_uq").on(t.tenantId, t.idempotencyKey)],

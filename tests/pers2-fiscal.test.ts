@@ -1,4 +1,5 @@
-import { asegurarDoc } from "../src/lib/repos/fiscal.js";
+import { asegurarDoc, guardarWizardEstado, leerWizard } from "../src/lib/repos/fiscal.js";
+import { wizard_inicial } from "../src/modules/fiscal/wizard.js";
 import { randomUUID } from "node:crypto";
 import { ctx } from "./helpers/ctx.js";
 import { readFileSync } from "node:fs";
@@ -305,6 +306,25 @@ describe.skipIf(!hayPG)("PERS2-S8 multi con PG local: comprobante de A aislado d
     expect(hB.status).toBe(200);
     const jB = (await hB.json()) as { docs: Array<{ sale_id: string }> };
     expect(jB.docs.some((d) => d.sale_id === sale_id)).toBe(false);
+  });
+
+  it("AUD-FIX-S7: el modo de primera factura se persiste en fiscal_wizard", async () => {
+    fijarMulti();
+    const tid = `t-modo-${sufijoPG}`;
+    await conTenant("tenant-a", () =>
+      guardarWizardEstado(tid, { ...wizard_inicial(), delegacion: "activa", modoPrimeraFactura: "cae" }),
+    );
+    const leido = await conTenant("tenant-a", () => leerWizard(tid));
+    expect(leido.modoPrimeraFactura).toBe("cae");
+    const filas = await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      return db.select({ modo: fiscalWizard.modoPrimeraFactura }).from(fiscalWizard).where(eq(fiscalWizard.tenantId, tid));
+    });
+    expect(filas[0]?.modo).toBe("cae");
+    await conTenant("tenant-a", async () => {
+      const db = getTenantDb();
+      await db.delete(fiscalWizard).where(eq(fiscalWizard.tenantId, tid));
+    });
   });
 
   it("wizard de A no se ve en B", async () => {

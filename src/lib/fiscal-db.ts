@@ -5,7 +5,7 @@ import { esModoMulti, esModoShared, tenantActual } from "./tenant-mode.js";
 import { dondeTenant } from "./tenant-scope.js";
 import { fiscalDocuments, fiscalWizard } from "../db/schema-fiscal.js";
 import type { StoredFiscalDoc } from "./store.js";
-import type { DelegacionEstado, WizardEstado } from "../modules/fiscal/wizard.js";
+import type { DelegacionEstado, ModoPrimeraFactura, WizardEstado } from "../modules/fiscal/wizard.js";
 
 export type TenantDb = ReturnType<typeof getTenantDb>;
 
@@ -238,6 +238,7 @@ function filaAWizard(f: FilaWizard): WizardEstado {
     paso: f.paso,
     delegacion: f.delegacion as DelegacionEstado,
     pausaEn: f.pausaEn,
+    modoPrimeraFactura: f.modoPrimeraFactura === null ? null : (f.modoPrimeraFactura as ModoPrimeraFactura),
   };
 }
 
@@ -271,6 +272,7 @@ export async function guardarWizard(
         paso: estado.paso,
         delegacion: estado.delegacion,
         pausaEn: estado.pausaEn,
+        modoPrimeraFactura: estado.modoPrimeraFactura,
         actualizadoEn: new Date(),
       })
       .onConflictDoUpdate({
@@ -279,6 +281,7 @@ export async function guardarWizard(
           paso: estado.paso,
           delegacion: estado.delegacion,
           pausaEn: estado.pausaEn,
+          modoPrimeraFactura: estado.modoPrimeraFactura,
           actualizadoEn: new Date(),
         },
       });

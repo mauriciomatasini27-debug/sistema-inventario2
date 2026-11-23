@@ -19,14 +19,27 @@ export const prerender = false;
 // P10-93 [tenant]: el HTTP expone snake_case (location_id de CAT-S5, min_stock,
 // por_peso) porque el panel y el snapshot offline consumen ese contrato.
 function conCamposHttp<
-  T extends { locationId: string | null; minStock: number | null; reorderQty: number | null; porPeso?: boolean | undefined },
->(ficha: T): T & { location_id: string | null; min_stock: number | null; reorder_qty: number | null; por_peso: boolean } {
+  T extends {
+    locationId: string | null;
+    minStock: number | null;
+    reorderQty: number | null;
+    porPeso?: boolean | undefined;
+    controlaVencimiento?: boolean | undefined;
+  },
+>(ficha: T): T & {
+  location_id: string | null;
+  min_stock: number | null;
+  reorder_qty: number | null;
+  por_peso: boolean;
+  controla_vencimiento: boolean;
+} {
   return {
     ...ficha,
     location_id: ficha.locationId,
     min_stock: ficha.minStock,
     reorder_qty: ficha.reorderQty,
     por_peso: ficha.porPeso ?? false,
+    controla_vencimiento: ficha.controlaVencimiento ?? false,
   };
 }
 
@@ -40,7 +53,6 @@ const crearSchema = z.object({
   sector: z.string().max(64).default("general"),
   codigo: z.string().max(64).optional(),
   controla_vencimiento: z.boolean().default(false),
-  permisos: z.array(z.string().max(64)).max(32).default([]),
   location_id: z.string().uuid().optional(),
   min_stock: z.number().int().min(0).nullable().optional(),
   reorder_qty: z.number().int().min(1).nullable().optional(),
