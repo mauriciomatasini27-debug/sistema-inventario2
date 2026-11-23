@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ctx } from "./helpers/ctx.js";
+import { armarCobroDesdeCarrito } from "../src/modules/sales/carrito_armar_cobro.js";
 import { resetStore, store } from "../src/lib/store.js";
 import { GET as getProducts, POST as postProducts } from "../src/pages/api/products.js";
 import { GET as getTickets } from "../src/pages/api/tickets.js";
@@ -69,6 +70,27 @@ describe("T2 #386 HTTP: POST /api/sales con producto sembrado por peso", () => {
     expect(tj.lineas).toEqual([
       { sku, qty: 1250, precio_centavos: "5000", bruto_centavos: "6250", desc_linea_centavos: "0", desc_ticket_centavos: "0", neto_centavos: "6250" },
     ]);
+  });
+
+  it("#474: el payload real de /venta cobra 2500 g y no cae en el tope de 999", async () => {
+    const sku = "VP-474-KG";
+    await sembrarPorPeso(sku, 5000, 6000);
+    const armado = armarCobroDesdeCarrito({
+      carrito: [{ product_id: sku, qty: 2500, precio_centavos: 5000, porPeso: true }],
+      medio: "Efectivo",
+      device_code: "caja-01",
+      seq_local: 7,
+      offline: false,
+      occurredAtIso: new Date().toISOString(),
+    });
+    expect(armado.ok).toBe(true);
+    if (!armado.ok) return;
+
+    const r = (await postSales(req(crypto.randomUUID(), armado.payload))) as Response;
+    expect(r.status).toBe(201);
+    const j = (await r.json()) as { total_centavos: string };
+    expect(j.total_centavos).toBe("12500");
+    expect(store.stock.get(sku)).toBe(3500);
   });
 
   it("mezcla unidades y kilogramos en la misma venta y descuenta cada stock", async () => {

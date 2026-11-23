@@ -19,8 +19,16 @@ export type CodigoCarrito =
   | "sku_invalido"
   | "nombre_invalido";
 
+export type LineaPayloadVenta = {
+  readonly product_id: string;
+  readonly qty: number;
+  readonly precio_centavos: number;
+  readonly por_peso?: true | undefined;
+  readonly alta?: { readonly nombre: string };
+};
+
 export type PayloadVentaMostrador = {
-  readonly lineas: readonly LineaCarrito[];
+  readonly lineas: readonly LineaPayloadVenta[];
   readonly medio: string;
   readonly device_code: string;
   readonly seq_local: number;
@@ -116,7 +124,7 @@ export function armarCobroDesdeCarrito(input: {
 }): ResultadoCobro {
   if (input.carrito.length < 1) return { ok: false, codigo: "sin_lineas" };
   if (input.carrito.length > MAX_LINEAS) return { ok: false, codigo: "demasiadas_lineas" };
-  const lineas: LineaCarrito[] = [];
+  const lineas: LineaPayloadVenta[] = [];
   const vista: {
     sku: string;
     cantidad: number;
@@ -130,7 +138,13 @@ export function armarCobroDesdeCarrito(input: {
     const codigo = codigoLinea(cruda);
     if (codigo) return { ok: false, codigo };
     const linea = normalizar(cruda);
-    lineas.push(linea);
+    const base = {
+      product_id: linea.product_id,
+      qty: linea.qty,
+      precio_centavos: linea.precio_centavos,
+      ...(linea.porPeso === true ? { por_peso: true as const } : {}),
+    };
+    lineas.push(linea.alta ? { ...base, alta: linea.alta } : base);
     const subtotal = subtotalLinea(linea.qty, linea.precio_centavos, linea.porPeso);
     total += Number(subtotal);
     vista.push({

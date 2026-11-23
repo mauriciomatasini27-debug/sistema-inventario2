@@ -97,7 +97,7 @@ describe("T2 #386 carrito: gramos por línea y total mixto", () => {
     const armado = cobrar([{ product_id: "PAPAS", qty: 1250, precio_centavos: 5000, porPeso: true }]);
     expect(armado.ok).toBe(true);
     if (!armado.ok) return;
-    expect(armado.payload.lineas[0]).toEqual({ product_id: "PAPAS", qty: 1250, precio_centavos: 5000, porPeso: true });
+    expect(armado.payload.lineas[0]).toEqual({ product_id: "PAPAS", qty: 1250, precio_centavos: 5000, por_peso: true });
     expect(armado.ticketBase.total).toBe("6250");
     expect(armado.ticketBase.lineas[0]).toMatchObject({ porPeso: true, subtotal: "6250" });
     expect(armado.ticketBase.lineas[0]?.descripcion).toContain("1,250 kg");
