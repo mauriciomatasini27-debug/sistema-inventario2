@@ -8,8 +8,9 @@
 //   columnas calificadas (`alias.columna`), lista de columnas del `insert` y destinos del `set`.
 // - Columnas sin calificar solo cuando la sentencia toca una única tabla real (sin CTEs): con
 //   joins serían ambiguas.
-// - No cubre fragmentos sueltos (`sql\`estado = 'pendiente'\`` dentro de un `sql.join`), CTEs
-//   como fuente (`from ranked`) ni SQL armado en runtime con `sql.raw`.
+// - No cubre las columnas sueltas de un fragmento (`sql\`estado = 'pendiente'\`` armado con
+//   `sql.join`; las interpolaciones `${tabla.col}` de ese fragmento sí), CTEs como fuente
+//   (`from ranked`) ni SQL armado en runtime con `sql.raw`.
 // Los `sql\`` de `src/db/schema*.ts` no se escanean: ese archivo es la referencia.
 
 const CLAVES_TABLA = new Set(["from", "join", "into", "update"]);
