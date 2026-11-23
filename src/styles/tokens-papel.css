@@ -1,3 +1,5 @@
+@import './navegacion.css';
+
 /* Tokens de color Tema Papel (ADR-0008/0009) para páginas que no cargan global.css
    (Tailwind/preflight), p. ej. /panel. Espejo exacto del @theme de global.css:
    tests/panel-tokens.test.ts falla si divergen. */

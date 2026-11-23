@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './navegacion.css';
 
 /* Inventario landing — tokens ADR-0010. Misma estructura que ModoOps: la landing
    sigue sin neón ni glass (ADR-0010); el vidrio se adopta solo en panel/POS. */

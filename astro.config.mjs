@@ -9,6 +9,11 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
+  // NAV-S1 (ADR-0130): calienta la próxima página al pasar el puntero o enfocar el enlace.
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "hover",
+  },
   vite: {
     plugins: [tailwindcss()],
   },
