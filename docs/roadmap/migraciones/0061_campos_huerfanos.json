@@ -2,5 +2,5 @@
   "tag": "0061_campos_huerfanos",
   "fecha": "2026-11-23",
   "aprobado_por": "Mauri",
-  "evidencia": "Aprobada por Mauri el 2026-11-23 junto con el rescope de AUD-FIX-S3..S7. Agrega cash_movements.nota (text nullable), products.controla_vencimiento (boolean NOT NULL DEFAULT false) y fiscal_wizard.modo_primera_factura (text nullable). Idempotente con IF NOT EXISTS; no toca filas existentes. Pendiente de correr db:migrate en Supabase."
+  "evidencia": "Aprobada por Mauri el 2026-11-23 junto con el rescope de AUD-FIX-S3..S7. Aplicada vía MCP de Supabase el 2026-11-23: cash_movements.nota (text nullable), products.controla_vencimiento (boolean NOT NULL DEFAULT false) y fiscal_wizard.modo_primera_factura (text nullable), con IF NOT EXISTS y sin tocar filas existentes. Columnas verificadas en information_schema y fila del journal registrada (id 62, created_at 1796169600000)."
 }

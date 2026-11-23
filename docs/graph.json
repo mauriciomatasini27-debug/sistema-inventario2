@@ -433,6 +433,102 @@
       "ruta": "docs/adr/0109-modelo-free-por-skill-con-respaldo.md"
     },
     {
+      "id": "ADR-0110",
+      "ruta": "docs/adr/0110-formulario-correccion-ventas-pendientes.md"
+    },
+    {
+      "id": "ADR-0111",
+      "ruta": "docs/adr/0111-skill-control-app-verificacion-ui.md"
+    },
+    {
+      "id": "ADR-0112",
+      "ruta": "docs/adr/0112-registro-migraciones-por-item.md"
+    },
+    {
+      "id": "ADR-0113",
+      "ruta": "docs/adr/0113-pstack-desde-plugin-oficial.md"
+    },
+    {
+      "id": "ADR-0114",
+      "ruta": "docs/adr/0114-escaner-codigo-barras.md"
+    },
+    {
+      "id": "ADR-0115",
+      "ruta": "docs/adr/0115-bienvenida-panel-post-login.md"
+    },
+    {
+      "id": "ADR-0116",
+      "ruta": "docs/adr/0116-postgres-compartida-tenant-id.md"
+    },
+    {
+      "id": "ADR-0117",
+      "ruta": "docs/adr/0117-tenant-resolution-module.md"
+    },
+    {
+      "id": "ADR-0118",
+      "ruta": "docs/adr/0118-gmail-ingesta-module.md"
+    },
+    {
+      "id": "ADR-0119",
+      "ruta": "docs/adr/0119-ingreso-panel-y-cuestionario-opcional.md"
+    },
+    {
+      "id": "ADR-0120",
+      "ruta": "docs/adr/0120-retiro-dueno-categoria-legada.md"
+    },
+    {
+      "id": "ADR-0121",
+      "ruta": "docs/adr/0121-venta-por-peso-gramos-enteros.md"
+    },
+    {
+      "id": "ADR-0122",
+      "ruta": "docs/adr/0122-numero-devolucion-por-comercio.md"
+    },
+    {
+      "id": "ADR-0123",
+      "ruta": "docs/adr/0123-unicidad-por-comercio.md"
+    },
+    {
+      "id": "ADR-0124",
+      "ruta": "docs/adr/0124-historial-stock-unica-fuente.md"
+    },
+    {
+      "id": "ADR-0125",
+      "ruta": "docs/adr/0125-auditoria-drift-esquema-db.md"
+    },
+    {
+      "id": "ADR-0126",
+      "ruta": "docs/adr/0126-auditoria-logica-roundtrip.md"
+    },
+    {
+      "id": "ADR-0127",
+      "ruta": "docs/adr/0127-trazabilidad-ui-codigo-db.md"
+    },
+    {
+      "id": "ADR-0128",
+      "ruta": "docs/adr/0128-altas-producto-por-rol.md"
+    },
+    {
+      "id": "ADR-0129",
+      "ruta": "docs/adr/0129-campo-huerfano-persistir-memoria-quitar.md"
+    },
+    {
+      "id": "ADR-0130",
+      "ruta": "docs/adr/0130-navegacion-prefetch-view-transitions.md"
+    },
+    {
+      "id": "ADR-0131",
+      "ruta": "docs/adr/0131-carga-datos-panel-sin-cascadas.md"
+    },
+    {
+      "id": "ADR-0132",
+      "ruta": "docs/adr/0132-budget-pintado-motion.md"
+    },
+    {
+      "id": "AUD-PILOTO-2026-11-14",
+      "ruta": "docs/guias/aud-piloto-modoops-2026-11-14.md"
+    },
+    {
       "id": "AUDITORIA-DS-01",
       "ruta": "docs/diseno/AUDITORIA-DS-tema-papel.md"
     },
@@ -443,6 +539,14 @@
     {
       "id": "EVIDENCIA-UI-00",
       "ruta": "docs/diseno/EVIDENCIA-UI-00-tickets.md"
+    },
+    {
+      "id": "GUIA-CAJA-01",
+      "ruta": "docs/guias/gotchas-caja.md"
+    },
+    {
+      "id": "GUIA-DEPLOY-PILOTO",
+      "ruta": "docs/guias/deploy-piloto.md"
     },
     {
       "id": "GUIA-DEV-01",
@@ -605,6 +709,14 @@
       "ruta": "docs/diseno/PLAN-COM-01/c-conservar.md"
     },
     {
+      "id": "PLAN-COM-01-D",
+      "ruta": "docs/diseno/PLAN-COM-01/d-issues-cash-borrador.md"
+    },
+    {
+      "id": "PLAN-COM-01-E",
+      "ruta": "docs/diseno/PLAN-COM-01/e-ejecucion.md"
+    },
+    {
       "id": "PLANTILLAS-META",
       "ruta": "docs/07-canales-whatsapp-email/plantillas-meta.md"
     },
@@ -627,6 +739,26 @@
     {
       "id": "PRD-AU-02",
       "ruta": "docs/diseno/PRD-AU-02-login-con-destino.md"
+    },
+    {
+      "id": "PRD-AUD-01",
+      "ruta": "docs/diseno/PRD-AUD-01-auditoria-esquema-db.md"
+    },
+    {
+      "id": "PRD-AUD-02",
+      "ruta": "docs/diseno/PRD-AUD-02-auditoria-logica-codigo-db.md"
+    },
+    {
+      "id": "PRD-AUD-03",
+      "ruta": "docs/diseno/PRD-AUD-03-auditoria-ui-ux-codigo-db.md"
+    },
+    {
+      "id": "PRD-AUD-04",
+      "ruta": "docs/diseno/PRD-AUD-04-correccion-campos-huerfanos.md"
+    },
+    {
+      "id": "PRD-AUD-05",
+      "ruta": "docs/diseno/PRD-AUD-05-pantalla-pagos.md"
     },
     {
       "id": "PRD-BOT-01",
@@ -683,6 +815,10 @@
     {
       "id": "PRD-DS-03",
       "ruta": "docs/diseno/PRD-DS-03-adopcion-inventario.md"
+    },
+    {
+      "id": "PRD-DS-04",
+      "ruta": "docs/diseno/PRD-DS-04-estrategia-visual-skills-2026.md"
     },
     {
       "id": "PRD-E2E-01",
@@ -745,12 +881,28 @@
       "ruta": "docs/diseno/PRD-LP-04-chat-flotante-landing.md"
     },
     {
+      "id": "PRD-NAV-01",
+      "ruta": "docs/diseno/PRD-NAV-01-navegacion-render.md"
+    },
+    {
+      "id": "PRD-NAV-02",
+      "ruta": "docs/diseno/PRD-NAV-02-carga-datos-panel.md"
+    },
+    {
+      "id": "PRD-NAV-03",
+      "ruta": "docs/diseno/PRD-NAV-03-pintado-motion.md"
+    },
+    {
       "id": "PRD-NEG-01",
       "ruta": "docs/diseno/PRD-NEG-01-negocio-catalogo.md"
     },
     {
       "id": "PRD-OCR-01",
       "ruta": "docs/diseno/PRD-OCR-01-motor-ocr-fase-0.md"
+    },
+    {
+      "id": "PRD-ON-01",
+      "ruta": "docs/diseno/PRD-ON-01-bienvenida-panel.md"
     },
     {
       "id": "PRD-OP-01",
@@ -861,6 +1013,14 @@
       "ruta": "docs/diseno/PRD-STOCK-02-carga-stock-tanda2.md"
     },
     {
+      "id": "PRD-STOCK-03",
+      "ruta": "docs/diseno/PRD-STOCK-03-escaner.md"
+    },
+    {
+      "id": "PRD-STOCK-04",
+      "ruta": "docs/diseno/PRD-STOCK-04.md"
+    },
+    {
       "id": "PRD-SUP-01",
       "ruta": "docs/diseno/PRD-SUP-01-conexion-supabase.md"
     },
@@ -905,8 +1065,24 @@
       "ruta": "docs/diseno/PRD-VF-01-verificacion-cola-offline-venta.md"
     },
     {
+      "id": "PRD-VP-01",
+      "ruta": "docs/diseno/PRD-VP-01-correccion-por-linea-ventas-pendientes.md"
+    },
+    {
+      "id": "PRD-VP-02",
+      "ruta": "docs/diseno/PRD-VP-02-venta-por-peso.md"
+    },
+    {
       "id": "PRECIOS-DEFAULTS",
       "ruta": "docs/01-fundacion/precios-defaults.md"
+    },
+    {
+      "id": "RUNBOOK-FE-CERT-RENOV",
+      "ruta": "docs/guias/runbook-renovacion-certificado-fiscal.md"
+    },
+    {
+      "id": "RUNBOOK-FE-CERT-REVOC",
+      "ruta": "docs/guias/runbook-revocacion-certificado-fiscal.md"
     },
     {
       "id": "SPEC-UI-00",
@@ -972,6 +1148,16 @@
       "de": "ADR-0003",
       "a": "ADR-0004",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0003",
+      "a": "ADR-0116",
+      "tipo": "modificado_por"
+    },
+    {
+      "de": "ADR-0004",
+      "a": "ADR-0120",
+      "tipo": "modificado_por"
     },
     {
       "de": "ADR-0005",
@@ -1457,6 +1643,11 @@
       "de": "ADR-0051",
       "a": "ADR-0050",
       "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0051",
+      "a": "ADR-0116",
+      "tipo": "modificado_por"
     },
     {
       "de": "ADR-0051",
@@ -2494,6 +2685,261 @@
       "tipo": "depende_de"
     },
     {
+      "de": "ADR-0110",
+      "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0110",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0110",
+      "a": "PRD-VF-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0111",
+      "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0111",
+      "a": "ADR-0109",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0112",
+      "a": "ADR-0076",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0113",
+      "a": "ADR-0084",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0113",
+      "a": "ADR-0085",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0113",
+      "a": "ADR-0109",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0113",
+      "a": "PRD-PS-01",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0114",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0114",
+      "a": "ADR-0128",
+      "tipo": "modificado_por"
+    },
+    {
+      "de": "ADR-0115",
+      "a": "ADR-0009",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0115",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0115",
+      "a": "PRD-ON-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0003",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0050",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0051",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "PRD-ISO-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "PRD-ISO-01",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "PRD-ISO-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0116",
+      "a": "PRD-ISO-02",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0117",
+      "a": "ADR-0051",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0117",
+      "a": "ADR-0052",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0117",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0117",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0118",
+      "a": "ADR-0065",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0118",
+      "a": "ADR-0102",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0118",
+      "a": "ADR-0103",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0119",
+      "a": "ADR-0115",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0119",
+      "a": "PRD-AU-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0119",
+      "a": "PRD-ON-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0120",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0120",
+      "a": "ADR-0004",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0121",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0121",
+      "a": "ADR-0110",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0122",
+      "a": "ADR-0080",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0122",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0123",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0123",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0124",
+      "a": "ADR-0026",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0124",
+      "a": "ADR-0062",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0128",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "ADR-0128",
+      "a": "ADR-0114",
+      "tipo": "modifica"
+    },
+    {
+      "de": "ADR-0129",
+      "a": "ADR-0127",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUD-PILOTO-2026-11-14",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "AUD-PILOTO-2026-11-14",
+      "a": "GUIA-DEPLOY-PILOTO",
+      "tipo": "depende_de"
+    },
+    {
       "de": "AUDITORIA-DS-01",
       "a": "ADR-0008",
       "tipo": "depende_de"
@@ -2546,6 +2992,36 @@
     {
       "de": "DESTRABE-CREDENCIALES",
       "a": "ADR-0092",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-CAJA-01",
+      "a": "ADR-0004",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEPLOY-PILOTO",
+      "a": "ADR-0003",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEPLOY-PILOTO",
+      "a": "ADR-0017",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEPLOY-PILOTO",
+      "a": "ADR-0048",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEPLOY-PILOTO",
+      "a": "ADR-0049",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "GUIA-DEPLOY-PILOTO",
+      "a": "ADR-0116",
       "tipo": "depende_de"
     },
     {
@@ -2636,6 +3112,41 @@
     {
       "de": "PLAN-COM-01-C",
       "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-D",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-D",
+      "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-E",
+      "a": "ADR-0064",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-E",
+      "a": "PLAN-COM-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-E",
+      "a": "PLAN-COM-01-A",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-E",
+      "a": "PLAN-COM-01-B",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PLAN-COM-01-E",
+      "a": "PLAN-COM-01-C",
       "tipo": "depende_de"
     },
     {
@@ -2746,6 +3257,51 @@
     {
       "de": "PRD-AU-02",
       "a": "PRD-LP-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-01",
+      "a": "ADR-0125",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-02",
+      "a": "ADR-0126",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-02",
+      "a": "PRD-AUD-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-03",
+      "a": "ADR-0127",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-03",
+      "a": "PRD-AUD-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-03",
+      "a": "PRD-AUD-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-04",
+      "a": "ADR-0127",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-04",
+      "a": "ADR-0129",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-AUD-05",
+      "a": "ADR-0127",
       "tipo": "depende_de"
     },
     {
@@ -2974,6 +3530,36 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-DS-04",
+      "a": "AUDITORIA-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-04",
+      "a": "PRD-DS-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-04",
+      "a": "PRD-DS-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-04",
+      "a": "PRD-DS-03",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-04",
+      "a": "PRD-UX-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-DS-04",
+      "a": "SPEC-UI-00",
+      "tipo": "depende_de"
+    },
+    {
       "de": "PRD-E2E-01",
       "a": "ADR-0001",
       "tipo": "depende_de"
@@ -3149,6 +3735,16 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-01",
+      "a": "ADR-0116",
+      "tipo": "modificado_por"
+    },
+    {
       "de": "PRD-ISO-02",
       "a": "ADR-0002",
       "tipo": "depende_de"
@@ -3172,6 +3768,16 @@
       "de": "PRD-ISO-02",
       "a": "ADR-0051",
       "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0116",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ISO-02",
+      "a": "ADR-0116",
+      "tipo": "modificado_por"
     },
     {
       "de": "PRD-ISO-02",
@@ -3369,6 +3975,21 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-NAV-01",
+      "a": "ADR-0130",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-NAV-02",
+      "a": "ADR-0131",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-NAV-03",
+      "a": "ADR-0132",
+      "tipo": "depende_de"
+    },
+    {
       "de": "PRD-NEG-01",
       "a": "ADR-0012",
       "tipo": "depende_de"
@@ -3391,6 +4012,16 @@
     {
       "de": "PRD-OCR-01",
       "a": "PRD-PERS-04",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ON-01",
+      "a": "ADR-0011",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-ON-01",
+      "a": "ADR-0115",
       "tipo": "depende_de"
     },
     {
@@ -3749,6 +4380,11 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-PS-01",
+      "a": "ADR-0113",
+      "tipo": "modificado_por"
+    },
+    {
       "de": "PRD-PWA-01",
       "a": "ADR-0003",
       "tipo": "depende_de"
@@ -3966,6 +4602,46 @@
     {
       "de": "PRD-STOCK-02",
       "a": "PRD-STOCK-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-03",
+      "a": "ADR-0002",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-03",
+      "a": "ADR-0114",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-03",
+      "a": "PRD-STOCK-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-04",
+      "a": "ADR-0107",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-04",
+      "a": "ADR-0124",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-04",
+      "a": "PRD-CAT-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-04",
+      "a": "PRD-STOCK-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-STOCK-04",
+      "a": "PRD-STOCK-03",
       "tipo": "depende_de"
     },
     {
@@ -4194,6 +4870,31 @@
       "tipo": "depende_de"
     },
     {
+      "de": "PRD-VP-01",
+      "a": "ADR-0097",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VP-01",
+      "a": "ADR-0106",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VP-01",
+      "a": "ADR-0110",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VP-01",
+      "a": "PRD-VF-01",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "PRD-VP-02",
+      "a": "ADR-0121",
+      "tipo": "depende_de"
+    },
+    {
       "de": "PRECIOS-DEFAULTS",
       "a": "ADR-0018",
       "tipo": "depende_de"
@@ -4206,6 +4907,16 @@
     {
       "de": "PRECIOS-DEFAULTS",
       "a": "PRD-PLAN-02",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "RUNBOOK-FE-CERT-RENOV",
+      "a": "ADR-0018",
+      "tipo": "depende_de"
+    },
+    {
+      "de": "RUNBOOK-FE-CERT-REVOC",
+      "a": "ADR-0018",
       "tipo": "depende_de"
     },
     {
