@@ -532,12 +532,19 @@ async function pantallaFiscal(ctx) {
 async function pantallaPagos(ctx) {
   const cookie = ctx.duenio.cookie;
   const r = await pedir("GET", "/panel/pagos", { cookie });
+  const listado = await pedir("GET", "/api/payment-orders", { cookie });
   const pasos = [
     paso(
       "carga",
       pasoOk([200], r.status),
       `GET /panel/pagos → ${r.status} · ${r.status === 404 ? "la pantalla no existe en el panel" : "responde"}`,
       { status: r.status, codigo: r.status === 404 ? "pagos-1" : null, issue: "#481" },
+    ),
+    paso(
+      "carga-listado",
+      pasoOk([200], listado.status),
+      `GET /api/payment-orders → ${listado.status} · ${Array.isArray(listado.json?.items) ? listado.json.items.length : "?"} órdenes`,
+      { status: listado.status },
     ),
   ];
   return {
@@ -547,7 +554,7 @@ async function pantallaPagos(ctx) {
     rol: "duenio",
     pasos,
     observaciones: [
-      "pagos-1 (#481): el módulo existe solo en API (`/api/payment-orders/*`, `lib/repos/ordenes-pago.ts`, tabla `payment_orders`); sin pantalla no hay campo que trazar ni guarda que recorrer.",
+      "pagos-1 (#481): /panel/pagos lista y opera payment_orders. Convive con el pago de facturas de proveedor: las facturas siguen en /panel/proveedores y los servicios en /panel/consumos; esta pantalla no crea un segundo egreso por la misma factura.",
     ],
   };
 }
