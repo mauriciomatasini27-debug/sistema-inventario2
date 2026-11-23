@@ -34,6 +34,8 @@ Reglas cortas para agentes en este repo.
 
 ## Agent skills
 
+`skills-manifest.json` lista los archivos que debe tener cada skill remota según el pin de `skills-lock.json`, y `tests/skills-completas.test.ts` (corre en `verify`) falla si falta o sobra un archivo, o si un enlace relativo de un `.md` no resuelve. El contenido de una skill adaptada puede diferir del upstream; la lista de archivos no. Si re-pinneás o instalás una skill, actualizá el manifiesto.
+
 ### Issue tracker
 
 GitHub. See `docs/agents/issue-tracker.md`.
