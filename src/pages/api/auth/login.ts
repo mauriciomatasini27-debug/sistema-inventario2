@@ -21,9 +21,9 @@ function cookieHost(nombre: string, valor: string): string {
 // P1-55: 302 same-origin al hop, no HTML con setTimeout(200) ni 302 cross-site
 // a Google. El browser aplica Set-Cookie antes de pedir /api/auth/hacia-google;
 // ese hop recién manda a accounts.google.com. Así no hay carrera de jar.
-function respuestaHaciaHop(setCookies: string[]): Response {
+function respuestaHaciaHop(setCookies: string[], destino: string): Response {
   const headers = new Headers({
-    Location: "/api/auth/hacia-google",
+    Location: `/api/auth/hacia-google?d=${encodeURIComponent(destino)}`,
     "Cache-Control": "no-store",
   });
   for (const c of setCookies) headers.append("Set-Cookie", c);
@@ -71,5 +71,5 @@ export const GET: APIRoute = async ({ request }) => {
   ];
   if (invitationToken) setCookies.push(cookieHost("__Host-oauth-invite", invitationToken));
   if (next) setCookies.push(cookieHost("__Host-oauth-next", next));
-  return respuestaHaciaHop(setCookies);
+  return respuestaHaciaHop(setCookies, destino);
 };
