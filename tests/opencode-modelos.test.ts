@@ -35,6 +35,19 @@ describe("modelos por skill (ADR-0109)", () => {
     }
   });
 
+  it("las skills de diseño usan el perfil diseno, no el de código", () => {
+    const skills = ["prototype", "variant", "better-ui", "better-layout", "better-typography", "better-colors", "emil-design-eng", "build-design"];
+    for (const s of skills) expect(perfilDe(config, s), s).toBe("diseno");
+  });
+
+  it("el perfil diseno prioriza visión y gusto visual, y no manda copy del producto a modelos que entrenan", () => {
+    const orden = config.perfiles.diseno;
+    expect(orden[0]).toBe("opencode-go/claude-haiku-5-5");
+    expect(orden[0]).not.toBe(config.perfiles.codigo[0]);
+    const sin = new Set<string>(config.privacidad.sinRetencion);
+    for (const m of orden) expect(sin.has(m), m).toBe(true);
+  });
+
   it("skill desconocida usa el perfil por defecto y acepta /skill", () => {
     expect(perfilDe(config, "no-existe")).toBe(config.perfilPorDefecto);
     expect(perfilDe(config, "/poteto-mode")).toBe(config.skills["poteto-mode"]);

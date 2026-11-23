@@ -1,5 +1,5 @@
 {
-  "$comentario": "Modelo por skill/agente (ADR-0109, actualizado local 2026-11-15 con OpenCode Go). Cada perfil es una lista en orden de preferencia; .opencode/modelos.mjs toma el primero disponible y avisa si cae. Primarios = opencode-go (suscripcion Go $10, allowance por modelo en docs/console/go); sin key de Go el resolver cae solo a la cadena free del box. Go bloquea por default los endpoints pagos que entrenan con datos (opencode.ai/docs/console/go/#privacy), por eso los Go van en sinRetencion; Muse Spark queda fuera porque exige habilitar training.",
+  "$comentario": "Modelo por skill/agente (ADR-0109, actualizado local 2026-11-15 con OpenCode Go). Cada perfil es una lista en orden de preferencia; .opencode/modelos.mjs toma el primero disponible y avisa si cae. Primarios = opencode-go (suscripcion Go $10, allowance por modelo en docs/console/go); sin key de Go el resolver cae solo a la cadena free del box. Go bloquea por default los endpoints pagos que entrenan con datos (opencode.ai/docs/console/go/#privacy), por eso los Go van en sinRetencion; Muse Spark queda fuera porque exige habilitar training. El perfil diseno (prototipos de UI mobile-first, P10-101) ordena por vision y gusto visual en vez de por fuerza de codigo: arranca en claude-haiku-5-5 y cae a gemini-4-argon, gpt-6-luna y kimi-k3.1-pro.",
   "ttlMinutos": 10,
   "perfilPorDefecto": "codigo",
   "privacidad": {
@@ -13,8 +13,10 @@
       "opencode-go/deepseek-v4-pro",
       "opencode-go/glm-5.3-flash",
       "opencode-go/claude-haiku-5-5",
+      "opencode-go/gemini-4-argon",
       "opencode-go/gpt-6-luna",
       "opencode-go/kimi-k2.7-code",
+      "opencode-go/kimi-k3.1-pro",
       "opencode-go/longcat-2.0"
     ],
     "retiene30dSinEntrenar": [
@@ -41,6 +43,13 @@
       "opencode/minimax-m3.1-flash-free",
       "opencode/mimo-v2.6-flash-free",
       "opencode/big-pickle"
+    ],
+    "diseno": [
+      "opencode-go/claude-haiku-5-5",
+      "opencode-go/gemini-4-argon",
+      "opencode-go/gpt-6-luna",
+      "opencode-go/kimi-k3.1-pro",
+      "opencode/deepseek-v4.1-flash-free"
     ],
     "razon": [
       "opencode-go/deepseek-v4-pro",
@@ -102,7 +111,14 @@
     "interrogate": "juez",
     "interface-review": "juez",
     "swarm": "codigo",
-    "prototype": "codigo",
+    "prototype": "diseno",
+    "variant": "diseno",
+    "better-ui": "diseno",
+    "better-layout": "diseno",
+    "better-typography": "diseno",
+    "better-colors": "diseno",
+    "emil-design-eng": "diseno",
+    "build-design": "diseno",
     "tdd": "codigo",
     "correct": "codigo",
     "statechart": "codigo",

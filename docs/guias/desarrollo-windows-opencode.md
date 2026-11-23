@@ -152,7 +152,7 @@ Copiá `.env.example` a `.env` y completalo vos; nunca subas ni pegues `.env` en
 
 ### Modelo por skill y aviso de modelos caídos
 
-`.opencode/modelos-por-skill.json` asigna a cada skill un perfil (`codigo`, `razon`, `juez`, `prosa`, `rapido`, `largo`) y cada perfil es una lista de modelos free en orden (ADR-0109, PRD-OPENCODE-01). Necesita solo Node 22 (sin npm install).
+`.opencode/modelos-por-skill.json` asigna a cada skill un perfil (`codigo`, `diseno`, `razon`, `juez`, `prosa`, `rapido`, `largo`) y cada perfil es una lista de modelos free en orden (ADR-0109, PRD-OPENCODE-01). `diseno` es para prototipos de UI mobile-first y las skills visuales (`prototype`, `variant`, `better-*`, `emil-design-eng`, `build-design`): arranca en `opencode-go/claude-haiku-5-5`, que se elige por leer capturas y decidir jerarquía, no por velocidad de código. Necesita solo Node 22 (sin npm install).
 
 ```bash
 cd ~/sistema-inventario
