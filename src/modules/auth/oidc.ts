@@ -135,7 +135,10 @@ export async function intercambiarCodigo(input: {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-  if (!r.ok) throw new Error("No se pudo completar el ingreso con Google");
+  if (!r.ok) {
+    const detalle = await r.text().catch(() => "");
+    throw new Error(`No se pudo completar el ingreso con Google (HTTP ${r.status}): ${detalle}`);
+  }
   const data = (await r.json()) as { id_token?: string };
   // Por qué no se guarda: AU2.2, el ID token se valida y se descarta.
   if (!data.id_token) throw new Error("Google no devolvió ID token");

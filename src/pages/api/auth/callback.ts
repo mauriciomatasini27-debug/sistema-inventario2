@@ -128,7 +128,8 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
       expectedAud: config.clientId,
       nonceEsperado: pendiente.nonce,
     });
-  } catch {
+  } catch (error) {
+    console.error("[DEBUG-login] error real en /api/auth/callback (canje/verify):", error);
     return falloIngreso(request, redirect, "No se pudo validar tu cuenta de Google. Volvé a intentarlo.");
   }
 
