@@ -1,16 +1,10 @@
 // PWA-S2 (PRD-PWA-01, OF1/OF3): SW mínimo sin dependencias.
-// - Estático same-origin: cache-first (la app abre sin red con último catálogo).
-// - GET /api/sync/pull: network-first con fallback a caché (fondo del catálogo).
-// - GET /api/sync/pull sin red: la copia cacheada sale marcada con
-//   `x-desde-cache: 1` para que el cliente no la tome como catálogo recién bajado.
-// - Navegaciones: network-first; solo las páginas que funcionan sin red
-//   (PAGINAS_OFFLINE) se guardan al responder OK sin redirección, para no dejar
-//   HTML con datos del panel en el dispositivo. Sin red sirve la misma página
-//   cacheada (o "/" si esa no está).
-// - Solo GET; nunca intercepta POST (push/promote/sales) ni cross-origin.
-// Bumpeá CACHE al cambiar precacheados. v4 tira la v3: ahí quedaron 403 de
-// /api/whatsapp/vinculos de antes del login, y el panel no volvía a pedirlos.
-const CACHE = "inventario-v4";
+// - Navegaciones: solo intercepta las páginas offline (/ y /venta); el resto
+//   (/panel, /plan, /admin, /alta...) va directo al servidor.
+// - /api (salvo /api/sync/pull) nunca pasa por el SW: no rompe OAuth/sesiones.
+// - Estáticos (JS, CSS, imágenes, fuentes): cache-first. Nunca HTML de prefetch.
+// Bumpeá CACHE al cambiar precacheados. v5: navegaciones no-offline fuera del SW.
+const CACHE = "inventario-v5";
 const PAGINAS_OFFLINE = new Set(["/", "/venta"]);
 const PRECACHE = [
   "/",
@@ -51,12 +45,15 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // 1. Sync offline-first
   if (url.pathname === "/api/sync/pull") {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copia = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copia));
+          if (res.ok) {
+            const copia = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copia));
+          }
           return res;
         })
         .catch(() => caches.match(req).then((hit) => (hit ? marcarDesdeCache(hit) : hit))),
@@ -64,15 +61,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // El resto de /api es de sesión. Cache-first dejaba pegado un 403 y
-  // /panel/bot/config no volvía a preguntar después del login.
+  // 2. El resto de /api nunca pasa por el SW (evita romper OAuth y sesiones)
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return;
 
+  // 3. Navegaciones: solo interceptar las páginas habilitadas offline.
+  // El resto va directo al servidor.
   if (req.mode === "navigate") {
+    if (!PAGINAS_OFFLINE.has(url.pathname)) return;
+
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok && !res.redirected && PAGINAS_OFFLINE.has(url.pathname)) {
+          if (res.ok && !res.redirected) {
             const copia = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copia));
           }
@@ -87,13 +87,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // 4. NUNCA cachear documentos HTML pedidos por prefetch de Astro
+  const aceptaHtml = (req.headers.get("accept") ?? "").includes("text/html");
+  if (aceptaHtml || req.destination === "document") return;
+
+  // 5. Estáticos reales (JS, CSS, imágenes, fuentes): cache-first
   event.respondWith(
     caches.match(req).then(
       (hit) =>
         hit ??
         fetch(req).then((res) => {
-          const copia = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copia));
+          if (res.ok) {
+            const copia = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copia));
+          }
           return res;
         }),
     ),
@@ -113,7 +120,7 @@ function cachearAssets(urls) {
           if (hit) return undefined;
           return fetch(url.href)
             .then((res) => {
-              // Nunca HTML: solo /, /venta (navegación) quedan como páginas offline.
+              // Nunca HTML: solo / y /venta (navegación) quedan como páginas offline.
               if (!res.ok || res.redirected) return undefined;
               if ((res.headers?.get("content-type") ?? "").includes("text/html")) return undefined;
               const headers = new Headers(res.headers);
