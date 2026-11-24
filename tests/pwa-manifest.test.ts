@@ -21,13 +21,15 @@ describe("PWA instalable PWA-S1/S2 (PRD-PWA-01)", () => {
     expect(m.icons?.some((i) => i.sizes === "512x512")).toBe(true);
   });
 
-  it("BaseLayout y /venta comparten el registro del SW y enlazan el manifest", () => {
+  it("BaseLayout, PanelShell y /venta comparten el registro del SW y enlazan el manifest", () => {
     const layout = readFileSync(join(ROOT, "src/layouts/BaseLayout.astro"), "utf8");
+    const panelShell = readFileSync(join(ROOT, "src/components/panel/PanelShell.astro"), "utf8");
     const venta = readFileSync(join(ROOT, "src/pages/venta.astro"), "utf8");
     const registro = readFileSync(join(ROOT, "src/components/ui/PwaRegistro.astro"), "utf8");
     expect(layout).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(layout).toContain('rel="apple-touch-icon" href="/icons/icon-192.png"');
     expect(layout).toContain("<PwaRegistro");
+    expect(panelShell).toContain("<PwaRegistro");
     expect(venta).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(venta).toContain("<PwaRegistro");
     expect(registro).toContain('"serviceWorker" in navigator');
@@ -38,7 +40,7 @@ describe("PWA instalable PWA-S1/S2 (PRD-PWA-01)", () => {
 
   it("sw.js cachea estático y /venta, hace network-first en sync/pull y nunca toca POST", () => {
     const sw = readFileSync(join(ROOT, "public/sw.js"), "utf8");
-    expect(sw).toContain("inventario-v4");
+    expect(sw).toContain("inventario-v6");
     expect(sw).toContain('url.pathname.startsWith("/api/")');
     expect(sw).toContain("/api/sync/pull");
     expect(sw).toContain('"/venta"');

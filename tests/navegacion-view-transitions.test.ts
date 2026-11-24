@@ -52,13 +52,29 @@ describe("NAV-S1: prefetch y View Transitions nativas (ADR-0130)", () => {
   it("ningún enlace a /api se prefetchea como si fuera una página", () => {
     const anclasApi: Array<{ archivo: string; ancla: string }> = [];
     for (const archivo of ASTROS) {
-      for (const ancla of leer(archivo).match(/<a\b[^>]*href="\/api[^"]*"[^>]*>/g) ?? []) {
-        anclasApi.push({ archivo, ancla });
+      for (const ancla of leer(archivo).match(/<a\b[\s\S]*?>/g) ?? []) {
+        if (/href="\/api[^"]*"/.test(ancla) || /href=\{accesos\.(comercio|admin)\.href\}/.test(ancla)) {
+          anclasApi.push({ archivo, ancla });
+        }
       }
     }
-    expect(anclasApi.length).toBeGreaterThan(0);
+    expect(anclasApi.length).toBeGreaterThanOrEqual(7);
     for (const { archivo, ancla } of anclasApi) {
       expect(ancla, `${archivo}: ${ancla}`).toContain('data-astro-prefetch="false"');
+    }
+  });
+
+  it("P1-99: ningún <script> con define:vars o is:inline usa import o export de módulo ES", () => {
+    for (const archivo of ASTROS) {
+      const fuente = leer(archivo);
+      for (const match of fuente.matchAll(/<script\b([^>]*?)(?:\/>|>([\s\S]*?)<\/script>)/g)) {
+        const attrs = match[1] ?? "";
+        const cuerpo = match[2] ?? "";
+        if (!cuerpo || !/\b(define:vars|is:inline)\b/.test(attrs) || /\btype=["']module["']/.test(attrs)) continue;
+        expect(cuerpo, `${archivo} tiene import/export en <script${attrs}>`).not.toMatch(
+          /^\s*(import|export)\s/m,
+        );
+      }
     }
   });
 });

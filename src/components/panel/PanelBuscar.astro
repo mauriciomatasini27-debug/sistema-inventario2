@@ -32,7 +32,7 @@ const destinosJson = JSON.stringify(destinos);
     <span class="panel-buscar-inline-hint">Ctrl+K</span>
   </button>
 )}
-<dialog id="panel-buscar" class="panel-buscar" aria-labelledby="panel-buscar-titulo">
+<dialog id="panel-buscar" class="panel-buscar" aria-labelledby="panel-buscar-titulo" data-destinos={destinosJson}>
   <form method="dialog" class="panel-buscar-caja">
     <header class="panel-buscar-enc">
       <h2 id="panel-buscar-titulo">Buscar función</h2>
@@ -48,15 +48,15 @@ const destinosJson = JSON.stringify(destinos);
   </form>
 </dialog>
 
-<script define:vars={{ destinosJson }}>
+<script>
   import { filtrarDestinosBuscar } from "../../lib/panel-buscar.js";
 
-  const destinos = JSON.parse(destinosJson);
   const dialogo = document.getElementById("panel-buscar");
+  const destinos = JSON.parse(dialogo?.dataset.destinos ?? "[]");
   const input = document.getElementById("panel-buscar-q");
   const lista = document.getElementById("panel-buscar-lista");
   const vacio = document.getElementById("panel-buscar-vacio");
-  const abrirBtns = document.querySelectorAll("[data-panel-buscar-abrir]");
+  const abrirBtns = document.querySelectorAll<HTMLElement>("[data-panel-buscar-abrir]");
   if (!(dialogo instanceof HTMLDialogElement) || !(input instanceof HTMLInputElement) || !lista || !vacio) {
     throw new Error("panel-buscar: DOM incompleto");
   }

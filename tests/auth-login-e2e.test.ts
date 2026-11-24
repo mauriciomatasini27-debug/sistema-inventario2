@@ -173,6 +173,34 @@ describe("P1-55 login hop same-origin antes de Google", () => {
     expect(rHop.status).toBe(302);
     expect(rHop.headers.get("Location")).toMatch(/^\/\?ingreso=error/);
   });
+
+  it("P1-99: un request de prefetch a /api/auth/login responde 204 sin Set-Cookie ni pisar el state activo", async () => {
+    const rNav = await getLogin(ctx("http://x/api/auth/login?next=/panel"));
+    expect(rNav.status).toBe(302);
+    const cookiesNav = setCookies(rNav);
+    const stateNav = stateDeCookies(cookiesNav);
+    expect(stateNav).not.toBe("");
+
+    for (const header of [
+      { "sec-purpose": "prefetch" },
+      { purpose: "prefetch" },
+      { "x-moz": "prefetch" },
+    ]) {
+      const rPrefetch = await getLogin(
+        ctx("http://x/api/auth/login?next=/panel", { headers: header }),
+      );
+      expect(rPrefetch.status).toBe(204);
+      expect(setCookies(rPrefetch)).toEqual([]);
+    }
+
+    const rCb = await getCallback(
+      ctx(`http://x/api/auth/callback?code=CODE&state=${stateNav}`, {
+        headers: { cookie: jarDeCookies(cookiesNav) },
+      }),
+    );
+    expect(rCb.status).toBe(302);
+    expect(rCb.headers.get("Location")).not.toMatch(/ingreso=error/);
+  });
 });
 
 describe("P1-23 cookies OAuth durables (state+pkce+nonce)", () => {

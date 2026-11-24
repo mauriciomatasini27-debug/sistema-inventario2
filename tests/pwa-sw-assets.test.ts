@@ -134,4 +134,55 @@ describe("SW PWA-S2b: assets de la página para abrir /venta directo sin red", (
     expect(buscados).toEqual([]);
     expect(puestos).toEqual([]);
   });
+
+  it("P1-99: el listener fetch ignora <link rel='prefetch'> de rutas del panel (destination='', accept='*/*', sec-purpose='prefetch') y only-if-cached", async () => {
+    const { handlers, puestos, buscados } = cargarSW();
+    const fetchHandler = handlers.get("fetch") as
+      | ((event: {
+          request: {
+            method: string;
+            url: string;
+            mode: string;
+            cache?: string;
+            destination: string;
+            headers: Headers;
+          };
+          respondWith: (p: Promise<unknown>) => void;
+        }) => void)
+      | undefined;
+
+    let respondidoPrefetch = false;
+    fetchHandler?.({
+      request: {
+        method: "GET",
+        url: `${ORIGIN}/panel/stock`,
+        mode: "no-cors",
+        cache: "reload",
+        destination: "",
+        headers: new Headers({ accept: "*/*", "sec-purpose": "prefetch" }),
+      },
+      respondWith: () => {
+        respondidoPrefetch = true;
+      },
+    });
+    expect(respondidoPrefetch).toBe(false);
+
+    let respondidoOnlyIfCached = false;
+    fetchHandler?.({
+      request: {
+        method: "GET",
+        url: `${ORIGIN}/panel`,
+        mode: "no-cors",
+        cache: "only-if-cached",
+        destination: "",
+        headers: new Headers({ accept: "*/*" }),
+      },
+      respondWith: () => {
+        respondidoOnlyIfCached = true;
+      },
+    });
+    expect(respondidoOnlyIfCached).toBe(false);
+    expect(buscados).toEqual([]);
+    expect(puestos).toEqual([]);
+  });
 });
