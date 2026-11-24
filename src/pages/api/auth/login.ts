@@ -34,6 +34,15 @@ function respuestaHaciaHop(setCookies: string[], destino: string): Response {
 // El verifier/nonce viajan en cookies HttpOnly de un solo uso, nunca en el
 // ID token; el intercambio del código lo hace el callback en el servidor.
 export const GET: APIRoute = async ({ request }) => {
+  const proposito = (
+    request.headers.get("sec-purpose") ??
+    request.headers.get("purpose") ??
+    request.headers.get("x-moz") ??
+    ""
+  ).toLowerCase();
+  if (proposito.includes("prefetch")) {
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
   let config;
   try {
     config = leerConfigLogin();

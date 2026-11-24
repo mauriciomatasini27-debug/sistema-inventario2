@@ -10,6 +10,8 @@ const { tenantId, googleSub } = Astro.props;
   id="bienvenida-panel-dialogo"
   class="bienvenida-panel"
   data-bienvenida-panel
+  data-tenant-id={tenantId}
+  data-google-sub={googleSub}
   aria-labelledby="bienvenida-panel-titulo"
   aria-describedby="bienvenida-panel-progreso"
 >
@@ -116,7 +118,7 @@ const { tenantId, googleSub } = Astro.props;
   }
 </style>
 
-<script define:vars={{ tenantId, googleSub }}>
+<script>
   import {
     debe_mostrar_bienvenida_panel,
     marcar_bienvenida_panel,
@@ -125,6 +127,8 @@ const { tenantId, googleSub } = Astro.props;
   import { estado_paso_dialogo, hidratarNoAplica, progreso_checklist } from "../../lib/panel-bienvenida.js";
 
   const dialogo = document.querySelector("[data-bienvenida-panel]");
+  const tenantId = dialogo instanceof HTMLDialogElement ? (dialogo.dataset.tenantId ?? "") : "";
+  const googleSub = dialogo instanceof HTMLDialogElement ? (dialogo.dataset.googleSub ?? "") : "";
   if (!(dialogo instanceof HTMLDialogElement) || !tenantId || !googleSub) {
     // Empleado u otro contexto: el componente no debería montarse; por las dudas no hacemos nada.
   } else {

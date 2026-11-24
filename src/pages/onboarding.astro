@@ -56,9 +56,9 @@ const tenantId = tenantCuestionario.tenantId;
       <div class="phone-head"><div class="avatar">M</div><div><div class="name">Modo</div><div class="sub">Onboarding</div></div></div>
       <div class="progress"><div id="p" style="width:0%"></div></div>
       <div class="datos-conocidos" data-datos-conocidos hidden></div>
-      <div class="body" id="body"></div>
+      <div class="body" id="body" data-tenant-id={tenantId}></div>
     </div>
-    <script define:vars={{ tenantId }}>
+    <script>
       import {
         agregarEmpleado,
         avanzar,
@@ -73,6 +73,8 @@ const tenantId = tenantCuestionario.tenantId;
         type WizardState,
       } from "../modules/onboarding/wizard.js";
 
+      const body = document.getElementById("body")!;
+      const tenantId = body.dataset.tenantId ?? "";
       // TB-165 [tenant]: el borrador del cuestionario es por comercio, no global.
       const storageKey = "onboarding-wizard:" + tenantId;
       let state: WizardState = estadoInicialWizard();
@@ -85,8 +87,6 @@ const tenantId = tenantCuestionario.tenantId;
           // TB-165 [plataforma]: un borrador corrupto en localStorage no debe trabar el flujo.
         }
       }
-
-      const body = document.getElementById("body")!;
 
       async function cargarDatosConocidos() {
         const el = document.querySelector("[data-datos-conocidos]");

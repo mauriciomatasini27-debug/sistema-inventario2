@@ -4,6 +4,7 @@ import "../../styles/navegacion.css";
 import "../../styles/tema.css";
 import { Toaster } from "../ui/Toaster";
 import ConfirmDialog from "../ui/ConfirmDialog.astro";
+import PwaRegistro from "../ui/PwaRegistro.astro";
 import TemaInicial from "../ui/TemaInicial.astro";
 import NavTablero from "./NavTablero.astro";
 import PanelTopbar from "./PanelTopbar.astro";
@@ -243,5 +244,6 @@ const cuentaBarra = datosCuentaBarra(nombreCrudo, rolMembresia);
     <Toaster client:idle />
     <ConfirmDialog />
     <ReportesComercioDialog />
+    <PwaRegistro />
   </body>
 </html>

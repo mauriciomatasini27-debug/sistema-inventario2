@@ -3,9 +3,10 @@
 //   (/panel, /plan, /admin, /alta...) va directo al servidor.
 // - /api (salvo /api/sync/pull) nunca pasa por el SW: no rompe OAuth/sesiones.
 // - Estáticos (JS, CSS, imágenes, fuentes): cache-first. Nunca HTML de prefetch.
-// Bumpeá CACHE al cambiar precacheados. v5: navegaciones no-offline fuera del SW.
-const CACHE = "inventario-v5";
+// Bumpeá CACHE al cambiar precacheados. v6: solo interceptar destinos estáticos reales y nunca prefetch ni only-if-cached.
+const CACHE = "inventario-v6";
 const PAGINAS_OFFLINE = new Set(["/", "/venta"]);
+const DESTINOS_ESTATICOS = new Set(["script", "style", "image", "font", "manifest"]);
 const PRECACHE = [
   "/",
   "/venta",
@@ -42,8 +43,17 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  if (req.cache === "only-if-cached" && req.mode !== "same-origin") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  const proposito = (
+    req.headers.get("sec-purpose") ??
+    req.headers.get("purpose") ??
+    req.headers.get("x-moz") ??
+    ""
+  ).toLowerCase();
+  if (proposito.includes("prefetch")) return;
 
   // 1. Sync offline-first
   if (url.pathname === "/api/sync/pull") {
@@ -87,9 +97,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4. NUNCA cachear documentos HTML pedidos por prefetch de Astro
+  // 4. NUNCA cachear documentos HTML ni requests sin destino estático (prefetch, server islands, etc.)
   const aceptaHtml = (req.headers.get("accept") ?? "").includes("text/html");
-  if (aceptaHtml || req.destination === "document") return;
+  if (aceptaHtml || !DESTINOS_ESTATICOS.has(req.destination)) return;
 
   // 5. Estáticos reales (JS, CSS, imágenes, fuentes): cache-first
   event.respondWith(
@@ -97,7 +107,7 @@ self.addEventListener("fetch", (event) => {
       (hit) =>
         hit ??
         fetch(req).then((res) => {
-          if (res.ok) {
+          if (res.ok && !res.redirected) {
             const copia = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copia));
           }

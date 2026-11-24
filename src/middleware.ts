@@ -37,7 +37,14 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
   // Sesión creada en este proceso con el comercio todavía vacío (el login
   // anterior no lo cargó). Hay que traerlo antes de que la ruta decida el 403.
   const sesion = resolverSesion(request);
-  if (sesion) await rehidratarMembresias(sesion.googleSub);
+  if (
+    sesion &&
+    (!sesion.tenantId ||
+      !control.tenants.has(sesion.tenantId) ||
+      !membershipActiva(sesion.tenantId, sesion.googleSub))
+  ) {
+    await rehidratarMembresias(sesion.googleSub);
+  }
 
   // Por qué el gate corre por request: fija el tenant una vez para todo el
   // plano de datos y corta 403 antes de tocar memoria o base (ADR-0051).

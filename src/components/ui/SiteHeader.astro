@@ -21,6 +21,7 @@ import { nav, brand, accesos, ctaPrueba } from '../../data/business';
     <div class="flex flex-wrap items-center justify-end gap-3">
       <a
         href={accesos.comercio.href}
+        data-astro-prefetch="false"
         class="rounded-[var(--radius-button)] border border-trust/40 px-4 py-2 text-sm font-medium text-void transition-colors hover:border-trust"
       >
         {accesos.comercio.label}
@@ -33,6 +34,7 @@ import { nav, brand, accesos, ctaPrueba } from '../../data/business';
       </a>
       <a
         href={accesos.admin.href}
+        data-astro-prefetch="false"
         class="hidden text-xs text-ash-gray transition-colors hover:text-trust md:inline"
       >
         {accesos.admin.label}
