@@ -1,0 +1,723 @@
+---
+// PROTOTIPO DESECHABLE — rama prototype/venta-escaneo. Nunca mergear.
+// Pregunta (#530): ¿cómo se ven y se comportan en /venta (390px y escritorio) las
+// dos escenas de escaneo tras #528 (paso de cantidad) y #529 (alta completa)?
+// Tres variantes radicalmente distintas, conmutables por ?variant=A|B|C y barra
+// flotante. Piel real del tablero (vidrio-*, sg-flame-cta, NavTablero). Sin
+// persistencia ni POST reales: estado en memoria.
+import "../../styles/tokens-papel.css";
+import "../../styles/navegacion.css";
+import "../../styles/tema.css";
+import TemaInicial from "../../components/ui/TemaInicial.astro";
+import TemaToggle from "../../components/ui/TemaToggle.astro";
+import NavTablero from "../../components/panel/NavTablero.astro";
+import Modo from "../../components/panel/Modo.astro";
+
+const esDev = import.meta.env.DEV;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Prototipo — Venta: escaneo con cantidad y alta</title>
+    <TemaInicial />
+  </head>
+  <body>
+    <div class="tablero">
+      <NavTablero activo="ventas" />
+      <div class="tablero-contenido">
+        <header class="barra vidrio-barra">
+          <h1>Venta mostrador · prototipo</h1>
+          <Modo />
+          <TemaToggle />
+        </header>
+        <main class="proto-main">
+          <section class="proto-scanner proto-card vidrio-card" aria-label="Buscador y escáner">
+            <div class="proto-buscador">
+              <label class="proto-campo">Buscar o escanear (Código de producto)
+                <input id="sku" type="search" autocomplete="off" enterkeyhint="search" placeholder="Código de producto" />
+              </label>
+              <button id="proto-escanear" type="button" class="sg-flame-cta">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M9 4l1.5 2h3L15 4h4a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h4zm3 4a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6z"></path>
+                </svg>
+                Escanear etiqueta
+              </button>
+            </div>
+            <p class="proto-hint">Probá un código:
+              <button type="button" class="proto-chip" data-accion="scan" data-codigo="LE-101">LE-101 · Leche (conocida)</button>
+              <button type="button" class="proto-chip" data-accion="scan" data-codigo="FR-030">FR-030 · Frutillas (por peso)</button>
+              <button type="button" class="proto-chip" data-accion="scan" data-codigo="ZZ-999">ZZ-999 (desconocida)</button>
+            </p>
+            <label class="proto-offline"><input type="checkbox" id="proto-offline" /> Sin conexión (modo offline)</label>
+          </section>
+
+          <dialog id="proto-visor" aria-labelledby="proto-visor-titulo">
+            <h2 id="proto-visor-titulo">Escanear etiqueta</h2>
+            <p class="proto-hint">Maqueta: no hay cámara. Elegí qué lee el lector.</p>
+            <div class="proto-visor-opciones">
+              <button type="button" data-accion="scan" data-codigo="LE-101">Leer etiqueta conocida — LE-101</button>
+              <button type="button" data-accion="scan" data-codigo="FR-030">Leer etiqueta conocida — FR-030 (por peso)</button>
+              <button type="button" data-accion="scan" data-codigo="ZZ-999">Leer etiqueta desconocida — ZZ-999</button>
+            </div>
+            <button type="button" id="proto-visor-cerrar">Cancelar</button>
+          </dialog>
+
+          <section id="proto-variante" class="proto-variante" aria-live="polite"></section>
+
+          <p id="proto-estado" class="proto-estado" role="status"></p>
+        </main>
+      </div>
+    </div>
+
+    {esDev && (
+      <div class="protobar">
+        <button type="button" data-proto="prev" aria-label="Variante anterior">←</button>
+        <span class="protobar-label" id="protobar-label">A · Ficha inline</span>
+        <button type="button" data-proto="next" aria-label="Variante siguiente">→</button>
+        <button type="button" data-proto="vista" id="protobar-vista">390px / escritorio</button>
+      </div>
+    )}
+  </body>
+</html>
+
+<style is:global>
+  /* Base de página (espejo de venta.astro) */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--font-sans); background: var(--tema-fondo); color: var(--tema-texto);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .barra.vidrio-barra { overflow: visible; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+  .tablero .proto-card {
+    background: var(--tema-superficie);
+    border: 1px solid var(--tema-linea);
+    color: var(--tema-texto);
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tablero .proto-card { background: var(--tema-vidrio); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  }
+  :root[data-tema="oscuro"] .tablero .proto-card { background: #3a3a3a; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+  .proto-main { max-width: 960px; margin-inline: auto; padding: 12px; padding-bottom: 140px; }
+  .proto-card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
+
+  .proto-main button, .proto-main input, .proto-main select { min-height: 44px; font-family: inherit; font-size: 16px; }
+  .proto-main button {
+    border: 1px solid var(--tema-linea); border-radius: 8px; cursor: pointer;
+    background: var(--tema-superficie); color: var(--tema-texto); padding: 0 12px;
+  }
+  .proto-main button.sg-flame-cta { background: var(--color-star-glow); color: var(--color-star-white); border: 0; }
+  .proto-main input, .proto-main select {
+    width: 100%; border: 1px solid var(--tema-linea); border-radius: 8px; margin-block: 6px;
+    background: var(--tema-superficie); color: var(--tema-texto); padding: 0 10px;
+  }
+  :root[data-tema="oscuro"] .proto-main input, :root[data-tema="oscuro"] .proto-main select { background: #3a3a3a; color: var(--color-star-white); border-color: var(--color-ash); }
+
+  .proto-scanner { max-width: 640px; margin-inline: auto; }
+  .proto-buscador { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .proto-campo { flex: 1 1 200px; min-width: 0; font-size: 14px; color: var(--tema-texto-suave); }
+  .proto-campo input { margin-block: 6px 0; }
+  #proto-escanear { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-block: 0; }
+  .proto-hint { margin: 10px 0 0; font-size: 13px; color: var(--tema-texto-suave); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .proto-chip { font-size: 13px; border-radius: 999px; padding: 6px 12px; min-height: 0 !important; }
+  .proto-offline { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; color: var(--tema-texto-suave); }
+  .proto-offline input { width: auto; min-height: 0; margin: 0; }
+
+  .proto-estado { margin: 8px 4px; font-size: 13px; color: var(--tema-texto-suave); overflow-wrap: anywhere; }
+  .proto-estado:empty { display: none; }
+
+  #proto-visor { width: min(360px, calc(100vw - 24px)); border: 0; border-radius: 16px; background: var(--tema-superficie); color: var(--tema-texto); }
+  #proto-visor::backdrop { background: color-mix(in srgb, var(--tema-fondo) 55%, transparent); }
+  #proto-visor[open] { display: grid; gap: 12px; padding: 16px; }
+  #proto-visor h2 { margin: 0; font-size: 18px; }
+  .proto-visor-opciones { display: grid; gap: 8px; }
+  .proto-visor-opciones button { width: 100%; }
+
+  /* Escena: ficha de cantidad (#528) */
+  .proto-ficha, .proto-aviso, .proto-form {
+    border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0;
+  }
+  .proto-ficha { background: var(--tema-superficie); border: 1px solid var(--color-pendiente); }
+  .proto-ficha-cabeza { display: flex; flex-direction: column; gap: 2px; }
+  .proto-ficha-nombre { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+  .proto-ficha-codigo { font-size: 13px; color: var(--tema-texto-suave); }
+  .proto-ficha-stock { margin: 8px 0 0; font-size: 14px; }
+  .proto-stock-aviso { margin: 4px 0 0; font-size: 13px; color: var(--estado-aviso); }
+  .proto-reescaneo { margin: 6px 0 0; font-size: 13px; color: var(--tema-texto-suave); }
+  .proto-ficha-precio { margin-top: 8px; }
+  .proto-ficha-precio label { font-size: 14px; color: var(--tema-texto-suave); display: block; }
+  .proto-precio-bloqueado { font-weight: 700; }
+  .proto-ficha-qty { margin-top: 10px; }
+  .proto-ficha-qty-label { font-size: 14px; color: var(--tema-texto-suave); display: block; margin-bottom: 4px; }
+  .proto-stepper { display: flex; align-items: center; gap: 6px; }
+  .proto-stepper input { text-align: center; margin: 0; }
+  .proto-stepper button { width: 44px; flex: 0 0 auto; font-size: 20px; }
+  .proto-error { margin: 8px 0 0; font-size: 13px; color: var(--estado-peligro); }
+  .proto-ficha-acciones, .proto-aviso-acciones, .proto-form-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .proto-ficha-acciones .sg-flame-cta, .proto-aviso-acciones .sg-flame-cta, .proto-form-acciones .sg-flame-cta { flex: 1 1 160px; }
+
+  /* Escena: aviso de código desconocido (#529) */
+  .proto-aviso { background: var(--estado-aviso-tint); border: 1px solid var(--estado-aviso); }
+  .proto-aviso-titulo { margin: 0; font-size: 16px; font-weight: 700; }
+  .proto-aviso-codigo { margin: 4px 0 0; font-size: 13px; }
+  .proto-aviso-nota { margin: 6px 0 0; font-size: 13px; }
+
+  /* Escena: formulario de alta completa (#529) */
+  .proto-form { background: var(--tema-superficie); border: 1px solid var(--tema-linea); }
+  .proto-form-titulo { margin: 0 0 8px; font-size: 17px; }
+  .proto-form-campo { margin-top: 8px; }
+  .proto-form-campo label { font-size: 14px; color: var(--tema-texto-suave); }
+  .proto-form-campo input[disabled] { opacity: 0.7; }
+
+  /* Ticket */
+  .proto-ticket { margin-top: 4px; }
+  .proto-ticket-vacio { margin: 8px 0; color: var(--tema-texto-suave); }
+  .proto-ticket-lista { list-style: none; margin: 0; padding: 0; }
+  .proto-fila { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding-block: 6px; border-bottom: 1px solid var(--tema-linea); }
+  .proto-nombre { min-width: 0; flex: 1 1 8rem; overflow-wrap: anywhere; }
+  .proto-qty, .proto-monto { font-variant-numeric: tabular-nums; }
+  .proto-monto { font-weight: 700; }
+  .proto-fila button { width: auto; min-width: 44px; padding-inline: 10px; margin: 0; }
+  .proto-provisorio { font-style: normal; font-size: 12px; color: var(--tema-texto-suave); }
+  .proto-ticket-total { font-weight: 700; font-variant-numeric: tabular-nums; text-align: end; margin: 8px 0; }
+  .proto-btn-cobrar { width: 100%; font-weight: 700; }
+  .proto-btn-cobrar.apagado { background: var(--color-mid); color: var(--color-muted-dark); cursor: not-allowed; box-shadow: none; }
+
+  /* Variante A — ficha inline en una sola columna */
+  .proto-var-a { max-width: 560px; margin-inline: auto; }
+
+  /* Variante B — panel lateral (escritorio) / hoja inferior (390) */
+  .proto-var-b { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 12px; align-items: start; }
+  .proto-var-b-panel { position: sticky; top: 8px; }
+  @media (max-width: 699px) {
+    .proto-var-b { display: block; }
+    .proto-var-b-panel {
+      position: fixed; z-index: 30; left: 12px; right: 12px;
+      bottom: calc(72px + env(safe-area-inset-bottom, 0px)); max-height: 70vh; overflow: auto;
+      box-shadow: 0 -8px 24px rgba(0,0,0,0.18);
+    }
+  }
+
+  /* Variante C — paso a paso (wizard) */
+  .proto-var-c { max-width: 720px; margin-inline: auto; }
+  .proto-var-c-steps { display: flex; gap: 8px; list-style: none; margin: 0 0 12px; padding: 0; }
+  .proto-var-c-steps li { flex: 1; text-align: center; font-size: 12px; color: var(--tema-texto-suave); border-bottom: 3px solid var(--tema-linea); padding-bottom: 6px; }
+  .proto-var-c-steps li.on { color: var(--tema-texto); border-color: var(--color-star-glow); font-weight: 700; }
+  .proto-var-c-escena .proto-ficha, .proto-var-c-escena .proto-aviso, .proto-var-c-escena .proto-form { padding: 16px; }
+  .proto-var-c-escena .proto-ficha-nombre { font-size: 22px; }
+  .proto-var-c-escena .proto-stepper button { width: 56px; min-height: 56px; font-size: 26px; }
+  .proto-var-c-escena .proto-stepper input { min-height: 56px; font-size: 22px; }
+  .proto-var-c-vacio { color: var(--tema-texto-suave); text-align: center; padding: 24px 8px; }
+
+  /* Barra flotante de variantes (fuera del diseño evaluado) */
+  .protobar {
+    position: fixed; z-index: 50; left: 50%; transform: translateX(-50%); bottom: 10px;
+    display: flex; gap: 6px; align-items: center;
+    background: #1a1a1a; color: #f7f5f2; border-radius: 999px; padding: 6px 9px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.55); font: 13px/1.2 system-ui, sans-serif;
+  }
+  .protobar button { border: 0; background: #3a3a3a; color: #f7f5f2; border-radius: 999px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  .protobar-label { min-width: 150px; text-align: center; font-weight: 700; }
+
+  /* Vista forzada a 390px para evaluar el móvil sin redimensionar */
+  body.proto-390 .proto-main { max-width: 390px; }
+  body.proto-390 .proto-var-a, body.proto-390 .proto-var-c { max-width: 100%; }
+  body.proto-390 .proto-var-b { display: block; }
+  body.proto-390 .proto-var-b-panel { position: fixed; left: 12px; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+</style>
+
+<script>
+  // ---- helpers ----
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const tnum = (n) => Number(n).toLocaleString("es-AR");
+  const formatearCentavos = (c) => "$" + (Number(c) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const centsToInput = (c) => (Number(c) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatearKg = (g) => (Number(g) / 1000).toLocaleString("es-AR", { maximumFractionDigits: 3 }) + " kg";
+  function parsearPesos(t) {
+    let s = String(t ?? "").trim().replace(/\$/g, "").replace(/\s/g, "");
+    if (!s) return { ok: false, motivo: "poné un precio" };
+    const tieneComa = s.includes(",");
+    const num = tieneComa ? Number(s.replace(/\./g, "").replace(",", ".")) : Number(s);
+    if (!Number.isFinite(num)) return { ok: false, motivo: "el precio no es un número" };
+    const centavos = Math.round(num * 100);
+    if (centavos <= 0) return { ok: false, motivo: "el precio tiene que ser mayor a 0" };
+    if (centavos > 999999999) return { ok: false, motivo: "el precio es muy alto" };
+    return { ok: true, centavos };
+  }
+  function convertirKgAGramos(t) {
+    let s = String(t ?? "").trim().replace(/\s/g, "").replace(",", ".");
+    if (!s) return { ok: false, motivo: "poné el peso" };
+    const num = Number(s);
+    if (!Number.isFinite(num) || num <= 0) return { ok: false, motivo: "el peso tiene que ser mayor a 0" };
+    if (num > 1000) return { ok: false, motivo: "máximo 1000 kg" };
+    const gramos = Math.round(num * 1000);
+    if (gramos < 1) return { ok: false, motivo: "mínimo 1 gramo" };
+    return { ok: true, gramos };
+  }
+  const subtotal = (l) => (l.porPeso ? Math.round(l.precio_centavos * (l.qty / 1000)) : l.precio_centavos * l.qty);
+  const hoyISO = () => {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  };
+
+  // ---- datos de ejemplo (estado en memoria, sin persistencia) ----
+  const CATALOGO = {
+    "LE-101": { nombre: "Leche entera 1 L", precioCentavos: 125000, stock: 12, porPeso: false },
+    "PA-220": { nombre: "Pan lactal 420 g", precioCentavos: 98000, stock: 4, porPeso: false },
+    "CA-015": { nombre: "Café molido 500 g", precioCentavos: 420000, stock: 0, porPeso: false },
+    "FR-030": { nombre: "Frutillas", precioCentavos: 190000, stock: 3000, porPeso: true },
+  };
+  const CODIGOS = { "LE-101": "LE-101", "PA-220": "PA-220", "CA-015": "CA-015", "FR-030": "FR-030" };
+  const UBICACIONES = ["Sin ubicación", "Góndola 1", "Heladera", "Depósito"];
+
+  const estado = {
+    variant: "A",
+    offline: false,
+    carrito: [],      // { product_id, nombre, qty, precio_centavos, porPeso, alta? }
+    ficha: null,      // paso de cantidad (#528)
+    aviso: null,      // código desconocido (#529)
+    formulario: null, // alta completa / provisoria (#529)
+    mensaje: "",
+  };
+
+  const VARIANTES = [
+    { id: "A", nombre: "A · Ficha inline" },
+    { id: "B", nombre: "B · Panel lateral / hoja" },
+    { id: "C", nombre: "C · Paso a paso" },
+  ];
+
+  const setMensaje = (t) => { estado.mensaje = t; const el = $("proto-estado"); if (el) el.textContent = t; };
+  const totalCarrito = () => estado.carrito.reduce((a, l) => a + subtotal(l), 0);
+  const stockDe = (sku) => {
+    const p = CATALOGO[sku];
+    if (!p) return null;
+    const enCarrito = estado.carrito.filter((l) => l.product_id === sku).reduce((a, l) => a + l.qty, 0);
+    return p.stock - enCarrito;
+  };
+
+  function fusionar(carrito, linea) {
+    const idx = carrito.findIndex((l) => l.product_id === linea.product_id);
+    if (idx >= 0) {
+      const next = carrito.slice();
+      next[idx] = { ...next[idx], qty: next[idx].qty + linea.qty };
+      return { ok: true, carrito: next };
+    }
+    if (carrito.length >= 50) return { ok: false, codigo: "máximo 50 productos" };
+    return { ok: true, carrito: [...carrito, linea] };
+  }
+
+  // ---- acciones ----
+  function escanear(codigoRaw) {
+    const codigo = String(codigoRaw ?? "").trim().toUpperCase();
+    if (!codigo) return;
+    let descartado = null;
+    if (estado.ficha) descartado = estado.ficha.nombre || estado.ficha.codigo;
+    else if (estado.aviso) descartado = estado.aviso.codigo;
+    else if (estado.formulario) descartado = estado.formulario.codigo;
+    estado.ficha = null; estado.aviso = null; estado.formulario = null;
+    if (descartado) setMensaje("No se agregó " + descartado);
+
+    const sku = CODIGOS[codigo];
+    if (sku) {
+      const p = CATALOGO[sku];
+      const enCarrito = estado.carrito.find((l) => l.product_id === sku);
+      estado.ficha = {
+        codigo, sku,
+        nombre: p.nombre || sku,
+        precioTexto: centsToInput(enCarrito ? enCarrito.precio_centavos : p.precioCentavos),
+        porPeso: !!p.porPeso,
+        stock: stockDe(sku),
+        qtyTexto: p.porPeso ? "" : "1",
+        esReescaneo: !!enCarrito,
+        reescaneoQty: enCarrito ? enCarrito.qty : 0,
+        error: "",
+      };
+    } else {
+      estado.aviso = { codigo };
+    }
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function ajustarFicha(delta) {
+    const f = estado.ficha;
+    if (!f) return;
+    const step = f.porPeso ? 100 : 1;
+    let actual = 0;
+    if (f.porPeso) { const r = convertirKgAGramos(f.qtyTexto); if (r.ok) actual = r.gramos; }
+    else { const n = parseInt(f.qtyTexto, 10); if (Number.isFinite(n)) actual = n; }
+    const next = Math.max(actual + delta * step, 0);
+    f.qtyTexto = f.porPeso ? (next / 1000).toLocaleString("es-AR", { maximumFractionDigits: 3 }) : String(next);
+    f.error = "";
+    pintar();
+  }
+
+  function confirmarFicha() {
+    const f = estado.ficha;
+    if (!f) return;
+    let qty;
+    if (f.porPeso) {
+      const r = convertirKgAGramos(f.qtyTexto);
+      if (!r.ok) { f.error = r.motivo; pintar(); return; }
+      qty = r.gramos;
+    } else {
+      const n = Number(f.qtyTexto);
+      if (!Number.isInteger(n) || n < 1 || n > 999) { f.error = "la cantidad tiene que ser un entero de 1 a 999"; pintar(); return; }
+      qty = n;
+    }
+    const pr = parsearPesos(f.precioTexto);
+    if (!pr.ok) { f.error = pr.motivo; pintar(); return; }
+    const r = fusionar(estado.carrito, { product_id: f.sku, nombre: f.nombre, qty, precio_centavos: pr.centavos, porPeso: f.porPeso });
+    if (!r.ok) { setMensaje(r.codigo); return; }
+    estado.carrito = r.carrito;
+    estado.ficha = null;
+    setMensaje(f.esReescaneo ? "Sumado a " + f.nombre : f.nombre + " agregado al ticket");
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function cancelarFicha() {
+    const nombre = estado.ficha?.nombre || "";
+    estado.ficha = null;
+    setMensaje(nombre ? "No se agregó " + nombre : "");
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function abrirFormulario() {
+    if (!estado.aviso) return;
+    const codigo = estado.aviso.codigo;
+    estado.aviso = null;
+    estado.formulario = {
+      codigo,
+      modo: estado.offline ? "provisoria" : "completa",
+      nombre: "", precioTexto: "", stockTexto: "1", vencimiento: "", ubicacion: "Sin ubicación", qtyTexto: "1",
+      errores: {},
+    };
+    setMensaje("");
+    pintar();
+  }
+
+  function cancelarAviso() {
+    estado.aviso = null;
+    setMensaje("");
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function cancelarFormulario() {
+    estado.formulario = null;
+    setMensaje("");
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function guardarAlta() {
+    const f = estado.formulario;
+    if (!f) return;
+    const e = {};
+    if (!f.nombre.trim()) e.nombre = "El nombre es obligatorio";
+    else if (f.nombre.trim().length > 120) e.nombre = "máximo 120 caracteres";
+    const pr = parsearPesos(f.precioTexto);
+    if (!pr.ok) e.precio = pr.motivo;
+    let qty = NaN;
+    if (f.modo === "completa") {
+      const s = Number(f.stockTexto);
+      if (!Number.isInteger(s) || s < 1 || s > 999) e.stock = "entero de 1 a 999";
+      qty = Number(f.qtyTexto);
+      if (!Number.isInteger(qty) || qty < 1) e.qty = "mínimo 1";
+      else if (Number.isInteger(s) && qty > s) e.qty = "no puede superar el stock";
+      if (f.vencimiento && f.vencimiento < hoyISO()) e.vencimiento = "no puede ser anterior a hoy";
+    } else {
+      qty = Number(f.qtyTexto);
+      if (!Number.isInteger(qty) || qty < 1) e.qty = "mínimo 1";
+    }
+    f.errores = e;
+    if (Object.keys(e).length) { pintar(); return; }
+
+    const nombre = f.nombre.trim();
+    const precio = pr.centavos;
+    if (f.modo === "completa") {
+      const stock = Number(f.stockTexto);
+      CATALOGO[f.codigo] = { nombre, precioCentavos: precio, stock, porPeso: false };
+      CODIGOS[f.codigo] = f.codigo;
+      estado.carrito = fusionar(estado.carrito, { product_id: f.codigo, nombre, qty, precio_centavos: precio, porPeso: false }).carrito;
+      setMensaje("Producto guardado y agregado al ticket");
+    } else {
+      CATALOGO[f.codigo] = { nombre, precioCentavos: precio, stock: 0, porPeso: false, provisorio: true };
+      CODIGOS[f.codigo] = f.codigo;
+      estado.carrito = fusionar(estado.carrito, { product_id: f.codigo, nombre, qty, precio_centavos: precio, porPeso: false, alta: { nombre } }).carrito;
+      setMensaje("Producto provisorio guardado (stock 0) y agregado al ticket");
+    }
+    estado.formulario = null;
+    pintar();
+    $("sku")?.focus();
+  }
+
+  function cambiarQtyLinea(id, delta) {
+    const idx = estado.carrito.findIndex((l) => l.product_id === id);
+    if (idx < 0) return;
+    const l = estado.carrito[idx];
+    const step = l.porPeso ? 100 : 1;
+    const q = l.qty + delta * step;
+    if (q < 1) estado.carrito = estado.carrito.filter((x) => x.product_id !== id);
+    else if ((l.porPeso && q > 1000000) || (!l.porPeso && q > 999)) { setMensaje(l.porPeso ? "máximo 1000 kg" : "máximo 999"); return; }
+    else { const next = estado.carrito.slice(); next[idx] = { ...l, qty: q }; estado.carrito = next; }
+    pintar();
+  }
+  function quitarLinea(id) {
+    estado.carrito = estado.carrito.filter((l) => l.product_id !== id);
+    pintar();
+  }
+
+  // ---- render ----
+  function htmlTicket() {
+    const vacio = estado.carrito.length === 0;
+    let filas = "";
+    for (const l of estado.carrito) {
+      const qty = l.porPeso ? formatearKg(l.qty) : String(l.qty);
+      filas += `<li class="proto-fila">
+        <span class="proto-nombre">${esc(l.nombre)}${l.alta ? ' <span class="proto-provisorio">provisorio</span>' : ""}</span>
+        <button type="button" data-accion="linea-menos" data-id="${esc(l.product_id)}" aria-label="Bajar cantidad ${esc(l.product_id)}">−</button>
+        <span class="proto-qty">${qty}</span>
+        <button type="button" data-accion="linea-mas" data-id="${esc(l.product_id)}" aria-label="Subir cantidad ${esc(l.product_id)}">+</button>
+        <span class="proto-monto">${esc(formatearCentavos(subtotal(l)))}</span>
+        <button type="button" data-accion="linea-quitar" data-id="${esc(l.product_id)}">Quitar</button>
+      </li>`;
+    }
+    return `<div class="proto-ticket">
+      ${vacio ? '<p class="proto-ticket-vacio">Buscá o escaneá para armar el ticket.</p>' : `<ul class="proto-ticket-lista">${filas}</ul>`}
+      <p class="proto-ticket-total">Total: ${esc(formatearCentavos(totalCarrito()))}</p>
+      <button type="button" class="proto-btn-cobrar ${vacio ? "apagado" : "sg-flame-cta"}" data-accion="cobrar" ${vacio ? "disabled" : ""}>Cobrar</button>
+    </div>`;
+  }
+
+  function htmlFicha() {
+    const f = estado.ficha;
+    const porPeso = f.porPeso;
+    const stockTxt = f.stock === null ? "Stock sin dato" : (porPeso ? "Stock disponible: " + formatearKg(f.stock) : "Stock disponible: " + f.stock);
+    const stockAviso = (f.stock !== null && f.stock <= 0) ? '<p class="proto-stock-aviso">Stock en 0: podés vender igual; el ticket queda marcado.</p>' : "";
+    const reescaneo = f.esReescaneo
+      ? `<p class="proto-reescaneo">Ya en el ticket: ${porPeso ? formatearKg(f.reescaneoQty) : f.reescaneoQty} — al confirmar se suma a la línea.</p>`
+      : "";
+    const precioCampo = f.esReescaneo
+      ? `<span class="proto-precio-bloqueado">${esc(formatearCentavos(parsearPesos(f.precioTexto).ok ? parsearPesos(f.precioTexto).centavos : 0))}</span>`
+      : `<input type="text" inputmode="decimal" data-campo="ficha-precio" value="${esc(f.precioTexto)}" aria-label="${porPeso ? "Precio por kilo" : "Precio unitario"}" />`;
+    const unidad = porPeso ? "Peso (kg)" : "Cantidad";
+    return `<div class="proto-ficha" role="region" aria-label="Confirmar cantidad">
+      <div class="proto-ficha-cabeza">
+        <span class="proto-ficha-nombre">${esc(f.nombre)}</span>
+        <span class="proto-ficha-codigo">Código de producto: ${esc(f.codigo)}</span>
+      </div>
+      <p class="proto-ficha-stock">${stockTxt}</p>
+      ${stockAviso}${reescaneo}
+      <div class="proto-ficha-precio"><label>${porPeso ? "Precio ($/kg)" : "Precio (pesos)"} ${precioCampo}</label></div>
+      <div class="proto-ficha-qty">
+        <span class="proto-ficha-qty-label">${unidad}</span>
+        <div class="proto-stepper">
+          <button type="button" data-accion="ficha-menos" aria-label="Restar">−</button>
+          <input type="text" inputmode="decimal" data-campo="ficha-qty" value="${esc(f.qtyTexto)}" placeholder="${porPeso ? "Ej. 0,250" : "1"}" aria-label="${unidad}" />
+          <button type="button" data-accion="ficha-mas" aria-label="Sumar">+</button>
+        </div>
+      </div>
+      ${f.error ? `<p class="proto-error">${esc(f.error)}</p>` : ""}
+      <div class="proto-ficha-acciones">
+        <button type="button" class="sg-flame-cta" data-accion="ficha-confirmar">Agregar al ticket</button>
+        <button type="button" data-accion="ficha-cancelar">Cancelar</button>
+      </div>
+    </div>`;
+  }
+
+  function htmlAviso() {
+    const a = estado.aviso;
+    return `<div class="proto-aviso" role="alert">
+      <p class="proto-aviso-titulo">Este producto no está cargado en la base de datos</p>
+      <p class="proto-aviso-codigo">Código de producto: ${esc(a.codigo)}</p>
+      ${estado.offline ? '<p class="proto-aviso-nota">Sin conexión: se carga provisorio; completá el stock cuando vuelvas a tener red.</p>' : ""}
+      <div class="proto-aviso-acciones">
+        <button type="button" class="sg-flame-cta" data-accion="aviso-cargar">${estado.offline ? "Cargar provisorio" : "Cargar producto"}</button>
+        <button type="button" data-accion="aviso-cancelar">Cancelar</button>
+      </div>
+    </div>`;
+  }
+
+  function htmlFormulario() {
+    const f = estado.formulario;
+    const e = f.errores || {};
+    const completa = f.modo === "completa";
+    const campo = (label, inputHtml, error) => `<div class="proto-form-campo"><label>${label} ${inputHtml}</label>${error ? `<p class="proto-error">${esc(error)}</p>` : ""}</div>`;
+    let html = `<div class="proto-form" role="form" aria-label="Cargar producto nuevo">
+      <h2 class="proto-form-titulo">${completa ? "Cargar producto" : "Cargar producto provisorio"}</h2>`;
+    html += campo("Código de producto", `<input type="text" value="${esc(f.codigo)}" disabled aria-label="Código de producto" />`, "");
+    html += campo("Nombre", `<input type="text" data-campo="form-nombre" value="${esc(f.nombre)}" maxlength="120" aria-label="Nombre" />`, e.nombre);
+    html += campo("Precio de venta", `<input type="text" inputmode="decimal" data-campo="form-precio" value="${esc(f.precioTexto)}" placeholder="Ej. 1.234,50" aria-label="Precio de venta" />`, e.precio);
+    if (completa) {
+      html += campo("Stock inicial", `<input type="text" inputmode="numeric" data-campo="form-stock" value="${esc(f.stockTexto)}" placeholder="1..999" aria-label="Stock inicial" />`, e.stock);
+      html += campo("Fecha de vencimiento (opcional)", `<input type="date" data-campo="form-vencimiento" value="${esc(f.vencimiento)}" aria-label="Fecha de vencimiento" />`, e.vencimiento);
+      const ubOpts = UBICACIONES.map((u) => `<option value="${esc(u)}" ${f.ubicacion === u ? "selected" : ""}>${esc(u)}</option>`).join("");
+      html += campo("Ubicación (opcional)", `<select data-campo="form-ubicacion" aria-label="Ubicación">${ubOpts}</select>`, "");
+    }
+    html += campo("Cantidad a vender", `<input type="text" inputmode="numeric" data-campo="form-qty" value="${esc(f.qtyTexto)}" placeholder="1" aria-label="Cantidad a vender" />`, e.qty);
+    html += `<div class="proto-form-acciones">
+      <button type="button" class="sg-flame-cta" data-accion="form-guardar">${completa ? "Guardar y agregar al ticket" : "Guardar provisorio"}</button>
+      <button type="button" data-accion="form-cancelar">Cancelar</button>
+    </div></div>`;
+    return html;
+  }
+
+  function htmlEscena() {
+    if (estado.ficha) return htmlFicha();
+    if (estado.aviso) return htmlAviso();
+    if (estado.formulario) return htmlFormulario();
+    return "";
+  }
+
+  function renderA() { return `<div class="proto-var-a">${htmlEscena()}${htmlTicket()}</div>`; }
+  function renderB() {
+    const escena = htmlEscena();
+    return `<div class="proto-var-b"><div class="proto-var-b-ticket">${htmlTicket()}</div>${escena ? `<div class="proto-var-b-panel">${escena}</div>` : ""}</div>`;
+  }
+  function renderC() {
+    const escena = htmlEscena();
+    const paso = escena ? 2 : (estado.carrito.length ? 3 : 1);
+    return `<div class="proto-var-c">
+      <ol class="proto-var-c-steps" aria-label="Pasos">
+        <li class="${paso >= 1 ? "on" : ""}">Escanear</li>
+        <li class="${paso >= 2 ? "on" : ""}">Cantidad / alta</li>
+        <li class="${paso >= 3 ? "on" : ""}">Ticket</li>
+      </ol>
+      <div class="proto-var-c-escena">${escena || '<p class="proto-var-c-vacio">Escané una etiqueta o elegí un código de ejemplo para empezar.</p>'}</div>
+      <div class="proto-var-c-ticket">${htmlTicket()}</div>
+    </div>`;
+  }
+
+  function pintar() {
+    const v = estado.variant;
+    const el = $("proto-variante");
+    if (!el) return;
+    el.innerHTML = v === "B" ? renderB() : v === "C" ? renderC() : renderA();
+  }
+
+  const CAMPOS_FORM = { nombre: "nombre", precio: "precioTexto", stock: "stockTexto", vencimiento: "vencimiento", ubicacion: "ubicacion", qty: "qtyTexto" };
+  function actualizarCampo(el) {
+    const campo = el.dataset.campo;
+    if (!campo) return;
+    if (campo === "ficha-qty" && estado.ficha) { estado.ficha.qtyTexto = el.value; estado.ficha.error = ""; }
+    else if (campo === "ficha-precio" && estado.ficha) { estado.ficha.precioTexto = el.value; estado.ficha.error = ""; }
+    else if (campo.startsWith("form-") && estado.formulario) {
+      const k = CAMPOS_FORM[campo.slice(5)];
+      if (!k) return;
+      estado.formulario[k] = el.value;
+      delete estado.formulario.errores[k];
+    }
+  }
+
+  // ---- variantes / protobar ----
+  function cycle(delta) {
+    const ids = VARIANTES.map((v) => v.id);
+    const i = ids.indexOf(estado.variant);
+    return ids[(i + delta + ids.length) % ids.length];
+  }
+  function setVariant(v) {
+    estado.variant = v;
+    const url = new URL(location.href);
+    url.searchParams.set("variant", v);
+    history.replaceState(null, "", url);
+    const meta = VARIANTES.find((x) => x.id === v);
+    const label = $("protobar-label");
+    if (label && meta) label.textContent = meta.nombre;
+    pintar();
+  }
+  function toggleVista() {
+    const activo = document.body.classList.toggle("proto-390");
+    const b = $("protobar-vista");
+    if (b) b.textContent = activo ? "390px · volver a escritorio" : "390px / escritorio";
+  }
+
+  // ---- delegación de eventos ----
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-accion]");
+    if (b) {
+      const a = b.dataset.accion;
+      if (a === "scan") { const visor = $("proto-visor"); if (visor && visor.open) visor.close(); escanear(b.dataset.codigo); return; }
+      if (a === "ficha-confirmar") { confirmarFicha(); return; }
+      if (a === "ficha-cancelar") { cancelarFicha(); return; }
+      if (a === "ficha-mas") { ajustarFicha(1); return; }
+      if (a === "ficha-menos") { ajustarFicha(-1); return; }
+      if (a === "aviso-cargar") { abrirFormulario(); return; }
+      if (a === "aviso-cancelar") { cancelarAviso(); return; }
+      if (a === "form-guardar") { guardarAlta(); return; }
+      if (a === "form-cancelar") { cancelarFormulario(); return; }
+      if (a === "linea-mas") { cambiarQtyLinea(b.dataset.id, 1); return; }
+      if (a === "linea-menos") { cambiarQtyLinea(b.dataset.id, -1); return; }
+      if (a === "linea-quitar") { quitarLinea(b.dataset.id); return; }
+      if (a === "cobrar") { setMensaje("El cobro queda fuera del alcance de esta maqueta."); return; }
+    }
+    const p = ev.target.closest("[data-proto]");
+    if (p) {
+      if (p.dataset.proto === "prev") setVariant(cycle(-1));
+      else if (p.dataset.proto === "next") setVariant(cycle(1));
+      else if (p.dataset.proto === "vista") toggleVista();
+    }
+  });
+
+  document.addEventListener("input", (ev) => { if (ev.target.dataset?.campo) actualizarCampo(ev.target); });
+  document.addEventListener("change", (ev) => { if (ev.target.dataset?.campo) actualizarCampo(ev.target); });
+
+  document.addEventListener("keydown", (ev) => {
+    const t = ev.target;
+    const enCampo = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+    if (ev.key === "Enter") {
+      const campo = t?.dataset?.campo;
+      if (campo === "ficha-qty" || campo === "ficha-precio") { ev.preventDefault(); confirmarFicha(); return; }
+    }
+    if (ev.key === "ArrowLeft" && !enCampo) { ev.preventDefault(); setVariant(cycle(-1)); }
+    else if (ev.key === "ArrowRight" && !enCampo) { ev.preventDefault(); setVariant(cycle(1)); }
+    else if (ev.key === "Escape") {
+      const visor = $("proto-visor");
+      if (visor && visor.open) return;
+      if (estado.formulario) cancelarFormulario();
+      else if (estado.aviso) cancelarAviso();
+      else if (estado.ficha) cancelarFicha();
+    }
+  });
+
+  // ---- init ----
+  function init() {
+    const q = new URLSearchParams(location.search);
+    const v = q.get("variant") || "A";
+    estado.variant = VARIANTES.some((x) => x.id === v) ? v : "A";
+    setVariant(estado.variant);
+    setMensaje("Maqueta de /venta: escaneo con confirmación de cantidad y alta de producto nuevo. Probá los códigos de ejemplo.");
+
+    $("proto-offline").addEventListener("change", (ev) => {
+      estado.offline = ev.target.checked;
+      if (estado.aviso || estado.formulario) pintar();
+      setMensaje(estado.offline ? "Modo offline: el alta cae a provisoria." : "Modo online: alta completa.");
+    });
+
+    $("proto-escanear").addEventListener("click", () => {
+      const visor = $("proto-visor");
+      if (!visor) return;
+      if (visor.open) { visor.close(); return; }
+      visor.showModal();
+    });
+    $("proto-visor-cerrar").addEventListener("click", () => $("proto-visor").close());
+
+    $("sku").addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      ev.preventDefault();
+      const valor = $("sku").value;
+      escanear(valor);
+      $("sku").value = "";
+    });
+  }
+  init();
+</script>
