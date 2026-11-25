@@ -1,0 +1,123 @@
+---
+// PROTOTIPO — /panel/configuracion · Variante C "Panel unificado + recálculo explícito"
+import { PASOS, MARKUP_DEFECTO, PASO_DEFECTO, precioDesdeCosto, formatearPesos } from "../calculo-precios.js";
+// Productos de ejemplo (costo en centavos, precio actual en centavos, modo).
+const EJEMPLOS = [
+  { sku: "1001", nombre: "Gaseosa 1,5L", costo: 90_000, precio: 130_000, modo: "markup_fijo" },
+  { sku: "1002", nombre: "Alfajor", costo: 40_000, precio: 55_000, modo: "markup_fijo" },
+  { sku: "1003", nombre: "Galletitas surtidas", costo: 60_000, precio: 70_000, modo: "manual" },
+];
+---
+<div class="proto-config-c">
+  <section class="card proto-cabecera">
+    <div class="proto-campos">
+      <label>
+        <span>Porcentaje de recargo por defecto</span>
+        <span class="proto-con-sufijo">
+          <input id="cfgC-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+          <span class="proto-sufijo">%</span>
+        </span>
+      </label>
+      <fieldset class="proto-paso">
+        <legend>Paso de redondeo</legend>
+        <div class="proto-segmento" role="radiogroup" aria-label="Paso de redondeo">
+          {PASOS.map((p) => (
+            <label class:list={["proto-seg-op", { activo: p.centavos === PASO_DEFECTO }]}>
+              <input type="radio" name="cfgC-paso" value={p.centavos} checked={p.centavos === PASO_DEFECTO} />
+              <span>{p.etiqueta}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </div>
+    <p class="proto-nota">Solo Dueño. Guardar cambia el valor <b>hacia adelante</b>; no modifica precios cargados.</p>
+  </section>
+
+  <section class="card">
+    <h2>Impacto sobre tu catálogo</h2>
+    <p class="proto-ayuda">Los productos en <b>modo recargo</b> se recalculan solo cuando vos lo pedís. Los manuales quedan como están.</p>
+    <table>
+      <thead>
+        <tr><th>Producto</th><th>Precio actual</th><th>Sugerido</th><th>Modo</th></tr>
+      </thead>
+      <tbody>
+        {EJEMPLOS.map((p) => {
+          const sugerido = precioDesdeCosto(p.costo, MARKUP_DEFECTO, PASO_DEFECTO);
+          return (
+            <tr data-sku={p.sku} data-costo={p.costo} data-precio={p.precio} data-modo={p.modo}>
+              <td>{p.nombre}<small class="proto-sku">{p.sku}</small></td>
+              <td class="tnum">{formatearPesos(p.precio)}</td>
+              <td class="tnum" data-sugerido>{formatearPesos(sugerido)}</td>
+              <td><span class:list={["proto-chip", { "proto-chip-manual": p.modo === "manual" }]}>{p.modo === "manual" ? "manual" : "recargo"}</span></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    <div class="proto-acciones">
+      <button type="button" class="proto-primario" data-recalcular>Recalcular los de modo recargo</button>
+      <button type="button" data-guardar>Guardar configuración</button>
+    </div>
+    <p class="proto-nota" data-resultado aria-live="polite"></p>
+  </section>
+</div>
+
+<style>
+  .proto-config-c { display: grid; gap: 16px; }
+  .proto-campos { display: grid; gap: 14px; }
+  @media (min-width: 900px) { .proto-campos { grid-template-columns: 1fr 1fr; } }
+  .proto-con-sufijo { display: flex; align-items: center; }
+  .proto-con-sufijo input { width: 100%; }
+  .proto-sufijo { margin-left: 8px; font-size: 16px; }
+  .proto-paso { border: 0; padding: 0; margin: 0; }
+  .proto-paso legend { font-size: 13px; color: var(--tema-texto-suave); margin-bottom: 6px; }
+  .proto-segmento { display: flex; gap: 6px; }
+  .proto-seg-op { position: relative; flex: 1; }
+  .proto-seg-op input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .proto-seg-op span { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 1px solid var(--tema-linea); border-radius: 8px; font-weight: 600; }
+  .proto-seg-op.activo span, .proto-seg-op input:checked + span { background: var(--tema-texto); color: var(--tema-fondo); }
+  .proto-nota { margin: 10px 0 0; color: var(--tema-texto-suave); font-size: 12px; }
+  .proto-ayuda { color: var(--tema-texto-suave); font-size: 13px; }
+  .proto-sku { display: block; color: var(--tema-texto-suave); font-size: 11px; }
+  .proto-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); }
+  .proto-chip-manual { background: var(--estado-aviso-tint); color: var(--estado-aviso); }
+  .proto-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .proto-primario { background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const markup = $("cfgC-markup");
+  const radios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="cfgC-paso"]'));
+  const filas = Array.from(document.querySelectorAll<HTMLElement>("tbody tr[data-sku]"));
+  const resultado = document.querySelector<HTMLElement>("[data-resultado]")!;
+
+  const pasoActual = () => Number(radios.find((r) => r.checked)?.value) || 1000;
+  const repintarSugeridos = () => {
+    const m = Number(markup.value) || 0;
+    filas.forEach((f) => {
+      const costo = Number(f.dataset.costo);
+      const celda = f.querySelector<HTMLElement>("[data-sugerido]");
+      if (celda) celda.textContent = formatearPesos(precioDesdeCosto(costo, m, pasoActual()));
+    });
+  };
+  markup.addEventListener("input", repintarSugeridos);
+  radios.forEach((r) => r.addEventListener("change", repintarSugeridos));
+
+  document.querySelector<HTMLElement>("[data-recalcular]")?.addEventListener("click", () => {
+    const m = Number(markup.value) || 0;
+    let n = 0;
+    filas.forEach((f) => {
+      if (f.dataset.modo !== "markup_fijo") return;
+      const nuevo = precioDesdeCosto(Number(f.dataset.costo), m, pasoActual());
+      const celdaPrecio = f.querySelector<HTMLElement>("td:nth-child(2)");
+      if (celdaPrecio) celdaPrecio.textContent = formatearPesos(nuevo);
+      n += 1;
+    });
+    resultado.textContent = `Se recalcaron ${n} producto(s) en modo recargo. Los manuales no se tocaron. (prototipo: sin persistencia)`;
+  });
+  document.querySelector<HTMLElement>("[data-guardar]")?.addEventListener("click", () => {
+    resultado.textContent = "Configuración guardada (prototipo: no persiste).";
+  });
+</script>

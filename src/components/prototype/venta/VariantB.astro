@@ -1,0 +1,145 @@
+---
+// PROTOTIPO — /venta · Variante B "Hoja inferior por línea"
+import { MARKUP_DEFECTO } from "../calculo-precios.js";
+const LINEAS = [
+  { id: "l1", nombre: "Gaseosa 1,5L", qty: 2, precio: 130000, costo: 90000 },
+  { id: "l2", nombre: "Alfajor", qty: 3, precio: 55000, costo: 40000 },
+];
+---
+<div class="proto-venta-b">
+  <section class="card vidrio-card">
+    <h2 class="proto-titulo">Ticket</h2>
+    <ul class="proto-lineas">
+      {LINEAS.map((l) => (
+        <li>
+          <button type="button" class="proto-linea-fila" data-id={l.id} data-precio={l.precio} data-costo={l.costo}>
+            <span class="proto-nombre">{l.nombre}</span>
+            <span class="proto-qty">×{l.qty}</span>
+            <b class="proto-monto" data-subtotal></b>
+          </button>
+        </li>
+      ))}
+    </ul>
+    <p class="proto-total">Total: <b data-total></b></p>
+  </section>
+
+  <section class="card vidrio-card">
+    <h2 class="proto-titulo">Alta al vuelo</h2>
+    <p class="proto-ayuda">Producto nuevo sin precio: calculalo desde el costo.</p>
+    <div class="proto-dos">
+      <label>Costo (pesos) <input id="vtB-costo" type="text" inputmode="decimal" autocomplete="off" /></label>
+      <label>Recargo <input id="vtB-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} /></label>
+    </div>
+    <div class="proto-sugerido"><span>Precio de venta</span><b data-alta-precio>—</b></div>
+    <button type="button" class="proto-primario">Agregar al ticket</button>
+  </section>
+
+  <div class="proto-sheet" hidden data-sheet>
+    <div class="proto-sheet-panel">
+      <h3 class="proto-sheet-titulo" data-sheet-nombre></h3>
+      <label>Precio de venta
+        <input id="vtB-precio" type="text" inputmode="decimal" autocomplete="off" />
+      </label>
+      <label>Descuento de la línea
+        <input id="vtB-dcto" type="range" min="0" max="50" step="1" value="0" />
+        <span class="proto-range-val" data-dcto-val>0%</span>
+      </label>
+      <p class="proto-bajo-costo" hidden data-bajo>⚠ El precio queda por debajo del costo de esta línea.</p>
+      <div class="proto-sheet-acciones">
+        <button type="button" class="proto-primario" data-guardar>Guardar</button>
+        <button type="button" data-cerrar>Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .proto-venta-b { display: grid; gap: 8px; }
+  .proto-titulo { margin: 0 0 8px; font-size: 18px; }
+  .proto-ayuda { color: var(--tema-texto-suave); font-size: 13px; margin: 0 0 8px; }
+  .proto-lineas { list-style: none; margin: 0; padding: 0; }
+  .proto-lineas li { border-bottom: 1px solid var(--tema-linea); }
+  .proto-linea-fila { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: transparent; border: 0 !important; color: var(--tema-texto); margin: 0; border-radius: 8px !important; }
+  .proto-nombre { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .proto-qty { color: var(--tema-texto-suave); font-variant-numeric: tabular-nums; }
+  .proto-monto { font-variant-numeric: tabular-nums; }
+  .proto-total { margin: 10px 0 0; font-size: 16px; text-align: right; }
+  .proto-total b { font-variant-numeric: tabular-nums; }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .proto-sugerido { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
+  .proto-sugerido span { font-size: 12px; opacity: 0.85; }
+  .proto-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .proto-primario { background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+  .proto-sheet { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--tema-fondo) 55%, transparent); display: flex; align-items: flex-end; justify-content: center; }
+  .proto-sheet-panel { width: 100%; max-width: 420px; background: var(--tema-superficie); color: var(--tema-texto); border-radius: 16px 16px 0 0; padding: 16px; display: grid; gap: 10px; box-shadow: 0 -8px 30px rgba(0,0,0,0.25); }
+  .proto-sheet-titulo { margin: 0; font-size: 16px; }
+  .proto-range-val { font-size: 12px; color: var(--tema-texto-suave); }
+  .proto-bajo-costo { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--estado-peligro-tint); color: var(--estado-peligro); font-size: 13px; }
+  .proto-sheet-acciones { display: flex; gap: 8px; }
+  .proto-sheet-acciones button { flex: 1; margin: 0; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const filas = Array.from(document.querySelectorAll<HTMLElement>(".proto-linea-fila"));
+  const totalEl = document.querySelector<HTMLElement>("[data-total]")!;
+  const sheet = document.querySelector<HTMLElement>("[data-sheet]")!;
+  const sheetNombre = document.querySelector<HTMLElement>("[data-sheet-nombre]")!;
+  const precioInput = $("vtB-precio");
+  const dcto = $("vtB-dcto");
+  const dctoVal = document.querySelector<HTMLElement>("[data-dcto-val]")!;
+  const bajo = document.querySelector<HTMLElement>("[data-bajo]")!;
+  let activa: HTMLElement | null = null;
+  let precioBase = 0;
+  let costoBase = 0;
+
+  const pintar = () => {
+    filas.forEach((f) => {
+      const qty = Number(f.querySelector(".proto-qty")!.textContent!.replace(/\D/g, "")) || 1;
+      const precio = Number(f.dataset.precio);
+      f.querySelector<HTMLElement>("[data-subtotal]")!.textContent = formatearPesos(precio * qty);
+    });
+    const total = filas.reduce((acc, f) => acc + Number(f.dataset.precio) * (Number(f.querySelector(".proto-qty")!.textContent!.replace(/\D/g, "")) || 1), 0);
+    totalEl.textContent = formatearPesos(total);
+  };
+  const repintarSheet = () => {
+    const d = Number(dcto.value) || 0;
+    dctoVal.textContent = d + "%";
+    const nuevo = Math.round(precioBase * (1 - d / 100));
+    bajo.hidden = !(costoBase > 0 && nuevo < costoBase);
+  };
+  filas.forEach((f) => {
+    f.addEventListener("click", () => {
+      activa = f;
+      sheetNombre.textContent = f.querySelector(".proto-nombre")!.textContent ?? "";
+      precioBase = Number(f.dataset.precio);
+      costoBase = Number(f.dataset.costo);
+      precioInput.value = pesosParaInput(precioBase);
+      dcto.value = "0";
+      repintarSheet();
+      sheet.hidden = false;
+    });
+  });
+  dcto.addEventListener("input", repintarSheet);
+  document.querySelector<HTMLElement>("[data-cerrar]")?.addEventListener("click", () => { sheet.hidden = true; });
+  document.querySelector<HTMLElement>("[data-guardar]")?.addEventListener("click", () => {
+    if (!activa) return;
+    const d = Number(dcto.value) || 0;
+    const nuevo = Math.round(precioBase * (1 - d / 100));
+    activa.dataset.precio = String(nuevo);
+    sheet.hidden = true;
+    pintar();
+  });
+  const costo = $("vtB-costo");
+  const markup = $("vtB-markup");
+  const altaPrecio = document.querySelector<HTMLElement>("[data-alta-precio]")!;
+  const repintarAlta = () => {
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    altaPrecio.textContent = c > 0 ? formatearPesos(precioDesdeCosto(c, m, 1000)) : "—";
+  };
+  costo.addEventListener("input", repintarAlta);
+  markup.addEventListener("input", repintarAlta);
+  pintar();
+</script>

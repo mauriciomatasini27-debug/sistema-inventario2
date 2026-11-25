@@ -1,0 +1,64 @@
+---
+import "../styles/tokens-papel.css";
+import "../styles/navegacion.css";
+import "../styles/tema.css";
+import TemaInicial from "../components/ui/TemaInicial.astro";
+import TemaToggle from "../components/ui/TemaToggle.astro";
+import NavTablero from "../components/panel/NavTablero.astro";
+import PrototypeSwitcher from "../components/prototype/PrototypeSwitcher.astro";
+import VariantA from "../components/prototype/venta/VariantA.astro";
+import VariantB from "../components/prototype/venta/VariantB.astro";
+import VariantC from "../components/prototype/venta/VariantC.astro";
+
+// PROTOTIPO (desechable) — resolver issue #536. Pregunta: ¿cómo se edita por %
+// o monto una línea del ticket de /venta y cómo se calcula el Precio desde
+// Costo + Porcentaje en un Alta al vuelo de mostrador?
+const raw = (Astro.url.searchParams.get("variant") ?? "A").toUpperCase();
+const variantes = [
+  { key: "A", nombre: "Edición en fila + chips" },
+  { key: "B", nombre: "Hoja inferior por línea" },
+  { key: "C", nombre: "Panel de ajuste por línea" },
+];
+const actual = variantes.some((v) => v.key === raw) ? raw : "A";
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Venta mostrador · Prototipo precios</title>
+    <TemaInicial />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body { margin: 0; font-family: var(--font-sans); background: var(--tema-fondo); color: var(--tema-texto); }
+      .barra { display: flex; align-items: center; gap: 8px; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+      .barra h1 { flex: 1 1 auto; margin: 0; font-size: 20px; }
+      main { max-width: 360px; margin-inline: auto; padding: 12px; }
+      .card { border-radius: 12px; padding: 12px; margin-block: 8px; min-width: 0; }
+      input, select, button { min-height: 44px; font-family: inherit; font-size: 16px; }
+      label { display: grid; gap: 4px; font-size: 13px; color: var(--tema-texto-suave); }
+      input, select { width: 100%; border: 1px solid var(--tema-linea); background: var(--tema-superficie); color: var(--tema-texto); border-radius: 8px; padding: 8px 10px; }
+      button { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--tema-texto); color: var(--tema-fondo); font-weight: 600; cursor: pointer; }
+      .proto-banner { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="tablero">
+      <NavTablero activo="ventas" />
+      <div class="tablero-contenido">
+        <header class="barra vidrio-barra">
+          <h1>Venta mostrador</h1>
+          <TemaToggle />
+        </header>
+        <main>
+          <p class="proto-banner">🧪 Prototipo desechable (issue #536) · variante <b>{actual}</b> · cambiá con la barra violeta o ← / →</p>
+          {actual === "A" && <VariantA />}
+          {actual === "B" && <VariantB />}
+          {actual === "C" && <VariantC />}
+        </main>
+      </div>
+    </div>
+    <PrototypeSwitcher variantes={variantes} actual={actual} />
+  </body>
+</html>

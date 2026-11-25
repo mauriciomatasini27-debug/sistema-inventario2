@@ -1,0 +1,92 @@
+---
+// PrototypeSwitcher — barra flotante para alternar variantes de un prototipo.
+// Desechable: no sale a producción (gated por import.meta.env.PROD).
+interface Props {
+  variantes: { key: string; nombre: string }[];
+  actual: string;
+  clave?: string; // opcional: si hay más de un switcher en la página
+}
+const { variantes, actual, clave = "variant" } = Astro.props;
+const mostrar = !import.meta.env.PROD;
+---
+{mostrar && (
+  <div
+    class="proto-switch"
+    data-clave={clave}
+    data-actual={actual}
+    data-keys={variantes.map((v) => v.key).join(",")}
+    role="region"
+    aria-label="Selector de variantes del prototipo"
+  >
+    <button type="button" data-dir="-1" aria-label="Variante anterior">←</button>
+    <span class="proto-switch-etiqueta"><b>{actual}</b><i> · {variantes.find((v) => v.key === actual)?.nombre ?? ""}</i></span>
+    <button type="button" data-dir="1" aria-label="Variante siguiente">→</button>
+  </div>
+)}
+
+<style>
+  .proto-switch {
+    position: fixed;
+    left: 50%;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #6d28d9;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: calc(100vw - 24px);
+  }
+  .proto-switch button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .proto-switch .proto-switch-etiqueta {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .proto-switch .proto-switch-etiqueta b { font-weight: 800; }
+  .proto-switch .proto-switch-etiqueta i { font-style: normal; opacity: 0.9; }
+</style>
+
+<script>
+  const caja = document.querySelector<HTMLElement>(".proto-switch");
+  if (caja) {
+    const clave = caja.dataset.clave ?? "variant";
+    const keys = (caja.dataset.keys ?? "").split(",").filter(Boolean);
+    const actual = caja.dataset.actual ?? "";
+    const ir = (dir: number) => {
+      if (keys.length === 0) return;
+      const idx = Math.max(0, keys.indexOf(actual));
+      const next = keys[(idx + dir + keys.length) % keys.length];
+      const url = new URL(window.location.href);
+      url.searchParams.set(clave, next);
+      window.location.assign(url.toString());
+    };
+    caja.querySelectorAll("button[data-dir]").forEach((b) => {
+      b.addEventListener("click", () => ir(Number((b as HTMLElement).dataset.dir)));
+    });
+    window.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") ir(-1);
+      else if (e.key === "ArrowRight") ir(1);
+    });
+  }
+</script>

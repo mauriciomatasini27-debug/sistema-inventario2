@@ -1,0 +1,136 @@
+---
+// PROTOTIPO — /panel/stock · Variante A "Flujo vertical Costo → Precio"
+import { MARKUP_DEFECTO, precioDesdeCosto, formatearPesos } from "../calculo-precios.js";
+---
+<div class="proto-stock-a">
+  <section class="card" id="proto-alta">
+    <h2>Agregar producto</h2>
+    <div class="fila">
+      <label>Nombre
+        <input id="stA-nombre" type="text" maxlength="200" autocomplete="off" value="Gaseosa 1,5L" />
+      </label>
+    </div>
+
+    <div class="proto-calc" aria-label="Calculadora de precio">
+      <label>Costo de ingreso (pesos)
+        <input id="stA-costo" type="text" inputmode="decimal" autocomplete="off" value="900" />
+      </label>
+      <div class="proto-porcentaje">
+        <label>Recargo
+          <input id="stA-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+        </label>
+        <span>%</span>
+      </div>
+      <div class="proto-precio-sugerido" aria-live="polite">
+        <span>Precio de venta sugerido</span>
+        <b data-precio></b>
+        <small data-detalle></small>
+      </div>
+      <button type="button" id="stA-pisar" data-pisar>Pisar el precio a mano</button>
+      <div id="stA-manual" hidden>
+        <label>Precio de venta (manual)
+          <input id="stA-precio-manual" type="text" inputmode="decimal" autocomplete="off" />
+        </label>
+        <p class="proto-aviso-soft">Al pisar el precio, el producto queda en modo <b>manual</b>: no se recalcula con el recargo.</p>
+      </div>
+    </div>
+
+    <div class="fila">
+      <label>Cantidad inicial (opcional)
+        <input id="stA-cantidad" type="number" min="0" step="1" value="0" />
+      </label>
+      <label>Ubicación (opcional)
+        <select><option value="">Sin ubicación</option><option>Góndola</option><option>Heladera</option></select>
+      </label>
+    </div>
+    <button type="button" class="proto-primario">Guardar producto</button>
+  </section>
+
+  <section class="card" id="proto-ingreso">
+    <h2>Registrar ingreso</h2>
+    <div class="fila">
+      <label>Código
+        <input id="stA-codigo" type="text" autocomplete="off" value="1001" />
+      </label>
+      <label>Cantidad
+        <input id="stA-ing-cantidad" type="number" min="1" step="1" value="12" />
+      </label>
+    </div>
+    <label>Costo nuevo del lote (pesos)
+      <input id="stA-ing-costo" type="text" inputmode="decimal" autocomplete="off" value="950" />
+    </label>
+
+    <div class="proto-aviso-check" aria-live="polite">
+      <label class="proto-check">
+        <input id="stA-ing-check" type="checkbox" checked />
+        <span><b>Actualizar precio de venta a <span data-ing-precio></span></b><small>Entra mercadería con costo distinto. El precio vigente se recalcó con {MARKUP_DEFECTO}%.</small></span>
+      </label>
+    </div>
+    <button type="button" class="proto-primario">Ingresar</button>
+  </section>
+</div>
+
+<style>
+  .proto-stock-a { display: grid; gap: 16px; }
+  .proto-calc { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--tema-linea); border-radius: 12px; background: color-mix(in srgb, var(--tema-superficie) 60%, transparent); }
+  .proto-porcentaje { display: flex; align-items: center; gap: 8px; }
+  .proto-porcentaje label { flex: 1; }
+  .proto-porcentaje > span { font-size: 16px; margin-top: 18px; }
+  .proto-precio-sugerido { padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
+  .proto-precio-sugerido span, .proto-precio-sugerido small { font-size: 12px; opacity: 0.85; }
+  .proto-precio-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .proto-aviso-soft { margin: 0; color: var(--tema-texto-suave); font-size: 12px; }
+  .proto-aviso-check { padding: 12px; border-radius: 12px; background: var(--estado-ok-tint); color: var(--estado-ok); }
+  .proto-check { display: flex !important; gap: 10px; align-items: flex-start; color: inherit; }
+  .proto-check input { margin-top: 4px; width: 20px; height: 20px; }
+  .proto-check span { display: grid; gap: 2px; }
+  .proto-check b { font-size: 14px; }
+  .proto-check small { font-size: 12px; opacity: 0.85; }
+  .proto-primario { background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const costo = $("stA-costo");
+  const markup = $("stA-markup");
+  const precioEl = document.querySelector<HTMLElement>("[data-precio]")!;
+  const detalleEl = document.querySelector<HTMLElement>("[data-detalle]")!;
+  const manual = $("stA-manual");
+  const pisar = document.querySelector<HTMLButtonElement>("[data-pisar]")!;
+  const precioManual = $("stA-precio-manual");
+  let modoManual = false;
+
+  const repintarAlta = () => {
+    if (modoManual) return;
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    const p = precioDesdeCosto(c, m, 1000);
+    precioEl.textContent = formatearPesos(p);
+    detalleEl.textContent = `Costo ${formatearPesos(c)} × (1 + ${m}%) → ${formatearPesos(p)}`;
+    repintarIngreso();
+  };
+  const repintarIngreso = () => {
+    const c = parsearPesos($("stA-ing-costo").value) ?? 0;
+    const m = Number(markup.value) || 0;
+    const p = precioDesdeCosto(c, m, 1000);
+    const celda = document.querySelector<HTMLElement>("[data-ing-precio]");
+    if (celda) celda.textContent = formatearPesos(p);
+  };
+  costo.addEventListener("input", repintarAlta);
+  markup.addEventListener("input", repintarAlta);
+  $("stA-ing-costo").addEventListener("input", repintarIngreso);
+  $("stA-ing-costo").addEventListener("input", () => { document.querySelector<HTMLInputElement>("#stA-ing-check")!.checked = true; });
+
+  pisar.addEventListener("click", () => {
+    modoManual = true;
+    const actual = document.querySelector<HTMLElement>("[data-precio]")!.textContent ?? "";
+    const centavos = actual.replace(/[^0-9]/g, "");
+    precioManual.value = pesosParaInput(Number(centavos || 0));
+    manual.hidden = false;
+    pisar.hidden = true;
+    const m = Number(markup.value) || 0;
+    detalleEl.textContent = `Modo manual: no se recalcula con el ${m}%.`;
+  });
+  repintarAlta();
+</script>

@@ -1,0 +1,110 @@
+---
+// PROTOTIPO — /panel/configuracion · Variante B "Lista + probalo en vivo"
+import { PASOS, MARKUP_DEFECTO, PASO_DEFECTO } from "../calculo-precios.js";
+---
+<div class="proto-config-b">
+  <section class="card proto-probador">
+    <h2>Probalo en vivo</h2>
+    <label>
+      <span>Costo de un producto</span>
+      <input id="cfgB-costo" type="text" inputmode="decimal" value="1.000" autocomplete="off" />
+    </label>
+    <div class="proto-resultado" aria-live="polite">
+      <span>Precio de venta sugerido</span>
+      <b data-preview></b>
+      <small data-detalle></small>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Ajustes de precios</h2>
+    <ul class="proto-lista">
+      <li>
+        <div class="proto-fila">
+          <div>
+            <b>Porcentaje de recargo</b>
+            <small>Se precarga en productos nuevos</small>
+          </div>
+          <div class="proto-stepper">
+            <button type="button" data-step="-1" aria-label="Bajar porcentaje">−</button>
+            <input id="cfgB-markup" type="number" min="0.01" max="1000" step="0.5" value={MARKUP_DEFECTO} />
+            <button type="button" data-step="1" aria-label="Subir porcentaje">+</button>
+            <span class="proto-unidad">%</span>
+          </div>
+        </div>
+      </li>
+      <li>
+        <div class="proto-fila">
+          <div>
+            <b>Paso de redondeo</b>
+            <small>El precio se redondea hacia arriba</small>
+          </div>
+          <div class="proto-segmento" role="radiogroup" aria-label="Paso de redondeo">
+            {PASOS.map((p) => (
+              <label class:list={["proto-seg-op", { activo: p.centavos === PASO_DEFECTO }]}>
+                <input type="radio" name="cfgB-paso" value={p.centavos} checked={p.centavos === PASO_DEFECTO} />
+                <span>{p.etiqueta}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </li>
+    </ul>
+    <p class="proto-nota">Solo Dueño · cambios hacia adelante, sin pisar precios vigentes.</p>
+  </section>
+</div>
+
+<style>
+  .proto-config-b { display: grid; gap: 16px; }
+  .proto-probador label { display: grid; gap: 4px; }
+  .proto-resultado { margin-top: 12px; padding: 14px; border-radius: 12px; background: var(--tema-texto); color: var(--tema-fondo); display: grid; gap: 2px; }
+  .proto-resultado span, .proto-resultado small { opacity: 0.8; font-size: 12px; }
+  .proto-resultado b { font-size: 26px; font-variant-numeric: tabular-nums; }
+  .proto-lista { list-style: none; margin: 0; padding: 0; }
+  .proto-lista li { padding: 14px 0; border-bottom: 1px solid var(--tema-linea); }
+  .proto-lista li:last-child { border-bottom: 0; }
+  .proto-fila { display: flex; flex-direction: column; gap: 10px; }
+  @media (min-width: 900px) { .proto-fila { flex-direction: row; align-items: center; justify-content: space-between; } }
+  .proto-fila b { display: block; font-size: 15px; }
+  .proto-fila small { display: block; color: var(--tema-texto-suave); font-size: 12px; }
+  .proto-stepper { display: flex; align-items: center; gap: 6px; }
+  .proto-stepper button { width: 44px; height: 44px; border-radius: 999px; }
+  .proto-stepper input { width: 84px; text-align: center; }
+  .proto-unidad { font-size: 15px; color: var(--tema-texto); }
+  .proto-segmento { display: flex; gap: 6px; }
+  .proto-seg-op { position: relative; flex: 1; }
+  .proto-seg-op input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .proto-seg-op span { display: flex; align-items: center; justify-content: center; min-height: 44px; min-width: 52px; padding: 0 8px; border: 1px solid var(--tema-linea); border-radius: 8px; font-weight: 600; }
+  .proto-seg-op.activo span, .proto-seg-op input:checked + span { background: var(--tema-texto); color: var(--tema-fondo); }
+  .proto-nota { margin: 12px 0 0; color: var(--tema-texto-suave); font-size: 12px; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const costo = $("cfgB-costo");
+  const markup = $("cfgB-markup");
+  const radios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="cfgB-paso"]'));
+  const preview = document.querySelector<HTMLElement>("[data-preview]")!;
+  const detalle = document.querySelector<HTMLElement>("[data-detalle]")!;
+
+  const repintar = () => {
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    const paso = Number(radios.find((r) => r.checked)?.value) || 1000;
+    const p = precioDesdeCosto(c, m, paso);
+    preview.textContent = formatearPesos(p);
+    detalle.textContent = `recargo ${m}% · redondeo ${formatearPesos(paso)}`;
+  };
+  costo.addEventListener("input", repintar);
+  markup.addEventListener("input", repintar);
+  radios.forEach((r) => r.addEventListener("change", repintar));
+  document.querySelectorAll<HTMLElement>("[data-step]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const paso = Number(b.dataset.step);
+      markup.value = String(Math.max(0.01, Math.min(1000, (Number(markup.value) || 0) + paso)));
+      repintar();
+    });
+  });
+  repintar();
+</script>

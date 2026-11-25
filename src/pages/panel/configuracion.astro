@@ -1,0 +1,39 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import PrototypeSwitcher from "../../components/prototype/PrototypeSwitcher.astro";
+import VariantA from "../../components/prototype/configuracion/VariantA.astro";
+import VariantB from "../../components/prototype/configuracion/VariantB.astro";
+import VariantC from "../../components/prototype/configuracion/VariantC.astro";
+
+// PROTOTIPO (desechable) — resolver issue #536. Pregunta: ¿cómo se ve y se
+// comporta la configuración del Porcentaje de recargo por defecto y el Paso de
+// redondeo en /panel/configuracion (solo Dueño)? Tres variantes con ?variant=.
+const raw = (Astro.url.searchParams.get("variant") ?? "A").toUpperCase();
+const variantes = [
+  { key: "A", nombre: "Formulario clásico" },
+  { key: "B", nombre: "Lista + probalo en vivo" },
+  { key: "C", nombre: "Panel unificado + recálculo" },
+];
+const actual = variantes.some((v) => v.key === raw) ? raw : "A";
+---
+<PanelShell titulo="Configuración" subtitulo="Ajustes de precios del comercio. Solo el Dueño edita.">
+  <p class="proto-banner">🧪 Prototipo desechable (issue #536) · variante <b>{actual}</b> · cambiá con la barra violeta o ← / →</p>
+  <div class="proto-contenido">
+    {actual === "A" && <VariantA />}
+    {actual === "B" && <VariantB />}
+    {actual === "C" && <VariantC />}
+  </div>
+  <PrototypeSwitcher variantes={variantes} actual={actual} />
+</PanelShell>
+
+<style is:global>
+  .proto-banner {
+    margin: 0 0 16px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--estado-pendiente-tint);
+    color: var(--estado-pendiente);
+    font-size: 13px;
+  }
+  .proto-contenido { display: grid; gap: 16px; }
+</style>

@@ -1,0 +1,130 @@
+---
+// PROTOTIPO — /panel/stock · Variante C "Modo recargo / manual explícito"
+import { PASOS, MARKUP_DEFECTO, PASO_DEFECTO, precioDesdeCosto, formatearPesos } from "../calculo-precios.js";
+---
+<div class="proto-stock-c">
+  <section class="card" id="proto-alta-c">
+    <h2>Agregar producto</h2>
+    <label>Nombre
+      <input id="stC-nombre" type="text" maxlength="200" autocomplete="off" value="Galletitas surtidas" />
+    </label>
+
+    <div class="proto-modo" role="radiogroup" aria-label="Cómo se forma el precio">
+      <label class="proto-modo-op">
+        <input type="radio" name="stC-modo" value="markup" checked />
+        <span><b>Precio calculado</b><small>Costo + recargo</small></span>
+      </label>
+      <label class="proto-modo-op">
+        <input type="radio" name="stC-modo" value="manual" />
+        <span><b>Precio manual</b><small>Lo escribís vos</small></span>
+      </label>
+    </div>
+
+    <div id="stC-calculado">
+      <label>Costo (pesos)
+        <input id="stC-costo" type="text" inputmode="decimal" autocomplete="off" value="600" />
+      </label>
+      <div class="proto-dos">
+        <label>Recargo
+          <input id="stC-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+        </label>
+        <label>Paso de redondeo
+          <select id="stC-paso">
+            {PASOS.map((p) => <option value={p.centavos} selected={p.centavos === PASO_DEFECTO}>{p.etiqueta}</option>)}
+          </select>
+        </label>
+      </div>
+      <div class="proto-precio-sugerido" aria-live="polite">
+        <span>Precio de venta</span>
+        <b data-precio></b>
+      </div>
+    </div>
+
+    <div id="stC-manual" hidden>
+      <label>Precio de venta (pesos)
+        <input id="stC-precio-manual" type="text" inputmode="decimal" autocomplete="off" />
+      </label>
+    </div>
+
+    <label>Cantidad inicial (opcional)
+      <input id="stC-cantidad" type="number" min="0" step="1" value="0" />
+    </label>
+    <button type="button" class="proto-primario">Guardar producto</button>
+  </section>
+
+  <section class="card" id="proto-ingreso-c">
+    <h2>Registrar ingreso</h2>
+    <div class="fila">
+      <label>Código <input id="stC-codigo" type="text" autocomplete="off" value="1003" /></label>
+      <label>Cantidad <input id="stC-cantidad-ing" type="number" min="1" step="1" value="10" /></label>
+    </div>
+    <label>Costo nuevo del lote (pesos)
+      <input id="stC-ing-costo" type="text" inputmode="decimal" autocomplete="off" value="630" />
+    </label>
+    <div class="proto-aviso-check">
+      <label class="proto-check">
+        <input id="stC-ing-check" type="checkbox" checked />
+        <span><b>Actualizar precio a <span data-ing-precio></span></b><small>Este producto está en modo calculado; el precio se actualiza con el nuevo costo.</small></span>
+      </label>
+    </div>
+    <button type="button" class="proto-primario">Ingresar</button>
+  </section>
+</div>
+
+<style>
+  .proto-stock-c { display: grid; gap: 16px; }
+  .proto-modo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .proto-modo-op { position: relative; }
+  .proto-modo-op input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .proto-modo-op span { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--tema-linea); border-radius: 12px; text-align: center; }
+  .proto-modo-op b { font-size: 14px; }
+  .proto-modo-op small { color: var(--tema-texto-suave); font-size: 11px; }
+  .proto-modo-op input:checked + span { border-color: var(--tema-texto); background: var(--tema-texto); color: var(--tema-fondo); }
+  .proto-modo-op input:checked + span small { color: color-mix(in srgb, var(--tema-fondo) 70%, transparent); }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .proto-precio-sugerido { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
+  .proto-precio-sugerido span { font-size: 12px; opacity: 0.85; }
+  .proto-precio-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .proto-aviso-check { padding: 12px; border-radius: 12px; background: var(--estado-ok-tint); color: var(--estado-ok); }
+  .proto-check { display: flex !important; gap: 10px; align-items: flex-start; color: inherit; }
+  .proto-check input { margin-top: 4px; width: 20px; height: 20px; }
+  .proto-check span { display: grid; gap: 2px; }
+  .proto-check b { font-size: 14px; }
+  .proto-check small { font-size: 12px; opacity: 0.85; }
+  .proto-primario { background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const modos = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="stC-modo"]'));
+  const calculado = $("stC-calculado");
+  const manual = $("stC-manual");
+  const costo = $("stC-costo");
+  const markup = $("stC-markup");
+  const paso = $("stC-paso") as unknown as HTMLSelectElement;
+  const precioEl = document.querySelector<HTMLElement>("[data-precio]")!;
+
+  const repintar = () => {
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    const pa = Number(paso.value) || 1000;
+    precioEl.textContent = formatearPesos(precioDesdeCosto(c, m, pa));
+    const ing = parsearPesos($("stC-ing-costo").value) ?? 0;
+    const ping = precioDesdeCosto(ing, m, pa);
+    const celda = document.querySelector<HTMLElement>("[data-ing-precio]");
+    if (celda) celda.textContent = formatearPesos(ping);
+  };
+  const cambiarModo = () => {
+    const modo = modos.find((r) => r.checked)?.value;
+    calculado.hidden = modo !== "markup";
+    manual.hidden = modo !== "manual";
+  };
+  costo.addEventListener("input", repintar);
+  markup.addEventListener("input", repintar);
+  paso.addEventListener("change", repintar);
+  $("stC-ing-costo").addEventListener("input", repintar);
+  modos.forEach((r) => r.addEventListener("change", cambiarModo));
+  repintar();
+  cambiarModo();
+</script>

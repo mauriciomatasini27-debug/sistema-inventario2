@@ -1,0 +1,119 @@
+---
+// PROTOTIPO — /panel/stock · Variante B "Chips de recargo + ganancia"
+import { MARKUP_DEFECTO } from "../calculo-precios.js";
+const CHIPS = [10, 20, 30, 50, 100];
+---
+<div class="proto-stock-b">
+  <section class="card" id="proto-alta-b">
+    <h2>Agregar producto</h2>
+    <label>Nombre
+      <input id="stB-nombre" type="text" maxlength="200" autocomplete="off" value="Alfajor" />
+    </label>
+
+    <div class="proto-dos">
+      <label>Costo (pesos)
+        <input id="stB-costo" type="text" inputmode="decimal" autocomplete="off" value="400" />
+      </label>
+      <label>Precio de venta
+        <input id="stB-precio" type="text" inputmode="decimal" autocomplete="off" />
+      </label>
+    </div>
+
+    <div class="proto-chips" role="group" aria-label="Porcentaje de recargo">
+      {CHIPS.map((c) => (
+        <button type="button" class:list={["proto-chip", { activo: c === MARKUP_DEFECTO }]} data-markup={c}>{c}%</button>
+      ))}
+      <label class="proto-chip-custom">Otro
+        <input id="stB-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+        <span>%</span>
+      </label>
+    </div>
+
+    <div class="proto-resumen" aria-live="polite">
+      <div><span>Precio sugerido</span><b data-precio></b></div>
+      <div><span>Ganancia</span><b data-ganancia></b></div>
+    </div>
+    <button type="button" class="proto-primario">Guardar producto</button>
+  </section>
+
+  <section class="card" id="proto-ingreso-b">
+    <h2>Registrar ingreso</h2>
+    <label>Código
+      <input id="stB-codigo" type="text" autocomplete="off" value="1002" />
+    </label>
+    <div class="proto-dos">
+      <label>Cantidad <input id="stB-cantidad" type="number" min="1" step="1" value="24" /></label>
+      <label>Costo nuevo (pesos) <input id="stB-ing-costo" type="text" inputmode="decimal" autocomplete="off" value="420" /></label>
+    </div>
+    <div class="proto-aviso-check">
+      <label class="proto-check">
+        <input id="stB-ing-check" type="checkbox" checked />
+        <span><b>Actualizar precio a <span data-ing-precio></span></b><small>El costo del lote cambió. El precio se recalcula con el recargo elegido.</small></span>
+      </label>
+    </div>
+    <button type="button" class="proto-primario">Ingresar</button>
+  </section>
+</div>
+
+<style>
+  .proto-stock-b { display: grid; gap: 16px; }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .proto-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+  .proto-chip { border-radius: 999px; padding: 8px 14px; background: var(--tema-superficie); border: 1px solid var(--tema-linea) !important; color: var(--tema-texto) !important; font-weight: 600; }
+  .proto-chip.activo { background: var(--tema-texto) !important; color: var(--tema-fondo) !important; }
+  .proto-chip-custom { display: flex; align-items: center; gap: 4px; border: 1px solid var(--tema-linea); border-radius: 999px; padding: 2px 6px 2px 12px; }
+  .proto-chip-custom input { width: 56px; border: 0; background: transparent; min-height: 36px; }
+  .proto-resumen { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 14px; }
+  .proto-resumen > div { padding: 12px; border-radius: 10px; background: var(--tema-texto); color: var(--tema-fondo); display: grid; gap: 2px; }
+  .proto-resumen span { font-size: 12px; opacity: 0.8; }
+  .proto-resumen b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .proto-aviso-check { padding: 12px; border-radius: 12px; background: var(--estado-ok-tint); color: var(--estado-ok); }
+  .proto-check { display: flex !important; gap: 10px; align-items: flex-start; color: inherit; }
+  .proto-check input { margin-top: 4px; width: 20px; height: 20px; }
+  .proto-check span { display: grid; gap: 2px; }
+  .proto-check b { font-size: 14px; }
+  .proto-check small { font-size: 12px; opacity: 0.85; }
+  .proto-primario { background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const costo = $("stB-costo");
+  const precio = $("stB-precio");
+  const markup = $("stB-markup");
+  const precioEl = document.querySelector<HTMLElement>("[data-precio]")!;
+  const gananciaEl = document.querySelector<HTMLElement>("[data-ganancia]")!;
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-markup]"));
+  let manual = false;
+
+  const repintar = () => {
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    const p = precioDesdeCosto(c, m, 1000);
+    precioEl.textContent = formatearPesos(p);
+    gananciaEl.textContent = formatearPesos(p - c);
+    if (!manual) precio.value = pesosParaInput(p);
+    const ing = parsearPesos($("stB-ing-costo").value) ?? 0;
+    const ping = precioDesdeCosto(ing, m, 1000);
+    const celda = document.querySelector<HTMLElement>("[data-ing-precio]");
+    if (celda) celda.textContent = formatearPesos(ping);
+  };
+  const elegir = (m: number) => {
+    markup.value = String(m);
+    chips.forEach((ch) => ch.classList.toggle("activo", Number(ch.dataset.markup) === m));
+    repintar();
+  };
+  costo.addEventListener("input", repintar);
+  markup.addEventListener("input", repintar);
+  $("stB-ing-costo").addEventListener("input", repintar);
+  precio.addEventListener("input", () => {
+    manual = true;
+    const c = parsearPesos(costo.value) ?? 0;
+    const p = parsearPesos(precio.value) ?? 0;
+    precioEl.textContent = formatearPesos(p);
+    gananciaEl.textContent = formatearPesos(p - c);
+  });
+  chips.forEach((ch) => ch.addEventListener("click", () => { manual = false; elegir(Number(ch.dataset.markup)); }));
+  repintar();
+</script>

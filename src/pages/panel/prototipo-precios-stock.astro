@@ -1,0 +1,39 @@
+---
+import PanelShell from "../../components/panel/PanelShell.astro";
+import PrototypeSwitcher from "../../components/prototype/PrototypeSwitcher.astro";
+import VariantA from "../../components/prototype/stock/VariantA.astro";
+import VariantB from "../../components/prototype/stock/VariantB.astro";
+import VariantC from "../../components/prototype/stock/VariantC.astro";
+
+// PROTOTIPO (desechable) — resolver issue #536. Pregunta: ¿cómo se ve y se
+// comporta la calculadora Costo + Porcentaje → Precio en «Agregar producto» y
+// el aviso de nuevo Precio sugerido en «Registrar ingreso» de /panel/stock?
+const raw = (Astro.url.searchParams.get("variant") ?? "A").toUpperCase();
+const variantes = [
+  { key: "A", nombre: "Flujo Costo → Precio" },
+  { key: "B", nombre: "Chips de recargo + ganancia" },
+  { key: "C", nombre: "Modo recargo / manual" },
+];
+const actual = variantes.some((v) => v.key === raw) ? raw : "A";
+---
+<PanelShell titulo="Stock" subtitulo="Prototipo de la calculadora de precio al cargar producto y al ingresar mercadería." activo="stock">
+  <p class="proto-banner">🧪 Prototipo desechable (issue #536) · variante <b>{actual}</b> · cambiá con la barra violeta o ← / →</p>
+  <div class="proto-contenido">
+    {actual === "A" && <VariantA />}
+    {actual === "B" && <VariantB />}
+    {actual === "C" && <VariantC />}
+  </div>
+  <PrototypeSwitcher variantes={variantes} actual={actual} />
+</PanelShell>
+
+<style is:global>
+  .proto-banner {
+    margin: 0 0 16px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--estado-pendiente-tint);
+    color: var(--estado-pendiente);
+    font-size: 13px;
+  }
+  .proto-contenido { display: grid; gap: 16px; }
+</style>

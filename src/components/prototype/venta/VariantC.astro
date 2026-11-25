@@ -1,0 +1,115 @@
+---
+// PROTOTIPO — /venta · Variante C "Ajuste por línea en panel"
+import { MARKUP_DEFECTO } from "../calculo-precios.js";
+const LINEAS = [
+  { id: "l1", nombre: "Gaseosa 1,5L", qty: 2, precio: 130000, costo: 90000 },
+  { id: "l2", nombre: "Alfajor", qty: 3, precio: 55000, costo: 40000 },
+];
+---
+<div class="proto-venta-c">
+  <section class="card vidrio-card">
+    <h2 class="proto-titulo">Ticket</h2>
+    <ul class="proto-lineas">
+      {LINEAS.map((l) => (
+        <li class="proto-linea" data-id={l.id} data-precio={l.precio} data-costo={l.costo}>
+          <div class="proto-linea-cab">
+            <button type="button" class="proto-toggle" data-toggle aria-expanded="false">
+              <span class="proto-nombre">{l.nombre} <span class="proto-qty">×{l.qty}</span></span>
+              <b class="proto-monto" data-subtotal></b>
+            </button>
+          </div>
+          <div class="proto-ajuste" hidden data-ajuste>
+            <div class="proto-dos">
+              <label>Precio unitario <input type="text" inputmode="decimal" autocomplete="off" data-precio /></label>
+              <label>Descuento % <input type="number" min="0" max="90" step="1" value="0" data-dcto /></label>
+            </div>
+            <p class="proto-bajo-costo" hidden data-bajo>⚠ Precio por debajo del costo de la línea.</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+    <p class="proto-total">Total: <b data-total></b></p>
+  </section>
+
+  <section class="card vidrio-card proto-alta">
+    <h2 class="proto-titulo">Alta al vuelo</h2>
+    <p class="proto-ayuda">Producto nuevo sin precio: calculalo desde el costo en el mostrador.</p>
+    <div class="proto-dos">
+      <label>Costo (pesos) <input id="vtC-costo" type="text" inputmode="decimal" autocomplete="off" /></label>
+      <label>Recargo <input id="vtC-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} /></label>
+    </div>
+    <div class="proto-sugerido"><span>Precio de venta</span><b data-alta-precio>—</b></div>
+    <button type="button" class="proto-primario">Agregar al ticket</button>
+  </section>
+</div>
+
+<style>
+  .proto-venta-c { display: grid; gap: 8px; }
+  .proto-titulo { margin: 0 0 8px; font-size: 18px; }
+  .proto-ayuda { color: var(--tema-texto-suave); font-size: 13px; margin: 0 0 8px; }
+  .proto-lineas { list-style: none; margin: 0; padding: 0; }
+  .proto-linea { border-bottom: 1px solid var(--tema-linea); }
+  .proto-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0 !important; color: var(--tema-texto); margin: 0; border-radius: 8px !important; text-align: left; }
+  .proto-nombre { overflow-wrap: anywhere; }
+  .proto-qty { color: var(--tema-texto-suave); }
+  .proto-monto { font-variant-numeric: tabular-nums; }
+  .proto-ajuste { padding: 8px 0 12px; display: grid; gap: 8px; }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .proto-bajo-costo { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--estado-peligro-tint); color: var(--estado-peligro); font-size: 13px; }
+  .proto-total { margin: 10px 0 0; font-size: 16px; text-align: right; }
+  .proto-total b { font-variant-numeric: tabular-nums; }
+  .proto-sugerido { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
+  .proto-sugerido span { font-size: 12px; opacity: 0.85; }
+  .proto-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .proto-primario { margin-top: 10px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+</style>
+
+<script>
+  import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
+  const $ = (id) => document.getElementById(id) as HTMLInputElement;
+  const lineas = Array.from(document.querySelectorAll<HTMLElement>(".proto-linea"));
+  const totalEl = document.querySelector<HTMLElement>("[data-total]")!;
+
+  const pintarLinea = (li: HTMLElement) => {
+    const qty = Number(li.querySelector(".proto-qty")!.textContent!.replace(/\D/g, "")) || 1;
+    const precioInput = li.querySelector<HTMLInputElement>("[data-precio]")!;
+    const dctoInput = li.querySelector<HTMLInputElement>("[data-dcto]")!;
+    const precio = parsearPesos(precioInput.value) ?? Number(li.dataset.precio);
+    const dcto = Number(dctoInput.value) || 0;
+    const unitario = Math.round(precio * (1 - dcto / 100));
+    const costo = Number(li.dataset.costo);
+    const bajo = li.querySelector<HTMLElement>("[data-bajo]")!;
+    bajo.hidden = !(costo > 0 && unitario < costo);
+    li.querySelector<HTMLElement>("[data-subtotal]")!.textContent = formatearPesos(unitario * qty);
+    return unitario * qty;
+  };
+  const repintar = () => {
+    const total = lineas.reduce((acc, li) => acc + pintarLinea(li), 0);
+    totalEl.textContent = formatearPesos(total);
+  };
+  lineas.forEach((li) => {
+    const precioInput = li.querySelector<HTMLInputElement>("[data-precio]")!;
+    precioInput.value = pesosParaInput(Number(li.dataset.precio));
+    const dctoInput = li.querySelector<HTMLInputElement>("[data-dcto]")!;
+    precioInput.addEventListener("input", repintar);
+    dctoInput.addEventListener("input", repintar);
+    const toggle = li.querySelector<HTMLButtonElement>("[data-toggle]")!;
+    const ajuste = li.querySelector<HTMLElement>("[data-ajuste]")!;
+    toggle.addEventListener("click", () => {
+      const abierto = ajuste.hidden;
+      ajuste.hidden = !abierto;
+      toggle.setAttribute("aria-expanded", String(abierto));
+    });
+  });
+  const costo = $("vtC-costo");
+  const markup = $("vtC-markup");
+  const altaPrecio = document.querySelector<HTMLElement>("[data-alta-precio]")!;
+  const repintarAlta = () => {
+    const c = parsearPesos(costo.value) ?? 0;
+    const m = Number(markup.value) || 0;
+    altaPrecio.textContent = c > 0 ? formatearPesos(precioDesdeCosto(c, m, 1000)) : "—";
+  };
+  costo.addEventListener("input", repintarAlta);
+  markup.addEventListener("input", repintarAlta);
+  repintar();
+</script>
