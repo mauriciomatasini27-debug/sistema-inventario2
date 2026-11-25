@@ -56,6 +56,20 @@ _Avoid_: gramaje, kilos, kg, weight
 Venta en la que el precio de cada línea se calcula a partir del peso en gramos y de un precio por kilogramo, y no de una cantidad de unidades.
 _Avoid_: venta a granel, venta por kg
 
+### Precios
+
+**Costo**:
+Valor en Pesos argentinos que le cuesta al comercio adquirir o reponer una unidad o un kilogramo de un producto.
+_Avoid_: precio de stock, precio de compra, precio de proveedor
+
+**Precio de venta**:
+Valor vigente en Pesos argentinos al que el comercio ofrece y cobra una unidad o un kilogramo de un producto al cliente.
+_Avoid_: precio final, precio de lista, precio al público
+
+**Porcentaje de recargo**:
+Porcentaje que se suma sobre el Costo de un producto para obtener su Precio de venta sugerido o vigente.
+_Avoid_: margen sobre costo, porcentaje de stock
+
 ### Stock y lotes
 
 **Historial de stock**:
