@@ -21,8 +21,8 @@
       "enabled": true
     }
   },
-  "model": "opencode/deepseek-v4.1-flash-free",
-  "small_model": "opencode/deepseek-v4.1-flash-free",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "small_model": "opencode-go/deepseek-v4.1-flash",
   "instructions": [
     "AGENTS.md",
     ".opencode/pstack-opencode.md",
