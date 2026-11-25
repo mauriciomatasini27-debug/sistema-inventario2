@@ -1,108 +1,142 @@
 ---
-// PROTOTIPO — /venta · Variante C "Ajuste por línea en panel"
-import { MARKUP_DEFECTO } from "../calculo-precios.js";
+// PROTOTIPO — /venta · Variante C "Descuento global arriba"
+import { MARKUP_DEFECTO, formatearPesos } from "../calculo-precios.js";
 const LINEAS = [
-  { id: "l1", nombre: "Gaseosa 1,5L", qty: 2, precio: 130000, costo: 90000 },
-  { id: "l2", nombre: "Alfajor", qty: 3, precio: 55000, costo: 40000 },
+  { id: "l1", nombre: "Gaseosa 1,5L", qty: 2, precio: 130000 },
+  { id: "l2", nombre: "Alfajor", qty: 1, precio: 55000 },
 ];
+const DESCUENTOS = [0, 5, 10, 15, 20];
 ---
-<div class="proto-venta-c">
+<div class="proto-venta">
   <section class="card vidrio-card">
     <h2 class="proto-titulo">Ticket</h2>
+
+    <div class="proto-descuento-top">
+      <span class="proto-dcto-label">Descuento</span>
+      <div class="proto-chips">
+        {DESCUENTOS.map((d) => <button type="button" class:list={["proto-chip", { activo: d === 0 }]} data-dcto={d}>{d === 0 ? "0%" : `-${d}%`}</button>)}
+      </div>
+      <label class="proto-label">Otro %
+        <input id="vtC-dcto-manual" type="number" min="0" max="90" step="1" value="0" />
+      </label>
+    </div>
+
     <ul class="proto-lineas">
       {LINEAS.map((l) => (
-        <li class="proto-linea" data-id={l.id} data-precio={l.precio} data-costo={l.costo}>
-          <div class="proto-linea-cab">
-            <button type="button" class="proto-toggle" data-toggle aria-expanded="false">
-              <span class="proto-nombre">{l.nombre} <span class="proto-qty">×{l.qty}</span></span>
-              <b class="proto-monto" data-subtotal></b>
-            </button>
-          </div>
-          <div class="proto-ajuste" hidden data-ajuste>
-            <div class="proto-dos">
-              <label>Precio unitario <input type="text" inputmode="decimal" autocomplete="off" data-precio /></label>
-              <label>Descuento % <input type="number" min="0" max="90" step="1" value="0" data-dcto /></label>
+        <li class="proto-linea" data-id={l.id} data-precio={l.precio}>
+          <span class="proto-nombre">{l.nombre}</span>
+          <div class="proto-fila-linea">
+            <div class="proto-stepper">
+              <button type="button" data-dir="-1" aria-label="Menos">−</button>
+              <b class="proto-qty" data-qty>{l.qty}</b>
+              <button type="button" data-dir="1" aria-label="Más">+</button>
             </div>
-            <p class="proto-bajo-costo" hidden data-bajo>⚠ Precio por debajo del costo de la línea.</p>
+            <button type="button" class="proto-precio" data-precio-boton>{formatearPesos(l.precio)}</button>
+            <input type="text" inputmode="decimal" autocomplete="off" class="proto-precio-input" data-precio-input hidden />
           </div>
         </li>
       ))}
     </ul>
-    <p class="proto-total">Total: <b data-total></b></p>
-  </section>
 
-  <section class="card vidrio-card proto-alta">
-    <h2 class="proto-titulo">Alta al vuelo</h2>
-    <p class="proto-ayuda">Producto nuevo sin precio: calculalo desde el costo en el mostrador.</p>
-    <div class="proto-dos">
-      <label>Costo (pesos) <input id="vtC-costo" type="text" inputmode="decimal" autocomplete="off" /></label>
-      <label>Recargo <input id="vtC-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} /></label>
+    <div class="proto-alta">
+      <h2 class="proto-titulo">Producto nuevo (alta al vuelo)</h2>
+      <div class="proto-dos">
+        <label class="proto-label">Costo
+          <input id="vtC-costo" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+        </label>
+        <label class="proto-label">Recargo %
+          <input id="vtC-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+        </label>
+      </div>
+      <div class="proto-sugerido" aria-live="polite"><span>Precio de venta</span><b data-alta-precio>—</b></div>
+      <button type="button" class="proto-btn proto-btn--neutro">Agregar producto</button>
     </div>
-    <div class="proto-sugerido"><span>Precio de venta</span><b data-alta-precio>—</b></div>
-    <button type="button" class="proto-primario">Agregar al ticket</button>
+
+    <div class="proto-total-bar">
+      <div class="proto-resumen">
+        <span data-resumen></span>
+      </div>
+      <p class="proto-total">Total: <b data-total></b></p>
+      <button type="button" class="proto-btn proto-btn--primario">Cobrar</button>
+    </div>
   </section>
 </div>
 
 <style>
-  .proto-venta-c { display: grid; gap: 8px; }
-  .proto-titulo { margin: 0 0 8px; font-size: 18px; }
-  .proto-ayuda { color: var(--tema-texto-suave); font-size: 13px; margin: 0 0 8px; }
+  .proto-descuento-top { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--tema-texto) 5%, transparent); margin-bottom: 8px; }
+  .proto-dcto-label { font-size: 14px; font-weight: 700; }
   .proto-lineas { list-style: none; margin: 0; padding: 0; }
-  .proto-linea { border-bottom: 1px solid var(--tema-linea); }
-  .proto-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0 !important; color: var(--tema-texto); margin: 0; border-radius: 8px !important; text-align: left; }
-  .proto-nombre { overflow-wrap: anywhere; }
-  .proto-qty { color: var(--tema-texto-suave); }
-  .proto-monto { font-variant-numeric: tabular-nums; }
-  .proto-ajuste { padding: 8px 0 12px; display: grid; gap: 8px; }
-  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .proto-bajo-costo { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--estado-peligro-tint); color: var(--estado-peligro); font-size: 13px; }
-  .proto-total { margin: 10px 0 0; font-size: 16px; text-align: right; }
-  .proto-total b { font-variant-numeric: tabular-nums; }
-  .proto-sugerido { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
-  .proto-sugerido span { font-size: 12px; opacity: 0.85; }
-  .proto-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
-  .proto-primario { margin-top: 10px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
+  .proto-linea { padding: 12px 0; border-bottom: 1px solid var(--tema-linea); }
+  .proto-nombre { display: block; font-size: 17px; font-weight: 700; margin-bottom: 8px; overflow-wrap: anywhere; }
+  .proto-fila-linea { display: flex; align-items: center; gap: 10px; }
+  .proto-qty { min-width: 28px; text-align: center; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .proto-precio { flex: 1 1 auto; min-height: 48px; border: 1px solid var(--tema-linea) !important; background: var(--tema-superficie) !important; color: var(--tema-texto) !important; border-radius: 12px !important; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; padding: 0 14px; }
+  .proto-precio-input { flex: 1 1 auto; min-height: 48px; font-size: 18px; font-weight: 800; text-align: right; }
+  .proto-alta { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--tema-linea); }
+  .proto-label { display: grid; gap: 6px; }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+  .proto-total-bar { margin-top: 12px; display: grid; gap: 8px; }
+  .proto-resumen { font-size: 14px; color: var(--tema-texto-suave); }
 </style>
 
 <script>
   import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
-  const $ = (id) => document.getElementById(id) as HTMLInputElement;
   const lineas = Array.from(document.querySelectorAll<HTMLElement>(".proto-linea"));
   const totalEl = document.querySelector<HTMLElement>("[data-total]")!;
+  const resumenEl = document.querySelector<HTMLElement>("[data-resumen]")!;
+  const dctoManual = document.getElementById("vtC-dcto-manual") as HTMLInputElement;
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-dcto]"));
+  let descuento = 0;
 
-  const pintarLinea = (li: HTMLElement) => {
-    const qty = Number(li.querySelector(".proto-qty")!.textContent!.replace(/\D/g, "")) || 1;
-    const precioInput = li.querySelector<HTMLInputElement>("[data-precio]")!;
-    const dctoInput = li.querySelector<HTMLInputElement>("[data-dcto]")!;
-    const precio = parsearPesos(precioInput.value) ?? Number(li.dataset.precio);
-    const dcto = Number(dctoInput.value) || 0;
-    const unitario = Math.round(precio * (1 - dcto / 100));
-    const costo = Number(li.dataset.costo);
-    const bajo = li.querySelector<HTMLElement>("[data-bajo]")!;
-    bajo.hidden = !(costo > 0 && unitario < costo);
-    li.querySelector<HTMLElement>("[data-subtotal]")!.textContent = formatearPesos(unitario * qty);
-    return unitario * qty;
+  const precioDeLinea = (li: HTMLElement) => {
+    const input = li.querySelector<HTMLInputElement>("[data-precio-input]")!;
+    if (!input.hidden) return parsearPesos(input.value) ?? Number(li.dataset.precio);
+    return Number(li.dataset.precio);
   };
   const repintar = () => {
-    const total = lineas.reduce((acc, li) => acc + pintarLinea(li), 0);
+    let sub = 0;
+    lineas.forEach((li) => {
+      const qty = Number(li.querySelector<HTMLElement>("[data-qty]")!.textContent) || 1;
+      sub += precioDeLinea(li) * qty;
+    });
+    const total = Math.round(sub * (1 - descuento / 100));
     totalEl.textContent = formatearPesos(total);
+    resumenEl.textContent = descuento > 0 ? `Subtotal ${formatearPesos(sub)} · descuento -${descuento}%` : `Subtotal ${formatearPesos(sub)}`;
   };
+  const elegir = (d: number) => {
+    descuento = d;
+    dctoManual.value = String(d);
+    chips.forEach((x) => x.classList.toggle("activo", Number(x.dataset.dcto) === d));
+    repintar();
+  };
+  chips.forEach((b) => b.addEventListener("click", () => elegir(Number(b.dataset.dcto))));
+  dctoManual.addEventListener("input", () => {
+    elegir(Math.max(0, Math.min(90, Number(dctoManual.value) || 0)));
+  });
   lineas.forEach((li) => {
-    const precioInput = li.querySelector<HTMLInputElement>("[data-precio]")!;
-    precioInput.value = pesosParaInput(Number(li.dataset.precio));
-    const dctoInput = li.querySelector<HTMLInputElement>("[data-dcto]")!;
-    precioInput.addEventListener("input", repintar);
-    dctoInput.addEventListener("input", repintar);
-    const toggle = li.querySelector<HTMLButtonElement>("[data-toggle]")!;
-    const ajuste = li.querySelector<HTMLElement>("[data-ajuste]")!;
-    toggle.addEventListener("click", () => {
-      const abierto = ajuste.hidden;
-      ajuste.hidden = !abierto;
-      toggle.setAttribute("aria-expanded", String(abierto));
+    li.querySelectorAll<HTMLButtonElement>("[data-dir]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const qtyEl = li.querySelector<HTMLElement>("[data-qty]")!;
+        qtyEl.textContent = String(Math.max(1, (Number(qtyEl.textContent) || 1) + Number(b.dataset.dir)));
+        repintar();
+      });
+    });
+    const boton = li.querySelector<HTMLButtonElement>("[data-precio-boton]")!;
+    const input = li.querySelector<HTMLInputElement>("[data-precio-input]")!;
+    boton.addEventListener("click", () => {
+      input.value = pesosParaInput(precioDeLinea(li));
+      input.hidden = false; boton.hidden = true; input.focus();
+    });
+    input.addEventListener("blur", () => {
+      const p = parsearPesos(input.value);
+      if (p !== null) li.dataset.precio = String(p);
+      boton.textContent = formatearPesos(Number(li.dataset.precio));
+      input.hidden = true; boton.hidden = false; repintar();
     });
   });
-  const costo = $("vtC-costo");
-  const markup = $("vtC-markup");
+
+  const costo = document.getElementById("vtC-costo") as HTMLInputElement;
+  const markup = document.getElementById("vtC-markup") as HTMLInputElement;
   const altaPrecio = document.querySelector<HTMLElement>("[data-alta-precio]")!;
   const repintarAlta = () => {
     const c = parsearPesos(costo.value) ?? 0;

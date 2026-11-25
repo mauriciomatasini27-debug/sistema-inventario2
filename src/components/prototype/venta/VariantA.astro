@@ -1,122 +1,162 @@
 ---
-// PROTOTIPO — /venta · Variante A "Edición en fila + chips de descuento"
-import { MARKUP_DEFECTO } from "../calculo-precios.js";
+// PROTOTIPO — /venta · Variante A "Barra de total + descuento (sheet)"
+import { MARKUP_DEFECTO, formatearPesos } from "../calculo-precios.js";
 const LINEAS = [
   { id: "l1", nombre: "Gaseosa 1,5L", qty: 2, precio: 130000 },
-  { id: "l2", nombre: "Alfajor", qty: 3, precio: 55000 },
+  { id: "l2", nombre: "Alfajor", qty: 1, precio: 55000 },
 ];
-const DESCUENTOS = [-5, -10, -20];
+const DESCUENTOS = [0, 5, 10, 15, 20];
 ---
-<div class="proto-venta-a">
+<div class="proto-venta">
   <section class="card vidrio-card">
     <h2 class="proto-titulo">Ticket</h2>
     <ul class="proto-lineas">
       {LINEAS.map((l) => (
-        <li class="proto-linea" data-id={l.id} data-base={l.precio}>
-          <div class="proto-linea-cab">
-            <span class="proto-nombre">{l.nombre}</span>
-            <span class="proto-qty">×{l.qty}</span>
-          </div>
-          <div class="proto-linea-ed">
-            <label class="proto-precio-label">Precio
-              <input type="text" inputmode="decimal" autocomplete="off" data-precio />
-            </label>
-            <div class="proto-chips" role="group" aria-label="Descuento de la línea">
-              {DESCUENTOS.map((d) => <button type="button" data-dcto={d}>{d}%</button>)}
+        <li class="proto-linea" data-id={l.id} data-precio={l.precio}>
+          <span class="proto-nombre">{l.nombre}</span>
+          <div class="proto-fila-linea">
+            <div class="proto-stepper">
+              <button type="button" data-dir="-1" aria-label="Menos">−</button>
+              <b class="proto-qty" data-qty>{l.qty}</b>
+              <button type="button" data-dir="1" aria-label="Más">+</button>
             </div>
-          </div>
-          <div class="proto-linea-sub">
-            <span data-dcto-info></span>
-            <b data-subtotal></b>
+            <button type="button" class="proto-precio" data-precio-boton>{formatearPesos(l.precio)}</button>
+            <input type="text" inputmode="decimal" autocomplete="off" class="proto-precio-input" data-precio-input hidden />
           </div>
         </li>
       ))}
     </ul>
-    <p class="proto-total">Total: <b data-total></b></p>
+
+    <div class="proto-alta">
+      <h2 class="proto-titulo">Producto nuevo (alta al vuelo)</h2>
+      <label class="proto-label">Nombre
+        <input id="vtA-nombre" type="text" autocomplete="off" placeholder="Nombre del producto" />
+      </label>
+      <div class="proto-dos">
+        <label class="proto-label">Costo
+          <input id="vtA-costo" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+        </label>
+        <label class="proto-label">Recargo %
+          <input id="vtA-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} />
+        </label>
+      </div>
+      <div class="proto-sugerido" aria-live="polite">
+        <span>Precio de venta</span>
+        <b data-alta-precio>—</b>
+      </div>
+      <button type="button" class="proto-btn proto-btn--primario">Agregar producto</button>
+    </div>
   </section>
 
-  <section class="card vidrio-card proto-alta-vuelo">
-    <h2 class="proto-titulo">Alta al vuelo</h2>
-    <p class="proto-ayuda">Producto nuevo sin precio: calculalo desde el costo.</p>
-    <label>Nombre
-      <input id="vtA-nombre" type="text" autocomplete="off" placeholder="Nombre del producto nuevo" />
-    </label>
-    <div class="proto-dos">
-      <label>Costo (pesos) <input id="vtA-costo" type="text" inputmode="decimal" autocomplete="off" /></label>
-      <label>Recargo <input id="vtA-markup" type="number" min="0.01" max="1000" step="0.5" inputmode="decimal" value={MARKUP_DEFECTO} /></label>
+  <div class="proto-total-bar">
+    <div class="proto-total-fila">
+      <button type="button" class="proto-btn proto-btn--neutro" data-descuento>Descuento <span data-descuento-val></span></button>
+      <p class="proto-total">Total: <b data-total></b></p>
     </div>
-    <div class="proto-sugerido" aria-live="polite">
-      <span>Precio de venta</span>
-      <b data-alta-precio>—</b>
+    <button type="button" class="proto-btn proto-btn--primario">Cobrar</button>
+  </div>
+
+  <div class="proto-sheet" hidden data-sheet>
+    <div class="proto-sheet-panel">
+      <h3>Descuento del ticket</h3>
+      <div class="proto-chips">
+        {DESCUENTOS.map((d) => <button type="button" class:list={["proto-chip", { activo: d === 0 }]} data-dcto={d}>{d === 0 ? "Sin desc." : `-${d}%`}</button>)}
+      </div>
+      <label class="proto-label">Descuento a mano (%)
+        <input id="vtA-dcto-manual" type="number" min="0" max="90" step="1" value="0" />
+      </label>
+      <button type="button" class="proto-btn proto-btn--primario" data-sheet-cerrar>Listo</button>
     </div>
-    <button type="button" class="proto-primario">Agregar al ticket</button>
-  </section>
+  </div>
 </div>
 
 <style>
-  .proto-venta-a { display: grid; gap: 8px; }
-  .proto-titulo { margin: 0 0 8px; font-size: 18px; }
-  .proto-ayuda { color: var(--tema-texto-suave); font-size: 13px; margin: 0 0 8px; }
   .proto-lineas { list-style: none; margin: 0; padding: 0; }
-  .proto-linea { padding: 10px 0; border-bottom: 1px solid var(--tema-linea); }
-  .proto-linea-cab { display: flex; justify-content: space-between; gap: 8px; }
-  .proto-nombre { overflow-wrap: anywhere; }
-  .proto-qty { color: var(--tema-texto-suave); font-variant-numeric: tabular-nums; }
-  .proto-linea-ed { display: grid; gap: 6px; margin-top: 6px; }
-  .proto-precio-label { display: grid; gap: 2px; font-size: 12px; color: var(--tema-texto-suave); }
-  .proto-precio-label input { margin: 0; }
-  .proto-chips { display: flex; gap: 6px; }
-  .proto-chips button { width: auto; min-width: 52px; margin: 0; padding-inline: 10px; }
-  .proto-linea-sub { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; color: var(--tema-texto-suave); }
-  .proto-linea-sub b { color: var(--tema-texto); font-variant-numeric: tabular-nums; }
-  .proto-total { margin: 10px 0 0; font-size: 16px; text-align: right; }
+  .proto-linea { padding: 12px 0; border-bottom: 1px solid var(--tema-linea); }
+  .proto-nombre { display: block; font-size: 17px; font-weight: 700; margin-bottom: 8px; overflow-wrap: anywhere; }
+  .proto-fila-linea { display: flex; align-items: center; gap: 10px; }
+  .proto-qty { min-width: 28px; text-align: center; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .proto-precio { flex: 1 1 auto; min-height: 48px; border: 1px solid var(--tema-linea) !important; background: var(--tema-superficie) !important; color: var(--tema-texto) !important; border-radius: 12px !important; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; padding: 0 14px; }
+  .proto-precio-input { flex: 1 1 auto; min-height: 48px; font-size: 18px; font-weight: 800; text-align: right; }
+  .proto-alta { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--tema-linea); }
+  .proto-label { display: grid; gap: 6px; }
+  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+  .proto-total-bar { margin-top: 4px; display: grid; gap: 10px; padding: 12px; border-radius: 14px; background: var(--tema-superficie); border: 1px solid var(--tema-linea); }
+  .proto-total-fila { display: flex; align-items: center; gap: 10px; }
+  .proto-total-fila button { flex: 1 1 auto; }
+  .proto-total-fila .proto-total { white-space: nowrap; }
   .proto-total b { font-variant-numeric: tabular-nums; }
-  .proto-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .proto-sugerido { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
-  .proto-sugerido span { font-size: 12px; opacity: 0.85; }
-  .proto-sugerido b { font-size: 24px; font-variant-numeric: tabular-nums; }
-  .proto-primario { margin-top: 10px; background: var(--color-star-glow); color: var(--color-star-white); font-weight: 600; }
 </style>
 
 <script>
   import { precioDesdeCosto, formatearPesos, parsearPesos, pesosParaInput } from "../calculo-precios.js";
-  const $ = (id) => document.getElementById(id) as HTMLInputElement;
   const lineas = Array.from(document.querySelectorAll<HTMLElement>(".proto-linea"));
   const totalEl = document.querySelector<HTMLElement>("[data-total]")!;
+  const dctoVal = document.querySelector<HTMLElement>("[data-descuento-val]")!;
+  const sheet = document.querySelector<HTMLElement>("[data-sheet]")!;
+  const dctoManual = document.getElementById("vtA-dcto-manual") as HTMLInputElement;
+  let descuento = 0;
 
-  const pintarLinea = (li: HTMLElement) => {
-    const base = Number(li.dataset.base);
-    const qty = Number(li.querySelector(".proto-qty")!.textContent!.replace(/\D/g, "")) || 1;
-    const precioInput = li.querySelector<HTMLInputElement>("[data-precio]")!;
-    const precio = parsearPesos(precioInput.value) ?? base;
-    let dctoPct = 0;
-    const activo = li.querySelector<HTMLButtonElement>("[data-dcto].activo");
-    if (activo) dctoPct = Number(activo.dataset.dcto);
-    const unitario = Math.round(precio * (1 + dctoPct / 100));
-    const subtotal = unitario * qty;
-    li.querySelector<HTMLElement>("[data-dcto-info]")!.textContent = dctoPct !== 0 ? `${dctoPct}% aplicado` : "";
-    li.querySelector<HTMLElement>("[data-subtotal]")!.textContent = formatearPesos(subtotal);
-    return subtotal;
+  const precioDeLinea = (li: HTMLElement) => {
+    const input = li.querySelector<HTMLInputElement>("[data-precio-input]")!;
+    if (!input.hidden) return parsearPesos(input.value) ?? Number(li.dataset.precio);
+    return Number(li.dataset.precio);
   };
-  const repintarTotal = () => {
-    const total = lineas.reduce((acc, li) => acc + pintarLinea(li), 0);
+  const repintar = () => {
+    let subtotal = 0;
+    lineas.forEach((li) => {
+      const qty = Number(li.querySelector<HTMLElement>("[data-qty]")!.textContent) || 1;
+      subtotal += precioDeLinea(li) * qty;
+    });
+    const total = Math.round(subtotal * (1 - descuento / 100));
     totalEl.textContent = formatearPesos(total);
+    dctoVal.textContent = descuento > 0 ? `(-${descuento}%)` : "";
   };
   lineas.forEach((li) => {
-    const base = Number(li.dataset.base);
-    li.querySelector<HTMLInputElement>("[data-precio]")!.value = pesosParaInput(base);
-    li.querySelector<HTMLInputElement>("[data-precio]")!.addEventListener("input", repintarTotal);
-    li.querySelectorAll<HTMLButtonElement>("[data-dcto]").forEach((b) => {
+    li.querySelectorAll<HTMLButtonElement>("[data-dir]").forEach((b) => {
       b.addEventListener("click", () => {
-        const ya = b.classList.contains("activo");
-        li.querySelectorAll<HTMLButtonElement>("[data-dcto]").forEach((x) => x.classList.remove("activo"));
-        if (!ya) b.classList.add("activo");
-        repintarTotal();
+        const qtyEl = li.querySelector<HTMLElement>("[data-qty]")!;
+        const dir = Number(b.dataset.dir);
+        const qty = Math.max(1, (Number(qtyEl.textContent) || 1) + dir);
+        qtyEl.textContent = String(qty);
+        repintar();
       });
     });
+    const boton = li.querySelector<HTMLButtonElement>("[data-precio-boton]")!;
+    const input = li.querySelector<HTMLInputElement>("[data-precio-input]")!;
+    boton.addEventListener("click", () => {
+      input.value = pesosParaInput(precioDeLinea(li));
+      input.hidden = false;
+      boton.hidden = true;
+      input.focus();
+    });
+    input.addEventListener("blur", () => {
+      const p = parsearPesos(input.value);
+      if (p !== null) li.dataset.precio = String(p);
+      boton.textContent = formatearPesos(Number(li.dataset.precio));
+      input.hidden = true;
+      boton.hidden = false;
+      repintar();
+    });
   });
-  const costo = $("vtA-costo");
-  const markup = $("vtA-markup");
+  document.querySelector<HTMLElement>("[data-descuento]")?.addEventListener("click", () => { sheet.hidden = false; });
+  document.querySelector<HTMLElement>("[data-sheet-cerrar]")?.addEventListener("click", () => { sheet.hidden = true; });
+  sheet.querySelectorAll<HTMLButtonElement>("[data-dcto]").forEach((b) => {
+    b.addEventListener("click", () => {
+      descuento = Number(b.dataset.dcto);
+      dctoManual.value = String(descuento);
+      sheet.querySelectorAll<HTMLButtonElement>("[data-dcto]").forEach((x) => x.classList.toggle("activo", x === b));
+      repintar();
+    });
+  });
+  dctoManual.addEventListener("input", () => {
+    descuento = Math.max(0, Math.min(90, Number(dctoManual.value) || 0));
+    sheet.querySelectorAll<HTMLButtonElement>("[data-dcto]").forEach((x) => x.classList.toggle("activo", Number(x.dataset.dcto) === descuento));
+    repintar();
+  });
+
+  const costo = document.getElementById("vtA-costo") as HTMLInputElement;
+  const markup = document.getElementById("vtA-markup") as HTMLInputElement;
   const altaPrecio = document.querySelector<HTMLElement>("[data-alta-precio]")!;
   const repintarAlta = () => {
     const c = parsearPesos(costo.value) ?? 0;
@@ -125,5 +165,5 @@ const DESCUENTOS = [-5, -10, -20];
   };
   costo.addEventListener("input", repintarAlta);
   markup.addEventListener("input", repintarAlta);
-  repintarTotal();
+  repintar();
 </script>

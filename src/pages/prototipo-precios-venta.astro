@@ -15,9 +15,9 @@ import VariantC from "../components/prototype/venta/VariantC.astro";
 // Costo + Porcentaje en un Alta al vuelo de mostrador?
 const raw = (Astro.url.searchParams.get("variant") ?? "A").toUpperCase();
 const variantes = [
-  { key: "A", nombre: "Edición en fila + chips" },
-  { key: "B", nombre: "Hoja inferior por línea" },
-  { key: "C", nombre: "Panel de ajuste por línea" },
+  { key: "A", nombre: "Barra de total + descuento" },
+  { key: "B", nombre: "Descuento en el cobro" },
+  { key: "C", nombre: "Descuento global arriba" },
 ];
 const actual = variantes.some((v) => v.key === raw) ? raw : "A";
 ---
@@ -41,6 +41,28 @@ const actual = variantes.some((v) => v.key === raw) ? raw : "A";
       input, select { width: 100%; border: 1px solid var(--tema-linea); background: var(--tema-superficie); color: var(--tema-texto); border-radius: 8px; padding: 8px 10px; }
       button { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--tema-texto); color: var(--tema-fondo); font-weight: 600; cursor: pointer; }
       .proto-banner { margin: 0 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); font-size: 13px; }
+    </style>
+    <style is:global>
+      /* Base mobile-first de botones grandes para el mostrador (feedback #536):
+         objetivos táctiles amplios, texto grande, un toque. */
+      .proto-venta { display: grid; gap: 8px; }
+      .proto-venta .proto-titulo { margin: 0 0 8px; font-size: 18px; }
+      .proto-venta .proto-ayuda { color: var(--tema-texto-suave); font-size: 14px; margin: 0 0 8px; }
+      .proto-venta button.proto-btn { width: 100%; min-height: 56px; font-size: 18px; font-weight: 700; border-radius: 14px; margin: 0; }
+      .proto-venta button.proto-btn--primario { background: var(--color-star-glow); color: var(--color-star-white); }
+      .proto-venta button.proto-btn--neutro { background: var(--tema-texto); color: var(--tema-fondo); }
+      .proto-venta .proto-stepper { display: flex; align-items: center; gap: 8px; }
+      .proto-venta .proto-stepper button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; font-size: 24px; border-radius: 12px; margin: 0; padding: 0; }
+      .proto-venta .proto-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .proto-venta .proto-chip { min-height: 48px; padding: 0 16px; font-size: 16px; font-weight: 700; border-radius: 12px; border: 1px solid var(--tema-linea) !important; background: var(--tema-superficie) !important; color: var(--tema-texto) !important; }
+      .proto-venta .proto-chip.activo { background: var(--tema-texto) !important; color: var(--tema-fondo) !important; border-color: var(--tema-texto) !important; }
+      .proto-venta .proto-total { margin: 0; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .proto-venta .proto-sugerido { padding: 14px; border-radius: 12px; background: var(--estado-pendiente-tint); color: var(--estado-pendiente); display: grid; gap: 2px; }
+      .proto-venta .proto-sugerido span { font-size: 13px; opacity: 0.85; }
+      .proto-venta .proto-sugerido b { font-size: 28px; font-variant-numeric: tabular-nums; }
+      .proto-venta .proto-sheet { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--tema-fondo) 55%, transparent); display: flex; align-items: flex-end; justify-content: center; }
+      .proto-venta .proto-sheet-panel { width: 100%; max-width: 420px; background: var(--tema-superficie); color: var(--tema-texto); border-radius: 16px 16px 0 0; padding: 16px; display: grid; gap: 12px; box-shadow: 0 -8px 30px rgba(0,0,0,0.25); }
+      .proto-venta .proto-sheet-panel h3 { margin: 0; font-size: 18px; }
     </style>
   </head>
   <body>
