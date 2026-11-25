@@ -21,6 +21,18 @@ npm run dev
 # y abrir las rutas de arriba
 ```
 
+## Decisión final (validación de Mauri, 2026-11-25)
+
+| Punto de contacto | Variante ganadora |
+| --- | --- |
+| `/panel/configuracion` | **B** — Lista + probalo en vivo |
+| `/panel/prototipo-precios-stock` | **B** — Chips de recargo + ganancia |
+| `/prototipo-precios-venta` | **A** — Barra de total + descuento (sheet) |
+
+**Refinamiento de contrato (cambia #535):** el descuento es **solo por ticket**
+(no por línea). El `%`/monto por línea se descarta; el recargo sigue por edición
+del precio. El alta al vuelo (Costo + %) queda integrado al flujo de agregar.
+
 ## Notas
 
 - **Rama desechable** `prototype/precios-costo-recargo`, sin PR. No es código de producción.
