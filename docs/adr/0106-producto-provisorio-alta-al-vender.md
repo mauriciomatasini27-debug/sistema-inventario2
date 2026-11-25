@@ -7,7 +7,7 @@ depende_de: [ADR-0011, ADR-0024, ADR-0061, ADR-0062, ADR-0097, PRD-STOCK-01]
 reemplaza: []
 reemplazado_por: ""
 modifica: []
-modificado_por: []
+modificado_por: [PRD-VP-03]
 resumen: |
   El producto provisorio es una fila de products con origen "alta_al_vender" y stock 0; el alta al vuelo
   viaja dentro del payload de la venta (mismo op_id) y el servidor crea el producto y registra la venta en
@@ -47,6 +47,12 @@ Un solo op evita el orden frágil entre dos ops (producto y venta) y hace que el
 ## Alternativa descartada
 
 Op separada `alta_producto` con `modulo: "catalogo"`: obliga a ordenar dos ops y a decidir qué pasa si la venta llega antes que el producto. El op único lo evita.
+
+## Modificación posterior (2026-11-25, PRD-VP-03)
+
+El camino **online** de `/venta` deja de crear el Producto provisorio. Al pulsar «Guardar», `/venta` da de alta un producto **normal** (`origen` nulo) con stock, fecha de vencimiento (lote) y ubicación mediante `POST /api/products` + `POST /api/stock/ingreso` (lote inicial con `vence_el` opcional), con `Idempotency-Key` distinto por operación, y suma la línea al ticket sin `alta`. El producto así creado nace con su lote de stock inicial y **no** entra como pendiente a la cola «Cargá el stock inicial».
+
+El camino `linea.alta` de `POST /api/sales` y `aplicarVentaOutbox` **se conserva** en el backend, por compatibilidad con la cola offline verificada (`/verify-venta-sync`), y en la UI offline: solo desaparece del camino online. La creación de `origen = "alta_al_vender"` y la regla de conflicto por SKU (`on conflict (sku) do nothing`) de este ADR siguen vigentes para el alta provisoria offline. «Producto provisorio» pasa a nombrar únicamente esa variante offline. El detalle vive en `PRD-VP-03`.
 
 ## Pendientes
 

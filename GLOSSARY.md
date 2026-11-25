@@ -9,7 +9,7 @@ Identificador corto y legible que se asigna a un producto para buscarlo y cobrar
 _Avoid_: SKU, código de barras, barcode, PLU
 
 **Alta al vuelo**:
-Creación de un producto a partir de un Código de producto desconocido durante una venta o una carga de stock.
+Creación de un producto a partir de un Código de producto desconocido durante una venta o una carga de stock. Tiene dos variantes: la **completa**, en la que el producto nace con su stock inicial, lote y ubicación en el momento; y la **provisoria**, en la que nace sin stock inicial para no frenar la venta sin conexión.
 _Avoid_: alta rápida, crear sobre la marcha, alta desde el lector
 
 **Alta de catálogo**:
@@ -17,7 +17,7 @@ Creación explícita de un producto en el catálogo del Comercio, con nombre y p
 _Avoid_: alta manual, carga de catálogo, alta de producto
 
 **Producto provisorio**:
-Producto que nace de una Alta al vuelo: tiene Código de producto y un precio para esa operación, pero no tiene stock inicial.
+Producto que nace de la variante provisoria de una Alta al vuelo: tiene Código de producto y un precio para esa operación, pero no tiene stock inicial. Queda pendiente de cargar su stock inicial.
 _Avoid_: producto temporal, producto fantasma, provisorio
 
 **Tenant (Comercio)**:
